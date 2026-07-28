@@ -13,8 +13,10 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 
-from . import favourites, files, fsops, mounts, system, term, tmux
-from .auth import TokenAuthMiddleware
+from . import favourites, files, fsops, mounts, ports, proxy, system, term, tmux
+import httpx
+
+from .auth import PROXY_COOKIE, TokenAuthMiddleware
 from .config import Config, ConfigError, default_path
 from .errors import ApiError
 from .safepath import Jail
@@ -44,7 +46,12 @@ def create_app(cfg: Config) -> FastAPI:
     app.state.socket = tmux.Socket.new(cfg.tmux_socket)
     app.state.favourites = getattr(cfg, "favourites_store", None) or Path("/nonexistent")
 
+    app.state.proxied = set()          # ports opened by hand, this run only
+    app.state.http = httpx.AsyncClient(timeout=30.0, follow_redirects=False)
+    app.state.port = None
+
     app.include_router(files.router)
+    app.include_router(proxy.router)
     app.include_router(fsops.router)
     app.include_router(term.router)
 
@@ -84,6 +91,41 @@ def create_app(cfg: Config) -> FastAPI:
             raise ApiError(403, "outside the configured roots") from None
         st = target.stat()
         return {"path": str(target), "mtime": int(st.st_mtime), "size": st.st_size}
+
+    @app.get("/api/ports")
+    async def list_ports(request: Request) -> dict:
+        state = request.app.state
+        return {
+            "allow_proxy": state.cfg.allow_proxy,
+            "open": sorted(state.proxied),
+            "ports": await asyncio.to_thread(ports.listening, state.port),
+        }
+
+    @app.post("/api/ports")
+    async def open_port(request: Request, body: dict) -> Response:
+        """Opening a port also hands back the cookie the proxied page needs: its own
+        stylesheets and scripts cannot carry an Authorization header."""
+        state = request.app.state
+        if not state.cfg.allow_proxy:
+            raise ApiError(403, "proxying is off — start the server with --allow-proxy")
+        port = int(body.get("port", 0))
+        if not 1 <= port <= 65535:
+            raise ApiError(400, "that is not a port")
+        if port == state.port:
+            raise ApiError(400, "that is Argus itself")
+
+        if body.get("open"):
+            state.proxied.add(port)
+        else:
+            state.proxied.discard(port)
+
+        answer = JSONResponse({"open": sorted(state.proxied), "port": port})
+        if body.get("open"):
+            answer.set_cookie(
+                PROXY_COOKIE, state.cfg.token,
+                path="/proxy", httponly=True, samesite="lax",
+            )
+        return answer
 
     @app.get("/api/system")
     async def vitals(request: Request) -> dict:
@@ -158,6 +200,7 @@ def banner(config_path: Path, created: bool, host: str, port: int, cfg: Config, 
     print(f"  resize  {cfg.resize_policy}")
     print(f"  tmux    socket {sock.label()}")
     print(f"  files   {'read-write (mkdir/rename/move/copy/delete)' if cfg.allow_write else 'read-only'}")
+    print(f"  ports   {'proxy allowed, one port at a time' if cfg.allow_proxy else 'no proxying'}")
     print()
     print(f"  open    {url_for(host, port, cfg)}")
     if host in ("0.0.0.0", "::", ""):
@@ -188,6 +231,12 @@ def main(argv: list[str] | None = None) -> int:
         "read-only viewer is a safe thing to leave listening on a network",
     )
     parser.add_argument(
+        "--allow-proxy",
+        action="store_true",
+        help="permit reverse-proxying a local port through Argus, one port at a time and "
+        "only after you open it. Off by default: a service on 127.0.0.1 is there on purpose",
+    )
+    parser.add_argument(
         "--mounts",
         action="store_true",
         help="add every real filesystem on the machine to the browsable roots",
@@ -208,6 +257,8 @@ def main(argv: list[str] | None = None) -> int:
             cfg.allow_write = True
         if args.mounts:
             cfg.include_mounts = True
+        if args.allow_proxy:
+            cfg.allow_proxy = True
         if cfg.include_mounts:
             # Configured roots first: they are the ones the user cares about, and the
             # UI opens on the first.
@@ -229,6 +280,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     app.state.favourites = favourites.default_store(config_path)
+    app.state.port = port
     banner(config_path, created, host, port, cfg, app.state.socket)
     tls = cfg.tls()
     uvicorn.run(
