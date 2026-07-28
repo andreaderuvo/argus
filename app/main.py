@@ -281,9 +281,12 @@ def reachable_addresses() -> list[str]:
         if ":" in addr:          # keep it to IPv4: a QR is typed by nobody but scanned by phones
             continue
         out.append(addr)
-    name = socket.getfqdn()
-    if name and "." in name and name not in out:
-        out.append(name)
+    # Both spellings: on a VPN the short name is often what resolves, and it is what a
+    # person types. The fully qualified one is what a browser outside the search domain
+    # will need.
+    for name in (socket.gethostname(), socket.getfqdn()):
+        if name and name not in out and not name.startswith("localhost"):
+            out.append(name)
     return out
 
 
