@@ -968,6 +968,9 @@ button.swatchbtn:hover { background: var(--wc, var(--dim)); filter: brightness(1
 .qr svg { display: block; width: 100%; height: auto; }
 .handoff .tilenote { word-break: break-all; text-align: center; margin: 0; }
 .handoff .sheetbody.actions { flex-direction: row; flex-wrap: wrap; padding: 0; gap: .4rem; justify-content: center; }
+button.ghost.block.wide { margin-top: .6rem; justify-content: center; }
+video.scanner { width: 100%; border-radius: .6rem; background: #000; aspect-ratio: 4/3; object-fit: cover; }
+
 .handoff .warn { color: var(--st-warning); font-size: .72rem; text-align: center; }
 .handoff .ghost.dup.on { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
 
