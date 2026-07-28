@@ -1894,18 +1894,30 @@ async function screenWall() {
       body.append(el('div', { className: 'sendrow' }, [row, dup]));
     }
     body.append(el('div', { className: 'sheetsep' }));
-    body.append(el('button', {
-      className: 'ghost block',
-      onclick: () => {
-        sheet.close();
-        const id = (prefs.wsSeq || spaces.length) + 1;
-        prefs.wsSeq = id;
-        const ws = { id, name: `Desk ${spaces.length + 1}`, desktop: [] };
-        spaces.push(ws);
-        relocate(spec, fromWs, ws, entry, false);
-        activate(id);
-      },
-    }, [icon('folderPlus'), el('span', { textContent: 'A new workspace' })]));
+
+    // With a single workspace there is nowhere to copy to, and the sheet would show no
+    // Duplicate at all — so making a fresh desk offers both verbs too.
+    const fresh = (duplicate) => {
+      sheet.close();
+      const id = (prefs.wsSeq || spaces.length) + 1;
+      prefs.wsSeq = id;
+      const ws = { id, name: `Desk ${spaces.length + 1}`, desktop: [] };
+      spaces.push(ws);
+      relocate(spec, fromWs, ws, entry, duplicate);
+      activate(id);
+    };
+    const dupNew = el('button', { className: 'ghost dup', title: 'Keep this one and put a copy in a new workspace' },
+      [icon('copy'), el('span', { textContent: 'Duplicate' })]);
+    dupNew.onclick = (e) => { e.stopPropagation(); fresh(true); };
+    body.append(el('div', { className: 'sendrow' }, [
+      el('button', {
+        className: 'ghost block',
+        title: 'Move this window into a workspace that does not exist yet',
+        onclick: () => fresh(false),
+      }, [icon('folderPlus'), el('span', { className: 'grow', textContent: 'A new workspace' }),
+        el('span', { className: 'verb', textContent: 'Move' })]),
+      dupNew,
+    ]));
 
     sheet = modal('Move or duplicate', body, [
       el('button', { className: 'ghost', textContent: 'Close', onclick: () => sheet.close() }),

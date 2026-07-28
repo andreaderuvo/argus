@@ -757,29 +757,47 @@ button.ghost.dup:hover { color: var(--accent); border-color: var(--accent); }
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: .5rem;
-  overflow: hidden;
+  /* Not `hidden`: the resize handles live just outside the frame, and clipping would
+     make them both invisible and unclickable. The parts that need clipping do it
+     themselves. */
+  overflow: visible;
   box-shadow: 0 12px 34px rgba(0, 0, 0, .4);
+}
+
+/* The conventional hint that a window can be sized, drawn inside and inert — the grab
+   zone itself is the handle outside. */
+.win::after {
+  content: '';
+  position: absolute;
+  right: 1px;
+  bottom: 1px;
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+  border-bottom-right-radius: .45rem;
+  background: linear-gradient(135deg, transparent 55%, var(--line) 55%);
 }
 
 .winbar { cursor: move; touch-action: none; }
 
 .rz { position: absolute; touch-action: none; z-index: 2; }
 
-.rz-n, .rz-s { left: 10px; right: 10px; height: 7px; cursor: ns-resize; }
-.rz-e, .rz-w { top: 10px; bottom: 10px; width: 7px; cursor: ew-resize; }
-.rz-n { top: -3px; }
-.rz-s { bottom: -3px; }
-.rz-e { right: -3px; }
-.rz-w { left: -3px; }
+/* Entirely outside the frame, so nothing here ever sits on top of the title bar or its
+   buttons: aiming at the ✕ used to land on the corner handle instead. */
+.rz-n, .rz-s { left: 0; right: 0; height: 8px; cursor: ns-resize; }
+.rz-e, .rz-w { top: 0; bottom: 0; width: 8px; cursor: ew-resize; }
+.rz-n { top: -8px; }
+.rz-s { bottom: -8px; }
+.rz-e { right: -8px; }
+.rz-w { left: -8px; }
 
-.rz-ne, .rz-nw, .rz-se, .rz-sw { width: 15px; height: 15px; }
-.rz-ne { top: -3px; right: -3px; cursor: nesw-resize; }
-.rz-nw { top: -3px; left: -3px; cursor: nwse-resize; }
-.rz-se { bottom: -3px; right: -3px; cursor: nwse-resize; }
-.rz-sw { bottom: -3px; left: -3px; cursor: nesw-resize; }
-
-/* Only the bottom-right one is drawn, as the conventional hint that this can be sized. */
-.rz-se { background: linear-gradient(135deg, transparent 52%, var(--line) 52%); }
+/* The corners occupy only the square diagonally outside the frame, so not one pixel of
+   them lands on the title bar. */
+.rz-ne, .rz-nw, .rz-se, .rz-sw { width: 14px; height: 14px; }
+.rz-ne { top: -14px; right: -14px; cursor: nesw-resize; }
+.rz-nw { top: -14px; left: -14px; cursor: nwse-resize; }
+.rz-se { bottom: -14px; right: -14px; cursor: nwse-resize; }
+.rz-sw { bottom: -14px; left: -14px; cursor: nesw-resize; }
 
 .winbar {
   display: flex;
@@ -788,6 +806,7 @@ button.ghost.dup:hover { color: var(--accent); border-color: var(--accent); }
   padding: .2rem .2rem .2rem .6rem;
   background: var(--bg);
   border-bottom: 1px solid var(--line);
+  border-radius: .45rem .45rem 0 0;
   flex: none;
   user-select: none;
 }
@@ -819,7 +838,13 @@ button.winbtn:hover { color: var(--bright); background: var(--line); }
 button.winbtn.wide { padding: 0 .6rem; height: 30px; font-size: .75rem; white-space: nowrap; }
 button.winbtn.on { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
 
-.winbody { flex: 1; min-height: 0; background: var(--term-bg); overflow: hidden; }
+.winbody {
+  flex: 1;
+  min-height: 0;
+  background: var(--term-bg);
+  overflow: hidden;
+  border-radius: 0 0 .45rem .45rem;
+}
 
 /* A file window scrolls its content; one showing a PDF or a rendered page lets the
    frame fill it instead. */
