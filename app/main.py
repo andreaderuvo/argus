@@ -13,7 +13,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 
-from . import files, fsops, mounts, system, term, tmux
+from . import favourites, files, fsops, mounts, system, term, tmux
 from .auth import TokenAuthMiddleware
 from .config import Config, ConfigError, default_path
 from .errors import ApiError
@@ -42,6 +42,7 @@ def create_app(cfg: Config) -> FastAPI:
     app.state.cfg = cfg
     app.state.jail = Jail(cfg.roots)
     app.state.socket = tmux.Socket.new(cfg.tmux_socket)
+    app.state.favourites = getattr(cfg, "favourites_store", None) or Path("/nonexistent")
 
     app.include_router(files.router)
     app.include_router(fsops.router)
@@ -53,6 +54,20 @@ def create_app(cfg: Config) -> FastAPI:
             return await asyncio.to_thread(tmux.list_sessions, request.app.state.socket)
         except tmux.TmuxError as e:
             raise ApiError(502, str(e)) from e
+
+    @app.get("/api/favourites")
+    async def list_favourites(request: Request) -> list[dict]:
+        return favourites.describe(favourites.load(request.app.state.favourites))
+
+    @app.post("/api/favourites")
+    async def toggle_favourite(request: Request, body: dict) -> dict:
+        raw = str(body.get("path", ""))
+        # Pinning is jailed like everything else: you cannot bookmark your way out.
+        target = str(favourites_target(request, raw))
+        store = request.app.state.favourites
+        paths, pinned = favourites.toggle(favourites.load(store), target)
+        favourites.save(store, paths)
+        return {"pinned": pinned, "favourites": favourites.describe(paths)}
 
     @app.get("/api/system")
     async def vitals(request: Request) -> dict:
@@ -75,6 +90,15 @@ def create_app(cfg: Config) -> FastAPI:
 
     app.add_middleware(TokenAuthMiddleware, token=cfg.token)
     return app
+
+
+def favourites_target(request: Request, raw: str) -> Path:
+    from .safepath import PathError
+
+    try:
+        return request.app.state.jail.resolve(raw)
+    except PathError:
+        raise ApiError(403, "outside the configured roots") from None
 
 
 def serve_static(requested: str) -> Response:
@@ -188,6 +212,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: {e}", file=sys.stderr)
         return 1
 
+    app.state.favourites = favourites.default_store(config_path)
     banner(config_path, created, host, port, cfg, app.state.socket)
     tls = cfg.tls()
     uvicorn.run(
