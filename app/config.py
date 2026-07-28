@@ -59,6 +59,9 @@ class Config:
     # manager reachable with one token is a different proposition, so it is a decision
     # you make on purpose.
     allow_write: bool = False
+    # Add every real filesystem on the machine to `roots`. A workstation's data is rarely
+    # all under $HOME — here it is spread across /mnt/disk2, /mnt/backup and so on.
+    include_mounts: bool = False
     tls_cert: Path | None = None
     tls_key: Path | None = None
 
@@ -104,6 +107,7 @@ class Config:
             max_preview_bytes=int(raw.get("max_preview_bytes", DEFAULT_MAX_PREVIEW)),
             tmux_socket=raw.get("tmux_socket") or None,
             allow_write=bool(raw.get("allow_write", False)),
+            include_mounts=bool(raw.get("include_mounts", False)),
             tls_cert=Path(cert) if cert else None,
             tls_key=Path(key) if key else None,
         )
@@ -117,6 +121,7 @@ class Config:
             "max_preview_bytes": self.max_preview_bytes,
             "tmux_socket": self.tmux_socket,
             "allow_write": self.allow_write,
+            "include_mounts": self.include_mounts,
             "tls_cert": str(self.tls_cert) if self.tls_cert else None,
             "tls_key": str(self.tls_key) if self.tls_key else None,
         }

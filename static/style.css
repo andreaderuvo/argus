@@ -716,3 +716,98 @@ button.swatchbtn:hover { background: var(--wc, var(--dim)); filter: brightness(1
 }
 
 #update button { min-height: 34px; }
+
+/* ---------- machine vitals ---------- */
+
+/* Status colours are fixed, never themed: the same red means the same thing in both
+   modes, and every one of them is paired with a word in the markup. */
+:root {
+  --st-good: #0ca30c;
+  --st-warning: #fab219;
+  --st-critical: #d03b3b;
+}
+
+.vitals { padding: .8rem .8rem 2rem; max-width: 60rem; margin: 0 auto; }
+
+.hero {
+  padding: 1rem 1.1rem 1.1rem;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--st-good);
+  border-radius: .7rem;
+  background: var(--panel);
+  margin-bottom: .9rem;
+}
+
+.hero.warning { border-left-color: var(--st-warning); }
+.hero.critical { border-left-color: var(--st-critical); }
+
+.heronum {
+  font-size: 3rem;
+  font-weight: 650;
+  line-height: 1;
+  color: var(--bright);
+  letter-spacing: -.02em;
+}
+
+.herolabel { margin-top: .45rem; color: var(--dim); font-size: .9rem; }
+
+.state {
+  display: inline-block;
+  padding: .05rem .4rem;
+  border-radius: .3rem;
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: #fff;
+  background: var(--st-good);
+}
+
+.state.warning { background: var(--st-warning); color: #2b2000; }
+.state.critical { background: var(--st-critical); }
+
+.tiles { display: grid; gap: .6rem; grid-template-columns: 1fr; }
+@media (min-width: 620px) { .tiles { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 1000px) { .tiles { grid-template-columns: 1fr 1fr 1fr; } }
+
+.tile {
+  padding: .7rem .8rem .8rem;
+  border: 1px solid var(--line);
+  border-radius: .6rem;
+  background: var(--panel);
+  min-width: 0;
+}
+
+.tilehead { display: flex; align-items: center; gap: .5rem; }
+.tilelabel {
+  flex: 1;
+  min-width: 0;
+  color: var(--dim);
+  font-size: .78rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tilevalue { margin: .25rem 0 .45rem; font-size: 1.05rem; font-weight: 600; color: var(--bright); }
+
+/* Meter: a thin track with the fill carrying severity, rounded at the data end. */
+.track { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.fill { height: 100%; border-radius: 4px; background: var(--st-good); transition: width .4s ease; }
+.fill.warning { background: var(--st-warning); }
+.fill.critical { background: var(--st-critical); }
+
+.tilenote { margin-top: .4rem; color: var(--dim); font-size: .72rem; }
+
+.proclist {
+  margin-top: .9rem;
+  padding: .7rem .8rem;
+  border: 1px solid var(--line);
+  border-radius: .6rem;
+  background: var(--panel);
+}
+
+.procrow { display: flex; gap: .6rem; align-items: baseline; padding: .22rem 0; font-size: .82rem; }
+.procname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: ui-monospace, monospace; }
+.procnum { flex: none; font-variant-numeric: tabular-nums; color: var(--text); }
+.procnum.dim { color: var(--dim); width: 3.4rem; text-align: right; }
