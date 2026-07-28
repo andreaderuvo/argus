@@ -1770,11 +1770,12 @@ async function screenWall() {
       swatch.onclick = () => pickColor(id, () => win.style.setProperty('--wc', colorFor(id)));
 
       const extras = el('span', { className: 'winextras' });
+      const send = el('button', { className: 'winbtn', title: 'Move or duplicate to another workspace' }, icon('move'));
       const close = el('button', { className: 'winbtn', title: 'Close' }, icon('close'));
       const solo = el('button', { className: 'winbtn', title: 'Full screen' }, icon('maximise'));
       const title = el('span', { className: 'wintitle', title: spec.kind === 'term' ? label : spec.path, textContent: label });
       const setLabel = (text, full) => { title.textContent = text; title.title = full; };
-      const head = el('div', { className: 'winbar' }, [swatch, title, extras, solo, close]);
+      const head = el('div', { className: 'winbar' }, [swatch, title, extras, send, solo, close]);
       win.append(head, body);
       node.append(win);
 
@@ -1821,7 +1822,10 @@ async function screenWall() {
         if (e.target === head || e.target === title) solo.onclick();
       });
 
-      dragBy(head, win, node, settled, [swatch, solo, close], peersOf(win));
+      send.onclick = () => sendSheet(spec, ws, entry);
+
+      dragBy(head, win, node, settled, [swatch, send, solo, close], peersOf(win),
+        (targetId) => relocate(spec, ws, spaces.find((w) => w.id === targetId), entry, false));
       resizable(win, node, settled, peersOf(win));
       return entry;
     }
@@ -1835,6 +1839,87 @@ async function screenWall() {
     }
 
     return { ws, node, open, addWindow };
+  }
+
+  /** Send a window somewhere else. Duplicating leaves the original in place — two
+   *  windows on one tmux session is just two clients, which tmux has always allowed. */
+  function relocate(spec, fromWs, toWs, entry, duplicate) {
+    if (!toWs || toWs === fromWs) return;
+    const id = specId(spec);
+    if (!toWs.desktop.some((x) => specId(x) === id)) toWs.desktop = [...toWs.desktop, { ...spec }];
+
+    if (!duplicate) {
+      fromWs.desktop = fromWs.desktop.filter((x) => specId(x) !== id);
+      const deck = decks.get(fromWs.id);
+      if (deck && entry) {
+        entry.handle.dispose();
+        entry.win.remove();
+        deck.open.splice(deck.open.indexOf(entry), 1);
+      }
+    }
+    savePrefs();
+
+    // If the destination is already built, put it there now; otherwise it appears when
+    // that tab is first opened.
+    const target = decks.get(toWs.id);
+    if (target && !target.open.some((o) => o.name === id)) {
+      const added = target.addWindow({ ...spec });
+      Object.assign(added.win.style, prefs.winGeom?.[geomKey(toWs, id)] || {
+        left: '28px', top: '24px', width: 'min(620px, 78%)', height: 'min(380px, 62%)',
+      });
+    }
+    toast(`${duplicate ? 'duplicated' : 'moved'} to ${toWs.name}`);
+    drawTabs();
+  }
+
+  function sendSheet(spec, fromWs, entry) {
+    const body = el('div', { className: 'sheetbody actions' });
+    let sheet;
+    for (const ws of spaces) {
+      if (ws === fromWs) continue;
+      const dot = el('span', { className: 'tabdot' });
+      dot.style.background = colorFor(`ws:${ws.id}`);
+      const row = el('button', {
+        className: 'ghost block',
+        onclick: () => { sheet.close(); relocate(spec, fromWs, ws, entry, false); },
+      }, [dot, el('span', { className: 'grow', textContent: ws.name })]);
+      const dup = el('button', { className: 'winbtn', title: `Duplicate into ${ws.name}` }, icon('copy'));
+      dup.onclick = (e) => { e.stopPropagation(); sheet.close(); relocate(spec, fromWs, ws, entry, true); };
+      row.append(dup);
+      body.append(row);
+    }
+    body.append(el('div', { className: 'sheetsep' }));
+    body.append(el('button', {
+      className: 'ghost block',
+      onclick: () => {
+        sheet.close();
+        const id = (prefs.wsSeq || spaces.length) + 1;
+        prefs.wsSeq = id;
+        const ws = { id, name: `Desk ${spaces.length + 1}`, desktop: [] };
+        spaces.push(ws);
+        relocate(spec, fromWs, ws, entry, false);
+        activate(id);
+      },
+    }, [icon('folderPlus'), el('span', { textContent: 'A new workspace' })]));
+
+    sheet = modal('Move to', body, [
+      el('button', { className: 'ghost', textContent: 'Close', onclick: () => sheet.close() }),
+    ]);
+  }
+
+  function tabSheet(ws, rename, shut) {
+    const body = el('div', { className: 'sheetbody actions' });
+    let sheet;
+    const item = (name, label, fn) => body.append(
+      el('button', { className: 'ghost block', onclick: () => { sheet.close(); fn(); } },
+        [icon(name), el('span', { textContent: label })]),
+    );
+    item('rename', 'Rename…', rename);
+    item('star', 'Change colour…', () => pickColor(`ws:${ws.id}`, drawTabs));
+    if (spaces.length > 1) item('trash', 'Close this workspace', shut);
+    sheet = modal(ws.name, body, [
+      el('button', { className: 'ghost', textContent: 'Close', onclick: () => sheet.close() }),
+    ]);
   }
 
   function deckFor(ws) {
@@ -1863,23 +1948,40 @@ async function screenWall() {
       const tab = el('button', { className: `wstab${on ? ' on' : ''}`, title: 'Double-click to rename' }, [
         dot, el('span', { className: 'tabname', textContent: ws.name }),
       ]);
+      tab.dataset.ws = ws.id;
       tab.onclick = () => activate(ws.id);
-      tab.ondblclick = async () => {
+
+      const rename = async () => {
         const name = await ask('Rename workspace', ws.name, 'Rename');
         if (name) { ws.name = name; savePrefs(); drawTabs(); }
       };
+      const shut = async () => {
+        if (spaces.length < 2) return toast('the last workspace stays', true);
+        if (ws.desktop.length && !await confirmBox('Close workspace', `${ws.name} has ${ws.desktop.length} window(s). Close it?`, 'Close')) return;
+        decks.get(ws.id)?.open.forEach((o) => o.handle.dispose());
+        decks.get(ws.id)?.node.remove();
+        decks.delete(ws.id);
+        spaces.splice(spaces.indexOf(ws), 1);
+        activate(spaces[0].id);
+      };
+
+      // Double-click is the desktop shortcut. On a phone it competes with double-tap
+      // zoom and nobody would guess it, so holding the tab opens the same choices.
+      tab.ondblclick = rename;
+      const menu = (ev) => {
+        ev.preventDefault();
+        tabSheet(ws, rename, shut);
+      };
+      tab.addEventListener('contextmenu', menu);
+      let held;
+      tab.addEventListener('pointerdown', (ev) => { held = setTimeout(() => menu(ev), 500); });
+      for (const done of ['pointerup', 'pointerleave', 'pointercancel', 'pointermove']) {
+        tab.addEventListener(done, () => clearTimeout(held));
+      }
       if (on && spaces.length > 1) {
-        const shut = el('button', { className: 'tabclose', title: 'Close this workspace' }, icon('close'));
-        shut.onclick = async (e) => {
-          e.stopPropagation();
-          if (ws.desktop.length && !await confirmBox('Close workspace', `${ws.name} has ${ws.desktop.length} window(s). Close it?`, 'Close')) return;
-          decks.get(ws.id)?.open.forEach((o) => o.handle.dispose());
-          decks.get(ws.id)?.node.remove();
-          decks.delete(ws.id);
-          spaces.splice(spaces.indexOf(ws), 1);
-          activate(spaces[0].id);
-        };
-        tab.append(shut);
+        const x = el('button', { className: 'tabclose', title: 'Close this workspace' }, icon('close'));
+        x.onclick = (e) => { e.stopPropagation(); shut(); };
+        tab.append(x);
       }
       tabs.append(tab);
     }
@@ -1997,7 +2099,7 @@ function saveGeom(name, win) {
 }
 
 /** Pointer-events drag, so it works with a mouse, a trackpad and a stylus alike. */
-function dragBy(grabber, win, bounds, onDone, ignore = [], peers = () => []) {
+function dragBy(grabber, win, bounds, onDone, ignore = [], peers = () => [], onTabDrop = null) {
   grabber.addEventListener('pointerdown', (e) => {
     if (ignore.includes(e.target)) return;
     const box = win.getBoundingClientRect();
@@ -2007,11 +2109,25 @@ function dragBy(grabber, win, bounds, onDone, ignore = [], peers = () => []) {
     const xLines = snapLines(bounds, peers, 'x');
     const yLines = snapLines(bounds, peers, 'y');
     grabber.setPointerCapture(e.pointerId);
+    // While dragging, the window must not intercept the hit test, or a tab underneath
+    // the cursor is never found.
+    win.classList.add('dragging');
     let drop = null;
+    let overTab = null;
 
     const move = (ev) => {
       const px = ev.clientX - area.left;
       const py = ev.clientY - area.top;
+
+      // Carrying a window onto another workspace's tab sends it there.
+      const under = document.elementFromPoint(ev.clientX, ev.clientY);
+      const tab = onTabDrop && under?.closest?.('.wstab:not(.add):not(.on)');
+      if (tab !== overTab) {
+        overTab?.classList.remove('dropinto');
+        overTab = tab || null;
+        overTab?.classList.add('dropinto');
+      }
+      if (overTab) { showGhost(bounds, null); drop = null; return; }
 
       // The wall's own edges win over a window underneath: that is the gesture people
       // reach for when they want a half-screen.
@@ -2027,7 +2143,13 @@ function dragBy(grabber, win, bounds, onDone, ignore = [], peers = () => []) {
     const up = () => {
       grabber.removeEventListener('pointermove', move);
       grabber.removeEventListener('pointerup', up);
+      win.classList.remove('dragging');
       showGhost(bounds, null);
+      if (overTab) {
+        overTab.classList.remove('dropinto');
+        onTabDrop(Number(overTab.dataset.ws));
+        return;
+      }
       if (drop) {
         delete win.dataset.prev;
         place(win, drop.zone);

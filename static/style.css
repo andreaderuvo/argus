@@ -672,6 +672,8 @@ body.wall #view { display: flex; flex-direction: column; }
 
 .wstab {
   flex: none;
+  touch-action: manipulation;   /* no double-tap zoom stealing the gesture */
+  user-select: none;
   display: inline-flex;
   align-items: center;
   gap: .4rem;
@@ -685,6 +687,13 @@ body.wall #view { display: flex; flex-direction: column; }
   font: inherit;
   font-size: .8rem;
   cursor: pointer;
+}
+
+.win.dragging { pointer-events: none; }
+.wstab.dropinto {
+  background: color-mix(in srgb, var(--accent) 30%, var(--bg));
+  color: var(--bright);
+  border-color: var(--accent);
 }
 
 .wstab.on { background: var(--panel); color: var(--bright); border-color: var(--line); }
