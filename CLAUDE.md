@@ -117,7 +117,11 @@ reloading is the whole loop — only Python changes need the server restarted.
   against `#{pane_current_path}` of the session, absolute ones against nothing. A phone
   has no hover: a 500 ms press opens whatever is under the finger. Clicking works even
   with tmux `mouse on` (xterm's linkifier is not gated by mouse reporting); the wrapped
-  case is handled by rebuilding the logical line across `isWrapped` rows.
+  case is handled by rebuilding the logical line across `isWrapped` rows. Opening a path
+  also *points* the filesystem at it, the way VS Code's "Reveal in Explorer" does: the
+  sidebar when it is open, otherwise the first browser window. A flat listing moves to
+  the containing folder, a tree expands down to it (`holder.expand`, deliberately not the
+  click handler, which toggles), and the row flashes and scrolls into view.
 - **Session names** reach tmux as argv (never a shell string), and are gated against
   `list-sessions` on the configured socket, so a client can only reach sessions we listed.
 - **Disconnect** kills our attach client only — the tmux session and its processes survive.
