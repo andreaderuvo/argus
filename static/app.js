@@ -423,6 +423,7 @@ const ICONS = {
   tree: 'M4.8 5.5h5.5M4.8 5.5v12.5M4.8 11.8h5.5M4.8 18h5.5M14 5.5h5.2M14 11.8h5.2M14 18h5.2',
   save: 'M5.5 4.5h10L18.5 7.5v12h-13zM8.5 4.5v5h6M8.5 19.5v-6h7v6',
   phone: 'M7.5 3.5h9v17h-9zM10.5 17.8h3',
+  camera: 'M4 7.5h3.2l1.4-2h6.8l1.4 2H20v11H4zM12 10.2a3.3 3.3 0 1 1 0 6.6 3.3 3.3 0 0 1 0-6.6z',
   star: 'M12 3.8l2.6 5.3 5.8.85-4.2 4.1 1 5.75L12 17.1l-5.2 2.7 1-5.75-4.2-4.1 5.8-.85z',
 };
 
@@ -877,6 +878,60 @@ window.addEventListener('hashchange', render);
 
 /* ----------------------------------------------------------------- screens */
 
+/** Read a QR with the camera and take the token out of it.
+ *
+ *  The camera needs a secure context, which plain http on a LAN address is not. Rather
+ *  than hide the button and leave someone wondering, it says why — and points at the
+ *  route that does work today: the phone's own camera app on the code from Settings.
+ */
+async function scanForToken(onToken) {
+  const supported = window.isSecureContext && navigator.mediaDevices?.getUserMedia && 'BarcodeDetector' in window;
+  if (!supported) {
+    const why = !window.isSecureContext
+      ? t('The camera needs https. Point your phone\'s own camera app at the code in Settings on another device instead.')
+      : t('This browser cannot read QR codes.');
+    const sheet = modal(t('Scan a QR code'), el('div', { className: 'sheetbody' }, el('p', { textContent: why })), [
+      el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),
+    ]);
+    return;
+  }
+
+  const video = el('video', { className: 'scanner', autoplay: true, playsInline: true, muted: true });
+  const note = el('p', { className: 'tilenote', textContent: t('point it at the code') });
+  let stream;
+  let stop = false;
+  const sheet = modal(t('Scan a QR code'), el('div', { className: 'sheetbody handoff' }, [video, note]), [
+    el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),
+  ]);
+  sheet.addEventListener('close', () => { stop = true; stream?.getTracks().forEach((tr) => tr.stop()); });
+
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    video.srcObject = stream;
+  } catch {
+    note.textContent = t('no camera, or permission refused');
+    return;
+  }
+
+  const detector = new BarcodeDetector({ formats: ['qr_code'] });
+  const look = async () => {
+    if (stop) return;
+    try {
+      const [found] = await detector.detect(video);
+      if (found?.rawValue) {
+        const value = found.rawValue;
+        // Either a whole URL with the token in it, or the bare token.
+        let tok = value.trim();
+        try { tok = new URL(value).searchParams.get('token') || tok; } catch { /* not a URL */ }
+        sheet.close();
+        return onToken(tok);
+      }
+    } catch { /* nothing in frame */ }
+    requestAnimationFrame(look);
+  };
+  look();
+}
+
 function screenLogin() {
   setTitle('Argus');
   const input = el('input', { type: 'password', placeholder: t('access token'), autocomplete: 'current-password' });
@@ -895,10 +950,16 @@ function screenLogin() {
     }
   };
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+  const scan = el('button', { className: 'ghost block wide' }, [
+    icon('camera'), el('span', { textContent: t('Scan a QR code') }),
+  ]);
+  scan.onclick = () => scanForToken((tok) => { input.value = tok; submit(); });
+
   view.append(el('div', { className: 'pad' }, [
     el('p', { textContent: t('Paste the token printed by the server.'), style: 'color:var(--dim)' }),
     input,
     el('button', { className: 'primary', textContent: t('Connect'), onclick: submit }),
+    scan,
     err,
   ]));
   input.focus();
