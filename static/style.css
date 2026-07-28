@@ -1040,6 +1040,27 @@ button.swatchbtn:hover { background: var(--wc, var(--dim)); filter: brightness(1
   background: var(--panel);
 }
 
+.portrow {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  padding: .4rem 0;
+  border-top: 1px solid var(--line);
+}
+
+.portrow:first-of-type { border-top: 0; }
+.portnum {
+  flex: none;
+  min-width: 3.6rem;
+  font: 600 .9rem/1 ui-monospace, monospace;
+  color: var(--bright);
+}
+
+.portrow .name { font-size: .85rem; }
+.portrow .meta { font-size: .7rem; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.portrow .ghost.dup { min-height: 32px; }
+.portrow .ghost.dup.on { color: var(--accent); border-color: var(--accent); }
+
 .procrow { display: flex; gap: .6rem; align-items: baseline; padding: .22rem 0; font-size: .82rem; }
 .procname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: ui-monospace, monospace; }
 .procnum { flex: none; font-variant-numeric: tabular-nums; color: var(--text); }
