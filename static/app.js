@@ -2167,6 +2167,19 @@ function attachTerminal(container, name, { transform, onGone } = {}) {
   // size — so instead of asking for fewer columns we show all of them and shrink the
   // type until they fit. The phone sees the whole screen, the desk sees nothing change.
   let fixed = null;
+
+  /** The grid this terminal would ask for at its own font size, whatever it is drawing
+   *  at right now. */
+  function freeSize() {
+    const cell = term._core?._renderService?.dimensions?.css?.cell;
+    if (!cell?.width || !container.clientWidth) return null;
+    const scale = prefs.fontSize / (term.options.fontSize || prefs.fontSize);
+    return {
+      cols: Math.max(2, Math.floor((container.clientWidth - 10) / (cell.width * scale))),
+      rows: Math.max(2, Math.floor((container.clientHeight - 6) / (cell.height * scale))),
+    };
+  }
+
   function showWholeGrid() {
     const width = container.clientWidth;
     const height = container.clientHeight;
@@ -2193,12 +2206,16 @@ function attachTerminal(container, name, { transform, onGone } = {}) {
     settle = setTimeout(() => {
       if (!container.clientWidth || !container.clientHeight) return;
       if (fixed?.cols) {
-        // Ask anyway: if the other client has gone, tmux will take this size and say so.
+        // Measure *before* shrinking, and at the font we would use if we were free —
+        // measuring after would divide the screen by a tiny cell, ask for a huge grid,
+        // shrink further to draw it, and spiral.
+        const want = freeSize();
         showWholeGrid();
-        const wide = Math.floor((container.clientWidth - 10) / (term._core?._renderService?.dimensions?.css?.cell?.width || 8));
-        const tall = Math.floor((container.clientHeight - 6) / (term._core?._renderService?.dimensions?.css?.cell?.height || 17));
-        if (ready && ws?.readyState === WebSocket.OPEN && wide > 2 && tall > 2) {
-          ws.send(JSON.stringify({ type: 'resize', cols: wide, rows: tall }));
+        if (want && ready && ws?.readyState === WebSocket.OPEN
+            && (want.cols !== sentCols || want.rows !== sentRows)) {
+          sentCols = want.cols;
+          sentRows = want.rows;
+          ws.send(JSON.stringify({ type: 'resize', cols: want.cols, rows: want.rows }));
         }
         return;
       }
