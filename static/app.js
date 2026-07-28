@@ -2286,14 +2286,18 @@ function dragBy(grabber, win, bounds, onDone, ignore = [], peers = () => [], onT
 
       const x = Math.max(0, Math.min(px - dx, area.width - 60));
       const y = Math.max(0, Math.min(py - dy, area.height - 30));
-      win.style.left = `${snapTo(x, box.width, xLines)}px`;
-      win.style.top = `${snapTo(y, box.height, yLines)}px`;
+      const hx = {};
+      const hy = {};
+      win.style.left = `${snapTo(x, box.width, xLines, hx)}px`;
+      win.style.top = `${snapTo(y, box.height, yLines, hy)}px`;
+      showGuides(bounds, hx.line, hy.line);
     };
     const up = () => {
       grabber.removeEventListener('pointermove', move);
       grabber.removeEventListener('pointerup', up);
       win.classList.remove('dragging');
       showGhost(bounds, null);
+      showGuides(bounds, null, null);
       if (overTab) {
         overTab.classList.remove('dropinto');
         onTabDrop(Number(overTab.dataset.ws), duplicating);
@@ -2498,6 +2502,10 @@ const SNAP = 9;
 // Dragging into this band along the wall edge offers half (or a quarter) of it.
 const AERO = 18;
 const AERO_CORNER = 90;
+// How far into another window counts as "dock against this side". A fraction of the
+// window was wrong: on a wide one it covered nearly everything, so the split preview
+// took over the whole gesture and the edge magnetism never got a turn.
+const DOCK_EDGE = 70;
 
 /** Every edge worth sticking to: the wall's own, and both edges of every other window,
  *  on the axis being moved. */
@@ -2512,15 +2520,32 @@ function snapLines(bounds, peers, axis) {
   return lines;
 }
 
-/** Pull `start` (of a span `size`) onto the nearest line, matching either of its edges. */
-function snapTo(start, size, lines) {
+/** Pull `start` (of a span `size`) onto the nearest line, matching either of its edges.
+ *  Reports which line caught it, so the drag can draw the guide. */
+function snapTo(start, size, lines, hit = {}) {
   let best = start;
   let gap = SNAP;
+  hit.line = null;
   for (const line of lines) {
-    if (Math.abs(start - line) < gap) { gap = Math.abs(start - line); best = line; }
-    if (Math.abs(start + size - line) < gap) { gap = Math.abs(start + size - line); best = line - size; }
+    if (Math.abs(start - line) < gap) { gap = Math.abs(start - line); best = line; hit.line = line; }
+    if (Math.abs(start + size - line) < gap) { gap = Math.abs(start + size - line); best = line - size; hit.line = line; }
   }
   return best;
+}
+
+/** The thin line that says "this is what you stuck to". Without it a 9px correction is
+ *  invisible and the magnetism feels like it never happened. */
+function showGuides(bounds, x, y) {
+  for (const [axis, at] of [['v', x], ['h', y]]) {
+    let guide = bounds.querySelector(`.snapguide.${axis}`);
+    if (at === null || at === undefined) { guide?.remove(); continue; }
+    if (!guide) {
+      guide = el('div', { className: `snapguide ${axis}` });
+      bounds.append(guide);
+    }
+    if (axis === 'v') guide.style.left = `${at}px`;
+    else guide.style.top = `${at}px`;
+  }
 }
 
 /** Where a drag that ended at this point would park the window, Windows-style. */
@@ -2556,22 +2581,23 @@ function dockZone(x, y, peers, area) {
 
     const fx = (x - left) / r.width;
     const fy = (y - top) / r.height;
-    const edge = 0.3;
+    const edgeX = Math.min(0.3, DOCK_EDGE / r.width);
+    const edgeY = Math.min(0.3, DOCK_EDGE / r.height);
     const half = { w: r.width / 2, h: r.height / 2 };
 
-    if (fx < edge) {
+    if (fx < edgeX) {
       return { zone: { left, top, width: half.w, height: r.height },
         peer: other, peerZone: { left: left + half.w, top, width: half.w, height: r.height } };
     }
-    if (fx > 1 - edge) {
+    if (fx > 1 - edgeX) {
       return { zone: { left: left + half.w, top, width: half.w, height: r.height },
         peer: other, peerZone: { left, top, width: half.w, height: r.height } };
     }
-    if (fy < edge) {
+    if (fy < edgeY) {
       return { zone: { left, top, width: r.width, height: half.h },
         peer: other, peerZone: { left, top: top + half.h, width: r.width, height: half.h } };
     }
-    if (fy > 1 - edge) {
+    if (fy > 1 - edgeY) {
       return { zone: { left, top: top + half.h, width: r.width, height: half.h },
         peer: other, peerZone: { left, top, width: r.width, height: half.h } };
     }

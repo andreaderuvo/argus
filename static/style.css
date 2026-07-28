@@ -691,6 +691,17 @@ body.wall #view { display: flex; flex-direction: column; }
 }
 
 .win.dragging { pointer-events: none; }
+
+.snapguide {
+  position: absolute;
+  z-index: 9998;
+  pointer-events: none;
+  background: var(--accent);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+.snapguide.v { width: 2px; top: 0; bottom: 0; }
+.snapguide.h { height: 2px; left: 0; right: 0; }
 .sendrow { display: flex; gap: .35rem; align-items: stretch; }
 .sendrow .ghost.block { flex: 1; }
 .sendrow .verb { font-size: .72rem; color: var(--dim); letter-spacing: .05em; text-transform: uppercase; }
