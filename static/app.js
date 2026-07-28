@@ -422,6 +422,7 @@ const ICONS = {
   eye: 'M2.8 12S6.6 5.8 12 5.8 21.2 12 21.2 12 17.4 18.2 12 18.2 2.8 12 2.8 12zM12 9.4a2.6 2.6 0 1 1 0 5.2 2.6 2.6 0 0 1 0-5.2z',
   tree: 'M4.8 5.5h5.5M4.8 5.5v12.5M4.8 11.8h5.5M4.8 18h5.5M14 5.5h5.2M14 11.8h5.2M14 18h5.2',
   save: 'M5.5 4.5h10L18.5 7.5v12h-13zM8.5 4.5v5h6M8.5 19.5v-6h7v6',
+  phone: 'M7.5 3.5h9v17h-9zM10.5 17.8h3',
   star: 'M12 3.8l2.6 5.3 5.8.85-4.2 4.1 1 5.75L12 17.1l-5.2 2.7 1-5.75-4.2-4.1 5.8-.85z',
 };
 
@@ -1635,6 +1636,58 @@ async function screenSystem() {
   leaving = () => clearInterval(timer);
 }
 
+/** The token is 64 hex characters. Nobody should ever type that on a phone, and the
+ *  address has to come from the server: reached through an editor's port forward the
+ *  browser only knows `localhost`, which would send the phone nowhere. */
+async function handoffSheet() {
+  const info = await serverInfo();
+  const addresses = info.addresses?.length ? info.addresses : [location.hostname];
+  const body = el('div', { className: 'sheetbody handoff' });
+  let sheet;
+
+  const scheme = location.protocol === 'https:' ? 'https' : 'http';
+  const holder = el('div', { className: 'qr' });
+  const label = el('div', { className: 'tilenote' });
+  const picker = el('div', { className: 'sheetbody actions' });
+
+  const show = async (host) => {
+    const url = `${scheme}://${host}:${info.port}/?token=${encodeURIComponent(info.token)}`;
+    label.textContent = url;
+    holder.textContent = t('drawing…');
+    try {
+      const { default: qrcode } = await import('/vendor/qrcode-2.0.4/qrcode.mjs');
+      const qr = qrcode(0, 'M');
+      qr.addData(url);
+      qr.make();
+      holder.innerHTML = qr.createSvgTag({ cellSize: 5, margin: 2, scalable: true });
+    } catch {
+      holder.textContent = '';
+      holder.append(el('p', { className: 'error', textContent: t('could not draw the code') }));
+    }
+    for (const b of picker.querySelectorAll('button')) b.classList.toggle('on', b.dataset.host === host);
+  };
+
+  for (const host of addresses) {
+    const b = el('button', { className: 'ghost dup', textContent: host, onclick: () => show(host) });
+    b.dataset.host = host;
+    picker.append(b);
+  }
+
+  body.append(holder, label, picker);
+  body.append(el('button', {
+    className: 'ghost block',
+    onclick: () => copyText(label.textContent).then((ok) => toast(ok ? t('link copied') : t('could not reach the clipboard'), !ok)),
+  }, [icon('clipboard'), el('span', { textContent: t('Copy the link instead') })]));
+
+  // The code carries the token: photographing this screen is handing over the keys.
+  body.append(el('p', { className: 'tilenote warn', textContent: t('This code contains the access token. Anyone who scans it is in.') }));
+
+  sheet = modal(t('Open on another device'), body, [
+    el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),
+  ]);
+  show(addresses[0]);
+}
+
 /** Pick a language, add one, or take the catalogue away to translate. */
 function languageSheet(list) {
   const body = el('div', { className: 'sheetbody actions' });
@@ -1746,6 +1799,16 @@ async function screenSettings() {
     };
     return row;
   };
+
+  const handoff = el('div', { className: 'row setting' }, [
+    el('span', { className: 'grow' }, [
+      el('span', { className: 'name', textContent: t('Open on another device') }),
+      el('span', { className: 'meta', textContent: t('a QR code with the address and the token') }),
+    ]),
+    icon('phone'),
+  ]);
+  handoff.onclick = handoffSheet;
+  wrap.append(handoff);
 
   // Language first: everything below it is easier to read once it is right.
   const langRow = el('div', { className: 'row setting' });

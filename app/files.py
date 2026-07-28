@@ -102,6 +102,10 @@ async def server_info(request: Request) -> dict:
         # The UI hides every mutating control when this is false.
         "allow_write": cfg.allow_write,
         "max_upload_bytes": cfg.max_upload_bytes,
+        # For the "open this on another device" QR code.
+        "addresses": request.app.state.addresses,
+        "port": request.app.state.port,
+        "token": cfg.token,
     }
 
 
