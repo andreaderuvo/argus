@@ -534,7 +534,7 @@ function fileActions(entry, refresh, dest) {
   if (dir) {
     body.append(el('button', {
       className: 'ghost block',
-      onclick: () => { sheet.close(); openWindow({ kind: 'browser', path: entry.path }); },
+      onclick: () => { sheet.close(); chooseDesk({ kind: 'browser', path: entry.path }, entry.name); },
     }, [icon('split'), el('span', { textContent: 'Open in a window' })]));
     body.append(el('button', {
       className: 'ghost block',
@@ -545,7 +545,7 @@ function fileActions(entry, refresh, dest) {
   if (!dir) {
     body.append(el('button', {
       className: 'ghost block',
-      onclick: () => { sheet.close(); openWindow({ kind: 'file', path: entry.path }); },
+      onclick: () => { sheet.close(); chooseDesk({ kind: 'file', path: entry.path }, entry.name); },
     }, [icon('split'), el('span', { textContent: 'Open in a window' })]));
   }
 
@@ -888,11 +888,11 @@ async function screenSessions() {
       pickColor(s.name, () => { dot.style.background = colorFor(s.name); });
     };
 
-    const toWall = el('button', { className: 'more', title: 'Open in a window' }, icon('grid'));
+    const toWall = el('button', { className: 'more', title: 'Open in a window, in a workspace you pick' }, icon('grid'));
     toWall.onclick = (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
-      openWindow({ kind: 'term', name: s.name });
+      chooseDesk({ kind: 'term', name: s.name }, s.name);
     };
     view.append(el('div', { className: 'rowwrap' }, [row, toWall]));
   }
@@ -1196,7 +1196,7 @@ async function screenPreview(path) {
   bar.alt.hidden = false;
   bar.alt.title = 'Open in a window';
   bar.alt.replaceChildren(icon('split'));
-  bar.alt.onclick = () => openWindow({ kind: 'file', path });
+  bar.alt.onclick = () => chooseDesk({ kind: 'file', path }, path.split('/').pop());
 
   await mountPreview(view, path, {
     download: (fn) => {
@@ -2170,7 +2170,14 @@ async function screenWall() {
     key: 'wall',
     mounts: [[tabs, () => view], [tools, () => view], [wall, () => view]],
     decorate: decorateWall,
-    resume: () => deckFor(activeSpace()).open.forEach((o) => o.handle.relayout()),
+    activate,
+    resume: () => {
+      const deck = deckFor(activeSpace());
+      syncDeck(deck);
+      for (const d of decks.values()) d.node.classList.toggle('on', d === deck);
+      drawTabs();
+      deck.open.forEach((o) => o.handle.relayout());
+    },
     addWindow: (spec) => {
       const ws = activeSpace();
       const deck = deckFor(ws);
@@ -2297,6 +2304,58 @@ const currentSpace = () => {
   const all = workspaces();
   return all.find((w) => w.id === prefs.ws) || all[0];
 };
+
+/** Put a window in a named workspace, wherever you are when you ask. */
+function placeIn(ws, spec) {
+  const id = specId(spec);
+  if (!ws.desktop.some((x) => specId(x) === id)) ws.desktop = [...ws.desktop, spec];
+  prefs.ws = ws.id;
+  savePrefs();
+  // A wall that is already running switches tab itself; one that is not picks the
+  // active workspace up when it starts.
+  if (live?.key === 'wall') live.activate?.(ws.id);
+  go('#/wall');
+}
+
+/** Ask which desk, unless there is only one — then the question is noise. */
+function chooseDesk(spec, label) {
+  const spaces = workspaces();
+  if (spaces.length < 2) return openWindow(spec);
+
+  const body = el('div', { className: 'sheetbody actions' });
+  let sheet;
+  for (const ws of spaces) {
+    const here = ws.desktop.some((x) => specId(x) === specId(spec));
+    const dot = el('span', { className: 'tabdot' });
+    dot.style.background = colorFor(`ws:${ws.id}`);
+    body.append(el('button', {
+      className: 'ghost block',
+      title: here ? `already in ${ws.name}` : `Open in ${ws.name}`,
+      onclick: () => { sheet.close(); placeIn(ws, spec); },
+    }, [
+      dot,
+      el('span', { className: 'grow', textContent: ws.name }),
+      el('span', { className: 'verb', textContent: here ? 'already there' : `${ws.desktop.length} open` }),
+    ]));
+  }
+
+  body.append(el('div', { className: 'sheetsep' }));
+  body.append(el('button', {
+    className: 'ghost block',
+    onclick: () => {
+      sheet.close();
+      const id = (prefs.wsSeq || spaces.length) + 1;
+      prefs.wsSeq = id;
+      const ws = { id, name: `Desk ${spaces.length + 1}`, desktop: [] };
+      spaces.push(ws);
+      placeIn(ws, spec);
+    },
+  }, [icon('folderPlus'), el('span', { textContent: 'A new workspace' })]));
+
+  sheet = modal(`Open ${label} in`, body, [
+    el('button', { className: 'ghost', textContent: 'Close', onclick: () => sheet.close() }),
+  ]);
+}
 
 function openWindow(spec) {
   const id = specId(spec);
