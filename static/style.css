@@ -311,16 +311,25 @@ button.icon .ico { width: 22px; height: 22px; }
 
 .row:active { background: var(--panel); }
 
-/* The file a terminal just pointed at. It fades on its own: a mark that stayed would
-   still be there tomorrow, claiming to mean something. */
-.row.pointed {
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
+/* The file the viewer is showing. This one does not fade — it answers "where am I",
+   which stays true for as long as the file is open. */
+.row.current {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
   box-shadow: inset 3px 0 0 var(--accent);
-  animation: pointed 2.6s ease-out forwards;
+}
+.row.current .name { color: var(--accent); font-weight: 600; }
+
+/* Arriving at it. A brighter version of the same mark, so the flash and the resting
+   state are plainly the same thing rather than two unrelated colours. */
+.row.pointed {
+  box-shadow: inset 3px 0 0 var(--accent);
+  animation: pointed 2.4s ease-out forwards;
 }
 @keyframes pointed {
-  0%, 55% { background: color-mix(in srgb, var(--accent) 22%, transparent); }
-  100% { background: transparent; box-shadow: inset 3px 0 0 transparent; }
+  0%, 45% { background: color-mix(in srgb, var(--accent) 34%, transparent); }
+  /* Settles on the resting mark rather than on nothing: the row it lands on is almost
+     always the file that just opened, and a fade to transparent would blink it off. */
+  100% { background: color-mix(in srgb, var(--accent) 12%, transparent); }
 }
 .row .glyph { width: 1.2rem; text-align: center; color: var(--dim); flex: none; }
 .row .ficon { width: 22px; height: 26px; flex: none; }

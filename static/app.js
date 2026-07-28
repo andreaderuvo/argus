@@ -822,6 +822,28 @@ function trail(root, target) {
   return out;
 }
 
+// The file the viewer is showing. Unlike the flash above this one stays, because the
+// question it answers — "which file am I looking at?" — stays too.
+let current = null;
+
+/** Mark the open file in one listing. Cheap enough to run on every paint. */
+function markCurrent(list) {
+  for (const was of list.querySelectorAll('.row.current')) was.classList.remove('current');
+  if (!current) return;
+  const found = list.querySelector(`[data-path="${CSS.escape(current)}"]`);
+  const row = found?.classList.contains('row') ? found : found?.querySelector('.row');
+  row?.classList.add('current');
+}
+
+/** Say which file is open. Every listing already on screen updates in place — no
+ *  reload, so a tree keeps every branch you opened. */
+function setCurrent(path) {
+  if (current === path) return;
+  current = path;
+  sideBrowser?.mark();
+  for (const b of browsers) b.mark?.();
+}
+
 /** Show the pointed-at file in this listing: expand down to it if the view is a tree,
  *  then flash the row and bring it into sight. Silently does nothing when the file is
  *  not in this listing, which is the common case for a second pane. */
@@ -838,6 +860,7 @@ async function applyPointed(list, path, isTree) {
       await holder.expand?.();
     }
   }
+  markCurrent(list);      // the branch just opened may hold the file that is open
   const found = list.querySelector(`[data-path="${CSS.escape(target)}"]`);
   const row = found?.classList.contains('row') ? found : found?.querySelector('.row');
   if (!row) return;
@@ -1258,6 +1281,7 @@ function fileBrowser({
         draw([], e);
       }
     }
+    markCurrent(list);
     await applyPointed(list, path, getTree());
   }
   paint();
@@ -1265,6 +1289,7 @@ function fileBrowser({
   return {
     node,
     reload,
+    mark: () => markCurrent(list),
     /** Bring a file into view here. A tree already containing it only has to expand; any
      *  other case moves the listing to the folder the file is in, and the mark is picked
      *  up by whatever paint that causes — including the sidebar rebuilding itself. */
@@ -1515,6 +1540,7 @@ function editor({ text, mtime, host, path }, { onDone, watch } = {}) {
 }
 
 async function screenPreview(path) {
+  setCurrent(path);
   setTitle(path.split('/').pop());
   bar.back.hidden = false;
   bar.back.onclick = () => go(`#/files?path=${encodeURIComponent(parentOf(path))}`);
@@ -3486,6 +3512,10 @@ function attachBrowser(host, spec, setLabel) {
  *  reloads it when it changes on disk — which is the whole point of putting a report
  *  next to the job that writes it. */
 function attachViewer(host, path, extras) {
+  setCurrent(path);
+  // Several files can be open at once, so the one you last put your hands on is the one
+  // the filesystem points at.
+  host.addEventListener('pointerdown', () => setCurrent(path), true);
   const srcBtn = el('button', { className: 'winbtn', hidden: true, title: t('View the source') }, icon('code'));
   const editBtn = el('button', { className: 'winbtn', hidden: true, title: t('Edit this file') }, icon('rename'));
   const watchBtn = el('button', { className: 'winbtn on', title: t('Reload when the file changes') }, icon('refresh'));
@@ -3548,7 +3578,12 @@ function attachViewer(host, path, extras) {
     if (watching) poll();
   };
 
-  return { relayout: () => {}, dispose: () => clearInterval(timer) };
+  return {
+    relayout: () => {},
+    // Closing the window that showed it: nothing is open on that file any more, so the
+    // mark in the filesystem would be pointing at nothing.
+    dispose: () => { clearInterval(timer); if (current === path) setCurrent(null); },
+  };
 }
 
 const MIN_W = 240;
