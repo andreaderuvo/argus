@@ -383,6 +383,7 @@ const ICONS = {
   code: 'M9 7.2 4.4 12 9 16.8M15 7.2 19.6 12 15 16.8',
   eye: 'M2.8 12S6.6 5.8 12 5.8 21.2 12 21.2 12 17.4 18.2 12 18.2 2.8 12 2.8 12zM12 9.4a2.6 2.6 0 1 1 0 5.2 2.6 2.6 0 0 1 0-5.2z',
   tree: 'M4.8 5.5h5.5M4.8 5.5v12.5M4.8 11.8h5.5M4.8 18h5.5M14 5.5h5.2M14 11.8h5.2M14 18h5.2',
+  save: 'M5.5 4.5h10L18.5 7.5v12h-13zM8.5 4.5v5h6M8.5 19.5v-6h7v6',
   star: 'M12 3.8l2.6 5.3 5.8.85-4.2 4.1 1 5.75L12 17.1l-5.2 2.7 1-5.75-4.2-4.1 5.8-.85z',
 };
 
@@ -1269,6 +1270,54 @@ async function mountPreview(host, path, ctl) {
   host.append(pre);
   ctl.wrapToggle?.(() => { pre.classList.toggle('wrap'); pre.classList.toggle('nowrap'); });
   if (truncated) ctl.toBottom?.();
+
+  // Editing is offered only when the whole file is here. What arrived as a tail is not
+  // the file, and saving it back would throw the head away.
+  if (server?.allow_write && !truncated) {
+    ctl.edit?.({ text, mtime: Number(r.headers.get('x-mtime') || 0), host, path });
+  }
+}
+
+/** Turn a preview into something you can type in.
+ *
+ *  The mtime read with the file goes back with the save, and the server refuses if it
+ *  moved: a job writing the same file while you edit it on a phone is the normal case
+ *  here, not a rare one.
+ */
+function editor({ text, mtime, host, path }, { onDone, watch } = {}) {
+  const area = el('textarea', { className: 'editor', spellcheck: false, value: text });
+  const status = el('span', { className: 'editnote' });
+  const save = el('button', { className: 'primary inline', textContent: 'Save' });
+  const cancel = el('button', { className: 'ghost', textContent: 'Cancel', onclick: () => onDone?.() });
+  const bar = el('div', { className: 'editbar' }, [status, cancel, save]);
+
+  host.textContent = '';
+  host.append(area, bar);
+  area.focus();
+  watch?.(false);        // a reload underneath the cursor would eat the edit
+
+  const dirty = () => area.value !== text;
+  area.addEventListener('input', () => { status.textContent = dirty() ? 'unsaved' : ''; });
+
+  const store = async () => {
+    save.disabled = true;
+    status.textContent = 'saving…';
+    try {
+      const r = await postJSON('/api/fs/write', { path, content: area.value, mtime });
+      toast(`saved ${path.split('/').pop()} · ${human(r.size)}`);
+      onDone?.(r);
+    } catch (e) {
+      status.textContent = '';
+      save.disabled = false;
+      toast(e.message, true);
+    }
+  };
+  save.onclick = store;
+  area.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); store(); }
+    if (e.key === 'Escape') onDone?.();
+  });
+  return { dirty };
 }
 
 async function screenPreview(path) {
@@ -1292,6 +1341,15 @@ async function screenPreview(path) {
     source: headerSourceToggle,
     wrapToggle: (fn) => { bar.title.onclick = fn; },
     toBottom: () => { view.scrollTop = view.scrollHeight; },
+    edit: (ctx) => {
+      bar.action.hidden = false;
+      bar.action.title = 'Edit this file';
+      bar.action.replaceChildren(icon('rename'));
+      bar.action.onclick = () => {
+        view.style.overflow = 'hidden';
+        editor(ctx, { onDone: () => screenPreview(path) });
+      };
+    },
   });
 }
 
@@ -2639,15 +2697,23 @@ function attachBrowser(host, spec, setLabel) {
  *  next to the job that writes it. */
 function attachViewer(host, path, extras) {
   const srcBtn = el('button', { className: 'winbtn', hidden: true, title: 'View the source' }, icon('code'));
+  const editBtn = el('button', { className: 'winbtn', hidden: true, title: 'Edit this file' }, icon('rename'));
   const watchBtn = el('button', { className: 'winbtn on', title: 'Reload when the file changes' }, icon('refresh'));
   const dl = el('button', { className: 'winbtn', title: 'Download' }, icon('download'));
-  extras.append(srcBtn, watchBtn, dl);
+  extras.append(srcBtn, editBtn, watchBtn, dl);
 
   let rendered = true;
   const ctl = {
     download: (fn) => { dl.onclick = fn; },
     fill: (on) => host.classList.toggle('fill', on),
     toBottom: () => { host.scrollTop = host.scrollHeight; },
+    edit: (ctx) => {
+      editBtn.hidden = false;
+      editBtn.onclick = () => editor(ctx, {
+        watch: (on) => { watching = on; watchBtn.classList.toggle('on', on); },
+        onDone: () => { watching = true; watchBtn.classList.add('on'); load(); },
+      });
+    },
     source: (paint) => {
       srcBtn.hidden = false;
       srcBtn.onclick = () => {
@@ -2662,6 +2728,7 @@ function attachViewer(host, path, extras) {
 
   const load = async () => {
     srcBtn.hidden = true;
+    editBtn.hidden = true;
     await mountPreview(host, path, ctl);
   };
   load();
