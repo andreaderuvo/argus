@@ -12,13 +12,16 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import fcntl
+import subprocess
 import json
 import os
 import pty
+import select
 import signal
 import struct
 import termios
 import threading
+import time
 
 from fastapi import APIRouter, WebSocket
 
@@ -29,6 +32,10 @@ READ_BUF = 8192
 # Bounded so a client that stops reading applies backpressure to the PTY instead of
 # letting a runaway `cat` of a huge file balloon our memory.
 OUTPUT_QUEUE = 512
+# How long a read waits for company before being sent. Long enough to gather a burst,
+# short enough that a keystroke echo still feels immediate.
+COALESCE = 0.008
+COALESCE_MAX = 256 * 1024
 
 router = APIRouter()
 
@@ -39,6 +46,38 @@ def clamp(n: int) -> int:
 
 def set_winsize(fd: int, rows: int, cols: int) -> None:
     fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
+
+
+def others_attached(sock: tmux.Socket, session: str) -> int:
+    """How many clients are already on this session."""
+    try:
+        p = subprocess.run(
+            ["tmux", *sock.args(), "list-clients", "-t", f"={session}", "-F", "#{client_name}"],
+            capture_output=True, text=True, timeout=4,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return 0
+    return len([ln for ln in p.stdout.splitlines() if ln.strip()]) if p.returncode == 0 else 0
+
+
+def window_size(sock: tmux.Socket, session: str) -> tuple[int, int] | None:
+    """The grid tmux is actually drawing for this session."""
+    try:
+        p = subprocess.run(
+            # No `=` here: display-message resolves a pane target and returns nothing
+            # for the exact-match form on this tmux. The name came from list-sessions,
+            # so it is already exact.
+            ["tmux", *sock.args(), "display-message", "-p", "-t", session,
+             "#{window_width}x#{window_height}"],
+            capture_output=True, text=True, timeout=4,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    try:
+        w, h = p.stdout.strip().split("x")
+        return int(w), int(h)
+    except ValueError:
+        return None
 
 
 def attach_argv(session: str, flags: list[str], sock: tmux.Socket) -> list[str]:
@@ -83,8 +122,14 @@ def spawn(argv: list[str], env: dict[str, str], rows: int, cols: int) -> tuple[i
 
 
 def _reader(fd: int, loop: asyncio.AbstractEventLoop, queue: asyncio.Queue) -> None:
-    """Blocking reads on their own thread, handing chunks to the event loop. Awaiting
-    the queue put is what propagates backpressure to the PTY."""
+    """Blocking reads on their own thread, handing chunks to the event loop.
+
+    Reads are coalesced for a few milliseconds before being handed over. A program
+    printing steadily produces dozens of small reads a second, and one WebSocket frame
+    each means the browser wakes, decodes and repaints dozens of times to draw what is
+    really one update — which is what reads as flicker over a slow link. Awaiting the
+    queue put is what propagates backpressure to the PTY.
+    """
     while True:
         try:
             data = os.read(fd, READ_BUF)
@@ -92,6 +137,22 @@ def _reader(fd: int, loop: asyncio.AbstractEventLoop, queue: asyncio.Queue) -> N
             data = b""  # EIO: the child is gone and the pty has no slave left
         if not data:
             break
+
+        # Whatever else arrives within the window joins this frame, up to a cap so a
+        # flood still gets delivered in pieces the browser can render.
+        deadline = time.monotonic() + COALESCE
+        while len(data) < COALESCE_MAX:
+            left = deadline - time.monotonic()
+            if left <= 0 or not select.select([fd], [], [], left)[0]:
+                break
+            try:
+                more = os.read(fd, READ_BUF)
+            except OSError:
+                break
+            if not more:
+                break
+            data += more
+
         try:
             asyncio.run_coroutine_threadsafe(queue.put(data), loop).result()
         except Exception:
@@ -139,8 +200,18 @@ async def terminal(websocket: WebSocket, session: str, cols: int = 80, rows: int
         return await websocket.close()
 
     cols, rows = clamp(cols), clamp(rows)
+
+    # `auto`: take the window size when nobody else is here, leave it alone when someone
+    # is. tmux sizes a window for all its clients at once, so two devices on one session
+    # otherwise resize it back and forth at each other — which is the flicker, and the
+    # feeling that the two are never quite showing the same thing.
+    flags = state.cfg.attach_flags()
+    if state.cfg.resize_policy == "auto":
+        crowded = await asyncio.to_thread(others_attached, state.socket, session)
+        flags = ["-f", "ignore-size"] if crowded else []
+
     pid, master = spawn(
-        attach_argv(session, state.cfg.attach_flags(), state.socket), child_env(), rows, cols
+        attach_argv(session, flags, state.socket), child_env(), rows, cols
     )
 
     loop = asyncio.get_running_loop()
@@ -148,7 +219,17 @@ async def terminal(websocket: WebSocket, session: str, cols: int = 80, rows: int
     thread = threading.Thread(target=_reader, args=(master, loop, queue), daemon=True)
     thread.start()
 
-    await websocket.send_text(json.dumps({"type": "ready"}))
+    # Tell the client whether it was allowed to set the size. When it was not, it needs
+    # the grid tmux is drawing so it can fit that grid by shrinking the font rather than
+    # by asking for fewer columns — which is how two devices end up showing the same
+    # screen without resizing it at each other.
+    fixed = "ignore-size" in flags
+    grid = await asyncio.to_thread(window_size, state.socket, session) if fixed else None
+    await websocket.send_text(json.dumps({
+        "type": "ready",
+        "fixed": fixed,
+        **({"cols": grid[0], "rows": grid[1]} if grid else {}),
+    }))
 
     async def pump_out() -> str:
         while True:
