@@ -1859,15 +1859,10 @@ async function screenWall() {
     }
     savePrefs();
 
-    // If the destination is already built, put it there now; otherwise it appears when
-    // that tab is first opened.
+    // If the destination is already built, reconcile it now; otherwise the window
+    // appears when that tab is first opened. Either way the stored list decides.
     const target = decks.get(toWs.id);
-    if (target && !target.open.some((o) => o.name === id)) {
-      const added = target.addWindow({ ...spec });
-      Object.assign(added.win.style, prefs.winGeom?.[geomKey(toWs, id)] || {
-        left: '28px', top: '24px', width: 'min(620px, 78%)', height: 'min(380px, 62%)',
-      });
-    }
+    if (target) syncDeck(target);
     toast(`${duplicate ? 'duplicated' : 'moved'} to ${toWs.name}`);
     drawTabs();
   }
@@ -1944,10 +1939,50 @@ async function screenWall() {
     return decks.get(ws.id);
   }
 
+  /** Make a built deck match its stored list.
+   *
+   *  Windows can be added to a workspace that is already open — moved or duplicated from
+   *  another tab — and relying on every one of those paths to also touch the live deck is
+   *  how a window ends up saved but invisible. Reconciling on activation makes the list
+   *  the single truth. */
+  function syncDeck(deck) {
+    const ws = deck.ws;
+    for (const spec of ws.desktop) {
+      const id = specId(spec);
+      if (deck.open.some((o) => o.name === id)) continue;
+      const added = deck.addWindow(spec);
+      Object.assign(added.win.style, prefs.winGeom?.[geomKey(ws, id)] || {
+        left: '28px', top: '24px', width: 'min(620px, 78%)', height: 'min(380px, 62%)',
+      });
+      added.win.style.zIndex = ++top;
+    }
+    for (const o of [...deck.open]) {
+      if (ws.desktop.some((spec) => specId(spec) === o.name)) continue;
+      o.handle.dispose();
+      o.win.remove();
+      deck.open.splice(deck.open.indexOf(o), 1);
+    }
+    // A window restored from a smaller screen, or dropped in from elsewhere, must not
+    // sit outside the visible wall.
+    const w = deck.node.clientWidth || wall.clientWidth;
+    const h = deck.node.clientHeight || wall.clientHeight;
+    if (!w || !h) return;
+    for (const o of deck.open) {
+      const box = o.win.getBoundingClientRect();
+      const left = parseFloat(o.win.style.left) || 0;
+      const topPos = parseFloat(o.win.style.top) || 0;
+      if (left > w - 60 || topPos > h - 30 || left + box.width < 40) {
+        Object.assign(o.win.style, { left: '28px', top: '24px' });
+        saveGeom(geomKey(ws, o.name), o.win);
+      }
+    }
+  }
+
   function activate(id) {
     prefs.ws = id;
     savePrefs();
     const deck = deckFor(activeSpace());
+    syncDeck(deck);
     for (const d of decks.values()) d.node.classList.toggle('on', d === deck);
     drawTabs();
     requestAnimationFrame(() => deck.open.forEach((o) => o.handle.relayout()));
