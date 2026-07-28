@@ -26,9 +26,9 @@
 <body>
 
 <header id="bar">
-  <button id="back" class="icon" hidden aria-label="Back">‹</button>
+  <button id="back" class="icon" hidden aria-label="Back" data-icon="back"></button>
   <h1 id="title">Argus</h1>
-  <button id="sidetoggle" class="icon" aria-label="Toggle the file sidebar" title="File sidebar">▥</button>
+  <button id="sidetoggle" class="icon" aria-label="Toggle the file sidebar" title="File sidebar" data-icon="sidebar"></button>
   <button id="action" class="icon" hidden></button>
 </header>
 
@@ -38,10 +38,10 @@
 </div>
 
 <nav id="nav" hidden>
-  <a href="#/files" data-tab="files"><span>▤</span>Files</a>
-  <a href="#/sessions" data-tab="sessions"><span>▶</span>Sessions</a>
-  <a href="#/system" data-tab="system"><span>◕</span>System</a>
-  <a href="#/settings" data-tab="settings"><span>⚙</span>Settings</a>
+  <a href="#/files" data-tab="files"><span data-icon="folder"></span>Files</a>
+  <a href="#/sessions" data-tab="sessions"><span data-icon="terminal"></span>Sessions</a>
+  <a href="#/system" data-tab="system"><span data-icon="activity"></span>System</a>
+  <a href="#/settings" data-tab="settings"><span data-icon="settings"></span>Settings</a>
 </nav>
 
 <script type="module" src="/app.js"></script>

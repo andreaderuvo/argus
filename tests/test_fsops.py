@@ -124,3 +124,79 @@ def test_write_endpoints_need_the_token(client, tree):
     r = client.post("/api/fs/mkdir", json={"path": str(tree / "root"), "name": "x"})
     assert r.status_code == 401
     assert not (tree / "root" / "x").exists()
+
+
+def upload(client, path, files, token=TOKEN):
+    return client.post(
+        "/api/fs/upload",
+        data={"path": str(path)},
+        files=files,
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+
+def test_upload_writes_the_file(client, tree):
+    r = upload(client, tree / "root", [("files", ("note.txt", b"ciao\n", "text/plain"))])
+    assert r.status_code == 200
+    assert (tree / "root" / "note.txt").read_bytes() == b"ciao\n"
+    assert r.json()["files"][0]["size"] == 5
+
+
+def test_upload_takes_several_files_at_once(client, tree):
+    r = upload(client, tree / "root", [
+        ("files", ("a.txt", b"a", "text/plain")),
+        ("files", ("b.txt", b"bb", "text/plain")),
+    ])
+    assert r.status_code == 200
+    assert (tree / "root" / "a.txt").exists() and (tree / "root" / "b.txt").exists()
+
+
+def test_upload_never_overwrites(client, tree):
+    r = upload(client, tree / "root", [("files", ("hello.txt", b"mine", "text/plain"))])
+    assert r.status_code == 409
+    assert (tree / "root" / "hello.txt").read_text() == "ciao\n", "the original is untouched"
+
+
+def test_a_traversing_filename_is_flattened_into_the_destination(client, tree):
+    """`../escaped.txt` is not an error, it is a basename: the leading path is dropped
+    and the file lands where the upload was aimed, never a directory above it."""
+    r = upload(client, tree / "root", [("files", ("../escaped.txt", b"x", "text/plain"))])
+    assert r.status_code == 200
+    assert (tree / "root" / "escaped.txt").read_bytes() == b"x"
+    assert not (tree / "escaped.txt").exists(), "nothing may appear outside the destination"
+
+
+def test_a_filename_that_is_only_a_path_is_refused(client, tree):
+    r = upload(client, tree / "root", [("files", ("../", b"x", "text/plain"))])
+    assert r.status_code == 400
+
+
+def test_upload_outside_the_roots_is_refused(client, tree):
+    r = upload(client, tree / "outside", [("files", ("x.txt", b"x", "text/plain"))])
+    assert r.status_code == 403
+    assert not (tree / "outside" / "x.txt").exists()
+
+
+def test_upload_is_refused_on_a_read_only_server(tree):
+    ro = make_client(tree, allow_write=False)
+    assert upload(ro, tree / "root", [("files", ("x.txt", b"x", "text/plain"))]).status_code == 403
+    assert not (tree / "root" / "x.txt").exists()
+
+
+def test_upload_needs_the_token(client, tree):
+    r = client.post("/api/fs/upload", data={"path": str(tree / "root")},
+                    files=[("files", ("x.txt", b"x", "text/plain"))])
+    assert r.status_code == 401
+
+
+def test_a_file_over_the_cap_is_refused_and_leaves_nothing_behind(tree):
+    from app.config import Config
+    from app.main import create_app
+    from fastapi.testclient import TestClient
+
+    cfg = Config(token=TOKEN, roots=[tree / "root"], allow_write=True, max_upload_bytes=10)
+    small = TestClient(create_app(cfg))
+    r = upload(small, tree / "root", [("files", ("big.bin", b"x" * 50, "application/octet-stream"))])
+    assert r.status_code == 413
+    assert not (tree / "root" / "big.bin").exists()
+    assert not list((tree / "root").glob(".*argus-part")), "the part file is cleaned up"

@@ -204,6 +204,10 @@ function pickColor(name, onPicked) {
 }
 
 const parentOf = (p) => p.replace(/\/[^/]*$/, '') || '/';
+
+/** Wrap a path so bidi reordering leaves it alone. */
+const bidi = (text) => el('bdi', { textContent: text });
+const setTitle = (text) => bar.title.replaceChildren(bidi(text));
 const visible = (entries) => (prefs.hidden ? entries : entries.filter((e) => !e.name.startsWith('.')));
 
 /* ------------------------------------------------------------------ dialogs */
@@ -277,7 +281,54 @@ function toast(message, bad = false) {
   setTimeout(() => t.remove(), bad ? 5000 : 2200);
 }
 
-/* -------------------------------------------------------------------- icons */
+/* ------------------------------------------------------------------- icons */
+
+// One flat line set for the whole interface, drawn on a 24 grid and inheriting
+// currentColor. Unicode glyphs were a different weight and baseline in every font,
+// which is what made the action sheet look like its icons were missing.
+const ICONS = {
+  back: 'M15 4.5 7.5 12 15 19.5',
+  up: 'M12 19.5v-14M5.5 12 12 5.5 18.5 12',
+  home: 'M3.5 11 12 4l8.5 7M6 9.6V20h12V9.6',
+  folderPlus: 'M3.5 6.8A1.8 1.8 0 0 1 5.3 5h3.4l1.8 2h8.2a1.8 1.8 0 0 1 1.8 1.8v8.4a1.8 1.8 0 0 1-1.8 1.8H5.3a1.8 1.8 0 0 1-1.8-1.8zM12 10.8v4.8M9.6 13.2h4.8',
+  upload: 'M12 16.5v-12M7 9.5 12 4.5l5 5M4.5 19.5h15',
+  download: 'M12 4.5v12M7 11.5l5 5 5-5M4.5 19.5h15',
+  more: 'M12 6.2v.01M12 12v.01M12 17.8v.01',
+  rename: 'M4.5 19.5h4L18 10l-4-4-9.5 9.5zM13 7l4 4',
+  move: 'M4.5 12h13M12.5 6.5 18 12l-5.5 5.5',
+  copy: 'M9 8.5h10.5V20H9zM5 15.5V4h10.5',
+  clipboard: 'M9.5 4.5h5v2.6h-5zM8 5.6H5.5v14h13v-14H16',
+  trash: 'M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 12.5h9L17.5 7M10 10.5v6M14 10.5v6',
+  split: 'M4 4.5h16v15H4zM12 4.5v15',
+  grid: 'M4 4.5h7v7H4zM13 4.5h7v7h-7zM4 13.5h7v6H4zM13 13.5h7v6h-7z',
+  columns: 'M4 4.5h7v15H4zM13 4.5h7v15h-7z',
+  rows: 'M4 4.5h16v7H4zM4 13.5h16v6H4z',
+  close: 'M6.5 6.5l11 11M17.5 6.5l-11 11',
+  maximise: 'M5 5h14v14H5z',
+  folder: 'M3.5 6.8A1.8 1.8 0 0 1 5.3 5h3.4l1.8 2h8.2a1.8 1.8 0 0 1 1.8 1.8v8.4a1.8 1.8 0 0 1-1.8 1.8H5.3a1.8 1.8 0 0 1-1.8-1.8z',
+  terminal: 'M3.5 5.5h17v13h-17zM7 10l2.6 2L7 14M12.8 14.3H17',
+  activity: 'M3 12.5h3.8L9.4 5l4.4 14 2.4-6.5H21',
+  settings: 'M4 7.5h6M14.5 7.5H20M4 16.5h3.5M12 16.5h8M12 5.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4zM9.5 14.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4z',
+  keyboard: 'M3.5 6.5h17v11h-17zM7 10v.01M10.5 10v.01M14 10v.01M17 10v.01M7.5 14h9',
+  sidebar: 'M4 4.5h16v15H4zM9.5 4.5v15',
+  refresh: 'M19.5 12a7.5 7.5 0 1 1-2.4-5.5M19.5 4.5V10h-5.5',
+  file: 'M6 3.5h7l5 5V20.5H6zM13 3.5V9h5',
+};
+
+/** An inline icon. Stroked, never filled, so one colour rule covers every state. */
+function icon(name, extra = '') {
+  const path = svg('path', {
+    d: ICONS[name] || '',
+    fill: 'none',
+    stroke: 'currentColor',
+    'stroke-width': '1.6',
+    'stroke-linecap': 'round',
+    'stroke-linejoin': 'round',
+  });
+  return svg('svg', { viewBox: '0 0 24 24', class: `ico ${extra}`.trim(), 'aria-hidden': 'true' }, path);
+}
+
+/* --------------------------------------------------------------- file icons */
 
 // Colour by family, label by actual extension: `PDF` reads as a PDF at a glance, and an
 // unknown `.fq` still gets a sensible badge instead of a generic blank sheet.
@@ -302,27 +353,18 @@ function badge(name) {
 }
 
 function fileIcon(entry) {
+  const stroke = { fill: 'none', 'stroke-width': '1.6', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' };
   if (entry.type === 'directory') {
     return svg('svg', { viewBox: '0 0 24 24', class: 'ficon' }, [
-      svg('path', {
-        d: 'M3 6.5A2.5 2.5 0 0 1 5.5 4h3.6a2 2 0 0 1 1.5.7L12 6h6.5A2.5 2.5 0 0 1 21 8.5v9A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5z',
-        fill: '#7aa2d6', 'fill-opacity': '.22', stroke: '#7aa2d6', 'stroke-width': '1.3',
-      }),
+      svg('path', { d: ICONS.folder, stroke: '#7aa2d6', ...stroke }),
     ]);
   }
   const { label, color } = badge(entry.name);
-  const kids = [
-    svg('path', {
-      d: 'M5.5 2.5h8L19 8v13.5H5.5z',
-      fill: color, 'fill-opacity': '.15', stroke: color, 'stroke-opacity': '.65', 'stroke-width': '1.3',
-      'stroke-linejoin': 'round',
-    }),
-    svg('path', { d: 'M13.5 2.5V8H19', fill: 'none', stroke: color, 'stroke-opacity': '.65', 'stroke-width': '1.3', 'stroke-linejoin': 'round' }),
-  ];
+  const kids = [svg('path', { d: ICONS.file, stroke: color, ...stroke })];
   if (label) {
     const t = svg('text', {
-      x: '12', y: '18', 'text-anchor': 'middle', fill: color,
-      'font-size': label.length > 3 ? '5.6' : '7', 'font-weight': '700',
+      x: '12', y: '17.6', 'text-anchor': 'middle', fill: color,
+      'font-size': label.length > 3 ? '5.4' : '6.6', 'font-weight': '700',
       'font-family': 'ui-monospace, monospace',
     });
     t.textContent = label;
@@ -353,7 +395,7 @@ function entryRow(e, { href, onClick, refresh, dest }) {
     : el('button', { className: cls, type: 'button', onclick: onClick }, kids);
 
   if (server?.allow_write && refresh) {
-    const menu = el('button', { className: 'more', type: 'button', title: 'Actions', textContent: '⋮' });
+    const menu = el('button', { className: 'more', type: 'button', title: 'Actions' }, icon('more'));
     menu.onclick = (ev) => { ev.preventDefault(); ev.stopPropagation(); fileActions(e, refresh, dest); };
     // The menu button lives outside the row link, or tapping it would navigate.
     return el('div', { className: 'rowwrap' }, [row, menu]);
@@ -381,9 +423,11 @@ function fileActions(entry, refresh, dest) {
     }
   };
 
-  const act = (label, fn) => body.append(el('button', { className: 'ghost block', textContent: label, onclick: () => run(fn) }));
+  const act = (name, label, fn) => body.append(
+    el('button', { className: 'ghost block', onclick: () => run(fn) }, [icon(name), el('span', { textContent: label })]),
+  );
 
-  act('Rename…', async () => {
+  act('rename', 'Rename…', async () => {
     const name = await ask('Rename', entry.name, 'Rename');
     if (name && name !== entry.name) {
       await postJSON('/api/fs/rename', { path: entry.path, name });
@@ -391,7 +435,7 @@ function fileActions(entry, refresh, dest) {
     }
   });
 
-  act('Move to…', async () => {
+  act('move', 'Move to…', async () => {
     const dest = await ask('Move into which folder?', here, 'Move');
     if (dest) {
       await postJSON('/api/fs/move', { path: entry.path, dest });
@@ -399,7 +443,7 @@ function fileActions(entry, refresh, dest) {
     }
   });
 
-  act('Copy to…', async () => {
+  act('copy', 'Copy to…', async () => {
     const dest = await ask('Copy into which folder?', here, 'Copy');
     if (dest) {
       await postJSON('/api/fs/copy', { path: entry.path, dest });
@@ -410,19 +454,17 @@ function fileActions(entry, refresh, dest) {
   // No refresh for these two: they change nothing on disk.
   body.append(el('button', {
     className: 'ghost block',
-    textContent: 'Copy path',
     onclick: () => { sheet.close(); copyPath(entry.path); },
-  }));
+  }, [icon('clipboard'), el('span', { textContent: 'Copy path' })]));
 
   if (!dir) {
     body.append(el('button', {
       className: 'ghost block',
-      textContent: 'Download',
       onclick: () => { sheet.close(); location.href = withToken(`/api/download?path=${encodeURIComponent(entry.path)}`); },
-    }));
+    }, [icon('download'), el('span', { textContent: 'Download' })]));
   }
 
-  act('Delete', async () => {
+  act('trash', 'Delete', async () => {
     if (!await confirmBox('Delete', `Delete ${entry.name}?`)) return;
     try {
       await postJSON('/api/fs/delete', { path: entry.path });
@@ -438,6 +480,57 @@ function fileActions(entry, refresh, dest) {
   sheet = modal(entry.name, body, [
     el('button', { className: 'ghost', textContent: 'Close', onclick: () => sheet.close() }),
   ]);
+}
+
+/** Upload with a progress bar, which means XMLHttpRequest: `fetch` still cannot report
+ *  how far a request body has got, and a 4 GB fastq with no feedback is unusable. */
+function uploadTo(path, fileList, onDone) {
+  const files = [...fileList];
+  if (!files.length) return;
+  const total = files.reduce((n, f) => n + f.size, 0);
+  const limit = server?.max_upload_bytes || 0;
+  const tooBig = limit && files.find((f) => f.size > limit);
+  if (tooBig) return toast(`${tooBig.name} is over the ${human(limit)} limit`, true);
+
+  const label = files.length === 1 ? files[0].name : `${files.length} files`;
+  const bar = progressBar(`${label} — ${human(total)}`);
+
+  const body = new FormData();
+  body.append('path', path);
+  for (const f of files) body.append('files', f, f.name);
+
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', '/api/fs/upload');
+  xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+  xhr.upload.onprogress = (e) => bar.set(e.lengthComputable ? e.loaded / e.total : 0);
+  xhr.onload = () => {
+    bar.close();
+    if (xhr.status === 200) {
+      toast(`uploaded ${label}`);
+      onDone?.();
+      refreshAllBrowsers();
+      return;
+    }
+    let msg = `HTTP ${xhr.status}`;
+    try { msg = JSON.parse(xhr.responseText).error || msg; } catch { /* not JSON */ }
+    toast(msg, true);
+  };
+  xhr.onerror = () => { bar.close(); toast('upload failed', true); };
+  xhr.send(body);
+}
+
+function progressBar(label) {
+  const fill = el('div', { className: 'fill' });
+  fill.style.width = '2%';
+  const node = el('div', { className: 'uploading' }, [
+    el('div', { className: 'tilenote', textContent: label }),
+    el('div', { className: 'track' }, fill),
+  ]);
+  document.body.append(node);
+  return {
+    set: (frac) => { fill.style.width = `${Math.max(2, Math.round(frac * 100))}%`; },
+    close: () => node.remove(),
+  };
 }
 
 function rootPicker(roots, setPath) {
@@ -494,7 +587,7 @@ function treeNode(entry, depth, onFile, refresh, dest) {
 
   const line = el('div', { className: 'rowwrap' }, row);
   if (server?.allow_write && refresh) {
-    const menu = el('button', { className: 'more', type: 'button', title: 'Actions', textContent: '⋮' });
+    const menu = el('button', { className: 'more', type: 'button', title: 'Actions' }, icon('more'));
     menu.onclick = (ev) => { ev.stopPropagation(); fileActions(entry, refresh, dest); };
     line.append(menu);
   }
@@ -580,7 +673,7 @@ window.addEventListener('hashchange', render);
 /* ----------------------------------------------------------------- screens */
 
 function screenLogin() {
-  bar.title.textContent = 'Argus';
+  setTitle('Argus');
   const input = el('input', { type: 'password', placeholder: 'access token', autocomplete: 'current-password' });
   const err = el('p', { className: 'error' });
   const submit = async () => {
@@ -607,7 +700,7 @@ function screenLogin() {
 }
 
 async function screenSessions() {
-  bar.title.textContent = 'Sessions';
+  setTitle('Sessions');
   const sessions = await getJSON('/api/tmux/sessions');
   if (!sessions.length) {
     view.append(el('p', { className: 'empty', textContent: 'No tmux sessions on this server.' }));
@@ -615,7 +708,7 @@ async function screenSessions() {
   }
 
   bar.action.hidden = false;
-  bar.action.textContent = '⊞';
+  bar.action.replaceChildren(icon('grid'));
   bar.action.title = 'Open every session in its own window';
   bar.action.onclick = () => go('#/wall');
 
@@ -676,25 +769,23 @@ function fileBrowser({ path, setPath, other, roots, compact = false }) {
   const show = (entries, err, q) =>
     (!q && prefs.tree ? drawTree(list, path, openFile, reload, other) : draw(entries, err));
 
-  const up = el('button', { textContent: '↑', title: 'Parent folder', disabled: roots.includes(path) });
+  const up = el('button', { title: 'Parent folder', disabled: roots.includes(path) }, icon('up'));
   up.onclick = () => setPath(parentOf(path));
 
   // With several filesystems configured, the top of one is a dead end without this.
   const jump = roots.length > 1
-    ? el('button', { textContent: '⌂', title: 'Jump to a filesystem', onclick: () => rootPicker(roots, setPath) })
+    ? el('button', { title: 'Jump to a filesystem', onclick: () => rootPicker(roots, setPath) }, icon('home'))
     : null;
 
-  const crumb = el('button', { className: 'crumb', type: 'button', textContent: path });
+  const crumb = el('button', { className: 'crumb', type: 'button' }, bidi(path));
   crumb.title = `${path}\n(click to copy)`;
   crumb.onclick = () => copyPath(path);
   node.append(el('div', { className: 'sidehead' }, [up, jump, crumb].filter(Boolean)));
 
   const tools = el('div', { className: 'pad tools' }, searchBox(path, show, compact ? 'search…' : undefined));
   if (server?.allow_write) {
-    tools.append(el('button', {
-      className: 'ghost',
-      textContent: '＋',
-      title: 'New folder',
+    const mkdirBtn = el('button', { className: 'ghost', title: 'New folder' }, icon('folderPlus'));
+    Object.assign(mkdirBtn, {
       onclick: async () => {
         const name = await ask('New folder', '', 'Create');
         if (!name) return;
@@ -704,7 +795,28 @@ function fileBrowser({ path, setPath, other, roots, compact = false }) {
           refreshAllBrowsers();
         } catch (e) { toast(e.message, true); }
       },
-    }));
+    });
+    tools.append(mkdirBtn);
+
+    const picker = el('input', { type: 'file', multiple: true, hidden: true });
+    picker.onchange = () => { uploadTo(path, picker.files); picker.value = ''; };
+    tools.append(
+      el('button', { className: 'ghost', title: 'Upload files', onclick: () => picker.click() }, icon('upload')),
+      picker,
+    );
+
+    // Dropping onto the pane uploads into *that* pane's folder, which is the obvious
+    // meaning when two of them are side by side.
+    let depth = 0;   // dragenter/leave fire for every child; count instead of toggling
+    node.addEventListener('dragenter', (e) => { e.preventDefault(); if (++depth === 1) node.classList.add('dropping'); });
+    node.addEventListener('dragover', (e) => { e.preventDefault(); });
+    node.addEventListener('dragleave', () => { if (--depth <= 0) { depth = 0; node.classList.remove('dropping'); } });
+    node.addEventListener('drop', (e) => {
+      e.preventDefault();
+      depth = 0;
+      node.classList.remove('dropping');
+      if (e.dataTransfer?.files?.length) uploadTo(path, e.dataTransfer.files);
+    });
   }
   node.append(tools, list);
 
@@ -732,7 +844,7 @@ async function screenFiles(path) {
   const info = await serverInfo();
   const roots = info.roots;
   path = path || roots[0];
-  bar.title.textContent = path;
+  setTitle(path);
 
   if (!roots.includes(path)) {
     bar.back.hidden = false;
@@ -742,7 +854,7 @@ async function screenFiles(path) {
   // Two panes, each in its own folder: the point is copying and moving between them, so
   // each one offers the other as the default destination.
   bar.action.hidden = false;
-  bar.action.textContent = '⫿';
+  bar.action.replaceChildren(icon('split'));
   bar.action.title = prefs.split ? 'One pane' : 'Split into two panes';
   bar.action.className = `icon${prefs.split ? ' on' : ''}`;
   bar.action.onclick = () => { prefs.split = !prefs.split; savePrefs(); render(); };
@@ -776,7 +888,7 @@ async function screenFiles(path) {
 }
 
 async function screenPreview(path) {
-  bar.title.textContent = path.split('/').pop();
+  setTitle(path.split('/').pop());
   bar.back.hidden = false;
   bar.back.onclick = () => go(`#/files?path=${encodeURIComponent(parentOf(path))}`);
 
@@ -796,7 +908,7 @@ async function screenPreview(path) {
   }
 
   bar.action.hidden = false;
-  bar.action.textContent = '⤓';
+  bar.action.replaceChildren(icon('download'));
   bar.action.onclick = download;
 
   const type = r.headers.get('content-type') || '';
@@ -909,7 +1021,7 @@ const duration = (s) => {
 };
 
 async function screenSystem() {
-  bar.title.textContent = 'System';
+  setTitle('System');
   const body = el('div', { className: 'vitals' });
   view.append(body);
 
@@ -987,7 +1099,7 @@ async function screenSystem() {
 }
 
 async function screenSettings() {
-  bar.title.textContent = 'Settings';
+  setTitle('Settings');
   const wrap = el('div');
 
   const toggle = (label, hint, get, set) => {
@@ -1226,7 +1338,7 @@ const CTRL_KEYS = [
 
 async function screenTerm(name) {
   document.body.classList.add('term');
-  bar.title.textContent = name;
+  setTitle(name);
   bar.back.hidden = false;
   bar.back.onclick = () => go('#/sessions');
 
@@ -1254,7 +1366,7 @@ async function screenTerm(name) {
   for (const [label, seq] of CTRL_KEYS) {
     keys.append(el('button', { textContent: label, onclick: () => { handle.send(seq); handle.focus(); } }));
   }
-  keys.append(el('button', { textContent: '⌨', onclick: () => handle.focus() }));
+  keys.append(el('button', { title: 'Keyboard', onclick: () => handle.focus() }, icon('keyboard')));
 
   // The software keyboard shrinks the visual viewport without firing a window resize, so
   // without this the prompt ends up underneath it.
@@ -1291,9 +1403,9 @@ async function screenTerm(name) {
  *  any extra bookkeeping here.
  */
 const LAYOUTS = [
-  ['grid', '▦', 'Grid'],
-  ['cols', '▥', 'Columns'],
-  ['rows', '▤', 'Rows'],
+  ['grid', 'grid', 'Grid'],
+  ['cols', 'columns', 'Columns'],
+  ['rows', 'rows', 'Rows'],
 ];
 const WALL_GAP = 6;
 
@@ -1322,7 +1434,7 @@ function arrange(open, wall, mode) {
 
 async function screenWall() {
   document.body.classList.add('wall');
-  bar.title.textContent = 'Windows';
+  setTitle('Windows');
   bar.back.hidden = false;
   bar.back.onclick = () => go('#/sessions');
 
@@ -1353,9 +1465,8 @@ async function screenWall() {
     const b = el('button', {
       className: 'winbtn wide',
       title: `Arrange as ${label.toLowerCase()}`,
-      textContent: `${glyph} ${label}`,
       onclick: () => applyLayout(mode),
-    });
+    }, [icon(glyph), el('span', { textContent: label })]);
     // `dataset` is read-only, so it cannot go through the property bag above.
     b.dataset.mode = mode;
     tools.append(b);
@@ -1369,8 +1480,8 @@ async function screenWall() {
     const swatch = el('button', { className: 'winbtn swatchbtn', title: 'Change colour' });
     swatch.onclick = () => pickColor(s.name, () => win.style.setProperty('--wc', colorFor(s.name)));
 
-    const close = el('button', { className: 'winbtn', textContent: '✕', title: 'Close' });
-    const solo = el('button', { className: 'winbtn', textContent: '▢', title: 'Full screen' });
+    const close = el('button', { className: 'winbtn', title: 'Close' }, icon('close'));
+    const solo = el('button', { className: 'winbtn', title: 'Full screen' }, icon('maximise'));
     const head = el('div', { className: 'winbar' }, [
       swatch, el('span', { className: 'wintitle', textContent: s.name }), solo, close,
     ]);
@@ -1599,5 +1710,6 @@ function updateBar(onAccept) {
 }
 
 applyTheme();
+for (const node of document.querySelectorAll('[data-icon]')) node.replaceChildren(icon(node.dataset.icon));
 render();
 applySidebar();

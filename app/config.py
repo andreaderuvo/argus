@@ -62,6 +62,9 @@ class Config:
     # Add every real filesystem on the machine to `roots`. A workstation's data is rarely
     # all under $HOME — here it is spread across /mnt/disk2, /mnt/backup and so on.
     include_mounts: bool = False
+    # Cap on a single uploaded file. 0 means no cap; the default keeps a stray drag of
+    # something enormous from filling a disk that is already at 94%.
+    max_upload_bytes: int = 2 * 1024 * 1024 * 1024
     tls_cert: Path | None = None
     tls_key: Path | None = None
 
@@ -108,6 +111,7 @@ class Config:
             tmux_socket=raw.get("tmux_socket") or None,
             allow_write=bool(raw.get("allow_write", False)),
             include_mounts=bool(raw.get("include_mounts", False)),
+            max_upload_bytes=int(raw.get("max_upload_bytes", 2 * 1024 * 1024 * 1024)),
             tls_cert=Path(cert) if cert else None,
             tls_key=Path(key) if key else None,
         )
@@ -122,6 +126,7 @@ class Config:
             "tmux_socket": self.tmux_socket,
             "allow_write": self.allow_write,
             "include_mounts": self.include_mounts,
+            "max_upload_bytes": self.max_upload_bytes,
             "tls_cert": str(self.tls_cert) if self.tls_cert else None,
             "tls_key": str(self.tls_key) if self.tls_key else None,
         }

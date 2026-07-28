@@ -7,11 +7,15 @@ source *and* destination — goes through the jail, and nothing ever overwrites 
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import shutil
 from pathlib import Path
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, File, Form, Request, UploadFile
 from pydantic import BaseModel
+
+UPLOAD_CHUNK = 1 << 20
 
 from .errors import ApiError
 from .safepath import Denied, NotFound, PathError
@@ -141,6 +145,51 @@ async def copy(request: Request, body: DestBody) -> dict:
     except OSError as e:
         raise ApiError(500, f"could not copy: {e.strerror}") from e
     return _done(target)
+
+
+@router.post("/api/fs/upload")
+async def upload(
+    request: Request,
+    path: str = Form(...),
+    files: list[UploadFile] = File(...),
+) -> dict:
+    """Receive files into a directory.
+
+    Each one is streamed to a dotted part-file and renamed into place only once it is
+    complete, so an interrupted upload never leaves a truncated file wearing the real
+    name — which for a 40 GB fastq is the difference between "retry" and "silent
+    corruption three steps down the pipeline".
+    """
+    _writable(request)
+    dest = _directory(_resolve(request, path))
+    limit = request.app.state.cfg.max_upload_bytes
+    written = []
+
+    for item in files:
+        name = safe_name(Path(item.filename or "").name)
+        target = _free(dest / name)
+        part = dest / f".{name}.argus-part"
+        size = 0
+        try:
+            with part.open("wb") as fh:
+                while chunk := await item.read(UPLOAD_CHUNK):
+                    size += len(chunk)
+                    if limit and size > limit:
+                        raise ApiError(413, f"{name} is larger than max_upload_bytes ({limit})")
+                    # Writing is blocking; keep it off the event loop.
+                    await asyncio.to_thread(fh.write, chunk)
+            part.rename(target)
+        except ApiError:
+            with contextlib.suppress(OSError):
+                part.unlink()
+            raise
+        except OSError as e:
+            with contextlib.suppress(OSError):
+                part.unlink()
+            raise ApiError(500, f"could not write {name}: {e.strerror}") from e
+        written.append({"path": str(target), "size": size})
+
+    return {"ok": True, "files": written}
 
 
 @router.post("/api/fs/delete")

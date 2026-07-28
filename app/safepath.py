@@ -40,7 +40,10 @@ class Jail:
                 print(f"warning: skipping root {r} ({e.strerror})", file=sys.stderr)
         if not canon:
             raise ValueError("no usable roots — check the `roots:` list in your config")
-        self.roots = sorted(set(canon))
+        # Keep the order they were given in, deduplicated. The first root is where the UI
+        # opens, so sorting them would silently promote `/` above the home directory the
+        # user actually configured.
+        self.roots = list(dict.fromkeys(canon))
 
     def resolve(self, requested: str) -> Path:
         """Turns a client-supplied path into a canonical path guaranteed to sit inside
