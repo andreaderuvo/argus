@@ -172,7 +172,13 @@ async def read_file(request: Request, path: str) -> Response:
     # reliable signal that it does not.
     if is_binary(data):
         raise ApiError(415, "binary file — download it instead")
-    return Response(content=data, media_type="text/plain; charset=utf-8")
+    return Response(
+        content=data,
+        media_type="text/plain; charset=utf-8",
+        # The editor sends this back when saving, and the write is refused if the file
+        # moved on in between.
+        headers={"x-mtime": str(int(target.stat().st_mtime)), "x-editable": "yes"},
+    )
 
 
 def is_binary(data: bytes) -> bool:

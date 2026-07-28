@@ -19,8 +19,11 @@ def tree(tmp_path):
     return tmp_path
 
 
-def make_client(tree, allow_write=True):
-    cfg = Config(token=TOKEN, roots=[tree / "root"], allow_write=allow_write)
+def make_client(tree, allow_write=True, max_preview_bytes=2 * 1024 * 1024):
+    cfg = Config(
+        token=TOKEN, roots=[tree / "root"],
+        allow_write=allow_write, max_preview_bytes=max_preview_bytes,
+    )
     return TestClient(create_app(cfg))
 
 
@@ -200,3 +203,75 @@ def test_a_file_over_the_cap_is_refused_and_leaves_nothing_behind(tree):
     assert r.status_code == 413
     assert not (tree / "root" / "big.bin").exists()
     assert not list((tree / "root").glob(".*argus-part")), "the part file is cleaned up"
+
+
+def write(client, path, content, mtime=None, token=TOKEN):
+    body = {"path": str(path), "content": content}
+    if mtime is not None:
+        body["mtime"] = mtime
+    return client.post("/api/fs/write", json=body, headers={"Authorization": f"Bearer {token}"})
+
+
+def test_saving_replaces_the_contents(client, tree):
+    target = tree / "root" / "hello.txt"
+    r = write(client, target, "nuovo contenuto\n")
+    assert r.status_code == 200
+    assert target.read_text() == "nuovo contenuto\n"
+
+
+def test_saving_keeps_the_files_permissions(client, tree):
+    import stat as st
+
+    target = tree / "root" / "hello.txt"
+    target.chmod(0o640)
+    write(client, target, "x")
+    assert st.S_IMODE(target.stat().st_mode) == 0o640, "a rename must not reset the mode"
+
+
+def test_a_file_that_moved_on_is_refused(client, tree):
+    """A job writing the same file is the normal case, not a rare one."""
+    target = tree / "root" / "hello.txt"
+    stale = int(target.stat().st_mtime) - 10
+    r = write(client, target, "sovrascrivo", mtime=stale)
+    assert r.status_code == 409
+    assert target.read_text() == "ciao\n", "the running job's work is untouched"
+
+
+def test_the_matching_mtime_goes_through(client, tree):
+    target = tree / "root" / "hello.txt"
+    r = write(client, target, "va bene", mtime=int(target.stat().st_mtime))
+    assert r.status_code == 200
+    assert target.read_text() == "va bene"
+
+
+def test_a_file_too_big_to_preview_whole_cannot_be_saved(tree):
+    """The preview was only its tail; saving it back would throw the head away."""
+    small = make_client(tree, max_preview_bytes=1024)
+    target = tree / "root" / "huge.log"
+    target.write_text("x" * 5000)
+    r = write(small, target, "tiny")
+    assert r.status_code == 413
+    assert target.stat().st_size == 5000
+
+
+def test_writing_outside_the_roots_is_refused(client, tree):
+    outside = tree / "outside" / "secret.txt"
+    outside.write_text("nope\n")
+    r = write(client, outside, "mio")
+    assert r.status_code == 403
+    assert outside.read_text() == "nope\n"
+
+
+def test_writing_is_refused_on_a_read_only_server(tree):
+    ro = make_client(tree, allow_write=False)
+    assert write(ro, tree / "root" / "hello.txt", "x").status_code == 403
+    assert (tree / "root" / "hello.txt").read_text() == "ciao\n"
+
+
+def test_a_directory_is_not_a_text_file(client, tree):
+    assert write(client, tree / "root" / "dir", "x").status_code == 400
+
+
+def test_no_part_file_is_left_behind(client, tree):
+    write(client, tree / "root" / "hello.txt", "pulito")
+    assert not list((tree / "root").glob(".*argus-part"))
