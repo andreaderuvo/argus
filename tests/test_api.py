@@ -131,3 +131,43 @@ def test_a_websocket_without_a_token_never_upgrades(client):
     with pytest.raises(WebSocketDisconnect):
         with client.websocket_connect("/ws/tmux/whatever"):
             pass
+
+
+def test_html_is_served_rendered_but_sandboxed(client, tree):
+    (tree / "root" / "report.html").write_text("<h1>MultiQC</h1><script>1</script>")
+    r = get(client, f"/api/file?path={tree / 'root' / 'report.html'}")
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/html")
+    # An opaque origin: the page cannot reach the token in localStorage even if the URL
+    # is opened directly rather than inside the app's iframe.
+    assert "sandbox" in r.headers["content-security-policy"]
+    assert "allow-same-origin" not in r.headers["content-security-policy"]
+    assert r.headers["x-content-type-options"] == "nosniff"
+
+
+def test_a_big_html_file_falls_back_to_its_source(client, tree):
+    (tree / "root" / "big.html").write_text("<p>x</p>\n" * 400)
+    r = get(client, f"/api/file?path={tree / 'root' / 'big.html'}")
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/plain"), "half a document renders as garbage"
+    assert r.headers["x-truncated"] == "tail"
+
+
+def test_stat_reports_mtime_and_size(client, tree):
+    target = tree / "root" / "hello.txt"
+    body = get(client, f"/api/stat?path={target}").json()
+    assert body["size"] == target.stat().st_size
+    assert body["mtime"] == int(target.stat().st_mtime)
+
+
+def test_stat_moves_when_the_file_does(client, tree):
+    target = tree / "root" / "hello.txt"
+    before = get(client, f"/api/stat?path={target}").json()
+    target.write_text("ciao ciao\n")
+    after = get(client, f"/api/stat?path={target}").json()
+    assert after["size"] != before["size"], "a watching window needs to see this change"
+
+
+def test_stat_is_jailed_like_everything_else(client, tree):
+    assert get(client, f"/api/stat?path={tree / 'outside'}").status_code == 403
+    assert get(client, f"/api/stat?path={tree / 'root' / 'gone'}").status_code == 404

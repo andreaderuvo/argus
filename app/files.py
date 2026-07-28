@@ -29,6 +29,15 @@ BINARY_SNIFF_BYTES = 8192
 # with their real content type instead of being refused as "not text".
 INLINE_TYPES = ("application/pdf",)
 
+# An HTML file is served as HTML so it can be previewed rendered — but a page from this
+# origin could read the access token out of localStorage, and plenty of HTML on a
+# bioinformatics box came from somewhere else. The CSP sandbox directive drops it into an
+# opaque origin, which cuts that off even if someone opens the URL directly instead of
+# through the app's iframe. Scripts stay on: a MultiQC or FastQC report is inert without
+# them, and in an opaque origin they can no longer reach anything of ours.
+HTML_SANDBOX = "sandbox allow-scripts allow-popups allow-forms"
+
+
 # Zipped XML documents we can turn into readable text with the standard library alone.
 # The formatting is gone; for a preview on a phone that is the right trade.
 ZIPPED_DOCS = {
@@ -138,6 +147,7 @@ async def read_file(request: Request, path: str) -> Response:
         # the wrong answer: send the tail, which is the part anyone actually wants.
         if guessed.startswith("image/") or guessed in INLINE_TYPES or is_binary(head_of(target)):
             raise ApiError(413, f"file exceeds max_preview_bytes ({limit}) — download it instead")
+        # A half-delivered document would render as garbage; show its source instead.
         return Response(
             content=tail_of(target, limit),
             media_type="text/plain; charset=utf-8",
@@ -145,6 +155,13 @@ async def read_file(request: Request, path: str) -> Response:
         )
 
     data = target.read_bytes()
+
+    if guessed == "text/html":
+        return Response(
+            content=data,
+            media_type="text/html; charset=utf-8",
+            headers={"content-security-policy": HTML_SANDBOX, "x-content-type-options": "nosniff"},
+        )
 
     # Images and PDFs go out with their real type, so the preview screen can hand them
     # straight to the browser's own viewer.

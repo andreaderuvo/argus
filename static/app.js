@@ -21,6 +21,7 @@ const bar = {
   back: document.getElementById('back'),
   title: document.getElementById('title'),
   action: document.getElementById('action'),
+  alt: document.getElementById('alt'),
 };
 
 const DEFAULTS = {
@@ -29,6 +30,7 @@ const DEFAULTS = {
   tree: false,       // expand folders in place instead of navigating into them
   theme: 'dark',     // 'dark' | 'light' | 'auto'
   wallLayout: 'grid', // 'grid' | 'cols' | 'rows' | 'float'
+  desktop: [],       // what the window wall holds: terminals and files
   home: '',          // where the home button lands; empty means the first root
   split: false,      // two file panes side by side
   path2: '',         // where the second pane is
@@ -372,6 +374,8 @@ const ICONS = {
   sidebar: 'M4 4.5h16v15H4zM9.5 4.5v15',
   refresh: 'M19.5 12a7.5 7.5 0 1 1-2.4-5.5M19.5 4.5V10h-5.5',
   file: 'M6 3.5h7l5 5V20.5H6zM13 3.5V9h5',
+  code: 'M9 7.2 4.4 12 9 16.8M15 7.2 19.6 12 15 16.8',
+  eye: 'M2.8 12S6.6 5.8 12 5.8 21.2 12 21.2 12 17.4 18.2 12 18.2 2.8 12 2.8 12zM12 9.4a2.6 2.6 0 1 1 0 5.2 2.6 2.6 0 0 1 0-5.2z',
   star: 'M12 3.8l2.6 5.3 5.8.85-4.2 4.1 1 5.75L12 17.1l-5.2 2.7 1-5.75-4.2-4.1 5.8-.85z',
 };
 
@@ -527,8 +531,19 @@ function fileActions(entry, refresh, dest) {
   if (dir) {
     body.append(el('button', {
       className: 'ghost block',
+      onclick: () => { sheet.close(); openWindow({ kind: 'browser', path: entry.path }); },
+    }, [icon('split'), el('span', { textContent: 'Open in a window' })]));
+    body.append(el('button', {
+      className: 'ghost block',
       onclick: () => { sheet.close(); setHome(entry.path); },
     }, [icon('home'), el('span', { textContent: 'Set as home folder' })]));
+  }
+
+  if (!dir) {
+    body.append(el('button', {
+      className: 'ghost block',
+      onclick: () => { sheet.close(); openWindow({ kind: 'file', path: entry.path }); },
+    }, [icon('split'), el('span', { textContent: 'Open in a window' })]));
   }
 
   // No refresh for these two: they change nothing on disk.
@@ -749,6 +764,8 @@ async function render() {
   bar.action.hidden = true;
   bar.action.onclick = null;
   bar.action.className = 'icon';
+  bar.alt.hidden = true;
+  bar.alt.onclick = null;
   bar.title.onclick = null;
   view.style.overflow = '';
   view.innerHTML = '';
@@ -1010,7 +1027,9 @@ function fileBrowser({ path, setPath, other, roots, compact = false }) {
 }
 
 // Every live browser, so one operation refreshes all the views that might show it.
+// Windows register here too, which is why the Files screen only ever removes its own.
 const browsers = new Set();
+let screenBrowsers = [];
 function refreshAllBrowsers() {
   for (const b of browsers) b.reload();
   renderSidebar();
@@ -1039,7 +1058,8 @@ async function screenFiles(path) {
   view.style.overflow = 'hidden';
   view.append(panes);
 
-  browsers.clear();
+  for (const b of screenBrowsers) browsers.delete(b);
+  screenBrowsers = [];
   const secondPath = prefs.path2 || (sidePath !== path ? sidePath : '') || roots[0];
 
   const a = fileBrowser({
@@ -1049,6 +1069,7 @@ async function screenFiles(path) {
     other: () => (prefs.split ? secondPath : null),
   });
   browsers.add(a);
+  screenBrowsers.push(a);
   panes.append(a.node);
 
   if (prefs.split) {
@@ -1059,49 +1080,73 @@ async function screenFiles(path) {
       other: () => path,
     });
     browsers.add(b);
+    screenBrowsers.push(b);
     panes.append(b.node);
   }
 }
 
-async function screenPreview(path) {
-  setTitle(path.split('/').pop());
-  bar.back.hidden = false;
-  bar.back.onclick = () => go(`#/files?path=${encodeURIComponent(parentOf(path))}`);
-
+/** Render a file into any container.
+ *
+ *  The full screen and a window on the wall show the same thing, so the rendering lives
+ *  here and the chrome around it — where the download button goes, where the
+ *  source/rendered switch goes — is supplied by the caller.
+ */
+async function mountPreview(host, path, ctl) {
+  host.textContent = '';
+  const src = withToken(`/api/file?path=${encodeURIComponent(path)}`);
   const download = () => { location.href = withToken(`/api/download?path=${encodeURIComponent(path)}`); };
+  ctl.download?.(download);
 
-  const r = await fetch(withToken(`/api/file?path=${encodeURIComponent(path)}`));
+  let r;
+  try {
+    r = await fetch(src);
+  } catch {
+    host.append(el('p', { className: 'error', textContent: 'could not reach the server' }));
+    return;
+  }
   if (r.status === 401) return signOut();
 
   if (!r.ok) {
     let msg = `HTTP ${r.status}`;
     try { msg = (await r.json()).error || msg; } catch { /* not JSON */ }
-    view.append(el('div', { className: 'pad' }, [
+    host.append(el('div', { className: 'pad' }, [
       el('p', { className: 'error', textContent: msg }),
       el('button', { className: 'ghost', textContent: 'Download', onclick: download }),
     ]));
     return;
   }
 
-  bar.action.hidden = false;
-  bar.action.replaceChildren(icon('download'));
-  bar.action.onclick = download;
-
   const type = r.headers.get('content-type') || '';
-  const src = withToken(`/api/file?path=${encodeURIComponent(path)}`);
 
   if (type.startsWith('image/')) {
-    view.append(el('img', { className: 'preview', src }));
+    ctl.fill?.(false);
+    host.append(el('img', { className: 'preview', src }));
     return;
+  }
+
+  if (type.startsWith('text/html')) {
+    const source = await r.text();
+    ctl.fill?.(true);
+    return ctl.source((rendered) => {
+      host.textContent = '';
+      if (rendered) {
+        // The server already answers with a CSP sandbox; the attribute repeats it here so
+        // the rule is visible where the frame is created, not only in a header.
+        host.append(el('iframe', { className: 'preview', src, sandbox: 'allow-scripts allow-popups allow-forms' }));
+      } else {
+        host.append(el('pre', { className: `file ${prefs.wrap ? 'wrap' : 'nowrap'}`, textContent: source }));
+      }
+    });
   }
 
   // The browser has a better PDF viewer than anything we would write.
   if (type.startsWith('application/pdf')) {
-    view.style.overflow = 'hidden';
-    view.append(el('iframe', { className: 'preview', src }));
+    ctl.fill?.(true);
+    host.append(el('iframe', { className: 'preview', src }));
     return;
   }
 
+  ctl.fill?.(false);
   const text = await r.text();
 
   // Big logs arrive as their last chunk rather than not at all; say so, and start at the
@@ -1109,7 +1154,7 @@ async function screenPreview(path) {
   const truncated = r.headers.get('x-truncated');
   if (truncated) {
     const total = Number(r.headers.get('x-total-size') || 0);
-    view.append(el('div', {
+    host.append(el('div', {
       className: 'notice',
       textContent: `showing the last ${human(text.length)} of ${human(total)} — download for the whole file`,
     }));
@@ -1117,24 +1162,60 @@ async function screenPreview(path) {
 
   if (/\.(md|markdown|mdown)$/i.test(path)) {
     const body = el('div', { className: 'md' });
-    view.append(body);
-    let rendered = true;
-    const paint = () => {
+    host.append(body);
+    return ctl.source((rendered) => {
       body.className = rendered ? 'md' : '';
       if (rendered) return renderMarkdown(text, body);
       body.textContent = '';
       body.append(el('pre', { className: `file ${prefs.wrap ? 'wrap' : 'nowrap'}`, textContent: text }));
-    };
-    // Tapping the title flips between the rendered page and the source.
-    bar.title.onclick = () => { rendered = !rendered; paint(); };
-    return paint();
+    });
   }
 
   const pre = el('pre', { className: `file ${prefs.wrap ? 'wrap' : 'nowrap'}`, textContent: text });
-  view.append(pre);
-  // Wrapping is right for prose and wrong for logs; tapping the title flips it.
-  bar.title.onclick = () => { pre.classList.toggle('wrap'); pre.classList.toggle('nowrap'); };
-  if (truncated) view.scrollTop = view.scrollHeight;
+  host.append(pre);
+  ctl.wrapToggle?.(() => { pre.classList.toggle('wrap'); pre.classList.toggle('nowrap'); });
+  if (truncated) ctl.toBottom?.();
+}
+
+async function screenPreview(path) {
+  setTitle(path.split('/').pop());
+  bar.back.hidden = false;
+  bar.back.onclick = () => go(`#/files?path=${encodeURIComponent(parentOf(path))}`);
+
+  // Same file, in a window on the wall, next to whatever is running.
+  bar.alt.hidden = false;
+  bar.alt.title = 'Open in a window';
+  bar.alt.replaceChildren(icon('split'));
+  bar.alt.onclick = () => openWindow({ kind: 'file', path });
+
+  await mountPreview(view, path, {
+    download: (fn) => {
+      bar.action.hidden = false;
+      bar.action.replaceChildren(icon('download'));
+      bar.action.onclick = fn;
+    },
+    fill: (on) => { view.style.overflow = on ? 'hidden' : ''; },
+    source: headerSourceToggle,
+    wrapToggle: (fn) => { bar.title.onclick = fn; },
+    toBottom: () => { view.scrollTop = view.scrollHeight; },
+  });
+}
+
+/** A visible switch between a rendered document and its source. Tapping the title does
+ *  the same, but nobody discovers that on their own. */
+function headerSourceToggle(paint) {
+  let rendered = true;
+  const apply = () => {
+    bar.alt.hidden = false;
+    bar.alt.title = rendered ? 'View the source' : 'View it rendered';
+    bar.alt.replaceChildren(icon(rendered ? 'code' : 'eye'));
+    bar.alt.className = `icon${rendered ? '' : ' on'}`;
+    paint(rendered);
+  };
+  const flip = () => { rendered = !rendered; apply(); };
+  bar.alt.onclick = flip;
+  bar.title.onclick = flip;
+  return apply();
 }
 
 /** Markdown, loaded only when a .md is actually opened.
@@ -1635,23 +1716,34 @@ function decorateWall() {
   bar.back.hidden = false;
   bar.back.onclick = () => go('#/sessions');
   bar.action.hidden = false;
-  bar.action.title = 'Detach and close every window';
+  bar.action.title = 'Close every window';
   bar.action.replaceChildren(icon('close'));
-  bar.action.onclick = () => { killLive(); go('#/sessions'); };
+  bar.action.onclick = () => {
+    killLive();
+    prefs.desktop = [];
+    savePrefs();
+    go('#/sessions');
+  };
 }
 
 async function screenWall() {
   document.body.classList.add('wall');
   decorateWall();
 
-  const sessions = await getJSON('/api/tmux/sessions');
   const wall = el('div', { id: 'wall' });
   const tools = el('div', { id: 'walltools' });
   view.style.overflow = 'hidden';
   view.append(tools, wall);
 
-  if (!sessions.length) {
-    wall.append(el('p', { className: 'empty', textContent: 'No tmux sessions on this server.' }));
+  // An empty desktop starts as one window per session; after that it is whatever you
+  // left open, files included.
+  if (!prefs.desktop.length) {
+    const sessions = await getJSON('/api/tmux/sessions');
+    prefs.desktop = sessions.map((s) => ({ kind: 'term', name: s.name }));
+    savePrefs();
+  }
+  if (!prefs.desktop.length) {
+    wall.append(el('p', { className: 'empty', textContent: 'Nothing open. Start from Sessions or Files.' }));
     return;
   }
 
@@ -1667,6 +1759,12 @@ async function screenWall() {
     }
   };
 
+  tools.append(el('button', {
+    className: 'winbtn wide',
+    title: 'Open a file browser in a window',
+    onclick: () => openWindow({ kind: 'browser', path: homePath(server?.roots || ['/']) }),
+  }, [icon('folderPlus'), el('span', { textContent: 'Browser' })]));
+
   for (const [mode, glyph, label] of LAYOUTS) {
     const b = el('button', {
       className: 'winbtn wide',
@@ -1678,24 +1776,34 @@ async function screenWall() {
     tools.append(b);
   }
 
-  sessions.forEach((s) => {
-    const body = el('div', { className: 'winbody' });
+  /** One window, holding either a live terminal or a file. Everything below the title
+   *  bar differs; everything in it — colour, drag, resize, maximise — does not. */
+  function addWindow(spec) {
+    const id = specId(spec);
+    const isFile = spec.kind === 'file';
+    const isBrowser = spec.kind === 'browser';
+    const label = spec.kind === 'term' ? spec.name : (spec.path.split('/').pop() || spec.path);
+
+    const body = el('div', { className: `winbody${isFile || isBrowser ? ' filebody' : ''}${isBrowser ? ' browserbody' : ''}` });
     const win = el('div', { className: 'win' });
-    win.style.setProperty('--wc', colorFor(s.name));
+    win.style.setProperty('--wc', colorFor(id));
 
     const swatch = el('button', { className: 'winbtn swatchbtn', title: 'Change colour' });
-    swatch.onclick = () => pickColor(s.name, () => win.style.setProperty('--wc', colorFor(s.name)));
+    swatch.onclick = () => pickColor(id, () => win.style.setProperty('--wc', colorFor(id)));
 
+    const extras = el('span', { className: 'winextras' });
     const close = el('button', { className: 'winbtn', title: 'Close' }, icon('close'));
     const solo = el('button', { className: 'winbtn', title: 'Full screen' }, icon('maximise'));
-    const head = el('div', { className: 'winbar' }, [
-      swatch, el('span', { className: 'wintitle', textContent: s.name }), solo, close,
-    ]);
+    const title = el('span', { className: 'wintitle', title: spec.kind === 'term' ? label : spec.path, textContent: label });
+    const setLabel = (text, full) => { title.textContent = text; title.title = full; };
+    const head = el('div', { className: 'winbar' }, [swatch, title, extras, solo, close]);
     win.append(head, body);
     wall.append(win);
 
-    const handle = attachTerminal(body, s.name);
-    const entry = { win, handle, name: s.name };
+    const handle = isBrowser ? attachBrowser(body, spec, setLabel)
+      : isFile ? attachViewer(body, spec.path, extras)
+        : attachTerminal(body, spec.name);
+    const entry = { win, handle, name: id };
     open.push(entry);
 
     win.addEventListener('pointerdown', () => { win.style.zIndex = ++top; }, true);
@@ -1704,7 +1812,9 @@ async function screenWall() {
       handle.dispose();
       win.remove();
       open.splice(open.indexOf(entry), 1);
-      applyLayout();
+      prefs.desktop = prefs.desktop.filter((x) => specId(x) !== id);
+      savePrefs();
+      applyLayout(prefs.wallLayout || 'grid');
     };
 
     // Fill the wall, and put it back where it was on a second click.
@@ -1718,19 +1828,22 @@ async function screenWall() {
         Object.assign(win.style, { left: '0px', top: '0px', width: '100%', height: '100%' });
       }
       win.style.zIndex = ++top;
-      saveGeom(s.name, win);
+      saveGeom(id, win);
       handle.relayout();
     };
 
-    const settled = () => { handle.relayout(); saveGeom(s.name, win); };
+    const settled = () => { handle.relayout(); saveGeom(id, win); };
     // Double-clicking the title bar maximises and restores, the way every desktop does.
     head.addEventListener('dblclick', (e) => {
-      if (e.target === head || e.target.classList.contains('wintitle')) solo.onclick();
+      if (e.target === head || e.target === title) solo.onclick();
     });
 
     dragBy(head, win, wall, settled, [swatch, solo, close]);
     resizable(win, wall, settled);
-  });
+    return entry;
+  }
+
+  for (const spec of prefs.desktop) addWindow(spec);
 
   // Windows carry pixel geometry, so they do not follow the wall on their own: toggling
   // the sidebar or resizing the browser would leave them stranded in the old area.
@@ -1781,6 +1894,16 @@ async function screenWall() {
     mounts: [[tools, () => view], [wall, () => view]],
     decorate: decorateWall,
     resume: () => open.forEach((o) => o.handle.relayout()),
+    addWindow: (spec) => {
+      const id = specId(spec);
+      if (open.some((o) => o.name === id)) return;
+      const entry = addWindow(spec);
+      Object.assign(entry.win.style, prefs.winGeom?.[id] || {
+        left: '28px', top: '24px', width: 'min(620px, 78%)', height: 'min(380px, 62%)',
+      });
+      entry.win.style.zIndex = ++top;
+      requestAnimationFrame(() => entry.handle.relayout());
+    },
     dispose: () => {
       wallRO.disconnect();
       for (const o of open) o.handle.dispose();
@@ -1822,6 +1945,109 @@ function dragBy(grabber, win, bounds, onDone, ignore = []) {
     grabber.addEventListener('pointermove', move);
     grabber.addEventListener('pointerup', up);
   });
+}
+
+/** A window is identified by what it shows, so geometry and colour survive a reload. */
+const specId = (spec) => (spec.kind === 'term' ? `term:${spec.name}` : `${spec.kind}:${spec.path}`);
+
+function openWindow(spec) {
+  const id = specId(spec);
+  if (!prefs.desktop.some((x) => specId(x) === id)) {
+    prefs.desktop = [...prefs.desktop, spec];
+    savePrefs();
+  }
+  if (live?.key === 'wall') live.addWindow?.(spec);
+  go('#/wall');
+}
+
+/** A file browser inside a window. It keeps its own folder, so two of them side by side
+ *  is how you look at two filesystems at once — no hidden mode, just two windows. */
+function attachBrowser(host, spec, setLabel) {
+  let entry = null;
+  const draw = () => {
+    if (entry) browsers.delete(entry);
+    host.textContent = '';
+    entry = fileBrowser({
+      path: spec.path,
+      roots: server?.roots || [spec.path],
+      compact: true,
+      other: () => null,
+      setPath: (p) => {
+        spec.path = p;
+        prefs.desktop = [...prefs.desktop];   // the spec object is shared; persist the move
+        savePrefs();
+        setLabel(p.split('/').pop() || p, p);
+        draw();
+      },
+    });
+    browsers.add(entry);
+    host.append(entry.node);
+  };
+  draw();
+  return {
+    relayout: () => {},
+    dispose: () => { if (entry) browsers.delete(entry); },
+  };
+}
+
+/** A file inside a window: the same preview as the full screen, plus a watch that
+ *  reloads it when it changes on disk — which is the whole point of putting a report
+ *  next to the job that writes it. */
+function attachViewer(host, path, extras) {
+  const srcBtn = el('button', { className: 'winbtn', hidden: true, title: 'View the source' }, icon('code'));
+  const watchBtn = el('button', { className: 'winbtn on', title: 'Reload when the file changes' }, icon('refresh'));
+  const dl = el('button', { className: 'winbtn', title: 'Download' }, icon('download'));
+  extras.append(srcBtn, watchBtn, dl);
+
+  let rendered = true;
+  const ctl = {
+    download: (fn) => { dl.onclick = fn; },
+    fill: (on) => host.classList.toggle('fill', on),
+    toBottom: () => { host.scrollTop = host.scrollHeight; },
+    source: (paint) => {
+      srcBtn.hidden = false;
+      srcBtn.onclick = () => {
+        rendered = !rendered;
+        srcBtn.replaceChildren(icon(rendered ? 'code' : 'eye'));
+        srcBtn.title = rendered ? 'View the source' : 'View it rendered';
+        paint(rendered);
+      };
+      paint(rendered);
+    },
+  };
+
+  const load = async () => {
+    srcBtn.hidden = true;
+    await mountPreview(host, path, ctl);
+  };
+  load();
+
+  let watching = true;
+  let stamp = null;
+  const poll = async () => {
+    if (!watching || document.hidden) return;
+    try {
+      const s = await getJSON(`/api/stat?path=${encodeURIComponent(path)}`);
+      const now = `${s.mtime}:${s.size}`;
+      if (stamp && stamp !== now) {
+        const keep = host.scrollTop;
+        await load();
+        host.scrollTop = keep;   // a log that grew should not jump back to the top
+      }
+      stamp = now;
+    } catch { /* vanished or unreachable: leave what is on screen */ }
+  };
+  const timer = setInterval(poll, 3000);
+  poll();
+
+  watchBtn.onclick = () => {
+    watching = !watching;
+    watchBtn.classList.toggle('on', watching);
+    watchBtn.title = watching ? 'Reload when the file changes' : 'Not watching — tap to follow changes';
+    if (watching) poll();
+  };
+
+  return { relayout: () => {}, dispose: () => clearInterval(timer) };
 }
 
 const MIN_W = 240;
