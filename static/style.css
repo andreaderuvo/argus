@@ -245,15 +245,64 @@ button.icon:active { background: var(--line); }
   font: inherit;
 }
 
-/* One size and one stroke for every icon in the interface. */
+/* One size and one stroke for every icon in the interface. An icon is a block, so the
+   button holding it has to centre it — otherwise it sits on the text baseline and looks
+   nudged up and to the left. */
 .ico { width: 20px; height: 20px; flex: none; display: block; }
-button.icon .ico { width: 22px; height: 22px; margin: 0 auto; }
+
+button.icon,
+.sidehead button,
+.tools button.ghost,
+button.winbtn,
+button.more,
+#keys button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+button.icon .ico { width: 22px; height: 22px; }
 #nav .ico { width: 21px; height: 21px; }
 .sidehead .ico, .tools .ico { width: 18px; height: 18px; }
 .winbtn .ico { width: 15px; height: 15px; }
-.more .ico { width: 18px; height: 18px; margin: 0 auto; }
+.more .ico { width: 18px; height: 18px; }
 .ghost.block .ico { color: var(--dim); }
 .ghost.block:hover .ico { color: var(--accent); }
+
+/* ---------- favourites ---------- */
+
+.favs { border-bottom: 2px solid var(--line); background: color-mix(in srgb, var(--accent) 5%, transparent); }
+
+.favhead {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .45rem .8rem .2rem;
+  color: var(--dim);
+  font-size: .68rem;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+.favhead .ico { width: 13px; height: 13px; color: var(--accent); }
+.row.fav { min-height: 40px; border-bottom: 0; }
+.row.fav .meta { font-size: .68rem; direction: rtl; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row.fav .meta bdi { unicode-bidi: isolate; }
+.row.fav.missing .name { color: var(--dim); text-decoration: line-through; }
+.favs .more .ico { width: 13px; height: 13px; }
+.sidehead button.on { color: var(--accent); border-color: var(--accent); }
+
+/* something is attached in the background */
+.row.resume { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.row.running .name { color: var(--accent); }
+.livedot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+}
 
 .row:active { background: var(--panel); }
 .row .glyph { width: 1.2rem; text-align: center; color: var(--dim); flex: none; }
@@ -858,3 +907,14 @@ button.swatchbtn:hover { background: var(--wc, var(--dim)); filter: brightness(1
 
 .uploading .tilenote { margin: 0 0 .4rem; color: var(--text); }
 .uploading .fill { background: var(--accent); transition: width .2s linear; }
+.uploading .dest {
+  margin-top: .4rem;
+  font-size: .72rem;
+  color: var(--dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  direction: rtl;
+  text-align: left;
+}
+.uploading .dest bdi { unicode-bidi: isolate; }

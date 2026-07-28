@@ -13,6 +13,7 @@ for (const [now, before] of [[KEY, 'tmuxc.token'], [PREFS_KEY, 'tmuxc.prefs'], [
 }
 
 const view = document.getElementById('view');
+const keep = document.getElementById('keep');
 const side = document.getElementById('side');
 const nav = document.getElementById('nav');
 const sideToggle = document.getElementById('sidetoggle');
@@ -48,7 +49,37 @@ let token = localStorage.getItem(KEY) || '';
 let prefs = { ...DEFAULTS, ...readJSON(PREFS_KEY) };
 let sidePath = localStorage.getItem(SIDE_PATH_KEY) || '';
 let server = null;    // /api/config, fetched once
+let favs = [];        // pinned paths, kept on the server so both devices see them
+let favsLoaded = false;
 let leaving = null;   // teardown for the screen being replaced
+
+/** The terminal screens outlive navigation.
+ *
+ *  Tearing a terminal down when you glance at another tab means detaching from tmux and
+ *  attaching again on the way back: the scrollback is redrawn from scratch and anything
+ *  that scrolled past in between is gone. Instead the nodes are moved into a hidden
+ *  holder, sockets and all, and moved back when you return.
+ */
+let live = null;   // { key, mounts: [[node, () => parent]], dispose, resume, parked }
+
+function parkLive() {
+  if (!live || live.parked) return;
+  for (const [node] of live.mounts) keep.append(node);
+  live.parked = true;
+}
+
+function resumeLive() {
+  for (const [node, parent] of live.mounts) parent().append(node);
+  live.parked = false;
+  requestAnimationFrame(() => live?.resume?.());
+}
+
+function killLive() {
+  if (!live) return;
+  live.dispose();
+  for (const [node] of live.mounts) node.remove();
+  live = null;
+}
 
 function readJSON(key) {
   try { return JSON.parse(localStorage.getItem(key) || '{}'); } catch { return {}; }
@@ -141,6 +172,22 @@ const withToken = (p) => p + (p.includes('?') ? '&' : '?') + 'token=' + encodeUR
 async function serverInfo() {
   if (!server) server = await getJSON('/api/config');
   return server;
+}
+
+async function loadFavourites() {
+  try { favs = await getJSON('/api/favourites'); } catch { favs = []; }
+  favsLoaded = true;   // an empty list is an answer, not a reason to keep asking
+}
+
+const isFavourite = (path) => favs.some((f) => f.path === path);
+
+async function toggleFavourite(path) {
+  try {
+    const r = await postJSON('/api/favourites', { path });
+    favs = r.favourites;
+    toast(r.pinned ? `pinned ${path.split('/').pop()}` : 'unpinned');
+    refreshAllBrowsers();
+  } catch (e) { toast(e.message, true); }
 }
 
 function signOut() {
@@ -313,6 +360,7 @@ const ICONS = {
   sidebar: 'M4 4.5h16v15H4zM9.5 4.5v15',
   refresh: 'M19.5 12a7.5 7.5 0 1 1-2.4-5.5M19.5 4.5V10h-5.5',
   file: 'M6 3.5h7l5 5V20.5H6zM13 3.5V9h5',
+  star: 'M12 3.8l2.6 5.3 5.8.85-4.2 4.1 1 5.75L12 17.1l-5.2 2.7 1-5.75-4.2-4.1 5.8-.85z',
 };
 
 /** An inline icon. Stroked, never filled, so one colour rule covers every state. */
@@ -451,6 +499,19 @@ function fileActions(entry, refresh, dest) {
     }
   });
 
+  if (dir) {
+    const into = el('input', { type: 'file', multiple: true, hidden: true });
+    into.onchange = () => { uploadTo(entry.path, into.files); into.value = ''; };
+    const btn = el('button', { className: 'ghost block', onclick: () => into.click() },
+      [icon('upload'), el('span', { textContent: 'Upload here…' })]);
+    body.append(btn, into);
+  }
+
+  body.append(el('button', {
+    className: 'ghost block',
+    onclick: () => { sheet.close(); toggleFavourite(entry.path); },
+  }, [icon('star'), el('span', { textContent: isFavourite(entry.path) ? 'Remove from favourites' : 'Add to favourites' })]));
+
   // No refresh for these two: they change nothing on disk.
   body.append(el('button', {
     className: 'ghost block',
@@ -493,7 +554,9 @@ function uploadTo(path, fileList, onDone) {
   if (tooBig) return toast(`${tooBig.name} is over the ${human(limit)} limit`, true);
 
   const label = files.length === 1 ? files[0].name : `${files.length} files`;
-  const bar = progressBar(`${label} — ${human(total)}`);
+  // Always name the destination: the folder comes from whichever pane you used, which
+  // is invisible once the system file picker is covering the screen.
+  const bar = progressBar(`${label} · ${human(total)}`, `→ ${path}`);
 
   const body = new FormData();
   body.append('path', path);
@@ -506,7 +569,7 @@ function uploadTo(path, fileList, onDone) {
   xhr.onload = () => {
     bar.close();
     if (xhr.status === 200) {
-      toast(`uploaded ${label}`);
+      toast(`${label} → ${path}`);
       onDone?.();
       refreshAllBrowsers();
       return;
@@ -519,12 +582,13 @@ function uploadTo(path, fileList, onDone) {
   xhr.send(body);
 }
 
-function progressBar(label) {
+function progressBar(label, where) {
   const fill = el('div', { className: 'fill' });
   fill.style.width = '2%';
   const node = el('div', { className: 'uploading' }, [
     el('div', { className: 'tilenote', textContent: label }),
     el('div', { className: 'track' }, fill),
+    el('div', { className: 'dest' }, bidi(where)),
   ]);
   document.body.append(node);
   return {
@@ -636,6 +700,13 @@ const go = (hash) => { location.hash = hash; };
 
 async function render() {
   if (leaving) { leaving(); leaving = null; }
+
+  const route = parseRoute();
+  const wanted = route.path === '/term' ? `term:${route.q.get('s')}`
+    : route.path === '/wall' ? 'wall' : null;
+  // Move it out of the way *before* the view is emptied, or innerHTML would take it.
+  if (live && live.key !== wanted) parkLive();
+
   document.body.classList.remove('term', 'wall');
   bar.back.hidden = true;
   bar.action.hidden = true;
@@ -647,15 +718,28 @@ async function render() {
 
   if (!token) { nav.hidden = true; sideToggle.hidden = true; return screenLogin(); }
 
-  const { path, q } = parseRoute();
+  const { path, q } = route;
   nav.hidden = false;
   sideToggle.hidden = false;
   for (const a of nav.querySelectorAll('a')) {
     a.classList.toggle('on', path.startsWith('/' + a.dataset.tab));
   }
 
+  // Already running: put it back on screen instead of building it again.
+  if (live && live.key === wanted) {
+    document.body.classList.add(path === '/wall' ? 'wall' : 'term');
+    if (path === '/wall') view.style.overflow = 'hidden';
+    live.decorate();
+    resumeLive();
+    return;
+  }
+  // Only a *different* terminal replaces the running one. Going to Files or System
+  // parks it; it keeps running until you close it or open another.
+  if (live && wanted && live.key !== wanted) killLive();
+
   try {
     await serverInfo();
+    if (!favsLoaded) await loadFavourites();
     if (path === '/files') return await screenFiles(q.get('path'));
     if (path === '/preview') return await screenPreview(q.get('path'));
     if (path === '/system') return await screenSystem();
@@ -712,18 +796,33 @@ async function screenSessions() {
   bar.action.title = 'Open every session in its own window';
   bar.action.onclick = () => go('#/wall');
 
+  // Something is still attached in the background: the list is the default, but going
+  // back to it must be one tap, not a hunt through the list.
+  if (live && live.key !== 'wall') {
+    const name = live.key.slice(5);
+    view.append(el('a', { className: 'row resume', href: `#/term?s=${encodeURIComponent(name)}` }, [
+      icon('terminal'),
+      el('span', { className: 'grow' }, [
+        el('span', { className: 'name', textContent: `Back to ${name}` }),
+        el('span', { className: 'meta', textContent: 'still attached in the background' }),
+      ]),
+      el('span', { className: 'livedot' }),
+    ]));
+  }
+
   for (const s of sessions) {
     const meta = [`${s.windows} window${s.windows === 1 ? '' : 's'}`, s.attached ? 'attached' : null, when(s.created)]
       .filter(Boolean).join(' · ');
     const dot = el('span', { className: 'dot' });
     dot.style.background = colorFor(s.name);
-    const row = el('a', { className: 'row dir', href: `#/term?s=${encodeURIComponent(s.name)}` }, [
+    const running = live?.key === `term:${s.name}`;
+    const row = el('a', { className: `row dir${running ? ' running' : ''}`, href: `#/term?s=${encodeURIComponent(s.name)}` }, [
       dot,
       el('span', { className: 'grow' }, [
         el('span', { className: 'name', textContent: s.name }),
-        el('span', { className: 'meta', textContent: meta }),
+        el('span', { className: 'meta', textContent: running ? `${meta} · open here` : meta }),
       ]),
-      el('span', { className: 'chev', textContent: '›' }),
+      running ? el('span', { className: 'livedot' }) : el('span', { className: 'chev', textContent: '›' }),
     ]);
     // The same swatch opens the picker here as on a window, so a colour can be set
     // before you ever open the wall.
@@ -742,7 +841,7 @@ function fileBrowser({ path, setPath, other, roots, compact = false }) {
   const node = el('div', { className: `pane${compact ? ' compact' : ''}` });
   const list = el('div', { className: 'panelist' });
   const reload = () => paint();
-  const openFile = (e) => go(`#/preview?path=${encodeURIComponent(e.path)}`);
+  function openFile(e) { go(`#/preview?path=${encodeURIComponent(e.path)}`); }
 
   const draw = (entries, err) => {
     list.innerHTML = '';
@@ -772,6 +871,12 @@ function fileBrowser({ path, setPath, other, roots, compact = false }) {
   const up = el('button', { title: 'Parent folder', disabled: roots.includes(path) }, icon('up'));
   up.onclick = () => setPath(parentOf(path));
 
+  const pin = el('button', {
+    className: isFavourite(path) ? 'on' : '',
+    title: isFavourite(path) ? 'Remove this folder from favourites' : 'Pin this folder',
+    onclick: () => toggleFavourite(path),
+  }, icon('star'));
+
   // With several filesystems configured, the top of one is a dead end without this.
   const jump = roots.length > 1
     ? el('button', { title: 'Jump to a filesystem', onclick: () => rootPicker(roots, setPath) }, icon('home'))
@@ -780,7 +885,31 @@ function fileBrowser({ path, setPath, other, roots, compact = false }) {
   const crumb = el('button', { className: 'crumb', type: 'button' }, bidi(path));
   crumb.title = `${path}\n(click to copy)`;
   crumb.onclick = () => copyPath(path);
-  node.append(el('div', { className: 'sidehead' }, [up, jump, crumb].filter(Boolean)));
+  node.append(el('div', { className: 'sidehead' }, [up, jump, crumb, pin].filter(Boolean)));
+
+  // Pinned things, above everything else: the point is not having to navigate.
+  if (favs.length) {
+    const strip = el('div', { className: 'favs' });
+    strip.append(el('div', { className: 'favhead' }, [icon('star'), el('span', { textContent: 'Favourites' })]));
+    for (const f of favs) {
+      const row = el('button', {
+        className: `row fav${f.missing ? ' missing' : ''}`,
+        type: 'button',
+        title: f.path,
+        onclick: () => (f.missing ? toast('this one is gone', true)
+          : f.type === 'directory' ? setPath(f.path) : openFile(f)),
+      }, [
+        fileIcon(f),
+        el('span', { className: 'grow' }, [
+          el('span', { className: 'name', textContent: f.name }),
+          el('span', { className: 'meta' }, bidi(f.missing ? `missing · ${f.path}` : parentOf(f.path))),
+        ]),
+      ]);
+      const off = el('button', { className: 'more', title: 'Unpin', onclick: (ev) => { ev.stopPropagation(); toggleFavourite(f.path); } }, icon('close'));
+      strip.append(el('div', { className: 'rowwrap' }, [row, off]));
+    }
+    node.append(strip);
+  }
 
   const tools = el('div', { className: 'pad tools' }, searchBox(path, show, compact ? 'search…' : undefined));
   if (server?.allow_write) {
@@ -1146,6 +1275,8 @@ async function screenSettings() {
       () => prefs.hidden, (v) => { prefs.hidden = v; renderSidebar(); }),
     toggle('File sidebar', 'a persistent file pane on the left — wide screens only',
       () => prefs.sidebar, (v) => { prefs.sidebar = v; applySidebar(); }),
+    toggle('Split file panes', 'two folders side by side — the header button does the same',
+      () => prefs.split, (v) => { prefs.split = v; }),
     toggle('Tree view', 'expand folders in place instead of navigating into them',
       () => prefs.tree, (v) => { prefs.tree = v; renderSidebar(); }),
     toggle('Wrap long lines', 'the default when previewing a text file',
@@ -1310,7 +1441,11 @@ function attachTerminal(container, name, { transform } = {}) {
   const send = (data) => { if (ws?.readyState === WebSocket.OPEN) ws.send(enc.encode(data)); };
   term.onData((d) => send(transform ? transform(d) : d));
 
-  const relayout = () => { try { fit.fit(); } catch { /* detached */ } sendSize(); };
+  const relayout = () => {
+    if (!container.clientWidth || !container.clientHeight) return;   // parked, or not laid out
+    try { fit.fit(); } catch { /* detached */ }
+    sendSize();
+  };
   const ro = new ResizeObserver(relayout);
   ro.observe(container);
 
@@ -1336,11 +1471,21 @@ const CTRL_KEYS = [
   ['←', '\x1b[D'], ['→', '\x1b[C'], ['^C', '\x03'], ['^D', '\x04'],
 ];
 
-async function screenTerm(name) {
-  document.body.classList.add('term');
+/** Header bits for the terminal screen, re-applied whenever it comes back to the front.
+ *  Back leaves the session running; the ✕ is how you actually let go of it. */
+function decorateTerm(name) {
   setTitle(name);
   bar.back.hidden = false;
   bar.back.onclick = () => go('#/sessions');
+  bar.action.hidden = false;
+  bar.action.title = 'Detach and close this terminal';
+  bar.action.replaceChildren(icon('close'));
+  bar.action.onclick = () => { killLive(); go('#/sessions'); };
+}
+
+async function screenTerm(name) {
+  document.body.classList.add('term');
+  decorateTerm(name);
 
   const wrap = el('div', { id: 'termwrap' });
   const keys = el('div', { id: 'keys' });
@@ -1382,13 +1527,18 @@ async function screenTerm(name) {
 
   setTimeout(() => { relayout(); handle.focus(); }, 50);
 
-  leaving = () => {
-    vv?.removeEventListener('resize', relayout);
-    vv?.removeEventListener('scroll', relayout);
-    window.removeEventListener('resize', relayout);
-    document.body.style.height = '';
-    keys.remove();
-    handle.dispose();
+  live = {
+    key: `term:${name}`,
+    mounts: [[wrap, () => view], [keys, () => document.body]],
+    decorate: () => decorateTerm(name),
+    resume: () => { relayout(); handle.focus(); },
+    dispose: () => {
+      vv?.removeEventListener('resize', relayout);
+      vv?.removeEventListener('scroll', relayout);
+      window.removeEventListener('resize', relayout);
+      document.body.style.height = '';
+      handle.dispose();
+    },
   };
 }
 
@@ -1432,11 +1582,19 @@ function arrange(open, wall, mode) {
   });
 }
 
-async function screenWall() {
-  document.body.classList.add('wall');
+function decorateWall() {
   setTitle('Windows');
   bar.back.hidden = false;
   bar.back.onclick = () => go('#/sessions');
+  bar.action.hidden = false;
+  bar.action.title = 'Detach and close every window';
+  bar.action.replaceChildren(icon('close'));
+  bar.action.onclick = () => { killLive(); go('#/sessions'); };
+}
+
+async function screenWall() {
+  document.body.classList.add('wall');
+  decorateWall();
 
   const sessions = await getJSON('/api/tmux/sessions');
   const wall = el('div', { id: 'wall' });
@@ -1570,10 +1728,16 @@ async function screenWall() {
     b.classList.toggle('on', b.dataset.mode === (prefs.wallLayout || 'grid'));
   }
 
-  leaving = () => {
-    wallRO.disconnect();
-    for (const o of open) o.handle.dispose();
-    open.length = 0;
+  live = {
+    key: 'wall',
+    mounts: [[tools, () => view], [wall, () => view]],
+    decorate: decorateWall,
+    resume: () => open.forEach((o) => o.handle.relayout()),
+    dispose: () => {
+      wallRO.disconnect();
+      for (const o of open) o.handle.dispose();
+      open.length = 0;
+    },
   };
 }
 
@@ -1711,5 +1875,10 @@ function updateBar(onAccept) {
 
 applyTheme();
 for (const node of document.querySelectorAll('[data-icon]')) node.replaceChildren(icon(node.dataset.icon));
-render();
-applySidebar();
+
+// The pins have to arrive before the first paint, or the sidebar draws without them.
+(async () => {
+  if (token) await loadFavourites();
+  await render();
+  applySidebar();
+})();
