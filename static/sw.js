@@ -8,6 +8,7 @@ const SHELL = [
   '/manifest.webmanifest',
   '/vendor/xterm-6.0.0/xterm.mjs',
   '/vendor/xterm-6.0.0/addon-fit.mjs',
+  '/vendor/xterm-6.0.0/addon-webgl.mjs',
   '/vendor/xterm-6.0.0/xterm.css',
 ];
 

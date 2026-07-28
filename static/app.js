@@ -1990,6 +1990,8 @@ sideToggle.onclick = () => {
 /* ---------------------------------------------------------------- terminal */
 
 const RECONNECT_CAP = 10_000;
+// Where shrinking stops being a way to see more and starts being a way to see nothing.
+const READABLE = 7;
 
 /** A live terminal bound to a tmux session. Used full-screen and inside a window, so it
  *  owns the socket and the sizing but knows nothing about either layout.
@@ -2010,6 +2012,18 @@ function attachTerminal(container, name, { transform, onGone } = {}) {
   const fit = new FitAddon();
   term.loadAddon(fit);
   term.open(container);
+
+  // The DOM renderer repaints cell by cell, which is what a slow link turns into
+  // visible tearing. WebGL draws the frame in one go; where it is unavailable the
+  // terminal simply keeps the renderer it had.
+  import('/vendor/xterm-6.0.0/addon-webgl.mjs')
+    .then(({ WebglAddon }) => {
+      const gl = new WebglAddon();
+      gl.onContextLoss(() => gl.dispose());
+      term.loadAddon(gl);
+    })
+    .catch(() => { /* no WebGL here */ });
+
   try { fit.fit(); } catch { /* not laid out yet */ }
 
   let ws = null;
@@ -2021,10 +2035,17 @@ function attachTerminal(container, name, { transform, onGone } = {}) {
 
   const note = (text, colour = '38;5;244') => term.write(`\r\n\x1b[${colour}m— ${text} —\x1b[0m\r\n`);
 
+  // Every resize makes tmux redraw the whole screen for every client attached to it.
+  // The observer below fires on any pixel change, so without these two guards a window
+  // settling after a layout sends a burst of identical sizes and the text flickers.
+  let sentCols = 0;
+  let sentRows = 0;
   const sendSize = () => {
-    if (ready && ws?.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
-    }
+    if (!ready || ws?.readyState !== WebSocket.OPEN) return;
+    if (term.cols === sentCols && term.rows === sentRows) return;
+    sentCols = term.cols;
+    sentRows = term.rows;
+    ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
   };
 
   const connect = () => {
@@ -2038,14 +2059,38 @@ function attachTerminal(container, name, { transform, onGone } = {}) {
     ws = new WebSocket(url);
     ws.binaryType = 'arraybuffer';
 
+    // Frames are handed to xterm once per animation frame rather than as they land: the
+    // server already gathers a burst into one message, and this makes sure two messages
+    // arriving in the same frame still cost one repaint.
+    let pending = [];
+    let painting = false;
+    const paint = () => {
+      painting = false;
+      if (!pending.length) return;
+      const total = pending.reduce((n, c) => n + c.length, 0);
+      const merged = new Uint8Array(total);
+      let at = 0;
+      for (const chunk of pending) { merged.set(chunk, at); at += chunk.length; }
+      pending = [];
+      term.write(merged);
+    };
+
     ws.onmessage = (ev) => {
-      if (typeof ev.data !== 'string') return term.write(new Uint8Array(ev.data));
+      if (typeof ev.data !== 'string') {
+        pending.push(new Uint8Array(ev.data));
+        if (!painting) { painting = true; requestAnimationFrame(paint); }
+        return;
+      }
       const msg = JSON.parse(ev.data);
       if (msg.type === 'ready') {
         ready = true;
         if (attempts) note('reconnected', '38;5;108');
         attempts = 0;
-        sendSize();
+        sentCols = 0;      // a fresh attach knows nothing about what we sent before
+        sentRows = 0;
+        fixed = msg.fixed ? { cols: msg.cols, rows: msg.rows } : null;
+        if (fixed?.cols) showWholeGrid();
+        else sendSize();
       }
       if (msg.type === 'exit') {
         if (/no tmux session/.test(msg.reason || '')) { gone = true; onGone?.(); }
@@ -2106,10 +2151,39 @@ function attachTerminal(container, name, { transform, onGone } = {}) {
     container.addEventListener(done, () => { touchY = null; }, { passive: true });
   }
 
+  // When another device is already attached, tmux will not let us change the window
+  // size — so instead of asking for fewer columns we show all of them and shrink the
+  // type until they fit. The phone sees the whole screen, the desk sees nothing change.
+  let fixed = null;
+  function showWholeGrid() {
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    if (!width || !height || !fixed?.cols) return;
+    const cell = term._core?._renderService?.dimensions?.css?.cell;
+    if (!cell?.width) return;
+
+    const size = term.options.fontSize;
+    const byWidth = (width - 10) / (fixed.cols * (cell.width / size));
+    const byHeight = (height - 6) / (fixed.rows * (cell.height / size));
+    // Shrink to fit, but not past legibility: 200 columns cannot be read on a phone at
+    // any size, so below this floor the grid simply overflows and you pan to it.
+    const wanted = Math.max(READABLE, Math.min(prefs.fontSize, Math.floor(Math.min(byWidth, byHeight))));
+    if (wanted !== size) term.options.fontSize = wanted;
+    term.resize(fixed.cols, fixed.rows);
+    container.classList.toggle('panning', wanted === READABLE && byWidth < READABLE);
+  }
+
+  let settle = null;
   const relayout = () => {
     if (!container.clientWidth || !container.clientHeight) return;   // parked, or not laid out
-    try { fit.fit(); } catch { /* detached */ }
-    sendSize();
+    // Coalesce: a drag emits a resize per frame, and each one would be a redraw.
+    clearTimeout(settle);
+    settle = setTimeout(() => {
+      if (!container.clientWidth || !container.clientHeight) return;
+      if (fixed?.cols) return showWholeGrid();      // the size is not ours to change
+      try { fit.fit(); } catch { /* detached */ }
+      sendSize();
+    }, 80);
   };
   const ro = new ResizeObserver(relayout);
   ro.observe(container);
@@ -2117,6 +2191,11 @@ function attachTerminal(container, name, { transform, onGone } = {}) {
   return {
     send,
     relayout,
+    setFont: (px) => {
+      term.options.fontSize = px;
+      if (fixed?.cols) showWholeGrid();
+      else relayout();
+    },
     reconnect: retryNow,
     focus: () => term.focus(),
     dispose: () => {
@@ -2178,6 +2257,13 @@ async function screenTerm(name) {
   for (const [label, seq] of CTRL_KEYS) {
     keys.append(el('button', { textContent: label, onclick: () => { handle.send(seq); handle.focus(); } }));
   }
+  const zoom = (by) => () => {
+    prefs.fontSize = Math.max(5, Math.min(22, prefs.fontSize + by));
+    savePrefs();
+    handle.setFont(prefs.fontSize);
+  };
+  keys.append(el('button', { title: t('Smaller'), textContent: 'A-', onclick: zoom(-1) }));
+  keys.append(el('button', { title: t('Bigger'), textContent: 'A+', onclick: zoom(1) }));
   keys.append(el('button', { title: t('Keyboard'), onclick: () => handle.focus() }, icon('keyboard')));
 
   // The software keyboard shrinks the visual viewport without firing a window resize, so
