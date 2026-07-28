@@ -2092,6 +2092,18 @@ function attachTerminal(container, name, { transform, onGone } = {}) {
         if (fixed?.cols) showWholeGrid();
         else sendSize();
       }
+      // tmux has settled on a grid: match it, or go back to fitting normally if what it
+      // settled on is what we asked for — which means nobody is holding the size now.
+      if (msg.type === 'grid') {
+        if (msg.cols === term.cols && msg.rows === term.rows) {
+          fixed = null;
+          container.classList.remove('panning');
+          if (term.options.fontSize !== prefs.fontSize) term.options.fontSize = prefs.fontSize;
+        } else {
+          fixed = { cols: msg.cols, rows: msg.rows };
+          showWholeGrid();
+        }
+      }
       if (msg.type === 'exit') {
         if (/no tmux session/.test(msg.reason || '')) { gone = true; onGone?.(); }
         note(msg.reason);
@@ -2180,7 +2192,16 @@ function attachTerminal(container, name, { transform, onGone } = {}) {
     clearTimeout(settle);
     settle = setTimeout(() => {
       if (!container.clientWidth || !container.clientHeight) return;
-      if (fixed?.cols) return showWholeGrid();      // the size is not ours to change
+      if (fixed?.cols) {
+        // Ask anyway: if the other client has gone, tmux will take this size and say so.
+        showWholeGrid();
+        const wide = Math.floor((container.clientWidth - 10) / (term._core?._renderService?.dimensions?.css?.cell?.width || 8));
+        const tall = Math.floor((container.clientHeight - 6) / (term._core?._renderService?.dimensions?.css?.cell?.height || 17));
+        if (ready && ws?.readyState === WebSocket.OPEN && wide > 2 && tall > 2) {
+          ws.send(JSON.stringify({ type: 'resize', cols: wide, rows: tall }));
+        }
+        return;
+      }
       try { fit.fit(); } catch { /* detached */ }
       sendSize();
     }, 80);
