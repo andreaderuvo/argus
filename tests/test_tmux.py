@@ -39,3 +39,53 @@ def test_a_plain_name_is_a_socket_name_and_a_path_is_a_socket_path():
     assert Socket.new("argus-test").args() == ["-L", "argus-test"]
     assert Socket.new("/tmp/t/sock").args() == ["-S", "/tmp/t/sock"]
     assert Socket.new("argus-test").label() == "argus-test"
+
+
+def test_a_name_with_a_colon_or_a_dot_is_refused():
+    """tmux reads both as target separators, so such a session is unaddressable."""
+    import pytest
+
+    from app.tmux import BadName, check_name
+
+    for bad in ("with:colon", "with.dot", "", "   ", "x" * 65, "bell\x07"):
+        with pytest.raises(BadName):
+            check_name(bad)
+
+
+def test_an_ordinary_name_survives_untouched():
+    from app.tmux import check_name
+
+    assert check_name("  claude-geo  ") == "claude-geo"
+    assert check_name("run 12 (rerun)") == "run 12 (rerun)"
+
+
+def test_new_session_is_detached_and_named():
+    from app.tmux import new_argv
+
+    assert new_argv(Socket.new(None), "work", None) == [
+        "tmux", "new-session", "-d", "-s", "work",
+    ]
+
+
+def test_new_session_can_start_somewhere():
+    from app.tmux import new_argv
+
+    assert new_argv(Socket.new("argus-test"), "work", "/mnt/disk2") == [
+        "tmux", "-L", "argus-test", "new-session", "-d", "-s", "work", "-c", "/mnt/disk2",
+    ]
+
+
+def test_rename_and_kill_target_exactly_one_session():
+    from app.tmux import kill_argv, rename_argv
+
+    assert rename_argv(Socket.new(None), "old", "new") == [
+        "tmux", "rename-session", "-t", "=old", "new",
+    ]
+    assert kill_argv(Socket.new(None), "doomed") == ["tmux", "kill-session", "-t", "=doomed"]
+
+
+def test_the_exact_prefix_is_what_stops_a_neighbour_being_killed():
+    from app.tmux import kill_argv
+
+    # `claude` would otherwise match `claude-geo` as a prefix.
+    assert "=claude" in kill_argv(Socket.new(None), "claude")

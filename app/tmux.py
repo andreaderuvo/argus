@@ -103,6 +103,51 @@ def list_sessions(sock: Socket) -> list[dict]:
     return parse_sessions(p.stdout)
 
 
+class BadName(Exception):
+    """The name cannot be used as a tmux target."""
+
+
+def check_name(name: str) -> str:
+    """tmux reads `:` and `.` as window and pane separators, so a session wearing either
+    is unaddressable afterwards. Everything else a person might type is fine."""
+    name = (name or "").strip()
+    if not name:
+        raise BadName("a session needs a name")
+    if len(name) > 64:
+        raise BadName("that name is too long")
+    if any(c in name for c in ":."):
+        raise BadName("a session name cannot contain ':' or '.'")
+    if any(ord(c) < 32 for c in name):
+        raise BadName("that name has control characters in it")
+    return name
+
+
+def new_argv(sock: Socket, name: str, path: str | None) -> list[str]:
+    argv = ["tmux", *sock.args(), "new-session", "-d", "-s", name]
+    if path:
+        argv += ["-c", path]
+    return argv
+
+
+# `=name` is an exact match. Without it tmux accepts a prefix, and killing the wrong
+# session because two names share a beginning is not a mistake worth risking.
+def rename_argv(sock: Socket, name: str, to: str) -> list[str]:
+    return ["tmux", *sock.args(), "rename-session", "-t", f"={name}", to]
+
+
+def kill_argv(sock: Socket, name: str) -> list[str]:
+    return ["tmux", *sock.args(), "kill-session", "-t", f"={name}"]
+
+
+def run(argv: list[str]) -> None:
+    try:
+        p = subprocess.run(argv, capture_output=True, text=True)
+    except OSError as e:
+        raise TmuxError(f"could not run tmux: {e}") from e
+    if p.returncode != 0:
+        raise TmuxError(p.stderr.strip() or "tmux refused")
+
+
 def session_exists(sock: Socket, name: str) -> bool:
     """True when a session with exactly this name exists right now. The WebSocket
     handler gates on this so a client can never name a session we did not enumerate."""
