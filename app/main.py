@@ -313,6 +313,22 @@ def url_for(host: str, port: int, cfg: Config) -> str:
     return f"{scheme}://{shown}:{port}/?token={cfg.token}"
 
 
+def print_qr(url: str) -> bool:
+    """A code you can photograph, in the terminal.
+
+    The one in Settings needs you to be logged in already, which is no use when getting
+    logged in is the problem. `segno` is pure Python and prints with half-block
+    characters; without it there is still the URL.
+    """
+    try:
+        import segno
+    except ImportError:
+        print("  (pip install segno for a scannable code)")
+        return False
+    segno.make(url, error="m").terminal(compact=True)
+    return True
+
+
 def banner(config_path: Path, created: bool, host: str, port: int, cfg: Config, sock: tmux.Socket) -> None:
     print(f"argus {VERSION}")
     print(f"  created {config_path} with a fresh token" if created else f"  config  {config_path}")
@@ -324,6 +340,7 @@ def banner(config_path: Path, created: bool, host: str, port: int, cfg: Config, 
     print(f"  ports   {'proxy allowed, one port at a time' if cfg.allow_proxy else 'no proxying'}")
     print()
     print(f"  open    {url_for(host, port, cfg)}")
+    print("          (argus --qr prints a code to photograph)")
     if host in ("0.0.0.0", "::", ""):
         print(f"          (bound to {host}:{port} — reachable from the network; put it behind Tailscale)")
     # Flush explicitly: when the output is a log file rather than a terminal, the banner
@@ -363,6 +380,12 @@ def main(argv: list[str] | None = None) -> int:
         help="add every real filesystem on the machine to the browsable roots",
     )
     parser.add_argument("--print-url", action="store_true", help="print the URL with the access token and exit")
+    parser.add_argument(
+        "--qr",
+        action="store_true",
+        help="print a QR code of the URL for every address this machine answers on, and "
+        "exit. Photograph it with a phone instead of typing 64 hex characters",
+    )
     args = parser.parse_args(argv)
 
     config_path = args.config or default_path()
@@ -392,6 +415,15 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.print_url:
         print(url_for(host, port, cfg))
+        return 0
+
+    if args.qr:
+        # One per address: which of them a phone can dial depends on where the phone is.
+        for address in reachable_addresses() or [host]:
+            scheme = "https" if cfg.tls() else "http"
+            url = f"{scheme}://{address}:{port}/?token={cfg.token}"
+            print(f"\n  {url}\n")
+            print_qr(url)
         return 0
 
     try:
