@@ -511,6 +511,7 @@ function entryRow(e, { href, onClick, refresh, dest, favGroup = 'main' }) {
   const row = href
     ? el('a', { className: cls, href }, kids)
     : el('button', { className: cls, type: 'button', onclick: onClick }, kids);
+  row.dataset.path = e.path;      // so a listing can be pointed at one of its entries
 
   if (server?.allow_write && refresh) {
     const menu = el('button', { className: 'more', type: 'button', title: t('Actions') }, icon('more'));
@@ -773,11 +774,11 @@ function treeNode(entry, depth, onFile, refresh, dest, favGroup = 'main') {
     line.append(menu);
   }
   holder.append(line);
+  holder.dataset.path = entry.path;
 
   let kids = null;
-  row.onclick = async () => {
-    if (!dir) return onFile(entry);
-    if (kids) { kids.remove(); kids = null; twist.textContent = '▸'; return; }
+  async function openKids() {
+    if (!dir || kids) return kids;
     twist.textContent = '▾';
     kids = el('div');
     holder.append(kids);
@@ -790,8 +791,72 @@ function treeNode(entry, depth, onFile, refresh, dest, favGroup = 'main') {
     } catch (e) {
       kids.append(el('p', { className: 'error tiny', textContent: e.message }));
     }
+    return kids;
+  }
+  // Opening a branch from outside — revealing a file several levels down — must not go
+  // through the click handler, which toggles: on an already-open folder it would close it.
+  holder.expand = openKids;
+
+  row.onclick = async () => {
+    if (!dir) return onFile(entry);
+    if (kids) { kids.remove(); kids = null; twist.textContent = '▸'; return; }
+    await openKids();
   };
   return holder;
+}
+
+/* --------------------------------------------------- pointing at one file */
+
+// Set when something outside the browsers — a path clicked in a terminal — wants a file
+// shown where the filesystem is on screen. Consumed by the next listing that can show it.
+let pointed = null;
+
+const under = (parent, child) => child.startsWith(parent === '/' ? '/' : `${parent}/`);
+
+/** Every folder between `root` (exclusive) and `target` (inclusive). */
+function trail(root, target) {
+  const rest = target.slice(root === '/' ? 1 : root.length + 1).split('/');
+  const out = [];
+  let at = root === '/' ? '' : root;
+  for (const part of rest) { at += `/${part}`; out.push(at); }
+  return out;
+}
+
+/** Show the pointed-at file in this listing: expand down to it if the view is a tree,
+ *  then flash the row and bring it into sight. Silently does nothing when the file is
+ *  not in this listing, which is the common case for a second pane. */
+async function applyPointed(list, path, isTree) {
+  const target = pointed;
+  if (!target) return;
+  if (!(isTree ? under(path, target) : parentOf(target) === path)) return;
+  pointed = null;
+
+  if (isTree) {
+    for (const step of trail(path, target).slice(0, -1)) {
+      const holder = list.querySelector(`[data-path="${CSS.escape(step)}"]`);
+      if (!holder) return;
+      await holder.expand?.();
+    }
+  }
+  const found = list.querySelector(`[data-path="${CSS.escape(target)}"]`);
+  const row = found?.classList.contains('row') ? found : found?.querySelector('.row');
+  if (!row) return;
+  row.classList.add('pointed');
+  row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  setTimeout(() => row.classList.remove('pointed'), 2600);
+}
+
+/** Point whichever filesystem is on screen at this file.
+ *
+ *  The sidebar is the one explorer when it is open — the same choice VS Code makes with
+ *  "Reveal in Explorer". Otherwise the first browser window takes it, so a desk with no
+ *  sidebar still follows along. A second pane placed somewhere on purpose is left alone.
+ */
+function pointAt(target) {
+  pointed = target;
+  const primary = (prefs.sidebar && sideBrowser) || [...browsers][0];
+  if (primary) primary.reveal(target);
+  else pointed = null;
 }
 
 async function drawTree(container, path, onFile, refresh, dest, favGroup = 'main') {
@@ -1185,16 +1250,30 @@ function fileBrowser({
 
   async function paint() {
     renderFavs();
-    if (getTree()) return drawTree(list, path, openFile, reload, other, favGroup);
-    try {
-      draw(await getJSON(`/api/files?path=${encodeURIComponent(path)}`));
-    } catch (e) {
-      draw([], e);
+    if (getTree()) await drawTree(list, path, openFile, reload, other, favGroup);
+    else {
+      try {
+        draw(await getJSON(`/api/files?path=${encodeURIComponent(path)}`));
+      } catch (e) {
+        draw([], e);
+      }
     }
+    await applyPointed(list, path, getTree());
   }
   paint();
 
-  return { node, reload };
+  return {
+    node,
+    reload,
+    /** Bring a file into view here. A tree already containing it only has to expand; any
+     *  other case moves the listing to the folder the file is in, and the mark is picked
+     *  up by whatever paint that causes — including the sidebar rebuilding itself. */
+    reveal: (target) => {
+      pointed = target;
+      if (getTree() ? under(path, target) : parentOf(target) === path) paint();
+      else setPath(parentOf(target));
+    },
+  };
 }
 
 // Every live browser, so one operation refreshes all the views that might show it.
@@ -1955,6 +2034,8 @@ async function screenSettings() {
 
 /* ---------------------------------------------------------------- sidebar */
 
+let sideBrowser = null;   // the sidebar's own listing, so it can be pointed at a file
+
 function applySidebar() {
   document.body.classList.toggle('side', prefs.sidebar && !!token);
   if (prefs.sidebar && token) renderSidebar();
@@ -1968,19 +2049,20 @@ function setSidePath(p) {
 }
 
 async function renderSidebar() {
-  if (!prefs.sidebar || !token) { side.innerHTML = ''; return; }
+  if (!prefs.sidebar || !token) { side.innerHTML = ''; sideBrowser = null; return; }
   let info;
   try { info = await serverInfo(); } catch { return; }
 
   side.innerHTML = '';
-  side.append(fileBrowser({
+  sideBrowser = fileBrowser({
     path: sidePath || info.roots[0],
     roots: info.roots,
     setPath: setSidePath,
     other: () => null,
     compact: true,
     favGroup: 'sidebar',
-  }).node);
+  });
+  side.append(sideBrowser.node);
 }
 
 sideToggle.onclick = () => {
@@ -2094,6 +2176,10 @@ async function locatePaths(tokens, session) {
  *  terminal, which is the whole point; full screen it takes over, because there is
  *  nowhere else for it to go. */
 function openLocated(where, hit, from) {
+  // Opening the file is only half of it: knowing *where* it sits is the other half, so
+  // whichever filesystem is on screen moves to it as well. A folder is marked in its own
+  // parent, the same as VS Code does — that is where you can see what it sits next to.
+  pointAt(hit.path);
   if (where === 'wall') {
     openWindow(hit.type === 'directory'
       ? { kind: 'browser', path: hit.path }
