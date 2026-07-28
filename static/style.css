@@ -655,7 +655,73 @@ body.wall #view { display: flex; flex-direction: column; }
 #walltools::-webkit-scrollbar { display: none; }
 
 /* Windows are always free: an arrangement places them, it does not pin them. */
+/* ---------- workspace tabs ---------- */
+
+#walltabs {
+  display: flex;
+  align-items: stretch;
+  gap: .25rem;
+  padding: .3rem .4rem 0;
+  background: var(--panel);
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex: none;
+}
+
+#walltabs::-webkit-scrollbar { display: none; }
+
+.wstab {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  min-height: 32px;
+  padding: 0 .5rem 0 .6rem;
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  border-radius: .45rem .45rem 0 0;
+  background: var(--bg);
+  color: var(--dim);
+  font: inherit;
+  font-size: .8rem;
+  cursor: pointer;
+}
+
+.wstab.on { background: var(--panel); color: var(--bright); border-color: var(--line); }
+.wstab.on .tabname { font-weight: 600; }
+.wstab.add { padding: 0 .5rem; color: var(--dim); }
+.wstab.add .ico { width: 16px; height: 16px; }
+
+.tabdot {
+  width: 9px;
+  height: 9px;
+  flex: none;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, .2);
+}
+
+.tabclose {
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  background: none;
+  color: var(--dim);
+  padding: 0;
+  margin-left: .1rem;
+}
+
+.tabclose .ico { width: 13px; height: 13px; }
+.tabclose:hover { color: var(--danger); }
+
 #wall { flex: 1; min-height: 0; position: relative; }
+
+/* One deck per workspace: the inactive ones keep running, out of sight. */
+.deck { position: absolute; inset: 0; display: none; }
+.deck.on { display: block; }
+
+/* a session that went away while its window stayed open */
+.win.gone { opacity: .75; }
+.win.gone .wintitle { text-decoration: line-through; color: var(--dim); }
 
 .win {
   position: absolute;

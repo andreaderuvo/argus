@@ -30,7 +30,10 @@ const DEFAULTS = {
   tree: false,       // expand folders in place instead of navigating into them
   theme: 'dark',     // 'dark' | 'light' | 'auto'
   wallLayout: 'grid', // 'grid' | 'cols' | 'rows' | 'float'
-  desktop: [],       // what the window wall holds: terminals and files
+  workspaces: null,  // tabs, each with its own set of windows
+  ws: 1,             // the active tab
+  wsSeq: 1,
+  desktop: [],       // pre-workspace desktops, migrated on first load
   home: '',          // where the home button lands; empty means the first root
   split: false,      // two file panes side by side
   path2: '',         // where the second pane is
@@ -1488,7 +1491,7 @@ const RECONNECT_CAP = 10_000;
  *  behaviour is to attach again. tmux redraws the whole pane on attach, so nothing is
  *  lost. The one case that must *not* retry is a session that no longer exists.
  */
-function attachTerminal(container, name, { transform } = {}) {
+function attachTerminal(container, name, { transform, onGone } = {}) {
   const term = new Terminal({
     fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace',
     fontSize: prefs.fontSize,
@@ -1537,7 +1540,7 @@ function attachTerminal(container, name, { transform } = {}) {
         sendSize();
       }
       if (msg.type === 'exit') {
-        if (/no tmux session/.test(msg.reason || '')) gone = true;
+        if (/no tmux session/.test(msg.reason || '')) { gone = true; onGone?.(); }
         note(msg.reason);
       }
     };
@@ -1690,7 +1693,7 @@ const WALL_GAP = 6;
 
 /** Lay the windows out. This *places* them and then lets go: every window stays draggable
  *  and resizable afterwards, so an arrangement is a starting point, never a cage. */
-function arrange(open, wall, mode) {
+function arrange(open, wall, mode, key = (id) => id) {
   if (!open.length) return;
   const n = open.length;
   const cols = mode === 'cols' ? n : mode === 'rows' ? 1 : Math.ceil(Math.sqrt(n));
@@ -1706,7 +1709,7 @@ function arrange(open, wall, mode) {
       width: `${Math.max(MIN_W, w)}px`,
       height: `${Math.max(MIN_H, h)}px`,
     });
-    saveGeom(o.name, o.win);
+    saveGeom(key(o.name), o.win);
     o.handle.relayout();
   });
 }
@@ -1720,7 +1723,8 @@ function decorateWall() {
   bar.action.replaceChildren(icon('close'));
   bar.action.onclick = () => {
     killLive();
-    prefs.desktop = [];
+    const ws = currentSpace();
+    ws.desktop = [];
     savePrefs();
     go('#/sessions');
   };
@@ -1730,30 +1734,171 @@ async function screenWall() {
   document.body.classList.add('wall');
   decorateWall();
 
-  const wall = el('div', { id: 'wall' });
+  const tabs = el('div', { id: 'walltabs' });
   const tools = el('div', { id: 'walltools' });
+  const wall = el('div', { id: 'wall' });
   view.style.overflow = 'hidden';
-  view.append(tools, wall);
+  view.append(tabs, tools, wall);
 
-  // An empty desktop starts as one window per session; after that it is whatever you
-  // left open, files included.
-  if (!prefs.desktop.length) {
-    const sessions = await getJSON('/api/tmux/sessions');
-    prefs.desktop = sessions.map((s) => ({ kind: 'term', name: s.name }));
-    savePrefs();
-  }
-  if (!prefs.desktop.length) {
-    wall.append(el('p', { className: 'empty', textContent: 'Nothing open. Start from Sessions or Files.' }));
-    return;
-  }
-
-  const open = [];
+  const spaces = workspaces();
+  const decks = new Map();          // workspace id -> its live deck
   let top = 10;
+
+  const activeSpace = () => spaces.find((w) => w.id === prefs.ws) || spaces[0];
+  const geomKey = (ws, id) => `${ws.id}:${id}`;
+
+  /** One workspace's windows. Built the first time you open the tab and kept alive after,
+   *  so switching back does not detach and re-attach every terminal. */
+  function buildDeck(ws) {
+    const node = el('div', { className: 'deck' });
+    wall.append(node);
+    const open = [];
+
+    const peersOf = (win) => () => open.filter((o) => o.win !== win).map((o) => o.win);
+
+    function addWindow(spec) {
+      const id = specId(spec);
+      const isFile = spec.kind === 'file';
+      const isBrowser = spec.kind === 'browser';
+      const label = spec.kind === 'term' ? spec.name : (spec.path.split('/').pop() || spec.path);
+
+      const body = el('div', { className: `winbody${isFile || isBrowser ? ' filebody' : ''}${isBrowser ? ' browserbody' : ''}` });
+      const win = el('div', { className: 'win' });
+      win.style.setProperty('--wc', colorFor(id));
+
+      const swatch = el('button', { className: 'winbtn swatchbtn', title: 'Change colour' });
+      swatch.onclick = () => pickColor(id, () => win.style.setProperty('--wc', colorFor(id)));
+
+      const extras = el('span', { className: 'winextras' });
+      const close = el('button', { className: 'winbtn', title: 'Close' }, icon('close'));
+      const solo = el('button', { className: 'winbtn', title: 'Full screen' }, icon('maximise'));
+      const title = el('span', { className: 'wintitle', title: spec.kind === 'term' ? label : spec.path, textContent: label });
+      const setLabel = (text, full) => { title.textContent = text; title.title = full; };
+      const head = el('div', { className: 'winbar' }, [swatch, title, extras, solo, close]);
+      win.append(head, body);
+      node.append(win);
+
+      const handle = isBrowser ? attachBrowser(body, spec, setLabel)
+        : isFile ? attachViewer(body, spec.path, extras)
+          : attachTerminal(body, spec.name, {
+            // A session that is not there any more has to say so, not sit blank.
+            onGone: () => {
+              win.classList.add('gone');
+              extras.prepend(el('span', { className: 'state critical', textContent: 'gone' }));
+            },
+          });
+      const entry = { win, handle, name: id };
+      open.push(entry);
+
+      win.addEventListener('pointerdown', () => { win.style.zIndex = ++top; }, true);
+
+      close.onclick = () => {
+        handle.dispose();
+        win.remove();
+        open.splice(open.indexOf(entry), 1);
+        ws.desktop = ws.desktop.filter((x) => specId(x) !== id);
+        savePrefs();
+        applyLayout(prefs.wallLayout || 'grid');
+      };
+
+      solo.onclick = () => {
+        if (win.dataset.prev) {
+          Object.assign(win.style, JSON.parse(win.dataset.prev));
+          delete win.dataset.prev;
+        } else {
+          const { left, top: t, width, height } = win.style;
+          win.dataset.prev = JSON.stringify({ left, top: t, width, height });
+          Object.assign(win.style, { left: '0px', top: '0px', width: '100%', height: '100%' });
+        }
+        win.style.zIndex = ++top;
+        saveGeom(geomKey(ws, id), win);
+        handle.relayout();
+      };
+
+      const settled = () => { handle.relayout(); saveGeom(geomKey(ws, id), win); };
+      win.addEventListener('argus:moved', settled);
+      head.addEventListener('dblclick', (e) => {
+        if (e.target === head || e.target === title) solo.onclick();
+      });
+
+      dragBy(head, win, node, settled, [swatch, solo, close], peersOf(win));
+      resizable(win, node, settled, peersOf(win));
+      return entry;
+    }
+
+    for (const spec of ws.desktop) addWindow(spec);
+
+    const known = open.filter((o) => prefs.winGeom?.[geomKey(ws, o.name)]);
+    for (const o of known) Object.assign(o.win.style, { ...prefs.winGeom[geomKey(ws, o.name)], zIndex: ++top });
+    if (known.length < open.length) {
+      requestAnimationFrame(() => arrange(open, node, prefs.wallLayout || 'grid', (id) => geomKey(ws, id)));
+    }
+
+    return { ws, node, open, addWindow };
+  }
+
+  function deckFor(ws) {
+    if (!decks.has(ws.id)) decks.set(ws.id, buildDeck(ws));
+    return decks.get(ws.id);
+  }
+
+  function activate(id) {
+    prefs.ws = id;
+    savePrefs();
+    const deck = deckFor(activeSpace());
+    for (const d of decks.values()) d.node.classList.toggle('on', d === deck);
+    drawTabs();
+    requestAnimationFrame(() => deck.open.forEach((o) => o.handle.relayout()));
+  }
+
+  function drawTabs() {
+    tabs.textContent = '';
+    for (const ws of spaces) {
+      const on = ws.id === prefs.ws;
+      const dot = el('span', { className: 'tabdot' });
+      dot.style.background = colorFor(`ws:${ws.id}`);
+      dot.title = 'Change colour';
+      dot.onclick = (e) => { e.stopPropagation(); pickColor(`ws:${ws.id}`, drawTabs); };
+
+      const tab = el('button', { className: `wstab${on ? ' on' : ''}`, title: 'Double-click to rename' }, [
+        dot, el('span', { className: 'tabname', textContent: ws.name }),
+      ]);
+      tab.onclick = () => activate(ws.id);
+      tab.ondblclick = async () => {
+        const name = await ask('Rename workspace', ws.name, 'Rename');
+        if (name) { ws.name = name; savePrefs(); drawTabs(); }
+      };
+      if (on && spaces.length > 1) {
+        const shut = el('button', { className: 'tabclose', title: 'Close this workspace' }, icon('close'));
+        shut.onclick = async (e) => {
+          e.stopPropagation();
+          if (ws.desktop.length && !await confirmBox('Close workspace', `${ws.name} has ${ws.desktop.length} window(s). Close it?`, 'Close')) return;
+          decks.get(ws.id)?.open.forEach((o) => o.handle.dispose());
+          decks.get(ws.id)?.node.remove();
+          decks.delete(ws.id);
+          spaces.splice(spaces.indexOf(ws), 1);
+          activate(spaces[0].id);
+        };
+        tab.append(shut);
+      }
+      tabs.append(tab);
+    }
+    const add = el('button', { className: 'wstab add', title: 'New workspace' }, icon('folderPlus'));
+    add.onclick = () => {
+      const id = (prefs.wsSeq || spaces.length) + 1;
+      prefs.wsSeq = id;
+      spaces.push({ id, name: `Desk ${spaces.length + 1}`, desktop: [] });
+      savePrefs();
+      activate(id);
+    };
+    tabs.append(add);
+  }
 
   const applyLayout = (mode) => {
     prefs.wallLayout = mode;
     savePrefs();
-    arrange(open, wall, mode);
+    const deck = deckFor(activeSpace());
+    arrange(deck.open, deck.node, mode, (id) => geomKey(deck.ws, id));
     for (const b of tools.querySelectorAll('button[data-mode]')) {
       b.classList.toggle('on', b.dataset.mode === mode);
     }
@@ -1771,86 +1916,21 @@ async function screenWall() {
       title: `Arrange as ${label.toLowerCase()}`,
       onclick: () => applyLayout(mode),
     }, [icon(glyph), el('span', { textContent: label })]);
-    // `dataset` is read-only, so it cannot go through the property bag above.
     b.dataset.mode = mode;
     tools.append(b);
   }
 
-  /** One window, holding either a live terminal or a file. Everything below the title
-   *  bar differs; everything in it — colour, drag, resize, maximise — does not. */
-  function addWindow(spec) {
-    const id = specId(spec);
-    const isFile = spec.kind === 'file';
-    const isBrowser = spec.kind === 'browser';
-    const label = spec.kind === 'term' ? spec.name : (spec.path.split('/').pop() || spec.path);
-
-    const body = el('div', { className: `winbody${isFile || isBrowser ? ' filebody' : ''}${isBrowser ? ' browserbody' : ''}` });
-    const win = el('div', { className: 'win' });
-    win.style.setProperty('--wc', colorFor(id));
-
-    const swatch = el('button', { className: 'winbtn swatchbtn', title: 'Change colour' });
-    swatch.onclick = () => pickColor(id, () => win.style.setProperty('--wc', colorFor(id)));
-
-    const extras = el('span', { className: 'winextras' });
-    const close = el('button', { className: 'winbtn', title: 'Close' }, icon('close'));
-    const solo = el('button', { className: 'winbtn', title: 'Full screen' }, icon('maximise'));
-    const title = el('span', { className: 'wintitle', title: spec.kind === 'term' ? label : spec.path, textContent: label });
-    const setLabel = (text, full) => { title.textContent = text; title.title = full; };
-    const head = el('div', { className: 'winbar' }, [swatch, title, extras, solo, close]);
-    win.append(head, body);
-    wall.append(win);
-
-    const handle = isBrowser ? attachBrowser(body, spec, setLabel)
-      : isFile ? attachViewer(body, spec.path, extras)
-        : attachTerminal(body, spec.name);
-    const entry = { win, handle, name: id };
-    open.push(entry);
-
-    win.addEventListener('pointerdown', () => { win.style.zIndex = ++top; }, true);
-
-    close.onclick = () => {
-      handle.dispose();
-      win.remove();
-      open.splice(open.indexOf(entry), 1);
-      prefs.desktop = prefs.desktop.filter((x) => specId(x) !== id);
-      savePrefs();
-      applyLayout(prefs.wallLayout || 'grid');
-    };
-
-    // Fill the wall, and put it back where it was on a second click.
-    solo.onclick = () => {
-      if (win.dataset.prev) {
-        Object.assign(win.style, JSON.parse(win.dataset.prev));
-        delete win.dataset.prev;
-      } else {
-        const { left, top: t, width, height } = win.style;
-        win.dataset.prev = JSON.stringify({ left, top: t, width, height });
-        Object.assign(win.style, { left: '0px', top: '0px', width: '100%', height: '100%' });
-      }
-      win.style.zIndex = ++top;
-      saveGeom(id, win);
-      handle.relayout();
-    };
-
-    const settled = () => { handle.relayout(); saveGeom(id, win); };
-    // Being pushed aside by someone else's drop is a move like any other.
-    win.addEventListener('argus:moved', settled);
-    // Double-clicking the title bar maximises and restores, the way every desktop does.
-    head.addEventListener('dblclick', (e) => {
-      if (e.target === head || e.target === title) solo.onclick();
-    });
-
-    const peers = () => open.filter((o) => o.win !== win).map((o) => o.win);
-    dragBy(head, win, wall, settled, [swatch, solo, close], peers);
-    resizable(win, wall, settled, peers);
-    return entry;
+  // A brand new desktop starts as one window per session.
+  const first = activeSpace();
+  if (!first.desktop.length && spaces.length === 1) {
+    const sessions = await getJSON('/api/tmux/sessions');
+    first.desktop = sessions.map((s) => ({ kind: 'term', name: s.name }));
+    savePrefs();
   }
-
-  for (const spec of prefs.desktop) addWindow(spec);
+  activate(first.id);
 
   // Windows carry pixel geometry, so they do not follow the wall on their own: toggling
   // the sidebar or resizing the browser would leave them stranded in the old area.
-  // Scaling keeps whatever arrangement you made instead of imposing a fresh one.
   const px = (v) => (v && v.endsWith('px') ? parseFloat(v) : null);
   let measured = null;
   const wallRO = new ResizeObserver(() => {
@@ -1860,48 +1940,40 @@ async function screenWall() {
     if (measured && (measured.w !== w || measured.h !== h)) {
       const fx = w / measured.w;
       const fy = h / measured.h;
-      for (const o of open) {
-        const l = px(o.win.style.left);
-        const t = px(o.win.style.top);
-        const ow = px(o.win.style.width);
-        const oh = px(o.win.style.height);
-        if (l === null || t === null || ow === null || oh === null) continue;
-        Object.assign(o.win.style, {
-          left: `${Math.round(l * fx)}px`,
-          top: `${Math.round(t * fy)}px`,
-          width: `${Math.round(Math.max(MIN_W, ow * fx))}px`,
-          height: `${Math.round(Math.max(MIN_H, oh * fy))}px`,
-        });
-        saveGeom(o.name, o.win);
-        o.handle.relayout();
+      for (const deck of decks.values()) {
+        for (const o of deck.open) {
+          const l = px(o.win.style.left);
+          const t = px(o.win.style.top);
+          const ow = px(o.win.style.width);
+          const oh = px(o.win.style.height);
+          if (l === null || t === null || ow === null || oh === null) continue;
+          Object.assign(o.win.style, {
+            left: `${Math.round(l * fx)}px`,
+            top: `${Math.round(t * fy)}px`,
+            width: `${Math.round(Math.max(MIN_W, ow * fx))}px`,
+            height: `${Math.round(Math.max(MIN_H, oh * fy))}px`,
+          });
+          saveGeom(geomKey(deck.ws, o.name), o.win);
+          o.handle.relayout();
+        }
       }
     }
     measured = { w, h };
   });
   wallRO.observe(wall);
 
-  // Restore the geometry you left behind; if nothing was ever placed, lay them out.
-  const known = open.filter((o) => prefs.winGeom?.[o.name]);
-  for (const o of known) Object.assign(o.win.style, { ...prefs.winGeom[o.name], zIndex: ++top });
-  if (known.length < open.length) {
-    requestAnimationFrame(() => arrange(open, wall, prefs.wallLayout || 'grid'));
-  } else {
-    requestAnimationFrame(() => open.forEach((o) => o.handle.relayout()));
-  }
-  for (const b of tools.querySelectorAll('button[data-mode]')) {
-    b.classList.toggle('on', b.dataset.mode === (prefs.wallLayout || 'grid'));
-  }
-
   live = {
     key: 'wall',
-    mounts: [[tools, () => view], [wall, () => view]],
+    mounts: [[tabs, () => view], [tools, () => view], [wall, () => view]],
     decorate: decorateWall,
-    resume: () => open.forEach((o) => o.handle.relayout()),
+    resume: () => deckFor(activeSpace()).open.forEach((o) => o.handle.relayout()),
     addWindow: (spec) => {
+      const ws = activeSpace();
+      const deck = deckFor(ws);
       const id = specId(spec);
-      if (open.some((o) => o.name === id)) return;
-      const entry = addWindow(spec);
-      Object.assign(entry.win.style, prefs.winGeom?.[id] || {
+      if (deck.open.some((o) => o.name === id)) return;
+      const entry = deck.addWindow(spec);
+      Object.assign(entry.win.style, prefs.winGeom?.[geomKey(ws, id)] || {
         left: '28px', top: '24px', width: 'min(620px, 78%)', height: 'min(380px, 62%)',
       });
       entry.win.style.zIndex = ++top;
@@ -1909,8 +1981,8 @@ async function screenWall() {
     },
     dispose: () => {
       wallRO.disconnect();
-      for (const o of open) o.handle.dispose();
-      open.length = 0;
+      for (const deck of decks.values()) deck.open.forEach((o) => o.handle.dispose());
+      decks.clear();
     },
   };
 }
@@ -1975,10 +2047,27 @@ function dragBy(grabber, win, bounds, onDone, ignore = [], peers = () => []) {
 /** A window is identified by what it shows, so geometry and colour survive a reload. */
 const specId = (spec) => (spec.kind === 'term' ? `term:${spec.name}` : `${spec.kind}:${spec.path}`);
 
+/** The tabs, created on first use out of whatever single desktop existed before. */
+function workspaces() {
+  if (!prefs.workspaces?.length) {
+    prefs.workspaces = [{ id: 1, name: 'Desk 1', desktop: prefs.desktop || [] }];
+    prefs.ws = 1;
+    prefs.wsSeq = 1;
+    savePrefs();
+  }
+  return prefs.workspaces;
+}
+
+const currentSpace = () => {
+  const all = workspaces();
+  return all.find((w) => w.id === prefs.ws) || all[0];
+};
+
 function openWindow(spec) {
   const id = specId(spec);
-  if (!prefs.desktop.some((x) => specId(x) === id)) {
-    prefs.desktop = [...prefs.desktop, spec];
+  const ws = currentSpace();
+  if (!ws.desktop.some((x) => specId(x) === id)) {
+    ws.desktop = [...ws.desktop, spec];
     savePrefs();
   }
   if (live?.key === 'wall') live.addWindow?.(spec);
