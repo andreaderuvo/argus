@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#0b0e14">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>tmux companion</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<link rel="stylesheet" href="/vendor/xterm-6.0.0/xterm.css">
+<link rel="stylesheet" href="/style.css">
+<script>
+  // Inline and before the stylesheet paints, or a dark-theme user gets a white flash on
+  // every load. The module below owns the preference; this only replays it.
+  try {
+    var t = (JSON.parse(localStorage.getItem('tmuxc.prefs') || '{}').theme) || 'dark';
+    if (t === 'auto') t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    document.documentElement.dataset.theme = t;
+  } catch (e) { document.documentElement.dataset.theme = 'dark'; }
+</script>
+</head>
+<body>
+
+<header id="bar">
+  <button id="back" class="icon" hidden aria-label="Back">‹</button>
+  <h1 id="title">tmux companion</h1>
+  <button id="sidetoggle" class="icon" aria-label="Toggle the file sidebar" title="File sidebar">▥</button>
+  <button id="action" class="icon" hidden></button>
+</header>
+
+<div id="shell">
+  <aside id="side"></aside>
+  <main id="view"></main>
+</div>
+
+<nav id="nav" hidden>
+  <a href="#/files" data-tab="files"><span>▤</span>Files</a>
+  <a href="#/sessions" data-tab="sessions"><span>▶</span>Sessions</a>
+  <a href="#/settings" data-tab="settings"><span>⚙</span>Settings</a>
+</nav>
+
+<script type="module" src="/app.js"></script>
+</body>
+</html>
