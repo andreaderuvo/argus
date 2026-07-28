@@ -148,6 +148,9 @@ function termTheme() {
 // translates it, a missing entry falls back to English instead of showing a code, and
 // the source keeps saying what it means.
 let strings = {};
+// What is on screen right now, which is not the same as what was chosen: with no choice
+// stored we follow the browser, and the Settings row has to say the truth either way.
+let activeLang = 'en';
 
 function t(text, vars) {
   let out = strings[text] || text;
@@ -156,6 +159,7 @@ function t(text, vars) {
 }
 
 async function loadLanguage(code) {
+  activeLang = code || 'en';
   if (!code || code === 'en') { strings = {}; return; }
   try {
     const r = await fetch(`/api/language/${encodeURIComponent(code)}`, {
@@ -1764,7 +1768,7 @@ function languageSheet(list) {
   let sheet;
 
   for (const lang of list) {
-    const on = (prefs.lang || 'en') === lang.code;
+    const on = activeLang === lang.code;
     body.append(el('button', {
       className: 'ghost block',
       onclick: async () => {
@@ -1886,11 +1890,16 @@ async function screenSettings() {
   (async () => {
     let list = [];
     try { list = await getJSON('/api/languages'); } catch { /* English then */ }
-    const current = list.find((l) => l.code === (prefs.lang || 'en'));
+    const current = list.find((l) => l.code === activeLang);
     langRow.append(
       el('span', { className: 'grow' }, [
         el('span', { className: 'name', textContent: t('Language') }),
-        el('span', { className: 'meta', textContent: t('anyone can translate the file and add it here') }),
+        el('span', {
+          className: 'meta',
+          textContent: prefs.lang
+            ? t('anyone can translate the file and add it here')
+            : t('following your browser — pick one to fix it'),
+        }),
       ]),
       el('span', { className: 'sw on', textContent: current?.name || 'English' }),
     );
