@@ -951,6 +951,22 @@ button.swatchbtn:hover { background: var(--wc, var(--dim)); filter: brightness(1
   border: 1px solid rgba(255, 255, 255, .2);
 }
 
+.handoff { display: flex; flex-direction: column; gap: .6rem; align-items: stretch; }
+.qr {
+  align-self: center;
+  width: min(15rem, 60vw);
+  padding: .7rem;
+  border-radius: .6rem;
+  /* A scanner needs the dark modules on white, whatever theme the page is wearing. */
+  background: #ffffff;
+}
+
+.qr svg { display: block; width: 100%; height: auto; }
+.handoff .tilenote { word-break: break-all; text-align: center; margin: 0; }
+.handoff .sheetbody.actions { flex-direction: row; flex-wrap: wrap; padding: 0; gap: .4rem; justify-content: center; }
+.handoff .warn { color: var(--st-warning); font-size: .72rem; text-align: center; }
+.handoff .ghost.dup.on { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
+
 .swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: .55rem; }
 .swatch { height: 46px; border-radius: .5rem; border: 1px solid var(--line); }
 .swatch:active { transform: scale(.95); }

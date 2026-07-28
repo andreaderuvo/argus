@@ -47,6 +47,7 @@ def create_app(cfg: Config) -> FastAPI:
     app.state.socket = tmux.Socket.new(cfg.tmux_socket)
     app.state.favourites = getattr(cfg, "favourites_store", None) or Path("/nonexistent")
     app.state.lang = Path("/nonexistent")
+    app.state.addresses = []
 
     app.state.proxied = set()          # ports opened by hand, this run only
     app.state.http = httpx.AsyncClient(timeout=30.0, follow_redirects=False)
@@ -259,6 +260,33 @@ def serve_static(requested: str) -> Response:
     )
 
 
+def reachable_addresses() -> list[str]:
+    """Addresses another device on the network could use.
+
+    The browser cannot work these out: served through an editor's port forward it only
+    knows `localhost`, which is useless in a QR code aimed at a phone.
+    """
+    import socket
+    import subprocess
+
+    out = []
+    try:
+        raw = subprocess.run(["hostname", "-I"], capture_output=True, text=True, timeout=3).stdout
+    except (OSError, subprocess.SubprocessError):
+        raw = ""
+    for addr in raw.split():
+        # Docker bridges and loopback are not addresses a phone can reach.
+        if addr.startswith(("127.", "172.17.", "172.18.", "172.19.", "172.20.", "172.21.")):
+            continue
+        if ":" in addr:          # keep it to IPv4: a QR is typed by nobody but scanned by phones
+            continue
+        out.append(addr)
+    name = socket.getfqdn()
+    if name and "." in name and name not in out:
+        out.append(name)
+    return out
+
+
 def parse_listen(listen: str) -> tuple[str, int]:
     host, _, port = listen.rpartition(":")
     if not port.isdigit():
@@ -364,6 +392,7 @@ def main(argv: list[str] | None = None) -> int:
     app.state.favourites = favourites.default_store(config_path)
     app.state.lang = config_path.parent / "lang"
     app.state.port = port
+    app.state.addresses = reachable_addresses()
     banner(config_path, created, host, port, cfg, app.state.socket)
     tls = cfg.tls()
     uvicorn.run(
