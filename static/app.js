@@ -428,6 +428,8 @@ const ICONS = {
   save: 'M5.5 4.5h10L18.5 7.5v12h-13zM8.5 4.5v5h6M8.5 19.5v-6h7v6',
   phone: 'M7.5 3.5h9v17h-9zM10.5 17.8h3',
   camera: 'M4 7.5h3.2l1.4-2h6.8l1.4 2H20v11H4zM12 10.2a3.3 3.3 0 1 1 0 6.6 3.3 3.3 0 0 1 0-6.6z',
+  fit: 'M4.5 9V4.5H9M15 4.5h4.5V9M19.5 15v4.5H15M9 19.5H4.5V15',
+  lock: 'M6.5 10.5h11v9h-11zM9 10.5V7.6a3 3 0 0 1 6 0v2.9',
   star: 'M12 3.8l2.6 5.3 5.8.85-4.2 4.1 1 5.75L12 17.1l-5.2 2.7 1-5.75-4.2-4.1 5.8-.85z',
 };
 
@@ -2001,6 +2003,28 @@ const READABLE = 7;
  *  behaviour is to attach again. tmux redraws the whole pane on attach, so nothing is
  *  lost. The one case that must *not* retry is a session that no longer exists.
  */
+/** The two size buttons a terminal gets wherever it is shown.
+ *
+ *  tmux draws one window at one size and hands it to whoever acted last, so with a phone
+ *  and a desk on the same session someone always loses. These make that a decision:
+ *  ⤢ takes the size now, the lock says "I am only watching, keep your size".
+ */
+function sizeButtons(handle, cls) {
+  const fitNow = el('button', { className: cls, title: t('Fit the session to this screen') }, icon('fit'));
+  fitNow.onclick = (e) => { e.stopPropagation(); handle.claim(); handle.focus(); };
+
+  let passive = false;
+  const hold = el('button', { className: cls, title: t('Watch without changing the size') }, icon('lock'));
+  hold.onclick = (e) => {
+    e.stopPropagation();
+    passive = !passive;
+    hold.classList.toggle('on', passive);
+    hold.title = t(passive ? 'Take the size back' : 'Watch without changing the size');
+    handle.setPassive(passive);
+  };
+  return [fitNow, hold];
+}
+
 function attachTerminal(container, name, { transform, onGone } = {}) {
   const term = new Terminal({
     fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace',
@@ -2243,6 +2267,13 @@ function attachTerminal(container, name, { transform, onGone } = {}) {
   return {
     send,
     relayout,
+    /** Ask tmux to make this client the one the window is sized for. */
+    claim: claimSize,
+    /** Stop this client from ever resizing the window — look without touching. */
+    setPassive: (on) => {
+      if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'passive', on }));
+      if (!on) { fixed = null; container.classList.remove('panning'); claimSize(); }
+    },
     setFont: (px) => {
       term.options.fontSize = px;
       if (fixed?.cols) showWholeGrid();
@@ -2311,6 +2342,8 @@ async function screenTerm(name) {
   for (const [label, seq] of CTRL_KEYS) {
     keys.append(el('button', { textContent: label, onclick: () => { handle.send(seq); handle.focus(); } }));
   }
+  keys.append(...sizeButtons(handle));
+
   const zoom = (by) => () => {
     prefs.fontSize = Math.max(5, Math.min(22, prefs.fontSize + by));
     savePrefs();
@@ -2471,6 +2504,7 @@ async function screenWall() {
             },
           });
       if (handle.extra) extras.append(handle.extra);
+      if (spec.kind === 'term') extras.append(...sizeButtons(handle, 'winbtn'));
       const entry = { win, handle, name: id };
       open.push(entry);
 

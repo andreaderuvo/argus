@@ -171,6 +171,9 @@
   "{name} is over the {limit} limit": "{name} is over the {limit} limit",
   "{name} killed": "{name} killed",
   "{name} started": "{name} started",
-  "{name} started in {path}": "{name} started in {path}"
+  "{name} started in {path}": "{name} started in {path}",
+  "Fit the session to this screen": "Ajustar la sesión a esta pantalla",
+  "Watch without changing the size": "Mirar sin cambiar el tamaño",
+  "Take the size back": "Recuperar el control del tamaño"
  }
 }

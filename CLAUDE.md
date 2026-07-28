@@ -104,6 +104,13 @@ reloading is the whole loop — only Python changes need the server restarted.
 - **Resize**: the plan's `grouped_attach` idea does not work — grouped sessions share their
   windows and therefore their size. Replaced by `resize_policy: adapt | preserve`, where
   `preserve` attaches with `-f ignore-size` so other clients keep their geometry.
+- **Two clients, one window**: tmux draws a window at one size and, with `window-size
+  latest`, hands it to whoever acted last — it has no idea who is actually looking. So the
+  size is *claimed*: the browser resends its size on `focus`/`visibilitychange`, and the ⤢
+  button forces the same thing on demand. The lock button next to it sets `ignore-size` on
+  that one live client with `refresh-client -t <tty> -f ignore-size` (release it with
+  `-f '!ignore-size'` — `-f ''` looks right and silently does nothing), which is "watch
+  without disturbing the desk". The client's tty comes from `os.ttyname(slave)` at spawn.
 - **Session names** reach tmux as argv (never a shell string), and are gated against
   `list-sessions` on the configured socket, so a client can only reach sessions we listed.
 - **Disconnect** kills our attach client only — the tmux session and its processes survive.
@@ -113,8 +120,9 @@ reloading is the whole loop — only Python changes need the server restarted.
 
 ## State (2026-07-28)
 
-Feature-complete against everything asked for so far; **82 tests green**. Running on
-`0.0.0.0:8090` with `--allow-write`.
+Feature-complete against everything asked for so far; **170 tests green**. Running under
+systemd (`systemctl --user restart argus`) on `0.0.0.0:8090`, config in
+`~/.config/argus/config.yaml` (`resize_policy: adapt`, write and proxy on).
 
 Verified end to end against an isolated tmux socket: keystrokes, output, resize
 propagation (a 100×30 client gives tmux 100×29 — the status line takes a row), session
@@ -124,4 +132,7 @@ smoke-tested against the live server, and the frontend was loaded in headless ch
 confirm it boots with zero console errors and that the wall renders one window per
 session. No git commits yet.
 
-Deliberately not built: file upload, and any editing of file contents.
+Still open: TLS (which would unlock an installable PWA, push notifications and an in-app
+QR scanner), per-device tokens, session-activity notifications, and any frontend tests —
+all 170 are Python. `sudo loginctl enable-linger $USER` is still needed, or Argus dies
+at the last logout.
