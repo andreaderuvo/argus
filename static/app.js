@@ -828,11 +828,20 @@ async function render() {
   view.style.overflow = '';
   view.innerHTML = '';
 
-  if (!token) { nav.hidden = true; sideToggle.hidden = true; return screenLogin(); }
+  // Nothing but the login form until there is a token: no nav, no sidebar, no settings.
+  if (!token) {
+    nav.hidden = true;
+    sideToggle.hidden = true;
+    bar.settings.hidden = true;
+    document.body.classList.remove('side');
+    side.innerHTML = '';
+    return screenLogin();
+  }
 
   const { path, q } = route;
   nav.hidden = false;
   sideToggle.hidden = false;
+  bar.settings.hidden = false;
   for (const a of nav.querySelectorAll('a')) {
     a.classList.toggle('on', path.startsWith('/' + a.dataset.tab));
   }
