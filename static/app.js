@@ -440,6 +440,21 @@ function fileActions(entry, refresh, dest) {
   ]);
 }
 
+function rootPicker(roots, setPath) {
+  const body = el('div', { className: 'sheetbody actions' });
+  let sheet;
+  for (const r of roots) {
+    body.append(el('button', {
+      className: 'ghost block',
+      textContent: r,
+      onclick: () => { sheet.close(); setPath(r); },
+    }));
+  }
+  sheet = modal('Filesystems', body, [
+    el('button', { className: 'ghost', textContent: 'Close', onclick: () => sheet.close() }),
+  ]);
+}
+
 /** Debounced search box wired to a folder. The query is handed back too, because an
  *  empty one means "go back to how you were showing this folder". */
 function searchBox(path, onResults, placeholder = 'search in this folder…') {
@@ -550,6 +565,7 @@ async function render() {
     await serverInfo();
     if (path === '/files') return await screenFiles(q.get('path'));
     if (path === '/preview') return await screenPreview(q.get('path'));
+    if (path === '/system') return await screenSystem();
     if (path === '/settings') return await screenSettings();
     if (path === '/term') return await screenTerm(q.get('s'));
     if (path === '/wall') return await screenWall();
@@ -663,10 +679,15 @@ function fileBrowser({ path, setPath, other, roots, compact = false }) {
   const up = el('button', { textContent: '↑', title: 'Parent folder', disabled: roots.includes(path) });
   up.onclick = () => setPath(parentOf(path));
 
+  // With several filesystems configured, the top of one is a dead end without this.
+  const jump = roots.length > 1
+    ? el('button', { textContent: '⌂', title: 'Jump to a filesystem', onclick: () => rootPicker(roots, setPath) })
+    : null;
+
   const crumb = el('button', { className: 'crumb', type: 'button', textContent: path });
   crumb.title = `${path}\n(click to copy)`;
   crumb.onclick = () => copyPath(path);
-  node.append(el('div', { className: 'sidehead' }, [up, crumb]));
+  node.append(el('div', { className: 'sidehead' }, [up, jump, crumb].filter(Boolean)));
 
   const tools = el('div', { className: 'pad tools' }, searchBox(path, show, compact ? 'search…' : undefined));
   if (server?.allow_write) {
@@ -858,6 +879,111 @@ async function renderMarkdown(text, container) {
   for (const img of container.querySelectorAll('img')) {
     if (!/^https?:/i.test(img.getAttribute('src') || '')) img.remove();
   }
+}
+
+/* ------------------------------------------------------------------ vitals */
+
+const LEVEL_WORD = { good: 'ok', warning: 'high', critical: 'critical' };
+
+/** A labelled meter. The fill carries severity; the word beside it carries the same
+ *  thing in text, because a status must never be colour alone. */
+function meter(label, value, pct, lvl, note = '') {
+  const fill = el('div', { className: `fill ${lvl}` });
+  fill.style.width = `${Math.max(1.5, Math.min(100, pct))}%`;
+  return el('div', { className: 'tile' }, [
+    el('div', { className: 'tilehead' }, [
+      el('span', { className: 'tilelabel', textContent: label }),
+      el('span', { className: `state ${lvl}`, textContent: LEVEL_WORD[lvl] }),
+    ]),
+    el('div', { className: 'tilevalue', textContent: value }),
+    el('div', { className: 'track' }, fill),
+    el('div', { className: 'tilenote', textContent: note }),
+  ]);
+}
+
+const duration = (s) => {
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  return d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : `${m}m`;
+};
+
+async function screenSystem() {
+  bar.title.textContent = 'System';
+  const body = el('div', { className: 'vitals' });
+  view.append(body);
+
+  const paint = (s) => {
+    // The single worst number on the box, so "is it dying" is answered before you read
+    // anything else.
+    const worst = [
+      { what: 'cpu', pct: s.cpu.pct, level: s.cpu.level },
+      { what: 'memory', pct: s.memory.pct, level: s.memory.level },
+      ...s.disks.map((d) => ({ what: `disk ${d.path}`, pct: d.pct, level: d.level })),
+      ...s.gpus.map((g) => ({ what: `gpu memory`, pct: g.mem_pct, level: g.level })),
+    ].sort((a, b) => b.pct - a.pct)[0];
+
+    body.textContent = '';
+    body.append(el('div', { className: `hero ${worst.level}` }, [
+      el('div', { className: 'heronum', textContent: `${Math.round(worst.pct)}%` }),
+      el('div', { className: 'herolabel' }, [
+        el('span', { className: `state ${worst.level}`, textContent: LEVEL_WORD[worst.level] }),
+        el('span', { textContent: ` · busiest: ${worst.what}` }),
+      ]),
+      el('div', { className: 'tilenote', textContent: `${s.hostname} · up ${duration(s.uptime)} · ${s.cpu.cores} cores` }),
+    ]));
+
+    const grid = el('div', { className: 'tiles' });
+    grid.append(meter(
+      'CPU', `${s.cpu.pct}%`, s.cpu.pct, s.cpu.level,
+      `load ${s.cpu.load.join('  ')} over ${s.cpu.cores} cores`,
+    ));
+    grid.append(meter(
+      'Memory', `${human(s.memory.used)} / ${human(s.memory.total)}`, s.memory.pct, s.memory.level,
+      `${human(s.memory.available)} available · ${human(s.memory.cached)} cached`,
+    ));
+    if (s.memory.swap_total) {
+      grid.append(meter(
+        'Swap', `${human(s.memory.swap_used)} / ${human(s.memory.swap_total)}`,
+        s.memory.swap_pct, s.memory.swap_level, 'swapping under pressure is the warning sign',
+      ));
+    }
+    for (const g of s.gpus) {
+      grid.append(meter(
+        g.name, `${human(g.mem_used)} / ${human(g.mem_total)}`, g.mem_pct, g.level,
+        `${g.util}% busy · ${g.temp}°C`,
+      ));
+    }
+    for (const d of s.disks) {
+      grid.append(meter(d.path, `${human(d.used)} / ${human(d.total)}`, d.pct, d.level, `${human(d.free)} free`));
+    }
+    body.append(grid);
+
+    if (s.processes.length) {
+      const list = el('div', { className: 'proclist' });
+      list.append(el('div', { className: 'tilelabel', textContent: 'Largest processes' }));
+      for (const p of s.processes) {
+        list.append(el('div', { className: 'procrow' }, [
+          el('span', { className: 'procname', textContent: p.name }),
+          el('span', { className: 'procnum', textContent: human(p.rss) }),
+          el('span', { className: 'procnum dim', textContent: `${p.cpu}%` }),
+        ]));
+      }
+      body.append(list);
+    }
+  };
+
+  const tick = async () => {
+    try { paint(await getJSON('/api/system')); } catch (e) {
+      body.textContent = '';
+      body.append(el('p', { className: 'error', textContent: e.message }));
+    }
+  };
+  await tick();
+
+  // Poll only while the screen is actually in front of someone.
+  const timer = setInterval(() => { if (!document.hidden) tick(); }, 4000);
+  leaving = () => clearInterval(timer);
 }
 
 async function screenSettings() {
@@ -1280,9 +1406,46 @@ async function screenWall() {
     };
 
     const settled = () => { handle.relayout(); saveGeom(s.name, win); };
+    // Double-clicking the title bar maximises and restores, the way every desktop does.
+    head.addEventListener('dblclick', (e) => {
+      if (e.target === head || e.target.classList.contains('wintitle')) solo.onclick();
+    });
+
     dragBy(head, win, wall, settled, [swatch, solo, close]);
     resizable(win, wall, settled);
   });
+
+  // Windows carry pixel geometry, so they do not follow the wall on their own: toggling
+  // the sidebar or resizing the browser would leave them stranded in the old area.
+  // Scaling keeps whatever arrangement you made instead of imposing a fresh one.
+  const px = (v) => (v && v.endsWith('px') ? parseFloat(v) : null);
+  let measured = null;
+  const wallRO = new ResizeObserver(() => {
+    const w = wall.clientWidth;
+    const h = wall.clientHeight;
+    if (!w || !h) return;
+    if (measured && (measured.w !== w || measured.h !== h)) {
+      const fx = w / measured.w;
+      const fy = h / measured.h;
+      for (const o of open) {
+        const l = px(o.win.style.left);
+        const t = px(o.win.style.top);
+        const ow = px(o.win.style.width);
+        const oh = px(o.win.style.height);
+        if (l === null || t === null || ow === null || oh === null) continue;
+        Object.assign(o.win.style, {
+          left: `${Math.round(l * fx)}px`,
+          top: `${Math.round(t * fy)}px`,
+          width: `${Math.round(Math.max(MIN_W, ow * fx))}px`,
+          height: `${Math.round(Math.max(MIN_H, oh * fy))}px`,
+        });
+        saveGeom(o.name, o.win);
+        o.handle.relayout();
+      }
+    }
+    measured = { w, h };
+  });
+  wallRO.observe(wall);
 
   // Restore the geometry you left behind; if nothing was ever placed, lay them out.
   const known = open.filter((o) => prefs.winGeom?.[o.name]);
@@ -1297,6 +1460,7 @@ async function screenWall() {
   }
 
   leaving = () => {
+    wallRO.disconnect();
     for (const o of open) o.handle.dispose();
     open.length = 0;
   };

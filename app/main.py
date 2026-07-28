@@ -13,7 +13,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 
-from . import files, fsops, term, tmux
+from . import files, fsops, mounts, system, term, tmux
 from .auth import TokenAuthMiddleware
 from .config import Config, ConfigError, default_path
 from .errors import ApiError
@@ -53,6 +53,11 @@ def create_app(cfg: Config) -> FastAPI:
             return await asyncio.to_thread(tmux.list_sessions, request.app.state.socket)
         except tmux.TmuxError as e:
             raise ApiError(502, str(e)) from e
+
+    @app.get("/api/system")
+    async def vitals(request: Request) -> dict:
+        # Sampling /proc/stat needs a real pause, so it goes to a thread.
+        return await asyncio.to_thread(system.snapshot, request.app.state.jail.roots)
 
     @app.exception_handler(ApiError)
     async def api_error(_request: Request, exc: ApiError) -> JSONResponse:
@@ -108,7 +113,8 @@ def url_for(host: str, port: int, cfg: Config) -> str:
 def banner(config_path: Path, created: bool, host: str, port: int, cfg: Config, sock: tmux.Socket) -> None:
     print(f"argus {VERSION}")
     print(f"  created {config_path} with a fresh token" if created else f"  config  {config_path}")
-    print(f"  roots   {', '.join(str(r) for r in cfg.roots)}")
+    shown = [str(r) for r in cfg.roots]
+    print(f"  roots   {', '.join(shown[:4])}{f' (+{len(shown) - 4} more)' if len(shown) > 4 else ''}")
     print(f"  resize  {cfg.resize_policy}")
     print(f"  tmux    socket {sock.label()}")
     print(f"  files   {'read-write (mkdir/rename/move/copy/delete)' if cfg.allow_write else 'read-only'}")
@@ -141,6 +147,11 @@ def main(argv: list[str] | None = None) -> int:
         help="permit mkdir/rename/move/copy/delete through the API. Off by default: a "
         "read-only viewer is a safe thing to leave listening on a network",
     )
+    parser.add_argument(
+        "--mounts",
+        action="store_true",
+        help="add every real filesystem on the machine to the browsable roots",
+    )
     parser.add_argument("--print-url", action="store_true", help="print the URL with the access token and exit")
     args = parser.parse_args(argv)
 
@@ -155,6 +166,12 @@ def main(argv: list[str] | None = None) -> int:
             cfg.tmux_socket = args.socket
         if args.allow_write:
             cfg.allow_write = True
+        if args.mounts:
+            cfg.include_mounts = True
+        if cfg.include_mounts:
+            # Configured roots first: they are the ones the user cares about, and the
+            # UI opens on the first.
+            cfg.roots = cfg.roots + [m for m in mounts.discover() if m not in cfg.roots]
         cfg.validate()
         host, port = parse_listen(cfg.listen)
     except (ConfigError, OSError) as e:
