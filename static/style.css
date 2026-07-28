@@ -690,6 +690,22 @@ body.wall #view { display: flex; flex-direction: column; }
 }
 
 .win.dragging { pointer-events: none; }
+.sendrow { display: flex; gap: .35rem; align-items: stretch; }
+.sendrow .ghost.block { flex: 1; }
+.sendrow .verb { font-size: .72rem; color: var(--dim); letter-spacing: .05em; text-transform: uppercase; }
+button.ghost.dup {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: 0 .7rem;
+  font-size: .78rem;
+  color: var(--dim);
+  border-color: var(--line);
+}
+button.ghost.dup:hover { color: var(--accent); border-color: var(--accent); }
+.wstab.duplicating { border-style: dashed; }
+
 .wstab.dropinto {
   background: color-mix(in srgb, var(--accent) 30%, var(--bg));
   color: var(--bright);

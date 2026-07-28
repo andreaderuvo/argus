@@ -1825,7 +1825,7 @@ async function screenWall() {
       send.onclick = () => sendSheet(spec, ws, entry);
 
       dragBy(head, win, node, settled, [swatch, send, solo, close], peersOf(win),
-        (targetId) => relocate(spec, ws, spaces.find((w) => w.id === targetId), entry, false));
+        (targetId, copy) => relocate(spec, ws, spaces.find((w) => w.id === targetId), entry, copy));
       resizable(win, node, settled, peersOf(win));
       return entry;
     }
@@ -1879,14 +1879,19 @@ async function screenWall() {
       if (ws === fromWs) continue;
       const dot = el('span', { className: 'tabdot' });
       dot.style.background = colorFor(`ws:${ws.id}`);
+      // Two explicit verbs rather than a bare icon: an unlabelled second action beside a
+      // row reads as decoration, and nobody clicks decoration.
+      const dup = el('button', { className: 'ghost dup', title: `Leave this one open and add a copy to ${ws.name}` },
+        [icon('copy'), el('span', { textContent: 'Duplicate' })]);
+      dup.onclick = (e) => { e.stopPropagation(); sheet.close(); relocate(spec, fromWs, ws, entry, true); };
+
       const row = el('button', {
         className: 'ghost block',
+        title: `Move this window to ${ws.name}`,
         onclick: () => { sheet.close(); relocate(spec, fromWs, ws, entry, false); },
-      }, [dot, el('span', { className: 'grow', textContent: ws.name })]);
-      const dup = el('button', { className: 'winbtn', title: `Duplicate into ${ws.name}` }, icon('copy'));
-      dup.onclick = (e) => { e.stopPropagation(); sheet.close(); relocate(spec, fromWs, ws, entry, true); };
-      row.append(dup);
-      body.append(row);
+      }, [dot, el('span', { className: 'grow', textContent: ws.name }),
+        el('span', { className: 'verb', textContent: 'Move' })]);
+      body.append(el('div', { className: 'sendrow' }, [row, dup]));
     }
     body.append(el('div', { className: 'sheetsep' }));
     body.append(el('button', {
@@ -1902,7 +1907,7 @@ async function screenWall() {
       },
     }, [icon('folderPlus'), el('span', { textContent: 'A new workspace' })]));
 
-    sheet = modal('Move to', body, [
+    sheet = modal('Move or duplicate', body, [
       el('button', { className: 'ghost', textContent: 'Close', onclick: () => sheet.close() }),
     ]);
   }
@@ -2114,8 +2119,12 @@ function dragBy(grabber, win, bounds, onDone, ignore = [], peers = () => [], onT
     win.classList.add('dragging');
     let drop = null;
     let overTab = null;
+    let duplicating = false;
 
     const move = (ev) => {
+      // Holding ctrl (or alt) while dropping on a tab copies instead of moving, the way
+      // dragging a file between folders does.
+      duplicating = ev.ctrlKey || ev.altKey;
       const px = ev.clientX - area.left;
       const py = ev.clientY - area.top;
 
@@ -2127,7 +2136,12 @@ function dragBy(grabber, win, bounds, onDone, ignore = [], peers = () => [], onT
         overTab = tab || null;
         overTab?.classList.add('dropinto');
       }
-      if (overTab) { showGhost(bounds, null); drop = null; return; }
+      if (overTab) {
+        overTab.classList.toggle('duplicating', duplicating);
+        showGhost(bounds, null);
+        drop = null;
+        return;
+      }
 
       // The wall's own edges win over a window underneath: that is the gesture people
       // reach for when they want a half-screen.
@@ -2147,7 +2161,7 @@ function dragBy(grabber, win, bounds, onDone, ignore = [], peers = () => [], onT
       showGhost(bounds, null);
       if (overTab) {
         overTab.classList.remove('dropinto');
-        onTabDrop(Number(overTab.dataset.ws));
+        onTabDrop(Number(overTab.dataset.ws), duplicating);
         return;
       }
       if (drop) {
