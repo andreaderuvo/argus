@@ -2118,7 +2118,9 @@ function saveGeom(name, win) {
 /** Pointer-events drag, so it works with a mouse, a trackpad and a stylus alike. */
 function dragBy(grabber, win, bounds, onDone, ignore = [], peers = () => [], onTabDrop = null) {
   grabber.addEventListener('pointerdown', (e) => {
-    if (ignore.includes(e.target)) return;
+    // Compare by ancestry, not identity: a click on a button lands on the <svg> inside
+    // it, so an identity test starts a drag and the button never sees its click.
+    if (ignore.some((node) => node === e.target || node.contains(e.target))) return;
     const box = win.getBoundingClientRect();
     const area = bounds.getBoundingClientRect();
     const dx = e.clientX - box.left;
