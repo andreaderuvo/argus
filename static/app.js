@@ -2081,6 +2081,31 @@ function attachTerminal(container, name, { transform, onGone } = {}) {
   const send = (data) => { if (ws?.readyState === WebSocket.OPEN) ws.send(enc.encode(data)); };
   term.onData((d) => send(transform ? transform(d) : d));
 
+  // A phone has no wheel, and tmux with `mouse on` scrolls only when it gets one — so
+  // dragging a finger over the terminal did nothing at all, while the desktop scrolled
+  // a hundred thousand lines of history. The drag is turned into wheel events and tmux
+  // treats them exactly as it treats the mouse.
+  let touchY = null;
+  container.addEventListener('touchstart', (e) => {
+    touchY = e.touches.length === 1 ? e.touches[0].clientY : null;
+  }, { passive: true });
+
+  container.addEventListener('touchmove', (e) => {
+    if (touchY === null || e.touches.length !== 1) return;
+    const y = e.touches[0].clientY;
+    const dy = touchY - y;
+    if (Math.abs(dy) < 6) return;      // a tap that wobbles is still a tap
+    touchY = y;
+    (container.querySelector('.xterm-screen') || container).dispatchEvent(
+      new WheelEvent('wheel', { deltaY: dy, deltaMode: 0, bubbles: true, cancelable: true }),
+    );
+    if (e.cancelable) e.preventDefault();
+  }, { passive: false });
+
+  for (const done of ['touchend', 'touchcancel']) {
+    container.addEventListener(done, () => { touchY = null; }, { passive: true });
+  }
+
   const relayout = () => {
     if (!container.clientWidth || !container.clientHeight) return;   // parked, or not laid out
     try { fit.fit(); } catch { /* detached */ }
@@ -2130,7 +2155,9 @@ async function screenTerm(name) {
   const wrap = el('div', { id: 'termwrap' });
   const keys = el('div', { id: 'keys' });
   view.append(wrap);
-  document.body.append(keys);
+  // Before the nav, not after it: appended last it lands in a grid row below the
+  // viewport, present in the DOM and invisible on the phone.
+  document.body.insertBefore(keys, nav);
 
   // A sticky Ctrl: tap it, then the next character becomes a control code. Mobile
   // keyboards have no modifier to hold down.
@@ -2169,7 +2196,7 @@ async function screenTerm(name) {
 
   live = {
     key: `term:${name}`,
-    mounts: [[wrap, () => view], [keys, () => document.body]],
+    mounts: [[wrap, () => view], [keys, () => ({ append: (n) => document.body.insertBefore(n, nav) })]],
     decorate: () => decorateTerm(name),
     resume: () => { relayout(); handle.focus(); },
     dispose: () => {
@@ -2478,18 +2505,32 @@ async function screenWall() {
       o.win.remove();
       deck.open.splice(deck.open.indexOf(o), 1);
     }
-    // A window restored from a smaller screen, or dropped in from elsewhere, must not
-    // sit outside the visible wall.
+    // Geometry is stored in pixels, and a desk is not a phone: a window sized on a wide
+    // screen would hang off the side of a narrow one. Bring both the size and the
+    // position back inside whatever wall we have now.
     const w = deck.node.clientWidth || wall.clientWidth;
     const h = deck.node.clientHeight || wall.clientHeight;
     if (!w || !h) return;
     for (const o of deck.open) {
-      const box = o.win.getBoundingClientRect();
-      const left = parseFloat(o.win.style.left) || 0;
-      const topPos = parseFloat(o.win.style.top) || 0;
-      if (left > w - 60 || topPos > h - 30 || left + box.width < 40) {
-        Object.assign(o.win.style, { left: '28px', top: '24px' });
-        saveGeom(geomKey(ws, o.name), o.win);
+      const px = (v) => parseFloat(v) || 0;
+      let width = px(o.win.style.width) || o.win.getBoundingClientRect().width;
+      let height = px(o.win.style.height) || o.win.getBoundingClientRect().height;
+      let left = px(o.win.style.left);
+      let top = px(o.win.style.top);
+
+      width = Math.min(width, w - 8);
+      height = Math.min(height, h - 8);
+      left = Math.max(0, Math.min(left, w - width));
+      top = Math.max(0, Math.min(top, h - height));
+
+      const wanted = { left: `${Math.round(left)}px`, top: `${Math.round(top)}px`,
+        width: `${Math.round(Math.max(MIN_W > w ? w - 8 : MIN_W, width))}px`,
+        height: `${Math.round(Math.max(MIN_H > h ? h - 8 : MIN_H, height))}px` };
+      if (Object.entries(wanted).some(([k, v]) => o.win.style[k] !== v)) {
+        Object.assign(o.win.style, wanted);
+        // Deliberately not saved: the desk's own layout should survive being looked at
+        // from a phone.
+        o.handle.relayout();
       }
     }
   }
