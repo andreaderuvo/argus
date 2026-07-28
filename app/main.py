@@ -284,7 +284,15 @@ def reachable_addresses() -> list[str]:
     # Both spellings: on a VPN the short name is often what resolves, and it is what a
     # person types. The fully qualified one is what a browser outside the search domain
     # will need.
+    names = []
     for name in (socket.gethostname(), socket.getfqdn()):
+        names.append(name)
+        # gethostname() often already returns the qualified form, so the short spelling
+        # has to be derived rather than looked up — and the short one is what a person
+        # on the VPN actually types.
+        if "." in name:
+            names.append(name.split(".")[0])
+    for name in names:
         if name and name not in out and not name.startswith("localhost"):
             out.append(name)
     return out
