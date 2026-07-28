@@ -310,6 +310,18 @@ button.icon .ico { width: 22px; height: 22px; }
 }
 
 .row:active { background: var(--panel); }
+
+/* The file a terminal just pointed at. It fades on its own: a mark that stayed would
+   still be there tomorrow, claiming to mean something. */
+.row.pointed {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  box-shadow: inset 3px 0 0 var(--accent);
+  animation: pointed 2.6s ease-out forwards;
+}
+@keyframes pointed {
+  0%, 55% { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+  100% { background: transparent; box-shadow: inset 3px 0 0 transparent; }
+}
 .row .glyph { width: 1.2rem; text-align: center; color: var(--dim); flex: none; }
 .row .ficon { width: 22px; height: 26px; flex: none; }
 .row .twist { width: .9rem; flex: none; text-align: center; color: var(--dim); font-size: .65rem; }
