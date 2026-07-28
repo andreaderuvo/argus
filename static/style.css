@@ -532,6 +532,8 @@ body.term { grid-template-rows: var(--bar) 1fr auto; }
 }
 
 .xterm { padding: 2px 4px; height: 100%; }
+/* The drag is ours to read; without this the browser tries to pan the page with it. */
+#termwrap .xterm-screen, .winbody .xterm-screen { touch-action: none; }
 
 /* ---------- file panes ---------- */
 
