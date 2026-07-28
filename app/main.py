@@ -13,7 +13,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 
-from . import favourites, files, fsops, mounts, ports, proxy, system, term, tmux
+from . import favourites, files, fsops, languages, mounts, ports, proxy, system, term, tmux
 import httpx
 
 from .auth import PROXY_COOKIE, TokenAuthMiddleware
@@ -23,6 +23,7 @@ from .safepath import Jail, PathError
 
 VERSION = "0.1.0"
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+BUILTIN_LANG = STATIC_DIR / "lang"
 
 # Not every system's mime database knows these two, and getting them wrong is fatal:
 # a module served as octet-stream is refused by the browser, and so is the manifest.
@@ -45,6 +46,7 @@ def create_app(cfg: Config) -> FastAPI:
     app.state.jail = Jail(cfg.roots)
     app.state.socket = tmux.Socket.new(cfg.tmux_socket)
     app.state.favourites = getattr(cfg, "favourites_store", None) or Path("/nonexistent")
+    app.state.lang = Path("/nonexistent")
 
     app.state.proxied = set()          # ports opened by hand, this run only
     app.state.http = httpx.AsyncClient(timeout=30.0, follow_redirects=False)
@@ -61,6 +63,35 @@ def create_app(cfg: Config) -> FastAPI:
             return await asyncio.to_thread(tmux.list_sessions, request.app.state.socket)
         except tmux.TmuxError as e:
             raise ApiError(502, str(e)) from e
+
+    @app.get("/api/languages")
+    async def list_languages(request: Request) -> list[dict]:
+        return languages.available(BUILTIN_LANG, request.app.state.lang)
+
+    @app.get("/api/language/{code}")
+    async def one_language(request: Request, code: str) -> dict:
+        try:
+            path = languages.locate(code, BUILTIN_LANG, request.app.state.lang)
+        except languages.BadLanguage as e:
+            raise ApiError(400, str(e)) from e
+        entry = languages.read(path) if path else None
+        if not entry:
+            raise ApiError(404, f"no language called {code}")
+        return entry
+
+    @app.post("/api/language")
+    async def import_language(request: Request, body: dict) -> dict:
+        """Anyone can translate the catalogue and add it here; it is a flat JSON object
+        keyed by the English strings, so it needs no tooling to produce."""
+        try:
+            code, name, strings = languages.parse(body)
+        except languages.BadLanguage as e:
+            raise ApiError(400, str(e)) from e
+        try:
+            languages.save(request.app.state.lang, code, name, strings)
+        except OSError as e:
+            raise ApiError(500, f"could not save the language: {e.strerror}") from e
+        return {"code": code, "name": name, "count": len(strings)}
 
     @app.get("/api/favourites")
     async def list_favourites(request: Request) -> dict:
@@ -331,6 +362,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     app.state.favourites = favourites.default_store(config_path)
+    app.state.lang = config_path.parent / "lang"
     app.state.port = port
     banner(config_path, created, host, port, cfg, app.state.socket)
     tls = cfg.tls()

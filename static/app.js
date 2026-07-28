@@ -22,7 +22,11 @@ const bar = {
   title: document.getElementById('title'),
   action: document.getElementById('action'),
   alt: document.getElementById('alt'),
+  settings: document.getElementById('settings'),
 };
+
+// The bottom bar is for the places you go; settings are not one of them.
+bar.settings.onclick = () => go('#/settings');
 
 const DEFAULTS = {
   hidden: false,     // dotfiles are noise until you ask for them
@@ -35,6 +39,7 @@ const DEFAULTS = {
   wsSeq: 1,
   desktop: [],       // pre-workspace desktops, migrated on first load
   home: '',          // where the home button lands; empty means the first root
+  lang: '',          // interface language; empty means whatever the browser asks for
   split: false,      // two file panes side by side
   path2: '',         // where the second pane is
   winGeom: {},       // session name -> free-window geometry
@@ -137,6 +142,39 @@ function termTheme() {
   }
 }
 
+/* ------------------------------------------------------------------- words */
+
+// The English text is its own key. A catalogue is therefore readable by whoever
+// translates it, a missing entry falls back to English instead of showing a code, and
+// the source keeps saying what it means.
+let strings = {};
+
+function t(text, vars) {
+  let out = strings[text] || text;
+  if (vars) for (const [k, v] of Object.entries(vars)) out = out.split(`{${k}}`).join(String(v));
+  return out;
+}
+
+async function loadLanguage(code) {
+  if (!code || code === 'en') { strings = {}; return; }
+  try {
+    const r = await fetch(`/api/language/${encodeURIComponent(code)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    strings = r.ok ? (await r.json()).strings || {} : {};
+  } catch { strings = {}; }
+}
+
+/** Whatever the browser asks for, if we have it. */
+function preferredLanguage(available) {
+  if (prefs.lang) return prefs.lang;
+  for (const want of navigator.languages || [navigator.language || 'en']) {
+    const code = want.toLowerCase().split('-')[0];
+    if (available.includes(code)) return code;
+  }
+  return 'en';
+}
+
 const enc = new TextEncoder();
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -194,7 +232,7 @@ async function toggleFavourite(path, group) {
   try {
     const r = await postJSON('/api/favourites', { path, group });
     favs = r.favourites;
-    toast(r.pinned ? `pinned in ${r.group}` : `unpinned from ${r.group}`);
+    toast(r.pinned ? t('pinned in {group}', { group: r.group }) : t('unpinned from {group}', { group: r.group }));
     refreshAllBrowsers();
   } catch (e) { toast(e.message, true); }
 }
@@ -236,15 +274,15 @@ function colorFor(name) {
 
 function pickColor(name, onPicked) {
   const body = el('div', { className: 'sheetbody swatches' });
-  const sheet = modal(`Colour for ${name}`, body, [
-    el('button', { className: 'ghost', textContent: 'Reset', onclick: () => {
+  const sheet = modal(t('Colour for {name}', { name }), body, [
+    el('button', { className: 'ghost', textContent: t('Reset'), onclick: () => {
       const { [name]: _drop, ...rest } = prefs.colors || {};
       prefs.colors = rest;
       savePrefs();
       sheet.close();
       onPicked();
     } }),
-    el('button', { className: 'ghost', textContent: 'Close', onclick: () => sheet.close() }),
+    el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),
   ]);
   WIN_COLORS.forEach((c, i) => {
     const b = el('button', { className: 'swatch', type: 'button', title: `colour ${i + 1}` });
@@ -268,7 +306,7 @@ const homePath = (roots) => prefs.home || roots[0];
 function setHome(path) {
   prefs.home = path;
   savePrefs();
-  toast(`home is now ${path}`);
+  toast(t('home is now {path}', { path }));
   refreshAllBrowsers();
 }
 
@@ -297,7 +335,7 @@ function ask(title, value = '', label = 'OK') {
     const done = (v) => { resolve(v); d.close(); };
     const ok = el('button', { className: 'primary inline', textContent: label, onclick: () => done(input.value) });
     const d = modal(title, el('div', { className: 'sheetbody' }, input), [
-      el('button', { className: 'ghost', textContent: 'Cancel', onclick: () => done(null) }),
+      el('button', { className: 'ghost', textContent: t('Cancel'), onclick: () => done(null) }),
       ok,
     ]);
     d.addEventListener('cancel', () => resolve(null));
@@ -311,7 +349,7 @@ function confirmBox(title, message, label = 'Delete') {
   return new Promise((resolve) => {
     const done = (v) => { resolve(v); d.close(); };
     const d = modal(title, el('div', { className: 'sheetbody' }, el('p', { textContent: message })), [
-      el('button', { className: 'ghost', textContent: 'Cancel', onclick: () => done(false) }),
+      el('button', { className: 'ghost', textContent: t('Cancel'), onclick: () => done(false) }),
       el('button', { className: 'primary inline danger', textContent: label, onclick: () => done(true) }),
     ]);
     d.addEventListener('cancel', () => resolve(false));
@@ -339,7 +377,7 @@ async function copyText(text) {
 
 async function copyPath(path) {
   const ok = await copyText(path);
-  toast(ok ? path : 'could not reach the clipboard', !ok);
+  toast(ok ? path : t('could not reach the clipboard'), !ok);
 }
 
 function toast(message, bad = false) {
@@ -467,7 +505,7 @@ function entryRow(e, { href, onClick, refresh, dest, favGroup = 'main' }) {
     : el('button', { className: cls, type: 'button', onclick: onClick }, kids);
 
   if (server?.allow_write && refresh) {
-    const menu = el('button', { className: 'more', type: 'button', title: 'Actions' }, icon('more'));
+    const menu = el('button', { className: 'more', type: 'button', title: t('Actions') }, icon('more'));
     menu.onclick = (ev) => { ev.preventDefault(); ev.stopPropagation(); fileActions(e, refresh, dest, favGroup); };
     // The menu button lives outside the row link, or tapping it would navigate.
     return el('div', { className: 'rowwrap' }, [row, menu]);
@@ -500,26 +538,26 @@ function fileActions(entry, refresh, dest, favGroup = 'main') {
   );
 
   act('rename', 'Rename…', async () => {
-    const name = await ask('Rename', entry.name, 'Rename');
+    const name = await ask(t('Rename'), entry.name, t('Rename'));
     if (name && name !== entry.name) {
       await postJSON('/api/fs/rename', { path: entry.path, name });
-      toast(`renamed to ${name}`);
+      toast(t('renamed to {name}', { name }));
     }
   });
 
   act('move', 'Move to…', async () => {
-    const dest = await ask('Move into which folder?', here, 'Move');
+    const dest = await ask(t('Move into which folder?'), here, t('Move'));
     if (dest) {
       await postJSON('/api/fs/move', { path: entry.path, dest });
-      toast(`moved to ${dest}`);
+      toast(t('moved to {dest}', { dest }));
     }
   });
 
   act('copy', 'Copy to…', async () => {
-    const dest = await ask('Copy into which folder?', here, 'Copy');
+    const dest = await ask(t('Copy into which folder?'), here, t('Copy'));
     if (dest) {
       await postJSON('/api/fs/copy', { path: entry.path, dest });
-      toast(`copied to ${dest}`);
+      toast(t('copied to {dest}', { dest }));
     }
   });
 
@@ -527,7 +565,7 @@ function fileActions(entry, refresh, dest, favGroup = 'main') {
     const into = el('input', { type: 'file', multiple: true, hidden: true });
     into.onchange = () => { uploadTo(entry.path, into.files); into.value = ''; };
     const btn = el('button', { className: 'ghost block', onclick: () => into.click() },
-      [icon('upload'), el('span', { textContent: 'Upload here…' })]);
+      [icon('upload'), el('span', { textContent: t('Upload here…') })]);
     body.append(btn, into);
   }
 
@@ -543,7 +581,7 @@ function fileActions(entry, refresh, dest, favGroup = 'main') {
     body.append(el('button', {
       className: 'ghost block',
       onclick: () => { sheet.close(); chooseDesk({ kind: 'browser', path: entry.path }, entry.name); },
-    }, [icon('split'), el('span', { textContent: 'Open in a window' })]));
+    }, [icon('split'), el('span', { textContent: t('Open in a window') })]));
     body.append(el('button', {
       className: 'ghost block',
       onclick: async () => {
@@ -551,48 +589,48 @@ function fileActions(entry, refresh, dest, favGroup = 'main') {
         const name = await createSession({ path: entry.path, suggest: entry.name });
         if (name) chooseDesk({ kind: 'term', name }, name);
       },
-    }, [icon('terminal'), el('span', { textContent: 'Open a shell here' })]));
+    }, [icon('terminal'), el('span', { textContent: t('Open a shell here') })]));
     body.append(el('button', {
       className: 'ghost block',
       onclick: () => { sheet.close(); setHome(entry.path); },
-    }, [icon('home'), el('span', { textContent: 'Set as home folder' })]));
+    }, [icon('home'), el('span', { textContent: t('Set as home folder') })]));
   }
 
   if (!dir) {
     body.append(el('button', {
       className: 'ghost block',
       onclick: () => { sheet.close(); chooseDesk({ kind: 'file', path: entry.path }, entry.name); },
-    }, [icon('split'), el('span', { textContent: 'Open in a window' })]));
+    }, [icon('split'), el('span', { textContent: t('Open in a window') })]));
   }
 
   // No refresh for these two: they change nothing on disk.
   body.append(el('button', {
     className: 'ghost block',
     onclick: () => { sheet.close(); copyPath(entry.path); },
-  }, [icon('clipboard'), el('span', { textContent: 'Copy path' })]));
+  }, [icon('clipboard'), el('span', { textContent: t('Copy path') })]));
 
   if (!dir) {
     body.append(el('button', {
       className: 'ghost block',
       onclick: () => { sheet.close(); location.href = withToken(`/api/download?path=${encodeURIComponent(entry.path)}`); },
-    }, [icon('download'), el('span', { textContent: 'Download' })]));
+    }, [icon('download'), el('span', { textContent: t('Download') })]));
   }
 
   act('trash', 'Delete', async () => {
-    if (!await confirmBox('Delete', `Delete ${entry.name}?`)) return;
+    if (!await confirmBox(t('Delete'), t('Delete {name}?', { name: entry.name }))) return;
     try {
       await postJSON('/api/fs/delete', { path: entry.path });
     } catch (e) {
       // 409 is the server refusing to empty a folder without being told to.
       if (e.status !== 409) throw e;
-      if (!await confirmBox('Delete everything inside?', `${entry.name} is not empty. Delete it and all its contents?`, 'Delete all')) return;
+      if (!await confirmBox(t('Delete everything inside?'), t('{name} is not empty. Delete it and all its contents?', { name: entry.name }), t('Delete all'))) return;
       await postJSON('/api/fs/delete', { path: entry.path, recursive: true });
     }
-    toast(`deleted ${entry.name}`);
+    toast(t('deleted {name}', { name: entry.name }));
   });
 
   sheet = modal(entry.name, body, [
-    el('button', { className: 'ghost', textContent: 'Close', onclick: () => sheet.close() }),
+    el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),
   ]);
 }
 
@@ -604,7 +642,7 @@ function uploadTo(path, fileList, onDone) {
   const total = files.reduce((n, f) => n + f.size, 0);
   const limit = server?.max_upload_bytes || 0;
   const tooBig = limit && files.find((f) => f.size > limit);
-  if (tooBig) return toast(`${tooBig.name} is over the ${human(limit)} limit`, true);
+  if (tooBig) return toast(t('{name} is over the {limit} limit', { name: tooBig.name, limit: human(limit) }), true);
 
   const label = files.length === 1 ? files[0].name : `${files.length} files`;
   // Always name the destination: the folder comes from whichever pane you used, which
@@ -631,7 +669,7 @@ function uploadTo(path, fileList, onDone) {
     try { msg = JSON.parse(xhr.responseText).error || msg; } catch { /* not JSON */ }
     toast(msg, true);
   };
-  xhr.onerror = () => { bar.close(); toast('upload failed', true); };
+  xhr.onerror = () => { bar.close(); toast(t('upload failed'), true); };
   xhr.send(body);
 }
 
@@ -660,7 +698,7 @@ function placePicker(roots, setPath, current) {
       className: 'ghost block',
       onclick: () => { sheet.close(); setPath(r); },
     }, [icon(r === home ? 'home' : 'folder'), el('span', {}, bidi(r))]);
-    if (r === home) row.append(el('span', { className: 'sw on', textContent: 'home' }));
+    if (r === home) row.append(el('span', { className: 'sw on', textContent: t('home') }));
     body.append(row);
   }
 
@@ -674,12 +712,12 @@ function placePicker(roots, setPath, current) {
   if (prefs.home) {
     body.append(el('button', {
       className: 'ghost block',
-      onclick: () => { sheet.close(); prefs.home = ''; savePrefs(); toast('home reset'); refreshAllBrowsers(); },
-    }, [icon('refresh'), el('span', { textContent: 'Reset home to the first root' })]));
+      onclick: () => { sheet.close(); prefs.home = ''; savePrefs(); toast(t('home reset')); refreshAllBrowsers(); },
+    }, [icon('refresh'), el('span', { textContent: t('Reset home to the first root') })]));
   }
 
-  sheet = modal('Go to', body, [
-    el('button', { className: 'ghost', textContent: 'Close', onclick: () => sheet.close() }),
+  sheet = modal(t('Go to'), body, [
+    el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),
   ]);
 }
 
@@ -722,7 +760,7 @@ function treeNode(entry, depth, onFile, refresh, dest, favGroup = 'main') {
 
   const line = el('div', { className: 'rowwrap' }, row);
   if (server?.allow_write && refresh) {
-    const menu = el('button', { className: 'more', type: 'button', title: 'Actions' }, icon('more'));
+    const menu = el('button', { className: 'more', type: 'button', title: t('Actions') }, icon('more'));
     menu.onclick = (ev) => { ev.stopPropagation(); fileActions(entry, refresh, dest, favGroup); };
     line.append(menu);
   }
@@ -738,7 +776,7 @@ function treeNode(entry, depth, onFile, refresh, dest, favGroup = 'main') {
     try {
       const children = visible(await getJSON(`/api/files?path=${encodeURIComponent(entry.path)}`));
       if (!children.length) {
-        kids.append(el('p', { className: 'empty tiny', textContent: 'empty', style: `padding-left:${1.4 + depth * 0.85}rem` }));
+        kids.append(el('p', { className: 'empty tiny', textContent: t('empty'), style: `padding-left:${1.4 + depth * 0.85}rem` }));
       }
       for (const c of children) kids.append(treeNode(c, depth + 1, onFile, refresh, dest, favGroup));
     } catch (e) {
@@ -752,7 +790,7 @@ async function drawTree(container, path, onFile, refresh, dest, favGroup = 'main
   container.innerHTML = '';
   try {
     const entries = visible(await getJSON(`/api/files?path=${encodeURIComponent(path)}`));
-    if (!entries.length) return container.append(el('p', { className: 'empty', textContent: 'Nothing here.' }));
+    if (!entries.length) return container.append(el('p', { className: 'empty', textContent: t('Nothing here.') }));
     for (const e of entries) container.append(treeNode(e, 0, onFile, refresh, dest, favGroup));
   } catch (e) {
     container.append(el('p', { className: 'error', textContent: e.message }));
@@ -831,7 +869,7 @@ window.addEventListener('hashchange', render);
 
 function screenLogin() {
   setTitle('Argus');
-  const input = el('input', { type: 'password', placeholder: 'access token', autocomplete: 'current-password' });
+  const input = el('input', { type: 'password', placeholder: t('access token'), autocomplete: 'current-password' });
   const err = el('p', { className: 'error' });
   const submit = async () => {
     token = input.value.trim();
@@ -843,35 +881,35 @@ function screenLogin() {
       applySidebar();
     } catch {
       token = '';
-      err.textContent = 'token refused';
+      err.textContent = t('token refused');
     }
   };
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
   view.append(el('div', { className: 'pad' }, [
-    el('p', { textContent: 'Paste the token printed by the server.', style: 'color:var(--dim)' }),
+    el('p', { textContent: t('Paste the token printed by the server.'), style: 'color:var(--dim)' }),
     input,
-    el('button', { className: 'primary', textContent: 'Connect', onclick: submit }),
+    el('button', { className: 'primary', textContent: t('Connect'), onclick: submit }),
     err,
   ]));
   input.focus();
 }
 
 async function screenSessions() {
-  setTitle('Sessions');
+  setTitle(t('Sessions'));
   const sessions = await getJSON('/api/tmux/sessions');
   if (!sessions.length) {
-    view.append(el('p', { className: 'empty', textContent: 'No tmux sessions on this server.' }));
+    view.append(el('p', { className: 'empty', textContent: t('No tmux sessions on this server.') }));
     return;
   }
 
   bar.action.hidden = false;
   bar.action.replaceChildren(icon('grid'));
-  bar.action.title = 'Open every session in its own window';
+  bar.action.title = t('Open every session in its own window');
   bar.action.onclick = () => go('#/wall');
 
   bar.alt.hidden = false;
   bar.alt.replaceChildren(icon('folderPlus'));
-  bar.alt.title = 'Start a new session';
+  bar.alt.title = t('Start a new session');
   bar.alt.onclick = async () => { if (await createSession()) render(); };
 
   // Something is still attached in the background: the list is the default, but going
@@ -881,8 +919,8 @@ async function screenSessions() {
     view.append(el('a', { className: 'row resume', href: `#/term?s=${encodeURIComponent(name)}` }, [
       icon('terminal'),
       el('span', { className: 'grow' }, [
-        el('span', { className: 'name', textContent: `Back to ${name}` }),
-        el('span', { className: 'meta', textContent: 'still attached in the background' }),
+        el('span', { className: 'name', textContent: t('Back to {name}', { name }) }),
+        el('span', { className: 'meta', textContent: t('still attached in the background') }),
       ]),
       el('span', { className: 'livedot' }),
     ]));
@@ -909,14 +947,14 @@ async function screenSessions() {
       pickColor(s.name, () => { dot.style.background = colorFor(s.name); });
     };
 
-    const toWall = el('button', { className: 'more', title: 'Open in a window, in a workspace you pick' }, icon('grid'));
+    const toWall = el('button', { className: 'more', title: t('Open in a window, in a workspace you pick') }, icon('grid'));
     toWall.onclick = (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
       chooseDesk({ kind: 'term', name: s.name }, s.name);
     };
 
-    const menu = el('button', { className: 'more', title: 'Rename or kill' }, icon('more'));
+    const menu = el('button', { className: 'more', title: t('Rename or kill') }, icon('more'));
     menu.onclick = (ev) => { ev.preventDefault(); ev.stopPropagation(); sessionActions(s); };
 
     view.append(el('div', { className: 'rowwrap' }, [row, toWall, menu]));
@@ -965,7 +1003,7 @@ function fileBrowser({
   const show = (entries, err, q) =>
     (!q && getTree() ? drawTree(list, path, openFile, reload, other, favGroup) : draw(entries, err));
 
-  const up = el('button', { title: 'Parent folder', disabled: roots.includes(path) }, icon('up'));
+  const up = el('button', { title: t('Parent folder'), disabled: roots.includes(path) }, icon('up'));
   up.onclick = () => setPath(parentOf(path));
 
   const pin = el('button', { onclick: () => toggleFavourite(path, favGroup) }, icon('star'));
@@ -976,7 +1014,7 @@ function fileBrowser({
   // Tapping goes home. Holding — or right-clicking — is how you pick somewhere else or
   // move home itself, without a second button crowding the header.
   const jump = el('button', {
-    title: 'Home (hold to choose)',
+    title: t('Home (hold to choose)'),
     onclick: () => setPath(homePath(roots)),
   }, icon('home'));
 
@@ -1007,14 +1045,14 @@ function fileBrowser({
 
     const strip = el('div', { className: 'favs' });
     strip.append(el('div', { className: 'favhead' }, [
-      icon('star'), el('span', { textContent: 'Favourites' }), el('span', { className: 'favwhere', textContent: favGroup }),
+      icon('star'), el('span', { textContent: t('Favourites') }), el('span', { className: 'favwhere', textContent: favGroup }),
     ]));
     for (const f of mine) {
       const row = el('button', {
         className: `row fav${f.missing ? ' missing' : ''}`,
         type: 'button',
         title: f.path,
-        onclick: () => (f.missing ? toast('this one is gone', true)
+        onclick: () => (f.missing ? toast(t('this one is gone'), true)
           : f.type === 'directory' ? setPath(f.path) : openFile(f)),
       }, [
         fileIcon(f),
@@ -1023,7 +1061,7 @@ function fileBrowser({
           el('span', { className: 'meta' }, bidi(f.missing ? `missing · ${f.path}` : parentOf(f.path))),
         ]),
       ]);
-      const off = el('button', { className: 'more', title: 'Unpin', onclick: (ev) => { ev.stopPropagation(); toggleFavourite(f.path, favGroup); } }, icon('close'));
+      const off = el('button', { className: 'more', title: t('Unpin'), onclick: (ev) => { ev.stopPropagation(); toggleFavourite(f.path, favGroup); } }, icon('close'));
       strip.append(el('div', { className: 'rowwrap' }, [row, off]));
     }
     favsHolder.append(strip);
@@ -1032,14 +1070,14 @@ function fileBrowser({
 
   const tools = el('div', { className: 'pad tools' }, searchBox(path, show, compact ? 'search…' : undefined));
   if (server?.allow_write) {
-    const mkdirBtn = el('button', { className: 'ghost', title: 'New folder' }, icon('folderPlus'));
+    const mkdirBtn = el('button', { className: 'ghost', title: t('New folder') }, icon('folderPlus'));
     Object.assign(mkdirBtn, {
       onclick: async () => {
-        const name = await ask('New folder', '', 'Create');
+        const name = await ask(t('New folder'), '', t('Create'));
         if (!name) return;
         try {
           await postJSON('/api/fs/mkdir', { path, name });
-          toast(`created ${name}`);
+          toast(t('created {name}', { name }));
           refreshAllBrowsers();
         } catch (e) { toast(e.message, true); }
       },
@@ -1049,7 +1087,7 @@ function fileBrowser({
     const picker = el('input', { type: 'file', multiple: true, hidden: true });
     picker.onchange = () => { uploadTo(path, picker.files); picker.value = ''; };
     tools.append(
-      el('button', { className: 'ghost', title: 'Upload files', onclick: () => picker.click() }, icon('upload')),
+      el('button', { className: 'ghost', title: t('Upload files'), onclick: () => picker.click() }, icon('upload')),
       picker,
     );
 
@@ -1102,31 +1140,31 @@ function sessionActions(session) {
 
   item('grid', 'Open in a window', () => chooseDesk({ kind: 'term', name: session.name }, session.name));
   item('rename', 'Rename…', async () => {
-    const to = await ask('Rename session', session.name, 'Rename');
+    const to = await ask(t('Rename session'), session.name, t('Rename'));
     if (!to || to === session.name) return;
     try {
       await postJSON('/api/tmux/rename', { name: session.name, to });
-      toast(`now called ${to}`);
+      toast(t('now called {name}', { name: to }));
       render();
     } catch (e) { toast(e.message, true); }
   });
   item('trash', 'Kill session', async () => {
     // Everything running inside it dies with it, which is not what detaching does.
     const sure = await confirmBox(
-      'Kill session',
-      `${session.name} and everything running in it will stop. Detaching a window instead leaves it running.`,
-      'Kill it',
+      t('Kill session'),
+      t('{name} and everything running in it will stop. Detaching a window instead leaves it running.', { name: session.name }),
+      t('Kill it'),
     );
     if (!sure) return;
     try {
       await postJSON('/api/tmux/kill', { name: session.name });
-      toast(`${session.name} killed`);
+      toast(t('{name} killed', { name: session.name }));
       render();
     } catch (e) { toast(e.message, true); }
   });
 
   sheet = modal(session.name, body, [
-    el('button', { className: 'ghost', textContent: 'Close', onclick: () => sheet.close() }),
+    el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),
   ]);
 }
 
@@ -1196,7 +1234,7 @@ async function mountPreview(host, path, ctl) {
   try {
     r = await fetch(src);
   } catch {
-    host.append(el('p', { className: 'error', textContent: 'could not reach the server' }));
+    host.append(el('p', { className: 'error', textContent: t('could not reach the server') }));
     return;
   }
   if (r.status === 401) return signOut();
@@ -1206,7 +1244,7 @@ async function mountPreview(host, path, ctl) {
     try { msg = (await r.json()).error || msg; } catch { /* not JSON */ }
     host.append(el('div', { className: 'pad' }, [
       el('p', { className: 'error', textContent: msg }),
-      el('button', { className: 'ghost', textContent: 'Download', onclick: download }),
+      el('button', { className: 'ghost', textContent: t('Download'), onclick: download }),
     ]));
     return;
   }
@@ -1251,7 +1289,7 @@ async function mountPreview(host, path, ctl) {
     const total = Number(r.headers.get('x-total-size') || 0);
     host.append(el('div', {
       className: 'notice',
-      textContent: `showing the last ${human(text.length)} of ${human(total)} — download for the whole file`,
+      textContent: t('showing the last {shown} of {total} — download for the whole file', { shown: human(text.length), total: human(total) }),
     }));
   }
 
@@ -1287,8 +1325,8 @@ async function mountPreview(host, path, ctl) {
 function editor({ text, mtime, host, path }, { onDone, watch } = {}) {
   const area = el('textarea', { className: 'editor', spellcheck: false, value: text });
   const status = el('span', { className: 'editnote' });
-  const save = el('button', { className: 'primary inline', textContent: 'Save' });
-  const cancel = el('button', { className: 'ghost', textContent: 'Cancel', onclick: () => onDone?.() });
+  const save = el('button', { className: 'primary inline', textContent: t('Save') });
+  const cancel = el('button', { className: 'ghost', textContent: t('Cancel'), onclick: () => onDone?.() });
   const bar = el('div', { className: 'editbar' }, [status, cancel, save]);
 
   host.textContent = '';
@@ -1301,10 +1339,10 @@ function editor({ text, mtime, host, path }, { onDone, watch } = {}) {
 
   const store = async () => {
     save.disabled = true;
-    status.textContent = 'saving…';
+    status.textContent = t('saving…');
     try {
       const r = await postJSON('/api/fs/write', { path, content: area.value, mtime });
-      toast(`saved ${path.split('/').pop()} · ${human(r.size)}`);
+      toast(t('saved {name} · {size}', { name: path.split('/').pop(), size: human(r.size) }));
       onDone?.(r);
     } catch (e) {
       status.textContent = '';
@@ -1327,7 +1365,7 @@ async function screenPreview(path) {
 
   // Same file, in a window on the wall, next to whatever is running.
   bar.alt.hidden = false;
-  bar.alt.title = 'Open in a window';
+  bar.alt.title = t('Open in a window');
   bar.alt.replaceChildren(icon('split'));
   bar.alt.onclick = () => chooseDesk({ kind: 'file', path }, path.split('/').pop());
 
@@ -1343,7 +1381,7 @@ async function screenPreview(path) {
     toBottom: () => { view.scrollTop = view.scrollHeight; },
     edit: (ctx) => {
       bar.action.hidden = false;
-      bar.action.title = 'Edit this file';
+      bar.action.title = t('Edit this file');
       bar.action.replaceChildren(icon('rename'));
       bar.action.onclick = () => {
         view.style.overflow = 'hidden';
@@ -1377,7 +1415,7 @@ function headerSourceToggle(paint) {
  *  Anything that survives as a link or an image is then checked again.
  */
 async function renderMarkdown(text, container) {
-  container.textContent = 'rendering…';
+  container.textContent = t('rendering…');
   let marked;
   try {
     ({ marked } = await import('/vendor/marked-18.0.7/marked.esm.js'));
@@ -1435,7 +1473,7 @@ const duration = (s) => {
  *  it exists. One on 127.0.0.1 is not, and that is what the proxy is for. */
 function portsSection() {
   const box = el('div', { className: 'proclist ports' });
-  const head = el('div', { className: 'tilelabel', textContent: 'Listening ports' });
+  const head = el('div', { className: 'tilelabel', textContent: t('Listening ports') });
   box.append(head);
   const list = el('div');
   box.append(list);
@@ -1448,10 +1486,10 @@ function portsSection() {
     }
     list.textContent = '';
     head.textContent = data.open.length
-      ? `Listening ports · ${data.open.length} reachable through Argus`
+      ? t('Listening ports · {n} reachable through Argus', { n: data.open.length })
       : 'Listening ports';
     const mine = data.ports.filter((p) => p.mine && !p.self);
-    if (!mine.length) return list.append(el('p', { className: 'empty tiny', textContent: 'Nothing of yours is listening.' }));
+    if (!mine.length) return list.append(el('p', { className: 'empty tiny', textContent: t('Nothing of yours is listening.') }));
 
     for (const p of mine) {
       const open = data.open.includes(p.port);
@@ -1471,17 +1509,17 @@ function portsSection() {
         // Nothing to proxy: the phone can dial this itself.
         row.append(el('button', {
           className: 'ghost dup',
-          textContent: 'Open',
+          textContent: t('Open'),
           onclick: () => openWindow({ kind: 'web', url: direct, label: `:${p.port}` }),
         }));
       } else if (!data.allow_proxy) {
-        row.append(el('span', { className: 'verb', textContent: 'needs --allow-proxy' }));
+        row.append(el('span', { className: 'verb', textContent: t('needs --allow-proxy') }));
       } else if (open) {
         // Already reachable: say so, and make closing it as easy as opening was.
-        row.append(el('span', { className: 'state good', textContent: 'reachable' }));
+        row.append(el('span', { className: 'state good', textContent: t('reachable') }));
         row.append(el('button', {
           className: 'ghost dup on',
-          textContent: 'View',
+          textContent: t('View'),
           onclick: () => openWindow({ kind: 'web', url: through, label: `:${p.port}` }),
         }));
         row.append(el('button', {
@@ -1490,7 +1528,7 @@ function portsSection() {
           onclick: async () => {
             try {
               await postJSON('/api/ports', { port: p.port, open: false });
-              toast(`port ${p.port} closed`);
+              toast(t('port {port} closed', { port: p.port }));
               paint();
             } catch (e) { toast(e.message, true); }
           },
@@ -1498,7 +1536,7 @@ function portsSection() {
       } else {
         row.append(el('button', {
           className: 'ghost dup',
-          textContent: 'Reach it',
+          textContent: t('Reach it'),
           onclick: async () => {
             try {
               // Always ask, even when the server already has it open: this call is what
@@ -1518,7 +1556,7 @@ function portsSection() {
 }
 
 async function screenSystem() {
-  setTitle('System');
+  setTitle(t('System'));
   const body = el('div', { className: 'vitals' });
   view.append(body);
 
@@ -1537,9 +1575,9 @@ async function screenSystem() {
       el('div', { className: 'heronum', textContent: `${Math.round(worst.pct)}%` }),
       el('div', { className: 'herolabel' }, [
         el('span', { className: `state ${worst.level}`, textContent: LEVEL_WORD[worst.level] }),
-        el('span', { textContent: ` · busiest: ${worst.what}` }),
+        el('span', { textContent: ` · ${t('busiest')}: ${worst.what}` }),
       ]),
-      el('div', { className: 'tilenote', textContent: `${s.hostname} · up ${duration(s.uptime)} · ${s.cpu.cores} cores` }),
+      el('div', { className: 'tilenote', textContent: t('{host} · up {up} · {cores} cores', { host: s.hostname, up: duration(s.uptime), cores: s.cpu.cores }) }),
     ]));
 
     const grid = el('div', { className: 'tiles' });
@@ -1572,7 +1610,7 @@ async function screenSystem() {
 
     if (s.processes.length) {
       const list = el('div', { className: 'proclist' });
-      list.append(el('div', { className: 'tilelabel', textContent: 'Largest processes' }));
+      list.append(el('div', { className: 'tilelabel', textContent: t('Largest processes') }));
       for (const p of s.processes) {
         list.append(el('div', { className: 'procrow' }, [
           el('span', { className: 'procname', textContent: p.name }),
@@ -1597,8 +1635,79 @@ async function screenSystem() {
   leaving = () => clearInterval(timer);
 }
 
+/** Pick a language, add one, or take the catalogue away to translate. */
+function languageSheet(list) {
+  const body = el('div', { className: 'sheetbody actions' });
+  let sheet;
+
+  for (const lang of list) {
+    const on = (prefs.lang || 'en') === lang.code;
+    body.append(el('button', {
+      className: 'ghost block',
+      onclick: async () => {
+        sheet.close();
+        prefs.lang = lang.code;
+        savePrefs();
+        await loadLanguage(lang.code);
+        translateMarkup();
+        render();
+      },
+    }, [
+      icon(on ? 'star' : 'file'),
+      el('span', { className: 'grow', textContent: lang.name }),
+      el('span', { className: 'verb', textContent: lang.source === 'user' ? t('yours') : lang.code }),
+    ]));
+  }
+
+  body.append(el('div', { className: 'sheetsep' }));
+
+  // Take the current catalogue away, translate it, bring it back.
+  body.append(el('button', {
+    className: 'ghost block',
+    onclick: async () => {
+      sheet.close();
+      const code = prefs.lang || 'en';
+      try {
+        const doc = await getJSON(`/api/language/${code}`);
+        const blob = new Blob([JSON.stringify(doc, null, 1)], { type: 'application/json' });
+        const a = el('a', { href: URL.createObjectURL(blob), download: `argus-${code}.json` });
+        document.body.append(a);
+        a.click();
+        a.remove();
+      } catch (e) { toast(e.message, true); }
+    },
+  }, [icon('download'), el('span', { textContent: t('Download this catalogue to translate') })]));
+
+  const picker = el('input', { type: 'file', accept: '.json,application/json', hidden: true });
+  picker.onchange = async () => {
+    const file = picker.files[0];
+    picker.value = '';
+    if (!file) return;
+    try {
+      const parsed = JSON.parse(await file.text());
+      const r = await postJSON('/api/language', parsed);
+      toast(t('{name} added, {n} strings', { name: r.name, n: r.count }));
+      prefs.lang = r.code;
+      savePrefs();
+      await loadLanguage(r.code);
+      translateMarkup();
+      render();
+    } catch (e) {
+      toast(e instanceof SyntaxError ? t('that file is not JSON') : e.message, true);
+    }
+  };
+  body.append(el('button', {
+    className: 'ghost block',
+    onclick: () => picker.click(),
+  }, [icon('upload'), el('span', { textContent: t('Import a language file…') })]), picker);
+
+  sheet = modal(t('Language'), body, [
+    el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),
+  ]);
+}
+
 async function screenSettings() {
-  setTitle('Settings');
+  setTitle(t('Settings'));
   const wrap = el('div');
 
   const toggle = (label, hint, get, set) => {
@@ -1638,18 +1747,35 @@ async function screenSettings() {
     return row;
   };
 
+  // Language first: everything below it is easier to read once it is right.
+  const langRow = el('div', { className: 'row setting' });
+  wrap.append(langRow);
+  (async () => {
+    let list = [];
+    try { list = await getJSON('/api/languages'); } catch { /* English then */ }
+    const current = list.find((l) => l.code === (prefs.lang || 'en'));
+    langRow.append(
+      el('span', { className: 'grow' }, [
+        el('span', { className: 'name', textContent: t('Language') }),
+        el('span', { className: 'meta', textContent: t('anyone can translate the file and add it here') }),
+      ]),
+      el('span', { className: 'sw on', textContent: current?.name || 'English' }),
+    );
+    langRow.onclick = () => languageSheet(list);
+  })();
+
   wrap.append(
-    choice('Theme', 'auto follows the system setting', THEMES,
+    choice(t('Theme'), t('auto follows the system setting'), THEMES,
       () => prefs.theme, (v) => { prefs.theme = v; applyTheme(); }),
-    toggle('Show hidden files', 'dotfiles and dot-directories, in both panes',
+    toggle(t('Show hidden files'), t('dotfiles and dot-directories, in both panes'),
       () => prefs.hidden, (v) => { prefs.hidden = v; renderSidebar(); }),
-    toggle('File sidebar', 'a persistent file pane on the left — wide screens only',
+    toggle(t('File sidebar'), t('a persistent file pane on the left — wide screens only'),
       () => prefs.sidebar, (v) => { prefs.sidebar = v; applySidebar(); }),
-    toggle('Split file panes', 'two folders side by side — the header button does the same',
+    toggle(t('Split file panes'), t('two folders side by side — the header button does the same'),
       () => prefs.split, (v) => { prefs.split = v; }),
-    toggle('Tree view', 'expand folders in place instead of navigating into them',
+    toggle(t('Tree view'), t('expand folders in place instead of navigating into them'),
       () => prefs.tree, (v) => { prefs.tree = v; renderSidebar(); }),
-    toggle('Wrap long lines', 'the default when previewing a text file',
+    toggle(t('Wrap long lines'), t('the default when previewing a text file'),
       () => prefs.wrap, (v) => { prefs.wrap = v; }),
   );
 
@@ -1662,8 +1788,8 @@ async function screenSettings() {
   };
   wrap.append(el('div', { className: 'row setting' }, [
     el('span', { className: 'grow' }, [
-      el('span', { className: 'name', textContent: 'Terminal font size' }),
-      el('span', { className: 'meta', textContent: 'applies when you open a session' }),
+      el('span', { className: 'name', textContent: t('Terminal font size') }),
+      el('span', { className: 'meta', textContent: t('applies when you open a session') }),
     ]),
     el('button', { className: 'stepper', textContent: '−', onclick: step(-1) }),
     size,
@@ -1674,12 +1800,12 @@ async function screenSettings() {
 
   const info = await serverInfo();
   view.append(el('div', { className: 'pad' }, [
-    el('p', { className: 'meta', textContent: `home button: ${homePath(info.roots)}${prefs.home ? '' : ' (default)'}` }),
-    el('p', { className: 'meta', textContent: `roots: ${info.roots.join(', ')}` }),
-    el('p', { className: 'meta', textContent: `resize policy: ${info.resize_policy}` }),
-    el('p', { className: 'meta', textContent: `preview limit: ${human(info.max_preview_bytes)}` }),
-    el('p', { className: 'meta', textContent: `file operations: ${info.allow_write ? 'enabled' : 'read-only (start with --allow-write)'}` }),
-    el('button', { className: 'ghost', textContent: 'Forget token on this device', onclick: signOut }),
+    el('p', { className: 'meta', textContent: t('home button: {path}', { path: homePath(info.roots) + (prefs.home ? '' : ` (${t('default')})`) }) }),
+    el('p', { className: 'meta', textContent: t('roots: {list}', { list: info.roots.join(', ') }) }),
+    el('p', { className: 'meta', textContent: t('resize policy: {policy}', { policy: info.resize_policy }) }),
+    el('p', { className: 'meta', textContent: t('preview limit: {size}', { size: human(info.max_preview_bytes) }) }),
+    el('p', { className: 'meta', textContent: t('file operations: {state}', { state: info.allow_write ? t('enabled') : t('read-only (start with --allow-write)') }) }),
+    el('button', { className: 'ghost', textContent: t('Forget token on this device'), onclick: signOut }),
   ]));
 }
 
@@ -1850,7 +1976,7 @@ function decorateTerm(name) {
   bar.back.hidden = false;
   bar.back.onclick = () => go('#/sessions');
   bar.action.hidden = false;
-  bar.action.title = 'Detach and close this terminal';
+  bar.action.title = t('Detach and close this terminal');
   bar.action.replaceChildren(icon('close'));
   bar.action.onclick = () => { killLive(); go('#/sessions'); };
 }
@@ -1867,7 +1993,7 @@ async function screenTerm(name) {
   // A sticky Ctrl: tap it, then the next character becomes a control code. Mobile
   // keyboards have no modifier to hold down.
   let sticky = false;
-  const ctrlBtn = el('button', { textContent: 'Ctrl' });
+  const ctrlBtn = el('button', { textContent: t('Ctrl') });
   const handle = attachTerminal(wrap, name, {
     transform: (d) => {
       if (!sticky || d.length !== 1) return d;
@@ -1883,7 +2009,7 @@ async function screenTerm(name) {
   for (const [label, seq] of CTRL_KEYS) {
     keys.append(el('button', { textContent: label, onclick: () => { handle.send(seq); handle.focus(); } }));
   }
-  keys.append(el('button', { title: 'Keyboard', onclick: () => handle.focus() }, icon('keyboard')));
+  keys.append(el('button', { title: t('Keyboard'), onclick: () => handle.focus() }, icon('keyboard')));
 
   // The software keyboard shrinks the visual viewport without firing a window resize, so
   // without this the prompt ends up underneath it.
@@ -1955,11 +2081,11 @@ function arrange(open, wall, mode, key = (id) => id) {
 }
 
 function decorateWall() {
-  setTitle('Windows');
+  setTitle(t('Windows'));
   bar.back.hidden = false;
   bar.back.onclick = () => go('#/sessions');
   bar.action.hidden = false;
-  bar.action.title = 'Close every window';
+  bar.action.title = t('Close every window');
   bar.action.replaceChildren(icon('close'));
   bar.action.onclick = () => {
     killLive();
@@ -2008,13 +2134,13 @@ async function screenWall() {
       const win = el('div', { className: 'win' });
       win.style.setProperty('--wc', colorFor(id));
 
-      const swatch = el('button', { className: 'winbtn swatchbtn', title: 'Change colour' });
+      const swatch = el('button', { className: 'winbtn swatchbtn', title: t('Change colour') });
       swatch.onclick = () => pickColor(id, () => win.style.setProperty('--wc', colorFor(id)));
 
       const extras = el('span', { className: 'winextras' });
-      const send = el('button', { className: 'winbtn', title: 'Move or duplicate to another workspace' }, icon('move'));
-      const close = el('button', { className: 'winbtn', title: 'Close' }, icon('close'));
-      const solo = el('button', { className: 'winbtn', title: 'Full screen' }, icon('maximise'));
+      const send = el('button', { className: 'winbtn', title: t('Move or duplicate to another workspace') }, icon('move'));
+      const close = el('button', { className: 'winbtn', title: t('Close') }, icon('close'));
+      const solo = el('button', { className: 'winbtn', title: t('Full screen') }, icon('maximise'));
       const title = el('span', {
         className: 'wintitle',
         title: spec.kind === 'term' ? label : (spec.path || spec.url),
@@ -2032,7 +2158,7 @@ async function screenWall() {
             // A session that is not there any more has to say so, not sit blank.
             onGone: () => {
               win.classList.add('gone');
-              extras.prepend(el('span', { className: 'state critical', textContent: 'gone' }));
+              extras.prepend(el('span', { className: 'state critical', textContent: t('gone') }));
             },
           });
       if (handle.extra) extras.append(handle.extra);
@@ -2111,7 +2237,7 @@ async function screenWall() {
     // appears when that tab is first opened. Either way the stored list decides.
     const target = decks.get(toWs.id);
     if (target) syncDeck(target);
-    toast(`${duplicate ? 'duplicated' : 'moved'} to ${toWs.name}`);
+    toast(duplicate ? t('duplicated to {desk}', { desk: toWs.name }) : t('moved to {desk}', { desk: toWs.name }));
     drawTabs();
   }
 
@@ -2125,7 +2251,7 @@ async function screenWall() {
       // Two explicit verbs rather than a bare icon: an unlabelled second action beside a
       // row reads as decoration, and nobody clicks decoration.
       const dup = el('button', { className: 'ghost dup', title: `Leave this one open and add a copy to ${ws.name}` },
-        [icon('copy'), el('span', { textContent: 'Duplicate' })]);
+        [icon('copy'), el('span', { textContent: t('Duplicate') })]);
       dup.onclick = (e) => { e.stopPropagation(); sheet.close(); relocate(spec, fromWs, ws, entry, true); };
 
       const row = el('button', {
@@ -2133,7 +2259,7 @@ async function screenWall() {
         title: `Move this window to ${ws.name}`,
         onclick: () => { sheet.close(); relocate(spec, fromWs, ws, entry, false); },
       }, [dot, el('span', { className: 'grow', textContent: ws.name }),
-        el('span', { className: 'verb', textContent: 'Move' })]);
+        el('span', { className: 'verb', textContent: t('Move') })]);
       body.append(el('div', { className: 'sendrow' }, [row, dup]));
     }
     body.append(el('div', { className: 'sheetsep' }));
@@ -2149,21 +2275,21 @@ async function screenWall() {
       relocate(spec, fromWs, ws, entry, duplicate);
       activate(id);
     };
-    const dupNew = el('button', { className: 'ghost dup', title: 'Keep this one and put a copy in a new workspace' },
-      [icon('copy'), el('span', { textContent: 'Duplicate' })]);
+    const dupNew = el('button', { className: 'ghost dup', title: t('Keep this one and put a copy in a new workspace') },
+      [icon('copy'), el('span', { textContent: t('Duplicate') })]);
     dupNew.onclick = (e) => { e.stopPropagation(); fresh(true); };
     body.append(el('div', { className: 'sendrow' }, [
       el('button', {
         className: 'ghost block',
-        title: 'Move this window into a workspace that does not exist yet',
+        title: t('Move this window into a workspace that does not exist yet'),
         onclick: () => fresh(false),
-      }, [icon('folderPlus'), el('span', { className: 'grow', textContent: 'A new workspace' }),
-        el('span', { className: 'verb', textContent: 'Move' })]),
+      }, [icon('folderPlus'), el('span', { className: 'grow', textContent: t('A new workspace') }),
+        el('span', { className: 'verb', textContent: t('Move') })]),
       dupNew,
     ]));
 
-    sheet = modal('Move or duplicate', body, [
-      el('button', { className: 'ghost', textContent: 'Close', onclick: () => sheet.close() }),
+    sheet = modal(t('Move or duplicate'), body, [
+      el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),
     ]);
   }
 
@@ -2178,7 +2304,7 @@ async function screenWall() {
     item('star', 'Change colour…', () => pickColor(`ws:${ws.id}`, drawTabs));
     if (spaces.length > 1) item('trash', 'Close this workspace', shut);
     sheet = modal(ws.name, body, [
-      el('button', { className: 'ghost', textContent: 'Close', onclick: () => sheet.close() }),
+      el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),
     ]);
   }
 
@@ -2242,22 +2368,22 @@ async function screenWall() {
       const on = ws.id === prefs.ws;
       const dot = el('span', { className: 'tabdot' });
       dot.style.background = colorFor(`ws:${ws.id}`);
-      dot.title = 'Change colour';
+      dot.title = t('Change colour');
       dot.onclick = (e) => { e.stopPropagation(); pickColor(`ws:${ws.id}`, drawTabs); };
 
-      const tab = el('button', { className: `wstab${on ? ' on' : ''}`, title: 'Double-click to rename' }, [
+      const tab = el('button', { className: `wstab${on ? ' on' : ''}`, title: t('Double-click to rename') }, [
         dot, el('span', { className: 'tabname', textContent: ws.name }),
       ]);
       tab.dataset.ws = ws.id;
       tab.onclick = () => activate(ws.id);
 
       const rename = async () => {
-        const name = await ask('Rename workspace', ws.name, 'Rename');
+        const name = await ask(t('Rename workspace'), ws.name, t('Rename'));
         if (name) { ws.name = name; savePrefs(); drawTabs(); }
       };
       const shut = async () => {
-        if (spaces.length < 2) return toast('the last workspace stays', true);
-        if (ws.desktop.length && !await confirmBox('Close workspace', `${ws.name} has ${ws.desktop.length} window(s). Close it?`, 'Close')) return;
+        if (spaces.length < 2) return toast(t('the last workspace stays'), true);
+        if (ws.desktop.length && !await confirmBox(t('Close workspace'), t('{name} holds {count} window(s). Close it?', { name: ws.name, count: ws.desktop.length }), t('Close'))) return;
         decks.get(ws.id)?.open.forEach((o) => o.handle.dispose());
         decks.get(ws.id)?.node.remove();
         decks.delete(ws.id);
@@ -2279,13 +2405,13 @@ async function screenWall() {
         tab.addEventListener(done, () => clearTimeout(held));
       }
       if (on && spaces.length > 1) {
-        const x = el('button', { className: 'tabclose', title: 'Close this workspace' }, icon('close'));
+        const x = el('button', { className: 'tabclose', title: t('Close this workspace') }, icon('close'));
         x.onclick = (e) => { e.stopPropagation(); shut(); };
         tab.append(x);
       }
       tabs.append(tab);
     }
-    const add = el('button', { className: 'wstab add', title: 'New workspace' }, icon('folderPlus'));
+    const add = el('button', { className: 'wstab add', title: t('New workspace') }, icon('folderPlus'));
     add.onclick = () => {
       const id = (prefs.wsSeq || spaces.length) + 1;
       prefs.wsSeq = id;
@@ -2319,7 +2445,7 @@ async function screenWall() {
     const body = el('div', { className: 'sheetbody actions' });
     let sheet;
 
-    if (!sessions.length) body.append(el('p', { className: 'empty', textContent: 'No tmux sessions on this server.' }));
+    if (!sessions.length) body.append(el('p', { className: 'empty', textContent: t('No tmux sessions on this server.') }));
 
     for (const t of sessions) {
       const here = ws.desktop.some((x) => specId(x) === `term:${t.name}`);
@@ -2346,24 +2472,24 @@ async function screenWall() {
         const name = await createSession();
         if (name) openWindow({ kind: 'term', name });
       },
-    }, [icon('folderPlus'), el('span', { textContent: 'Start a new session…' })]));
+    }, [icon('folderPlus'), el('span', { textContent: t('Start a new session…') })]));
 
-    sheet = modal(`Add a session to ${ws.name}`, body, [
-      el('button', { className: 'ghost', textContent: 'Close', onclick: () => sheet.close() }),
+    sheet = modal(t('Add a session to {desk}', { desk: ws.name }), body, [
+      el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),
     ]);
   }
 
   tools.append(el('button', {
     className: 'winbtn wide',
-    title: 'Put a tmux session in this workspace',
+    title: t('Put a tmux session in this workspace'),
     onclick: sessionSheet,
-  }, [icon('terminal'), el('span', { textContent: 'Session' })]));
+  }, [icon('terminal'), el('span', { textContent: t('Session') })]));
 
   tools.append(el('button', {
     className: 'winbtn wide',
-    title: 'Open a file browser in a window',
+    title: t('Open a file browser in a window'),
     onclick: () => openWindow({ kind: 'browser', path: homePath(server?.roots || ['/']) }),
-  }, [icon('folderPlus'), el('span', { textContent: 'Browser' })]));
+  }, [icon('folderPlus'), el('span', { textContent: t('Browser') })]));
 
   for (const [mode, glyph, label] of LAYOUTS) {
     const b = el('button', {
@@ -2581,11 +2707,11 @@ function placeIn(ws, spec) {
  *  sleeping, and the browser being quit, which a bare shell would not.
  */
 async function createSession({ path, suggest = 'shell' } = {}) {
-  const name = await ask(path ? `New session in ${path.split('/').pop()}` : 'New session', suggest, 'Create');
+  const name = await ask(path ? t('New session in {where}', { where: path.split('/').pop() }) : t('New session'), suggest, t('Create'));
   if (!name) return null;
   try {
     const r = await postJSON('/api/tmux/new', { name, path });
-    toast(path ? `${r.name} started in ${path}` : `${r.name} started`);
+    toast(path ? t('{name} started in {path}', { name: r.name, path }) : t('{name} started', { name: r.name }));
     return r.name;
   } catch (e) {
     toast(e.message, true);
@@ -2626,10 +2752,10 @@ function chooseDesk(spec, label) {
       spaces.push(ws);
       placeIn(ws, spec);
     },
-  }, [icon('folderPlus'), el('span', { textContent: 'A new workspace' })]));
+  }, [icon('folderPlus'), el('span', { textContent: t('A new workspace') })]));
 
-  sheet = modal(`Open ${label} in`, body, [
-    el('button', { className: 'ghost', textContent: 'Close', onclick: () => sheet.close() }),
+  sheet = modal(t('Open {what} in', { what: label }), body, [
+    el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),
   ]);
 }
 
@@ -2646,7 +2772,7 @@ function openWindow(spec) {
 
 /** A web page inside a window: a port you opened, sitting next to the job serving it. */
 function attachWeb(host, spec, setLabel) {
-  const reload = el('button', { className: 'winbtn', title: 'Reload' }, icon('refresh'));
+  const reload = el('button', { className: 'winbtn', title: t('Reload') }, icon('refresh'));
   let frame = null;
   const draw = () => {
     host.textContent = '';
@@ -2696,10 +2822,10 @@ function attachBrowser(host, spec, setLabel) {
  *  reloads it when it changes on disk — which is the whole point of putting a report
  *  next to the job that writes it. */
 function attachViewer(host, path, extras) {
-  const srcBtn = el('button', { className: 'winbtn', hidden: true, title: 'View the source' }, icon('code'));
-  const editBtn = el('button', { className: 'winbtn', hidden: true, title: 'Edit this file' }, icon('rename'));
-  const watchBtn = el('button', { className: 'winbtn on', title: 'Reload when the file changes' }, icon('refresh'));
-  const dl = el('button', { className: 'winbtn', title: 'Download' }, icon('download'));
+  const srcBtn = el('button', { className: 'winbtn', hidden: true, title: t('View the source') }, icon('code'));
+  const editBtn = el('button', { className: 'winbtn', hidden: true, title: t('Edit this file') }, icon('rename'));
+  const watchBtn = el('button', { className: 'winbtn on', title: t('Reload when the file changes') }, icon('refresh'));
+  const dl = el('button', { className: 'winbtn', title: t('Download') }, icon('download'));
   extras.append(srcBtn, editBtn, watchBtn, dl);
 
   let rendered = true;
@@ -2996,9 +3122,9 @@ function watchForUpdates(reg) {
 function updateBar(onAccept) {
   if (document.getElementById('update')) return;
   const bar = el('div', { id: 'update' }, [
-    el('span', { textContent: 'A new version is ready.' }),
-    el('button', { className: 'primary inline', textContent: 'Reload', onclick: onAccept }),
-    el('button', { className: 'ghost', textContent: 'Later', onclick: () => bar.remove() }),
+    el('span', { textContent: t('A new version is ready.') }),
+    el('button', { className: 'primary inline', textContent: t('Reload'), onclick: onAccept }),
+    el('button', { className: 'ghost', textContent: t('Later'), onclick: () => bar.remove() }),
   ]);
   document.body.append(bar);
 }
@@ -3006,9 +3132,24 @@ function updateBar(onAccept) {
 applyTheme();
 for (const node of document.querySelectorAll('[data-icon]')) node.replaceChildren(icon(node.dataset.icon));
 
+/** The nav labels and the title sit in the HTML, so they are translated in place. */
+function translateMarkup() {
+  for (const a of nav.querySelectorAll('a')) {
+    const label = a.lastChild;
+    if (label?.nodeType === 3) label.textContent = t(a.dataset.tab === 'wall' ? 'Windows' : a.dataset.tab[0].toUpperCase() + a.dataset.tab.slice(1));
+  }
+  bar.settings.title = t('Settings');
+}
+
 // The pins have to arrive before the first paint, or the sidebar draws without them.
 (async () => {
-  if (token) await loadFavourites();
+  if (token) {
+    let list = [];
+    try { list = await getJSON('/api/languages'); } catch { /* English then */ }
+    await loadLanguage(preferredLanguage(list.map((l) => l.code)));
+    translateMarkup();
+    await loadFavourites();
+  }
   await render();
   applySidebar();
 })();
