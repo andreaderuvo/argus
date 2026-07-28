@@ -1,6 +1,6 @@
 {
   "name": "Argus",
-  "short_name": "tmux",
+  "short_name": "Argus",
   "description": "Browse files and attach to tmux sessions from your phone",
   "start_url": "/",
   "scope": "/",
