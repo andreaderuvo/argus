@@ -2138,6 +2138,20 @@ function attachTerminal(container, name, { transform, onGone } = {}) {
   const send = (data) => { if (ws?.readyState === WebSocket.OPEN) ws.send(enc.encode(data)); };
   term.onData((d) => send(transform ? transform(d) : d));
 
+  // tmux sizes a window for its most recently used client, so simply asking again when
+  // this tab comes back to the front is what makes the terminal you are looking at the
+  // one that fits — and the other one catch up when you return to it.
+  const claimSize = () => {
+    if (!ready || ws?.readyState !== WebSocket.OPEN) return;
+    sentCols = 0;
+    sentRows = 0;
+    relayout();
+  };
+  const onFocus = () => { if (!document.hidden) claimSize(); };
+  window.addEventListener('focus', onFocus);
+  document.addEventListener('visibilitychange', onFocus);
+  term.onFocus?.(claimSize);
+
   // A phone has no wheel, and tmux with `mouse on` scrolls only when it gets one — so
   // dragging a finger over the terminal did nothing at all, while the desktop scrolled
   // a hundred thousand lines of history. The drag is turned into wheel events and tmux
@@ -2239,6 +2253,8 @@ function attachTerminal(container, name, { transform, onGone } = {}) {
     dispose: () => {
       disposed = true;
       clearTimeout(timer);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onFocus);
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('online', retryNow);
       ro.disconnect();
