@@ -40,6 +40,10 @@ COALESCE_MAX = 256 * 1024
 router = APIRouter()
 
 
+def ws_open(websocket: WebSocket) -> bool:
+    return websocket.client_state.name == "CONNECTED"
+
+
 def clamp(n: int) -> int:
     return max(2, min(int(n), 1000))
 
@@ -258,6 +262,16 @@ async def terminal(websocket: WebSocket, session: str, cols: int = 80, rows: int
             if isinstance(control, dict) and control.get("type") == "resize":
                 with contextlib.suppress(OSError, KeyError, TypeError, ValueError):
                     set_winsize(master, clamp(control["rows"]), clamp(control["cols"]))
+                # A client told to ignore its size is only ignored while somebody else is
+                # attached — alone, tmux takes its size after all. So the size is always
+                # sent, and the grid tmux settled on is reported back: that is how a
+                # window that was locked starts following again once the phone leaves.
+                if fixed:
+                    await asyncio.sleep(0.05)
+                    grid = await asyncio.to_thread(window_size, state.socket, session)
+                    if grid and ws_open(websocket):
+                        await websocket.send_text(json.dumps(
+                            {"type": "grid", "cols": grid[0], "rows": grid[1]}))
             else:
                 # A browser that sends keystrokes as text still works.
                 await asyncio.to_thread(os.write, master, text.encode("utf-8"))
