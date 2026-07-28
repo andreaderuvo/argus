@@ -64,6 +64,20 @@ def others_attached(sock: tmux.Socket, session: str) -> int:
     return len([ln for ln in p.stdout.splitlines() if ln.strip()]) if p.returncode == 0 else 0
 
 
+def set_passive(sock: tmux.Socket, tty: str, passive: bool) -> None:
+    """Turn this client's ignore-size flag on or off while it is attached.
+
+    `refresh-client -f ''` looks like it should clear the flag and silently does not;
+    the negated form is what works.
+    """
+    flag = "ignore-size" if passive else "!ignore-size"
+    with contextlib.suppress(OSError, subprocess.SubprocessError):
+        subprocess.run(
+            ["tmux", *sock.args(), "refresh-client", "-t", tty, "-f", flag],
+            capture_output=True, timeout=4,
+        )
+
+
 def window_size(sock: tmux.Socket, session: str) -> tuple[int, int] | None:
     """The grid tmux is actually drawing for this session."""
     try:
@@ -102,7 +116,7 @@ def child_env() -> dict[str, str]:
     return env
 
 
-def spawn(argv: list[str], env: dict[str, str], rows: int, cols: int) -> tuple[int, int]:
+def spawn(argv: list[str], env: dict[str, str], rows: int, cols: int) -> tuple[int, int, str]:
     """Fork a child on a fresh PTY and exec into it. Returns (pid, master fd).
 
     The size is set on the slave *before* the fork, so tmux sees the phone's geometry
@@ -110,6 +124,7 @@ def spawn(argv: list[str], env: dict[str, str], rows: int, cols: int) -> tuple[i
     """
     master, slave = pty.openpty()
     set_winsize(slave, rows, cols)
+    tty = os.ttyname(slave)     # how tmux will name this client
     pid = os.fork()
     if pid == 0:  # child
         try:
@@ -122,7 +137,7 @@ def spawn(argv: list[str], env: dict[str, str], rows: int, cols: int) -> tuple[i
         except BaseException:
             os._exit(127)
     os.close(slave)
-    return pid, master
+    return pid, master, tty
 
 
 def _reader(fd: int, loop: asyncio.AbstractEventLoop, queue: asyncio.Queue) -> None:
@@ -214,7 +229,7 @@ async def terminal(websocket: WebSocket, session: str, cols: int = 80, rows: int
         crowded = await asyncio.to_thread(others_attached, state.socket, session)
         flags = ["-f", "ignore-size"] if crowded else []
 
-    pid, master = spawn(
+    pid, master, tty = spawn(
         attach_argv(session, flags, state.socket), child_env(), rows, cols
     )
 
@@ -245,7 +260,8 @@ async def terminal(websocket: WebSocket, session: str, cols: int = 80, rows: int
             await websocket.send_bytes(chunk)
 
     async def pump_in() -> str:
-        while True:
+        nonlocal fixed        # the lock button changes it; without this every resize
+        while True:           # in this function would raise UnboundLocalError
             message = await websocket.receive()
             if message["type"] == "websocket.disconnect":
                 return "client closed"
@@ -259,6 +275,20 @@ async def terminal(websocket: WebSocket, session: str, cols: int = 80, rows: int
             control = None
             with contextlib.suppress(ValueError):
                 control = json.loads(text)
+            if isinstance(control, dict) and control.get("type") == "passive":
+                passive = bool(control.get("on"))
+                await asyncio.to_thread(set_passive, state.socket, tty, passive)
+                fixed = passive
+                # Going passive: tell the client what the window is right now, so it draws
+                # that grid small instead of sitting at a size tmux will no longer give it.
+                # Coming back: say nothing — the resize it is about to send is the answer.
+                if passive:
+                    grid = await asyncio.to_thread(window_size, state.socket, session)
+                    if grid and ws_open(websocket):
+                        await websocket.send_text(json.dumps(
+                            {"type": "grid", "cols": grid[0], "rows": grid[1]}))
+                continue
+
             if isinstance(control, dict) and control.get("type") == "resize":
                 with contextlib.suppress(OSError, KeyError, TypeError, ValueError):
                     set_winsize(master, clamp(control["rows"]), clamp(control["cols"]))

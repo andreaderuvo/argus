@@ -171,6 +171,9 @@
   "{name} is over the {limit} limit": "{name} is over the {limit} limit",
   "{name} killed": "{name} killed",
   "{name} started": "{name} started",
-  "{name} started in {path}": "{name} started in {path}"
+  "{name} started in {path}": "{name} started in {path}",
+  "Fit the session to this screen": "Fit the session to this screen",
+  "Watch without changing the size": "Watch without changing the size",
+  "Take the size back": "Take the size back"
  }
 }
