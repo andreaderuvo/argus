@@ -17,6 +17,7 @@ import httpx
 from fastapi import APIRouter, Request
 from fastapi.responses import Response, StreamingResponse
 
+from .auth import PROXY_COOKIE
 from .errors import ApiError
 
 router = APIRouter()
@@ -58,6 +59,18 @@ def opened(request: Request) -> set[int]:
     return request.app.state.proxied
 
 
+def hand_out_cookie(request: Request, response: Response) -> Response:
+    """A page reached with ?token= will immediately ask for its own stylesheets, and
+    those requests cannot carry a header. Give this browser the cookie on the way in, so
+    the proxy URL works when it is opened directly rather than from the app."""
+    if request.query_params.get("token"):
+        response.set_cookie(
+            PROXY_COOKIE, request.app.state.cfg.token,
+            path="/proxy", httponly=True, samesite="lax",
+        )
+    return response
+
+
 def check(request: Request, port: int) -> None:
     if not request.app.state.cfg.allow_proxy:
         raise ApiError(403, "proxying is off — start the server with --allow-proxy")
@@ -91,12 +104,12 @@ async def through(request: Request, port: int, path: str) -> Response:
     kind = upstream.headers.get("content-type", "")
 
     if kind.startswith("text/html"):
-        return Response(
+        return hand_out_cookie(request, Response(
             content=with_base(upstream.content, f"/proxy/{port}/"),
             status_code=upstream.status_code,
             headers=out,
             media_type=kind,
-        )
+        ))
 
     return StreamingResponse(
         iter([upstream.content]),

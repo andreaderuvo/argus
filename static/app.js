@@ -1321,7 +1321,8 @@ const duration = (s) => {
  *  it exists. One on 127.0.0.1 is not, and that is what the proxy is for. */
 function portsSection() {
   const box = el('div', { className: 'proclist ports' });
-  box.append(el('div', { className: 'tilelabel', textContent: 'Listening ports' }));
+  const head = el('div', { className: 'tilelabel', textContent: 'Listening ports' });
+  box.append(head);
   const list = el('div');
   box.append(list);
 
@@ -1332,6 +1333,9 @@ function portsSection() {
       return list.append(el('p', { className: 'error tiny', textContent: e.message }));
     }
     list.textContent = '';
+    head.textContent = data.open.length
+      ? `Listening ports · ${data.open.length} reachable through Argus`
+      : 'Listening ports';
     const mine = data.ports.filter((p) => p.mine && !p.self);
     if (!mine.length) return list.append(el('p', { className: 'empty tiny', textContent: 'Nothing of yours is listening.' }));
 
@@ -1356,10 +1360,31 @@ function portsSection() {
           textContent: 'Open',
           onclick: () => openWindow({ kind: 'web', url: direct, label: `:${p.port}` }),
         }));
-      } else if (data.allow_proxy) {
+      } else if (!data.allow_proxy) {
+        row.append(el('span', { className: 'verb', textContent: 'needs --allow-proxy' }));
+      } else if (open) {
+        // Already reachable: say so, and make closing it as easy as opening was.
+        row.append(el('span', { className: 'state good', textContent: 'reachable' }));
         row.append(el('button', {
-          className: `ghost dup${open ? ' on' : ''}`,
-          textContent: open ? 'Open' : 'Reach it',
+          className: 'ghost dup on',
+          textContent: 'View',
+          onclick: () => openWindow({ kind: 'web', url: through, label: `:${p.port}` }),
+        }));
+        row.append(el('button', {
+          className: 'winbtn',
+          title: `Stop reaching port ${p.port}`,
+          onclick: async () => {
+            try {
+              await postJSON('/api/ports', { port: p.port, open: false });
+              toast(`port ${p.port} closed`);
+              paint();
+            } catch (e) { toast(e.message, true); }
+          },
+        }, icon('close')));
+      } else {
+        row.append(el('button', {
+          className: 'ghost dup',
+          textContent: 'Reach it',
           onclick: async () => {
             try {
               // Always ask, even when the server already has it open: this call is what
@@ -1369,9 +1394,8 @@ function portsSection() {
             } catch (e) { toast(e.message, true); }
           },
         }));
-      } else {
-        row.append(el('span', { className: 'verb', textContent: '--allow-proxy' }));
       }
+
       list.append(row);
     }
   };
