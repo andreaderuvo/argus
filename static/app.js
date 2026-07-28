@@ -1833,13 +1833,16 @@ async function screenWall() {
     };
 
     const settled = () => { handle.relayout(); saveGeom(id, win); };
+    // Being pushed aside by someone else's drop is a move like any other.
+    win.addEventListener('argus:moved', settled);
     // Double-clicking the title bar maximises and restores, the way every desktop does.
     head.addEventListener('dblclick', (e) => {
       if (e.target === head || e.target === title) solo.onclick();
     });
 
-    dragBy(head, win, wall, settled, [swatch, solo, close]);
-    resizable(win, wall, settled);
+    const peers = () => open.filter((o) => o.win !== win).map((o) => o.win);
+    dragBy(head, win, wall, settled, [swatch, solo, close], peers);
+    resizable(win, wall, settled, peers);
     return entry;
   }
 
@@ -1922,24 +1925,46 @@ function saveGeom(name, win) {
 }
 
 /** Pointer-events drag, so it works with a mouse, a trackpad and a stylus alike. */
-function dragBy(grabber, win, bounds, onDone, ignore = []) {
+function dragBy(grabber, win, bounds, onDone, ignore = [], peers = () => []) {
   grabber.addEventListener('pointerdown', (e) => {
     if (ignore.includes(e.target)) return;
     const box = win.getBoundingClientRect();
     const area = bounds.getBoundingClientRect();
     const dx = e.clientX - box.left;
     const dy = e.clientY - box.top;
+    const xLines = snapLines(bounds, peers, 'x');
+    const yLines = snapLines(bounds, peers, 'y');
     grabber.setPointerCapture(e.pointerId);
+    let drop = null;
 
     const move = (ev) => {
-      const x = Math.max(0, Math.min(ev.clientX - area.left - dx, area.width - 60));
-      const y = Math.max(0, Math.min(ev.clientY - area.top - dy, area.height - 30));
-      win.style.left = `${x}px`;
-      win.style.top = `${y}px`;
+      const px = ev.clientX - area.left;
+      const py = ev.clientY - area.top;
+
+      // The wall's own edges win over a window underneath: that is the gesture people
+      // reach for when they want a half-screen.
+      const aero = aeroZone(px, py, area);
+      drop = aero ? { zone: aero } : dockZone(px, py, peers, area);
+      showGhost(bounds, drop?.zone || null);
+
+      const x = Math.max(0, Math.min(px - dx, area.width - 60));
+      const y = Math.max(0, Math.min(py - dy, area.height - 30));
+      win.style.left = `${snapTo(x, box.width, xLines)}px`;
+      win.style.top = `${snapTo(y, box.height, yLines)}px`;
     };
     const up = () => {
       grabber.removeEventListener('pointermove', move);
       grabber.removeEventListener('pointerup', up);
+      showGhost(bounds, null);
+      if (drop) {
+        delete win.dataset.prev;
+        place(win, drop.zone);
+        if (drop.peer) {
+          delete drop.peer.dataset.prev;
+          place(drop.peer, drop.peerZone);
+          drop.peer.dispatchEvent(new CustomEvent('argus:moved', { bubbles: true }));
+        }
+      }
       onDone();
     };
     grabber.addEventListener('pointermove', move);
@@ -2052,11 +2077,116 @@ function attachViewer(host, path, extras) {
 
 const MIN_W = 240;
 const MIN_H = 140;
+// How close an edge has to get before it jumps flush. Big enough to feel magnetic,
+// small enough that you can still place a window one pixel off if you insist.
+const SNAP = 9;
+// Dragging into this band along the wall edge offers half (or a quarter) of it.
+const AERO = 18;
+const AERO_CORNER = 90;
+
+/** Every edge worth sticking to: the wall's own, and both edges of every other window,
+ *  on the axis being moved. */
+function snapLines(bounds, peers, axis) {
+  const area = bounds.getBoundingClientRect();
+  const lines = [0, axis === 'x' ? area.width : area.height];
+  for (const other of peers()) {
+    const r = other.getBoundingClientRect();
+    if (axis === 'x') lines.push(r.left - area.left, r.right - area.left);
+    else lines.push(r.top - area.top, r.bottom - area.top);
+  }
+  return lines;
+}
+
+/** Pull `start` (of a span `size`) onto the nearest line, matching either of its edges. */
+function snapTo(start, size, lines) {
+  let best = start;
+  let gap = SNAP;
+  for (const line of lines) {
+    if (Math.abs(start - line) < gap) { gap = Math.abs(start - line); best = line; }
+    if (Math.abs(start + size - line) < gap) { gap = Math.abs(start + size - line); best = line - size; }
+  }
+  return best;
+}
+
+/** Where a drag that ended at this point would park the window, Windows-style. */
+function aeroZone(x, y, area) {
+  const nearLeft = x <= AERO;
+  const nearRight = x >= area.width - AERO;
+  const nearTop = y <= AERO;
+  const nearBottom = y >= area.height - AERO;
+  if (!(nearLeft || nearRight || nearTop || nearBottom)) return null;
+
+  const half = { w: area.width / 2, h: area.height / 2 };
+  const corner = (cx, cy) => ({ left: cx, top: cy, width: half.w, height: half.h });
+  if (nearTop && x < AERO_CORNER) return corner(0, 0);
+  if (nearTop && x > area.width - AERO_CORNER) return corner(half.w, 0);
+  if (nearBottom && x < AERO_CORNER) return corner(0, half.h);
+  if (nearBottom && x > area.width - AERO_CORNER) return corner(half.w, half.h);
+  if (nearTop) return { left: 0, top: 0, width: area.width, height: area.height };
+  if (nearLeft) return { left: 0, top: 0, width: half.w, height: area.height };
+  if (nearRight) return { left: half.w, top: 0, width: half.w, height: area.height };
+  if (nearBottom) return { left: 0, top: half.h, width: area.width, height: half.h };
+  return null;
+}
+
+/** Dropping onto another window splits *it*: the half you point at becomes the newcomer,
+ *  the rest stays with the window that was already there. This is the behaviour every
+ *  editor with dockable panels has trained people to expect. */
+function dockZone(x, y, peers, area) {
+  for (const other of [...peers()].reverse()) {   // topmost first
+    const r = other.getBoundingClientRect();
+    const left = r.left - area.left;
+    const top = r.top - area.top;
+    if (x < left || x > left + r.width || y < top || y > top + r.height) continue;
+
+    const fx = (x - left) / r.width;
+    const fy = (y - top) / r.height;
+    const edge = 0.3;
+    const half = { w: r.width / 2, h: r.height / 2 };
+
+    if (fx < edge) {
+      return { zone: { left, top, width: half.w, height: r.height },
+        peer: other, peerZone: { left: left + half.w, top, width: half.w, height: r.height } };
+    }
+    if (fx > 1 - edge) {
+      return { zone: { left: left + half.w, top, width: half.w, height: r.height },
+        peer: other, peerZone: { left, top, width: half.w, height: r.height } };
+    }
+    if (fy < edge) {
+      return { zone: { left, top, width: r.width, height: half.h },
+        peer: other, peerZone: { left, top: top + half.h, width: r.width, height: half.h } };
+    }
+    if (fy > 1 - edge) {
+      return { zone: { left, top: top + half.h, width: r.width, height: half.h },
+        peer: other, peerZone: { left, top, width: r.width, height: half.h } };
+    }
+    return null;   // the middle of a window means "leave it alone"
+  }
+  return null;
+}
+
+const place = (node, z) => Object.assign(node.style, {
+  left: `${Math.round(z.left)}px`, top: `${Math.round(z.top)}px`,
+  width: `${Math.round(z.width)}px`, height: `${Math.round(z.height)}px`,
+});
+
+function showGhost(bounds, zone) {
+  let ghost = bounds.querySelector('.snapghost');
+  if (!zone) { ghost?.remove(); return; }
+  if (!ghost) {
+    ghost = el('div', { className: 'snapghost' });
+    bounds.append(ghost);
+  }
+  Object.assign(ghost.style, {
+    left: `${zone.left}px`, top: `${zone.top}px`,
+    width: `${zone.width}px`, height: `${zone.height}px`,
+  });
+}
 // Every edge and every corner, like a real window manager. Dragging a north or west
 // handle has to move the window as it resizes, or the far edge walks across the screen.
 const HANDLES = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'];
 
-function resizable(win, bounds, onDone) {
+function resizable(win, bounds, onDone, peers = () => []) {
   for (const dir of HANDLES) {
     const grip = el('div', { className: `rz rz-${dir}` });
     win.append(grip);
@@ -2070,6 +2200,9 @@ function resizable(win, bounds, onDone) {
       const top0 = box.top - area.top;
       const x0 = e.clientX;
       const y0 = e.clientY;
+      const xLines = snapLines(bounds, peers, 'x');
+      const yLines = snapLines(bounds, peers, 'y');
+      const near = (value, lines) => lines.find((line) => Math.abs(value - line) < SNAP);
       grip.setPointerCapture(e.pointerId);
 
       const move = (ev) => {
@@ -2079,10 +2212,25 @@ function resizable(win, bounds, onDone) {
         let l = left0;
         let t = top0;
 
-        if (dir.includes('e')) w = Math.max(MIN_W, box.width + dx);
-        if (dir.includes('s')) h = Math.max(MIN_H, box.height + dy);
-        if (dir.includes('w')) { w = Math.max(MIN_W, box.width - dx); l = left0 + (box.width - w); }
-        if (dir.includes('n')) { h = Math.max(MIN_H, box.height - dy); t = top0 + (box.height - h); }
+        // The edge being dragged sticks; the opposite one stays put.
+        if (dir.includes('e')) {
+          const right = near(left0 + box.width + dx, xLines) ?? left0 + box.width + dx;
+          w = Math.max(MIN_W, right - left0);
+        }
+        if (dir.includes('s')) {
+          const bottom = near(top0 + box.height + dy, yLines) ?? top0 + box.height + dy;
+          h = Math.max(MIN_H, bottom - top0);
+        }
+        if (dir.includes('w')) {
+          const leftEdge = near(left0 + dx, xLines) ?? left0 + dx;
+          w = Math.max(MIN_W, left0 + box.width - leftEdge);
+          l = left0 + box.width - w;
+        }
+        if (dir.includes('n')) {
+          const topEdge = near(top0 + dy, yLines) ?? top0 + dy;
+          h = Math.max(MIN_H, top0 + box.height - topEdge);
+          t = top0 + box.height - h;
+        }
 
         Object.assign(win.style, {
           width: `${w}px`, height: `${h}px`, left: `${l}px`, top: `${t}px`,
