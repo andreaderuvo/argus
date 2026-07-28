@@ -11,7 +11,7 @@ import yaml
 
 DEFAULT_LISTEN = "127.0.0.1:8080"
 DEFAULT_MAX_PREVIEW = 2 * 1024 * 1024
-RESIZE_POLICIES = ("adapt", "preserve")
+RESIZE_POLICIES = ("adapt", "preserve", "auto")
 
 
 class ConfigError(Exception):
@@ -73,7 +73,8 @@ class Config:
     tls_key: Path | None = None
 
     def attach_flags(self) -> list[str]:
-        """Extra arguments for ``tmux attach-session``."""
+        """Extra arguments for ``tmux attach-session``. `auto` is decided per attach,
+        in term.py, since it depends on who else is already there."""
         return ["-f", "ignore-size"] if self.resize_policy == "preserve" else []
 
     def tls(self) -> tuple[Path, Path] | None:

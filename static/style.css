@@ -501,6 +501,11 @@ body.term { grid-template-rows: var(--bar) 1fr auto; }
   overflow: hidden;
 }
 
+/* When the grid cannot be shrunk any further without becoming unreadable, it is allowed
+   to overflow and you slide it sideways. */
+#termwrap.panning, .winbody.panning { overflow: auto; }
+#termwrap.panning .xterm-screen, .winbody.panning .xterm-screen { touch-action: pan-x pan-y; }
+
 #keys {
   display: flex;
   gap: .3rem;
