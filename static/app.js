@@ -21,6 +21,9 @@ const DEFAULTS = {
   tree: false,       // expand folders in place instead of navigating into them
   theme: 'dark',     // 'dark' | 'light' | 'auto'
   wallLayout: 'grid', // 'grid' | 'cols' | 'rows' | 'float'
+  split: false,      // two file panes side by side
+  path2: '',         // where the second pane is
+  winGeom: {},       // session name -> free-window geometry
   colors: {},        // session name -> palette index, when you override the default
   fontSize: 13,
   wrap: true,
@@ -237,6 +240,30 @@ function confirmBox(title, message, label = 'Delete') {
   });
 }
 
+/** Copy to the clipboard, including over plain http where the async clipboard API does
+ *  not exist — which is exactly how this app is reached from a phone on the LAN. */
+async function copyText(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch { /* fall through to the old way */ }
+  }
+  const ta = el('textarea', { value: text, readOnly: true });
+  Object.assign(ta.style, { position: 'fixed', top: '0', left: '-9999px' });
+  document.body.append(ta);
+  ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch { ok = false; }
+  ta.remove();
+  return ok;
+}
+
+async function copyPath(path) {
+  const ok = await copyText(path);
+  toast(ok ? path : 'could not reach the clipboard', !ok);
+}
+
 function toast(message, bad = false) {
   const t = el('div', { className: `toast ${bad ? 'bad' : ''}`, textContent: message });
   document.body.append(t);
@@ -301,7 +328,7 @@ function fileIcon(entry) {
 
 /** One row shape for both panes: an anchor when it is a real navigation, a button when
  *  it only moves the sidebar. `refresh` is what an operation calls once it lands. */
-function entryRow(e, { href, onClick, refresh }) {
+function entryRow(e, { href, onClick, refresh, dest }) {
   const dir = e.type === 'directory';
   const kids = [
     fileIcon(e),
@@ -320,7 +347,7 @@ function entryRow(e, { href, onClick, refresh }) {
 
   if (server?.allow_write && refresh) {
     const menu = el('button', { className: 'more', type: 'button', title: 'Actions', textContent: '⋮' });
-    menu.onclick = (ev) => { ev.preventDefault(); ev.stopPropagation(); fileActions(e, refresh); };
+    menu.onclick = (ev) => { ev.preventDefault(); ev.stopPropagation(); fileActions(e, refresh, dest); };
     // The menu button lives outside the row link, or tapping it would navigate.
     return el('div', { className: 'rowwrap' }, [row, menu]);
   }
@@ -328,10 +355,12 @@ function entryRow(e, { href, onClick, refresh }) {
   return row;
 }
 
-/** The action sheet. Everything here goes through the API, which re-checks the jail. */
-function fileActions(entry, refresh) {
+/** The action sheet. Everything here goes through the API, which re-checks the jail.
+ *  `dest` is the other pane when the view is split — the destination you almost always
+ *  mean, prefilled so a move is two taps. */
+function fileActions(entry, refresh, dest) {
   const dir = entry.type === 'directory';
-  const here = parentOf(entry.path);
+  const here = dest?.() || parentOf(entry.path);
   const body = el('div', { className: 'sheetbody actions' });
   let sheet;
 
@@ -339,8 +368,7 @@ function fileActions(entry, refresh) {
     sheet.close();
     try {
       await fn();
-      refresh();
-      renderSidebar();
+      refreshAllBrowsers();
     } catch (e) {
       toast(e.message, true);
     }
@@ -357,7 +385,7 @@ function fileActions(entry, refresh) {
   });
 
   act('Move to…', async () => {
-    const dest = await ask('Move into which folder?', sidePath || here, 'Move');
+    const dest = await ask('Move into which folder?', here, 'Move');
     if (dest) {
       await postJSON('/api/fs/move', { path: entry.path, dest });
       toast(`moved to ${dest}`);
@@ -365,12 +393,19 @@ function fileActions(entry, refresh) {
   });
 
   act('Copy to…', async () => {
-    const dest = await ask('Copy into which folder?', sidePath || here, 'Copy');
+    const dest = await ask('Copy into which folder?', here, 'Copy');
     if (dest) {
       await postJSON('/api/fs/copy', { path: entry.path, dest });
       toast(`copied to ${dest}`);
     }
   });
+
+  // No refresh for these two: they change nothing on disk.
+  body.append(el('button', {
+    className: 'ghost block',
+    textContent: 'Copy path',
+    onclick: () => { sheet.close(); copyPath(entry.path); },
+  }));
 
   if (!dir) {
     body.append(el('button', {
@@ -418,7 +453,7 @@ function searchBox(path, onResults, placeholder = 'search in this folder…') {
 
 /** Tree mode: a folder expands in place instead of replacing the view. Children are
  *  fetched the first time you open a node and thrown away when you close it. */
-function treeNode(entry, depth, onFile, refresh) {
+function treeNode(entry, depth, onFile, refresh, dest) {
   const dir = entry.type === 'directory';
   const holder = el('div');
   const twist = el('span', { className: 'twist', textContent: dir ? '▸' : '' });
@@ -438,7 +473,7 @@ function treeNode(entry, depth, onFile, refresh) {
   const line = el('div', { className: 'rowwrap' }, row);
   if (server?.allow_write && refresh) {
     const menu = el('button', { className: 'more', type: 'button', title: 'Actions', textContent: '⋮' });
-    menu.onclick = (ev) => { ev.stopPropagation(); fileActions(entry, refresh); };
+    menu.onclick = (ev) => { ev.stopPropagation(); fileActions(entry, refresh, dest); };
     line.append(menu);
   }
   holder.append(line);
@@ -455,7 +490,7 @@ function treeNode(entry, depth, onFile, refresh) {
       if (!children.length) {
         kids.append(el('p', { className: 'empty tiny', textContent: 'empty', style: `padding-left:${1.4 + depth * 0.85}rem` }));
       }
-      for (const c of children) kids.append(treeNode(c, depth + 1, onFile, refresh));
+      for (const c of children) kids.append(treeNode(c, depth + 1, onFile, refresh, dest));
     } catch (e) {
       kids.append(el('p', { className: 'error tiny', textContent: e.message }));
     }
@@ -463,12 +498,12 @@ function treeNode(entry, depth, onFile, refresh) {
   return holder;
 }
 
-async function drawTree(container, path, onFile, refresh) {
+async function drawTree(container, path, onFile, refresh, dest) {
   container.innerHTML = '';
   try {
     const entries = visible(await getJSON(`/api/files?path=${encodeURIComponent(path)}`));
     if (!entries.length) return container.append(el('p', { className: 'empty', textContent: 'Nothing here.' }));
-    for (const e of entries) container.append(treeNode(e, 0, onFile, refresh));
+    for (const e of entries) container.append(treeNode(e, 0, onFile, refresh, dest));
   } catch (e) {
     container.append(el('p', { className: 'error', textContent: e.message }));
   }
@@ -584,46 +619,50 @@ async function screenSessions() {
   }
 }
 
-async function screenFiles(path) {
-  const info = await serverInfo();
-  path = path || info.roots[0];
-  bar.title.textContent = path;
-
-  if (!info.roots.includes(path)) {
-    bar.back.hidden = false;
-    bar.back.onclick = () => go(`#/files?path=${encodeURIComponent(parentOf(path))}`);
-  }
-
-  const list = el('div');
-  const reload = () => screenFiles(path).catch((e) => toast(e.message, true));
+/** One file browser. Used three times over: the two panes of the split view and the
+ *  sidebar. Each instance owns its path, its search box and its listing, and knows how
+ *  to reach the *other* one — which is what makes copy and move between panes useful. */
+function fileBrowser({ path, setPath, other, roots, compact = false }) {
+  const node = el('div', { className: `pane${compact ? ' compact' : ''}` });
+  const list = el('div', { className: 'panelist' });
+  const reload = () => paint();
+  const openFile = (e) => go(`#/preview?path=${encodeURIComponent(e.path)}`);
 
   const draw = (entries, err) => {
     list.innerHTML = '';
     if (err) return list.append(el('p', { className: 'error', textContent: err.message }));
     const shown = visible(entries);
     if (!shown.length) {
-      const hiddenCount = entries.length - shown.length;
+      const hidden = entries.length - shown.length;
       return list.append(el('p', {
         className: 'empty',
-        textContent: hiddenCount ? `Nothing but ${hiddenCount} hidden item(s).` : 'Nothing here.',
+        textContent: hidden ? `Nothing but ${hidden} hidden item(s).` : 'Nothing here.',
       }));
     }
     for (const e of shown) {
-      const href = e.type === 'directory'
-        ? `#/files?path=${encodeURIComponent(e.path)}`
-        : `#/preview?path=${encodeURIComponent(e.path)}`;
-      list.append(entryRow(e, { href, refresh: reload }));
+      list.append(entryRow(e, {
+        onClick: () => (e.type === 'directory' ? setPath(e.path) : openFile(e)),
+        refresh: reload,
+        dest: other,
+      }));
     }
   };
 
-  const openFile = (e) => go(`#/preview?path=${encodeURIComponent(e.path)}`);
   // Search results span folders, so they are always a flat list — clearing the box puts
   // you back into whichever mode you chose.
   const show = (entries, err, q) =>
-    (!q && prefs.tree ? drawTree(list, path, openFile, reload) : draw(entries, err));
+    (!q && prefs.tree ? drawTree(list, path, openFile, reload, other) : draw(entries, err));
 
-  const tools = el('div', { className: 'pad tools' }, searchBox(path, show));
-  if (info.allow_write) {
+  const up = el('button', { textContent: '↑', title: 'Parent folder', disabled: roots.includes(path) });
+  up.onclick = () => setPath(parentOf(path));
+
+  const crumb = el('button', { className: 'crumb', type: 'button', textContent: path });
+  crumb.title = `${path}\n(click to copy)`;
+  crumb.onclick = () => copyPath(path);
+  node.append(el('div', { className: 'sidehead' }, [up, crumb]));
+
+  const tools = el('div', { className: 'pad tools' }, searchBox(path, show, compact ? 'search…' : undefined));
+  if (server?.allow_write) {
     tools.append(el('button', {
       className: 'ghost',
       textContent: '＋',
@@ -634,16 +673,78 @@ async function screenFiles(path) {
         try {
           await postJSON('/api/fs/mkdir', { path, name });
           toast(`created ${name}`);
-          reload();
-          renderSidebar();
+          refreshAllBrowsers();
         } catch (e) { toast(e.message, true); }
       },
     }));
   }
-  view.append(tools, list);
+  node.append(tools, list);
 
-  if (prefs.tree) await drawTree(list, path, openFile, reload);
-  else draw(await getJSON(`/api/files?path=${encodeURIComponent(path)}`));
+  async function paint() {
+    if (prefs.tree) return drawTree(list, path, openFile, reload, other);
+    try {
+      draw(await getJSON(`/api/files?path=${encodeURIComponent(path)}`));
+    } catch (e) {
+      draw([], e);
+    }
+  }
+  paint();
+
+  return { node, reload };
+}
+
+// Every live browser, so one operation refreshes all the views that might show it.
+const browsers = new Set();
+function refreshAllBrowsers() {
+  for (const b of browsers) b.reload();
+  renderSidebar();
+}
+
+async function screenFiles(path) {
+  const info = await serverInfo();
+  const roots = info.roots;
+  path = path || roots[0];
+  bar.title.textContent = path;
+
+  if (!roots.includes(path)) {
+    bar.back.hidden = false;
+    bar.back.onclick = () => go(`#/files?path=${encodeURIComponent(parentOf(path))}`);
+  }
+
+  // Two panes, each in its own folder: the point is copying and moving between them, so
+  // each one offers the other as the default destination.
+  bar.action.hidden = false;
+  bar.action.textContent = '⫿';
+  bar.action.title = prefs.split ? 'One pane' : 'Split into two panes';
+  bar.action.className = `icon${prefs.split ? ' on' : ''}`;
+  bar.action.onclick = () => { prefs.split = !prefs.split; savePrefs(); render(); };
+
+  const panes = el('div', { id: 'panes', className: prefs.split ? 'split' : '' });
+  view.style.overflow = 'hidden';
+  view.append(panes);
+
+  browsers.clear();
+  const secondPath = prefs.path2 || (sidePath !== path ? sidePath : '') || roots[0];
+
+  const a = fileBrowser({
+    path,
+    roots,
+    setPath: (p) => go(`#/files?path=${encodeURIComponent(p)}`),
+    other: () => (prefs.split ? secondPath : null),
+  });
+  browsers.add(a);
+  panes.append(a.node);
+
+  if (prefs.split) {
+    const b = fileBrowser({
+      path: secondPath,
+      roots,
+      setPath: (p) => { prefs.path2 = p; savePrefs(); render(); },
+      other: () => path,
+    });
+    browsers.add(b);
+    panes.append(b.node);
+  }
 }
 
 async function screenPreview(path) {
@@ -854,41 +955,14 @@ async function renderSidebar() {
   let info;
   try { info = await serverInfo(); } catch { return; }
 
-  const path = sidePath || info.roots[0];
   side.innerHTML = '';
-
-  const up = el('button', { textContent: '↑', title: 'Parent folder', disabled: info.roots.includes(path) });
-  up.onclick = () => setSidePath(parentOf(path));
-  side.append(el('div', { className: 'sidehead' }, [up, el('span', { className: 'crumb', textContent: path })]));
-
-  const list = el('div');
-  const reload = () => renderSidebar();
-  const openFile = (e) => go(`#/preview?path=${encodeURIComponent(e.path)}`);
-
-  const draw = (entries, err) => {
-    list.innerHTML = '';
-    if (err) return list.append(el('p', { className: 'error', textContent: err.message }));
-    const shown = visible(entries);
-    if (!shown.length) return list.append(el('p', { className: 'empty', textContent: 'Nothing here.' }));
-    for (const e of shown) {
-      list.append(entryRow(e, {
-        onClick: () => (e.type === 'directory' ? setSidePath(e.path) : openFile(e)),
-        refresh: reload,
-      }));
-    }
-  };
-
-  const show = (entries, err, q) =>
-    (!q && prefs.tree ? drawTree(list, path, openFile, reload) : draw(entries, err));
-
-  side.append(el('div', { className: 'pad' }, searchBox(path, show, 'search…')), list);
-
-  if (prefs.tree) return drawTree(list, path, openFile, reload);
-  try {
-    draw(await getJSON(`/api/files?path=${encodeURIComponent(path)}`));
-  } catch (e) {
-    draw([], e);
-  }
+  side.append(fileBrowser({
+    path: sidePath || info.roots[0],
+    roots: info.roots,
+    setPath: setSidePath,
+    other: () => null,
+    compact: true,
+  }).node);
 }
 
 sideToggle.onclick = () => {
@@ -899,8 +973,16 @@ sideToggle.onclick = () => {
 
 /* ---------------------------------------------------------------- terminal */
 
+const RECONNECT_CAP = 10_000;
+
 /** A live terminal bound to a tmux session. Used full-screen and inside a window, so it
- *  owns the socket and the sizing but knows nothing about either layout. */
+ *  owns the socket and the sizing but knows nothing about either layout.
+ *
+ *  It reconnects on its own. A phone that sleeps, changes network or loses Wi-Fi for a
+ *  moment drops the socket, and the tmux session is still there — so the only sane
+ *  behaviour is to attach again. tmux redraws the whole pane on attach, so nothing is
+ *  lost. The one case that must *not* retry is a session that no longer exists.
+ */
 function attachTerminal(container, name, { transform } = {}) {
   const term = new Terminal({
     fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace',
@@ -914,29 +996,73 @@ function attachTerminal(container, name, { transform } = {}) {
   term.open(container);
   try { fit.fit(); } catch { /* not laid out yet */ }
 
-  const url = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}` +
-    `/ws/tmux/${encodeURIComponent(name)}?token=${encodeURIComponent(token)}` +
-    `&cols=${term.cols}&rows=${term.rows}`;
-  const ws = new WebSocket(url);
-  ws.binaryType = 'arraybuffer';
+  let ws = null;
   let ready = false;
+  let disposed = false;
+  let gone = false;        // the session itself is gone: retrying is pointless
+  let attempts = 0;
+  let timer = null;
+
+  const note = (text, colour = '38;5;244') => term.write(`\r\n\x1b[${colour}m— ${text} —\x1b[0m\r\n`);
 
   const sendSize = () => {
-    if (ready && ws.readyState === WebSocket.OPEN) {
+    if (ready && ws?.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
     }
   };
 
-  ws.onmessage = (ev) => {
-    if (typeof ev.data !== 'string') return term.write(new Uint8Array(ev.data));
-    const msg = JSON.parse(ev.data);
-    if (msg.type === 'ready') { ready = true; sendSize(); }
-    if (msg.type === 'exit') term.write(`\r\n\x1b[38;5;244m— ${msg.reason} —\x1b[0m\r\n`);
-  };
-  ws.onerror = () => term.write('\r\n\x1b[31mconnection failed\x1b[0m\r\n');
-  ws.onclose = () => { ready = false; };
+  const connect = () => {
+    clearTimeout(timer);
+    timer = null;
+    if (disposed || gone) return;
 
-  const send = (data) => { if (ws.readyState === WebSocket.OPEN) ws.send(enc.encode(data)); };
+    const url = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}` +
+      `/ws/tmux/${encodeURIComponent(name)}?token=${encodeURIComponent(token)}` +
+      `&cols=${term.cols}&rows=${term.rows}`;
+    ws = new WebSocket(url);
+    ws.binaryType = 'arraybuffer';
+
+    ws.onmessage = (ev) => {
+      if (typeof ev.data !== 'string') return term.write(new Uint8Array(ev.data));
+      const msg = JSON.parse(ev.data);
+      if (msg.type === 'ready') {
+        ready = true;
+        if (attempts) note('reconnected', '38;5;108');
+        attempts = 0;
+        sendSize();
+      }
+      if (msg.type === 'exit') {
+        if (/no tmux session/.test(msg.reason || '')) gone = true;
+        note(msg.reason);
+      }
+    };
+
+    ws.onclose = () => {
+      ready = false;
+      if (disposed || gone) return;
+      // 0.5s, 1, 2, 4, 8, then every 10 — quick enough to be invisible on a blip,
+      // slow enough not to hammer a server that is actually down.
+      const delay = Math.min(RECONNECT_CAP, 500 * 2 ** attempts++);
+      note(`disconnected, retrying in ${Math.round(delay / 1000) || 1}s`);
+      timer = setTimeout(connect, delay);
+    };
+  };
+
+  // A backgrounded tab gets its timers throttled, so the scheduled retry may be minutes
+  // late. Coming back to the app, or back onto a network, is the moment to try again.
+  const retryNow = () => {
+    if (disposed || gone) return;
+    if (ws?.readyState === WebSocket.OPEN || ws?.readyState === WebSocket.CONNECTING) return;
+    attempts = 0;
+    connect();
+  };
+  const onVisible = () => { if (!document.hidden) retryNow(); };
+  document.addEventListener('visibilitychange', onVisible);
+  window.addEventListener('online', retryNow);
+
+  connect();
+
+  const send = (data) => { if (ws?.readyState === WebSocket.OPEN) ws.send(enc.encode(data)); };
   term.onData((d) => send(transform ? transform(d) : d));
 
   const relayout = () => { try { fit.fit(); } catch { /* detached */ } sendSize(); };
@@ -946,10 +1072,15 @@ function attachTerminal(container, name, { transform } = {}) {
   return {
     send,
     relayout,
+    reconnect: retryNow,
     focus: () => term.focus(),
     dispose: () => {
+      disposed = true;
+      clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('online', retryNow);
       ro.disconnect();
-      try { ws.close(); } catch { /* already gone */ }
+      try { ws?.close(); } catch { /* already gone */ }
       term.dispose();
     },
   };
@@ -1030,8 +1161,31 @@ const LAYOUTS = [
   ['grid', '▦', 'Grid'],
   ['cols', '▥', 'Columns'],
   ['rows', '▤', 'Rows'],
-  ['float', '❐', 'Free windows'],
 ];
+const WALL_GAP = 6;
+
+/** Lay the windows out. This *places* them and then lets go: every window stays draggable
+ *  and resizable afterwards, so an arrangement is a starting point, never a cage. */
+function arrange(open, wall, mode) {
+  if (!open.length) return;
+  const n = open.length;
+  const cols = mode === 'cols' ? n : mode === 'rows' ? 1 : Math.ceil(Math.sqrt(n));
+  const rows = Math.ceil(n / cols);
+  const w = (wall.clientWidth - WALL_GAP * (cols + 1)) / cols;
+  const h = (wall.clientHeight - WALL_GAP * (rows + 1)) / rows;
+
+  open.forEach((o, i) => {
+    delete o.win.dataset.prev;
+    Object.assign(o.win.style, {
+      left: `${WALL_GAP + (i % cols) * (w + WALL_GAP)}px`,
+      top: `${WALL_GAP + Math.floor(i / cols) * (h + WALL_GAP)}px`,
+      width: `${Math.max(MIN_W, w)}px`,
+      height: `${Math.max(MIN_H, h)}px`,
+    });
+    saveGeom(o.name, o.win);
+    o.handle.relayout();
+  });
+}
 
 async function screenWall() {
   document.body.classList.add('wall');
@@ -1052,41 +1206,22 @@ async function screenWall() {
 
   const open = [];
   let top = 10;
-  // Free-floating windows need a pointer and room; on a narrow screen they are a
-  // nuisance, so that layout is neither offered nor restored there.
-  const narrow = () => window.innerWidth < 900;
 
-  const applyLayout = () => {
-    let mode = prefs.wallLayout || 'grid';
-    if (mode === 'float' && narrow()) mode = 'rows';
-    wall.className = mode;
-    wall.style.setProperty('--cols', Math.ceil(Math.sqrt(open.length)) || 1);
-    if (mode === 'float') {
-      open.forEach((o, i) => {
-        if (o.win.style.width) return;   // keep whatever the user dragged it to
-        Object.assign(o.win.style, {
-          left: `${16 + i * 26}px`,
-          top: `${14 + i * 24}px`,
-          width: 'min(620px, 78%)',
-          height: 'min(380px, 62%)',
-          zIndex: ++top,
-        });
-      });
-    }
+  const applyLayout = (mode) => {
+    prefs.wallLayout = mode;
+    savePrefs();
+    arrange(open, wall, mode);
     for (const b of tools.querySelectorAll('button[data-mode]')) {
       b.classList.toggle('on', b.dataset.mode === mode);
     }
-    // Give the browser a frame to lay out before the terminals measure themselves.
-    requestAnimationFrame(() => open.forEach((o) => o.handle.relayout()));
   };
 
   for (const [mode, glyph, label] of LAYOUTS) {
-    if (mode === 'float' && narrow()) continue;
     const b = el('button', {
       className: 'winbtn wide',
-      title: label,
+      title: `Arrange as ${label.toLowerCase()}`,
       textContent: `${glyph} ${label}`,
-      onclick: () => { prefs.wallLayout = mode; savePrefs(); applyLayout(); },
+      onclick: () => applyLayout(mode),
     });
     // `dataset` is read-only, so it cannot go through the property bag above.
     b.dataset.mode = mode;
@@ -1106,16 +1241,14 @@ async function screenWall() {
     const head = el('div', { className: 'winbar' }, [
       swatch, el('span', { className: 'wintitle', textContent: s.name }), solo, close,
     ]);
-    win.append(head, body, el('div', { className: 'grip' }));
+    win.append(head, body);
     wall.append(win);
 
     const handle = attachTerminal(body, s.name);
-    const entry = { win, handle };
+    const entry = { win, handle, name: s.name };
     open.push(entry);
 
-    win.addEventListener('pointerdown', () => {
-      if (wall.className === 'float') win.style.zIndex = ++top;
-    }, true);
+    win.addEventListener('pointerdown', () => { win.style.zIndex = ++top; }, true);
 
     close.onclick = () => {
       handle.dispose();
@@ -1124,37 +1257,57 @@ async function screenWall() {
       applyLayout();
     };
 
-    // In a tiled layout "full screen" means hiding the others rather than resizing.
+    // Fill the wall, and put it back where it was on a second click.
     solo.onclick = () => {
-      const already = win.classList.contains('solo');
-      for (const o of open) o.win.classList.remove('solo', 'hidden');
-      if (!already) {
-        win.classList.add('solo');
-        for (const o of open) if (o.win !== win) o.win.classList.add('hidden');
+      if (win.dataset.prev) {
+        Object.assign(win.style, JSON.parse(win.dataset.prev));
+        delete win.dataset.prev;
+      } else {
+        const { left, top: t, width, height } = win.style;
+        win.dataset.prev = JSON.stringify({ left, top: t, width, height });
+        Object.assign(win.style, { left: '0px', top: '0px', width: '100%', height: '100%' });
       }
-      requestAnimationFrame(() => open.forEach((o) => o.handle.relayout()));
+      win.style.zIndex = ++top;
+      saveGeom(s.name, win);
+      handle.relayout();
     };
 
-    dragBy(head, win, wall, () => handle.relayout(), [solo, close]);
-    resizeBy(win.querySelector('.grip'), win, () => handle.relayout());
+    const settled = () => { handle.relayout(); saveGeom(s.name, win); };
+    dragBy(head, win, wall, settled, [swatch, solo, close]);
+    resizable(win, wall, settled);
   });
 
-  applyLayout();
-  const onResize = () => applyLayout();
-  window.addEventListener('resize', onResize);
+  // Restore the geometry you left behind; if nothing was ever placed, lay them out.
+  const known = open.filter((o) => prefs.winGeom?.[o.name]);
+  for (const o of known) Object.assign(o.win.style, { ...prefs.winGeom[o.name], zIndex: ++top });
+  if (known.length < open.length) {
+    requestAnimationFrame(() => arrange(open, wall, prefs.wallLayout || 'grid'));
+  } else {
+    requestAnimationFrame(() => open.forEach((o) => o.handle.relayout()));
+  }
+  for (const b of tools.querySelectorAll('button[data-mode]')) {
+    b.classList.toggle('on', b.dataset.mode === (prefs.wallLayout || 'grid'));
+  }
 
   leaving = () => {
-    window.removeEventListener('resize', onResize);
     for (const o of open) o.handle.dispose();
     open.length = 0;
   };
 }
 
+/** Free-window geometry survives leaving the screen: the DOM is rebuilt on every
+ *  navigation, so the position has to live in the preferences, not in the element. */
+function saveGeom(name, win) {
+  const { left, top, width, height } = win.style;
+  if (!width) return;
+  prefs.winGeom = { ...(prefs.winGeom || {}), [name]: { left, top, width, height } };
+  savePrefs();
+}
+
 /** Pointer-events drag, so it works with a mouse, a trackpad and a stylus alike. */
 function dragBy(grabber, win, bounds, onDone, ignore = []) {
   grabber.addEventListener('pointerdown', (e) => {
-    // Only free-floating windows move; in a tiled layout the grid owns the geometry.
-    if (ignore.includes(e.target) || bounds.className !== 'float') return;
+    if (ignore.includes(e.target)) return;
     const box = win.getBoundingClientRect();
     const area = bounds.getBoundingClientRect();
     const dx = e.clientX - box.left;
@@ -1177,26 +1330,53 @@ function dragBy(grabber, win, bounds, onDone, ignore = []) {
   });
 }
 
-function resizeBy(grip, win, onDone) {
-  grip.addEventListener('pointerdown', (e) => {
-    e.stopPropagation();
-    const box = win.getBoundingClientRect();
-    const x0 = e.clientX;
-    const y0 = e.clientY;
-    grip.setPointerCapture(e.pointerId);
+const MIN_W = 240;
+const MIN_H = 140;
+// Every edge and every corner, like a real window manager. Dragging a north or west
+// handle has to move the window as it resizes, or the far edge walks across the screen.
+const HANDLES = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'];
 
-    const move = (ev) => {
-      win.style.width = `${Math.max(240, box.width + ev.clientX - x0)}px`;
-      win.style.height = `${Math.max(140, box.height + ev.clientY - y0)}px`;
-    };
-    const up = () => {
-      grip.removeEventListener('pointermove', move);
-      grip.removeEventListener('pointerup', up);
-      onDone();
-    };
-    grip.addEventListener('pointermove', move);
-    grip.addEventListener('pointerup', up);
-  });
+function resizable(win, bounds, onDone) {
+  for (const dir of HANDLES) {
+    const grip = el('div', { className: `rz rz-${dir}` });
+    win.append(grip);
+
+    grip.addEventListener('pointerdown', (e) => {
+      if (!win.style.width) return;   // not placed yet
+      e.stopPropagation();
+      const box = win.getBoundingClientRect();
+      const area = bounds.getBoundingClientRect();
+      const left0 = box.left - area.left;
+      const top0 = box.top - area.top;
+      const x0 = e.clientX;
+      const y0 = e.clientY;
+      grip.setPointerCapture(e.pointerId);
+
+      const move = (ev) => {
+        const dx = ev.clientX - x0;
+        const dy = ev.clientY - y0;
+        let { width: w, height: h } = box;
+        let l = left0;
+        let t = top0;
+
+        if (dir.includes('e')) w = Math.max(MIN_W, box.width + dx);
+        if (dir.includes('s')) h = Math.max(MIN_H, box.height + dy);
+        if (dir.includes('w')) { w = Math.max(MIN_W, box.width - dx); l = left0 + (box.width - w); }
+        if (dir.includes('n')) { h = Math.max(MIN_H, box.height - dy); t = top0 + (box.height - h); }
+
+        Object.assign(win.style, {
+          width: `${w}px`, height: `${h}px`, left: `${l}px`, top: `${t}px`,
+        });
+      };
+      const up = () => {
+        grip.removeEventListener('pointermove', move);
+        grip.removeEventListener('pointerup', up);
+        onDone();
+      };
+      grip.addEventListener('pointermove', move);
+      grip.addEventListener('pointerup', up);
+    });
+  }
 }
 
 /* -------------------------------------------------------------------- boot */

@@ -152,7 +152,7 @@ button.icon:active { background: var(--line); }
   body.side #side .row { padding-left: .6rem; padding-right: .6rem; }
 }
 
-#side .sidehead {
+.sidehead {
   display: flex;
   align-items: center;
   gap: .3rem;
@@ -163,7 +163,7 @@ button.icon:active { background: var(--line); }
   background: var(--panel);
 }
 
-#side .sidehead .crumb {
+.sidehead .crumb {
   flex: 1;
   min-width: 0;
   font-size: .75rem;
@@ -173,9 +173,16 @@ button.icon:active { background: var(--line); }
   text-overflow: ellipsis;
   direction: rtl;
   text-align: left;
+  background: none;
+  border: 0;
+  padding: .2rem .1rem;
+  font-family: inherit;
+  cursor: pointer;
 }
 
-#side .sidehead button {
+.sidehead .crumb:hover { color: var(--bright); }
+
+.sidehead button:not(.crumb) {
   flex: none;
   width: 30px;
   height: 30px;
@@ -188,11 +195,11 @@ button.icon:active { background: var(--line); }
   line-height: 1;
 }
 
-#side .sidehead button:active { background: var(--line); }
-#side input[type=search] { min-height: 34px; border-radius: .4rem; font-size: .85rem; }
-#side .pad { padding: .5rem; }
-#side .row .meta { font-size: .7rem; }
-#side .row.here { background: var(--line); }
+.sidehead button:active { background: var(--line); }
+.pane.compact input[type=search] { min-height: 34px; border-radius: .4rem; font-size: .85rem; }
+.pane.compact .pad { padding: .5rem; }
+.pane.compact .row .meta { font-size: .7rem; }
+#side .pane { height: 100%; }
 
 #nav {
   display: flex;
@@ -432,6 +439,36 @@ body.term { grid-template-rows: var(--bar) 1fr auto; }
 
 .xterm { padding: 2px 4px; height: 100%; }
 
+/* ---------- file panes ---------- */
+
+#panes { display: grid; grid-template-columns: 1fr; height: 100%; min-height: 0; }
+
+/* Two folders at once. Side by side where there is width for it, stacked otherwise —
+   on a phone two columns of file names would be unreadable. */
+#panes.split { grid-template-rows: 1fr 1fr; }
+@media (min-width: 900px) {
+  #panes.split { grid-template-rows: 1fr; grid-template-columns: 1fr 1fr; }
+}
+
+.pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#panes.split .pane + .pane { border-left: 1px solid var(--line); }
+@media (max-width: 899px) {
+  #panes.split .pane + .pane { border-left: 0; border-top: 2px solid var(--line); }
+}
+
+.panelist { overflow: auto; flex: 1; min-height: 0; }
+.pane .sidehead { flex: none; }
+.pane .pad { flex: none; }
+
+button.icon.on { color: var(--accent); }
+
 /* ---------- file actions ---------- */
 
 .rowwrap { display: flex; align-items: stretch; }
@@ -538,14 +575,11 @@ body.wall #view { display: flex; flex-direction: column; }
 
 #walltools::-webkit-scrollbar { display: none; }
 
+/* Windows are always free: an arrangement places them, it does not pin them. */
 #wall { flex: 1; min-height: 0; position: relative; }
-#wall.grid, #wall.cols, #wall.rows { display: grid; gap: 6px; padding: 6px; }
-#wall.grid { grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); }
-#wall.cols { grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
-#wall.rows { grid-auto-rows: minmax(0, 1fr); }
 
 .win {
-  position: relative;
+  position: absolute;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -554,22 +588,28 @@ body.wall #view { display: flex; flex-direction: column; }
   border: 1px solid var(--line);
   border-radius: .5rem;
   overflow: hidden;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, .4);
 }
 
-#wall.float .win {
-  position: absolute;
-  box-shadow: 0 12px 34px rgba(0, 0, 0, .5);
-}
+.winbar { cursor: move; touch-action: none; }
 
-#wall.float .winbar { cursor: move; touch-action: none; }
-#wall:not(.float) .grip { display: none; }
+.rz { position: absolute; touch-action: none; z-index: 2; }
 
-.win.hidden { display: none; }
-.win.solo { grid-column: 1 / -1; grid-row: 1 / -1; }
-#wall.float .win.solo {
-  left: 0 !important; top: 0 !important;
-  width: 100% !important; height: 100% !important;
-}
+.rz-n, .rz-s { left: 10px; right: 10px; height: 7px; cursor: ns-resize; }
+.rz-e, .rz-w { top: 10px; bottom: 10px; width: 7px; cursor: ew-resize; }
+.rz-n { top: -3px; }
+.rz-s { bottom: -3px; }
+.rz-e { right: -3px; }
+.rz-w { left: -3px; }
+
+.rz-ne, .rz-nw, .rz-se, .rz-sw { width: 15px; height: 15px; }
+.rz-ne { top: -3px; right: -3px; cursor: nesw-resize; }
+.rz-nw { top: -3px; left: -3px; cursor: nwse-resize; }
+.rz-se { bottom: -3px; right: -3px; cursor: nwse-resize; }
+.rz-sw { bottom: -3px; left: -3px; cursor: nesw-resize; }
+
+/* Only the bottom-right one is drawn, as the conventional hint that this can be sized. */
+.rz-se { background: linear-gradient(135deg, transparent 52%, var(--line) 52%); }
 
 .winbar {
   display: flex;
