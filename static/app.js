@@ -887,7 +887,14 @@ async function screenSessions() {
       ev.preventDefault();
       pickColor(s.name, () => { dot.style.background = colorFor(s.name); });
     };
-    view.append(row);
+
+    const toWall = el('button', { className: 'more', title: 'Open in a window' }, icon('grid'));
+    toWall.onclick = (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      openWindow({ kind: 'term', name: s.name });
+    };
+    view.append(el('div', { className: 'rowwrap' }, [row, toWall]));
   }
 }
 
@@ -2057,6 +2064,49 @@ async function screenWall() {
       b.classList.toggle('on', b.dataset.mode === mode);
     }
   };
+
+  /** Closing a window used to be one-way: the wall could add a file browser but never a
+   *  session, so a terminal you shut was only reachable by leaving the wall entirely. */
+  async function sessionSheet() {
+    const ws = activeSpace();
+    let sessions = [];
+    try {
+      sessions = await getJSON('/api/tmux/sessions');
+    } catch (e) {
+      return toast(e.message, true);
+    }
+    const body = el('div', { className: 'sheetbody actions' });
+    let sheet;
+
+    if (!sessions.length) body.append(el('p', { className: 'empty', textContent: 'No tmux sessions on this server.' }));
+
+    for (const t of sessions) {
+      const here = ws.desktop.some((x) => specId(x) === `term:${t.name}`);
+      const dot = el('span', { className: 'tabdot' });
+      dot.style.background = colorFor(`term:${t.name}`);
+      const row = el('button', {
+        className: 'ghost block',
+        disabled: here,
+        title: here ? 'already in this workspace' : `Add ${t.name} to ${ws.name}`,
+        onclick: () => { sheet.close(); openWindow({ kind: 'term', name: t.name }); },
+      }, [
+        dot,
+        el('span', { className: 'grow', textContent: t.name }),
+        el('span', { className: 'verb', textContent: here ? 'open' : `${t.windows}w` }),
+      ]);
+      body.append(row);
+    }
+
+    sheet = modal(`Add a session to ${ws.name}`, body, [
+      el('button', { className: 'ghost', textContent: 'Close', onclick: () => sheet.close() }),
+    ]);
+  }
+
+  tools.append(el('button', {
+    className: 'winbtn wide',
+    title: 'Put a tmux session in this workspace',
+    onclick: sessionSheet,
+  }, [icon('terminal'), el('span', { textContent: 'Session' })]));
 
   tools.append(el('button', {
     className: 'winbtn wide',
