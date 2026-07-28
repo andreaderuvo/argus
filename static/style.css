@@ -285,6 +285,7 @@ button.icon .ico { width: 22px; height: 22px; }
 }
 
 .favhead .ico { width: 13px; height: 13px; color: var(--accent); }
+.favwhere { margin-left: auto; opacity: .65; font-size: .62rem; }
 .row.fav { min-height: 40px; border-bottom: 0; }
 .row.fav .meta { font-size: .68rem; direction: rtl; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row.fav .meta bdi { unicode-bidi: isolate; }

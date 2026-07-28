@@ -12,18 +12,40 @@ import os
 from pathlib import Path
 
 
-def load(store: Path) -> list[str]:
+# The browser appears in three places and they are not the same tool: a sidebar you keep
+# open all day, the main panes, and a window you opened for one job. One shared list of
+# shortcuts across all three is a list that suits none of them.
+GROUPS = ("main", "sidebar", "windows")
+
+
+def clean(items) -> list[str]:
+    if not isinstance(items, list):
+        return []
+    # Deduplicate while keeping the order they were pinned in.
+    return list(dict.fromkeys(str(x) for x in items if isinstance(x, str) and x.startswith("/")))
+
+
+def load(store: Path) -> dict[str, list[str]]:
+    """Always a full map, whatever is on disk — including the flat list this used to be,
+    which is copied into every group so nothing appears to have been lost."""
     try:
         data = json.loads(store.read_text(encoding="utf-8"))
     except (OSError, ValueError):
-        return []
-    if not isinstance(data, list):
-        return []
-    # Deduplicate while keeping the order they were pinned in.
-    return list(dict.fromkeys(str(x) for x in data if isinstance(x, str) and x.startswith("/")))
+        return {g: [] for g in GROUPS}
+
+    if isinstance(data, list):
+        shared = clean(data)
+        return {g: list(shared) for g in GROUPS}
+    if not isinstance(data, dict):
+        return {g: [] for g in GROUPS}
+    return {g: clean(data.get(g)) for g in GROUPS}
 
 
-def save(store: Path, paths: list[str]) -> None:
+def group_of(name: str | None) -> str:
+    return name if name in GROUPS else "main"
+
+
+def save(store: Path, paths: dict[str, list[str]]) -> None:
     store.parent.mkdir(parents=True, exist_ok=True)
     # Write beside the target and rename: a crash mid-write must not leave a truncated
     # list where a valid one used to be.
@@ -33,11 +55,18 @@ def save(store: Path, paths: list[str]) -> None:
     tmp.replace(store)
 
 
-def toggle(paths: list[str], path: str) -> tuple[list[str], bool]:
-    """Returns the new list and whether `path` is pinned afterwards."""
-    if path in paths:
-        return [p for p in paths if p != path], False
-    return [*paths, path], True
+def toggle(paths: dict[str, list[str]], group: str, path: str) -> tuple[dict[str, list[str]], bool]:
+    """Returns the new map and whether `path` is pinned in that group afterwards."""
+    group = group_of(group)
+    current = paths.get(group, [])
+    pinned = path not in current
+    updated = dict(paths)
+    updated[group] = [*current, path] if pinned else [p for p in current if p != path]
+    return updated, pinned
+
+
+def describe_all(paths: dict[str, list[str]]) -> dict[str, list[dict]]:
+    return {g: describe(paths.get(g, [])) for g in GROUPS}
 
 
 def describe(paths: list[str]) -> list[dict]:
@@ -64,10 +93,11 @@ def default_store(config_path: Path) -> Path:
     return config_path.parent / "favourites.json"
 
 
-def relocate(store: Path, old: str, new: str) -> list[str]:
+def relocate(store: Path, old: str, new: str) -> dict[str, list[str]]:
     """Follow a rename or a move, so pinning something does not mean never touching it."""
     paths = load(store)
-    updated = [new if p == old else (new + p[len(old):] if p.startswith(old + os.sep) else p) for p in paths]
+    moved = lambda p: new if p == old else (new + p[len(old):] if p.startswith(old + os.sep) else p)
+    updated = {g: [moved(p) for p in items] for g, items in paths.items()}
     if updated != paths:
         save(store, updated)
     return updated

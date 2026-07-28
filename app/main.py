@@ -56,18 +56,19 @@ def create_app(cfg: Config) -> FastAPI:
             raise ApiError(502, str(e)) from e
 
     @app.get("/api/favourites")
-    async def list_favourites(request: Request) -> list[dict]:
-        return favourites.describe(favourites.load(request.app.state.favourites))
+    async def list_favourites(request: Request) -> dict:
+        return favourites.describe_all(favourites.load(request.app.state.favourites))
 
     @app.post("/api/favourites")
     async def toggle_favourite(request: Request, body: dict) -> dict:
         raw = str(body.get("path", ""))
         # Pinning is jailed like everything else: you cannot bookmark your way out.
         target = str(favourites_target(request, raw))
+        group = favourites.group_of(body.get("group"))
         store = request.app.state.favourites
-        paths, pinned = favourites.toggle(favourites.load(store), target)
+        paths, pinned = favourites.toggle(favourites.load(store), group, target)
         favourites.save(store, paths)
-        return {"pinned": pinned, "favourites": favourites.describe(paths)}
+        return {"pinned": pinned, "group": group, "favourites": favourites.describe_all(paths)}
 
     @app.get("/api/stat")
     async def stat_path(request: Request, path: str) -> dict:
