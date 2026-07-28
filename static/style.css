@@ -43,6 +43,10 @@
 
 * { box-sizing: border-box; }
 
+/* An explicit `display` in a rule beats the browser's `[hidden] { display: none }`, so
+   #nav (display: flex) stayed on screen when the markup said to hide it. */
+[hidden] { display: none !important; }
+
 html {
   /* `color-scheme` above already fixes native scrollbars and form controls; these give
      them the palette rather than the browser's default grey. */
