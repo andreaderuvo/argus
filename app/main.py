@@ -19,7 +19,7 @@ import httpx
 from .auth import PROXY_COOKIE, TokenAuthMiddleware
 from .config import Config, ConfigError, default_path
 from .errors import ApiError
-from .safepath import Jail
+from .safepath import Jail, PathError
 
 VERSION = "0.1.0"
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
@@ -91,6 +91,57 @@ def create_app(cfg: Config) -> FastAPI:
             raise ApiError(403, "outside the configured roots") from None
         st = target.stat()
         return {"path": str(target), "mtime": int(st.st_mtime), "size": st.st_size}
+
+    @app.post("/api/tmux/new")
+    async def new_session(request: Request, body: dict) -> dict:
+        state = request.app.state
+        try:
+            name = tmux.check_name(str(body.get("name", "")))
+        except tmux.BadName as e:
+            raise ApiError(400, str(e)) from e
+        if await asyncio.to_thread(tmux.session_exists, state.socket, name):
+            raise ApiError(409, f"a session called {name} is already there")
+
+        where = body.get("path")
+        if where:
+            try:
+                where = str(state.jail.resolve(str(where)))
+            except PathError:
+                raise ApiError(403, "outside the configured roots") from None
+
+        try:
+            await asyncio.to_thread(tmux.run, tmux.new_argv(state.socket, name, where))
+        except tmux.TmuxError as e:
+            raise ApiError(502, str(e)) from e
+        return {"name": name, "path": where}
+
+    @app.post("/api/tmux/rename")
+    async def rename_session(request: Request, body: dict) -> dict:
+        state = request.app.state
+        try:
+            name = tmux.check_name(str(body.get("name", "")))
+            to = tmux.check_name(str(body.get("to", "")))
+        except tmux.BadName as e:
+            raise ApiError(400, str(e)) from e
+        try:
+            await asyncio.to_thread(tmux.run, tmux.rename_argv(state.socket, name, to))
+        except tmux.TmuxError as e:
+            raise ApiError(502, str(e)) from e
+        return {"name": to}
+
+    @app.post("/api/tmux/kill")
+    async def kill_session(request: Request, body: dict) -> dict:
+        """Killing a session ends everything running in it. The UI asks first."""
+        state = request.app.state
+        try:
+            name = tmux.check_name(str(body.get("name", "")))
+        except tmux.BadName as e:
+            raise ApiError(400, str(e)) from e
+        try:
+            await asyncio.to_thread(tmux.run, tmux.kill_argv(state.socket, name))
+        except tmux.TmuxError as e:
+            raise ApiError(502, str(e)) from e
+        return {"killed": name}
 
     @app.get("/api/ports")
     async def list_ports(request: Request) -> dict:

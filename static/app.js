@@ -545,6 +545,14 @@ function fileActions(entry, refresh, dest, favGroup = 'main') {
     }, [icon('split'), el('span', { textContent: 'Open in a window' })]));
     body.append(el('button', {
       className: 'ghost block',
+      onclick: async () => {
+        sheet.close();
+        const name = await createSession({ path: entry.path, suggest: entry.name });
+        if (name) chooseDesk({ kind: 'term', name }, name);
+      },
+    }, [icon('terminal'), el('span', { textContent: 'Open a shell here' })]));
+    body.append(el('button', {
+      className: 'ghost block',
       onclick: () => { sheet.close(); setHome(entry.path); },
     }, [icon('home'), el('span', { textContent: 'Set as home folder' })]));
   }
@@ -860,6 +868,11 @@ async function screenSessions() {
   bar.action.title = 'Open every session in its own window';
   bar.action.onclick = () => go('#/wall');
 
+  bar.alt.hidden = false;
+  bar.alt.replaceChildren(icon('folderPlus'));
+  bar.alt.title = 'Start a new session';
+  bar.alt.onclick = async () => { if (await createSession()) render(); };
+
   // Something is still attached in the background: the list is the default, but going
   // back to it must be one tap, not a hunt through the list.
   if (live && live.key !== 'wall') {
@@ -901,7 +914,11 @@ async function screenSessions() {
       ev.stopPropagation();
       chooseDesk({ kind: 'term', name: s.name }, s.name);
     };
-    view.append(el('div', { className: 'rowwrap' }, [row, toWall]));
+
+    const menu = el('button', { className: 'more', title: 'Rename or kill' }, icon('more'));
+    menu.onclick = (ev) => { ev.preventDefault(); ev.stopPropagation(); sessionActions(s); };
+
+    view.append(el('div', { className: 'rowwrap' }, [row, toWall, menu]));
   }
 }
 
@@ -1071,6 +1088,45 @@ let screenBrowsers = [];
 function refreshAllBrowsers() {
   for (const b of browsers) b.reload();
   renderSidebar();
+}
+
+/** Rename or kill, the two things you cannot do from inside a session. */
+function sessionActions(session) {
+  const body = el('div', { className: 'sheetbody actions' });
+  let sheet;
+  const item = (name, label, fn) => body.append(
+    el('button', { className: 'ghost block', onclick: () => { sheet.close(); fn(); } },
+      [icon(name), el('span', { textContent: label })]),
+  );
+
+  item('grid', 'Open in a window', () => chooseDesk({ kind: 'term', name: session.name }, session.name));
+  item('rename', 'Rename…', async () => {
+    const to = await ask('Rename session', session.name, 'Rename');
+    if (!to || to === session.name) return;
+    try {
+      await postJSON('/api/tmux/rename', { name: session.name, to });
+      toast(`now called ${to}`);
+      render();
+    } catch (e) { toast(e.message, true); }
+  });
+  item('trash', 'Kill session', async () => {
+    // Everything running inside it dies with it, which is not what detaching does.
+    const sure = await confirmBox(
+      'Kill session',
+      `${session.name} and everything running in it will stop. Detaching a window instead leaves it running.`,
+      'Kill it',
+    );
+    if (!sure) return;
+    try {
+      await postJSON('/api/tmux/kill', { name: session.name });
+      toast(`${session.name} killed`);
+      render();
+    } catch (e) { toast(e.message, true); }
+  });
+
+  sheet = modal(session.name, body, [
+    el('button', { className: 'ghost', textContent: 'Close', onclick: () => sheet.close() }),
+  ]);
 }
 
 async function screenFiles(path) {
@@ -2224,6 +2280,16 @@ async function screenWall() {
       body.append(row);
     }
 
+    body.append(el('div', { className: 'sheetsep' }));
+    body.append(el('button', {
+      className: 'ghost block',
+      onclick: async () => {
+        sheet.close();
+        const name = await createSession();
+        if (name) openWindow({ kind: 'term', name });
+      },
+    }, [icon('folderPlus'), el('span', { textContent: 'Start a new session…' })]));
+
     sheet = modal(`Add a session to ${ws.name}`, body, [
       el('button', { className: 'ghost', textContent: 'Close', onclick: () => sheet.close() }),
     ]);
@@ -2448,6 +2514,25 @@ function placeIn(ws, spec) {
   // active workspace up when it starts.
   if (live?.key === 'wall') live.activate?.(ws.id);
   go('#/wall');
+}
+
+/** Make a session and hand back its name.
+ *
+ *  "A shell on the machine" and "a new tmux session" are the same thing here, and making
+ *  it a session is the better answer: it survives the window being closed, the phone
+ *  sleeping, and the browser being quit, which a bare shell would not.
+ */
+async function createSession({ path, suggest = 'shell' } = {}) {
+  const name = await ask(path ? `New session in ${path.split('/').pop()}` : 'New session', suggest, 'Create');
+  if (!name) return null;
+  try {
+    const r = await postJSON('/api/tmux/new', { name, path });
+    toast(path ? `${r.name} started in ${path}` : `${r.name} started`);
+    return r.name;
+  } catch (e) {
+    toast(e.message, true);
+    return null;
+  }
 }
 
 /** Ask which desk, unless there is only one — then the question is noise. */
