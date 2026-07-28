@@ -111,6 +111,13 @@ reloading is the whole loop — only Python changes need the server restarted.
   that one live client with `refresh-client -t <tty> -f ignore-size` (release it with
   `-f '!ignore-size'` — `-f ''` looks right and silently does nothing), which is "watch
   without disturbing the desk". The client's tty comes from `os.ttyname(slave)` at spawn.
+- **Clickable paths**: `app/paths.py` + `linkPaths()` in the frontend. Hovering a line
+  sends its path-shaped words to `POST /api/fs/locate`, which answers only for what the
+  jail would serve — so it cannot be used to probe the filesystem. Relative paths resolve
+  against `#{pane_current_path}` of the session, absolute ones against nothing. A phone
+  has no hover: a 500 ms press opens whatever is under the finger. Clicking works even
+  with tmux `mouse on` (xterm's linkifier is not gated by mouse reporting); the wrapped
+  case is handled by rebuilding the logical line across `isWrapped` rows.
 - **Session names** reach tmux as argv (never a shell string), and are gated against
   `list-sessions` on the configured socket, so a client can only reach sessions we listed.
 - **Disconnect** kills our attach client only — the tmux session and its processes survive.
@@ -120,7 +127,7 @@ reloading is the whole loop — only Python changes need the server restarted.
 
 ## State (2026-07-28)
 
-Feature-complete against everything asked for so far; **170 tests green**. Running under
+Feature-complete against everything asked for so far; **188 tests green**. Running under
 systemd (`systemctl --user restart argus`) on `0.0.0.0:8090`, config in
 `~/.config/argus/config.yaml` (`resize_policy: adapt`, write and proxy on).
 
