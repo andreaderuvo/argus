@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import os
 import shutil
+import stat
 from pathlib import Path
 
 from fastapi import APIRouter, File, Form, Request, UploadFile
@@ -36,6 +38,14 @@ class DestBody(BaseModel):
 class DeleteBody(BaseModel):
     path: str
     recursive: bool = False
+
+
+class WriteBody(BaseModel):
+    path: str
+    content: str
+    # What the editor believed the file was when it loaded it. A job writing to the same
+    # file while someone reads it on a phone is the normal case here, not a rare one.
+    mtime: int | None = None
 
 
 def _writable(request: Request) -> None:
@@ -190,6 +200,44 @@ async def upload(
         written.append({"path": str(target), "size": size})
 
     return {"ok": True, "files": written}
+
+
+@router.post("/api/fs/write")
+async def write(request: Request, body: WriteBody) -> dict:
+    """Save an edited text file.
+
+    Two things must hold. The file cannot have moved on since it was read — otherwise a
+    phone would quietly undo whatever the running job just wrote — and a file too large
+    to have been previewed whole must never be saved from a preview, because that
+    preview was only its tail.
+    """
+    _writable(request)
+    target = _resolve(request, body.path)
+    if target.is_dir():
+        raise ApiError(400, "that is a directory")
+
+    limit = request.app.state.cfg.max_preview_bytes
+    st = target.stat()
+    if st.st_size > limit:
+        raise ApiError(413, "this file is too big to have been read whole — saving it would lose the rest")
+
+    if body.mtime is not None and int(st.st_mtime) != body.mtime:
+        raise ApiError(409, "the file changed on disk since you opened it — reload before saving")
+
+    data = body.content.encode("utf-8")
+    part = target.with_name(f".{target.name}.argus-part")
+    try:
+        part.write_bytes(data)
+        # Keep whatever the file already was: a rename would otherwise hand it fresh
+        # default permissions.
+        os.chmod(part, stat.S_IMODE(st.st_mode))
+        part.replace(target)
+    except OSError as e:
+        with contextlib.suppress(OSError):
+            part.unlink()
+        raise ApiError(500, f"could not save: {e.strerror}") from e
+
+    return {"ok": True, "path": str(target), "size": len(data), "mtime": int(target.stat().st_mtime)}
 
 
 @router.post("/api/fs/delete")

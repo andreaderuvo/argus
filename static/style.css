@@ -424,6 +424,33 @@ iframe.preview { width: 100%; height: 100%; border: 0; display: block; backgroun
 .htmlview { height: 100%; overflow: auto; }
 .htmlview pre.file { height: auto; }
 
+/* the editor */
+textarea.editor {
+  width: 100%;
+  height: calc(100% - 52px);
+  min-height: 12rem;
+  padding: .8rem;
+  border: 0;
+  outline: none;
+  resize: none;
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.55 ui-monospace, "SF Mono", Menlo, monospace;
+  tab-size: 4;
+}
+
+.editbar {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .5rem .6rem calc(.5rem + var(--safe-b));
+  border-top: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.editnote { flex: 1; font-size: .75rem; color: var(--dim); }
+.editbar .primary.inline { margin: 0; }
+
 /* rendered markdown */
 .md { padding: .9rem 1rem 3rem; max-width: 46rem; margin: 0 auto; }
 .md h1, .md h2, .md h3, .md h4 { color: var(--bright); line-height: 1.25; margin: 1.4em 0 .5em; }
