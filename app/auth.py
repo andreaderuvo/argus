@@ -7,7 +7,11 @@ from urllib.parse import parse_qs
 
 from starlette.responses import PlainTextResponse
 
-PROTECTED_PREFIXES = ("/api", "/ws")
+PROTECTED_PREFIXES = ("/api", "/ws", "/proxy")
+# A proxied page loads its own stylesheets and scripts, and cannot put an Authorization
+# header on any of them. A cookie scoped to /proxy is the only way those requests can
+# carry the token; it is set deliberately, when a port is opened.
+PROXY_COOKIE = "argus_proxy" 
 
 
 def presented_token(scope: dict) -> str | None:
@@ -29,7 +33,18 @@ def presented_token(scope: dict) -> str | None:
 
     qs = scope.get("query_string") or b""
     values = parse_qs(qs.decode("latin-1")).get("token")
-    return values[0] if values else None
+    if values:
+        return values[0]
+
+    if scope.get("path", "").startswith("/proxy"):
+        for raw_key, raw_val in scope.get("headers") or []:
+            if raw_key.lower() != b"cookie":
+                continue
+            for part in raw_val.decode("latin-1").split(";"):
+                name, _, value = part.strip().partition("=")
+                if name == PROXY_COOKIE:
+                    return value
+    return None
 
 
 def matches(presented: str, expected: str) -> bool:

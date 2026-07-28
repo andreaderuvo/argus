@@ -1315,6 +1315,70 @@ const duration = (s) => {
   return d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : `${m}m`;
 };
 
+/** What is listening, and how to reach it.
+ *
+ *  A port on 0.0.0.0 is already reachable from your phone — you only needed to be told
+ *  it exists. One on 127.0.0.1 is not, and that is what the proxy is for. */
+function portsSection() {
+  const box = el('div', { className: 'proclist ports' });
+  box.append(el('div', { className: 'tilelabel', textContent: 'Listening ports' }));
+  const list = el('div');
+  box.append(list);
+
+  const paint = async () => {
+    let data;
+    try { data = await getJSON('/api/ports'); } catch (e) {
+      list.textContent = '';
+      return list.append(el('p', { className: 'error tiny', textContent: e.message }));
+    }
+    list.textContent = '';
+    const mine = data.ports.filter((p) => p.mine && !p.self);
+    if (!mine.length) return list.append(el('p', { className: 'empty tiny', textContent: 'Nothing of yours is listening.' }));
+
+    for (const p of mine) {
+      const open = data.open.includes(p.port);
+      const direct = `${location.protocol}//${location.hostname}:${p.port}/`;
+      const through = withToken(`/proxy/${p.port}/`);
+
+      const row = el('div', { className: 'portrow' }, [
+        el('span', { className: 'portnum', textContent: String(p.port) }),
+        el('span', { className: 'grow' }, [
+          el('span', { className: 'name', textContent: p.process || 'unknown' }),
+          el('span', { className: 'meta', textContent: p.command.slice(0, 90) || p.address }),
+        ]),
+        el('span', { className: `state ${p.loopback ? 'warning' : 'good'}`, textContent: p.loopback ? 'local only' : 'on the network' }),
+      ]);
+
+      if (!p.loopback) {
+        // Nothing to proxy: the phone can dial this itself.
+        row.append(el('button', {
+          className: 'ghost dup',
+          textContent: 'Open',
+          onclick: () => openWindow({ kind: 'web', url: direct, label: `:${p.port}` }),
+        }));
+      } else if (data.allow_proxy) {
+        row.append(el('button', {
+          className: `ghost dup${open ? ' on' : ''}`,
+          textContent: open ? 'Open' : 'Reach it',
+          onclick: async () => {
+            try {
+              // Always ask, even when the server already has it open: this call is what
+              // hands this browser the cookie, and another client may have opened it.
+              await postJSON('/api/ports', { port: p.port, open: true });
+              openWindow({ kind: 'web', url: through, label: `:${p.port}` });
+            } catch (e) { toast(e.message, true); }
+          },
+        }));
+      } else {
+        row.append(el('span', { className: 'verb', textContent: '--allow-proxy' }));
+      }
+      list.append(row);
+    }
+  };
+  paint();
+  return box;
+}
+
 async function screenSystem() {
   setTitle('System');
   const body = el('div', { className: 'vitals' });
@@ -1365,6 +1429,8 @@ async function screenSystem() {
       grid.append(meter(d.path, `${human(d.used)} / ${human(d.total)}`, d.pct, d.level, `${human(d.free)} free`));
     }
     body.append(grid);
+
+    body.append(portsSection());
 
     if (s.processes.length) {
       const list = el('div', { className: 'proclist' });
@@ -1796,7 +1862,9 @@ async function screenWall() {
       const id = specId(spec);
       const isFile = spec.kind === 'file';
       const isBrowser = spec.kind === 'browser';
-      const label = spec.kind === 'term' ? spec.name : (spec.path.split('/').pop() || spec.path);
+      const label = spec.kind === 'term' ? spec.name
+        : spec.kind === 'web' ? (spec.label || spec.url)
+          : (spec.path.split('/').pop() || spec.path);
 
       const body = el('div', { className: `winbody${isFile || isBrowser ? ' filebody' : ''}${isBrowser ? ' browserbody' : ''}` });
       const win = el('div', { className: 'win' });
@@ -1809,21 +1877,27 @@ async function screenWall() {
       const send = el('button', { className: 'winbtn', title: 'Move or duplicate to another workspace' }, icon('move'));
       const close = el('button', { className: 'winbtn', title: 'Close' }, icon('close'));
       const solo = el('button', { className: 'winbtn', title: 'Full screen' }, icon('maximise'));
-      const title = el('span', { className: 'wintitle', title: spec.kind === 'term' ? label : spec.path, textContent: label });
+      const title = el('span', {
+        className: 'wintitle',
+        title: spec.kind === 'term' ? label : (spec.path || spec.url),
+        textContent: label,
+      });
       const setLabel = (text, full) => { title.textContent = text; title.title = full; };
       const head = el('div', { className: 'winbar' }, [swatch, title, extras, send, solo, close]);
       win.append(head, body);
       node.append(win);
 
-      const handle = isBrowser ? attachBrowser(body, spec, setLabel)
-        : isFile ? attachViewer(body, spec.path, extras)
-          : attachTerminal(body, spec.name, {
+      const handle = spec.kind === 'web' ? attachWeb(body, spec, setLabel)
+        : isBrowser ? attachBrowser(body, spec, setLabel)
+          : isFile ? attachViewer(body, spec.path, extras)
+            : attachTerminal(body, spec.name, {
             // A session that is not there any more has to say so, not sit blank.
             onGone: () => {
               win.classList.add('gone');
               extras.prepend(el('span', { className: 'state critical', textContent: 'gone' }));
             },
           });
+      if (handle.extra) extras.append(handle.extra);
       const entry = { win, handle, name: id };
       open.push(entry);
 
@@ -2320,7 +2394,9 @@ function dragBy(grabber, win, bounds, onDone, ignore = [], peers = () => [], onT
 }
 
 /** A window is identified by what it shows, so geometry and colour survive a reload. */
-const specId = (spec) => (spec.kind === 'term' ? `term:${spec.name}` : `${spec.kind}:${spec.path}`);
+const specId = (spec) => (spec.kind === 'term' ? `term:${spec.name}`
+  : spec.kind === 'web' ? `web:${spec.url}`
+    : `${spec.kind}:${spec.path}`);
 
 /** The tabs, created on first use out of whatever single desktop existed before. */
 function workspaces() {
@@ -2399,6 +2475,21 @@ function openWindow(spec) {
   }
   if (live?.key === 'wall') live.addWindow?.(spec);
   go('#/wall');
+}
+
+/** A web page inside a window: a port you opened, sitting next to the job serving it. */
+function attachWeb(host, spec, setLabel) {
+  const reload = el('button', { className: 'winbtn', title: 'Reload' }, icon('refresh'));
+  let frame = null;
+  const draw = () => {
+    host.textContent = '';
+    frame = el('iframe', { className: 'preview', src: spec.url });
+    host.append(frame);
+  };
+  reload.onclick = () => { if (frame) frame.src = frame.src; };
+  draw();
+  setLabel?.(spec.label || spec.url, spec.url);
+  return { relayout: () => {}, dispose: () => { host.textContent = ''; }, extra: reload };
 }
 
 /** A file browser inside a window. It keeps its own folder, so two of them side by side

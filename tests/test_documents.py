@@ -64,3 +64,27 @@ def test_a_zip_without_the_expected_part_is_415(tmp_path):
     with pytest.raises(ApiError) as e:
         document_text(make(tmp_path / "r.docx", "other.xml", "<a/>"))
     assert e.value.status == 415
+
+
+def test_base_tag_lands_after_the_doctype():
+    """A tag before the doctype puts the whole document into quirks mode."""
+    from app.proxy import with_base
+
+    out = with_base(b"<!doctype html>\n<p>hi</p>", "/proxy/8123/")
+    assert out.startswith(b"<!doctype html>")
+    assert b'<base href="/proxy/8123/">' in out
+
+
+def test_base_tag_prefers_the_head():
+    from app.proxy import with_base
+
+    out = with_base(b"<html><head><title>x</title></head>", "/proxy/9/")
+    assert out.index(b"<base") > out.index(b"<head>")
+    assert out.index(b"<base") < out.index(b"<title>")
+
+
+def test_a_page_that_already_declares_a_base_is_left_alone():
+    from app.proxy import with_base
+
+    html = b'<html><head><base href="/somewhere/"></head>'
+    assert with_base(html, "/proxy/9/") == html
