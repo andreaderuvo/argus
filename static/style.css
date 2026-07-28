@@ -589,7 +589,10 @@ dialog.sheet h2 {
   font: inherit;
 }
 
-.sheetbody.actions { display: flex; flex-direction: column; gap: .35rem; }
+.sheetbody.actions { display: flex; flex-direction: column; gap: .35rem; max-height: 60vh; overflow-y: auto; }
+.sheetsep { height: 1px; background: var(--line); margin: .35rem 0; }
+.ghost.block .sw { margin-left: auto; }
+.ghost.block bdi { unicode-bidi: isolate; overflow: hidden; text-overflow: ellipsis; }
 
 button.ghost.block {
   width: 100%;
