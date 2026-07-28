@@ -2025,7 +2025,163 @@ function sizeButtons(handle, cls) {
   return [fitNow, hold];
 }
 
-function attachTerminal(container, name, { transform, onGone } = {}) {
+/* ------------------------------------------------- paths printed in a terminal */
+
+/** A word that could be a file: it has a slash, or it has an extension.
+ *
+ *  Deliberately generous — the server is what decides, by trying to open it — but not so
+ *  generous that every line turns into a burst of lookups. A URL is somebody else's job,
+ *  and a flag is never a path.
+ */
+const HAS_EXT = /\.[A-Za-z0-9_+-]{1,8}(:\d+(:\d+)?)?$/;
+const TRIM_LEAD = /^['"`([{<]+/;
+const TRIM_TAIL = /['"`)\]}>.,;:!?]+$/;
+const MAX_WRAP_ROWS = 24;      // a "line" longer than this is not a path, it is a paste
+
+function pathCandidates(text) {
+  const out = [];
+  for (const m of text.matchAll(/\S+/g)) {
+    const raw = m[0];
+    if (raw.length > 400 || raw.includes('://') || raw.startsWith('-')) continue;
+    // Underline the path, not the punctuation the sentence wrapped it in — but keep a
+    // `:12` inside, so clicking a traceback line feels like clicking the whole thing.
+    const lead = (raw.match(TRIM_LEAD) || [''])[0].length;
+    const inner = raw.slice(lead).replace(TRIM_TAIL, '');
+    if (!inner || inner === '/' || !(inner.includes('/') || HAS_EXT.test(inner))) continue;
+    out.push({ text: inner, start: m.index + lead, end: m.index + lead + inner.length });
+  }
+  return out;
+}
+
+/** The whole line the terminal wrapped across several rows, plus the row it starts on.
+ *
+ *  A path is exactly the thing most likely to be cut in half by the right edge, so
+ *  reading one row at a time would miss the long ones — which here are most of them. */
+function logicalLine(term, y) {
+  const buf = term.buffer.active;
+  let first = y - 1;
+  while (first > 0 && buf.getLine(first)?.isWrapped && y - first < MAX_WRAP_ROWS) first--;
+  let last = y - 1;
+  while (buf.getLine(last + 1)?.isWrapped && last - first < MAX_WRAP_ROWS) last++;
+  let text = '';
+  for (let i = first; i <= last; i++) text += buf.getLine(i)?.translateToString(false) ?? '';
+  return { text, first };
+}
+
+// One lookup per distinct line, not per pointer move: the same line is offered again
+// every time the mouse crosses it.
+const located = new Map();
+const LOCATE_TTL = 20000;
+
+async function locatePaths(tokens, session) {
+  const key = (session || '') + ' ' + tokens.join(' ');
+  const hit = located.get(key);
+  if (hit && Date.now() - hit.at < LOCATE_TTL) return hit.found;
+
+  const body = { paths: tokens };
+  if (session) body.session = session;
+  // postJSON hands back the parsed body already — calling .json() on it throws, and the
+  // catch below would turn every lookup into "nothing here".
+  const found = await postJSON('/api/fs/locate', body)
+    .then((r) => r.found || {})
+    .catch(() => ({}));
+  if (located.size > 400) located.clear();
+  located.set(key, { found, at: Date.now() });
+  return found;
+}
+
+/** Somewhere to put the file that was clicked. In a workspace it opens beside the
+ *  terminal, which is the whole point; full screen it takes over, because there is
+ *  nowhere else for it to go. */
+function openLocated(where, hit, from) {
+  if (where === 'wall') {
+    openWindow(hit.type === 'directory'
+      ? { kind: 'browser', path: hit.path }
+      : { kind: 'file', path: hit.path }, from && beside(from));
+    return;
+  }
+  const route = hit.type === 'directory' ? '/files' : '/preview';
+  go(`#${route}?path=${encodeURIComponent(hit.path)}`);
+}
+
+/** Make the paths in this terminal clickable.
+ *
+ *  Hovering asks the server which words on that line are real files; only those get
+ *  underlined, so a sentence about `node.js` stays a sentence. A phone has no hover, so
+ *  a long press does the same job for whatever is under the finger.
+ */
+function linkPaths(term, container, session, open) {
+  const at = (offset, first) => ({
+    x: (offset % term.cols) + 1,
+    y: first + Math.floor(offset / term.cols) + 1,
+  });
+
+  term.registerLinkProvider({
+    provideLinks(y, done) {
+      const { text, first } = logicalLine(term, y);
+      const cands = pathCandidates(text);
+      if (!cands.length) return done(undefined);
+      locatePaths(cands.map((c) => c.text), session).then((found) => {
+        const links = cands.filter((c) => found[c.text]).map((c) => ({
+          text: c.text,
+          range: { start: at(c.start, first), end: at(c.end - 1, first) },
+          activate: () => open(found[c.text]),
+        }));
+        done(links.length ? links : undefined);
+      }).catch(() => done(undefined));
+    },
+  });
+
+  // Touch: no hover, and with tmux in mouse mode a tap belongs to tmux anyway. A press
+  // held still for half a second is unambiguous, and it is already what a phone user
+  // reaches for when they want something *about* a word rather than the word itself.
+  let press = null;
+  const screen = () => container.querySelector('.xterm-screen') || container;
+
+  const cellAt = (touch) => {
+    const cell = term._core?._renderService?.dimensions?.css?.cell;
+    const rect = screen().getBoundingClientRect();
+    if (!cell?.width) return null;
+    return {
+      col: Math.max(0, Math.min(term.cols - 1, Math.floor((touch.clientX - rect.left) / cell.width))),
+      row: Math.floor((touch.clientY - rect.top) / cell.height),
+    };
+  };
+
+  const openUnderFinger = async (spot) => {
+    const y = term.buffer.active.viewportY + spot.row + 1;
+    const { text, first } = logicalLine(term, y);
+    const offset = (y - 1 - first) * term.cols + spot.col;
+    const cand = pathCandidates(text).find((c) => offset >= c.start && offset < c.end);
+    if (!cand) return;
+    const found = await locatePaths([cand.text], session);
+    if (found[cand.text]) open(found[cand.text]);
+    else toast(t('No file at {path}', { path: cand.text }), true);
+  };
+
+  container.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
+    const spot = cellAt(e.touches[0]);
+    if (!spot) return;
+    press = { spot, x: e.touches[0].clientX, y: e.touches[0].clientY };
+    press.timer = setTimeout(() => { press = null; openUnderFinger(spot); }, 500);
+  }, { passive: true });
+
+  const cancel = (e) => {
+    if (!press) return;
+    const finger = e.touches?.[0];
+    // Scrolling is not a long press, and a finger never sits perfectly still.
+    if (finger && Math.abs(finger.clientX - press.x) < 8 && Math.abs(finger.clientY - press.y) < 8) return;
+    clearTimeout(press.timer);
+    press = null;
+  };
+  container.addEventListener('touchmove', cancel, { passive: true });
+  for (const done of ['touchend', 'touchcancel']) {
+    container.addEventListener(done, () => { clearTimeout(press?.timer); press = null; }, { passive: true });
+  }
+}
+
+function attachTerminal(container, name, { transform, onGone, onPath } = {}) {
   const term = new Terminal({
     fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace',
     fontSize: prefs.fontSize,
@@ -2049,6 +2205,9 @@ function attachTerminal(container, name, { transform, onGone } = {}) {
     .catch(() => { /* no WebGL here */ });
 
   try { fit.fit(); } catch { /* not laid out yet */ }
+
+  // Paths printed by whatever is running in here open in the viewer.
+  linkPaths(term, container, name, (hit) => (onPath || openLocated.bind(null, 'term'))(hit));
 
   let ws = null;
   let ready = false;
@@ -2411,6 +2570,7 @@ function arrange(open, wall, mode, key = (id) => id) {
 
   open.forEach((o, i) => {
     delete o.win.dataset.prev;
+    delete o.win.dataset.full;   // a tiled window is not a maximised one any more
     Object.assign(o.win.style, {
       left: `${WALL_GAP + (i % cols) * (w + WALL_GAP)}px`,
       top: `${WALL_GAP + Math.floor(i / cols) * (h + WALL_GAP)}px`,
@@ -2497,6 +2657,9 @@ async function screenWall() {
         : isBrowser ? attachBrowser(body, spec, setLabel)
           : isFile ? attachViewer(body, spec.path, extras)
             : attachTerminal(body, spec.name, {
+            // A path clicked in here opens beside it, not instead of it: that is the
+            // whole reason for having windows.
+            onPath: (hit) => openLocated('wall', hit, win),
             // A session that is not there any more has to say so, not sit blank.
             onGone: () => {
               win.classList.add('gone');
@@ -2520,20 +2683,30 @@ async function screenWall() {
       };
 
       solo.onclick = () => {
-        if (win.dataset.prev) {
-          Object.assign(win.style, JSON.parse(win.dataset.prev));
+        if (win.dataset.full) {
+          // The size it had before, or a sensible one: `prev` lives in the DOM, so a
+          // window maximised yesterday has none to go back to.
+          Object.assign(win.style, win.dataset.prev ? JSON.parse(win.dataset.prev) : DEFAULT_GEOM);
           delete win.dataset.prev;
+          delete win.dataset.full;
         } else {
           const { left, top: t, width, height } = win.style;
           win.dataset.prev = JSON.stringify({ left, top: t, width, height });
-          Object.assign(win.style, { left: '0px', top: '0px', width: '100%', height: '100%' });
+          win.dataset.full = '1';
+          Object.assign(win.style, FULL_GEOM);
         }
         win.style.zIndex = ++top;
         saveGeom(geomKey(ws, id), win);
         handle.relayout();
       };
 
-      const settled = () => { handle.relayout(); saveGeom(geomKey(ws, id), win); };
+      // Moving or resizing a maximised window is how you un-maximise it: keeping the flag
+      // would snap it back to full screen the next time the desk is rebuilt.
+      const settled = () => {
+        delete win.dataset.full;
+        handle.relayout();
+        saveGeom(geomKey(ws, id), win);
+      };
       win.addEventListener('argus:moved', settled);
       head.addEventListener('dblclick', (e) => {
         if (e.target === head || e.target === title) solo.onclick();
@@ -2550,7 +2723,10 @@ async function screenWall() {
     for (const spec of ws.desktop) addWindow(spec);
 
     const known = open.filter((o) => prefs.winGeom?.[geomKey(ws, o.name)]);
-    for (const o of known) Object.assign(o.win.style, { ...prefs.winGeom[geomKey(ws, o.name)], zIndex: ++top });
+    for (const o of known) {
+      applyGeom(o.win, prefs.winGeom[geomKey(ws, o.name)]);
+      o.win.style.zIndex = ++top;
+    }
     if (known.length < open.length) {
       requestAnimationFrame(() => arrange(open, node, prefs.wallLayout || 'grid', (id) => geomKey(ws, id)));
     }
@@ -2668,9 +2844,7 @@ async function screenWall() {
       const id = specId(spec);
       if (deck.open.some((o) => o.name === id)) continue;
       const added = deck.addWindow(spec);
-      Object.assign(added.win.style, prefs.winGeom?.[geomKey(ws, id)] || {
-        left: '28px', top: '24px', width: 'min(620px, 78%)', height: 'min(380px, 62%)',
-      });
+      applyGeom(added.win, prefs.winGeom?.[geomKey(ws, id)] || DEFAULT_GEOM);
       added.win.style.zIndex = ++top;
     }
     for (const o of [...deck.open]) {
@@ -2686,11 +2860,20 @@ async function screenWall() {
     const h = deck.node.clientHeight || wall.clientHeight;
     if (!w || !h) return;
     for (const o of deck.open) {
-      const px = (v) => parseFloat(v) || 0;
-      let width = px(o.win.style.width) || o.win.getBoundingClientRect().width;
-      let height = px(o.win.style.height) || o.win.getBoundingClientRect().height;
-      let left = px(o.win.style.left);
-      let top = px(o.win.style.top);
+      // A maximised window is already exactly the size of the desk, and it is stated in
+      // percent — measuring it back into pixels here is what used to turn "full screen"
+      // into a 240×140 stub in the corner.
+      if (o.win.dataset.full) continue;
+      // Only a pixel value means what it says. `100%` parses to the number 100, and
+      // `min(620px, 78%)` parses to nothing at all — both have to be measured instead.
+      const px = (v) => (/^-?[\d.]+px$/.test(v || '') ? parseFloat(v) : NaN);
+      const box = o.win.getBoundingClientRect();
+      let width = px(o.win.style.width);
+      if (!Number.isFinite(width)) width = box.width;
+      let height = px(o.win.style.height);
+      if (!Number.isFinite(height)) height = box.height;
+      let left = px(o.win.style.left) || 0;
+      let top = px(o.win.style.top) || 0;
 
       width = Math.min(width, w - 8);
       height = Math.min(height, h - 8);
@@ -2912,15 +3095,13 @@ async function screenWall() {
       drawTabs();
       deck.open.forEach((o) => o.handle.relayout());
     },
-    addWindow: (spec) => {
+    addWindow: (spec, geom) => {
       const ws = activeSpace();
       const deck = deckFor(ws);
       const id = specId(spec);
       if (deck.open.some((o) => o.name === id)) return;
       const entry = deck.addWindow(spec);
-      Object.assign(entry.win.style, prefs.winGeom?.[geomKey(ws, id)] || {
-        left: '28px', top: '24px', width: 'min(620px, 78%)', height: 'min(380px, 62%)',
-      });
+      applyGeom(entry.win, prefs.winGeom?.[geomKey(ws, id)] || geom || DEFAULT_GEOM);
       entry.win.style.zIndex = ++top;
       requestAnimationFrame(() => entry.handle.relayout());
     },
@@ -2937,8 +3118,25 @@ async function screenWall() {
 function saveGeom(name, win) {
   const { left, top, width, height } = win.style;
   if (!width) return;
-  prefs.winGeom = { ...(prefs.winGeom || {}), [name]: { left, top, width, height } };
+  const geom = { left, top, width, height };
+  // "Full screen" is a state, not a size. Stored as one it comes back full on whatever
+  // screen opens it next; stored as pixels it would come back the size of the screen it
+  // was maximised on, which on a phone is off the edge and on a desk is a stub.
+  if (win.dataset.full) geom.full = 1;
+  prefs.winGeom = { ...(prefs.winGeom || {}), [name]: geom };
   savePrefs();
+}
+
+const FULL_GEOM = { left: '0px', top: '0px', width: '100%', height: '100%' };
+// Where a window lands when nothing has been stored for it yet.
+const DEFAULT_GEOM = { left: '28px', top: '24px', width: 'min(620px, 78%)', height: 'min(380px, 62%)' };
+
+/** Put a window where its stored geometry says, maximised state included. */
+function applyGeom(win, geom) {
+  const { full, ...style } = geom || {};
+  Object.assign(win.style, full ? FULL_GEOM : style);
+  if (full) win.dataset.full = '1';
+  else delete win.dataset.full;
 }
 
 /** Pointer-events drag, so it works with a mouse, a trackpad and a stylus alike. */
@@ -3022,6 +3220,29 @@ function dragBy(grabber, win, bounds, onDone, ignore = [], peers = () => [], onT
     grabber.addEventListener('pointermove', move);
     grabber.addEventListener('pointerup', up);
   });
+}
+
+/** Room on the free side of the window a file was opened from.
+ *
+ *  Opening it on top of the terminal that named it defeats the point — the reason for
+ *  having windows at all is the terminal on one side and what it is talking about on the
+ *  other. When neither side has room, this says so and the window lands where any other
+ *  new window would. */
+function beside(win) {
+  const deck = win.parentElement?.getBoundingClientRect();
+  if (!deck?.width) return null;
+  const src = win.getBoundingClientRect();
+  const gap = 8;
+  const right = deck.right - src.right - gap * 2;
+  const left = src.left - deck.left - gap * 2;
+  const room = Math.max(right, left);
+  if (room < 260) return null;
+  return {
+    left: `${Math.round(right >= left ? src.right - deck.left + gap : gap)}px`,
+    top: `${Math.round(Math.max(gap, src.top - deck.top))}px`,
+    width: `${Math.round(room)}px`,
+    height: `${Math.round(Math.min(src.height, deck.height - gap * 2))}px`,
+  };
 }
 
 /** A window is identified by what it shows, so geometry and colour survive a reload. */
@@ -3116,14 +3337,14 @@ function chooseDesk(spec, label) {
   ]);
 }
 
-function openWindow(spec) {
+function openWindow(spec, geom) {
   const id = specId(spec);
   const ws = currentSpace();
   if (!ws.desktop.some((x) => specId(x) === id)) {
     ws.desktop = [...ws.desktop, spec];
     savePrefs();
   }
-  if (live?.key === 'wall') live.addWindow?.(spec);
+  if (live?.key === 'wall') live.addWindow?.(spec, geom);
   go('#/wall');
 }
 
