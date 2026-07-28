@@ -29,6 +29,7 @@ const DEFAULTS = {
   tree: false,       // expand folders in place instead of navigating into them
   theme: 'dark',     // 'dark' | 'light' | 'auto'
   wallLayout: 'grid', // 'grid' | 'cols' | 'rows' | 'float'
+  home: '',          // where the home button lands; empty means the first root
   split: false,      // two file panes side by side
   path2: '',         // where the second pane is
   winGeom: {},       // session name -> free-window geometry
@@ -251,6 +252,17 @@ function pickColor(name, onPicked) {
 }
 
 const parentOf = (p) => p.replace(/\/[^/]*$/, '') || '/';
+
+/** The home button's destination. Kept per device on purpose: the folder you want to
+ *  land in from the phone is rarely the one you want at the desk. */
+const homePath = (roots) => prefs.home || roots[0];
+
+function setHome(path) {
+  prefs.home = path;
+  savePrefs();
+  toast(`home is now ${path}`);
+  refreshAllBrowsers();
+}
 
 /** Wrap a path so bidi reordering leaves it alone. */
 const bidi = (text) => el('bdi', { textContent: text });
@@ -512,6 +524,13 @@ function fileActions(entry, refresh, dest) {
     onclick: () => { sheet.close(); toggleFavourite(entry.path); },
   }, [icon('star'), el('span', { textContent: isFavourite(entry.path) ? 'Remove from favourites' : 'Add to favourites' })]));
 
+  if (dir) {
+    body.append(el('button', {
+      className: 'ghost block',
+      onclick: () => { sheet.close(); setHome(entry.path); },
+    }, [icon('home'), el('span', { textContent: 'Set as home folder' })]));
+  }
+
   // No refresh for these two: they change nothing on disk.
   body.append(el('button', {
     className: 'ghost block',
@@ -597,17 +616,35 @@ function progressBar(label, where) {
   };
 }
 
-function rootPicker(roots, setPath) {
+function placePicker(roots, setPath, current) {
   const body = el('div', { className: 'sheetbody actions' });
   let sheet;
+
+  const home = homePath(roots);
   for (const r of roots) {
+    const row = el('button', {
+      className: 'ghost block',
+      onclick: () => { sheet.close(); setPath(r); },
+    }, [icon(r === home ? 'home' : 'folder'), el('span', {}, bidi(r))]);
+    if (r === home) row.append(el('span', { className: 'sw on', textContent: 'home' }));
+    body.append(row);
+  }
+
+  if (current && current !== home) {
+    body.append(el('div', { className: 'sheetsep' }));
     body.append(el('button', {
       className: 'ghost block',
-      textContent: r,
-      onclick: () => { sheet.close(); setPath(r); },
-    }));
+      onclick: () => { sheet.close(); setHome(current); },
+    }, [icon('home'), el('span', {}, bidi(`Make this folder home: ${current}`))]));
   }
-  sheet = modal('Filesystems', body, [
+  if (prefs.home) {
+    body.append(el('button', {
+      className: 'ghost block',
+      onclick: () => { sheet.close(); prefs.home = ''; savePrefs(); toast('home reset'); refreshAllBrowsers(); },
+    }, [icon('refresh'), el('span', { textContent: 'Reset home to the first root' })]));
+  }
+
+  sheet = modal('Go to', body, [
     el('button', { className: 'ghost', textContent: 'Close', onclick: () => sheet.close() }),
   ]);
 }
@@ -877,15 +914,25 @@ function fileBrowser({ path, setPath, other, roots, compact = false }) {
     onclick: () => toggleFavourite(path),
   }, icon('star'));
 
-  // With several filesystems configured, the top of one is a dead end without this.
-  const jump = roots.length > 1
-    ? el('button', { title: 'Jump to a filesystem', onclick: () => rootPicker(roots, setPath) }, icon('home'))
-    : null;
+  // Tapping goes home. Holding — or right-clicking — is how you pick somewhere else or
+  // move home itself, without a second button crowding the header.
+  const jump = el('button', {
+    title: 'Home (hold to choose)',
+    onclick: () => setPath(homePath(roots)),
+  }, icon('home'));
+
+  const chooser = (ev) => { ev.preventDefault(); placePicker(roots, setPath, path); };
+  jump.addEventListener('contextmenu', chooser);
+  let held;
+  jump.addEventListener('pointerdown', (ev) => { held = setTimeout(() => chooser(ev), 500); });
+  for (const done of ['pointerup', 'pointerleave', 'pointercancel']) {
+    jump.addEventListener(done, () => clearTimeout(held));
+  }
 
   const crumb = el('button', { className: 'crumb', type: 'button' }, bidi(path));
   crumb.title = `${path}\n(click to copy)`;
   crumb.onclick = () => copyPath(path);
-  node.append(el('div', { className: 'sidehead' }, [up, jump, crumb, pin].filter(Boolean)));
+  node.append(el('div', { className: 'sidehead' }, [up, jump, crumb, pin]));
 
   // Pinned things, above everything else: the point is not having to navigate.
   if (favs.length) {
@@ -1304,6 +1351,7 @@ async function screenSettings() {
 
   const info = await serverInfo();
   view.append(el('div', { className: 'pad' }, [
+    el('p', { className: 'meta', textContent: `home button: ${homePath(info.roots)}${prefs.home ? '' : ' (default)'}` }),
     el('p', { className: 'meta', textContent: `roots: ${info.roots.join(', ')}` }),
     el('p', { className: 'meta', textContent: `resize policy: ${info.resize_policy}` }),
     el('p', { className: 'meta', textContent: `preview limit: ${human(info.max_preview_bytes)}` }),
