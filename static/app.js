@@ -694,7 +694,7 @@ function searchBox(path, onResults, placeholder = 'search in this folder…') {
 
 /** Tree mode: a folder expands in place instead of replacing the view. Children are
  *  fetched the first time you open a node and thrown away when you close it. */
-function treeNode(entry, depth, onFile, refresh, dest) {
+function treeNode(entry, depth, onFile, refresh, dest, favGroup = 'main') {
   const dir = entry.type === 'directory';
   const holder = el('div');
   const twist = el('span', { className: 'twist', textContent: dir ? '▸' : '' });
@@ -714,7 +714,7 @@ function treeNode(entry, depth, onFile, refresh, dest) {
   const line = el('div', { className: 'rowwrap' }, row);
   if (server?.allow_write && refresh) {
     const menu = el('button', { className: 'more', type: 'button', title: 'Actions' }, icon('more'));
-    menu.onclick = (ev) => { ev.stopPropagation(); fileActions(entry, refresh, dest); };
+    menu.onclick = (ev) => { ev.stopPropagation(); fileActions(entry, refresh, dest, favGroup); };
     line.append(menu);
   }
   holder.append(line);
@@ -731,7 +731,7 @@ function treeNode(entry, depth, onFile, refresh, dest) {
       if (!children.length) {
         kids.append(el('p', { className: 'empty tiny', textContent: 'empty', style: `padding-left:${1.4 + depth * 0.85}rem` }));
       }
-      for (const c of children) kids.append(treeNode(c, depth + 1, onFile, refresh, dest));
+      for (const c of children) kids.append(treeNode(c, depth + 1, onFile, refresh, dest, favGroup));
     } catch (e) {
       kids.append(el('p', { className: 'error tiny', textContent: e.message }));
     }
@@ -739,12 +739,12 @@ function treeNode(entry, depth, onFile, refresh, dest) {
   return holder;
 }
 
-async function drawTree(container, path, onFile, refresh, dest) {
+async function drawTree(container, path, onFile, refresh, dest, favGroup = 'main') {
   container.innerHTML = '';
   try {
     const entries = visible(await getJSON(`/api/files?path=${encodeURIComponent(path)}`));
     if (!entries.length) return container.append(el('p', { className: 'empty', textContent: 'Nothing here.' }));
-    for (const e of entries) container.append(treeNode(e, 0, onFile, refresh, dest));
+    for (const e of entries) container.append(treeNode(e, 0, onFile, refresh, dest, favGroup));
   } catch (e) {
     container.append(el('p', { className: 'error', textContent: e.message }));
   }
@@ -945,7 +945,7 @@ function fileBrowser({
   // Search results span folders, so they are always a flat list — clearing the box puts
   // you back into whichever mode you chose.
   const show = (entries, err, q) =>
-    (!q && getTree() ? drawTree(list, path, openFile, reload, other) : draw(entries, err));
+    (!q && getTree() ? drawTree(list, path, openFile, reload, other, favGroup) : draw(entries, err));
 
   const up = el('button', { title: 'Parent folder', disabled: roots.includes(path) }, icon('up'));
   up.onclick = () => setPath(parentOf(path));
@@ -1052,7 +1052,7 @@ function fileBrowser({
 
   async function paint() {
     renderFavs();
-    if (getTree()) return drawTree(list, path, openFile, reload, other);
+    if (getTree()) return drawTree(list, path, openFile, reload, other, favGroup);
     try {
       draw(await getJSON(`/api/files?path=${encodeURIComponent(path)}`));
     } catch (e) {
