@@ -55,7 +55,7 @@ let token = localStorage.getItem(KEY) || '';
 let prefs = { ...DEFAULTS, ...readJSON(PREFS_KEY) };
 let sidePath = localStorage.getItem(SIDE_PATH_KEY) || '';
 let server = null;    // /api/config, fetched once
-let favs = [];        // pinned paths, kept on the server so both devices see them
+let favs = {};        // group -> pinned paths, kept on the server so both devices see them
 let favsLoaded = false;
 let leaving = null;   // teardown for the screen being replaced
 
@@ -181,17 +181,20 @@ async function serverInfo() {
 }
 
 async function loadFavourites() {
-  try { favs = await getJSON('/api/favourites'); } catch { favs = []; }
+  try { favs = await getJSON('/api/favourites'); } catch { favs = {}; }
   favsLoaded = true;   // an empty list is an answer, not a reason to keep asking
 }
 
-const isFavourite = (path) => favs.some((f) => f.path === path);
+// The sidebar, the panes and a window are three different tools; each keeps its own
+// shortcuts rather than sharing one list that suits none of them.
+const favsIn = (group) => favs[group] || [];
+const isFavourite = (path, group) => favsIn(group).some((f) => f.path === path);
 
-async function toggleFavourite(path) {
+async function toggleFavourite(path, group) {
   try {
-    const r = await postJSON('/api/favourites', { path });
+    const r = await postJSON('/api/favourites', { path, group });
     favs = r.favourites;
-    toast(r.pinned ? `pinned ${path.split('/').pop()}` : 'unpinned');
+    toast(r.pinned ? `pinned in ${r.group}` : `unpinned from ${r.group}`);
     refreshAllBrowsers();
   } catch (e) { toast(e.message, true); }
 }
@@ -379,6 +382,7 @@ const ICONS = {
   file: 'M6 3.5h7l5 5V20.5H6zM13 3.5V9h5',
   code: 'M9 7.2 4.4 12 9 16.8M15 7.2 19.6 12 15 16.8',
   eye: 'M2.8 12S6.6 5.8 12 5.8 21.2 12 21.2 12 17.4 18.2 12 18.2 2.8 12 2.8 12zM12 9.4a2.6 2.6 0 1 1 0 5.2 2.6 2.6 0 0 1 0-5.2z',
+  tree: 'M4.8 5.5h5.5M4.8 5.5v12.5M4.8 11.8h5.5M4.8 18h5.5M14 5.5h5.2M14 11.8h5.2M14 18h5.2',
   star: 'M12 3.8l2.6 5.3 5.8.85-4.2 4.1 1 5.75L12 17.1l-5.2 2.7 1-5.75-4.2-4.1 5.8-.85z',
 };
 
@@ -444,7 +448,7 @@ function fileIcon(entry) {
 
 /** One row shape for both panes: an anchor when it is a real navigation, a button when
  *  it only moves the sidebar. `refresh` is what an operation calls once it lands. */
-function entryRow(e, { href, onClick, refresh, dest }) {
+function entryRow(e, { href, onClick, refresh, dest, favGroup = 'main' }) {
   const dir = e.type === 'directory';
   const kids = [
     fileIcon(e),
@@ -463,7 +467,7 @@ function entryRow(e, { href, onClick, refresh, dest }) {
 
   if (server?.allow_write && refresh) {
     const menu = el('button', { className: 'more', type: 'button', title: 'Actions' }, icon('more'));
-    menu.onclick = (ev) => { ev.preventDefault(); ev.stopPropagation(); fileActions(e, refresh, dest); };
+    menu.onclick = (ev) => { ev.preventDefault(); ev.stopPropagation(); fileActions(e, refresh, dest, favGroup); };
     // The menu button lives outside the row link, or tapping it would navigate.
     return el('div', { className: 'rowwrap' }, [row, menu]);
   }
@@ -474,7 +478,7 @@ function entryRow(e, { href, onClick, refresh, dest }) {
 /** The action sheet. Everything here goes through the API, which re-checks the jail.
  *  `dest` is the other pane when the view is split — the destination you almost always
  *  mean, prefilled so a move is two taps. */
-function fileActions(entry, refresh, dest) {
+function fileActions(entry, refresh, dest, favGroup = 'main') {
   const dir = entry.type === 'directory';
   const here = dest?.() || parentOf(entry.path);
   const body = el('div', { className: 'sheetbody actions' });
@@ -528,8 +532,11 @@ function fileActions(entry, refresh, dest) {
 
   body.append(el('button', {
     className: 'ghost block',
-    onclick: () => { sheet.close(); toggleFavourite(entry.path); },
-  }, [icon('star'), el('span', { textContent: isFavourite(entry.path) ? 'Remove from favourites' : 'Add to favourites' })]));
+    onclick: () => { sheet.close(); toggleFavourite(entry.path, favGroup); },
+  }, [icon('star'), el('span', {
+    textContent: isFavourite(entry.path, favGroup)
+      ? `Remove from ${favGroup} favourites` : `Add to ${favGroup} favourites`,
+  })]));
 
   if (dir) {
     body.append(el('button', {
@@ -901,7 +908,14 @@ async function screenSessions() {
 /** One file browser. Used three times over: the two panes of the split view and the
  *  sidebar. Each instance owns its path, its search box and its listing, and knows how
  *  to reach the *other* one — which is what makes copy and move between panes useful. */
-function fileBrowser({ path, setPath, other, roots, compact = false }) {
+function fileBrowser({
+  path, setPath, other, roots, compact = false,
+  // A window keeps its own answer; the panes and the sidebar keep using the shared one,
+  // which is what the Settings switch writes.
+  getTree = () => prefs.tree,
+  setTree = (v) => { prefs.tree = v; savePrefs(); },
+  favGroup = 'main',
+}) {
   const node = el('div', { className: `pane${compact ? ' compact' : ''}` });
   const list = el('div', { className: 'panelist' });
   const reload = () => paint();
@@ -923,6 +937,7 @@ function fileBrowser({ path, setPath, other, roots, compact = false }) {
         onClick: () => (e.type === 'directory' ? setPath(e.path) : openFile(e)),
         refresh: reload,
         dest: other,
+        favGroup,
       }));
     }
   };
@@ -930,16 +945,15 @@ function fileBrowser({ path, setPath, other, roots, compact = false }) {
   // Search results span folders, so they are always a flat list — clearing the box puts
   // you back into whichever mode you chose.
   const show = (entries, err, q) =>
-    (!q && prefs.tree ? drawTree(list, path, openFile, reload, other) : draw(entries, err));
+    (!q && getTree() ? drawTree(list, path, openFile, reload, other) : draw(entries, err));
 
   const up = el('button', { title: 'Parent folder', disabled: roots.includes(path) }, icon('up'));
   up.onclick = () => setPath(parentOf(path));
 
-  const pin = el('button', {
-    className: isFavourite(path) ? 'on' : '',
-    title: isFavourite(path) ? 'Remove this folder from favourites' : 'Pin this folder',
-    onclick: () => toggleFavourite(path),
-  }, icon('star'));
+  const pin = el('button', { onclick: () => toggleFavourite(path, favGroup) }, icon('star'));
+
+  const nest = el('button', {}, icon('tree'));
+  nest.onclick = () => { setTree(!getTree()); paint(); };
 
   // Tapping goes home. Holding — or right-clicking — is how you pick somewhere else or
   // move home itself, without a second button crowding the header.
@@ -959,13 +973,25 @@ function fileBrowser({ path, setPath, other, roots, compact = false }) {
   const crumb = el('button', { className: 'crumb', type: 'button' }, bidi(path));
   crumb.title = `${path}\n(click to copy)`;
   crumb.onclick = () => copyPath(path);
-  node.append(el('div', { className: 'sidehead' }, [up, jump, crumb, pin]));
+  node.append(el('div', { className: 'sidehead' }, [up, jump, crumb, nest, pin]));
 
-  // Pinned things, above everything else: the point is not having to navigate.
-  if (favs.length) {
+  // Rebuilt on every refresh, not once at construction: pinning from inside a window
+  // used to redraw the listing and leave this strip showing the old set.
+  const favsHolder = el('div');
+  const renderFavs = () => {
+    nest.className = getTree() ? 'on' : '';
+    nest.title = getTree() ? 'Flat list' : 'Expand folders in place';
+    const mine = favsIn(favGroup);
+    pin.className = isFavourite(path, favGroup) ? 'on' : '';
+    pin.title = isFavourite(path, favGroup) ? `Unpin from ${favGroup} favourites` : `Pin this folder in ${favGroup} favourites`;
+    favsHolder.textContent = '';
+    if (!mine.length) return;
+
     const strip = el('div', { className: 'favs' });
-    strip.append(el('div', { className: 'favhead' }, [icon('star'), el('span', { textContent: 'Favourites' })]));
-    for (const f of favs) {
+    strip.append(el('div', { className: 'favhead' }, [
+      icon('star'), el('span', { textContent: 'Favourites' }), el('span', { className: 'favwhere', textContent: favGroup }),
+    ]));
+    for (const f of mine) {
       const row = el('button', {
         className: `row fav${f.missing ? ' missing' : ''}`,
         type: 'button',
@@ -979,11 +1005,12 @@ function fileBrowser({ path, setPath, other, roots, compact = false }) {
           el('span', { className: 'meta' }, bidi(f.missing ? `missing · ${f.path}` : parentOf(f.path))),
         ]),
       ]);
-      const off = el('button', { className: 'more', title: 'Unpin', onclick: (ev) => { ev.stopPropagation(); toggleFavourite(f.path); } }, icon('close'));
+      const off = el('button', { className: 'more', title: 'Unpin', onclick: (ev) => { ev.stopPropagation(); toggleFavourite(f.path, favGroup); } }, icon('close'));
       strip.append(el('div', { className: 'rowwrap' }, [row, off]));
     }
-    node.append(strip);
-  }
+    favsHolder.append(strip);
+  };
+  node.append(favsHolder);
 
   const tools = el('div', { className: 'pad tools' }, searchBox(path, show, compact ? 'search…' : undefined));
   if (server?.allow_write) {
@@ -1024,7 +1051,8 @@ function fileBrowser({ path, setPath, other, roots, compact = false }) {
   node.append(tools, list);
 
   async function paint() {
-    if (prefs.tree) return drawTree(list, path, openFile, reload, other);
+    renderFavs();
+    if (getTree()) return drawTree(list, path, openFile, reload, other);
     try {
       draw(await getJSON(`/api/files?path=${encodeURIComponent(path)}`));
     } catch (e) {
@@ -1477,6 +1505,7 @@ async function renderSidebar() {
     setPath: setSidePath,
     other: () => null,
     compact: true,
+    favGroup: 'sidebar',
   }).node);
 }
 
@@ -2380,6 +2409,9 @@ function attachBrowser(host, spec, setLabel) {
       roots: server?.roots || [spec.path],
       compact: true,
       other: () => null,
+      getTree: () => spec.tree ?? prefs.tree,
+      setTree: (v) => { spec.tree = v; savePrefs(); },
+      favGroup: 'windows',
       setPath: (p) => {
         spec.path = p;
         prefs.desktop = [...prefs.desktop];   // the spec object is shared; persist the move
