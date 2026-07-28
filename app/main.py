@@ -29,7 +29,7 @@ mimetypes.add_type("application/manifest+json", ".webmanifest")
 
 PLACEHOLDER = """<!doctype html>
 <meta charset="utf-8">
-<title>tmux-companion</title>
+<title>argus</title>
 <style>body{font-family:ui-monospace,monospace;background:#0b0e14;color:#c5cad3;
 display:grid;place-items:center;min-height:100vh;margin:0;padding:1.5rem}</style>
 <div><h1>Frontend missing</h1><p>The API and the WebSocket are running, but
@@ -38,7 +38,7 @@ display:grid;place-items:center;min-height:100vh;margin:0;padding:1.5rem}</style
 
 
 def create_app(cfg: Config) -> FastAPI:
-    app = FastAPI(title="tmux-companion", version=VERSION, docs_url=None, redoc_url=None)
+    app = FastAPI(title="argus", version=VERSION, docs_url=None, redoc_url=None)
     app.state.cfg = cfg
     app.state.jail = Jail(cfg.roots)
     app.state.socket = tmux.Socket.new(cfg.tmux_socket)
@@ -106,7 +106,7 @@ def url_for(host: str, port: int, cfg: Config) -> str:
 
 
 def banner(config_path: Path, created: bool, host: str, port: int, cfg: Config, sock: tmux.Socket) -> None:
-    print(f"tmux-companion {VERSION}")
+    print(f"argus {VERSION}")
     print(f"  created {config_path} with a fresh token" if created else f"  config  {config_path}")
     print(f"  roots   {', '.join(str(r) for r in cfg.roots)}")
     print(f"  resize  {cfg.resize_policy}")
@@ -123,7 +123,7 @@ def banner(config_path: Path, created: bool, host: str, port: int, cfg: Config, 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        prog="tmux-companion",
+        prog="argus",
         description="Browse files and attach to tmux sessions from your phone",
     )
     parser.add_argument("-c", "--config", type=Path, help="config file (created with a fresh token on first run)")

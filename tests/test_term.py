@@ -15,8 +15,8 @@ def test_preserve_adds_ignore_size_so_other_clients_keep_their_geometry():
 
 
 def test_a_configured_socket_is_what_we_attach_to():
-    assert attach_argv("claude", [], Socket.new("tmuxc-test")) == [
-        "tmux", "-L", "tmuxc-test", "-u", "attach-session", "-t", "claude",
+    assert attach_argv("claude", [], Socket.new("argus-test")) == [
+        "tmux", "-L", "argus-test", "-u", "attach-session", "-t", "claude",
     ], "-L must precede the command, or tmux drives the default server instead"
 
 
@@ -39,8 +39,8 @@ def test_term_is_forced_to_a_256_colour_value(monkeypatch):
 
 
 def test_ordinary_environment_still_reaches_the_child(monkeypatch):
-    monkeypatch.setenv("TMUXC_PROBE", "kept")
-    assert child_env()["TMUXC_PROBE"] == "kept", "stripping must not take PATH/HOME/LANG with it"
+    monkeypatch.setenv("ARGUS_PROBE", "kept")
+    assert child_env()["ARGUS_PROBE"] == "kept", "stripping must not take PATH/HOME/LANG with it"
 
 
 def test_geometry_is_clamped_to_something_a_pty_accepts():

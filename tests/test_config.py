@@ -24,7 +24,7 @@ def test_round_trips_through_yaml():
         listen="0.0.0.0:9000",
         resize_policy="preserve",
         max_preview_bytes=4096,
-        tmux_socket="tmuxc-test",
+        tmux_socket="argus-test",
     )
     back = Config.from_dict(yaml.safe_load(yaml.safe_dump(cfg.to_dict())))
     assert back.listen == cfg.listen
@@ -32,7 +32,7 @@ def test_round_trips_through_yaml():
     assert [str(r) for r in back.roots] == ["/tmp", "/var/log"]
     assert back.resize_policy == "preserve"
     assert back.max_preview_bytes == 4096
-    assert back.tmux_socket == "tmuxc-test"
+    assert back.tmux_socket == "argus-test"
 
 
 def test_omitted_fields_fall_back_to_defaults():

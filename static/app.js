@@ -1,9 +1,16 @@
 import { Terminal } from '/vendor/xterm-6.0.0/xterm.mjs';
 import { FitAddon } from '/vendor/xterm-6.0.0/addon-fit.mjs';
 
-const KEY = 'tmuxc.token';
-const PREFS_KEY = 'tmuxc.prefs';
-const SIDE_PATH_KEY = 'tmuxc.sidepath';
+const KEY = 'argus.token';
+const PREFS_KEY = 'argus.prefs';
+const SIDE_PATH_KEY = 'argus.sidepath';
+
+// The project was called tmux-companion until it got a name. Carry the stored token and
+// preferences across rather than logging everyone out and resetting their colours.
+for (const [now, before] of [[KEY, 'tmuxc.token'], [PREFS_KEY, 'tmuxc.prefs'], [SIDE_PATH_KEY, 'tmuxc.sidepath']]) {
+  const old = localStorage.getItem(before);
+  if (old !== null && localStorage.getItem(now) === null) localStorage.setItem(now, old);
+}
 
 const view = document.getElementById('view');
 const side = document.getElementById('side');
@@ -557,7 +564,7 @@ window.addEventListener('hashchange', render);
 /* ----------------------------------------------------------------- screens */
 
 function screenLogin() {
-  bar.title.textContent = 'tmux companion';
+  bar.title.textContent = 'Argus';
   const input = el('input', { type: 'password', placeholder: 'access token', autocomplete: 'current-password' });
   const err = el('p', { className: 'error' });
   const submit = async () => {

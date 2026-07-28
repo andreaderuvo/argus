@@ -36,6 +36,6 @@ def test_no_socket_configured_means_the_default_server():
 
 
 def test_a_plain_name_is_a_socket_name_and_a_path_is_a_socket_path():
-    assert Socket.new("tmuxc-test").args() == ["-L", "tmuxc-test"]
+    assert Socket.new("argus-test").args() == ["-L", "argus-test"]
     assert Socket.new("/tmp/t/sock").args() == ["-S", "/tmp/t/sock"]
-    assert Socket.new("tmuxc-test").label() == "tmuxc-test"
+    assert Socket.new("argus-test").label() == "argus-test"

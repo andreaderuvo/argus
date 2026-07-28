@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0b0e14">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>tmux companion</title>
+<title>Argus</title>
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/icon-192.png">
 <link rel="apple-touch-icon" href="/icon-192.png">
@@ -16,7 +16,8 @@
   // Inline and before the stylesheet paints, or a dark-theme user gets a white flash on
   // every load. The module below owns the preference; this only replays it.
   try {
-    var t = (JSON.parse(localStorage.getItem('tmuxc.prefs') || '{}').theme) || 'dark';
+    var raw = localStorage.getItem('argus.prefs') || localStorage.getItem('tmuxc.prefs') || '{}';
+    var t = JSON.parse(raw).theme || 'dark';
     if (t === 'auto') t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
     document.documentElement.dataset.theme = t;
   } catch (e) { document.documentElement.dataset.theme = 'dark'; }
@@ -26,7 +27,7 @@
 
 <header id="bar">
   <button id="back" class="icon" hidden aria-label="Back">‹</button>
-  <h1 id="title">tmux companion</h1>
+  <h1 id="title">Argus</h1>
   <button id="sidetoggle" class="icon" aria-label="Toggle the file sidebar" title="File sidebar">▥</button>
   <button id="action" class="icon" hidden></button>
 </header>

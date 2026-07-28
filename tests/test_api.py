@@ -27,7 +27,7 @@ def client(tree):
         token=TOKEN,
         roots=[tree / "root"],
         max_preview_bytes=1024,
-        tmux_socket="tmuxc-test-suite",
+        tmux_socket="argus-test-suite",
     )
     return TestClient(create_app(cfg))
 

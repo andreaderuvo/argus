@@ -31,7 +31,7 @@ def generate_token() -> str:
 def default_path() -> Path:
     base = os.environ.get("XDG_CONFIG_HOME")
     root = Path(base) if base else home() / ".config"
-    return root / "tmux-companion" / "config.yaml"
+    return root / "argus" / "config.yaml"
 
 
 @dataclass

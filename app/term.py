@@ -51,7 +51,7 @@ def attach_argv(session: str, flags: list[str], sock: tmux.Socket) -> list[str]:
 def child_env() -> dict[str, str]:
     """Build the environment explicitly rather than inheriting wholesale.
 
-    TMUX/TMUX_PANE is the one that matters: tmux-companion is very likely started from
+    TMUX/TMUX_PANE is the one that matters: argus is very likely started from
     inside a tmux pane, and tmux refuses to attach when it thinks it would nest.
     """
     env = {k: v for k, v in os.environ.items() if k not in ("TMUX", "TMUX_PANE", "TERM")}

@@ -1,4 +1,4 @@
-# CLAUDE.md — tmux-companion
+# CLAUDE.md — argus
 
 Python + FastAPI backend serving a mobile-first vanilla-JS PWA to browse files and attach
 to tmux sessions from a phone, with a **real PTY** (not capture-pane polling). No build
@@ -14,11 +14,11 @@ Therefore, for anything in this repo:
 
 ```bash
 # running the server in dev — always pin a throwaway socket
-python3 -m app.main --config /tmp/tmuxc-test.yaml --socket tmuxc-test --listen 127.0.0.1:8399
+python3 -m app.main --config /tmp/argus-test.yaml --socket argus-test --listen 127.0.0.1:8399
 
 # any tmux command you type while testing — always -L
-tmux -L tmuxc-test new-session -d -s probe -x 90 -y 25
-tmux -L tmuxc-test kill-server          # safe: only the test server
+tmux -L argus-test new-session -d -s probe -x 90 -y 25
+tmux -L argus-test kill-server          # safe: only the test server
 ```
 
 A bare `tmux …`, or the app with no `tmux_socket`/`--socket`, drives the real server. The
@@ -75,7 +75,7 @@ reloading is the whole loop — only Python changes need the server restarted.
 
 ## Frontend notes
 
-- **Preferences** live in `localStorage` under `tmuxc.prefs`: theme, hidden files, sidebar,
+- **Preferences** live in `localStorage` under `argus.prefs`: theme, hidden files, sidebar,
   tree view, wall layout, per-session colours, font size, wrap.
 - **Theme** is resolved in JS (including `auto`) onto `data-theme`, so the stylesheet has
   one palette block per theme and no media queries. An inline script in `<head>` replays
