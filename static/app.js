@@ -808,8 +808,13 @@ function treeNode(entry, depth, onFile, refresh, dest, favGroup = 'main') {
 /* --------------------------------------------------- pointing at one file */
 
 // Set when something outside the browsers — a path clicked in a terminal — wants a file
-// shown where the filesystem is on screen. Consumed by the next listing that can show it.
+// shown where the filesystem is on screen. Consumed by the next listing that can show it,
+// which on a phone is usually the folder you land in after closing the file.
 let pointed = null;
+let pointedAt = 0;
+// Long enough to survive reading the file and coming back out; short enough that a
+// listing opened much later does not flash at something you have forgotten asking for.
+const POINT_TTL = 120000;
 
 const under = (parent, child) => child.startsWith(parent === '/' ? '/' : `${parent}/`);
 
@@ -850,6 +855,7 @@ function setCurrent(path) {
 async function applyPointed(list, path, isTree) {
   const target = pointed;
   if (!target) return;
+  if (Date.now() - pointedAt > POINT_TTL) { pointed = null; return; }
   if (!(isTree ? under(path, target) : parentOf(target) === path)) return;
   pointed = null;
 
@@ -874,12 +880,18 @@ async function applyPointed(list, path, isTree) {
  *  The sidebar is the one explorer when it is open — the same choice VS Code makes with
  *  "Reveal in Explorer". Otherwise the first browser window takes it, so a desk with no
  *  sidebar still follows along. A second pane placed somewhere on purpose is left alone.
+ *
+ *  On a phone there may be nothing to point at: the sidebar is a desktop-width thing, and
+ *  the terminal is the whole screen. The request is kept rather than dropped, so the file
+ *  is waiting there marked when you come back out to its folder.
  */
 function pointAt(target) {
   pointed = target;
-  const primary = (prefs.sidebar && sideBrowser) || [...browsers][0];
-  if (primary) primary.reveal(target);
-  else pointed = null;
+  pointedAt = Date.now();
+  const showing = (b) => b?.node?.getClientRects().length;   // display:none has none
+  const primary = (prefs.sidebar && showing(sideBrowser) && sideBrowser)
+    || [...browsers].find(showing);
+  primary?.reveal(target);
 }
 
 async function drawTree(container, path, onFile, refresh, dest, favGroup = 'main') {
