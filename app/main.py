@@ -69,6 +69,21 @@ def create_app(cfg: Config) -> FastAPI:
         favourites.save(store, paths)
         return {"pinned": pinned, "favourites": favourites.describe(paths)}
 
+    @app.get("/api/stat")
+    async def stat_path(request: Request, path: str) -> dict:
+        """Just enough to notice a file has changed: a window watching a report being
+        regenerated polls this rather than re-downloading the whole thing."""
+        from .safepath import Denied, NotFound
+
+        try:
+            target = request.app.state.jail.resolve(path)
+        except NotFound:
+            raise ApiError(404, "not found") from None
+        except Denied:
+            raise ApiError(403, "outside the configured roots") from None
+        st = target.stat()
+        return {"path": str(target), "mtime": int(st.st_mtime), "size": st.st_size}
+
     @app.get("/api/system")
     async def vitals(request: Request) -> dict:
         # Sampling /proc/stat needs a real pause, so it goes to a thread.
