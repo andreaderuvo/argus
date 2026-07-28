@@ -1,6 +1,7 @@
 """The jail is the module that must never regress. Ported 1:1 from the Rust suite."""
 
 import os
+from pathlib import Path
 
 import pytest
 
@@ -78,4 +79,16 @@ def test_unusable_roots_are_a_startup_error(tmp_path):
 
 def test_missing_roots_are_skipped_when_another_one_works(scratch):
     j = Jail([scratch / "root", scratch / "does-not-exist"])
+    assert j.roots == [(scratch / "root").resolve()]
+
+
+def test_roots_keep_the_order_they_were_configured_in(scratch):
+    """The first root is where the UI opens, so `/` must not sort its way to the front."""
+    (scratch / "aaa").mkdir()
+    j = Jail([scratch / "root", Path("/"), scratch / "aaa"])
+    assert j.roots == [(scratch / "root").resolve(), Path("/"), (scratch / "aaa").resolve()]
+
+
+def test_a_root_given_twice_appears_once(scratch):
+    j = Jail([scratch / "root", scratch / "root"])
     assert j.roots == [(scratch / "root").resolve()]

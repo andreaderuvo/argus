@@ -92,6 +92,7 @@ async def server_info(request: Request) -> dict:
         "max_preview_bytes": cfg.max_preview_bytes,
         # The UI hides every mutating control when this is false.
         "allow_write": cfg.allow_write,
+        "max_upload_bytes": cfg.max_upload_bytes,
     }
 
 

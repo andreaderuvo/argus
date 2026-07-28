@@ -171,7 +171,7 @@ button.icon:active { background: var(--line); }
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  direction: rtl;
+  direction: rtl;          /* so the ellipsis eats the head, not the tail */
   text-align: left;
   background: none;
   border: 0;
@@ -181,6 +181,7 @@ button.icon:active { background: var(--line); }
 }
 
 .sidehead .crumb:hover { color: var(--bright); }
+.crumb bdi, #title bdi { unicode-bidi: isolate; }
 
 .sidehead button:not(.crumb) {
   flex: none;
@@ -243,6 +244,16 @@ button.icon:active { background: var(--line); }
   text-align: left;
   font: inherit;
 }
+
+/* One size and one stroke for every icon in the interface. */
+.ico { width: 20px; height: 20px; flex: none; display: block; }
+button.icon .ico { width: 22px; height: 22px; margin: 0 auto; }
+#nav .ico { width: 21px; height: 21px; }
+.sidehead .ico, .tools .ico { width: 18px; height: 18px; }
+.winbtn .ico { width: 15px; height: 15px; }
+.more .ico { width: 18px; height: 18px; margin: 0 auto; }
+.ghost.block .ico { color: var(--dim); }
+.ghost.block:hover .ico { color: var(--accent); }
 
 .row:active { background: var(--panel); }
 .row .glyph { width: 1.2rem; text-align: center; color: var(--dim); flex: none; }
@@ -485,7 +496,8 @@ button.more {
   line-height: 1;
 }
 
-button.more:active { background: var(--panel); color: var(--bright); }
+button.more:hover, button.more:active { background: var(--panel); color: var(--bright); }
+.rowwrap:hover button.more { color: var(--text); }
 
 .tools { display: flex; gap: .5rem; align-items: center; }
 .tools input { flex: 1; }
@@ -528,8 +540,21 @@ dialog.sheet h2 {
   font: inherit;
 }
 
-.sheetbody.actions { display: flex; flex-direction: column; gap: .4rem; }
-button.ghost.block { width: 100%; text-align: left; padding: 0 .8rem; }
+.sheetbody.actions { display: flex; flex-direction: column; gap: .35rem; }
+
+button.ghost.block {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  text-align: left;
+  padding: 0 .85rem;
+  border-color: transparent;
+  background: none;
+}
+
+button.ghost.block:hover { background: var(--bg); border-color: var(--line); }
+button.winbtn.wide { display: inline-flex; align-items: center; gap: .35rem; }
 
 .sheetfoot {
   display: flex;
@@ -811,3 +836,25 @@ button.swatchbtn:hover { background: var(--wc, var(--dim)); filter: brightness(1
 .procname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: ui-monospace, monospace; }
 .procnum { flex: none; font-variant-numeric: tabular-nums; color: var(--text); }
 .procnum.dim { color: var(--dim); width: 3.4rem; text-align: right; }
+
+/* ---------- upload ---------- */
+
+.pane.dropping { outline: 2px dashed var(--accent); outline-offset: -6px; }
+.pane.dropping .panelist { opacity: .55; }
+
+.uploading {
+  position: fixed;
+  left: 50%;
+  bottom: calc(1.2rem + var(--safe-b));
+  transform: translateX(-50%);
+  z-index: 55;
+  width: min(24rem, calc(100vw - 2rem));
+  padding: .6rem .8rem .7rem;
+  border: 1px solid var(--line);
+  border-radius: .6rem;
+  background: var(--panel);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, .45);
+}
+
+.uploading .tilenote { margin: 0 0 .4rem; color: var(--text); }
+.uploading .fill { background: var(--accent); transition: width .2s linear; }
