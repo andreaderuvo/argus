@@ -477,6 +477,7 @@ const ICONS = {
   more: 'M12 6.2v.01M12 12v.01M12 17.8v.01',
   rename: 'M4.5 19.5h4L18 10l-4-4-9.5 9.5zM13 7l4 4',
   move: 'M4.5 12h13M12.5 6.5 18 12l-5.5 5.5',
+  pin: 'M9.5 3.5h5l-.8 5.2 3.3 3.1H7l3.3-3.1zM12 11.8V20.5',
   copy: 'M9 8.5h10.5V20H9zM5 15.5V4h10.5',
   clipboard: 'M9.5 4.5h5v2.6h-5zM8 5.6H5.5v14h13v-14H16',
   trash: 'M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 12.5h9L17.5 7M10 10.5v6M14 10.5v6',
@@ -500,6 +501,7 @@ const ICONS = {
   save: 'M5.5 4.5h10L18.5 7.5v12h-13zM8.5 4.5v5h6M8.5 19.5v-6h7v6',
   phone: 'M7.5 3.5h9v17h-9zM10.5 17.8h3',
   camera: 'M4 7.5h3.2l1.4-2h6.8l1.4 2H20v11H4zM12 10.2a3.3 3.3 0 1 1 0 6.6 3.3 3.3 0 0 1 0-6.6z',
+  pin: 'M9.5 3.5h5l-.8 5.2 3.3 3.1H7l3.3-3.1zM12 11.8V20.5',
   copy: 'M9 9h10.5v10.5H9zM15 9V4.5H4.5V15H9',
   usage: 'M12 3.6a8.4 8.4 0 1 0 8.4 8.4H12z',
   expand: 'M14.5 4.5h5v5M9.5 19.5h-5v-5M19.5 4.5l-6.2 6.2M4.5 19.5l6.2-6.2',
@@ -3175,6 +3177,16 @@ async function screenWall() {
     );
     item('rename', 'Rename…', rename);
     item('star', 'Change colour…', () => pickColor(`ws:${ws.id}`, drawTabs));
+    item('pin', ws.pinned ? 'Unpin' : 'Pin to the front', () => {
+      ws.pinned = !ws.pinned;
+      // Move it to the boundary between the two groups, so pinning does not also
+      // reshuffle everything else.
+      spaces.splice(spaces.indexOf(ws), 1);
+      const firstLoose = spaces.findIndex((w) => !w.pinned);
+      spaces.splice(ws.pinned ? (firstLoose < 0 ? spaces.length : firstLoose) : spaces.length, 0, ws);
+      savePrefs();
+      drawTabs();
+    });
     if (spaces.length > 1) item('trash', 'Close this workspace', shut);
     sheet = modal(ws.name, body, [
       el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),
@@ -3256,6 +3268,18 @@ async function screenWall() {
     requestAnimationFrame(() => deck.open.forEach((o) => o.handle.relayout()));
   }
 
+  /** Write the strip's order back into the workspaces, which is where it is stored.
+   *
+   *  Pinned desks are kept at the front whatever the drag says: that is what pinning is
+   *  for, and a pin that drifted would be no different from an ordinary tab. */
+  function saveTabOrder() {
+    const order = [...tabs.querySelectorAll('.wstab[data-ws]')].map((n) => Number(n.dataset.ws));
+    spaces.sort((a, b) => (a.pinned ? 0 : 1) - (b.pinned ? 0 : 1)
+      || order.indexOf(a.id) - order.indexOf(b.id));
+    savePrefs();
+    drawTabs();
+  }
+
   function drawTabs() {
     tabs.textContent = '';
     for (const ws of spaces) {
@@ -3265,11 +3289,14 @@ async function screenWall() {
       dot.title = t('Change colour');
       dot.onclick = (e) => { e.stopPropagation(); pickColor(`ws:${ws.id}`, drawTabs); };
 
-      const tab = el('button', { className: `wstab${on ? ' on' : ''}`, title: t('Double-click to rename') }, [
-        dot, el('span', { className: 'tabname', textContent: ws.name }),
-      ]);
+      const tab = el('button', {
+        className: `wstab${on ? ' on' : ''}${ws.pinned ? ' pinned' : ''}`,
+        title: ws.pinned ? t('Pinned — hold for the menu') : t('Double-click to rename'),
+      }, [dot, el('span', { className: 'tabname', textContent: ws.name })]);
+      if (ws.pinned) tab.prepend(icon('pin', 'pinmark'));
       tab.dataset.ws = ws.id;
-      tab.onclick = () => activate(ws.id);
+      tab.onclick = () => { if (!tab.dataset.dragged) activate(ws.id); };
+      reorderTab(tab, tabs, saveTabOrder);
 
       const rename = async () => {
         const name = await ask(t('Rename workspace'), ws.name, t('Rename'));
@@ -3298,7 +3325,7 @@ async function screenWall() {
       for (const done of ['pointerup', 'pointerleave', 'pointercancel', 'pointermove']) {
         tab.addEventListener(done, () => clearTimeout(held));
       }
-      if (on && spaces.length > 1) {
+      if (on && spaces.length > 1 && !ws.pinned) {
         const x = el('button', { className: 'tabclose', title: t('Close this workspace') }, icon('close'));
         x.onclick = (e) => { e.stopPropagation(); shut(); };
         tab.append(x);
@@ -3622,6 +3649,74 @@ function beside(win) {
 
   const best = sides[0];
   return { left: `${best.left}px`, top: `${top}px`, width: `${best.width}px`, height: `${height}px` };
+}
+
+/** Move something into a new place among its siblings, and let the others slide.
+ *
+ *  Reordering the DOM is instant and therefore invisible: the tabs would simply *be*
+ *  somewhere else. Measuring before and animating from where each one was is what makes
+ *  the movement legible — you see which tab went where, which is the whole point of
+ *  dragging it rather than typing a number.
+ */
+function slideInto(parent, mutate) {
+  const kids = [...parent.children];
+  const before = new Map(kids.map((n) => [n, n.getBoundingClientRect().left]));
+  mutate();
+  for (const n of kids) {
+    const dx = before.get(n) - n.getBoundingClientRect().left;
+    if (dx) n.animate([{ transform: `translateX(${dx}px)` }, { transform: 'none' }], { duration: 150, easing: 'ease-out' });
+  }
+}
+
+/** Drag a tab along its strip to reorder it.
+ *
+ *  A tap still activates and a hold still opens the menu: the drag only begins once the
+ *  pointer has actually travelled, which is also what tells it apart from a finger
+ *  scrolling the strip sideways.
+ */
+function reorderTab(tab, strip, onDone) {
+  tab.addEventListener('pointerdown', (e) => {
+    if (e.button) return;                      // right-click opens the menu
+    const startX = e.clientX;
+    let dragging = false;
+
+    const move = (ev) => {
+      if (!dragging) {
+        if (Math.abs(ev.clientX - startX) < 8) return;
+        dragging = true;
+        tab.classList.add('tabdrag');
+        tab.setPointerCapture(ev.pointerId);
+      }
+      // The neighbour under the pointer, if the pointer is past its middle.
+      const others = [...strip.querySelectorAll('.wstab[data-ws]')].filter((n) => n !== tab);
+      for (const other of others) {
+        const box = other.getBoundingClientRect();
+        const middle = box.left + box.width / 2;
+        const goingRight = ev.clientX > middle && other.compareDocumentPosition(tab) & Node.DOCUMENT_POSITION_PRECEDING;
+        const goingLeft = ev.clientX < middle && other.compareDocumentPosition(tab) & Node.DOCUMENT_POSITION_FOLLOWING;
+        if (ev.clientX >= box.left && ev.clientX <= box.right && (goingRight || goingLeft)) {
+          slideInto(strip, () => other[goingRight ? 'after' : 'before'](tab));
+          break;
+        }
+      }
+    };
+
+    const up = () => {
+      tab.removeEventListener('pointermove', move);
+      tab.removeEventListener('pointerup', up);
+      tab.removeEventListener('pointercancel', up);
+      if (!dragging) return;
+      tab.classList.remove('tabdrag');
+      // The click that follows a drag is not a click on the tab: it must not switch desk.
+      tab.dataset.dragged = '1';
+      setTimeout(() => { delete tab.dataset.dragged; }, 0);
+      onDone();
+    };
+
+    tab.addEventListener('pointermove', move);
+    tab.addEventListener('pointerup', up);
+    tab.addEventListener('pointercancel', up);
+  });
 }
 
 /** A window is identified by what it shows, so geometry and colour survive a reload. */

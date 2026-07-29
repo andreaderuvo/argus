@@ -100,7 +100,7 @@
   "This browser cannot read QR codes.": "This browser cannot read QR codes.",
   "This code contains the access token. Anyone who scans it is in.": "This code contains the access token. Anyone who scans it is in.",
   "Tree view": "Tree view",
-  "Unpin": "Unpin",
+  "Unpin": "Quitar la fijación",
   "Upload files": "Subir archivos",
   "Upload here…": "Subir aquí…",
   "View": "Ver",
@@ -194,6 +194,8 @@
   "copied": "copiado",
   "select it and copy it by hand": "selecciónalo y cópialo a mano",
   "copied {count} characters": "copiados {count} caracteres",
-  "tmux prefix": "prefijo de tmux"
+  "tmux prefix": "prefijo de tmux",
+  "Pin to the front": "Fijar al principio",
+  "Pinned — hold for the menu": "Fijado — mantén pulsado para el menú"
  }
 }
