@@ -428,6 +428,7 @@ const ICONS = {
   save: 'M5.5 4.5h10L18.5 7.5v12h-13zM8.5 4.5v5h6M8.5 19.5v-6h7v6',
   phone: 'M7.5 3.5h9v17h-9zM10.5 17.8h3',
   camera: 'M4 7.5h3.2l1.4-2h6.8l1.4 2H20v11H4zM12 10.2a3.3 3.3 0 1 1 0 6.6 3.3 3.3 0 0 1 0-6.6z',
+  usage: 'M12 3.6a8.4 8.4 0 1 0 8.4 8.4H12z',
   fit: 'M4.5 9V4.5H9M15 4.5h4.5V9M19.5 15v4.5H15M9 19.5H4.5V15',
   lock: 'M6.5 10.5h11v9h-11zM9 10.5V7.6a3 3 0 0 1 6 0v2.9',
   star: 'M12 3.8l2.6 5.3 5.8.85-4.2 4.1 1 5.75L12 17.1l-5.2 2.7 1-5.75-4.2-4.1 5.8-.85z',
@@ -495,16 +496,53 @@ function fileIcon(entry) {
 
 /** One row shape for both panes: an anchor when it is a real navigation, a button when
  *  it only moves the sidebar. `refresh` is what an operation calls once it lands. */
+/** "How big is this folder, really?"
+ *
+ *  A listing shows a folder with no size because finding out means walking it, which for
+ *  a sequencing run is minutes of work — so it is a button rather than a column, and the
+ *  answer lands in the row's own subtitle where a file's size would be.
+ */
+function weighButton(entry, meta) {
+  const btn = el('button', { className: 'more weigh', type: 'button', title: t('Total size') }, icon('usage'));
+  let asked = false;
+  btn.onclick = async (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    if (asked) return;
+    asked = true;
+    btn.classList.add('busy');
+    const was = meta.textContent;
+    meta.textContent = t('adding up…');
+    try {
+      const r = await getJSON(`/api/fs/usage?path=${encodeURIComponent(entry.path)}`);
+      // "At least" is not a decoration: a walk that hit its limit, or a folder we may not
+      // read into, has counted less than is there and must not read as the total.
+      const size = r.complete ? human(r.bytes) : t('at least {size}', { size: human(r.bytes) });
+      meta.textContent = `${size} · ${t('{count} file(s)', { count: r.files.toLocaleString() })}`;
+      btn.classList.toggle('partial', !r.complete);
+      btn.title = r.complete ? t('Total size') : t('Some of it could not be read');
+    } catch (err) {
+      meta.textContent = was;
+      toast(err.message, true);
+      asked = false;
+    } finally {
+      btn.classList.remove('busy');
+    }
+  };
+  return btn;
+}
+
 function entryRow(e, { href, onClick, refresh, dest, favGroup = 'main' }) {
   const dir = e.type === 'directory';
+  const meta = el('span', {
+    className: 'meta',
+    textContent: [dir ? '' : human(e.size), when(e.mtime)].filter(Boolean).join(' · '),
+  });
   const kids = [
     fileIcon(e),
     el('span', { className: 'grow' }, [
       el('span', { className: 'name', textContent: e.name + (e.symlink ? ' ↪' : '') }),
-      el('span', {
-        className: 'meta',
-        textContent: [dir ? '' : human(e.size), when(e.mtime)].filter(Boolean).join(' · '),
-      }),
+      meta,
     ]),
   ];
   const cls = `row ${dir ? 'dir' : ''}`;
@@ -513,12 +551,14 @@ function entryRow(e, { href, onClick, refresh, dest, favGroup = 'main' }) {
     : el('button', { className: cls, type: 'button', onclick: onClick }, kids);
   row.dataset.path = e.path;      // so a listing can be pointed at one of its entries
 
+  // Both of these live outside the row link, or tapping one would navigate.
+  const side = dir ? [weighButton(e, meta)] : [];
   if (server?.allow_write && refresh) {
     const menu = el('button', { className: 'more', type: 'button', title: t('Actions') }, icon('more'));
     menu.onclick = (ev) => { ev.preventDefault(); ev.stopPropagation(); fileActions(e, refresh, dest, favGroup); };
-    // The menu button lives outside the row link, or tapping it would navigate.
-    return el('div', { className: 'rowwrap' }, [row, menu]);
+    side.push(menu);
   }
+  if (side.length) return el('div', { className: 'rowwrap' }, [row, ...side]);
   row.append(el('span', { className: 'chev', textContent: '›' }));
   return row;
 }
@@ -754,20 +794,22 @@ function treeNode(entry, depth, onFile, refresh, dest, favGroup = 'main') {
   const dir = entry.type === 'directory';
   const holder = el('div');
   const twist = el('span', { className: 'twist', textContent: dir ? '▸' : '' });
+  const meta = el('span', {
+    className: 'meta',
+    textContent: [dir ? '' : human(entry.size), when(entry.mtime)].filter(Boolean).join(' · '),
+  });
   const row = el('button', { className: `row ${dir ? 'dir' : ''}`, type: 'button' }, [
     twist,
     fileIcon(entry),
     el('span', { className: 'grow' }, [
       el('span', { className: 'name', textContent: entry.name + (entry.symlink ? ' ↪' : '') }),
-      el('span', {
-        className: 'meta',
-        textContent: [dir ? '' : human(entry.size), when(entry.mtime)].filter(Boolean).join(' · '),
-      }),
+      meta,
     ]),
   ]);
   row.style.paddingLeft = `${0.5 + depth * 0.85}rem`;
 
   const line = el('div', { className: 'rowwrap' }, row);
+  if (dir) line.append(weighButton(entry, meta));
   if (server?.allow_write && refresh) {
     const menu = el('button', { className: 'more', type: 'button', title: t('Actions') }, icon('more'));
     menu.onclick = (ev) => { ev.stopPropagation(); fileActions(entry, refresh, dest, favGroup); };

@@ -75,6 +75,13 @@ reloading is the whole loop — only Python changes need the server restarted.
 
 ## Frontend notes
 
+- **Folder sizes are never computed on their own.** `/api/fs/usage` walks a tree only when
+  the button on that row is pressed — a listing still reports directories as size 0, and
+  nothing runs on hover, paint or scroll. The walk does not follow symlinks (a cycle would
+  hang, and a link out of the jail would be counted), and stops at 400k entries or 20s,
+  after which the answer is reported as "at least" rather than as a total. Same for a
+  directory it may not read into: partial, and said so.
+
 - **Shared edges are splitters.** `touching()` in `resizable()` finds the windows whose
   opposite edge sits within 12px of the one being dragged (and that overlap along it by
   more than 24px); they give up exactly what the dragged window takes, clamped so nobody

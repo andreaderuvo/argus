@@ -175,6 +175,11 @@
   "Fit the session to this screen": "Adatta la sessione a questo schermo",
   "Watch without changing the size": "Guarda senza cambiare la dimensione",
   "Take the size back": "Riprendi il controllo della dimensione",
-  "No file at {path}": "Nessun file in {path}"
+  "No file at {path}": "Nessun file in {path}",
+  "Total size": "Dimensione totale",
+  "adding up…": "sto sommando…",
+  "at least {size}": "almeno {size}",
+  "{count} file(s)": "{count} file",
+  "Some of it could not be read": "Una parte non si è potuta leggere"
  }
 }
