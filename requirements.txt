@@ -1,7 +1,15 @@
+# Runtime
 fastapi>=0.115
 uvicorn[standard]>=0.30
 pyyaml>=6.0
-segno>=1.6        # optional: only for `--qr`
-# tests
-pytest>=8.0
+# Uploads: FastAPI needs it for Form/UploadFile, and refuses to import the route without
+# it. Missing here for a while — it happened to be installed on the machine this was
+# written on, so only a clean environment showed it.
+python-multipart>=0.0.9
+# The reverse proxy in front of loopback-only ports talks through it. Not a test-only
+# dependency, though it started out listed as one.
 httpx>=0.27
+segno>=1.6        # optional: only for `--qr`
+
+# Tests
+pytest>=8.0
