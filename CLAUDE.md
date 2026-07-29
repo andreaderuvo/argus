@@ -75,6 +75,11 @@ reloading is the whole loop — only Python changes need the server restarted.
 
 ## Frontend notes
 
+- **Full screen** is the header's ⤢ button (`#fullscreen`), hidden where the browser has
+  no Fullscreen API — an iPhone, notably — rather than sitting there doing nothing. The
+  icon and title follow `fullscreenchange`, not the click, so leaving by Esc or F11 keeps
+  them honest. The terminal needs no telling: the viewport resizing resizes its container.
+
 - **Word documents go through pandoc** when the machine has it: `/api/file` answers with
   rendered HTML (`x-rendered: document`) under the same CSP sandbox as any other HTML, and
   `--embed-resources` inlines the figures so nothing is fetched. Missing, failing, or over

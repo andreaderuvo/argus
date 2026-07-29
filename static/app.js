@@ -23,10 +23,39 @@ const bar = {
   action: document.getElementById('action'),
   alt: document.getElementById('alt'),
   settings: document.getElementById('settings'),
+  full: document.getElementById('fullscreen'),
 };
 
 // The bottom bar is for the places you go; settings are not one of them.
 bar.settings.onclick = () => go('#/settings');
+
+/* Full screen — what F11 does, for the times a keyboard is not in the room.
+ *
+ *  On a phone this is the difference between a terminal with three rows of browser
+ *  furniture around it and a terminal. The button is hidden where the browser has no
+ *  Fullscreen API to offer (an iPhone, notably), rather than sitting there doing nothing.
+ */
+const CAN_FULLSCREEN = !!document.documentElement.requestFullscreen;
+if (CAN_FULLSCREEN) {
+  bar.full.hidden = false;
+  bar.full.onclick = () => {
+    if (document.fullscreenElement) document.exitFullscreen();
+    // A browser may refuse (a permissions policy, an iframe, a gesture it did not like).
+    // Silence would read as a broken button, so say what happened.
+    else document.documentElement.requestFullscreen({ navigationUI: 'hide' })
+      .catch(() => toast(t('the browser would not go full screen'), true));
+  };
+  // Leaving by Esc or by F11 never passes through the button, so the icon follows the
+  // browser rather than what we last asked for.
+  document.addEventListener('fullscreenchange', () => {
+    const on = !!document.fullscreenElement;
+    document.body.classList.toggle('fullscreen', on);
+    bar.full.replaceChildren(icon(on ? 'compress' : 'expand'));
+    bar.full.title = t(on ? 'Leave full screen' : 'Full screen');
+    // Nothing to tell the terminal: the viewport changing size resizes its container,
+    // and its own observer sends the new grid to tmux.
+  });
+}
 
 const DEFAULTS = {
   hidden: false,     // dotfiles are noise until you ask for them
@@ -430,6 +459,8 @@ const ICONS = {
   phone: 'M7.5 3.5h9v17h-9zM10.5 17.8h3',
   camera: 'M4 7.5h3.2l1.4-2h6.8l1.4 2H20v11H4zM12 10.2a3.3 3.3 0 1 1 0 6.6 3.3 3.3 0 0 1 0-6.6z',
   usage: 'M12 3.6a8.4 8.4 0 1 0 8.4 8.4H12z',
+  expand: 'M14.5 4.5h5v5M9.5 19.5h-5v-5M19.5 4.5l-6.2 6.2M4.5 19.5l6.2-6.2',
+  compress: 'M20 4l-6.2 6.2M13.8 10.2h5M13.8 10.2v-5M4 20l6.2-6.2M10.2 13.8h-5M10.2 13.8v5',
   fit: 'M4.5 9V4.5H9M15 4.5h4.5V9M19.5 15v4.5H15M9 19.5H4.5V15',
   lock: 'M6.5 10.5h11v9h-11zM9 10.5V7.6a3 3 0 0 1 6 0v2.9',
   star: 'M12 3.8l2.6 5.3 5.8.85-4.2 4.1 1 5.75L12 17.1l-5.2 2.7 1-5.75-4.2-4.1 5.8-.85z',
@@ -983,6 +1014,7 @@ async function render() {
     nav.hidden = true;
     sideToggle.hidden = true;
     bar.settings.hidden = true;
+    bar.full.hidden = true;
     document.body.classList.remove('side');
     side.innerHTML = '';
     return screenLogin();
@@ -992,6 +1024,7 @@ async function render() {
   nav.hidden = false;
   sideToggle.hidden = false;
   bar.settings.hidden = false;
+  bar.full.hidden = !CAN_FULLSCREEN;
   for (const a of nav.querySelectorAll('a')) {
     a.classList.toggle('on', path.startsWith('/' + a.dataset.tab));
   }
@@ -4067,6 +4100,7 @@ function translateMarkup() {
     if (label?.nodeType === 3) label.textContent = t(a.dataset.tab === 'wall' ? 'Windows' : a.dataset.tab[0].toUpperCase() + a.dataset.tab.slice(1));
   }
   bar.settings.title = t('Settings');
+  bar.full.title = t(document.fullscreenElement ? 'Leave full screen' : 'Full screen');
 }
 
 // The pins have to arrive before the first paint, or the sidebar draws without them.

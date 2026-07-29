@@ -182,6 +182,8 @@
   "{count} file(s)": "{count} archivo(s)",
   "Some of it could not be read": "Una parte no se pudo leer",
   "Open files inside the desk": "Abrir los archivos dentro del escritorio",
-  "a file opened from a window becomes a window, instead of taking the screen": "un archivo abierto desde una ventana se vuelve una ventana, en vez de ocupar la pantalla"
+  "a file opened from a window becomes a window, instead of taking the screen": "un archivo abierto desde una ventana se vuelve una ventana, en vez de ocupar la pantalla",
+  "Leave full screen": "Salir de pantalla completa",
+  "the browser would not go full screen": "el navegador no pasó a pantalla completa"
  }
 }
