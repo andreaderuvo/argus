@@ -39,6 +39,9 @@
   --tap: 46px;               /* never smaller: this is a thumb, not a mouse */
   --bar: 52px;
   --safe-b: env(safe-area-inset-bottom, 0px);
+  /* Measured at runtime: the nav, plus the terminal's key bar when it is there. Anything
+     floating at the bottom sits above this instead of on top of it. */
+  --furniture: var(--bar);
 }
 
 * { box-sizing: border-box; }
@@ -683,7 +686,7 @@ button.danger { background: var(--danger); color: #fff; }
 .toast {
   position: fixed;
   left: 50%;
-  bottom: calc(1.2rem + var(--safe-b));
+  bottom: calc(var(--furniture) + .7rem);
   transform: translateX(-50%);
   z-index: 50;
   max-width: min(28rem, calc(100vw - 2rem));
@@ -1011,7 +1014,7 @@ video.scanner { width: 100%; border-radius: .6rem; background: #000; aspect-rati
 #update {
   position: fixed;
   left: 50%;
-  bottom: calc(1.2rem + var(--safe-b));
+  bottom: calc(var(--furniture) + .7rem);
   transform: translateX(-50%);
   z-index: 60;
   display: flex;
@@ -1152,7 +1155,7 @@ video.scanner { width: 100%; border-radius: .6rem; background: #000; aspect-rati
 .uploading {
   position: fixed;
   left: 50%;
-  bottom: calc(1.2rem + var(--safe-b));
+  bottom: calc(var(--furniture) + .7rem);
   transform: translateX(-50%);
   z-index: 55;
   width: min(24rem, calc(100vw - 2rem));

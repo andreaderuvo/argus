@@ -440,7 +440,23 @@ async function copyPath(path) {
   toast(ok ? path : t('could not reach the clipboard'), !ok);
 }
 
+/** How much furniture is stacked at the bottom of the screen right now.
+ *
+ *  The key bar comes and goes with the terminal screen and the nav disappears on the login
+ *  form, so anything that floats above them has to be told how high they are — a fixed
+ *  offset lands on top of the buttons on one screen and floats in mid-air on another.
+ */
+function measureFurniture() {
+  const bars = [document.getElementById('keys'), nav]
+    .filter((n) => n && !n.hidden && n.getClientRects().length);
+  const total = bars.reduce((sum, n) => sum + n.getBoundingClientRect().height, 0);
+  document.documentElement.style.setProperty('--furniture', `${Math.round(total)}px`);
+}
+
+window.addEventListener('resize', measureFurniture);
+
 function toast(message, bad = false) {
+  measureFurniture();
   const t = el('div', { className: `toast ${bad ? 'bad' : ''}`, textContent: message });
   document.body.append(t);
   setTimeout(() => t.remove(), bad ? 5000 : 2200);
@@ -1084,6 +1100,8 @@ async function render() {
 }
 
 window.addEventListener('hashchange', render);
+// The key bar belongs to the terminal screen, so the furniture changes with the route.
+window.addEventListener('hashchange', () => setTimeout(measureFurniture, 60));
 
 /* ----------------------------------------------------------------- screens */
 
@@ -2757,9 +2775,13 @@ function attachTerminal(container, name, { transform, onGone, onPath } = {}) {
   };
 }
 
+// The key bar scrolls sideways on a phone, so the order is the priority order: what is
+// past the right edge may as well not be there until you go looking for it.
 const CTRL_KEYS = [
   ['Esc', '\x1b'], ['Tab', '\t'], ['↑', '\x1b[A'], ['↓', '\x1b[B'],
   ['←', '\x1b[D'], ['→', '\x1b[C'],
+];
+const CTRL_CODES = [
   // The tmux prefix as one key. A phone has no Ctrl, and on a desktop Firefox keeps
   // Ctrl+B for its bookmarks — in both cases the keystroke never reaches the terminal,
   // and every tmux command starts with it.
@@ -2806,12 +2828,15 @@ async function screenTerm(name) {
   ctrlBtn.onclick = () => { sticky = !sticky; ctrlBtn.classList.toggle('on', sticky); handle.focus(); };
 
   keys.append(ctrlBtn);
-  for (const [label, seq, hint] of CTRL_KEYS) {
+  const key = ([label, seq, hint]) => {
     const b = el('button', { textContent: label, onclick: () => { handle.send(seq); handle.focus(); } });
     if (hint) b.title = t(hint);
-    keys.append(b);
-  }
-  keys.append(copyButton(handle), ...sizeButtons(handle));
+    return b;
+  };
+  // Copy sits between the arrows and the control codes: on a 420px screen that is the
+  // last position still on screen without scrolling the bar, and it is the one thing
+  // here you cannot do any other way.
+  keys.append(...CTRL_KEYS.map(key), copyButton(handle), ...CTRL_CODES.map(key), ...sizeButtons(handle));
 
   const zoom = (by) => () => {
     prefs.fontSize = Math.max(5, Math.min(22, prefs.fontSize + by));
