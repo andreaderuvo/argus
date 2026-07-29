@@ -2234,7 +2234,7 @@ function openLocated(where, hit, from) {
  *  underlined, so a sentence about `node.js` stays a sentence. A phone has no hover, so
  *  a long press does the same job for whatever is under the finger.
  */
-function linkPaths(term, container, session, open) {
+function linkPaths(term, container, session, open, following = () => {}) {
   const at = (offset, first) => ({
     x: (offset % term.cols) + 1,
     y: first + Math.floor(offset / term.cols) + 1,
@@ -2249,7 +2249,7 @@ function linkPaths(term, container, session, open) {
         const links = cands.filter((c) => found[c.text]).map((c) => ({
           text: c.text,
           range: { start: at(c.start, first), end: at(c.end - 1, first) },
-          activate: () => open(found[c.text]),
+          activate: () => { following(); open(found[c.text]); },
         }));
         done(links.length ? links : undefined);
       }).catch(() => done(undefined));
@@ -2279,7 +2279,7 @@ function linkPaths(term, container, session, open) {
     const cand = pathCandidates(text).find((c) => offset >= c.start && offset < c.end);
     if (!cand) return;
     const found = await locatePaths([cand.text], session);
-    if (found[cand.text]) open(found[cand.text]);
+    if (found[cand.text]) { following(); open(found[cand.text]); }
     else toast(t('No file at {path}', { path: cand.text }), true);
   };
 
@@ -2330,8 +2330,12 @@ function attachTerminal(container, name, { transform, onGone, onPath } = {}) {
 
   try { fit.fit(); } catch { /* not laid out yet */ }
 
-  // Paths printed by whatever is running in here open in the viewer.
-  linkPaths(term, container, name, (hit) => (onPath || openLocated.bind(null, 'term'))(hit));
+  // Paths printed by whatever is running in here open in the viewer. Following one is not
+  // a reason to take the tmux size off another client: the click was aimed at the file,
+  // and the text jumping to a new grid under your finger is not what you asked for.
+  let followedAt = 0;
+  linkPaths(term, container, name, (hit) => (onPath || openLocated.bind(null, 'term'))(hit),
+    () => { followedAt = Date.now(); });
 
   let ws = null;
   let ready = false;
@@ -2450,6 +2454,7 @@ function attachTerminal(container, name, { transform, onGone, onPath } = {}) {
   // one that fits — and the other one catch up when you return to it.
   const claimSize = () => {
     if (!ready || ws?.readyState !== WebSocket.OPEN) return;
+    if (Date.now() - followedAt < 800) return;      // that click was for the link
     sentCols = 0;
     sentRows = 0;
     relayout();
@@ -2748,6 +2753,18 @@ async function screenWall() {
 
     const peersOf = (win) => () => open.filter((o) => o.win !== win).map((o) => o.win);
 
+    /** One window has finished moving or being resized — including a neighbour pushed by
+     *  somebody else's drag, which has to be saved too or it snaps back on the next
+     *  visit. Moving or resizing also ends "full screen": keeping the flag would restore
+     *  it to the whole desk. */
+    function settleWindow(node) {
+      const o = open.find((x) => x.win === node);
+      if (!o) return;
+      delete node.dataset.full;
+      o.handle.relayout();
+      saveGeom(geomKey(ws, o.name), node);
+    }
+
     function addWindow(spec) {
       const id = specId(spec);
       const isFile = spec.kind === 'file';
@@ -2826,11 +2843,7 @@ async function screenWall() {
 
       // Moving or resizing a maximised window is how you un-maximise it: keeping the flag
       // would snap it back to full screen the next time the desk is rebuilt.
-      const settled = () => {
-        delete win.dataset.full;
-        handle.relayout();
-        saveGeom(geomKey(ws, id), win);
-      };
+      const settled = () => settleWindow(win);
       win.addEventListener('argus:moved', settled);
       head.addEventListener('dblclick', (e) => {
         if (e.target === head || e.target === title) solo.onclick();
@@ -2840,7 +2853,7 @@ async function screenWall() {
 
       dragBy(head, win, node, settled, [swatch, send, solo, close], peersOf(win),
         (targetId, copy) => relocate(spec, ws, spaces.find((w) => w.id === targetId), entry, copy));
-      resizable(win, node, settled, peersOf(win));
+      resizable(win, node, settled, peersOf(win), settleWindow);
       return entry;
     }
 
@@ -3361,10 +3374,13 @@ function beside(win) {
   const left = src.left - deck.left - gap * 2;
   const room = Math.max(right, left);
   if (room < 260) return null;
+  // Taking every pixel of the free side turns a click into a window three times the size
+  // of the one that spawned it. Match the source instead, so the two read as a pair.
+  const width = Math.min(room, Math.max(src.width, 520));
   return {
-    left: `${Math.round(right >= left ? src.right - deck.left + gap : gap)}px`,
+    left: `${Math.round(right >= left ? src.right - deck.left + gap : Math.max(gap, left + gap - width))}px`,
     top: `${Math.round(Math.max(gap, src.top - deck.top))}px`,
-    width: `${Math.round(room)}px`,
+    width: `${Math.round(width)}px`,
     height: `${Math.round(Math.min(src.height, deck.height - gap * 2))}px`,
   };
 }
@@ -3731,7 +3747,41 @@ function showGhost(bounds, zone) {
 // handle has to move the window as it resizes, or the far edge walks across the screen.
 const HANDLES = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'];
 
-function resizable(win, bounds, onDone, peers = () => []) {
+// How close two edges have to be before they count as the same edge. A window snapped
+// against another sits exactly on it; one dropped by hand is a pixel or two out.
+const TOUCH = 12;
+// Two windows only share an edge if they actually sit alongside each other: a window
+// clipping a corner of another is not a column beside it.
+const ALONGSIDE = 24;
+
+/** The windows that share the edge being dragged, and by which of their own edges.
+ *
+ *  This is what makes a shared edge behave like a splitter: widen the left column and the
+ *  right one gives up exactly what the left one took, instead of being covered by it. */
+function touching(win, peers, dir, area) {
+  const me = win.getBoundingClientRect();
+  const found = [];
+  for (const node of peers()) {
+    const r = node.getBoundingClientRect();
+    const overlapY = Math.min(me.bottom, r.bottom) - Math.max(me.top, r.top);
+    const overlapX = Math.min(me.right, r.right) - Math.max(me.left, r.left);
+    const add = (edge) => found.push({
+      node, edge,
+      left: r.left - area.left, top: r.top - area.top, width: r.width, height: r.height,
+    });
+    if (overlapY > ALONGSIDE) {
+      if (dir.includes('e') && Math.abs(r.left - me.right) < TOUCH) add('left');
+      if (dir.includes('w') && Math.abs(r.right - me.left) < TOUCH) add('right');
+    }
+    if (overlapX > ALONGSIDE) {
+      if (dir.includes('s') && Math.abs(r.top - me.bottom) < TOUCH) add('top');
+      if (dir.includes('n') && Math.abs(r.bottom - me.top) < TOUCH) add('bottom');
+    }
+  }
+  return found;
+}
+
+function resizable(win, bounds, onDone, peers = () => [], onPeerDone = () => {}) {
   for (const dir of HANDLES) {
     const grip = el('div', { className: `rz rz-${dir}` });
     win.append(grip);
@@ -3745,10 +3795,20 @@ function resizable(win, bounds, onDone, peers = () => []) {
       const top0 = box.top - area.top;
       const x0 = e.clientX;
       const y0 = e.clientY;
-      const xLines = snapLines(bounds, peers, 'x');
-      const yLines = snapLines(bounds, peers, 'y');
+      const linked = touching(win, peers, dir, area);
+      // A neighbour that is being pushed is not something to snap to — its edge is the
+      // one moving. Snapping to it would pin the drag to where it started.
+      const others = () => peers().filter((p) => !linked.some((n) => n.node === p));
+      const xLines = snapLines(bounds, others, 'x');
+      const yLines = snapLines(bounds, others, 'y');
       const near = (value, lines) => lines.find((line) => Math.abs(value - line) < SNAP);
       grip.setPointerCapture(e.pointerId);
+
+      // Nobody may be squeezed below the minimum: the drag stops at whatever the tightest
+      // neighbour allows, rather than sliding under it.
+      const room = (edge, span) => linked
+        .filter((n) => n.edge === edge)
+        .reduce((limit, n) => Math.min(limit, n[span] - (span === 'width' ? MIN_W : MIN_H)), Infinity);
 
       const move = (ev) => {
         const dx = ev.clientX - x0;
@@ -3759,20 +3819,24 @@ function resizable(win, bounds, onDone, peers = () => []) {
 
         // The edge being dragged sticks; the opposite one stays put.
         if (dir.includes('e')) {
-          const right = near(left0 + box.width + dx, xLines) ?? left0 + box.width + dx;
+          let right = near(left0 + box.width + dx, xLines) ?? left0 + box.width + dx;
+          right = Math.min(right, left0 + box.width + room('left', 'width'));
           w = Math.max(MIN_W, right - left0);
         }
         if (dir.includes('s')) {
-          const bottom = near(top0 + box.height + dy, yLines) ?? top0 + box.height + dy;
+          let bottom = near(top0 + box.height + dy, yLines) ?? top0 + box.height + dy;
+          bottom = Math.min(bottom, top0 + box.height + room('top', 'height'));
           h = Math.max(MIN_H, bottom - top0);
         }
         if (dir.includes('w')) {
-          const leftEdge = near(left0 + dx, xLines) ?? left0 + dx;
+          let leftEdge = near(left0 + dx, xLines) ?? left0 + dx;
+          leftEdge = Math.max(leftEdge, left0 - room('right', 'width'));
           w = Math.max(MIN_W, left0 + box.width - leftEdge);
           l = left0 + box.width - w;
         }
         if (dir.includes('n')) {
-          const topEdge = near(top0 + dy, yLines) ?? top0 + dy;
+          let topEdge = near(top0 + dy, yLines) ?? top0 + dy;
+          topEdge = Math.max(topEdge, top0 - room('bottom', 'height'));
           h = Math.max(MIN_H, top0 + box.height - topEdge);
           t = top0 + box.height - h;
         }
@@ -3780,11 +3844,24 @@ function resizable(win, bounds, onDone, peers = () => []) {
         Object.assign(win.style, {
           width: `${w}px`, height: `${h}px`, left: `${l}px`, top: `${t}px`,
         });
+
+        // Whatever this window took, the neighbour gives up — and the other way round.
+        const grewE = (l + w) - (left0 + box.width);
+        const grewW = left0 - l;
+        const grewS = (t + h) - (top0 + box.height);
+        const grewN = top0 - t;
+        for (const n of linked) {
+          if (n.edge === 'left') Object.assign(n.node.style, { left: `${n.left + grewE}px`, width: `${n.width - grewE}px` });
+          if (n.edge === 'right') Object.assign(n.node.style, { width: `${n.width - grewW}px` });
+          if (n.edge === 'top') Object.assign(n.node.style, { top: `${n.top + grewS}px`, height: `${n.height - grewS}px` });
+          if (n.edge === 'bottom') Object.assign(n.node.style, { height: `${n.height - grewN}px` });
+        }
       };
       const up = () => {
         grip.removeEventListener('pointermove', move);
         grip.removeEventListener('pointerup', up);
         onDone();
+        for (const n of linked) onPeerDone(n.node);
       };
       grip.addEventListener('pointermove', move);
       grip.addEventListener('pointerup', up);

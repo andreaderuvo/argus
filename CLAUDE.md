@@ -75,6 +75,14 @@ reloading is the whole loop — only Python changes need the server restarted.
 
 ## Frontend notes
 
+- **Shared edges are splitters.** `touching()` in `resizable()` finds the windows whose
+  opposite edge sits within 12px of the one being dragged (and that overlap along it by
+  more than 24px); they give up exactly what the dragged window takes, clamped so nobody
+  goes under MIN_W/MIN_H. Both windows are saved on release — a pushed neighbour that is
+  not persisted snaps back on the next visit. Note that with two windows touching, the
+  handle on top belongs to whichever window is drawn last, so the same gesture arrives as
+  `e` on one and `w` on the other; both paths are implemented.
+
 - **Preferences** live in `localStorage` under `argus.prefs`: theme, hidden files, sidebar,
   tree view, wall layout, per-session colours, font size, wrap.
 - **Theme** is resolved in JS (including `auto`) onto `data-theme`, so the stylesheet has
