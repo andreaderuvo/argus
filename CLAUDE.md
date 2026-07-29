@@ -79,7 +79,10 @@ reloading is the whole loop — only Python changes need the server restarted.
   travelled 8px, which leaves a tap (activate), a double-click (rename) and a hold (menu)
   alone; `slideInto()` FLIP-animates the neighbours so you can see what moved. The click
   that follows a drag is suppressed with a `data-dragged` flag, or the drop would also
-  switch desk. `ws.pinned` keeps a desk at the front — `saveTabOrder()` sorts pinned
+  switch desk. The move/up listeners live on `window` and there is no `setPointerCapture`
+  on purpose: reordering removes the tab from the document for an instant to reinsert it,
+  and a captured element that leaves the document loses its capture — which stopped every
+  drag dead after exactly one swap. `ws.pinned` keeps a desk at the front — `saveTabOrder()` sorts pinned
   first whatever the drag said — and a pinned tab loses its ✕: unpin it first.
 
 - **Copying out of tmux.** A selection made with tmux's own mouse mode lands in a *tmux*

@@ -3679,43 +3679,49 @@ function reorderTab(tab, strip, onDone) {
     if (e.button) return;                      // right-click opens the menu
     const startX = e.clientX;
     let dragging = false;
+    let moves = 0;
 
     const move = (ev) => {
       if (!dragging) {
         if (Math.abs(ev.clientX - startX) < 8) return;
         dragging = true;
         tab.classList.add('tabdrag');
-        tab.setPointerCapture(ev.pointerId);
       }
       // The neighbour under the pointer, if the pointer is past its middle.
       const others = [...strip.querySelectorAll('.wstab[data-ws]')].filter((n) => n !== tab);
       for (const other of others) {
         const box = other.getBoundingClientRect();
         const middle = box.left + box.width / 2;
-        const goingRight = ev.clientX > middle && other.compareDocumentPosition(tab) & Node.DOCUMENT_POSITION_PRECEDING;
-        const goingLeft = ev.clientX < middle && other.compareDocumentPosition(tab) & Node.DOCUMENT_POSITION_FOLLOWING;
+        const ahead = other.compareDocumentPosition(tab) & Node.DOCUMENT_POSITION_PRECEDING;
+        const behind = other.compareDocumentPosition(tab) & Node.DOCUMENT_POSITION_FOLLOWING;
+        const goingRight = ev.clientX > middle && ahead;
+        const goingLeft = ev.clientX < middle && behind;
         if (ev.clientX >= box.left && ev.clientX <= box.right && (goingRight || goingLeft)) {
           slideInto(strip, () => other[goingRight ? 'after' : 'before'](tab));
+          moves++;
           break;
         }
       }
     };
 
     const up = () => {
-      tab.removeEventListener('pointermove', move);
-      tab.removeEventListener('pointerup', up);
-      tab.removeEventListener('pointercancel', up);
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
       if (!dragging) return;
       tab.classList.remove('tabdrag');
       // The click that follows a drag is not a click on the tab: it must not switch desk.
       tab.dataset.dragged = '1';
       setTimeout(() => { delete tab.dataset.dragged; }, 0);
-      onDone();
+      if (moves) onDone();
     };
 
-    tab.addEventListener('pointermove', move);
-    tab.addEventListener('pointerup', up);
-    tab.addEventListener('pointercancel', up);
+    // On window, not on the tab, and no setPointerCapture: reordering *removes* the tab
+    // from the document for an instant to reinsert it, and a captured element that leaves
+    // the document loses the capture — so the drag stopped dead after the first swap.
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
   });
 }
 
