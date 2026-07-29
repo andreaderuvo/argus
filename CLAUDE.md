@@ -75,6 +75,12 @@ reloading is the whole loop — only Python changes need the server restarted.
 
 ## Frontend notes
 
+- **A file opened from a desk stays in the desk.** `fileBrowser`'s `openFile` checks
+  `live?.key === 'wall'`: on the wall the file becomes a window beside the one it came
+  from, everywhere else (Files screen, phone) it takes the screen as before. `beside()`
+  picks the side that *covers least*, not the widest one — on a full desk the widest side
+  is usually where another window already is. Off with `openInDesk` in Settings.
+
 - **Folder sizes are never computed on their own.** `/api/fs/usage` walks a tree only when
   the button on that row is pressed — a listing still reports directories as size 0, and
   nothing runs on hover, paint or scroll. The walk does not follow symlinks (a cycle would
