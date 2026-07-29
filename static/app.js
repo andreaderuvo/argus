@@ -1093,6 +1093,7 @@ async function render() {
     if (path === '/preview') return await screenPreview(q.get('path'));
     if (path === '/system') return await screenSystem();
     if (path === '/settings') return await screenSettings();
+    if (path === '/tmuxconf') return await screenTmuxConf();
     if (path === '/term') return await screenTerm(q.get('s'));
     if (path === '/wall') return await screenWall();
     return await screenSessions();
@@ -2138,6 +2139,16 @@ async function screenSettings() {
     return row;
   };
 
+  const conf = el('div', { className: 'row setting' }, [
+    el('span', { className: 'grow' }, [
+      el('span', { className: 'name', textContent: t('tmux configuration') }),
+      el('span', { className: 'meta', textContent: t('edit it and hand it to every session at once') }),
+    ]),
+    icon('terminal'),
+  ]);
+  conf.onclick = () => go('#/tmuxconf');
+  wrap.append(conf);
+
   const handoff = el('div', { className: 'row setting' }, [
     el('span', { className: 'grow' }, [
       el('span', { className: 'name', textContent: t('Open on another device') }),
@@ -2220,6 +2231,67 @@ async function screenSettings() {
 /* ---------------------------------------------------------------- sidebar */
 
 let sideBrowser = null;   // the sidebar's own listing, so it can be pointed at a file
+
+/** The tmux configuration, editable, with a way to make it take effect.
+ *
+ *  tmux options belong to the server, not to a session, so one source-file reaches every
+ *  session at once — there is nothing to do per session, which is the part that is not
+ *  obvious. What is worth being careful about is that sourcing *runs* the file, so it is
+ *  tried on a throwaway server first.
+ */
+async function screenTmuxConf() {
+  const info = await serverInfo();
+  const path = info.tmux_conf;
+  setTitle(path.split('/').pop());
+  bar.back.hidden = false;
+  bar.back.onclick = () => go('#/settings');
+
+  const wrap = el('div', { className: 'confwrap' });
+  view.style.overflow = 'hidden';
+  view.append(wrap);
+
+  const note = el('p', { className: 'meta pad' }, bidi(path));
+  const host = el('div', { className: 'confedit' });
+  wrap.append(note, host);
+
+  const apply = el('button', {
+    className: 'primary inline',
+    textContent: t('Apply to every session'),
+    onclick: async () => {
+      apply.disabled = true;
+      const was = apply.textContent;
+      apply.textContent = t('checking…');
+      try {
+        const r = await postJSON('/api/tmux/source', {});
+        toast(r.message || t('every session on this server now has it'));
+      } catch (e) {
+        // A refusal here means the file was not applied at all — the test server took
+        // the damage instead of the one holding the work.
+        toast(e.message, true);
+      } finally {
+        apply.disabled = false;
+        apply.textContent = was;
+      }
+    },
+  });
+
+  let text = '';
+  let mtime = 0;
+  try {
+    const r = await fetch(withToken(`/api/file?path=${encodeURIComponent(path)}`));
+    if (r.ok) {
+      text = await r.text();
+      mtime = Number(r.headers.get('x-mtime') || 0);
+    } else if (r.status === 404) {
+      note.append(el('span', { textContent: ` — ${t('not there yet; saving will create it')}` }));
+    }
+  } catch { /* offline; the editor still opens empty */ }
+
+  editor({ text, mtime, host, path }, { onDone: () => go('#/settings') });
+  // The editor owns its own bar; the apply button joins it, because saving and applying
+  // are two halves of the same errand.
+  host.querySelector('.editbar')?.prepend(apply);
+}
 
 function applySidebar() {
   document.body.classList.toggle('side', prefs.sidebar && !!token);
