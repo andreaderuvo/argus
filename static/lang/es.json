@@ -193,6 +193,7 @@
   "Copy this": "Copiar esto",
   "copied": "copiado",
   "select it and copy it by hand": "selecciónalo y cópialo a mano",
-  "copied {count} characters": "copiados {count} caracteres"
+  "copied {count} characters": "copiados {count} caracteres",
+  "tmux prefix": "prefijo de tmux"
  }
 }

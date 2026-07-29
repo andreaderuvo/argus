@@ -2759,7 +2759,12 @@ function attachTerminal(container, name, { transform, onGone, onPath } = {}) {
 
 const CTRL_KEYS = [
   ['Esc', '\x1b'], ['Tab', '\t'], ['↑', '\x1b[A'], ['↓', '\x1b[B'],
-  ['←', '\x1b[D'], ['→', '\x1b[C'], ['^C', '\x03'], ['^D', '\x04'],
+  ['←', '\x1b[D'], ['→', '\x1b[C'],
+  // The tmux prefix as one key. A phone has no Ctrl, and on a desktop Firefox keeps
+  // Ctrl+B for its bookmarks — in both cases the keystroke never reaches the terminal,
+  // and every tmux command starts with it.
+  ['^B', '\x02', 'tmux prefix'],
+  ['^C', '\x03'], ['^D', '\x04'],
 ];
 
 /** Header bits for the terminal screen, re-applied whenever it comes back to the front.
@@ -2801,8 +2806,10 @@ async function screenTerm(name) {
   ctrlBtn.onclick = () => { sticky = !sticky; ctrlBtn.classList.toggle('on', sticky); handle.focus(); };
 
   keys.append(ctrlBtn);
-  for (const [label, seq] of CTRL_KEYS) {
-    keys.append(el('button', { textContent: label, onclick: () => { handle.send(seq); handle.focus(); } }));
+  for (const [label, seq, hint] of CTRL_KEYS) {
+    const b = el('button', { textContent: label, onclick: () => { handle.send(seq); handle.focus(); } });
+    if (hint) b.title = t(hint);
+    keys.append(b);
   }
   keys.append(copyButton(handle), ...sizeButtons(handle));
 
