@@ -1,3 +1,6 @@
+import pytest
+
+from app import tmux
 from app.tmux import Socket, is_no_server, parse_sessions
 
 
@@ -89,3 +92,52 @@ def test_the_exact_prefix_is_what_stops_a_neighbour_being_killed():
 
     # `claude` would otherwise match `claude-geo` as a prefix.
     assert "=claude" in kill_argv(Socket.new(None), "claude")
+
+
+def test_the_paste_buffer_is_read_with_show_buffer_not_capture_pane(monkeypatch):
+    """capture-pane takes the whole tmux server down on this host; show-buffer is the
+    safe way to see what was copied."""
+    seen = []
+
+    class Done:
+        returncode = 0
+        stdout = "quello che ho selezionato"
+        stderr = ""
+
+    monkeypatch.setattr(tmux.subprocess, "run", lambda argv, **kw: (seen.append(argv), Done())[1])
+    assert tmux.show_buffer(Socket.new("argus-test")) == "quello che ho selezionato"
+    assert seen[-1] == ["tmux", "-L", "argus-test", "show-buffer"]
+    assert not any("capture-pane" in a for a in seen[-1])
+
+
+def test_an_empty_buffer_stack_is_not_an_error(monkeypatch):
+    class Done:
+        returncode = 1
+        stdout = ""
+        stderr = "no buffer"
+
+    monkeypatch.setattr(tmux.subprocess, "run", lambda argv, **kw: Done())
+    assert tmux.show_buffer(Socket.new(None)) == "", "nothing copied yet is not a failure"
+
+
+def test_a_real_tmux_error_is_raised(monkeypatch):
+    class Done:
+        returncode = 1
+        stdout = ""
+        stderr = "no server running on /tmp/tmux-1000/default"
+
+    monkeypatch.setattr(tmux.subprocess, "run", lambda argv, **kw: Done())
+    with pytest.raises(tmux.TmuxError):
+        tmux.show_buffer(Socket.new(None))
+
+
+def test_an_enormous_buffer_is_cut_down(monkeypatch):
+    """A paste buffer holds a selection; something the size of a file is a mistake, and
+    shipping it into a phone's clipboard helps nobody."""
+    class Done:
+        returncode = 0
+        stdout = "x" * (tmux.MAX_BUFFER + 5000)
+        stderr = ""
+
+    monkeypatch.setattr(tmux.subprocess, "run", lambda argv, **kw: Done())
+    assert len(tmux.show_buffer(Socket.new(None))) == tmux.MAX_BUFFER

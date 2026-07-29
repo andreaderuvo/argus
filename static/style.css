@@ -1184,3 +1184,17 @@ button.more.weigh { color: var(--dim); }
 button.more.weigh.busy { animation: weighing 1.1s linear infinite; }
 button.more.weigh.partial { color: var(--warn, #d6b98f); }
 @keyframes weighing { to { transform: rotate(360deg); } }
+
+/* The text handed over when the browser will not take it for us. Monospace, because what
+   comes out of a terminal is usually a path or a command. */
+.copybox {
+  width: 100%;
+  min-height: 9rem;
+  resize: vertical;
+  font: 13px/1.5 ui-monospace, "SF Mono", Menlo, monospace;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: .4rem;
+  padding: .5rem;
+}

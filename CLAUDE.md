@@ -75,6 +75,15 @@ reloading is the whole loop — only Python changes need the server restarted.
 
 ## Frontend notes
 
+- **Copying out of tmux.** A selection made with tmux's own mouse mode lands in a *tmux*
+  paste buffer on the server, which the browser cannot see — that is what "copied 26
+  chars" means. `/api/tmux/buffer` reads it back with `show-buffer` (never `capture-pane`,
+  see above), and the copy button in the key bar prefers `term.getSelection()` and falls
+  back to that buffer. The click is the user gesture the clipboard needs, so `copyText`'s
+  execCommand path works on the plain-http LAN address where `navigator.clipboard` does
+  not exist; if even that is refused, `showText()` hands the text over selected. OSC 52 is
+  also honoured, which covers `set -g set-clipboard on`.
+
 - **Full screen** is the header's ⤢ button (`#fullscreen`), hidden where the browser has
   no Fullscreen API — an iPhone, notably — rather than sitting there doing nothing. The
   icon and title follow `fullscreenchange`, not the click, so leaving by Esc or F11 keeps

@@ -184,6 +184,15 @@
   "Open files inside the desk": "Apri i file dentro il desk",
   "a file opened from a window becomes a window, instead of taking the screen": "un file aperto da una finestra diventa una finestra, invece di prendersi lo schermo",
   "Leave full screen": "Esci da tutto schermo",
-  "the browser would not go full screen": "il browser non è andato a tutto schermo"
+  "the browser would not go full screen": "il browser non è andato a tutto schermo",
+  "Copy the selection": "Copia la selezione",
+  "selection": "selezione",
+  "tmux buffer": "buffer di tmux",
+  "nothing to copy — select something first": "niente da copiare — seleziona prima qualcosa",
+  "copied {count} characters from the {where}": "copiati {count} caratteri dalla {where}",
+  "Copy this": "Copia questo",
+  "copied": "copiato",
+  "select it and copy it by hand": "selezionalo e copialo a mano",
+  "copied {count} characters": "copiati {count} caratteri"
  }
 }
