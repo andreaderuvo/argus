@@ -180,6 +180,8 @@
   "adding up…": "calcul en cours…",
   "at least {size}": "au moins {size}",
   "{count} file(s)": "{count} fichier(s)",
-  "Some of it could not be read": "Une partie n'a pas pu être lue"
+  "Some of it could not be read": "Une partie n'a pas pu être lue",
+  "Open files inside the desk": "Ouvrir les fichiers dans le bureau",
+  "a file opened from a window becomes a window, instead of taking the screen": "un fichier ouvert depuis une fenêtre devient une fenêtre, au lieu de prendre l'écran"
  }
 }

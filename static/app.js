@@ -46,6 +46,7 @@ const DEFAULTS = {
   colors: {},        // session name -> palette index, when you override the default
   fontSize: 13,
   wrap: true,
+  openInDesk: true,  // a file opened from a window in a desk stays in the desk
 };
 
 const THEMES = ['dark', 'light', 'auto'];
@@ -1194,7 +1195,22 @@ function fileBrowser({
   const node = el('div', { className: `pane${compact ? ' compact' : ''}` });
   const list = el('div', { className: 'panelist' });
   const reload = () => paint();
-  function openFile(e) { go(`#/preview?path=${encodeURIComponent(e.path)}`); }
+
+  /** Opening a file from a desk keeps you in the desk.
+   *
+   *  A listing that is itself a window sits next to a terminal for a reason, and taking
+   *  the whole screen to show a file throws that arrangement away. So on the wall the
+   *  file becomes another window, beside the one it was opened from; anywhere else — the
+   *  Files screen, a phone — full screen is the only sensible answer, and there is a
+   *  setting for anyone who wants that everywhere.
+   */
+  function openFile(e) {
+    if (prefs.openInDesk !== false && live?.key === 'wall') {
+      openLocated('wall', { path: e.path, type: 'file' }, node.closest('.win'));
+      return;
+    }
+    go(`#/preview?path=${encodeURIComponent(e.path)}`);
+  }
 
   const draw = (entries, err) => {
     list.innerHTML = '';
@@ -2080,6 +2096,8 @@ async function screenSettings() {
       () => prefs.tree, (v) => { prefs.tree = v; renderSidebar(); }),
     toggle(t('Wrap long lines'), t('the default when previewing a text file'),
       () => prefs.wrap, (v) => { prefs.wrap = v; }),
+    toggle(t('Open files inside the desk'), t('a file opened from a window becomes a window, instead of taking the screen'),
+      () => prefs.openInDesk !== false, (v) => { prefs.openInDesk = v; }),
   );
 
   // Font size: a stepper rather than a toggle, applied the next time a session opens.
@@ -3414,19 +3432,39 @@ function beside(win) {
   if (!deck?.width) return null;
   const src = win.getBoundingClientRect();
   const gap = 8;
-  const right = deck.right - src.right - gap * 2;
-  const left = src.left - deck.left - gap * 2;
-  const room = Math.max(right, left);
-  if (room < 260) return null;
+  const top = Math.round(Math.max(gap, src.top - deck.top));
+  const height = Math.round(Math.min(src.height, deck.height - gap * 2));
+
   // Taking every pixel of the free side turns a click into a window three times the size
   // of the one that spawned it. Match the source instead, so the two read as a pair.
-  const width = Math.min(room, Math.max(src.width, 520));
-  return {
-    left: `${Math.round(right >= left ? src.right - deck.left + gap : Math.max(gap, left + gap - width))}px`,
-    top: `${Math.round(Math.max(gap, src.top - deck.top))}px`,
-    width: `${Math.round(width)}px`,
-    height: `${Math.round(Math.min(src.height, deck.height - gap * 2))}px`,
-  };
+  const fits = (room) => Math.min(room, Math.max(src.width, 520));
+  const sides = [];
+  const rightRoom = deck.right - src.right - gap * 2;
+  const leftRoom = src.left - deck.left - gap * 2;
+  if (rightRoom >= 260) {
+    const width = fits(rightRoom);
+    sides.push({ left: Math.round(src.right - deck.left + gap), width: Math.round(width) });
+  }
+  if (leftRoom >= 260) {
+    const width = fits(leftRoom);
+    sides.push({ left: Math.round(Math.max(gap, leftRoom + gap - width)), width: Math.round(width) });
+  }
+  if (!sides.length) return null;
+
+  // Room on a side is not the same as *free* room: the widest side of a full desk is
+  // usually where another window already is. Prefer whichever candidate covers least.
+  const peers = [...(win.parentElement?.children || [])]
+    .filter((n) => n !== win && n.classList?.contains('win'))
+    .map((n) => n.getBoundingClientRect());
+  const covered = (side) => peers.reduce((sum, r) => {
+    const x = Math.min(deck.left + side.left + side.width, r.right) - Math.max(deck.left + side.left, r.left);
+    const y = Math.min(deck.top + top + height, r.bottom) - Math.max(deck.top + top, r.top);
+    return sum + (x > 0 && y > 0 ? x * y : 0);
+  }, 0);
+  sides.sort((a, b) => covered(a) - covered(b));
+
+  const best = sides[0];
+  return { left: `${best.left}px`, top: `${top}px`, width: `${best.width}px`, height: `${height}px` };
 }
 
 /** A window is identified by what it shows, so geometry and colour survive a reload. */

@@ -180,6 +180,8 @@
   "adding up…": "adding up…",
   "at least {size}": "at least {size}",
   "{count} file(s)": "{count} file(s)",
-  "Some of it could not be read": "Some of it could not be read"
+  "Some of it could not be read": "Some of it could not be read",
+  "Open files inside the desk": "Open files inside the desk",
+  "a file opened from a window becomes a window, instead of taking the screen": "a file opened from a window becomes a window, instead of taking the screen"
  }
 }
