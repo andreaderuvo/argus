@@ -1,0 +1,24 @@
+name: tests
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # 3.11 is the floor: the PTY bridge uses os.login_tty.
+        python: ['3.11', '3.12', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install -r requirements.txt
+      # tmux is not needed — nothing here drives a real server — but pandoc decides
+      # whether the Word-document tests run or skip, so it is worth having.
+      - run: sudo apt-get update && sudo apt-get install -y pandoc
+      - run: python -m pytest -q

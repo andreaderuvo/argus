@@ -67,7 +67,6 @@ app/fsops.py      mkdir / rename / move / copy / delete — refused unless allow
 app/tmux.py       Socket (-L/-S) + list-sessions parsing
 app/term.py       PTY ↔ WebSocket bridge
 static/           index.html, app.js, style.css, sw.js, vendor/{xterm-6.0.0,marked-18.0.7}
-legacy-rust/      the original axum implementation, kept for reference
 ```
 
 The frontend is one ES module, no bundler and no build step. Editing `static/` and
