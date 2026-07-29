@@ -1176,3 +1176,11 @@ video.scanner { width: 100%; border-radius: .6rem; background: #000; aspect-rati
   text-align: left;
 }
 .uploading .dest bdi { unicode-bidi: isolate; }
+
+/* Weighing a folder. The button sits where a file's size would be read from, and says
+   what it is doing: a walk over a run directory is not instant. */
+button.more.weigh { color: var(--dim); }
+.rowwrap:hover button.more.weigh { color: var(--accent); }
+button.more.weigh.busy { animation: weighing 1.1s linear infinite; }
+button.more.weigh.partial { color: var(--warn, #d6b98f); }
+@keyframes weighing { to { transform: rotate(360deg); } }

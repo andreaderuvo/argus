@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import mimetypes
 import os
+import time
 import zipfile
 from pathlib import Path
 from xml.etree import ElementTree
@@ -20,6 +22,12 @@ SEARCH_SKIP = {
     ".git", "node_modules", "target", ".cargo", ".rustup", ".conda", "miniconda3",
     ".nextflow", "work", ".cache", ".venv", "__pycache__", ".npm", ".nvm",
 }
+# Adding up a directory is unbounded work — a sequencing run is millions of files — so it
+# stops at whichever of these comes first and says the answer is partial. A number marked
+# "at least" is useful; a request that never returns is not.
+USAGE_MAX_ENTRIES = 400_000
+USAGE_MAX_SECONDS = 20.0
+
 SEARCH_MAX_HITS = 200
 SEARCH_MAX_VISITED = 300_000
 SEARCH_MAX_DEPTH = 12
@@ -223,6 +231,70 @@ async def search(request: Request, path: str, q: str) -> list[dict]:
     if not needle:
         return []
     return walk_for(root, needle)
+
+
+@router.get("/api/fs/usage")
+async def usage(request: Request, path: str) -> dict:
+    """What a folder actually weighs, added up by hand.
+
+    Apparent size, the sum of the file sizes — the number that matches what you see in a
+    listing, rather than the blocks on disk, which sparse files and compression make a
+    different question.
+    """
+    target = _resolve(request, path)
+    if not os.path.isdir(target):
+        st = target.stat()
+        return {"path": str(target), "bytes": st.st_size, "files": 1, "dirs": 0, "complete": True}
+    return await asyncio.to_thread(add_up, target)
+
+
+def add_up(root: Path) -> dict:
+    """Walk a tree adding sizes, without following symlinks anywhere.
+
+    A link is counted as the little thing it is and never entered: following them would
+    double-count a tree reachable twice, hang on a cycle, and quietly add up files outside
+    the jail — the one place where a link is not the thing it points at.
+    """
+    total = 0
+    files = 0
+    dirs = 0
+    seen = 0
+    started = time.monotonic()
+    complete = True
+    stack = [root]
+
+    while stack:
+        if seen >= USAGE_MAX_ENTRIES or time.monotonic() - started > USAGE_MAX_SECONDS:
+            complete = False
+            break
+        current = stack.pop()
+        try:
+            with os.scandir(current) as entries:
+                for entry in entries:
+                    seen += 1
+                    try:
+                        st = entry.stat(follow_symlinks=False)
+                    except OSError:
+                        continue
+                    if entry.is_dir(follow_symlinks=False):
+                        dirs += 1
+                        stack.append(entry.path)
+                    else:
+                        files += 1
+                        total += st.st_size
+        except OSError:
+            # A directory we may not read is not an error for the total — it is simply
+            # not part of what we can see, and saying so beats refusing the whole answer.
+            complete = False
+
+    return {
+        "path": str(root),
+        "bytes": total,
+        "files": files,
+        "dirs": dirs,
+        "complete": complete,
+        "seconds": round(time.monotonic() - started, 2),
+    }
 
 
 def walk_for(root: Path, needle: str) -> list[dict]:

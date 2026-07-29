@@ -175,6 +175,11 @@
   "Fit the session to this screen": "Fit the session to this screen",
   "Watch without changing the size": "Watch without changing the size",
   "Take the size back": "Take the size back",
-  "No file at {path}": "No file at {path}"
+  "No file at {path}": "No file at {path}",
+  "Total size": "Total size",
+  "adding up…": "adding up…",
+  "at least {size}": "at least {size}",
+  "{count} file(s)": "{count} file(s)",
+  "Some of it could not be read": "Some of it could not be read"
  }
 }
