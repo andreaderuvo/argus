@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import subprocess
 from dataclasses import dataclass
 
@@ -178,6 +179,82 @@ def show_buffer(sock: Socket) -> str:
             return ""
         raise TmuxError(stderr or "tmux refused")
     return done.stdout[:MAX_BUFFER]
+
+
+# Where tmux looks for its configuration, in the order it looks.
+CONF_PLACES = ("~/.tmux.conf", "~/.config/tmux/tmux.conf")
+CHECK_SOCKET = "argus-conf-check"
+
+
+def conf_path() -> str:
+    """The config file tmux would read, or where it should be written."""
+    import os.path
+
+    for place in CONF_PLACES:
+        full = os.path.expanduser(place)
+        if os.path.isfile(full):
+            return full
+    return os.path.expanduser(CONF_PLACES[0])
+
+
+def complaint(done: subprocess.CompletedProcess) -> str:
+    """What tmux is objecting to.
+
+    `source-file` writes "file:12: unknown command: nonsense" to *stdout*, not stderr —
+    reading only stderr turns a precise line number into a blank "it refused".
+    """
+    return (done.stderr.strip() or done.stdout.strip()).splitlines()[0] if (done.stderr.strip() or done.stdout.strip()) else ""
+
+
+def check_conf(path: str) -> str | None:
+    """Try the file on a throwaway tmux server. Returns the complaint, or None if fine.
+
+    Sourcing a config *runs* it — including `run-shell`, `if-shell`, and anything else it
+    holds — and a file that takes the server down takes every session with it. That has
+    already happened once on this machine. So it is tried on a server of its own first,
+    where the worst case costs nothing, and only then on the real one.
+
+    This does mean side effects in the file happen twice. A config that starts programs
+    is a config to apply by hand.
+    """
+    scratch = Socket.new(CHECK_SOCKET)
+    run = lambda *args: subprocess.run(  # noqa: E731 — one shape, used three times
+        ["tmux", *scratch.args(), *args], capture_output=True, text=True, timeout=20,
+    )
+    with contextlib.suppress(OSError, subprocess.SubprocessError):
+        run("kill-server")
+    try:
+        # A bare server first — `-f /dev/null` so it starts with no configuration at all —
+        # and then the file through the very command the real server will run. Starting it
+        # with `-f <path>` instead would not do: tmux shows those errors in the client's
+        # window rather than on stderr, so a broken line came back looking fine.
+        started = run("-f", "/dev/null", "new-session", "-d", "-s", "check", "-x", "80", "-y", "24")
+        if started.returncode != 0:
+            return complaint(started) or "could not start a test server"
+        done = run("source-file", path)
+    except (OSError, subprocess.SubprocessError) as e:
+        return f"could not test the file: {e}"
+    finally:
+        with contextlib.suppress(OSError, subprocess.SubprocessError):
+            run("kill-server")
+
+    if done.returncode != 0 or complaint(done):
+        return complaint(done) or "tmux refused the file"
+    return None
+
+
+def source_conf(sock: Socket, path: str) -> str:
+    """Make the running server read the file. Returns whatever tmux had to say."""
+    try:
+        done = subprocess.run(
+            ["tmux", *sock.args(), "source-file", path],
+            capture_output=True, text=True, timeout=20,
+        )
+    except (OSError, subprocess.SubprocessError) as e:
+        raise TmuxError(f"could not source the file: {e}") from e
+    if done.returncode != 0:
+        raise TmuxError(complaint(done) or "tmux refused the file")
+    return complaint(done)
 
 
 def session_exists(sock: Socket, name: str) -> bool:

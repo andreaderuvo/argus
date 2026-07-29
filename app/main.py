@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import os
 import mimetypes
 import sys
 from pathlib import Path
@@ -124,6 +125,30 @@ def create_app(cfg: Config) -> FastAPI:
             raise ApiError(403, "outside the configured roots") from None
         st = target.stat()
         return {"path": str(target), "mtime": int(st.st_mtime), "size": st.st_size}
+
+    @app.post("/api/tmux/source")
+    async def source_conf(request: Request, body: dict) -> dict:
+        """Make every session pick up the configuration file.
+
+        tmux options are per-server, so one source-file reaches every session on it —
+        there is nothing to do per session. The file is tried on a throwaway server first,
+        because sourcing runs it and a bad line can end the server everything is in.
+        """
+        state = request.app.state
+        path = tmux.conf_path()
+        if not os.path.isfile(path):
+            raise ApiError(404, f"no configuration file at {path}")
+
+        if not bool(body.get("force")):
+            complaint = await asyncio.to_thread(tmux.check_conf, path)
+            if complaint:
+                raise ApiError(400, f"the file was refused on a test server: {complaint}")
+
+        try:
+            said = await asyncio.to_thread(tmux.source_conf, state.socket, path)
+        except tmux.TmuxError as e:
+            raise ApiError(502, str(e)) from e
+        return {"path": path, "message": said}
 
     @app.get("/api/tmux/buffer")
     async def tmux_buffer(request: Request) -> dict:
