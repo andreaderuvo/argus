@@ -82,6 +82,12 @@ reloading is the whole loop — only Python changes need the server restarted.
   not persisted snaps back on the next visit. Note that with two windows touching, the
   handle on top belongs to whichever window is drawn last, so the same gesture arrives as
   `e` on one and `w` on the other; both paths are implemented.
+- **Dropping into a gap.** `gapZone()` is offered between the wall's own edges (`aeroZone`)
+  and the window under the pointer (`dockZone`): it walks the peers for the free rectangle
+  around the pointer and previews it, so a window dropped in the corridor between two
+  columns fills it exactly. Guarded by "walled and tight" — a window must bound it and it
+  must be under 70% of the desk on that axis — or every drop into open space would resize
+  the window being dropped.
 
 - **Preferences** live in `localStorage` under `argus.prefs`: theme, hidden files, sidebar,
   tree view, wall layout, per-session colours, font size, wrap.

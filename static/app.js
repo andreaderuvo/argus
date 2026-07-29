@@ -3319,9 +3319,11 @@ function dragBy(grabber, win, bounds, onDone, ignore = [], peers = () => [], onT
       }
 
       // The wall's own edges win over a window underneath: that is the gesture people
-      // reach for when they want a half-screen.
+      // reach for when they want a half-screen. Then the gap between windows, then the
+      // window under the pointer — each one more specific than the last.
       const aero = aeroZone(px, py, area);
-      drop = aero ? { zone: aero } : dockZone(px, py, peers, area);
+      const gap = aero ? null : gapZone(px, py, peers, area);
+      drop = aero ? { zone: aero } : gap ? { zone: gap } : dockZone(px, py, peers, area);
       showGhost(bounds, drop?.zone || null);
 
       const x = Math.max(0, Math.min(px - dx, area.width - 60));
@@ -3687,6 +3689,46 @@ function aeroZone(x, y, area) {
   if (nearRight) return { left: half.w, top: 0, width: half.w, height: area.height };
   if (nearBottom) return { left: 0, top: half.h, width: area.width, height: half.h };
   return null;
+}
+
+/** The empty corridor the pointer is in, if it is in one.
+ *
+ *  Pull two columns apart and the space between them is a shape you meant to make. This
+ *  finds it — the free rectangle around the pointer, walled by whatever windows sit
+ *  either side of it — so a third window drops into the gap at exactly its size instead
+ *  of being nudged into place by hand. The edges then touch, which makes them splitters.
+ */
+function gapZone(x, y, peers, area) {
+  let [left, right, top, bottom] = [0, area.width, 0, area.height];
+  let walledX = false;
+  let walledY = false;
+
+  for (const other of peers()) {
+    const r = other.getBoundingClientRect();
+    const l = r.left - area.left;
+    const t = r.top - area.top;
+    const rr = l + r.width;
+    const b = t + r.height;
+    // Over a window is not a gap — that gesture already means "split this one".
+    if (x >= l && x <= rr && y >= t && y <= b) return null;
+    if (y > t && y < b) {                     // alongside the pointer
+      if (rr <= x && rr > left) { left = rr; walledX = true; }
+      if (l >= x && l < right) { right = l; walledX = true; }
+    }
+    if (x > l && x < rr) {                    // above or below it
+      if (b <= y && b > top) { top = b; walledY = true; }
+      if (t >= y && t < bottom) { bottom = t; walledY = true; }
+    }
+  }
+
+  const width = right - left;
+  const height = bottom - top;
+  if (width < MIN_W || height < MIN_H) return null;
+  // A corridor, not simply "the empty part of the desk": it has to be walled and it has
+  // to be tight, or every drop into open space would resize the window.
+  const tight = (walled, size, whole) => walled && size < whole * 0.7;
+  if (!tight(walledX, width, area.width) && !tight(walledY, height, area.height)) return null;
+  return { left, top, width, height };
 }
 
 /** Dropping onto another window splits *it*: the half you point at becomes the newcomer,
