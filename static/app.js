@@ -1509,6 +1509,13 @@ async function mountPreview(host, path, ctl) {
   }
 
   if (type.startsWith('text/html')) {
+    // A converted Word document has no source anyone wants to read — the HTML is ours,
+    // not the file's — so it goes straight into the frame with no toggle.
+    if (r.headers.get('x-rendered')) {
+      ctl.fill?.(true);
+      host.append(el('iframe', { className: 'preview', src, sandbox: 'allow-popups allow-forms' }));
+      return;
+    }
     const source = await r.text();
     ctl.fill?.(true);
     return ctl.source((rendered) => {
@@ -2880,7 +2887,9 @@ async function screenWall() {
         open.splice(open.indexOf(entry), 1);
         ws.desktop = ws.desktop.filter((x) => specId(x) !== id);
         savePrefs();
-        applyLayout(prefs.wallLayout || 'grid');
+        // Deliberately no re-tiling. Grid, Columns and Rows are things you *do*, not modes
+        // the desk stays in: re-running the last one here threw away an arrangement made
+        // by hand every time a window was closed.
       };
 
       solo.onclick = () => {
@@ -2924,8 +2933,17 @@ async function screenWall() {
       applyGeom(o.win, prefs.winGeom[geomKey(ws, o.name)]);
       o.win.style.zIndex = ++top;
     }
-    if (known.length < open.length) {
+    if (!known.length) {
+      // A desk seen for the first time: tile it, because scattering the windows on top of
+      // each other is nobody's idea of a starting point.
       requestAnimationFrame(() => arrange(open, node, prefs.wallLayout || 'grid', (id) => geomKey(ws, id)));
+    } else {
+      // Otherwise only the windows that have never been placed get a place. Re-tiling the
+      // desk because one newcomer has no geometry would undo an arrangement made by hand.
+      for (const o of open.filter((x) => !known.includes(x))) {
+        applyGeom(o.win, DEFAULT_GEOM);
+        o.win.style.zIndex = ++top;
+      }
     }
 
     return { ws, node, open, addWindow };

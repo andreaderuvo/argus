@@ -75,6 +75,13 @@ reloading is the whole loop — only Python changes need the server restarted.
 
 ## Frontend notes
 
+- **Word documents go through pandoc** when the machine has it: `/api/file` answers with
+  rendered HTML (`x-rendered: document`) under the same CSP sandbox as any other HTML, and
+  `--embed-resources` inlines the figures so nothing is fetched. Missing, failing, or over
+  12 MB of output falls back to the stdlib text extraction — pandoc is never a
+  requirement. `find_pandoc()` also looks beside `sys.executable`, because a systemd
+  service has a bare PATH and every tool here lives in conda.
+
 - **A file opened from a desk stays in the desk.** `fileBrowser`'s `openFile` checks
   `live?.key === 'wall'`: on the wall the file becomes a window beside the one it came
   from, everywhere else (Files screen, phone) it takes the screen as before. `beside()`
