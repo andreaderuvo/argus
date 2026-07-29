@@ -148,6 +148,38 @@ def run(argv: list[str]) -> None:
         raise TmuxError(p.stderr.strip() or "tmux refused")
 
 
+# A paste buffer holds a selection, not a file. Past this it is a mistake, and shipping
+# megabytes into a phone's clipboard helps nobody.
+MAX_BUFFER = 1024 * 1024
+
+
+def show_buffer(sock: Socket) -> str:
+    """What tmux last copied.
+
+    Selecting with the mouse inside tmux puts the text in a *tmux* paste buffer on this
+    machine — that is what the "copied 26 chars" message means — and a browser has no way
+    to see it. Reading it back out is the only bridge to the clipboard of the device you
+    are actually holding.
+
+    Not `capture-pane`: that one takes the tmux server down on this host (see CLAUDE.md).
+    `show-buffer` is a different command and is safe.
+    """
+    try:
+        done = subprocess.run(
+            ["tmux", *sock.args(), "show-buffer"],
+            capture_output=True, text=True, timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError) as e:
+        raise TmuxError(f"could not read the buffer: {e}") from e
+    if done.returncode != 0:
+        stderr = done.stderr.strip()
+        # An empty buffer stack is not a failure, it is "nothing has been copied yet".
+        if "no buffer" in stderr.lower():
+            return ""
+        raise TmuxError(stderr or "tmux refused")
+    return done.stdout[:MAX_BUFFER]
+
+
 def session_exists(sock: Socket, name: str) -> bool:
     """True when a session with exactly this name exists right now. The WebSocket
     handler gates on this so a client can never name a session we did not enumerate."""

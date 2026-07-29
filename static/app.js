@@ -379,6 +379,32 @@ function ask(title, value = '', label = 'OK') {
   });
 }
 
+/** The text itself, when the browser will not take it.
+ *
+ *  A phone on a plain-http address has no clipboard API, and the old execCommand path can
+ *  still be refused. Rather than "copy failed", hand over the text already selected: a
+ *  long press and "Copy" is two taps, and it always works.
+ */
+function showText(title, text) {
+  const area = el('textarea', { className: 'copybox', value: text, readOnly: true, spellcheck: false });
+  const again = el('button', {
+    className: 'primary inline',
+    textContent: t('Copy'),
+    onclick: async () => {
+      area.select();
+      if (await copyText(text)) { toast(t('copied')); d.close(); }
+      else toast(t('select it and copy it by hand'), true);
+    },
+  });
+  const d = modal(title, el('div', { className: 'sheetbody' }, area), [
+    el('button', { className: 'ghost', textContent: t('Close'), onclick: () => d.close() }),
+    again,
+  ]);
+  area.focus();
+  area.select();
+  return d;
+}
+
 function confirmBox(title, message, label = 'Delete') {
   return new Promise((resolve) => {
     const done = (v) => { resolve(v); d.close(); };
@@ -458,6 +484,7 @@ const ICONS = {
   save: 'M5.5 4.5h10L18.5 7.5v12h-13zM8.5 4.5v5h6M8.5 19.5v-6h7v6',
   phone: 'M7.5 3.5h9v17h-9zM10.5 17.8h3',
   camera: 'M4 7.5h3.2l1.4-2h6.8l1.4 2H20v11H4zM12 10.2a3.3 3.3 0 1 1 0 6.6 3.3 3.3 0 0 1 0-6.6z',
+  copy: 'M9 9h10.5v10.5H9zM15 9V4.5H4.5V15H9',
   usage: 'M12 3.6a8.4 8.4 0 1 0 8.4 8.4H12z',
   expand: 'M14.5 4.5h5v5M9.5 19.5h-5v-5M19.5 4.5l-6.2 6.2M4.5 19.5l6.2-6.2',
   compress: 'M20 4l-6.2 6.2M13.8 10.2h5M13.8 10.2v-5M4 20l6.2-6.2M10.2 13.8h-5M10.2 13.8v5',
@@ -2229,6 +2256,37 @@ const READABLE = 7;
  *  and a desk on the same session someone always loses. These make that a decision:
  *  ⤢ takes the size now, the lock says "I am only watching, keep your size".
  */
+function copyButton(handle, cls) {
+  const btn = el('button', { className: cls, title: t('Copy the selection') }, icon('copy'));
+  btn.onclick = async (e) => {
+    e.stopPropagation();
+    // What you highlighted in the browser, if anything; otherwise what tmux says it
+    // copied — which is where a selection made with tmux's own mouse mode ends up, on
+    // the server, invisible to this browser until we go and ask for it.
+    let text = handle.selection?.() || '';
+    let where = t('selection');
+    if (!text) {
+      try {
+        const r = await getJSON('/api/tmux/buffer');
+        text = r.text || '';
+        where = t('tmux buffer');
+      } catch (err) {
+        toast(err.message, true);
+        return;
+      }
+    }
+    if (!text) {
+      toast(t('nothing to copy — select something first'), true);
+      return;
+    }
+    // The click is still the user gesture the browser wants, so the old execCommand path
+    // inside copyText works even on a plain-http address where the clipboard API is gone.
+    if (await copyText(text)) toast(t('copied {count} characters from the {where}', { count: text.length, where }));
+    else showText(t('Copy this'), text);
+  };
+  return btn;
+}
+
 function sizeButtons(handle, cls) {
   const fitNow = el('button', { className: cls, title: t('Fit the session to this screen') }, icon('fit'));
   fitNow.onclick = (e) => { e.stopPropagation(); handle.claim(); handle.focus(); };
@@ -2429,6 +2487,20 @@ function attachTerminal(container, name, { transform, onGone, onPath } = {}) {
     .catch(() => { /* no WebGL here */ });
 
   try { fit.fit(); } catch { /* not laid out yet */ }
+
+  // OSC 52 is a program saying "put this on the clipboard". tmux sends it for a copy-mode
+  // selection when `set-clipboard on` is set, and some programs send it directly. Without
+  // a gesture the browser may well refuse, so this is a bonus path, not the one the copy
+  // button relies on.
+  term.parser?.registerOscHandler?.(52, (payload) => {
+    const b64 = payload.slice(payload.indexOf(';') + 1);
+    if (!b64 || b64 === '?') return true;
+    try {
+      const text = new TextDecoder().decode(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)));
+      copyText(text).then((ok) => ok && toast(t('copied {count} characters', { count: text.length })));
+    } catch { /* not base64 we can use */ }
+    return true;
+  });
 
   // Paths printed by whatever is running in here open in the viewer. Following one is not
   // a reason to take the tmux size off another client: the click was aimed at the file,
@@ -2655,6 +2727,8 @@ function attachTerminal(container, name, { transform, onGone, onPath } = {}) {
   return {
     send,
     relayout,
+    /** Whatever is highlighted in this terminal right now. */
+    selection: () => term.getSelection(),
     /** Ask tmux to make this client the one the window is sized for. */
     claim: claimSize,
     /** Stop this client from ever resizing the window — look without touching. */
@@ -2730,7 +2804,7 @@ async function screenTerm(name) {
   for (const [label, seq] of CTRL_KEYS) {
     keys.append(el('button', { textContent: label, onclick: () => { handle.send(seq); handle.focus(); } }));
   }
-  keys.append(...sizeButtons(handle));
+  keys.append(copyButton(handle), ...sizeButtons(handle));
 
   const zoom = (by) => () => {
     prefs.fontSize = Math.max(5, Math.min(22, prefs.fontSize + by));
@@ -2908,7 +2982,7 @@ async function screenWall() {
             },
           });
       if (handle.extra) extras.append(handle.extra);
-      if (spec.kind === 'term') extras.append(...sizeButtons(handle, 'winbtn'));
+      if (spec.kind === 'term') extras.append(copyButton(handle, 'winbtn'), ...sizeButtons(handle, 'winbtn'));
       const entry = { win, handle, name: id };
       open.push(entry);
 

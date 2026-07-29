@@ -184,6 +184,15 @@
   "Open files inside the desk": "Open files inside the desk",
   "a file opened from a window becomes a window, instead of taking the screen": "a file opened from a window becomes a window, instead of taking the screen",
   "Leave full screen": "Leave full screen",
-  "the browser would not go full screen": "the browser would not go full screen"
+  "the browser would not go full screen": "the browser would not go full screen",
+  "Copy the selection": "Copy the selection",
+  "selection": "selection",
+  "tmux buffer": "tmux buffer",
+  "nothing to copy — select something first": "nothing to copy — select something first",
+  "copied {count} characters from the {where}": "copied {count} characters from the {where}",
+  "Copy this": "Copy this",
+  "copied": "copied",
+  "select it and copy it by hand": "select it and copy it by hand",
+  "copied {count} characters": "copied {count} characters"
  }
 }

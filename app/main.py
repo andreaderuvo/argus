@@ -125,6 +125,15 @@ def create_app(cfg: Config) -> FastAPI:
         st = target.stat()
         return {"path": str(target), "mtime": int(st.st_mtime), "size": st.st_size}
 
+    @app.get("/api/tmux/buffer")
+    async def tmux_buffer(request: Request) -> dict:
+        """The last thing copied inside tmux, so it can reach the device's clipboard."""
+        try:
+            text = await asyncio.to_thread(tmux.show_buffer, request.app.state.socket)
+        except tmux.TmuxError as e:
+            raise ApiError(502, str(e)) from e
+        return {"text": text, "chars": len(text)}
+
     @app.post("/api/tmux/new")
     async def new_session(request: Request, body: dict) -> dict:
         state = request.app.state
