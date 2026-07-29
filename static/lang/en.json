@@ -194,6 +194,8 @@
   "copied": "copied",
   "select it and copy it by hand": "select it and copy it by hand",
   "copied {count} characters": "copied {count} characters",
-  "tmux prefix": "tmux prefix"
+  "tmux prefix": "tmux prefix",
+  "Pin to the front": "Pin to the front",
+  "Pinned — hold for the menu": "Pinned — hold for the menu"
  }
 }
