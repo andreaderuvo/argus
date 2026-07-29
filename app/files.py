@@ -5,6 +5,9 @@ from __future__ import annotations
 import asyncio
 import mimetypes
 import os
+import shutil
+import subprocess
+import sys
 import time
 import zipfile
 from pathlib import Path
@@ -15,6 +18,14 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 
 from .errors import ApiError
 from .safepath import Denied, NotFound, PathError
+
+# What pandoc can be asked to render, and as what. Everything here also has a plain-text
+# fallback below, because pandoc is a nice-to-have on the machine, never a requirement.
+PANDOC_FORMATS = {".docx": "docx", ".odt": "odt", ".rtf": "rtf", ".epub": "epub"}
+PANDOC_TIMEOUT = 25
+# Images come back base64-inlined, so a document full of figures can balloon. Past this
+# the plain text is the better answer than a page the phone cannot hold.
+PANDOC_MAX_HTML = 12 * 1024 * 1024
 
 # Directories that never carry anything a phone user is looking for, and that would
 # otherwise dominate the walk. Skipping them is what keeps search interactive.
@@ -149,10 +160,30 @@ async def read_file(request: Request, path: str) -> Response:
     size = target.stat().st_size
     guessed = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
 
-    # Office documents are unzipped into plain text, so a .docx is readable instead of
-    # being a download-only blob.
-    if target.suffix.lower() in ZIPPED_DOCS:
-        return Response(content=document_text(target), media_type="text/plain; charset=utf-8")
+    # Office documents: rendered as a document where the machine can, unzipped into plain
+    # text where it cannot, and never a download-only blob.
+    suffix = target.suffix.lower()
+    if suffix in PANDOC_FORMATS or suffix in ZIPPED_DOCS:
+        rendered = None
+        if suffix in PANDOC_FORMATS and size <= limit:
+            rendered = await asyncio.to_thread(pandoc_html, target, PANDOC_FORMATS[suffix])
+        if rendered:
+            return Response(
+                content=rendered,
+                media_type="text/html; charset=utf-8",
+                # The same sandbox an HTML file gets: this page was written by somebody
+                # else, and it must not be able to reach the token in localStorage.
+                headers={
+                    "content-security-policy": HTML_SANDBOX,
+                    "x-content-type-options": "nosniff",
+                    # Tells the viewer this is a rendered document, not a page whose
+                    # source anyone wants to read.
+                    "x-rendered": "document",
+                },
+            )
+        if suffix in ZIPPED_DOCS:
+            return Response(content=document_text(target), media_type="text/plain; charset=utf-8")
+        raise ApiError(415, "this document could not be rendered — download it instead")
 
     if size > limit:
         # A log is precisely the file that outgrows the cap, and refusing to show it is
@@ -321,6 +352,50 @@ def walk_for(root: Path, needle: str) -> list[dict]:
             except OSError:
                 continue
     return hits
+
+
+def find_pandoc() -> str | None:
+    """pandoc on PATH, or next to the interpreter running us.
+
+    A service started by systemd inherits a bare PATH — /usr/bin and little else — so on a
+    machine where every tool lives in a conda environment, `which` finds nothing while the
+    same command works fine in a shell. The interpreter's own bin directory is exactly
+    where that pandoc is.
+    """
+    found = shutil.which("pandoc")
+    if found:
+        return found
+    nearby = Path(sys.executable).parent / "pandoc"
+    return str(nearby) if os.access(nearby, os.X_OK) else None
+
+
+def pandoc_html(path: Path, fmt: str) -> bytes | None:
+    """A Word document as HTML, if this machine has pandoc.
+
+    Reading a report on a phone as one undifferentiated wall of text is barely reading it:
+    headings, lists and tables are most of what makes a document navigable. pandoc rebuilds
+    all of that, and `--embed-resources` inlines the figures so the page needs nothing from
+    anywhere. When it is missing, fails, or produces something enormous, the caller falls
+    back to the text extraction, which has no dependencies at all.
+    """
+    exe = find_pandoc()
+    if not exe:
+        return None
+    try:
+        done = subprocess.run(
+            [exe, "--from", fmt, "--to", "html", "--standalone", "--embed-resources",
+             # `title-meta` fills the browser tab without pandoc's template also printing
+             # the name as a heading: the viewer already shows it in the header bar.
+             "--metadata", f"title-meta={path.stem}", "--", str(path)],
+            capture_output=True, timeout=PANDOC_TIMEOUT,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if done.returncode != 0 or not done.stdout.strip():
+        return None
+    if len(done.stdout) > PANDOC_MAX_HTML:
+        return None
+    return done.stdout
 
 
 def document_text(path: Path) -> str:
