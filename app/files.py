@@ -16,6 +16,7 @@ from xml.etree import ElementTree
 from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
 
+from . import tmux
 from .errors import ApiError
 from .safepath import Denied, NotFound, PathError
 
@@ -121,6 +122,8 @@ async def server_info(request: Request) -> dict:
         # The UI hides every mutating control when this is false.
         "allow_write": cfg.allow_write,
         "max_upload_bytes": cfg.max_upload_bytes,
+        # Where tmux reads its configuration, so the UI can offer to edit it.
+        "tmux_conf": tmux.conf_path(),
         # For the "open this on another device" QR code.
         "addresses": request.app.state.addresses,
         "port": request.app.state.port,

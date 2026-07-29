@@ -75,6 +75,16 @@ reloading is the whole loop — only Python changes need the server restarted.
 
 ## Frontend notes
 
+- **Editing the tmux config** lives at `#/tmuxconf` (Settings → tmux configuration): the
+  ordinary editor on `tmux.conf_path()`, plus "apply to every session". Applying is one
+  `source-file` — tmux options belong to the *server*, so there is nothing to do per
+  session — but sourcing **runs** the file, and a bad line can end the server holding all
+  the work. So `check_conf()` tries it first on a throwaway socket (`argus-conf-check`):
+  a bare server with `-f /dev/null`, then the same `source-file`. Starting that test
+  server with `-f <path>` instead does *not* work — tmux shows those errors in the
+  client's window, so a broken file came back looking fine. And the complaint arrives on
+  **stdout**, not stderr; reading the wrong stream loses the line number.
+
 - **Desk tabs drag to reorder, and pin.** `reorderTab()` starts only once the pointer has
   travelled 8px, which leaves a tap (activate), a double-click (rename) and a hold (menu)
   alone; `slideInto()` FLIP-animates the neighbours so you can see what moved. The click

@@ -196,6 +196,12 @@
   "copied {count} characters": "copiados {count} caracteres",
   "tmux prefix": "prefijo de tmux",
   "Pin to the front": "Fijar al principio",
-  "Pinned — hold for the menu": "Fijado — mantén pulsado para el menú"
+  "Pinned — hold for the menu": "Fijado — mantén pulsado para el menú",
+  "tmux configuration": "configuración de tmux",
+  "edit it and hand it to every session at once": "edítala y pásala a todas las sesiones de una vez",
+  "Apply to every session": "Aplicar a todas las sesiones",
+  "checking…": "comprobando…",
+  "every session on this server now has it": "todas las sesiones de este servidor ya la tienen",
+  "not there yet; saving will create it": "todavía no existe; al guardar se creará"
  }
 }

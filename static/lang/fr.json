@@ -196,6 +196,12 @@
   "copied {count} characters": "{count} caractères copiés",
   "tmux prefix": "préfixe tmux",
   "Pin to the front": "Épingler en tête",
-  "Pinned — hold for the menu": "Épinglé — maintenez pour le menu"
+  "Pinned — hold for the menu": "Épinglé — maintenez pour le menu",
+  "tmux configuration": "configuration de tmux",
+  "edit it and hand it to every session at once": "modifiez-la et donnez-la à toutes les sessions d'un coup",
+  "Apply to every session": "Appliquer à toutes les sessions",
+  "checking…": "vérification…",
+  "every session on this server now has it": "toutes les sessions de ce serveur l'ont",
+  "not there yet; saving will create it": "absente ; l'enregistrement la créera"
  }
 }
