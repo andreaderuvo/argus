@@ -1,7 +1,21 @@
+<div align="center">
+
+<img src="static/icon-512.png" width="128" alt="Argus — the hundred-eyed watchman">
+
 # Argus
 
-Watch and drive the long-running work on a Linux box — tmux sessions, files, logs,
-documents, the machine's own health — from a phone, with nothing to install on the phone.
+**Watch and drive the long-running work on a Linux box — tmux sessions, files, logs,
+documents, the machine's own health — from a phone, with nothing to install on the phone.**
+
+[![tests](https://github.com/andreaderuvo/argus/actions/workflows/tests.yml/badge.svg)](https://github.com/andreaderuvo/argus/actions/workflows/tests.yml)
+[![python](https://img.shields.io/badge/python-3.11%2B-3776ab?logo=python&logoColor=white)](https://www.python.org/)
+[![licence](https://img.shields.io/badge/licence-MIT-blue)](LICENSE)
+[![no build step](https://img.shields.io/badge/build%20step-none-8fd6a0)](#running-it)
+[![tmux](https://img.shields.io/badge/tmux-real%20PTY-1bb91f)](#sessions-and-the-terminal)
+
+*Named for the herdsman of a hundred eyes, who was set to watch and never slept.*
+
+</div>
 
 ![A workspace holding a terminal, a file browser and a log, side by side](docs/img/desk.png)
 

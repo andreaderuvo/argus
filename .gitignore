@@ -3,10 +3,6 @@ __pycache__/
 .pytest_cache/
 .venv/
 
-# The Rust build tree from the original implementation — the sources are kept, the
-# artefacts are not.
-legacy-rust/target/
-
 # Never: the config holds the access token.
 config.yaml
 *.pem
