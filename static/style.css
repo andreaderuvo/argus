@@ -1201,3 +1201,18 @@ button.more.weigh.partial { color: var(--warn, #d6b98f); }
   border-radius: .4rem;
   padding: .5rem;
 }
+
+/* Dragging a tab into a new place. `touch-action: none` is what stops the strip from
+   scrolling under the finger instead of the tab moving. */
+.wstab[data-ws] { touch-action: none; cursor: grab; }
+.wstab.tabdrag {
+  cursor: grabbing;
+  z-index: 2;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, .45);
+  transform: scale(1.04);
+}
+
+/* A pinned desk. It keeps its name — the colour dot alone would not tell you which
+   project it is — but it wears the pin and gives up the close button: unpin first. */
+.wstab.pinned { padding-left: .35rem; }
+.wstab .pinmark { width: 13px; height: 13px; color: var(--accent); flex: none; }

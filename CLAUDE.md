@@ -75,6 +75,13 @@ reloading is the whole loop — only Python changes need the server restarted.
 
 ## Frontend notes
 
+- **Desk tabs drag to reorder, and pin.** `reorderTab()` starts only once the pointer has
+  travelled 8px, which leaves a tap (activate), a double-click (rename) and a hold (menu)
+  alone; `slideInto()` FLIP-animates the neighbours so you can see what moved. The click
+  that follows a drag is suppressed with a `data-dragged` flag, or the drop would also
+  switch desk. `ws.pinned` keeps a desk at the front — `saveTabOrder()` sorts pinned
+  first whatever the drag said — and a pinned tab loses its ✕: unpin it first.
+
 - **Copying out of tmux.** A selection made with tmux's own mouse mode lands in a *tmux*
   paste buffer on the server, which the browser cannot see — that is what "copied 26
   chars" means. `/api/tmux/buffer` reads it back with `show-buffer` (never `capture-pane`,
