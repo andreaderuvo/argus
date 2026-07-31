@@ -1042,6 +1042,16 @@ async function render() {
   const route = parseRoute();
   const wanted = route.path === '/term' ? `term:${route.q.get('s')}`
     : route.path === '/wall' ? 'wall' : null;
+  // A desk named in the address wins over the one that happened to be open last: that is
+  // what makes a link to a desk a link to *that* desk, on any device.
+  if (route.path === '/wall') {
+    const asked = Number(route.q.get('ws'));
+    if (asked && asked !== prefs.ws && (prefs.workspaces || []).some((w) => w.id === asked)) {
+      prefs.ws = asked;
+      savePrefs();
+      if (live?.key === 'wall') live.activate?.(asked);
+    }
+  }
   // Move it out of the way *before* the view is emptied, or innerHTML would take it.
   if (live && live.key !== wanted) parkLive();
 
@@ -1653,10 +1663,46 @@ async function mountPreview(host, path, ctl) {
     });
   }
 
-  // The browser has a better PDF viewer than anything we would write.
+  // The browser has a better PDF viewer than anything we would write — but no way to
+  // search from a phone, and inside an iframe Ctrl+F searches the page around it rather
+  // than the document. So the finding is done here and the viewer is sent to the page.
   if (type.startsWith('application/pdf')) {
     ctl.fill?.(true);
-    host.append(el('iframe', { className: 'preview', src }));
+    const frame = el('iframe', { className: 'preview', src });
+    const results = el('div', { className: 'pdfhits', hidden: true });
+    const box = el('input', { type: 'search', placeholder: t('find in this document…'), spellcheck: false });
+    const bar = el('div', { className: 'pdfsearch' }, [box, results]);
+    host.append(bar, frame);
+
+    const goToPage = (page) => { frame.src = `${src}#page=${page}`; };
+    let asked = null;
+    const look = async () => {
+      const needle = box.value.trim();
+      clearTimeout(asked);
+      if (needle.length < 2) { results.hidden = true; results.textContent = ''; return; }
+      results.hidden = false;
+      results.textContent = t('looking…');
+      try {
+        const r = await getJSON(`/api/pdf/search?path=${encodeURIComponent(path)}&q=${encodeURIComponent(needle)}`);
+        results.textContent = '';
+        if (!r.hits.length) {
+          results.append(el('p', { className: 'empty tiny', textContent: t('not in these {count} pages', { count: r.pages }) }));
+          return;
+        }
+        for (const hit of r.hits) {
+          const row = el('button', { className: 'pdfhit', type: 'button', onclick: () => goToPage(hit.page) }, [
+            el('span', { className: 'pdfpage', textContent: t('p. {n}', { n: hit.page }) }),
+            el('span', { className: 'grow', textContent: hit.text }),
+          ]);
+          results.append(row);
+        }
+      } catch (e) {
+        results.textContent = '';
+        results.append(el('p', { className: 'error tiny', textContent: e.message }));
+      }
+    };
+    box.addEventListener('input', () => { clearTimeout(asked); asked = setTimeout(look, 350); });
+    box.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); look(); } });
     return;
   }
 
@@ -1679,7 +1725,7 @@ async function mountPreview(host, path, ctl) {
     host.append(body);
     return ctl.source((rendered) => {
       body.className = rendered ? 'md' : '';
-      if (rendered) return renderMarkdown(text, body);
+      if (rendered) return renderMarkdown(text, body, path);
       body.textContent = '';
       body.append(el('pre', { className: `file ${prefs.wrap ? 'wrap' : 'nowrap'}`, textContent: text }));
     });
@@ -1796,7 +1842,7 @@ function headerSourceToggle(paint) {
  *  wrote render as text instead of executing in a page that holds the access token.
  *  Anything that survives as a link or an image is then checked again.
  */
-async function renderMarkdown(text, container) {
+async function renderMarkdown(text, container, from = '') {
   container.textContent = t('rendering…');
   let marked;
   try {
@@ -1817,8 +1863,25 @@ async function renderMarkdown(text, container) {
       a.removeAttribute('href');   // javascript:, data:, and relative links that cannot resolve
     }
   }
+  // A report's plots sit next to it on disk — `![](results/plot.png)` — and dropping
+  // every non-http image, as this used to, threw away the figures that were the point of
+  // reading the document. They are resolved against the document's own folder and served
+  // the way any other file is, which means the jail still decides what can be read.
+  const folder = from ? parentOf(from) : '';
   for (const img of container.querySelectorAll('img')) {
-    if (!/^https?:/i.test(img.getAttribute('src') || '')) img.remove();
+    const src = img.getAttribute('src') || '';
+    if (/^https?:/i.test(src)) continue;
+    if (/^data:image\//i.test(src)) continue;      // embedded, and already harmless
+    const local = src && !src.includes('://')
+      ? (src.startsWith('/') ? src : folder && `${folder}/${src}`)
+      : '';
+    if (!local) { img.remove(); continue; }
+    img.src = withToken(`/api/file?path=${encodeURIComponent(local.replace(/\/+/g, '/'))}`);
+    img.loading = 'lazy';
+    // A figure that cannot be read should say so rather than leave a broken glyph.
+    img.onerror = () => {
+      img.replaceWith(el('span', { className: 'meta', textContent: t('missing figure: {src}', { src }) }));
+    };
   }
 }
 
@@ -3330,6 +3393,11 @@ async function screenWall() {
     item('star', 'Change colour…', () => pickColor(`ws:${ws.id}`, drawTabs));
     item('folder', ws.home ? `Starts in ${ws.home.split('/').pop() || ws.home}…` : 'Set a starting folder…',
       () => deskFolderSheet(ws));
+    item('copy', 'Copy a link to this desk', async () => {
+      const link = `${location.origin}/#/wall?ws=${ws.id}`;
+      if (await copyText(link)) toast(t('link copied'));
+      else showText(t('Link to {desk}', { desk: ws.name }), link);
+    });
     item('pin', ws.pinned ? 'Unpin' : 'Pin to the front', () => {
       ws.pinned = !ws.pinned;
       // Move it to the boundary between the two groups, so pinning does not also
@@ -3415,6 +3483,9 @@ async function screenWall() {
     prefs.ws = id;
     savePrefs();
     sayWhereBrowsersOpen();
+    // replaceState, not a new hash: switching tabs should leave the address pointing at
+    // where you are without filling the back button with every desk you glanced at.
+    if (parseRoute().path === '/wall') history.replaceState(null, '', `#/wall?ws=${id}`);
     const deck = deckFor(activeSpace());
     syncDeck(deck);
     for (const d of decks.values()) d.node.classList.toggle('on', d === deck);

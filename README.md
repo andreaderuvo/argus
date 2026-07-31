@@ -104,9 +104,13 @@ services.</sub>
 
 ### Documents
 
-- **Markdown** rendered, with a source toggle; **PDF** and images in the browser's own
-  viewer; **Word/ODT/RTF** rendered through pandoc when the machine has it, with figures
-  inlined — and the plain-text extraction as a fallback when it does not.
+- **Markdown** rendered, with a source toggle, and the figures beside it on disk shown
+  where they belong — `![](results/plot.png)` resolves against the document's own folder.
+- **PDF** in the browser's own viewer, with a search box that Argus answers itself:
+  inside an iframe Ctrl+F searches the page around the document, and a phone has no
+  Ctrl+F at all, so the text is extracted here and each hit jumps the viewer to its page.
+- **Word/ODT/RTF** rendered through pandoc when the machine has it, with figures inlined
+  — and the plain-text extraction as a fallback when it does not.
 - **Logs**: a file too big to send whole arrives as its tail, which is the part anyone
   wants, and says so.
 - Every previewed document is sandboxed into an opaque origin, so a stray HTML report
@@ -115,7 +119,8 @@ services.</sub>
 ### Workspaces and windows
 
 - **Desks (tabs)** you can name, colour, reorder by dragging, and pin. Each holds its own
-  set of windows and survives a reload.
+  set of windows, has its own address (`#/wall?ws=3`, copyable from the tab menu) and its
+  own starting folder, and survives a reload.
 - **Windows** for terminals, file browsers, documents and proxied web pages. Move or
   duplicate them between desks.
 - **Magnetic layout**: windows snap to each other and to the wall's edges, with a preview
@@ -244,7 +249,9 @@ Vendored under `static/vendor/`, unmodified, each keeping its own copyright head
 - [marked](https://github.com/markedjs/marked) 18.0.7 — MIT
 - [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) 2.0.4 — MIT
 
-Optional at runtime: [pandoc](https://pandoc.org) for Word documents. Nothing else.
+Optional at runtime: [pandoc](https://pandoc.org) for Word documents, and `pdftotext`
+(poppler) to search inside PDFs. Without either, those files still open — they are just
+plainer.
 
 ## Licence
 

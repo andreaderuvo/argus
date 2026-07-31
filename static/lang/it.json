@@ -134,7 +134,7 @@
   "home button: {path}": "pulsante casa: {path}",
   "home is now {path}": "casa ora è {path}",
   "home reset": "casa ripristinata",
-  "link copied": "collegamento copiato",
+  "link copied": "link copiato",
   "moved to {desk}": "spostata in {desk}",
   "moved to {dest}": "spostato in {dest}",
   "needs --allow-proxy": "richiede --allow-proxy",
@@ -219,6 +219,13 @@
   "files": "file",
   "page": "pagina",
   "document": "documento",
-  "Refresh": "Aggiorna"
+  "Refresh": "Aggiorna",
+  "missing figure: {src}": "figura mancante: {src}",
+  "find in this document…": "cerca in questo documento…",
+  "looking…": "sto cercando…",
+  "not in these {count} pages": "non c'è in queste {count} pagine",
+  "p. {n}": "p. {n}",
+  "Copy a link to this desk": "Copia il link a questo desk",
+  "Link to {desk}": "Link a {desk}"
  }
 }

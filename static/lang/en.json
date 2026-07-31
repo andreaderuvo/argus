@@ -219,6 +219,13 @@
   "files": "files",
   "page": "page",
   "document": "document",
-  "Refresh": "Refresh"
+  "Refresh": "Refresh",
+  "missing figure: {src}": "missing figure: {src}",
+  "find in this document…": "find in this document…",
+  "looking…": "looking…",
+  "not in these {count} pages": "not in these {count} pages",
+  "p. {n}": "p. {n}",
+  "Copy a link to this desk": "Copy a link to this desk",
+  "Link to {desk}": "Link to {desk}"
  }
 }

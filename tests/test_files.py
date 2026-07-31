@@ -44,3 +44,43 @@ def test_search_reports_directories_too(tmp_path):
     (tmp_path / "reports").mkdir()
     hits = walk_for(tmp_path, "report")
     assert len(hits) == 1 and hits[0]["type"] == "directory"
+
+
+def test_a_pdf_search_needs_a_pdf(tmp_path):
+    """This file has no client fixture of its own; the endpoint check is worth its own
+    small one rather than moving the other tests around it."""
+    from fastapi.testclient import TestClient
+
+    from app.config import Config
+    from app.main import create_app
+
+    token = "testtoken-0123456789abcdef"
+    (tmp_path / "notes.txt").write_text("not a pdf\n")
+    client = TestClient(create_app(Config(token=token, roots=[tmp_path])))
+    r = client.get(f"/api/pdf/search?path={tmp_path / 'notes.txt'}&q=x",
+                   headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 400
+
+
+def test_finding_a_word_reports_the_page_it_is_on(monkeypatch):
+    """pdftotext separates pages with a form feed, which is what makes "which page" an
+    answerable question without a PDF library."""
+    from app import files
+
+    pages = files.hits_in(["nothing here", "the word Salmonella appears", "nor here"], "salmonella")
+    assert [h["page"] for h in pages] == [2]
+    assert "Salmonella" in pages[0]["text"], "the snippet keeps the original case"
+
+
+def test_every_occurrence_is_reported_but_a_page_does_not_flood_the_list():
+    from app import files
+
+    crowded = ["x " * 200 + ("hit " * 30)]
+    assert len(files.hits_in(crowded, "hit")) <= 4
+
+
+def test_the_whole_list_is_capped():
+    from app import files
+
+    many = [f"hit on page {i}" for i in range(500)]
+    assert len(files.hits_in(many, "hit")) == files.PDF_MAX_HITS
