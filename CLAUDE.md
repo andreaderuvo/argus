@@ -84,6 +84,14 @@ reloading is the whole loop — only Python changes need the server restarted.
   client's window, so a broken file came back looking fine. And the complaint arrives on
   **stdout**, not stderr; reading the wrong stream loses the line number.
 
+- **A phone keyboard commits a word twice.** Android's predictive input delivers the
+  commit as its own input event on top of what the composition already produced, so tmux
+  received the word, then the word again. `attachTerminal` records the text of each
+  `compositionend` and drops a *second* identical chunk within 250ms of it — the first one
+  always goes through, because a keyboard that does not duplicate would otherwise lose the
+  word entirely. Reproducible with CDP: `Input.imeSetComposition` then two
+  `Input.insertText` gives `["listeria","listeria"]` without the guard and `["listeria"]`
+  with it, while ordinary keystrokes stay `["l","s"]`.
 - **Markdown figures** are resolved against the document's folder and fetched through
   `/api/file` — the jail still decides what can be read. They used to be deleted outright
   (anything not `http(s):`), which quietly threw away the plots that are the point of a

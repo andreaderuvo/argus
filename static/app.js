@@ -2816,7 +2816,46 @@ function attachTerminal(container, name, { transform, onGone, onPath } = {}) {
   connect();
 
   const send = (data) => { if (ws?.readyState === WebSocket.OPEN) ws.send(enc.encode(data)); };
-  term.onData((d) => send(transform ? transform(d) : d));
+
+  /* Predictive keyboards send the word twice.
+   *
+   *  A phone keyboard types through an IME: the word is composed, and on the space bar it
+   *  is *committed*. Android's keyboard delivers that commit as its own input event on top
+   *  of what the composition already produced, so the terminal receives "salmonella" and
+   *  then "salmonella" again, a few milliseconds apart. It is not a repeat you typed and
+   *  it is not tmux echoing.
+   *
+   *  The guard is deliberately narrow: only the exact text of a commit, only within a
+   *  moment of that commit, and only once per commit. Anything else — a real double tap,
+   *  a paste, a key held down — goes through untouched.
+   */
+  const textarea = container.querySelector('.xterm-helper-textarea');
+  // xterm turns off autocorrect and autocapitalize but leaves this one, and some
+  // keyboards read it as permission to suggest.
+  textarea?.setAttribute('autocomplete', 'off');
+  let committed = null;
+  textarea?.addEventListener('compositionend', (e) => {
+    if (!e.data) return;
+    committed = { text: e.data, at: Date.now(), seen: 0 };
+  });
+
+  /** True for a *second* copy of the text a commit just produced.
+   *
+   *  The first copy is the word you typed and must go through — a keyboard that does not
+   *  duplicate would otherwise lose it entirely, which is a far worse bug than the one
+   *  this is here to fix.
+   */
+  const duplicated = (data) => {
+    if (!committed || data !== committed.text) return false;
+    if (Date.now() - committed.at > 250) { committed = null; return false; }
+    committed.seen += 1;
+    return committed.seen > 1;
+  };
+
+  term.onData((d) => {
+    if (duplicated(d)) return;
+    send(transform ? transform(d) : d);
+  });
 
   // tmux sizes a window for its most recently used client, so simply asking again when
   // this tab comes back to the front is what makes the terminal you are looking at the
