@@ -1329,6 +1329,12 @@ function fileBrowser({
   const nest = el('button', {}, icon('tree'));
   nest.onclick = () => { setTree(!getTree()); paint(); };
 
+  const again = el('button', { title: t('Refresh') }, icon('refresh'));
+  again.onclick = () => {
+    again.classList.add('busy');
+    paint().finally(() => again.classList.remove('busy'));
+  };
+
   // Tapping goes home. Holding — or right-clicking — is how you pick somewhere else or
   // move home itself, without a second button crowding the header.
   const jump = el('button', {
@@ -1347,7 +1353,7 @@ function fileBrowser({
   const crumb = el('button', { className: 'crumb', type: 'button' }, bidi(path));
   crumb.title = `${path}\n(click to copy)`;
   crumb.onclick = () => copyPath(path);
-  node.append(el('div', { className: 'sidehead' }, [up, jump, crumb, nest, pin]));
+  node.append(el('div', { className: 'sidehead' }, [up, jump, crumb, again, nest, pin]));
 
   // Rebuilt on every refresh, not once at construction: pinning from inside a window
   // used to redraw the listing and leave this strip showing the old set.
@@ -1424,12 +1430,20 @@ function fileBrowser({
   }
   node.append(tools, list);
 
+  // What the folder looked like last time we drew it. Comparing this is what lets the
+  // watcher below redraw only when something actually changed — a redraw on a timer
+  // would throw away the scroll position and any menu you had open.
+  let signature = '';
+  const signOf = (entries) => entries.map((e) => `${e.name}:${e.size}:${e.mtime}`).join('|');
+
   async function paint() {
     renderFavs();
     if (getTree()) await drawTree(list, path, openFile, reload, other, favGroup);
     else {
       try {
-        draw(await getJSON(`/api/files?path=${encodeURIComponent(path)}`));
+        const entries = await getJSON(`/api/files?path=${encodeURIComponent(path)}`);
+        signature = signOf(entries);
+        draw(entries);
       } catch (e) {
         draw([], e);
       }
@@ -1438,6 +1452,32 @@ function fileBrowser({
     await applyPointed(list, path, getTree());
   }
   paint();
+
+  /** Notice files that appeared without us.
+   *
+   *  A listing is fetched once; anything the app did itself refreshes it, but a file
+   *  written by a job in tmux never passes through here, so the folder sat there looking
+   *  empty. This asks again on a slow timer and redraws only when the answer differs.
+   *
+   *  Flat listings only: re-running a tree would close every branch you had opened, which
+   *  is worse than being slightly out of date. The button covers that case.
+   */
+  const WATCH = 5000;
+  const watcher = setInterval(async () => {
+    // Panes are rebuilt often — the sidebar throws its away on every navigation — and
+    // nothing calls a teardown, so the timer has to notice it is orphaned.
+    if (!node.isConnected) return clearInterval(watcher);
+    if (document.hidden || getTree() || !node.getClientRects().length) return;
+    try {
+      const entries = await getJSON(`/api/files?path=${encodeURIComponent(path)}`);
+      const now = signOf(entries);
+      if (now === signature) return;
+      signature = now;
+      draw(entries);
+      markCurrent(list);
+      await applyPointed(list, path, false);
+    } catch { /* offline, or the folder went away; the next tick will say so */ }
+  }, WATCH);
 
   return {
     node,

@@ -1236,3 +1236,6 @@ button.more.weigh.partial { color: var(--warn, #d6b98f); }
 .sheetbody .ghost.block .grow { flex: 1; min-width: 0; text-align: left; }
 .sheetbody .ghost.block .name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sheetbody .ghost.block .meta { display: block; font-size: .75rem; color: var(--dim); }
+
+/* The refresh button, while it is fetching. */
+.sidehead button.busy { animation: weighing 1s linear infinite; }

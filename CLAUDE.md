@@ -84,6 +84,14 @@ reloading is the whole loop — only Python changes need the server restarted.
   client's window, so a broken file came back looking fine. And the complaint arrives on
   **stdout**, not stderr; reading the wrong stream loses the line number.
 
+- **A listing notices files it did not create.** `/api/files` is fetched once per folder,
+  and the app only refreshed after *its own* operations — a file written by a job in tmux
+  never passed through it, so the folder just sat there. A 5s watcher re-asks and redraws
+  only when the signature (`name:size:mtime` per entry) differs, so the scroll position
+  survives; it stops itself when the pane leaves the DOM, since nothing calls a teardown.
+  Flat listings only: re-running a tree would close every branch you opened, so the tree
+  has the refresh button instead.
+
 - **Each desk can have its own folder** (`ws.home`): the Browser button and a session
   started from the desk both begin there instead of the global home. Set from the tab
   menu, which offers the roots *and* the folders the desk's browsers already show —

@@ -218,6 +218,7 @@
   "session": "sessione",
   "files": "file",
   "page": "pagina",
-  "document": "documento"
+  "document": "documento",
+  "Refresh": "Aggiorna"
  }
 }
