@@ -219,6 +219,13 @@
   "files": "fichiers",
   "page": "page",
   "document": "document",
-  "Refresh": "Actualiser"
+  "Refresh": "Actualiser",
+  "missing figure: {src}": "figure manquante : {src}",
+  "find in this document…": "chercher dans ce document…",
+  "looking…": "recherche…",
+  "not in these {count} pages": "absent de ces {count} pages",
+  "p. {n}": "p. {n}",
+  "Copy a link to this desk": "Copier un lien vers ce bureau",
+  "Link to {desk}": "Lien vers {desk}"
  }
 }

@@ -1239,3 +1239,23 @@ button.more.weigh.partial { color: var(--warn, #d6b98f); }
 
 /* The refresh button, while it is fetching. */
 .sidehead button.busy { animation: weighing 1s linear infinite; }
+
+/* Searching a PDF. The results sit over the top of the viewer rather than beside it:
+   on a phone there is no beside. */
+.pdfsearch { position: relative; padding: .4rem .5rem; background: var(--panel); border-bottom: 1px solid var(--line); flex: none; }
+.pdfsearch input { width: 100%; }
+.pdfhits {
+  position: absolute; left: .5rem; right: .5rem; top: 100%; z-index: 20;
+  max-height: min(22rem, 50vh); overflow: auto;
+  background: var(--panel); border: 1px solid var(--line); border-radius: .5rem;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .45);
+}
+.pdfhit {
+  display: flex; gap: .6rem; align-items: baseline; width: 100%; text-align: left;
+  padding: .5rem .7rem; background: none; border: 0; border-bottom: 1px solid var(--line);
+  color: var(--text); font: inherit; font-size: .82rem;
+}
+.pdfhit:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.pdfpage { flex: none; color: var(--accent); font-variant-numeric: tabular-nums; font-size: .75rem; }
+.pdfhit .grow { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dim); }
+body.wall .preview, .winbody .pdfsearch { }
