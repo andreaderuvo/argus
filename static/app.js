@@ -477,6 +477,7 @@ const ICONS = {
   more: 'M12 6.2v.01M12 12v.01M12 17.8v.01',
   rename: 'M4.5 19.5h4L18 10l-4-4-9.5 9.5zM13 7l4 4',
   move: 'M4.5 12h13M12.5 6.5 18 12l-5.5 5.5',
+  layers: 'M12 3.6 3.4 8 12 12.4 20.6 8zM3.4 12.4 12 16.8l8.6-4.4M3.4 16.6 12 21l8.6-4.4',
   pin: 'M9.5 3.5h5l-.8 5.2 3.3 3.1H7l3.3-3.1zM12 11.8V20.5',
   copy: 'M9 8.5h10.5V20H9zM5 15.5V4h10.5',
   clipboard: 'M9.5 4.5h5v2.6h-5zM8 5.6H5.5v14h13v-14H16',
@@ -501,6 +502,7 @@ const ICONS = {
   save: 'M5.5 4.5h10L18.5 7.5v12h-13zM8.5 4.5v5h6M8.5 19.5v-6h7v6',
   phone: 'M7.5 3.5h9v17h-9zM10.5 17.8h3',
   camera: 'M4 7.5h3.2l1.4-2h6.8l1.4 2H20v11H4zM12 10.2a3.3 3.3 0 1 1 0 6.6 3.3 3.3 0 0 1 0-6.6z',
+  layers: 'M12 3.6 3.4 8 12 12.4 20.6 8zM3.4 12.4 12 16.8l8.6-4.4M3.4 16.6 12 21l8.6-4.4',
   pin: 'M9.5 3.5h5l-.8 5.2 3.3 3.1H7l3.3-3.1zM12 11.8V20.5',
   copy: 'M9 9h10.5v10.5H9zM15 9V4.5H4.5V15H9',
   usage: 'M12 3.6a8.4 8.4 0 1 0 8.4 8.4H12z',
@@ -3240,6 +3242,43 @@ async function screenWall() {
     ]);
   }
 
+  /** Pick the desk's starting folder: one of the roots, or — more usefully — the folder a
+   *  browser in this desk is already showing, which is nearly always the one meant. */
+  function deskFolderSheet(ws) {
+    const body = el('div', { className: 'sheetbody actions' });
+    let sheet;
+    const choose = (path) => {
+      sheet.close();
+      ws.home = path;
+      savePrefs();
+      sayWhereBrowsersOpen();
+      toast(path ? t('{desk} starts in {path}', { desk: ws.name, path }) : t('{desk} follows the usual home', { desk: ws.name }));
+    };
+
+    const open = [...new Set(ws.desktop.filter((w) => w.kind === 'browser').map((w) => w.path))];
+    for (const path of open) {
+      body.append(el('button', { className: 'ghost block', onclick: () => choose(path) },
+        [icon('folder'), el('span', { className: 'grow' }, bidi(path)),
+          el('span', { className: 'verb', textContent: t('open here') })]));
+    }
+    if (open.length) body.append(el('div', { className: 'sheetsep' }));
+
+    for (const root of (server?.roots || [])) {
+      if (open.includes(root)) continue;
+      body.append(el('button', { className: 'ghost block', onclick: () => choose(root) },
+        [icon('home'), el('span', {}, bidi(root))]));
+    }
+    if (ws.home) {
+      body.append(el('div', { className: 'sheetsep' }));
+      body.append(el('button', { className: 'ghost block', onclick: () => choose('') },
+        [icon('refresh'), el('span', { textContent: t('No folder of its own') })]));
+    }
+
+    sheet = modal(t('Where {desk} starts', { desk: ws.name }), body, [
+      el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),
+    ]);
+  }
+
   function tabSheet(ws, rename, shut) {
     const body = el('div', { className: 'sheetbody actions' });
     let sheet;
@@ -3249,6 +3288,8 @@ async function screenWall() {
     );
     item('rename', 'Rename…', rename);
     item('star', 'Change colour…', () => pickColor(`ws:${ws.id}`, drawTabs));
+    item('folder', ws.home ? `Starts in ${ws.home.split('/').pop() || ws.home}…` : 'Set a starting folder…',
+      () => deskFolderSheet(ws));
     item('pin', ws.pinned ? 'Unpin' : 'Pin to the front', () => {
       ws.pinned = !ws.pinned;
       // Move it to the boundary between the two groups, so pinning does not also
@@ -3333,6 +3374,7 @@ async function screenWall() {
   function activate(id) {
     prefs.ws = id;
     savePrefs();
+    sayWhereBrowsersOpen();
     const deck = deckFor(activeSpace());
     syncDeck(deck);
     for (const d of decks.values()) d.node.classList.toggle('on', d === deck);
@@ -3425,6 +3467,10 @@ async function screenWall() {
     }
   };
 
+  const sayWhereBrowsersOpen = () => {
+    browserBtn.title = t('Open a file browser at {path}', { path: deskFolder() });
+  };
+
   /** Closing a window used to be one-way: the wall could add a file browser but never a
    *  session, so a terminal you shut was only reachable by leaving the wall entirely. */
   async function sessionSheet() {
@@ -3462,7 +3508,8 @@ async function screenWall() {
       className: 'ghost block',
       onclick: async () => {
         sheet.close();
-        const name = await createSession();
+        // In the desk's folder, for the same reason the browser opens there.
+        const name = await createSession({ path: activeSpace().home || undefined });
         if (name) openWindow({ kind: 'term', name });
       },
     }, [icon('folderPlus'), el('span', { textContent: t('Start a new session…') })]));
@@ -3478,11 +3525,107 @@ async function screenWall() {
     onclick: sessionSheet,
   }, [icon('terminal'), el('span', { textContent: t('Session') })]));
 
+  /** Where this desk starts. A workspace is usually *about* something — one project, one
+   *  run — so a browser opened in it should land there, not in the same home directory
+   *  every other desk lands in. */
+  const deskFolder = () => activeSpace().home || homePath(server?.roots || ['/']);
+
+  /** Every window in this desk, and which of them you cannot see.
+   *
+   *  Free-floating windows can end up completely behind another one, and then the only
+   *  evidence they exist is that you remember opening them. This is the list — and
+   *  clicking a line brings that window up, and back inside the desk if it has drifted
+   *  off the edge.
+   */
+  function windowSheet() {
+    const deck = deckFor(activeSpace());
+    const body = el('div', { className: 'sheetbody actions' });
+    let sheet;
+
+    if (!deck.open.length) {
+      body.append(el('p', { className: 'empty', textContent: t('No windows in this workspace yet.') }));
+    }
+
+    // Front to back, which is the order you would point at them in.
+    const stacked = [...deck.open].sort((a, b) => Number(b.win.style.zIndex || 0) - Number(a.win.style.zIndex || 0));
+    const area = deck.node.getBoundingClientRect();
+
+    for (const o of stacked) {
+      const box = o.win.getBoundingClientRect();
+      // Covered by something in front of it, corner to corner: not "overlapping a bit",
+      // which is the normal state of a desk, but genuinely out of sight.
+      const buried = stacked.some((other) => other !== o
+        && Number(other.win.style.zIndex || 0) > Number(o.win.style.zIndex || 0)
+        && other.win.getBoundingClientRect().left <= box.left + 2
+        && other.win.getBoundingClientRect().top <= box.top + 2
+        && other.win.getBoundingClientRect().right >= box.right - 2
+        && other.win.getBoundingClientRect().bottom >= box.bottom - 2);
+      const adrift = box.right < area.left + 40 || box.left > area.right - 40
+        || box.bottom < area.top + 40 || box.top > area.bottom - 40;
+
+      const dot = el('span', { className: 'tabdot' });
+      dot.style.background = colorFor(o.name);
+      const title = o.win.querySelector('.wintitle')?.textContent || o.name;
+      const kind = o.name.split(':')[0];
+
+      body.append(el('button', {
+        className: 'ghost block',
+        onclick: () => { sheet.close(); raiseWindow(o); },
+      }, [
+        dot,
+        el('span', { className: 'grow' }, [
+          el('span', { className: 'name', textContent: title }),
+          el('span', { className: 'meta', textContent: t(kind === 'term' ? 'session' : kind === 'browser' ? 'files' : kind === 'web' ? 'page' : 'document') }),
+        ]),
+        buried ? el('span', { className: 'state warning', textContent: t('hidden') })
+          : adrift ? el('span', { className: 'state warning', textContent: t('off the desk') })
+            : el('span', { className: 'verb', textContent: '' }),
+      ]));
+    }
+
+    sheet = modal(t('Windows in {desk}', { desk: activeSpace().name }), body, [
+      el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),
+    ]);
+  }
+
+  /** Bring a window to the front — and back onto the desk if it has wandered off it. */
+  function raiseWindow(entry) {
+    const win = entry.win;
+    const area = deckFor(activeSpace()).node.getBoundingClientRect();
+    const box = win.getBoundingClientRect();
+    const px = (v) => (/^-?[\d.]+px$/.test(v || '') ? parseFloat(v) : NaN);
+
+    // `y`, not `top`: `top` is the z-index counter this whole screen shares, and
+    // shadowing it here would raise the window behind everything instead of in front.
+    let x = px(win.style.left);
+    let y = px(win.style.top);
+    if (Number.isFinite(x) && Number.isFinite(y)) {
+      x = Math.max(8, Math.min(x, area.width - Math.min(box.width, area.width) - 8));
+      y = Math.max(8, Math.min(y, area.height - Math.min(box.height, area.height) - 8));
+      Object.assign(win.style, { left: `${Math.round(x)}px`, top: `${Math.round(y)}px` });
+    }
+    win.style.zIndex = ++top;
+    // A window that was already on top and already in view would otherwise answer a click
+    // with nothing at all.
+    win.classList.remove('raised');
+    void win.offsetWidth;
+    win.classList.add('raised');
+    setTimeout(() => win.classList.remove('raised'), 1200);
+    entry.handle.relayout?.();
+    saveGeom(geomKey(activeSpace(), entry.name), win);
+  }
+
   tools.append(el('button', {
     className: 'winbtn wide',
-    title: t('Open a file browser in a window'),
-    onclick: () => openWindow({ kind: 'browser', path: homePath(server?.roots || ['/']) }),
-  }, [icon('folderPlus'), el('span', { textContent: t('Browser') })]));
+    title: t('List the windows in this workspace'),
+    onclick: windowSheet,
+  }, [icon('layers'), el('span', { textContent: t('List') })]));
+
+  const browserBtn = el('button', {
+    className: 'winbtn wide',
+    onclick: () => openWindow({ kind: 'browser', path: deskFolder() }),
+  }, [icon('folderPlus'), el('span', { textContent: t('Browser') })]);
+  tools.append(browserBtn);
 
   for (const [mode, glyph, label] of LAYOUTS) {
     const b = el('button', {

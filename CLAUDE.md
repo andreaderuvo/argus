@@ -84,6 +84,17 @@ reloading is the whole loop — only Python changes need the server restarted.
   client's window, so a broken file came back looking fine. And the complaint arrives on
   **stdout**, not stderr; reading the wrong stream loses the line number.
 
+- **Each desk can have its own folder** (`ws.home`): the Browser button and a session
+  started from the desk both begin there instead of the global home. Set from the tab
+  menu, which offers the roots *and* the folders the desk's browsers already show —
+  usually the one meant.
+- **The window list** (`windowSheet`) exists because a free-floating window can end up
+  completely behind another one, and then nothing on screen says it is there. A window is
+  called `hidden` only when something in front of it covers it corner to corner —
+  overlapping a little is the normal state of a desk — and `off the desk` when it has
+  drifted past the edge. Raising one also drags it back inside, and flashes it, because
+  raising a window that was already on top would otherwise answer with nothing.
+
 - **Desk tabs drag to reorder, and pin.** `reorderTab()` starts only once the pointer has
   travelled 8px, which leaves a tap (activate), a double-click (rename) and a hold (menu)
   alone; `slideInto()` FLIP-animates the neighbours so you can see what moved. The click

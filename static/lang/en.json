@@ -202,6 +202,22 @@
   "Apply to every session": "Apply to every session",
   "checking…": "checking…",
   "every session on this server now has it": "every session on this server now has it",
-  "not there yet; saving will create it": "not there yet; saving will create it"
+  "not there yet; saving will create it": "not there yet; saving will create it",
+  "Open a file browser at {path}": "Open a file browser at {path}",
+  "Where {desk} starts": "Where {desk} starts",
+  "{desk} starts in {path}": "{desk} starts in {path}",
+  "{desk} follows the usual home": "{desk} follows the usual home",
+  "No folder of its own": "No folder of its own",
+  "open here": "open here",
+  "List the windows in this workspace": "List the windows in this workspace",
+  "List": "List",
+  "Windows in {desk}": "Windows in {desk}",
+  "No windows in this workspace yet.": "No windows in this workspace yet.",
+  "hidden": "hidden",
+  "off the desk": "off the desk",
+  "session": "session",
+  "files": "files",
+  "page": "page",
+  "document": "document"
  }
 }
