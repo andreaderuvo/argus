@@ -218,6 +218,7 @@
   "session": "session",
   "files": "fichiers",
   "page": "page",
-  "document": "document"
+  "document": "document",
+  "Refresh": "Actualiser"
  }
 }
