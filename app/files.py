@@ -267,6 +267,103 @@ async def search(request: Request, path: str, q: str) -> list[dict]:
     return walk_for(root, needle)
 
 
+# Poppler's extractor, if the machine has it. Same reasoning as pandoc: a nice-to-have,
+# never a requirement — without it the PDF still opens, it just cannot be searched.
+PDFTOTEXT_TIMEOUT = 30
+PDF_MAX_HITS = 60
+SNIPPET = 90
+
+
+def find_pdftotext() -> str | None:
+    """Beside the interpreter as well as on PATH — a systemd service has a bare PATH and
+    on a conda machine that is where poppler lives."""
+    found = shutil.which("pdftotext")
+    if found:
+        return found
+    nearby = Path(sys.executable).parent / "pdftotext"
+    return str(nearby) if os.access(nearby, os.X_OK) else None
+
+
+class NoExtractor(Exception):
+    """This machine has no pdftotext."""
+
+
+class Unreadable(Exception):
+    """It has one, and the document defeated it."""
+
+
+def pdf_pages(path: Path) -> list[str]:
+    """The text of the document, one entry per page.
+
+    `pdftotext` separates pages with a form feed, so one pass over the whole file gives
+    every page in order — which is what makes "which page is this word on" answerable
+    without a PDF library.
+    """
+    exe = find_pdftotext()
+    if not exe:
+        raise NoExtractor
+    try:
+        done = subprocess.run(
+            [exe, "-q", "--", str(path), "-"],
+            capture_output=True, timeout=PDFTOTEXT_TIMEOUT,
+        )
+    except (OSError, subprocess.SubprocessError) as e:
+        raise Unreadable(str(e)) from e
+    # A damaged file and a missing extractor are not the same failure, and telling the
+    # reader "this server cannot search PDFs" when the truth is "this PDF is broken"
+    # sends them looking in the wrong place.
+    if done.returncode != 0:
+        raise Unreadable(done.stderr.decode("utf-8", "replace").strip() or "the document could not be read")
+    return done.stdout.decode("utf-8", "replace").split("\f")
+
+
+def hits_in(pages: list[str], needle: str) -> list[dict]:
+    """Where the words are, with enough text around each to recognise it."""
+    found: list[dict] = []
+    lowered = needle.lower()
+    for number, text in enumerate(pages, start=1):
+        haystack = text.lower()
+        at = haystack.find(lowered)
+        while at >= 0 and len(found) < PDF_MAX_HITS:
+            start = max(0, at - SNIPPET // 2)
+            snippet = " ".join(text[start:at + len(needle) + SNIPPET // 2].split())
+            found.append({"page": number, "text": snippet})
+            at = haystack.find(lowered, at + len(needle))
+            if found and found[-1]["page"] == number and len([h for h in found if h["page"] == number]) >= 4:
+                break        # four from one page is plenty to know it is on that page
+        if len(found) >= PDF_MAX_HITS:
+            break
+    return found
+
+
+@router.get("/api/pdf/search")
+async def pdf_search(request: Request, path: str, q: str) -> dict:
+    """Find a string in a PDF and say which pages it is on.
+
+    The browser's own viewer has a search box on a desktop and nothing at all on a phone,
+    and inside an iframe Ctrl+F searches the page around it rather than the document. So
+    the text is extracted here and the viewer is sent to the page.
+    """
+    target = _resolve(request, path)
+    needle = q.strip()
+    if not needle:
+        return {"hits": [], "pages": 0}
+    if target.suffix.lower() != ".pdf":
+        raise ApiError(400, "not a PDF")
+
+    try:
+        pages = await asyncio.to_thread(pdf_pages, target)
+    except NoExtractor:
+        raise ApiError(501, "this server has no pdftotext, so PDFs cannot be searched") from None
+    except Unreadable as e:
+        raise ApiError(422, f"this PDF could not be read: {e}") from None
+
+    if not any(page.strip() for page in pages):
+        # A scan is a picture of a page, and there is nothing in it to find.
+        raise ApiError(422, "this PDF holds no text — it is probably a scan")
+    return {"hits": hits_in(pages, needle), "pages": len(pages)}
+
+
 @router.get("/api/fs/usage")
 async def usage(request: Request, path: str) -> dict:
     """What a folder actually weighs, added up by hand.

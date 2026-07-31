@@ -84,6 +84,15 @@ reloading is the whole loop — only Python changes need the server restarted.
   client's window, so a broken file came back looking fine. And the complaint arrives on
   **stdout**, not stderr; reading the wrong stream loses the line number.
 
+- **Markdown figures** are resolved against the document's folder and fetched through
+  `/api/file` — the jail still decides what can be read. They used to be deleted outright
+  (anything not `http(s):`), which quietly threw away the plots that are the point of a
+  report.
+- **PDF search** is `pdftotext -q -- file -` split on form feeds, so one pass gives every
+  page in order and "which page is this on" becomes answerable. `NoExtractor` and
+  `Unreadable` are separate: telling someone the server cannot search PDFs when the truth
+  is that *this* PDF is damaged sends them looking in the wrong place. A PDF with no text
+  at all says it is probably a scan.
 - **A listing notices files it did not create.** `/api/files` is fetched once per folder,
   and the app only refreshed after *its own* operations — a file written by a job in tmux
   never passed through it, so the folder just sat there. A 5s watcher re-asks and redraws
