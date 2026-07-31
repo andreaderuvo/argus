@@ -202,6 +202,22 @@
   "Apply to every session": "Appliquer à toutes les sessions",
   "checking…": "vérification…",
   "every session on this server now has it": "toutes les sessions de ce serveur l'ont",
-  "not there yet; saving will create it": "absente ; l'enregistrement la créera"
+  "not there yet; saving will create it": "absente ; l'enregistrement la créera",
+  "Open a file browser at {path}": "Ouvrir un explorateur dans {path}",
+  "Where {desk} starts": "Où démarre {desk}",
+  "{desk} starts in {path}": "{desk} démarre dans {path}",
+  "{desk} follows the usual home": "{desk} suit l'accueil habituel",
+  "No folder of its own": "Pas de dossier propre",
+  "open here": "déjà ouvert ici",
+  "List the windows in this workspace": "Lister les fenêtres de ce bureau",
+  "List": "Liste",
+  "Windows in {desk}": "Fenêtres dans {desk}",
+  "No windows in this workspace yet.": "Aucune fenêtre dans ce bureau.",
+  "hidden": "cachée",
+  "off the desk": "hors du bureau",
+  "session": "session",
+  "files": "fichiers",
+  "page": "page",
+  "document": "document"
  }
 }

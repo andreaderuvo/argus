@@ -1221,3 +1221,18 @@ button.more.weigh.partial { color: var(--warn, #d6b98f); }
 .confwrap { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 .confedit { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .confedit .editor { flex: 1; min-height: 0; }
+
+/* A window brought up from the list. Without this, raising one that was already in front
+   and already in view answers the click with nothing at all. */
+.win.raised { animation: raised 1.2s ease-out; }
+@keyframes raised {
+  0%, 40% { box-shadow: 0 0 0 3px var(--accent), 0 12px 36px rgba(0, 0, 0, .5); }
+  100% { box-shadow: none; }
+}
+
+/* A sheet row carrying a name and a subtitle. The rules that stack those two live under
+   `.row`, and a sheet action is a `.ghost.block` — so without this the two ran together
+   into one word ("testsfiles"). */
+.sheetbody .ghost.block .grow { flex: 1; min-width: 0; text-align: left; }
+.sheetbody .ghost.block .name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sheetbody .ghost.block .meta { display: block; font-size: .75rem; color: var(--dim); }
