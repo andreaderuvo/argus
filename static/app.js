@@ -764,7 +764,7 @@ function fileActions(entry, refresh, dest, favGroup = 'main') {
 
 /** Upload with a progress bar, which means XMLHttpRequest: `fetch` still cannot report
  *  how far a request body has got, and a 4 GB fastq with no feedback is unusable. */
-function uploadTo(path, fileList, onDone, sequence = '') {
+function uploadTo(path, fileList, onDone, { sequence = '', quiet = false, called = '' } = {}) {
   const files = [...fileList];
   if (!files.length) return;
   const total = files.reduce((n, f) => n + f.size, 0);
@@ -772,7 +772,9 @@ function uploadTo(path, fileList, onDone, sequence = '') {
   const tooBig = limit && files.find((f) => f.size > limit);
   if (tooBig) return toast(t('{name} is over the {limit} limit', { name: tooBig.name, limit: human(limit) }), true);
 
-  const label = files.length === 1 ? files[0].name : `${files.length} files`;
+  // `called` is for a file with no name worth showing: a pasted screenshot arrives as
+  // "image.png" every time, and reading that back is not feedback.
+  const label = called || (files.length === 1 ? files[0].name : `${files.length} files`);
   // Always name the destination: the folder comes from whichever pane you used, which
   // is invisible once the system file picker is covering the screen.
   const bar = progressBar(`${label} · ${human(total)}`, `→ ${path}`);
@@ -789,22 +791,33 @@ function uploadTo(path, fileList, onDone, sequence = '') {
   xhr.setRequestHeader('Authorization', `Bearer ${token}`);
   xhr.upload.onprogress = (e) => bar.set(e.lengthComputable ? e.loaded / e.total : 0);
   xhr.onload = () => {
-    bar.close();
     if (xhr.status === 200) {
-      let saved = label;
-      try { saved = JSON.parse(xhr.responseText).files.map((f) => f.path.split('/').pop()).join(', ') || label; } catch { /* keep the label */ }
-      toast(`${saved} → ${path}`);
-      onDone?.();
+      let result = null;
+      try { result = JSON.parse(xhr.responseText); } catch { /* keep going */ }
+      const saved = result?.files?.map((f) => f.path.split('/').pop()).join(', ') || label;
+      bar.done(t('saved {name}', { name: saved }));
+      bar.close();
+      // `quiet` is for a caller that ends the story itself — the paste points at the file
+      // it just wrote, and a toast saying the same thing twice is noise, not clarity.
+      if (!quiet) toast(`${saved} → ${path}`);
+      onDone?.(result);
       refreshAllBrowsers();
       return;
     }
+    bar.close();
     let msg = `HTTP ${xhr.status}`;
     try { msg = JSON.parse(xhr.responseText).error || msg; } catch { /* not JSON */ }
     toast(msg, true);
+    onDone?.(null);
   };
-  xhr.onerror = () => { bar.close(); toast(t('upload failed'), true); };
+  xhr.onerror = () => { bar.close(); toast(t('upload failed'), true); onDone?.(null); };
   xhr.send(body);
 }
+
+// An upload of a screenshot takes about as long as a blink, and a progress bar that
+// appears and vanishes inside 50ms is worse than none: something flickered and you cannot
+// say what. Whatever it reports, it stays on screen long enough to be read.
+const BAR_MINIMUM = 1400;
 
 function progressBar(label, where) {
   const fill = el('div', { className: 'fill' });
@@ -815,9 +828,11 @@ function progressBar(label, where) {
     el('div', { className: 'dest' }, bidi(where)),
   ]);
   document.body.append(node);
+  const born = Date.now();
   return {
     set: (frac) => { fill.style.width = `${Math.max(2, Math.round(frac * 100))}%`; },
-    close: () => node.remove(),
+    done: (text) => { if (text) node.querySelector('.tilenote').textContent = text; fill.style.width = '100%'; },
+    close: () => setTimeout(() => node.remove(), Math.max(0, BAR_MINIMUM - (Date.now() - born))),
   };
 }
 
@@ -1554,7 +1569,26 @@ function pasteImages(e) {
   if (!pane) return toast(t('open a folder first — a pasted image needs somewhere to go'), true);
 
   e.preventDefault();
-  uploadTo(pane.folder(), images, () => pane.reload(), 'screenshot');
+  // Three things have to be obvious: that it started, where it is going, and what
+  // arrived. The pane it is going into lights up, the bar names the folder, and the file
+  // that lands is revealed and flashed the same way a path clicked in a terminal is.
+  pane.node.classList.add('pasting');
+  // No toast at the start: the progress bar appears at once and already names the folder,
+  // and two messages in the same corner of the screen simply cover each other.
+  // Long enough to be seen. An upload this small is over in a blink, and a highlight that
+  // comes and goes inside 200ms reads as a glitch rather than as "it went in here".
+  const lit = setTimeout(() => pane.node.classList.remove('pasting'), 700);
+  uploadTo(pane.folder(), images, (result) => {
+    const saved = result?.files?.[0]?.path;
+    if (!saved) {
+      clearTimeout(lit);
+      pane.node.classList.remove('pasting');
+      pane.reload();
+      return;
+    }
+    // The ending: the row appears, flashes, and keeps the mark that says "this one".
+    setTimeout(() => pointAt(saved), 250);
+  }, { sequence: 'screenshot', quiet: true, called: t('screenshot from the clipboard') });
 }
 
 document.addEventListener('paste', pasteImages);

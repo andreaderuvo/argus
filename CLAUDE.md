@@ -101,6 +101,13 @@ reloading is the whole loop — only Python changes need the server restarted.
   `Unreadable` are separate: telling someone the server cannot search PDFs when the truth
   is that *this* PDF is damaged sends them looking in the wrong place. A PDF with no text
   at all says it is probably a scan.
+- **A paste has to be legible.** The upload of a screenshot is over in a blink, so
+  without help nothing on screen changes long enough to be seen. Three stages, one each:
+  the destination pane lights for 700ms, the progress bar stays up for `BAR_MINIMUM`
+  (1.4s) and ends reading "saved screenshot-3.png", and the new row is revealed and
+  flashed — the same gesture a path clicked in a terminal gets. Deliberately *one* channel
+  at the bottom of the screen: a toast and the bar share that corner and covered each
+  other.
 - **Pasting an image** goes through the ordinary upload with a `sequence` field: the
   server picks the first free `screenshot-N.ext`, because the clipboard offers the same
   "image.png" every time and the folder is the only thing that knows what is taken. The

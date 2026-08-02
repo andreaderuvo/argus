@@ -227,6 +227,8 @@
   "p. {n}": "p. {n}",
   "Copy a link to this desk": "Copia il link a questo desk",
   "Link to {desk}": "Link a {desk}",
-  "open a folder first — a pasted image needs somewhere to go": "apri prima una cartella — un'immagine incollata deve andare da qualche parte"
+  "open a folder first — a pasted image needs somewhere to go": "apri prima una cartella — un'immagine incollata deve andare da qualche parte",
+  "saved {name}": "salvato {name}",
+  "screenshot from the clipboard": "schermata dagli appunti"
  }
 }
