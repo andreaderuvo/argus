@@ -4,8 +4,10 @@
 
 # Argus
 
-**Watch and drive the long-running work on a Linux box — tmux sessions, files, logs,
-documents, the machine's own health — from a phone, with nothing to install on the phone.**
+**The cockpit for work you no longer type yourself.**
+
+*Your agents run in tmux. Argus is where you watch them, answer them, and look at what
+they produced — the log, the plot, the report — from a desk or from a phone.*
 
 [![tests](https://github.com/andreaderuvo/argus/actions/workflows/tests.yml/badge.svg)](https://github.com/andreaderuvo/argus/actions/workflows/tests.yml)
 [![python](https://img.shields.io/badge/python-3.11%2B-3776ab?logo=python&logoColor=white)](https://www.python.org/)
@@ -40,27 +42,36 @@ another terminal window would, and leaves them running when you close the tab.
 
 ## Why this exists
 
-Work that matters here does not finish while you are watching it. An AI agent chews
-through a task for two hours; a genomics pipeline runs overnight; a build stops on a
-question nobody is there to answer. All of it lives in tmux, which is exactly the right
-place for it — the session survives the laptop closing, the VPN dropping, the train
-arriving.
+An editor is built for the hours you spend writing code. More and more of that work is
+now done by an agent that runs for two hours in a tmux session, and what is left for you
+is a different job: keeping an eye on it, unblocking it when it asks something, and
+judging what came out — the log, the table, the figure, the document.
 
-And then you leave the desk, and the only way back in is an SSH client on a phone: a
-keyboard that eats a third of the screen, a terminal that reflows into confetti every
-time you rotate, no way to look at the log *and* the plot at the same time, and no
-answer at all to "is the disk about to fill up again?".
+That job needs almost nothing an editor is good at, and one thing it is bad at: being
+somewhere else. The work carries on when you close the laptop, so the useful question is
+what you can do from the train. Today the answer is an SSH client on a phone — a keyboard
+that eats a third of the screen, a terminal that turns to confetti when you rotate it, no
+way to look at the log *and* the plot at once, and no answer at all to "is the disk full
+again?".
 
 Argus is the other way round. The machine serves a small web app; the phone is just a
-browser. You reattach to the session that was already running — not a new one — read
-what it printed, answer its question, look at the file it just wrote, and close the tab.
-The session never notices.
+browser. You reattach to the session that was already running — not a new one — read what
+it printed, answer it, and close the tab. The session never notices.
 
-It grew out of a specific irritation: an agent working in tmux, and no way to check on
-it from a bus without a laptop. Everything else here was added because the thing it was
-next to made no sense on its own — a terminal with no way to open the file it just
-named, a log with no way to see the folder it sits in, a machine dying of a full disk
-with no way to know.
+**The point is what sits next to the terminal.** An agent's output is mostly *references*
+to things: a path it wrote, a report it generated, a number in a file. So the terminal and
+the filesystem are the same room here:
+
+- a path printed in the session is **clickable** — it opens beside the terminal, and the
+  file browser jumps to it and marks it
+- a file the agent writes **appears on its own**, without you refreshing anything
+- the thing it wrote is **readable in place**: markdown with its figures, PDF with a
+  search box, Word, images, a log that starts at the end
+- a screenshot you paste lands in the folder you are looking at and **hands you back its
+  path**, ready to paste into the session as the next instruction
+
+None of this runs the agent or knows anything about it. Argus attaches to the tmux session
+it already lives in, the way another terminal window would.
 
 ## What it is not
 
