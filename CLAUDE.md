@@ -101,6 +101,15 @@ reloading is the whole loop — only Python changes need the server restarted.
   `Unreadable` are separate: telling someone the server cannot search PDFs when the truth
   is that *this* PDF is damaged sends them looking in the wrong place. A PDF with no text
   at all says it is probably a scan.
+- **Pasting an image** goes through the ordinary upload with a `sequence` field: the
+  server picks the first free `screenshot-N.ext`, because the clipboard offers the same
+  "image.png" every time and the folder is the only thing that knows what is taken. The
+  paste handler ignores events from inputs, textareas and terminals — those own their own
+  paste — and targets the last pane touched.
+- **`drawTree` builds into a fragment and swaps it in.** It used to empty the container
+  and *then* await: two draws racing (a reload plus `refreshAllBrowsers`) each cleared and
+  each appended, and the folder listed everything twice. `paint()` also carries a
+  generation counter so a slow answer cannot land on top of a newer one.
 - **A listing notices files it did not create.** `/api/files` is fetched once per folder,
   and the app only refreshed after *its own* operations — a file written by a job in tmux
   never passed through it, so the folder just sat there. A 5s watcher re-asks and redraws
