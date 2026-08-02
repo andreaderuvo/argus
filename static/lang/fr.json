@@ -229,6 +229,8 @@
   "Link to {desk}": "Lien vers {desk}",
   "open a folder first — a pasted image needs somewhere to go": "ouvrez d'abord un dossier — une image collée doit aller quelque part",
   "saved {name}": "{name} enregistré",
-  "screenshot from the clipboard": "capture depuis le presse-papiers"
+  "screenshot from the clipboard": "capture depuis le presse-papiers",
+  "path copied: {path}": "chemin copié : {path}",
+  "tap to copy {path}": "touchez pour copier {path}"
  }
 }
