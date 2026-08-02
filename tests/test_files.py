@@ -84,3 +84,36 @@ def test_the_whole_list_is_capped():
 
     many = [f"hit on page {i}" for i in range(500)]
     assert len(files.hits_in(many, "hit")) == files.PDF_MAX_HITS
+
+
+def test_an_inline_file_still_carries_its_name():
+    """The PDF viewer's own save button takes the name from the URL, and every URL here
+    ends in /api/file — which is how every download came out called "file.pdf"."""
+    cd = content_disposition("Relazione finale.pdf", inline=True)
+    assert cd.startswith("inline; ")
+    assert 'filename="Relazione finale.pdf"' in cd
+    assert "filename*=UTF-8''Relazione%20finale.pdf" in cd
+
+
+def test_inline_names_are_neutralised_the_same_way():
+    cd = content_disposition('in"jec\nted.pdf', inline=True)
+    assert "\n" not in cd and cd.count('"') == 2
+
+
+def test_a_pdf_is_served_for_reading_with_its_name(tmp_path):
+    from fastapi.testclient import TestClient
+
+    from app.config import Config
+    from app.main import create_app
+
+    token = "testtoken-0123456789abcdef"
+    # Enough of a PDF for the type to be guessed from the suffix; the bytes never matter
+    # to the header.
+    (tmp_path / "Relazione finale.pdf").write_bytes(b"%PDF-1.4\n%%EOF\n")
+    client = TestClient(create_app(Config(token=token, roots=[tmp_path])))
+    r = client.get(f"/api/file?path={tmp_path / 'Relazione finale.pdf'}",
+                   headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "application/pdf"
+    assert r.headers["content-disposition"].startswith("inline; ")
+    assert "Relazione finale.pdf" in r.headers["content-disposition"]
