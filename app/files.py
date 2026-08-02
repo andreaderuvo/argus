@@ -210,9 +210,14 @@ async def read_file(request: Request, path: str) -> Response:
         )
 
     # Images and PDFs go out with their real type, so the preview screen can hand them
-    # straight to the browser's own viewer.
+    # straight to the browser's own viewer — with their name attached, so saving one from
+    # inside that viewer keeps it.
     if guessed.startswith("image/") or guessed in INLINE_TYPES:
-        return Response(content=data, media_type=guessed)
+        return Response(
+            content=data,
+            media_type=guessed,
+            headers={"content-disposition": content_disposition(target.name, inline=True)},
+        )
 
     # Everything else must look like text. A NUL byte in the first 8 KiB is the cheap,
     # reliable signal that it does not.
@@ -552,14 +557,20 @@ def _collect(node, out: list[str]) -> None:
         out.append(tail)
 
 
-def content_disposition(name: str) -> str:
+def content_disposition(name: str, inline: bool = False) -> str:
     """``filename=`` needs a plain-ASCII value; ``filename*=`` carries the real name.
     Sending both keeps every browser happy without letting a quote or newline in a
-    filename inject a header."""
+    filename inject a header.
+
+    `inline` is for something shown rather than saved — a PDF in the browser's own viewer.
+    It still needs the name: the viewer's save button takes the name from the URL, and the
+    URL here ends in `/api/file`, which is how every download came out called "file.pdf".
+    """
     ascii_name = "".join(c if (c.isascii() and (c.isalnum() or c in "-_. ")) else "_" for c in name)
     if not ascii_name.strip():
         ascii_name = "download"
-    return f'attachment; filename="{ascii_name}"; filename*=UTF-8\'\'{percent_encode(name)}'
+    kind = "inline" if inline else "attachment"
+    return f'{kind}; filename="{ascii_name}"; filename*=UTF-8\'\'{percent_encode(name)}'
 
 
 def percent_encode(s: str) -> str:
