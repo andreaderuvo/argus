@@ -17,7 +17,26 @@ documents, the machine's own health — from a phone, with nothing to install on
 
 </div>
 
+> [!WARNING]
+> **Early days.** It is used daily on the machine it was written for, and it changes most
+> days: expect rough edges, expect settings to move. More importantly, **Argus is remote
+> shell access** — anyone with the token can run anything you can. Read
+> [Security](#security) and [Reaching it from outside](#reaching-it-from-outside) before
+> putting it anywhere but a trusted network.
+
 ![A workspace holding a terminal, a file browser and a log, side by side](docs/img/desk.png)
+
+## In a minute
+
+```bash
+pip install -r requirements.txt
+python3 -m app.main --allow-write        # prints a URL with a token in it
+```
+
+Open that URL, or scan the QR code it can print, and the phone is in. That is the whole
+setup: no build step, no database, no agent to install anywhere, and **nothing changes
+about how you use tmux** — Argus attaches to the sessions you already have, the same way
+another terminal window would, and leaves them running when you close the tab.
 
 ## Why this exists
 
@@ -155,6 +174,63 @@ services.</sub>
 - **A QR code** to pair a phone, and an installable PWA over HTTPS.
 - **No build step.** The frontend is plain ES modules; xterm.js, marked and the QR
   library are vendored. `pip install -r requirements.txt` and run it.
+
+## Reaching it from outside
+
+Argus listens on plain HTTP and has one token. That is fine on a LAN or a VPN and not
+fine on the open internet, so the question is how the phone gets to the machine. In rough
+order of how little you have to think about it:
+
+**Tailscale** — the one to pick for a phone. Install it on the machine and on the phone,
+and they are on the same private network wherever either of them is. Then:
+
+```bash
+tailscale serve --bg 8090          # https://<machine>.<tailnet>.ts.net → your Argus
+```
+
+`serve` puts a real certificate in front of it, which also gets you the things HTTPS
+unlocks: an installable PWA, the clipboard API, the in-app QR scanner. Nothing is exposed
+to the internet — only devices on your tailnet can reach it. (`tailscale funnel` *does*
+expose it publicly; don't, not with a shell behind it.)
+
+**An SSH tunnel** — nothing to install anywhere:
+
+```bash
+ssh -N -L 8090:127.0.0.1:8090 you@machine     # then open http://127.0.0.1:8090
+```
+
+Perfect from a laptop, awkward from a phone.
+
+**A reverse proxy with TLS**, if the machine already has a name and a certificate. Caddy
+needs no WebSocket configuration:
+
+```caddy
+argus.example.com {
+    reverse_proxy 127.0.0.1:8090
+}
+```
+
+nginx does, and it needs the read timeout raised or a quiet terminal drops every minute:
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:8090;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_read_timeout 3600s;
+}
+```
+
+Serve it at the **root of a name**, not under a path: the app asks for `/api/...`
+absolutely, so `example.com/argus/` will not work. And if the proxy is reachable from the
+internet, put a second lock in front — basic auth, an identity provider, Cloudflare
+Access — because Argus's own lock is a single token with no rate limiting behind it.
+
+**Cloudflare Tunnel** (`cloudflared tunnel --url http://127.0.0.1:8090`) works and takes
+a minute, but it publishes a shell to the whole internet behind that one token. If you
+use it, put Cloudflare Access in front of it.
 
 ## Running it
 
