@@ -1259,3 +1259,10 @@ button.more.weigh.partial { color: var(--warn, #d6b98f); }
 .pdfpage { flex: none; color: var(--accent); font-variant-numeric: tabular-nums; font-size: .75rem; }
 .pdfhit .grow { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dim); }
 body.wall .preview, .winbody .pdfsearch { }
+
+/* The pane a screenshot is being pasted into. It says "here, now" for as long as the
+   upload lasts — which for a screenshot is barely an instant, hence the pulse. */
+.pane.pasting { box-shadow: inset 0 0 0 2px var(--accent); animation: pasting 1s ease-in-out infinite; }
+@keyframes pasting {
+  50% { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent); }
+}
