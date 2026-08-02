@@ -229,6 +229,8 @@
   "Link to {desk}": "Link to {desk}",
   "open a folder first — a pasted image needs somewhere to go": "open a folder first — a pasted image needs somewhere to go",
   "saved {name}": "saved {name}",
-  "screenshot from the clipboard": "screenshot from the clipboard"
+  "screenshot from the clipboard": "screenshot from the clipboard",
+  "path copied: {path}": "path copied: {path}",
+  "tap to copy {path}": "tap to copy {path}"
  }
 }

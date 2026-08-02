@@ -455,11 +455,21 @@ function measureFurniture() {
 
 window.addEventListener('resize', measureFurniture);
 
-function toast(message, bad = false) {
+/** A message at the bottom of the screen. With `onTap` it is also a button — which is
+ *  the only reliable way to reach the clipboard, since a browser grants that to a gesture
+ *  and an upload finishing is not one. */
+function toast(message, bad = false, onTap = null) {
   measureFurniture();
-  const t = el('div', { className: `toast ${bad ? 'bad' : ''}`, textContent: message });
+  // An upload bar sits in this exact corner. Stack above it rather than on top of it:
+  // two messages covering each other is how the last attempt at feedback went wrong.
+  const bar = document.querySelector('.uploading');
+  const lift = bar?.getClientRects().length ? Math.round(bar.getBoundingClientRect().height) + 8 : 0;
+  const t = el(onTap ? 'button' : 'div', { className: `toast ${bad ? 'bad' : ''}${onTap ? ' tappable' : ''}`, textContent: message });
+  if (lift) t.style.bottom = `calc(var(--furniture) + .7rem + ${lift}px)`;
+  if (onTap) t.onclick = () => { onTap(); t.remove(); };
   document.body.append(t);
-  setTimeout(() => t.remove(), bad ? 5000 : 2200);
+  // A message you are meant to act on has to outlast the glance that notices it.
+  setTimeout(() => t.remove(), bad ? 5000 : onTap ? 6000 : 2200);
 }
 
 /* ------------------------------------------------------------------- icons */
@@ -1588,6 +1598,16 @@ function pasteImages(e) {
     }
     // The ending: the row appears, flashes, and keeps the mark that says "this one".
     setTimeout(() => pointAt(saved), 250);
+    // And the path goes to the clipboard, because the next thing anyone does with a
+    // screenshot they just saved is name it somewhere else — in a command, in a report.
+    // The clipboard belongs to gestures: pressing Ctrl+V is one, an upload finishing a
+    // moment later is not, and browsers refuse the second. Try anyway — it works while
+    // the activation from the paste is still warm — and when it does not, hand over a
+    // button, because tapping that *is* a gesture.
+    copyText(saved).then((ok) => {
+      if (ok) toast(t('path copied: {path}', { path: saved }));
+      else toast(t('tap to copy {path}', { path: saved }), false, () => copyText(saved).then((done) => toast(done ? t('copied') : saved)));
+    });
   }, { sequence: 'screenshot', quiet: true, called: t('screenshot from the clipboard') });
 }
 
