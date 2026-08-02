@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import os
+import re
 import shutil
 import stat
 from pathlib import Path
@@ -75,6 +76,28 @@ def safe_name(name: str) -> str:
     if not name or name in (".", "..") or "/" in name or "\0" in name:
         raise ApiError(400, "that is not a usable file name")
     return name
+
+
+# A pasted screenshot has no name of its own — the clipboard offers "image.png" every
+# time — so the server picks the next one that is free.
+MAX_SEQUENCE = 9999
+
+
+def next_free(folder: Path, base: str, suffix: str) -> Path:
+    """`screenshot-1.png`, then `-2`, and so on. Never an existing file: the caller has
+    just been told it may not overwrite anything."""
+    for n in range(1, MAX_SEQUENCE + 1):
+        candidate = folder / f"{base}-{n}{suffix}"
+        if not candidate.exists() and not candidate.is_symlink():
+            return candidate
+    raise ApiError(409, f"there are already {MAX_SEQUENCE} files called {base}-N{suffix}")
+
+
+def safe_suffix(name: str) -> str:
+    """The extension of whatever arrived, or .png — a clipboard image is a PNG unless it
+    says otherwise, and a suffix is not a place to accept arbitrary text."""
+    suffix = Path(name or "").suffix.lower()
+    return suffix if re.fullmatch(r"\.[a-z0-9]{1,8}", suffix) else ".png"
 
 
 def _free(target: Path) -> Path:
@@ -162,6 +185,10 @@ async def upload(
     request: Request,
     path: str = Form(...),
     files: list[UploadFile] = File(...),
+    # When set, the file is named `<sequence>-1.<ext>` and so on, instead of by whatever
+    # the sender called it. This is what a pasted screenshot needs: the clipboard hands
+    # over the same "image.png" every single time.
+    sequence: str = Form(""),
 ) -> dict:
     """Receive files into a directory.
 
@@ -176,8 +203,12 @@ async def upload(
     written = []
 
     for item in files:
-        name = safe_name(Path(item.filename or "").name)
-        target = _free(dest / name)
+        if sequence:
+            target = next_free(dest, safe_name(sequence), safe_suffix(item.filename))
+            name = target.name
+        else:
+            name = safe_name(Path(item.filename or "").name)
+            target = _free(dest / name)
         part = dest / f".{name}.argus-part"
         size = 0
         try:

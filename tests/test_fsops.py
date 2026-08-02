@@ -275,3 +275,57 @@ def test_a_directory_is_not_a_text_file(client, tree):
 def test_no_part_file_is_left_behind(client, tree):
     write(client, tree / "root" / "hello.txt", "pulito")
     assert not list((tree / "root").glob(".*argus-part"))
+
+
+def upload_seq(client, path, name, data, sequence, token=TOKEN):
+    return client.post(
+        "/api/fs/upload",
+        data={"path": str(path), "sequence": sequence},
+        files=[("files", (name, data, "image/png"))],
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+
+def test_a_pasted_image_is_numbered_not_named(client, tree):
+    """The clipboard offers the same "image.png" every time; the number has to come from
+    the folder, not from the sender."""
+    r = upload_seq(client, tree / "root", "image.png", b"\x89PNG", "screenshot")
+    assert r.status_code == 200
+    assert (tree / "root" / "screenshot-1.png").exists()
+
+
+def test_the_number_carries_on_from_what_is_there(client, tree):
+    (tree / "root" / "screenshot-1.png").write_bytes(b"a")
+    (tree / "root" / "screenshot-2.png").write_bytes(b"b")
+    upload_seq(client, tree / "root", "image.png", b"\x89PNG", "screenshot")
+    assert (tree / "root" / "screenshot-3.png").exists()
+    assert (tree / "root" / "screenshot-1.png").read_bytes() == b"a", "nothing is overwritten"
+
+
+def test_a_gap_in_the_numbering_is_filled(client, tree):
+    (tree / "root" / "screenshot-1.png").write_bytes(b"a")
+    (tree / "root" / "screenshot-3.png").write_bytes(b"c")
+    upload_seq(client, tree / "root", "image.png", b"\x89PNG", "screenshot")
+    assert (tree / "root" / "screenshot-2.png").exists()
+
+
+def test_the_extension_follows_the_image_that_was_pasted(client, tree):
+    upload_seq(client, tree / "root", "grab.jpeg", b"\xff\xd8", "screenshot")
+    assert (tree / "root" / "screenshot-1.jpeg").exists()
+
+
+def test_a_nonsense_extension_becomes_png(client, tree):
+    upload_seq(client, tree / "root", "grab.../etc/passwd", b"x", "screenshot")
+    assert (tree / "root" / "screenshot-1.png").exists()
+    assert not (tree / "etc").exists()
+
+
+def test_the_sequence_name_cannot_escape_the_folder(client, tree):
+    r = upload_seq(client, tree / "root", "image.png", b"x", "../outside/shot")
+    assert r.status_code == 400
+    assert not list((tree / "outside").glob("*"))
+
+
+def test_pasting_is_refused_on_a_read_only_server(tree):
+    ro = make_client(tree, allow_write=False)
+    assert upload_seq(ro, tree / "root", "image.png", b"x", "screenshot").status_code == 403

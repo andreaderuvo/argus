@@ -764,7 +764,7 @@ function fileActions(entry, refresh, dest, favGroup = 'main') {
 
 /** Upload with a progress bar, which means XMLHttpRequest: `fetch` still cannot report
  *  how far a request body has got, and a 4 GB fastq with no feedback is unusable. */
-function uploadTo(path, fileList, onDone) {
+function uploadTo(path, fileList, onDone, sequence = '') {
   const files = [...fileList];
   if (!files.length) return;
   const total = files.reduce((n, f) => n + f.size, 0);
@@ -779,6 +779,9 @@ function uploadTo(path, fileList, onDone) {
 
   const body = new FormData();
   body.append('path', path);
+  // A pasted image has no name worth keeping — the clipboard says "image.png" every
+  // time — so the server numbers it instead.
+  if (sequence) body.append('sequence', sequence);
   for (const f of files) body.append('files', f, f.name);
 
   const xhr = new XMLHttpRequest();
@@ -788,7 +791,9 @@ function uploadTo(path, fileList, onDone) {
   xhr.onload = () => {
     bar.close();
     if (xhr.status === 200) {
-      toast(`${label} → ${path}`);
+      let saved = label;
+      try { saved = JSON.parse(xhr.responseText).files.map((f) => f.path.split('/').pop()).join(', ') || label; } catch { /* keep the label */ }
+      toast(`${saved} → ${path}`);
       onDone?.();
       refreshAllBrowsers();
       return;
@@ -1016,14 +1021,18 @@ function pointAt(target) {
 }
 
 async function drawTree(container, path, onFile, refresh, dest, favGroup = 'main') {
-  container.innerHTML = '';
+  // Built aside and swapped in at the end, never emptied first. Clearing and *then*
+  // awaiting leaves a window in which a second draw can start, empty it again, and both
+  // append — which is how one file came to be listed twice after a paste.
+  const built = document.createDocumentFragment();
   try {
     const entries = visible(await getJSON(`/api/files?path=${encodeURIComponent(path)}`));
-    if (!entries.length) return container.append(el('p', { className: 'empty', textContent: t('Nothing here.') }));
-    for (const e of entries) container.append(treeNode(e, 0, onFile, refresh, dest, favGroup));
+    if (!entries.length) built.append(el('p', { className: 'empty', textContent: t('Nothing here.') }));
+    for (const e of entries) built.append(treeNode(e, 0, onFile, refresh, dest, favGroup));
   } catch (e) {
-    container.append(el('p', { className: 'error', textContent: e.message }));
+    built.append(el('p', { className: 'error', textContent: e.message }));
   }
+  container.replaceChildren(built);
 }
 
 /* ------------------------------------------------------------------ router */
@@ -1287,6 +1296,9 @@ function fileBrowser({
 }) {
   const node = el('div', { className: `pane${compact ? ' compact' : ''}` });
   const list = el('div', { className: 'panelist' });
+  // Which pane a pasted image belongs to. Recorded on the way down so it is right even
+  // for a click that lands on a button inside the pane.
+  node.addEventListener('pointerdown', () => { lastPane = handle; }, true);
   const reload = () => paint();
 
   /** Opening a file from a desk keeps you in the desk.
@@ -1446,18 +1458,27 @@ function fileBrowser({
   let signature = '';
   const signOf = (entries) => entries.map((e) => `${e.name}:${e.size}:${e.mtime}`).join('|');
 
+  // Which paint is the current one. Two can be in flight at once — a save refreshes every
+  // browser while this pane is already refreshing itself — and the slower one must not
+  // land on top of the newer one's answer.
+  let painting = 0;
+
   async function paint() {
+    const mine = ++painting;
     renderFavs();
     if (getTree()) await drawTree(list, path, openFile, reload, other, favGroup);
     else {
       try {
         const entries = await getJSON(`/api/files?path=${encodeURIComponent(path)}`);
+        if (mine !== painting) return;
         signature = signOf(entries);
         draw(entries);
       } catch (e) {
+        if (mine !== painting) return;
         draw([], e);
       }
     }
+    if (mine !== painting) return;
     markCurrent(list);
     await applyPointed(list, path, getTree());
   }
@@ -1479,9 +1500,10 @@ function fileBrowser({
     if (!node.isConnected) return clearInterval(watcher);
     if (document.hidden || getTree() || !node.getClientRects().length) return;
     try {
+      const before = painting;
       const entries = await getJSON(`/api/files?path=${encodeURIComponent(path)}`);
       const now = signOf(entries);
-      if (now === signature) return;
+      if (now === signature || before !== painting) return;   // a paint overtook us
       signature = now;
       draw(entries);
       markCurrent(list);
@@ -1489,9 +1511,11 @@ function fileBrowser({
     } catch { /* offline, or the folder went away; the next tick will say so */ }
   }, WATCH);
 
-  return {
+  const handle = {
     node,
     reload,
+    /** Where this pane is looking, for whoever needs to put something here. */
+    folder: () => path,
     mark: () => markCurrent(list),
     /** Bring a file into view here. A tree already containing it only has to expand; any
      *  other case moves the listing to the folder the file is in, and the mark is picked
@@ -1502,7 +1526,42 @@ function fileBrowser({
       else setPath(parentOf(target));
     },
   };
+  if (!lastPane) lastPane = handle;
+  return handle;
 }
+
+/** A screenshot in the clipboard, saved where you are looking.
+ *
+ *  Ctrl+V in a file listing is the gesture people already have for this, and the
+ *  alternative — save it, find it in Downloads, upload it — is four steps for something
+ *  that should be none. The name is the server's business: the clipboard hands over the
+ *  same "image.png" every time, so it becomes screenshot-1.png, screenshot-2.png, and it
+ *  never overwrites anything.
+ */
+function pasteImages(e) {
+  if (!server?.allow_write) return;
+  // Not while typing: an editor, a search box and a terminal all own their own paste.
+  const into = e.target;
+  if (into?.closest?.('input, textarea, .xterm, [contenteditable]')) return;
+
+  const images = [...(e.clipboardData?.items || [])]
+    .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
+    .map((item) => item.getAsFile())
+    .filter(Boolean);
+  if (!images.length) return;
+
+  const pane = (lastPane?.node.isConnected && lastPane) || [...browsers].find((b) => b.node.isConnected);
+  if (!pane) return toast(t('open a folder first — a pasted image needs somewhere to go'), true);
+
+  e.preventDefault();
+  uploadTo(pane.folder(), images, () => pane.reload(), 'screenshot');
+}
+
+document.addEventListener('paste', pasteImages);
+
+// The listing a paste lands in: the last one touched, which is what "the browser I am
+// working in" means when several are on screen at once.
+let lastPane = null;
 
 // Every live browser, so one operation refreshes all the views that might show it.
 // Windows register here too, which is why the Files screen only ever removes its own.
