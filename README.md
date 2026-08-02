@@ -26,7 +26,7 @@ they produced — the log, the plot, the report — from a desk or from a phone.
 > [Security](#security) and [Reaching it from outside](#reaching-it-from-outside) before
 > putting it anywhere but a trusted network.
 
-![A workspace holding a terminal, a file browser and a log, side by side](docs/img/desk.png)
+![Two agents working in tmux, the folder they are writing into, and the report they produced, all in one workspace](docs/img/agents.png)
 
 ## In a minute
 
@@ -86,8 +86,8 @@ it already lives in, the way another terminal window would.
 
 | | |
 |---|---|
-| ![The session list](docs/img/sessions.png) | ![A session attached, with a key bar for the modifiers a phone lacks](docs/img/terminal.png) |
-| Every tmux session on the machine, with what it is doing | A real PTY, not a poll of `capture-pane` |
+| ![A workspace holding a terminal, a file browser and a log](docs/img/desk.png) | ![A session attached, with a key bar for the modifiers a phone lacks](docs/img/terminal.png) |
+| Windows you arrange yourself, snapping to each other | A real PTY, not a poll of `capture-pane` |
 | ![The file tree](docs/img/files.png) | ![A rendered markdown document](docs/img/preview.png) |
 | Files as a list or a tree, with icons and sizes on demand | Markdown, PDF, Word, images, logs — rendered, not downloaded |
 | ![The machine at a glance](docs/img/system.png) | ![A session on a phone](docs/img/phone-terminal.png) |
