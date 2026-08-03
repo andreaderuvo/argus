@@ -2626,11 +2626,23 @@ const TRIM_LEAD = /^['"`([{<]+/;
 const TRIM_TAIL = /['"`)\]}>.,;:!?]+$/;
 const MAX_WRAP_ROWS = 24;      // a "line" longer than this is not a path, it is a paste
 
+// A bare URL in the output. Terminals wrap them and prose puts them in brackets, so the
+// trailing punctuation comes off the same way a path's does.
+const URL_LIKE = /^(https?:\/\/|www\.)[^\s]+$/i;
+
 function pathCandidates(text) {
   const out = [];
   for (const m of text.matchAll(/\S+/g)) {
     const raw = m[0];
-    if (raw.length > 400 || raw.includes('://') || raw.startsWith('-')) continue;
+    if (raw.length > 400 || raw.startsWith('-')) continue;
+    if (raw.includes('://') || /^www\./i.test(raw)) {
+      const lead = (raw.match(TRIM_LEAD) || [''])[0].length;
+      const inner = raw.slice(lead).replace(TRIM_TAIL, '');
+      if (URL_LIKE.test(inner)) {
+        out.push({ text: inner, start: m.index + lead, end: m.index + lead + inner.length, url: true });
+      }
+      continue;
+    }
     // Underline the path, not the punctuation the sentence wrapped it in — but keep a
     // `:12` inside, so clicking a traceback line feels like clicking the whole thing.
     const lead = (raw.match(TRIM_LEAD) || [''])[0].length;
@@ -2678,6 +2690,43 @@ async function locatePaths(tokens, session) {
   return found;
 }
 
+/** Open a URL printed in a session.
+ *
+ *  The interesting case is the one an agent produces constantly: "serving on
+ *  http://localhost:5002". On the machine that link works; on the phone reading it,
+ *  localhost is the phone, and the tab opens on nothing. Argus is already standing on the
+ *  right machine, so a loopback address is opened *through* it instead — the same reverse
+ *  proxy the System screen offers, opened on demand.
+ */
+async function openUrl(raw) {
+  const url = /^www\./i.test(raw) ? `https://${raw}` : raw;
+  let parsed;
+  try { parsed = new URL(url); } catch { return; }
+
+  const loopback = ['localhost', '127.0.0.1', '0.0.0.0', '::1'].includes(parsed.hostname);
+  const port = Number(parsed.port || (parsed.protocol === 'https:' ? 443 : 80));
+
+  if (!loopback || parsed.hostname === location.hostname) {
+    window.open(url, '_blank', 'noopener');
+    return;
+  }
+  if (!server?.allow_proxy) {
+    toast(t('{host} is this machine, not yours — start Argus with --allow-proxy to reach it', { host: parsed.hostname }), true);
+    return;
+  }
+  try {
+    // Opening the port is what the System screen makes you do by hand; a link that names
+    // it is consent enough.
+    await postJSON('/api/ports', { port, open: true });
+  } catch (e) {
+    return toast(e.message, true);
+  }
+  const through = withToken(`/proxy/${port}${parsed.pathname}${parsed.search}`);
+  if (live?.key === 'wall') openWindow({ kind: 'web', url: through, label: `:${port}` });
+  else window.open(through, '_blank', 'noopener');
+  toast(t('port {port} opened and served through Argus', { port }));
+}
+
 /** Somewhere to put the file that was clicked. In a workspace it opens beside the
  *  terminal, which is the whole point; full screen it takes over, because there is
  *  nowhere else for it to go. */
@@ -2713,14 +2762,22 @@ function linkPaths(term, container, session, open, following = () => {}) {
       const { text, first } = logicalLine(term, y);
       const cands = pathCandidates(text);
       if (!cands.length) return done(undefined);
-      locatePaths(cands.map((c) => c.text), session).then((found) => {
-        const links = cands.filter((c) => found[c.text]).map((c) => ({
+      const urls = cands.filter((c) => c.url).map((c) => ({
+        text: c.text,
+        range: { start: at(c.start, first), end: at(c.end - 1, first) },
+        activate: () => { following(); openUrl(c.text); },
+      }));
+      const paths = cands.filter((c) => !c.url);
+      if (!paths.length) return done(urls.length ? urls : undefined);
+
+      locatePaths(paths.map((c) => c.text), session).then((found) => {
+        const links = paths.filter((c) => found[c.text]).map((c) => ({
           text: c.text,
           range: { start: at(c.start, first), end: at(c.end - 1, first) },
           activate: () => { following(); open(found[c.text]); },
         }));
-        done(links.length ? links : undefined);
-      }).catch(() => done(undefined));
+        done(urls.concat(links).length ? urls.concat(links) : undefined);
+      }).catch(() => done(urls.length ? urls : undefined));
     },
   });
 
@@ -2746,6 +2803,7 @@ function linkPaths(term, container, session, open, following = () => {}) {
     const offset = (y - 1 - first) * term.cols + spot.col;
     const cand = pathCandidates(text).find((c) => offset >= c.start && offset < c.end);
     if (!cand) return;
+    if (cand.url) return openUrl(cand.text);
     const found = await locatePaths([cand.text], session);
     if (found[cand.text]) { following(); open(found[cand.text]); }
     else toast(t('No file at {path}', { path: cand.text }), true);

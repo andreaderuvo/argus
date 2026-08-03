@@ -231,6 +231,8 @@
   "saved {name}": "saved {name}",
   "screenshot from the clipboard": "screenshot from the clipboard",
   "path copied: {path}": "path copied: {path}",
-  "tap to copy {path}": "tap to copy {path}"
+  "tap to copy {path}": "tap to copy {path}",
+  "{host} is this machine, not yours — start Argus with --allow-proxy to reach it": "{host} is this machine, not yours — start Argus with --allow-proxy to reach it",
+  "port {port} opened and served through Argus": "port {port} opened and served through Argus"
  }
 }

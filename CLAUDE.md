@@ -92,6 +92,13 @@ reloading is the whole loop — only Python changes need the server restarted.
   word entirely. Reproducible with CDP: `Input.imeSetComposition` then two
   `Input.insertText` gives `["listeria","listeria"]` without the guard and `["listeria"]`
   with it, while ordinary keystrokes stay `["l","s"]`.
+- **URLs in a session are clickable too**, not only paths: xterm ships no web-link
+  provider and ours skipped anything with `://`. The interesting case is a loopback URL —
+  an agent saying "serving on http://localhost:5002" — because on the phone reading it,
+  localhost is the phone. Argus is already on the right machine, so it opens the port and
+  serves it through `/proxy/<port>/` instead. That decision reads `allow_proxy`, which
+  `/api/config` did not expose; the ports screen got it from `/api/ports`, so a clicked
+  link saw "off" and refused.
 - **Markdown figures** are resolved against the document's folder and fetched through
   `/api/file` — the jail still decides what can be read. They used to be deleted outright
   (anything not `http(s):`), which quietly threw away the plots that are the point of a
