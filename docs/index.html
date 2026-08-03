@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Argus — the cockpit for work you no longer type yourself</title>
+<meta name="description" content="Watch your agents run in tmux, answer them, and read what they produced. From a desk or from a phone. Self-hosted, MIT.">
+<link rel="icon" href="img/mark-192.png">
+
+<meta property="og:title" content="Argus">
+<meta property="og:description" content="Your agents run in tmux. Argus is where you watch them, answer them, and look at what they produced.">
+<meta property="og:image" content="https://andreaderuvo.github.io/argus/img/agents.png">
+<meta property="og:url" content="https://andreaderuvo.github.io/argus/">
+<meta name="twitter:card" content="summary_large_image">
+
+<style>
+  :root {
+    --bg: #0b0e14;
+    --panel: #11151d;
+    --line: #1e2530;
+    --text: #c5cad3;
+    --dim: #6b7484;
+    --bright: #e6e9ef;
+    --accent: #8fd6a0;
+    --on-accent: #0b0e14;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 17px/1.65 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 62rem; margin: 0 auto; padding: 0 1.2rem; }
+  a { color: var(--accent); }
+
+  /* ---------- hero ---------- */
+  header { padding: 4.5rem 0 2.5rem; text-align: center; }
+  header img.mark { width: 92px; height: 92px; }
+  h1 { font-size: clamp(2.4rem, 7vw, 3.6rem); margin: .6rem 0 .2rem; color: var(--bright); letter-spacing: -.02em; }
+  .tagline { font-size: clamp(1.05rem, 2.6vw, 1.3rem); color: var(--bright); margin: 0 auto .4rem; max-width: 34rem; }
+  .sub { color: var(--dim); max-width: 38rem; margin: 0 auto; }
+  .cta { display: flex; gap: .7rem; justify-content: center; flex-wrap: wrap; margin: 1.8rem 0 .8rem; }
+  .btn {
+    display: inline-block; padding: .7rem 1.3rem; border-radius: .6rem; text-decoration: none;
+    font-weight: 600; border: 1px solid var(--line);
+  }
+  .btn.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+  .btn.ghost { color: var(--text); }
+  .btn:hover { filter: brightness(1.08); }
+  .badges { color: var(--dim); font-size: .85rem; }
+
+  /* ---------- the picture ---------- */
+  figure { margin: 2rem 0 0; }
+  figure img { width: 100%; border: 1px solid var(--line); border-radius: .8rem; display: block; }
+  figcaption { color: var(--dim); font-size: .85rem; text-align: center; margin-top: .7rem; }
+
+  /* ---------- sections ---------- */
+  section { padding: 3.5rem 0; border-top: 1px solid var(--line); }
+  h2 { color: var(--bright); font-size: 1.5rem; margin: 0 0 1rem; letter-spacing: -.01em; }
+  h3 { color: var(--bright); font-size: 1.02rem; margin: 0 0 .3rem; }
+  p { margin: 0 0 1rem; }
+  .lead { max-width: 44rem; }
+  .grid { display: grid; gap: 1.2rem; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: .7rem; padding: 1.1rem 1.2rem; }
+  .card p { margin: 0; color: var(--dim); font-size: .95rem; }
+
+  .shots { display: grid; gap: 1.1rem; grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr)); }
+  .shots img { width: 100%; border: 1px solid var(--line); border-radius: .6rem; display: block; }
+  .shots p { color: var(--dim); font-size: .85rem; margin: .5rem 0 0; }
+  .phones { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+  .phones img { width: min(15rem, 42vw); border: 1px solid var(--line); border-radius: .8rem; }
+
+  pre {
+    background: var(--panel); border: 1px solid var(--line); border-radius: .6rem;
+    padding: 1rem 1.1rem; overflow-x: auto; font-size: .9rem; line-height: 1.6;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace; color: var(--bright);
+  }
+  code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .92em; }
+  .note {
+    border-left: 3px solid var(--accent); background: color-mix(in srgb, var(--accent) 7%, transparent);
+    padding: .9rem 1.1rem; border-radius: 0 .5rem .5rem 0; margin: 1.2rem 0;
+  }
+  .warn { border-left-color: #d6b98f; background: color-mix(in srgb, #d6b98f 8%, transparent); }
+  footer { padding: 2.5rem 0 4rem; color: var(--dim); font-size: .9rem; text-align: center; border-top: 1px solid var(--line); }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <img class="mark" src="img/mark.png" alt="">
+    <h1>Argus</h1>
+    <p class="tagline">The cockpit for work you no longer type yourself.</p>
+    <p class="sub">Your agents run in tmux. Argus is where you watch them, answer them, and
+      look at what they produced — from a desk or from a phone.</p>
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/andreaderuvo/argus">Get it on GitHub</a>
+      <a class="btn ghost" href="#start">Run it in a minute</a>
+    </div>
+    <p class="badges">MIT · Python + vanilla JS · no build step · self-hosted</p>
+
+    <figure>
+      <img src="img/agents.png" alt="A workspace with two agents running in tmux, the folder they are writing into, and the report they produced.">
+      <figcaption>Two agents at work, the folder they are filling, and the report one of them
+        just wrote. One workspace, one browser tab.</figcaption>
+    </figure>
+  </header>
+
+  <section>
+    <h2>Why</h2>
+    <div class="lead">
+      <p>An editor is built for the hours you spend writing code. More and more of that is
+        done by an agent that runs for two hours in a tmux session, and what is left for you
+        is a different job: keeping an eye on it, unblocking it when it asks, and judging
+        what came out.</p>
+      <p>That job needs almost nothing an editor is good at, and one thing it is bad at:
+        being somewhere else. The work carries on when you close the laptop, so the useful
+        question is what you can do from the train.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>The point is what sits next to the terminal</h2>
+    <p class="lead">An agent's output is mostly <em>references</em> to things: a path it
+      wrote, a report it generated, a number in a file. So the terminal and the filesystem
+      are the same room.</p>
+    <div class="grid">
+      <div class="card">
+        <h3>Paths are clickable</h3>
+        <p>A path printed in the session opens beside the terminal, and the file browser
+          jumps to it and marks it. Relative paths resolve against the pane's own working
+          directory.</p>
+      </div>
+      <div class="card">
+        <h3>Files appear on their own</h3>
+        <p>A folder you are watching notices what a job writes into it, without you
+          refreshing anything.</p>
+      </div>
+      <div class="card">
+        <h3>Read it in place</h3>
+        <p>Markdown with its figures, PDF with a search box, Word through pandoc, images,
+          and a log that starts at the end.</p>
+      </div>
+      <div class="card">
+        <h3>Paste a screenshot</h3>
+        <p>Ctrl+V in a listing writes it into that folder, numbered, and hands back its
+          path — ready to paste into the session as the next instruction.</p>
+      </div>
+      <div class="card">
+        <h3>Windows, not tabs</h3>
+        <p>Terminals, folders and documents side by side, snapping to each other. Shared
+          edges behave as splitters. Desks have their own links.</p>
+      </div>
+      <div class="card">
+        <h3>The machine itself</h3>
+        <p>CPU, memory, swap, GPUs, disks and listening ports, with a plain reading of
+          whether anything is about to go wrong.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>On a phone, properly</h2>
+    <p class="lead">Not a desktop page squeezed into a phone: a key bar for the modifiers a
+      phone has not got, drag-to-scroll in the terminal, a long press to open a path, and a
+      full-screen button because F11 is not on a phone.</p>
+    <div class="phones">
+      <img src="img/phone-terminal.png" alt="A tmux session attached on a phone.">
+      <img src="img/phone-files.png" alt="The file browser on a phone.">
+      <img src="img/phone-sessions.png" alt="The session list on a phone.">
+    </div>
+  </section>
+
+  <section>
+    <h2>Everything else it does</h2>
+    <div class="shots">
+      <div>
+        <img src="img/desk.png" alt="A workspace with a terminal, a file browser and a log.">
+        <p>Windows you arrange yourself, kept between visits.</p>
+      </div>
+      <div>
+        <img src="img/preview.png" alt="A markdown document rendered.">
+        <p>Documents rendered, not downloaded.</p>
+      </div>
+      <div>
+        <img src="img/system.png" alt="The machine's CPU, memory, swap, GPU, disks and ports.">
+        <p>Is the disk about to fill up again?</p>
+      </div>
+      <div>
+        <img src="img/files.png" alt="The file tree.">
+        <p>Files as a list or a tree, sizes on request.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="start">
+    <h2>Run it in a minute</h2>
+<pre>git clone https://github.com/andreaderuvo/argus &amp;&amp; cd argus
+pip install -r requirements.txt
+python3 -m app.main --allow-write        # prints a URL with a token in it</pre>
+    <p>Open that URL, or scan the QR code it can print, and the phone is in. No build step,
+      no database, no agent to install anywhere — and nothing changes about how you use
+      tmux: Argus attaches to the sessions you already have and leaves them running when
+      you close the tab.</p>
+
+    <div class="note">
+      <strong>Reaching it from a phone that is not on your network:</strong> install
+      <a href="https://tailscale.com">Tailscale</a> on both, then
+      <code>tailscale serve --bg 8090</code>. That also gives it a real certificate, which
+      is what makes the app installable and the clipboard work. An SSH tunnel or a reverse
+      proxy work too — the
+      <a href="https://github.com/andreaderuvo/argus#reaching-it-from-outside">README</a>
+      has the configuration for each.
+    </div>
+
+    <div class="note warn">
+      <strong>Early days, and it is shell access.</strong> Argus is used daily on the
+      machine it was written for and it changes most days. Anyone holding the token can run
+      anything you can, so treat it like an SSH key: a LAN or a VPN, not the open internet.
+      The
+      <a href="https://github.com/andreaderuvo/argus#security">security section</a> says
+      plainly what protects it and what does not.
+    </div>
+  </section>
+</div>
+
+<footer>
+  <p><a href="https://github.com/andreaderuvo/argus">github.com/andreaderuvo/argus</a> · MIT ·
+    built by <a href="https://github.com/andreaderuvo">Andrea de Ruvo</a></p>
+  <p>Named for the herdsman of a hundred eyes, who was set to watch and never slept.</p>
+</footer>
+
+</body>
+</html>
