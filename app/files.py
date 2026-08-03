@@ -121,6 +121,10 @@ async def server_info(request: Request) -> dict:
         "max_preview_bytes": cfg.max_preview_bytes,
         # The UI hides every mutating control when this is false.
         "allow_write": cfg.allow_write,
+        # Whether a loopback URL printed in a session can be reached through us. The
+        # ports screen learned this from /api/ports; a link clicked in a terminal has no
+        # reason to ask that endpoint, and read it as "off" until this was here.
+        "allow_proxy": cfg.allow_proxy,
         "max_upload_bytes": cfg.max_upload_bytes,
         # Where tmux reads its configuration, so the UI can offer to edit it.
         "tmux_conf": tmux.conf_path(),

@@ -231,6 +231,8 @@
   "saved {name}": "guardado {name}",
   "screenshot from the clipboard": "captura desde el portapapeles",
   "path copied: {path}": "ruta copiada: {path}",
-  "tap to copy {path}": "toca para copiar {path}"
+  "tap to copy {path}": "toca para copiar {path}",
+  "{host} is this machine, not yours — start Argus with --allow-proxy to reach it": "{host} es esta máquina, no la tuya — arranca Argus con --allow-proxy",
+  "port {port} opened and served through Argus": "puerto {port} abierto y servido por Argus"
  }
 }

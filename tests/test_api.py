@@ -171,3 +171,18 @@ def test_stat_moves_when_the_file_does(client, tree):
 def test_stat_is_jailed_like_everything_else(client, tree):
     assert get(client, f"/api/stat?path={tree / 'outside'}").status_code == 403
     assert get(client, f"/api/stat?path={tree / 'root' / 'gone'}").status_code == 404
+
+
+def test_config_says_whether_proxying_is_allowed(tmp_path):
+    """A link clicked in a terminal decides from this alone whether a localhost URL can be
+    reached through Argus; reading it as off sends the reader to a dead tab."""
+    from fastapi.testclient import TestClient
+
+    from app.config import Config
+    from app.main import create_app
+
+    token = "testtoken-0123456789abcdef"
+    for allowed in (True, False):
+        client = TestClient(create_app(Config(token=token, roots=[tmp_path], allow_proxy=allowed)))
+        r = client.get("/api/config", headers={"Authorization": f"Bearer {token}"})
+        assert r.json()["allow_proxy"] is allowed
