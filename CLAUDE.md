@@ -92,6 +92,12 @@ reloading is the whole loop — only Python changes need the server restarted.
   word entirely. Reproducible with CDP: `Input.imeSetComposition` then two
   `Input.insertText` gives `["listeria","listeria"]` without the guard and `["listeria"]`
   with it, while ordinary keystrokes stay `["l","s"]`.
+- **No button in a title bar is a drag handle.** `dragBy` used to skip an explicit list of
+  the four buttons that existed when it was written; every button added since — the
+  viewer's download, edit, source and watch, the terminal's copy and size — began a drag
+  instead. `setPointerCapture` then retargets the release, so the events read
+  `pointerdown -> Download`, `pointerup -> DIV`, `click -> DIV`: the button is pressed and
+  the click is delivered to the bar. It now skips anything inside a `button`.
 - **URLs in a session are clickable too**, not only paths: xterm ships no web-link
   provider and ours skipped anything with `://`. The interesting case is a loopback URL —
   an agent saying "serving on http://localhost:5002" — because on the phone reading it,

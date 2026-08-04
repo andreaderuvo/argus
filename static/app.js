@@ -4059,8 +4059,12 @@ function applyGeom(win, geom) {
 /** Pointer-events drag, so it works with a mouse, a trackpad and a stylus alike. */
 function dragBy(grabber, win, bounds, onDone, ignore = [], peers = () => [], onTabDrop = null) {
   grabber.addEventListener('pointerdown', (e) => {
-    // Compare by ancestry, not identity: a click on a button lands on the <svg> inside
-    // it, so an identity test starts a drag and the button never sees its click.
+    // No button in a title bar is a drag handle. This used to be a list of the four
+    // buttons that were there when it was written, and every button added since — the
+    // viewer's download and edit, the terminal's copy and size — began a drag instead:
+    // `setPointerCapture` then sends the click to the bar, so the button never sees it
+    // and nothing at all appears to happen.
+    if (e.target?.closest?.('button')) return;
     if (ignore.some((node) => node === e.target || node.contains(e.target))) return;
     const box = win.getBoundingClientRect();
     const area = bounds.getBoundingClientRect();
