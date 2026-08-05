@@ -141,3 +141,60 @@ def test_an_enormous_buffer_is_cut_down(monkeypatch):
 
     monkeypatch.setattr(tmux.subprocess, "run", lambda argv, **kw: Done())
     assert len(tmux.show_buffer(Socket.new(None))) == tmux.MAX_BUFFER
+
+
+def test_leaving_history_uses_a_copy_mode_command_not_a_keystroke(monkeypatch):
+    """Sending a literal `q` would be typed into the shell whenever the pane was not in
+    copy-mode. `-X cancel` is interpreted, and outside copy-mode it does nothing at all."""
+    seen = []
+
+    class Done:
+        returncode = 0
+        stdout = ""
+        stderr = ""
+
+    monkeypatch.setattr(tmux.subprocess, "run", lambda argv, **kw: seen.append(argv) or Done())
+    assert tmux.leave_copy_mode(Socket.new("argus-test"), "work") is True
+    assert seen[-1] == ["tmux", "-L", "argus-test", "send-keys", "-t", "work", "-X", "cancel"]
+
+
+def test_nothing_to_leave_is_not_an_error(monkeypatch):
+    class Done:
+        returncode = 1
+        stdout = ""
+        stderr = "not in a mode"
+
+    monkeypatch.setattr(tmux.subprocess, "run", lambda argv, **kw: Done())
+    assert tmux.leave_copy_mode(Socket.new(None), "work") is False
+
+
+def test_a_real_refusal_still_raises(monkeypatch):
+    class Done:
+        returncode = 1
+        stdout = ""
+        stderr = "can't find pane: work"
+
+    monkeypatch.setattr(tmux.subprocess, "run", lambda argv, **kw: Done())
+    with pytest.raises(tmux.TmuxError):
+        tmux.leave_copy_mode(Socket.new(None), "work")
+
+
+def test_reading_the_mode(monkeypatch):
+    class Done:
+        returncode = 0
+        stdout = "1 42\n"
+        stderr = ""
+
+    monkeypatch.setattr(tmux.subprocess, "run", lambda argv, **kw: Done())
+    assert tmux.copy_mode(Socket.new(None), "work") == {"in_mode": True, "position": 42}
+
+
+def test_an_unreadable_mode_reads_as_live(monkeypatch):
+    """Better to hide the button than to leave it on screen doing nothing."""
+    class Done:
+        returncode = 1
+        stdout = ""
+        stderr = "no server"
+
+    monkeypatch.setattr(tmux.subprocess, "run", lambda argv, **kw: Done())
+    assert tmux.copy_mode(Socket.new(None), "work") == {"in_mode": False, "position": 0}

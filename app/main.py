@@ -150,6 +150,29 @@ def create_app(cfg: Config) -> FastAPI:
             raise ApiError(502, str(e)) from e
         return {"path": path, "message": said}
 
+    async def _known(request: Request, session: str) -> str:
+        """Only a session tmux itself reported, the same rule attaching follows."""
+        name = str(session or "")
+        if not await asyncio.to_thread(tmux.session_exists, request.app.state.socket, name):
+            raise ApiError(404, f"no tmux session named {name!r}")
+        return name
+
+    @app.get("/api/tmux/copymode")
+    async def read_copy_mode(request: Request, session: str) -> dict:
+        """Is this session showing history rather than the live end?"""
+        name = await _known(request, session)
+        return await asyncio.to_thread(tmux.copy_mode, request.app.state.socket, name)
+
+    @app.post("/api/tmux/copymode")
+    async def exit_copy_mode(request: Request, body: dict) -> dict:
+        """Leave history and return to the live end."""
+        name = await _known(request, str(body.get("session", "")))
+        try:
+            left = await asyncio.to_thread(tmux.leave_copy_mode, request.app.state.socket, name)
+        except tmux.TmuxError as e:
+            raise ApiError(502, str(e)) from e
+        return {"left": left}
+
     @app.get("/api/tmux/buffer")
     async def tmux_buffer(request: Request) -> dict:
         """The last thing copied inside tmux, so it can reach the device's clipboard."""

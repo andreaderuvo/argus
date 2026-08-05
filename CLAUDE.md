@@ -92,6 +92,14 @@ reloading is the whole loop — only Python changes need the server restarted.
   word entirely. Reproducible with CDP: `Input.imeSetComposition` then two
   `Input.insertText` gives `["listeria","listeria"]` without the guard and `["listeria"]`
   with it, while ordinary keystrokes stay `["l","s"]`.
+- **"Back to the live end" talks to tmux, not to xterm.** Scrolling here never scrolls the
+  browser: tmux owns the scrollback, so a wheel over the pane puts *tmux* into copy-mode
+  and `term.buffer` never moves — which is why a first attempt built on `viewportY` and
+  `scrollToBottom()` did nothing at all. The button posts `send-keys -X cancel`, which ends
+  copy-mode and, outside it, answers "not in a mode" without typing a `q` into the shell.
+  It appears on a wheel-up (registered in the **capture** phase: xterm consumes the wheel
+  and stops it bubbling) and polls `#{pane_in_mode}` at 1.5s *only while it is showing*, so
+  pressing `q` yourself puts it away too.
 - **No button in a title bar is a drag handle.** `dragBy` used to skip an explicit list of
   the four buttons that existed when it was written; every button added since — the
   viewer's download, edit, source and watch, the terminal's copy and size — began a drag
