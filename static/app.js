@@ -2873,64 +2873,58 @@ function attachTerminal(container, name, { transform, onGone, onPath } = {}) {
 
   /* Back to the live end.
    *
-   *  Scrolling here does not scroll the browser: tmux owns the scrollback, and a wheel over
-   *  the pane puts tmux into copy-mode. So this button asks tmux to leave it — the
-   *  equivalent of pressing q, without the risk of typing a q into a shell that was never
-   *  in copy-mode. It appears when you scroll back, and it goes away when you are at the
-   *  end again, whether that was this button or you pressing q yourself.
+   *  Scrolling here never scrolls the browser. With tmux attached the terminal has no
+   *  scrollback of its own — measured, it is always 0/0 — so the history is either tmux's
+   *  (copy-mode) or a program's own, and only the first is something we can leave.
+   *
+   *  So the button is shown when tmux says there is something to leave, and not otherwise:
+   *  a button that appears and then explains why it cannot help is worse than one that
+   *  stays away. That answer only tmux has, hence the poll — which runs at a walking pace,
+   *  only while a terminal is actually on screen, and stops the moment it is parked.
    */
   const toEnd = el('button', { className: 'toend', title: t('Back to the live end'), hidden: true }, icon('down'));
   container.append(toEnd);
 
-  let watching = null;
-  const stopWatching = () => { clearInterval(watching); watching = null; };
-  const hideEnd = () => { toEnd.hidden = true; toEnd.classList.remove('fresh'); stopWatching(); };
+  const ASK_EVERY = 2500;
+  let asking = null;
 
-  // xterm keeps its own scrollback for a session where tmux is not handling the mouse, so
-  // "at the end" has two owners and both have to agree before the button goes away.
-  const ownScrollback = () => {
-    const buf = term.buffer.active;
-    return buf.viewportY < buf.baseY;
-  };
+  const onScreen = () => !document.hidden && container.getClientRects().length > 0;
+  // The terminal's own scrollback, for a session tmux is not driving the mouse for.
+  const ownScrollback = () => term.buffer.active.viewportY < term.buffer.active.baseY;
 
-  const askTmux = async () => {
+  const check = async () => {
+    if (disposed) { clearInterval(asking); asking = null; return; }
+    if (!onScreen()) return;
+    let inMode = false;
     try {
-      const r = await getJSON(`/api/tmux/copymode?session=${encodeURIComponent(name)}`);
-      if (!r.in_mode && !ownScrollback()) hideEnd();
-    } catch { if (!ownScrollback()) hideEnd(); }
+      inMode = (await getJSON(`/api/tmux/copymode?session=${encodeURIComponent(name)}`)).in_mode;
+    } catch { inMode = false; }
+    toEnd.hidden = !(inMode || ownScrollback());
   };
 
-  const showEnd = () => {
-    if (!toEnd.hidden) return;
-    toEnd.hidden = false;
-    // Only while the button is up: it answers "are you still back there", and the answer
-    // stops the polling the moment it is no.
-    watching = setInterval(askTmux, 1500);
-  };
+  const startAsking = () => { if (!asking) asking = setInterval(check, ASK_EVERY); };
+  const stopAsking = () => { clearInterval(asking); asking = null; };
+  startAsking();
+
+  // A wheel is not proof of anything — the program under the pointer may have taken it —
+  // but it is the moment to ask rather than wait out the interval. Capture phase: xterm
+  // consumes the wheel and stops it bubbling.
+  container.addEventListener('wheel', (e) => { if (e.deltaY < 0) check(); }, { passive: true, capture: true });
 
   toEnd.onclick = async () => {
-    hideEnd();
+    toEnd.hidden = true;
     term.scrollToBottom();          // for a terminal whose scrollback is its own
     term.focus();
     try {
       const r = await postJSON('/api/tmux/copymode', { session: name });
-      // Nothing to leave, and the pane is a full-screen program: the scrolling belongs to
-      // that program, not to tmux, and no tmux command can bring it back. Saying so beats
-      // a button that silently does nothing.
-      // `left: false` means tmux had no history to leave: whatever scrolled, it was not
-      // tmux. A program that takes the mouse — an agent's own transcript view, less, a
-      // pager — scrolls itself, and no tmux command can bring it back.
-      if (!r.left) toast(t('tmux was not holding the history — the program itself is scrolling, so use its own key'), true);
+      if (!r.left && !ownScrollback()) {
+        toast(t('tmux was not holding the history — the program itself is scrolling, so use its own key'), true);
+      }
     } catch (e) {
       toast(e.message, true);
     }
+    check();
   };
-
-  // Going back through history is the signal. A wheel up over the pane, or a finger
-  // dragged downwards, is what puts tmux into copy-mode in the first place.
-  // Capture phase: xterm handles the wheel itself and stops it going any further, so a
-  // listener waiting for it to bubble never hears a thing.
-  container.addEventListener('wheel', (e) => { if (e.deltaY < 0) showEnd(); }, { passive: true, capture: true });
 
   // Paths printed by whatever is running in here open in the viewer. Following one is not
   // a reason to take the tmux size off another client: the click was aimed at the file,
@@ -3119,7 +3113,7 @@ function attachTerminal(container, name, { transform, onGone, onPath } = {}) {
     const y = e.touches[0].clientY;
     const dy = touchY - y;
     if (Math.abs(dy) < 6) return;      // a tap that wobbles is still a tap
-    if (dy < 0) showEnd();             // dragging downwards is going back through history
+    if (dy < 0) check();               // dragging downwards is going back: ask tmux where we are
     touchY = y;
     (container.querySelector('.xterm-screen') || container).dispatchEvent(
       new WheelEvent('wheel', { deltaY: dy, deltaMode: 0, bubbles: true, cancelable: true }),
@@ -3215,7 +3209,7 @@ function attachTerminal(container, name, { transform, onGone, onPath } = {}) {
     focus: () => term.focus(),
     dispose: () => {
       disposed = true;
-      stopWatching();
+      stopAsking();
       clearTimeout(timer);
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onFocus);
