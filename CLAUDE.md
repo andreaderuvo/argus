@@ -97,9 +97,13 @@ reloading is the whole loop — only Python changes need the server restarted.
   and `term.buffer` never moves — which is why a first attempt built on `viewportY` and
   `scrollToBottom()` did nothing at all. The button posts `send-keys -X cancel`, which ends
   copy-mode and, outside it, answers "not in a mode" without typing a `q` into the shell.
-  It appears on a wheel-up (registered in the **capture** phase: xterm consumes the wheel
-  and stops it bubbling) and polls `#{pane_in_mode}` at 1.5s *only while it is showing*, so
-  pressing `q` yourself puts it away too.
+  It follows tmux rather than the wheel: `#{pane_in_mode}` is polled every 2.5s while the
+  terminal is on screen (and not at all when it is parked or the tab is hidden), so it
+  appears however you entered history — the prefix `^B [` is the only way in when a program
+  has taken the mouse — and leaves however you left. A wheel-up just triggers an immediate
+  check, in the **capture** phase, because xterm consumes the wheel and stops it bubbling.
+  With tmux attached the terminal has no scrollback of its own: measured, always 0/0, which
+  is why nothing here can be built on `viewportY`.
 - **No button in a title bar is a drag handle.** `dragBy` used to skip an explicit list of
   the four buttons that existed when it was written; every button added since — the
   viewer's download, edit, source and watch, the terminal's copy and size — began a drag
