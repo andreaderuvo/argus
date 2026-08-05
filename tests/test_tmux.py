@@ -182,11 +182,23 @@ def test_a_real_refusal_still_raises(monkeypatch):
 def test_reading_the_mode(monkeypatch):
     class Done:
         returncode = 0
-        stdout = "1 42\n"
+        stdout = "1 42 0\n"
         stderr = ""
 
     monkeypatch.setattr(tmux.subprocess, "run", lambda argv, **kw: Done())
-    assert tmux.copy_mode(Socket.new(None), "work") == {"in_mode": True, "position": 42}
+    assert tmux.copy_mode(Socket.new(None), "work") == {"in_mode": True, "position": 42, "alternate": False}
+
+
+def test_a_full_screen_program_is_reported_as_such(monkeypatch):
+    """There is no copy-mode to leave in that case: the program owns the scrolling, and
+    the button has to say so rather than appear to fail."""
+    class Done:
+        returncode = 0
+        stdout = "0 0 1\n"
+        stderr = ""
+
+    monkeypatch.setattr(tmux.subprocess, "run", lambda argv, **kw: Done())
+    assert tmux.copy_mode(Socket.new(None), "work")["alternate"] is True
 
 
 def test_an_unreadable_mode_reads_as_live(monkeypatch):
@@ -197,4 +209,4 @@ def test_an_unreadable_mode_reads_as_live(monkeypatch):
         stderr = "no server"
 
     monkeypatch.setattr(tmux.subprocess, "run", lambda argv, **kw: Done())
-    assert tmux.copy_mode(Socket.new(None), "work") == {"in_mode": False, "position": 0}
+    assert tmux.copy_mode(Socket.new(None), "work") == {"in_mode": False, "position": 0, "alternate": False}
