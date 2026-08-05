@@ -1270,3 +1270,36 @@ body.wall .preview, .winbody .pdfsearch { }
 /* A message that is also a button: the clipboard is only reachable from a gesture. */
 .toast.tappable { cursor: pointer; font: inherit; font-size: .85rem; border: 1px solid var(--accent); }
 .toast.tappable:active { transform: translateX(-50%) scale(.98); }
+
+/* Back to the live end of a session. Bottom right, clear of tmux's own status line, and
+   only there when you are somewhere else. */
+#termwrap, .winbody { position: relative; }
+button.toend {
+  position: absolute;
+  right: .8rem;
+  bottom: 2.4rem;
+  z-index: 6;
+  width: 2.4rem;
+  height: 2.4rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .5);
+  opacity: .92;
+}
+button.toend:hover { color: var(--bright); border-color: var(--accent); }
+button.toend:active { transform: scale(.94); }
+/* Output arrived while you were reading history. */
+button.toend.fresh { border-color: var(--accent); color: var(--accent); }
+button.toend.fresh::after {
+  content: '';
+  position: absolute;
+  top: -2px; right: -2px;
+  width: .5rem; height: .5rem;
+  border-radius: 50%;
+  background: var(--accent);
+}

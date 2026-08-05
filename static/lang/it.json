@@ -233,6 +233,7 @@
   "path copied: {path}": "percorso copiato: {path}",
   "tap to copy {path}": "tocca per copiare {path}",
   "{host} is this machine, not yours — start Argus with --allow-proxy to reach it": "{host} è questa macchina, non la tua — avvia Argus con --allow-proxy per raggiungerla",
-  "port {port} opened and served through Argus": "porta {port} aperta e servita da Argus"
+  "port {port} opened and served through Argus": "porta {port} aperta e servita da Argus",
+  "Back to the live end": "Torna alla fine"
  }
 }

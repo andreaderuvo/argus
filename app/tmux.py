@@ -257,6 +257,48 @@ def source_conf(sock: Socket, path: str) -> str:
     return complaint(done)
 
 
+def copy_mode(sock: Socket, session: str) -> dict:
+    """Whether the pane is showing history, and how far back.
+
+    Scrolling in Argus does not scroll the browser: tmux owns the scrollback, and a wheel
+    over the pane puts tmux into copy-mode. So "am I at the live end?" is a question only
+    tmux can answer.
+    """
+    try:
+        done = subprocess.run(
+            ["tmux", *sock.args(), "display-message", "-p", "-t", session,
+             "#{pane_in_mode} #{scroll_position}"],
+            capture_output=True, text=True, timeout=4,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return {"in_mode": False, "position": 0}
+    parts = done.stdout.split()
+    if done.returncode != 0 or len(parts) < 2:
+        return {"in_mode": False, "position": 0}
+    return {"in_mode": parts[0] == "1", "position": _int(parts[1])}
+
+
+def leave_copy_mode(sock: Socket, session: str) -> bool:
+    """Back to the live end. Returns False when there was nothing to leave.
+
+    `send-keys -X cancel` is the whole trick: in copy-mode it ends it, and outside copy-mode
+    it answers "not in a mode" and — this is the part that matters — types nothing into the
+    shell, which sending a literal `q` would.
+    """
+    try:
+        done = subprocess.run(
+            ["tmux", *sock.args(), "send-keys", "-t", session, "-X", "cancel"],
+            capture_output=True, text=True, timeout=4,
+        )
+    except (OSError, subprocess.SubprocessError) as e:
+        raise TmuxError(str(e)) from e
+    if done.returncode == 0:
+        return True
+    if "not in a mode" in done.stderr.lower():
+        return False
+    raise TmuxError(done.stderr.strip() or "tmux refused")
+
+
 def session_exists(sock: Socket, name: str) -> bool:
     """True when a session with exactly this name exists right now. The WebSocket
     handler gates on this so a client can never name a session we did not enumerate."""
