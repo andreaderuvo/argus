@@ -167,11 +167,14 @@ def create_app(cfg: Config) -> FastAPI:
     async def exit_copy_mode(request: Request, body: dict) -> dict:
         """Leave history and return to the live end."""
         name = await _known(request, str(body.get("session", "")))
+        state = await asyncio.to_thread(tmux.copy_mode, request.app.state.socket, name)
         try:
             left = await asyncio.to_thread(tmux.leave_copy_mode, request.app.state.socket, name)
         except tmux.TmuxError as e:
             raise ApiError(502, str(e)) from e
-        return {"left": left}
+        # Saying *why* nothing happened is the difference between a button that is broken
+        # and a button that had nothing to do.
+        return {"left": left, "alternate": state["alternate"]}
 
     @app.get("/api/tmux/buffer")
     async def tmux_buffer(request: Request) -> dict:

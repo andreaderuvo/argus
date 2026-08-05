@@ -267,15 +267,18 @@ def copy_mode(sock: Socket, session: str) -> dict:
     try:
         done = subprocess.run(
             ["tmux", *sock.args(), "display-message", "-p", "-t", session,
-             "#{pane_in_mode} #{scroll_position}"],
+             # `alternate_on` is the difference between "tmux is holding the history" and
+             # "a full-screen program is drawing its own": in the second case there is no
+             # copy-mode to leave, and the scrolling belongs to the program.
+             "#{pane_in_mode} #{scroll_position} #{alternate_on}"],
             capture_output=True, text=True, timeout=4,
         )
     except (OSError, subprocess.SubprocessError):
         return {"in_mode": False, "position": 0}
     parts = done.stdout.split()
-    if done.returncode != 0 or len(parts) < 2:
-        return {"in_mode": False, "position": 0}
-    return {"in_mode": parts[0] == "1", "position": _int(parts[1])}
+    if done.returncode != 0 or len(parts) < 3:
+        return {"in_mode": False, "position": 0, "alternate": False}
+    return {"in_mode": parts[0] == "1", "position": _int(parts[1]), "alternate": parts[2] == "1"}
 
 
 def leave_copy_mode(sock: Socket, session: str) -> bool:
