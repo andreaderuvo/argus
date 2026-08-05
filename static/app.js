@@ -2886,11 +2886,18 @@ function attachTerminal(container, name, { transform, onGone, onPath } = {}) {
   const stopWatching = () => { clearInterval(watching); watching = null; };
   const hideEnd = () => { toEnd.hidden = true; toEnd.classList.remove('fresh'); stopWatching(); };
 
+  // xterm keeps its own scrollback for a session where tmux is not handling the mouse, so
+  // "at the end" has two owners and both have to agree before the button goes away.
+  const ownScrollback = () => {
+    const buf = term.buffer.active;
+    return buf.viewportY < buf.baseY;
+  };
+
   const askTmux = async () => {
     try {
       const r = await getJSON(`/api/tmux/copymode?session=${encodeURIComponent(name)}`);
-      if (!r.in_mode) hideEnd();
-    } catch { hideEnd(); }
+      if (!r.in_mode && !ownScrollback()) hideEnd();
+    } catch { if (!ownScrollback()) hideEnd(); }
   };
 
   const showEnd = () => {
