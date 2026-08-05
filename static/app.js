@@ -480,6 +480,7 @@ function toast(message, bad = false, onTap = null) {
 const ICONS = {
   back: 'M15 4.5 7.5 12 15 19.5',
   up: 'M12 19.5v-14M5.5 12 12 5.5 18.5 12',
+  down: 'M12 4.5v14M18.5 12 12 18.5 5.5 12',
   home: 'M3.5 11 12 4l8.5 7M6 9.6V20h12V9.6',
   folderPlus: 'M3.5 6.8A1.8 1.8 0 0 1 5.3 5h3.4l1.8 2h8.2a1.8 1.8 0 0 1 1.8 1.8v8.4a1.8 1.8 0 0 1-1.8 1.8H5.3a1.8 1.8 0 0 1-1.8-1.8zM12 10.8v4.8M9.6 13.2h4.8',
   upload: 'M12 16.5v-12M7 9.5 12 4.5l5 5M4.5 19.5h15',
@@ -2870,6 +2871,49 @@ function attachTerminal(container, name, { transform, onGone, onPath } = {}) {
     return true;
   });
 
+  /* Back to the live end.
+   *
+   *  Scrolling here does not scroll the browser: tmux owns the scrollback, and a wheel over
+   *  the pane puts tmux into copy-mode. So this button asks tmux to leave it — the
+   *  equivalent of pressing q, without the risk of typing a q into a shell that was never
+   *  in copy-mode. It appears when you scroll back, and it goes away when you are at the
+   *  end again, whether that was this button or you pressing q yourself.
+   */
+  const toEnd = el('button', { className: 'toend', title: t('Back to the live end'), hidden: true }, icon('down'));
+  container.append(toEnd);
+
+  let watching = null;
+  const stopWatching = () => { clearInterval(watching); watching = null; };
+  const hideEnd = () => { toEnd.hidden = true; toEnd.classList.remove('fresh'); stopWatching(); };
+
+  const askTmux = async () => {
+    try {
+      const r = await getJSON(`/api/tmux/copymode?session=${encodeURIComponent(name)}`);
+      if (!r.in_mode) hideEnd();
+    } catch { hideEnd(); }
+  };
+
+  const showEnd = () => {
+    if (!toEnd.hidden) return;
+    toEnd.hidden = false;
+    // Only while the button is up: it answers "are you still back there", and the answer
+    // stops the polling the moment it is no.
+    watching = setInterval(askTmux, 1500);
+  };
+
+  toEnd.onclick = async () => {
+    hideEnd();
+    term.scrollToBottom();          // for a terminal whose scrollback is its own
+    try { await postJSON('/api/tmux/copymode', { session: name }); } catch { /* nothing to leave */ }
+    term.focus();
+  };
+
+  // Going back through history is the signal. A wheel up over the pane, or a finger
+  // dragged downwards, is what puts tmux into copy-mode in the first place.
+  // Capture phase: xterm handles the wheel itself and stops it going any further, so a
+  // listener waiting for it to bubble never hears a thing.
+  container.addEventListener('wheel', (e) => { if (e.deltaY < 0) showEnd(); }, { passive: true, capture: true });
+
   // Paths printed by whatever is running in here open in the viewer. Following one is not
   // a reason to take the tmux size off another client: the click was aimed at the file,
   // and the text jumping to a new grid under your finger is not what you asked for.
@@ -3057,6 +3101,7 @@ function attachTerminal(container, name, { transform, onGone, onPath } = {}) {
     const y = e.touches[0].clientY;
     const dy = touchY - y;
     if (Math.abs(dy) < 6) return;      // a tap that wobbles is still a tap
+    if (dy < 0) showEnd();             // dragging downwards is going back through history
     touchY = y;
     (container.querySelector('.xterm-screen') || container).dispatchEvent(
       new WheelEvent('wheel', { deltaY: dy, deltaMode: 0, bubbles: true, cancelable: true }),
@@ -3152,6 +3197,7 @@ function attachTerminal(container, name, { transform, onGone, onPath } = {}) {
     focus: () => term.focus(),
     dispose: () => {
       disposed = true;
+      stopWatching();
       clearTimeout(timer);
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onFocus);
