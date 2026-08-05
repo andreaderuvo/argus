@@ -234,6 +234,7 @@
   "tap to copy {path}": "toca para copiar {path}",
   "{host} is this machine, not yours — start Argus with --allow-proxy to reach it": "{host} es esta máquina, no la tuya — arranca Argus con --allow-proxy",
   "port {port} opened and served through Argus": "puerto {port} abierto y servido por Argus",
-  "Back to the live end": "Volver al final"
+  "Back to the live end": "Volver al final",
+  "tmux was not holding the history — the program itself is scrolling, so use its own key": "el historial no era de tmux — es el programa el que se desplaza, usa su propia tecla"
  }
 }

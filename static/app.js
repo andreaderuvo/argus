@@ -2911,8 +2911,19 @@ function attachTerminal(container, name, { transform, onGone, onPath } = {}) {
   toEnd.onclick = async () => {
     hideEnd();
     term.scrollToBottom();          // for a terminal whose scrollback is its own
-    try { await postJSON('/api/tmux/copymode', { session: name }); } catch { /* nothing to leave */ }
     term.focus();
+    try {
+      const r = await postJSON('/api/tmux/copymode', { session: name });
+      // Nothing to leave, and the pane is a full-screen program: the scrolling belongs to
+      // that program, not to tmux, and no tmux command can bring it back. Saying so beats
+      // a button that silently does nothing.
+      // `left: false` means tmux had no history to leave: whatever scrolled, it was not
+      // tmux. A program that takes the mouse — an agent's own transcript view, less, a
+      // pager — scrolls itself, and no tmux command can bring it back.
+      if (!r.left) toast(t('tmux was not holding the history — the program itself is scrolling, so use its own key'), true);
+    } catch (e) {
+      toast(e.message, true);
+    }
   };
 
   // Going back through history is the signal. A wheel up over the pane, or a finger
