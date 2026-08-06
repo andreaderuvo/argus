@@ -257,6 +257,12 @@
   "Everything printed in this desk that can be opened": "Todo lo impreso en este escritorio que se puede abrir",
   "Paths and links printed in this desk’s terminals collect here.": "Aquí se recogen las rutas y los enlaces impresos en las terminales de este escritorio.",
   "Forget this one": "Olvidar este",
-  "Empty the tray": "Vaciar la bandeja"
+  "Empty the tray": "Vaciar la bandeja",
+  "type it here": "escríbelo aquí",
+  "show it here": "muéstralo aquí",
+  "drop it on a window": "suéltalo en una ventana",
+  "Copy the path": "Copiar la ruta",
+  "The path": "La ruta",
+  "put into {session}": "puesto en {session}"
  }
 }

@@ -257,6 +257,12 @@
   "Everything printed in this desk that can be opened": "Everything printed in this desk that can be opened",
   "Paths and links printed in this desk’s terminals collect here.": "Paths and links printed in this desk’s terminals collect here.",
   "Forget this one": "Forget this one",
-  "Empty the tray": "Empty the tray"
+  "Empty the tray": "Empty the tray",
+  "type it here": "type it here",
+  "show it here": "show it here",
+  "drop it on a window": "drop it on a window",
+  "Copy the path": "Copy the path",
+  "The path": "The path",
+  "put into {session}": "put into {session}"
  }
 }
