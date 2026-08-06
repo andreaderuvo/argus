@@ -13,7 +13,7 @@
   "Change colour": "Cambia colore",
   "Close": "Chiudi",
   "Close every window": "Chiudi tutte le finestre",
-  "Close this workspace": "Chiudi questa scrivania",
+  "Close this workspace": "Chiudi questo desk",
   "Close workspace": "Chiudi scrivania",
   "Colour for {name}": "Colore per {name}",
   "Connect": "Connetti",
@@ -236,6 +236,10 @@
   "port {port} opened and served through Argus": "porta {port} aperta e servita da Argus",
   "Back to the live end": "Torna alla fine",
   "tmux was not holding the history — the program itself is scrolling, so use its own key": "la cronologia non era di tmux — sta scorrendo il programma, quindi serve il suo tasto",
-  "Find in this document": "Cerca in questo documento"
+  "Find in this document": "Cerca in questo documento",
+  "Rename…": "Rinomina…",
+  "Change colour…": "Cambia colore…",
+  "Opens in {folder}…": "Si apre in {folder}…",
+  "Choose the folder it opens in…": "Scegli la cartella in cui si apre…"
  }
 }

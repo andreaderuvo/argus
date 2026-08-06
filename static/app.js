@@ -3686,20 +3686,24 @@ async function screenWall() {
   function tabSheet(ws, rename, shut) {
     const body = el('div', { className: 'sheetbody actions' });
     let sheet;
+    // Through t(), like everything else on screen: this sheet was the one place still
+    // speaking English whatever language the rest was in.
     const item = (name, label, fn) => body.append(
       el('button', { className: 'ghost block', onclick: () => { sheet.close(); fn(); } },
         [icon(name), el('span', { textContent: label })]),
     );
-    item('rename', 'Rename…', rename);
-    item('star', 'Change colour…', () => pickColor(`ws:${ws.id}`, drawTabs));
-    item('folder', ws.home ? `Starts in ${ws.home.split('/').pop() || ws.home}…` : 'Set a starting folder…',
+    item('rename', t('Rename…'), rename);
+    item('star', t('Change colour…'), () => pickColor(`ws:${ws.id}`, drawTabs));
+    item('folder', ws.home
+      ? t('Opens in {folder}…', { folder: ws.home.split('/').pop() || ws.home })
+      : t('Choose the folder it opens in…'),
       () => deskFolderSheet(ws));
-    item('copy', 'Copy a link to this desk', async () => {
+    item('copy', t('Copy a link to this desk'), async () => {
       const link = `${location.origin}/#/wall?ws=${ws.id}`;
       if (await copyText(link)) toast(t('link copied'));
       else showText(t('Link to {desk}', { desk: ws.name }), link);
     });
-    item('pin', ws.pinned ? 'Unpin' : 'Pin to the front', () => {
+    item('pin', ws.pinned ? t('Unpin') : t('Pin to the front'), () => {
       ws.pinned = !ws.pinned;
       // Move it to the boundary between the two groups, so pinning does not also
       // reshuffle everything else.
@@ -3709,7 +3713,7 @@ async function screenWall() {
       savePrefs();
       drawTabs();
     });
-    if (spaces.length > 1) item('trash', 'Close this workspace', shut);
+    if (spaces.length > 1) item('trash', t('Close this workspace'), shut);
     sheet = modal(ws.name, body, [
       el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),
     ]);
