@@ -263,6 +263,13 @@
   "drop it on a window": "suéltalo en una ventana",
   "Copy the path": "Copiar la ruta",
   "The path": "La ruta",
-  "put into {session}": "puesto en {session}"
+  "put into {session}": "puesto en {session}",
+  "Type into every chained session": "Escribir en todas las sesiones enlazadas",
+  "Stop typing into the others": "Dejar de escribir en las demás",
+  "what you type here now goes to {n} sessions": "lo que escribas aquí va a {n} sesiones",
+  "chain one more session for this to do anything": "enlaza otra sesión para que sirva de algo",
+  "Unchain all of them": "Desenlazar todas",
+  "chained": "enlazadas",
+  "nothing is chained now": "ahora no hay nada enlazado"
  }
 }

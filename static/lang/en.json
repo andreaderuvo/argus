@@ -263,6 +263,13 @@
   "drop it on a window": "drop it on a window",
   "Copy the path": "Copy the path",
   "The path": "The path",
-  "put into {session}": "put into {session}"
+  "put into {session}": "put into {session}",
+  "Type into every chained session": "Type into every chained session",
+  "Stop typing into the others": "Stop typing into the others",
+  "what you type here now goes to {n} sessions": "what you type here now goes to {n} sessions",
+  "chain one more session for this to do anything": "chain one more session for this to do anything",
+  "Unchain all of them": "Unchain all of them",
+  "chained": "chained",
+  "nothing is chained now": "nothing is chained now"
  }
 }

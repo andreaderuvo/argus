@@ -1417,3 +1417,13 @@ button.trayrow .verb { flex: none; margin-left: auto; font-size: .66rem; color: 
 .trayrow.dragging { opacity: .45; }
 .win.droptarget { outline: 2px solid var(--accent); outline-offset: -2px; }
 .win.droptarget .winbar { background: color-mix(in srgb, var(--accent) 22%, var(--panel)); }
+
+/* A terminal that is typing into others, and the count that says how many. */
+.win.chained { outline: 2px solid var(--st-warning); outline-offset: -2px; }
+.win.chained .winbar { background: color-mix(in srgb, var(--st-warning) 18%, var(--panel)); }
+/* The lit state is the app's usual filled square, in the colour the chain uses
+   everywhere else: green would read as "fine", and this is the one control that can
+   send a command line to three machines at once. */
+button.winbtn.chainbtn.on { color: #2b2000; background: var(--st-warning); border-color: var(--st-warning); }
+.chainnote { color: var(--st-warning); }
+.chainnote .count { font-weight: 700; }
