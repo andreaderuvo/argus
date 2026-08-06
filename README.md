@@ -196,6 +196,12 @@ services.</sub>
   it was always meant for.
 - Argus's own credentials stop at the proxy: neither the token in the query nor the
   `Authorization` header is passed to the service behind it.
+- **Why not just forward the port, like VS Code?** Because VS Code has a piece running on
+  your laptop that can open a socket there; a web page cannot, and no browser will ever
+  let one. If you want `localhost:1455` to work literally, the tool VS Code uses under
+  the hood is already on your machine: `ssh -L 1455:127.0.0.1:1455 you@server`. The proxy
+  is the answer when all you have is a browser — a phone, a borrowed laptop — and the
+  price is that the address changes.
 
 ### Everything else
 
