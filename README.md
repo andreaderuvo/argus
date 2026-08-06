@@ -221,6 +221,9 @@ services.</sub>
   guessed from the output: an agent hook posts to `/api/bell` and says which of the two
   it is. Claude Code's `Stop` and `Notification` hooks and codex's `notify` both do this
   in one line of configuration.
+  `tools/argus-bell` in this repository is that one line: it reads the token from the
+  config so no copy of it ends up in a hook, works out the tmux session by itself, and
+  unwraps the JSON codex hands its notify program.
 - **For everything that is not an agent**, the escape sequence every modern terminal
   implements: `OSC 9`. One `printf` at the end of a build, no configuration. Note that
   tmux swallows it unless it is wrapped in tmux's passthrough with

@@ -1,0 +1,42 @@
+#!/bin/sh
+# Ring the bell in Argus.
+#
+#   argus-bell [done|asking|failed|note] [text]
+#
+# The token is read from the Argus config rather than copied in here, so rotating it
+# does not leave a stale copy behind.
+set -eu
+
+WHY="${1:-done}"
+TEXT="${2:-}"
+CONF="${ARGUS_CONFIG:-$HOME/.config/argus/config.yaml}"
+URL="${ARGUS_URL:-http://127.0.0.1:8090}"
+
+TOKEN="${ARGUS_TOKEN:-$(sed -n 's/^token:[[:space:]]*//p' "$CONF" 2>/dev/null | head -1)}"
+[ -n "$TOKEN" ] || exit 0            # no Argus here: say nothing, break nothing
+
+# codex hands its notify program a JSON blob as the last argument. Left alone it would
+# become the body of the notification, so the sentence inside it is pulled out instead.
+case "$TEXT" in
+  '{'*)
+    TEXT="$(printf '%s' "$TEXT" | python3 -c "
+import json, sys
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    sys.exit()
+said = d.get('last-assistant-message') or d.get('type') or ''
+print(' '.join(str(said).split())[:200])
+" 2>/dev/null || true)"
+    ;;
+esac
+
+SESSION="$(tmux display -p '#S' 2>/dev/null || true)"
+
+# Quote for JSON the small way: these fields are a session name and a short sentence.
+esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr -d '\000-\037'; }
+
+curl -s -m 5 -o /dev/null -X POST "$URL/api/bell" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d "{\"session\":\"$(esc "$SESSION")\",\"why\":\"$(esc "$WHY")\",\"text\":\"$(esc "$TEXT")\"}" || true
