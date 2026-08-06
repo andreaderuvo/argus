@@ -18,8 +18,11 @@ import time
 from collections import deque
 from typing import Any
 
+from pathlib import Path
+
 from fastapi import APIRouter, Request
 
+from . import wiring
 from .errors import ApiError
 
 router = APIRouter()
@@ -73,3 +76,24 @@ async def since(request: Request, since: int = 0) -> dict:
     kept = store(request)
     fresh = [b for b in kept["list"] if b["seq"] > since] if since else []
     return {"seq": kept["seq"], "bells": fresh}
+
+
+@router.get("/api/bell/wiring")
+async def wired(_request: Request) -> dict:
+    """Which agents on this machine are set up to ring, and which are not."""
+    return wiring.state(Path.home())
+
+
+@router.post("/api/bell/wiring")
+async def rewire(_request: Request, body: dict) -> dict:
+    """Do the setting up, or take it back out.
+
+    This writes into the agents' own configuration files, which is exactly the work the
+    person would otherwise be doing by hand — and it is additive: an event they have
+    already claimed is reported, never overwritten, and a copy of each file as it was
+    before Argus first touched it is kept beside it.
+    """
+    try:
+        return wiring.wire(Path.home(), bool(body.get("on", True)))
+    except (OSError, ValueError, FileNotFoundError) as e:
+        raise ApiError(400, str(e)) from e

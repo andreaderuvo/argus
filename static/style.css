@@ -1434,3 +1434,6 @@ button.winbtn.chainbtn.on { color: #2b2000; background: var(--st-warning); borde
 .win.ringing.asking { outline-color: var(--st-warning); }
 .win.ringing.asking .winbar { background: color-mix(in srgb, var(--st-warning) 22%, var(--panel)); }
 .wstab.ringing .tabdot { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 55%, transparent); }
+
+/* A line of explanation under a setting. */
+.hint { margin: .35rem 0 .7rem; padding: 0 .9rem; color: var(--dim); font-size: .78rem; line-height: 1.5; }

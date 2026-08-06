@@ -2430,6 +2430,49 @@ async function screenSettings() {
     return row;
   };
 
+  /** The one button. Everything the wiki describes doing by hand, done here instead:
+   *  the little script, and the hooks in each agent's own configuration. */
+  const wiringRows = () => {
+    const box = el('div');
+    const draw = (info) => {
+      box.replaceChildren();
+      if (!info?.agents?.length) return;                 // no agent here, nothing to offer
+      const all = info.agents.every((a) => a.on);
+      const some = info.agents.some((a) => a.on);
+      const state = el('span', { className: `sw${all ? ' on' : ''}`, textContent: all ? 'ON' : some ? t('partly') : 'OFF' });
+      const row = el('button', { className: 'row setting', type: 'button' }, [
+        el('span', { className: 'grow' }, [
+          el('span', { className: 'name', textContent: t('Let your agents ring') }),
+          el('span', {
+            className: 'meta',
+            textContent: info.agents.map((a) => `${a.name}: ${a.on ? t('wired') : t('not wired')}`).join(' · '),
+          }),
+        ]),
+        state,
+      ]);
+      row.onclick = async () => {
+        state.textContent = '…';
+        try {
+          const answer = await postJSON('/api/bell/wiring', { on: !all });
+          draw(answer.state);
+          toast(answer.changed.length ? answer.changed.join(', ') : t('nothing to change'));
+        } catch (e) {
+          toast(e.message, true);
+          draw(info);
+        }
+      };
+      box.append(row);
+      // An event they have already taken is theirs; say so rather than fighting over it.
+      const taken = info.agents.flatMap((a) => a.taken.map((what) => `${a.name}: ${what}`));
+      if (taken.length) {
+        box.append(el('p', { className: 'hint', textContent: t('you already have your own hook on {what} — Argus left it alone', { what: taken.join(', ') }) }));
+      }
+      box.append(el('p', { className: 'hint', textContent: t('agents read their configuration when they start, so this counts from the next one you open') }));
+    };
+    getJSON('/api/bell/wiring').then(draw).catch(() => {});
+    return box;
+  };
+
   const bellRow = () => {
     const secure = window.isSecureContext;
     const state = el('span', { className: 'sw' });
@@ -2541,7 +2584,7 @@ async function screenSettings() {
     toggle(t('Sound when something rings'), t('two short tones when an agent finishes or asks for you'),
       () => prefs.bellSound !== false, (v) => { prefs.bellSound = v; }),
   );
-  wrap.append(bellRow());
+  wrap.append(wiringRows(), bellRow());
 
   // Font size: a stepper rather than a toggle, applied the next time a session opens.
   const size = el('span', { className: 'sw', textContent: `${prefs.fontSize} px` });

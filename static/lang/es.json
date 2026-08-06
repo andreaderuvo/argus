@@ -281,6 +281,13 @@
   "a bell also raises a notification from the browser": "un aviso lanza también una notificación del navegador",
   "the browser only allows these over HTTPS — the bell still rings inside Argus": "el navegador solo las permite por HTTPS — dentro de Argus el aviso suena igual",
   "Sound when something rings": "Sonido cuando algo avisa",
-  "two short tones when an agent finishes or asks for you": "dos tonos breves cuando un agente termina o te necesita"
+  "two short tones when an agent finishes or asks for you": "dos tonos breves cuando un agente termina o te necesita",
+  "Let your agents ring": "Deja que tus agentes avisen",
+  "wired": "conectado",
+  "not wired": "sin conectar",
+  "partly": "en parte",
+  "nothing to change": "no había nada que cambiar",
+  "you already have your own hook on {what} — Argus left it alone": "ya tienes tu propio hook en {what} — Argus no lo ha tocado",
+  "agents read their configuration when they start, so this counts from the next one you open": "los agentes leen su configuración al arrancar, así que vale desde el próximo que abras"
  }
 }
