@@ -3363,6 +3363,9 @@ async function screenTerm(name) {
   let sticky = false;
   const ctrlBtn = el('button', { textContent: t('Ctrl') });
   const handle = attachTerminal(wrap, name, {
+    // A session watched full-screen is still a session in a desk: what goes past in it
+    // belongs in that desk's tray, or the tray is empty exactly when you were watching.
+    onLinks: (found) => noteLinks(currentSpace().id, found),
     transform: (d) => {
       if (!sticky || d.length !== 1) return d;
       const c = d.toUpperCase().charCodeAt(0);
@@ -3528,6 +3531,29 @@ async function screenWall() {
       saveGeom(geomKey(ws, o.name), node);
     }
 
+    /** A path dropped on a window. A terminal is told about it, a browser goes there. */
+    function deliverLink(item, target) {
+      if (!target) return;
+      const kind = target.win.dataset.kind;
+      if (kind === 'term') {
+        // Typed, not run: what to do with it is the whole point of handing it over, and
+        // an Enter we added would decide that for you.
+        target.handle.send(shellQuote(item.text) + ' ');
+        target.handle.focus();
+        toast(t('put into {session}', { session: target.win.querySelector('.wintitle')?.textContent || '' }));
+        return;
+      }
+      if (kind === 'browser') {
+        // A folder is opened; a file is shown in the folder holding it, marked, which is
+        // where you can see what it sits next to. Marking is for files only: pointing at
+        // a folder marks it in its *parent*, which would send this window back up one
+        // level the instant after it arrived.
+        if (item.dir) return target.handle.goTo?.(item.text);
+        target.handle.goTo?.(item.text.slice(0, item.text.lastIndexOf('/')) || '/');
+        pointAt(item.text);
+      }
+    }
+
     function addWindow(spec) {
       const id = specId(spec);
       const isFile = spec.kind === 'file';
@@ -3540,6 +3566,7 @@ async function screenWall() {
       const isTray = spec.kind === 'links';
       const body = el('div', { className: `winbody${isFile || isBrowser ? ' filebody' : ''}${isBrowser ? ' browserbody' : ''}${isTray ? ' traybody' : ''}` });
       const win = el('div', { className: 'win' });
+      win.dataset.kind = spec.kind;
       win.style.setProperty('--wc', colorFor(id));
 
       const swatch = el('button', { className: 'winbtn swatchbtn', title: t('Change colour') });
@@ -3559,7 +3586,10 @@ async function screenWall() {
       win.append(head, body);
       node.append(win);
 
-      const handle = isTray ? attachTray(body, ws.id, extras, openWindow)
+      const handle = isTray ? attachTray(body, ws.id, extras, {
+        find: (node) => open.find((o) => o.win === node),
+        drop: deliverLink,
+      })
         : spec.kind === 'web' ? attachWeb(body, spec, setLabel)
         // Where a browser *lands* is the desk's business, not the folder it happened to
         // be left in: reopening a desk should put you where that desk starts.
@@ -4629,7 +4659,13 @@ function linkHarvester(term, session, hand) {
     // A full-screen program paints over itself instead of scrolling, so there is no
     // "new rows" to count: read what is on show and let the seen-set absorb the repeats.
     const alt = buf.type === 'alternate';
-    const to = alt ? buf.viewportY + term.rows : buf.baseY + buf.cursorY + 1;
+    // Stop short of the line being written. Output arrives in pieces, and a long path is
+    // most of a line: reading the row while it is half painted finds a truncated path,
+    // and marking the row as read means the finished one is never seen. The line under
+    // the cursor waits for the next sweep — and if it wrapped, so does its head.
+    let edge = buf.baseY + buf.cursorY;
+    while (edge > 0 && buf.getLine(edge)?.isWrapped) edge--;
+    const to = alt ? buf.viewportY + term.rows : edge;
     const from = alt ? buf.viewportY : Math.max(read, to - HARVEST_ROWS);
     if (to <= from) return;
     if (!alt) read = to;
@@ -4666,8 +4702,98 @@ function linkHarvester(term, session, hand) {
   return () => { if (!due) due = setTimeout(sweep, HARVEST_EVERY); };
 }
 
+/** A path is only worth catching if you can put it somewhere.
+ *
+ *  Clicking a line opens it, which is one of the two things you want. The other is to
+ *  hand the path to something already open — the agent that needs to be told which file
+ *  to look at, the browser that should show that folder — and for that the gesture is
+ *  dragging it there. Pointer events rather than HTML5 drag and drop, because the latter
+ *  does not exist on a touch screen and half the point is the phone.
+ */
+function dropTargets(deck) {
+  return deck ? [...deck.querySelectorAll('.win')] : [];
+}
+
+/** What dropping on this window would do, or null if it would do nothing. */
+function whatDrop(win, item) {
+  const kind = win?.dataset?.kind;
+  if (!win || !kind) return null;
+  if (kind === 'term') return { verb: t('type it here'), win };
+  if (kind === 'browser' && !item.url) return { verb: t('show it here'), win };
+  return null;
+}
+
+/** A path as a shell would want it back. */
+function shellQuote(text) {
+  return /^[\w@%+=:,./-]+$/.test(text) ? text : `'${text.replace(/'/g, `'\\''`)}'`;
+}
+
+function dragLink(row, item, findWindow, act) {
+  row.addEventListener('pointerdown', (e) => {
+    if (e.button) return;
+    if (e.target.closest('button') !== row) return;      // the ✕ and the copy button are not handles
+    const touch = e.pointerType === 'touch';
+    const from = { x: e.clientX, y: e.clientY };
+    let chip = null;
+    let hold = null;
+    let aim = null;
+
+    const start = () => {
+      chip = el('div', { className: 'traydrag' }, [
+        el('span', { className: 'what', textContent: item.text.split('/').pop() || item.text }),
+        el('span', { className: 'verb', textContent: t('drop it on a window') }),
+      ]);
+      document.body.append(chip);
+      row.classList.add('dragging');
+    };
+
+    const move = (ev) => {
+      if (!chip) {
+        // A finger has to be able to scroll the list, so on touch the drag begins with a
+        // hold rather than with movement; a mouse starts as soon as it means it.
+        if (touch || Math.hypot(ev.clientX - from.x, ev.clientY - from.y) < 8) return;
+        clearTimeout(hold);
+        start();
+      }
+      chip.style.left = `${ev.clientX + 12}px`;
+      chip.style.top = `${ev.clientY + 14}px`;
+
+      chip.hidden = true;                                // do not land on ourselves
+      const under = document.elementFromPoint(ev.clientX, ev.clientY);
+      chip.hidden = false;
+      const next = whatDrop(under?.closest?.('.win'), item);
+      if (next?.win !== aim?.win) {
+        aim?.win.classList.remove('droptarget');
+        aim = next;
+        aim?.win.classList.add('droptarget');
+      }
+      chip.querySelector('.verb').textContent = aim ? aim.verb : t('drop it on a window');
+    };
+
+    const up = (ev) => {
+      clearTimeout(hold);
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+      if (!chip) return;
+      chip.remove();
+      row.classList.remove('dragging');
+      aim?.win.classList.remove('droptarget');
+      // The click that ends a drag is not a click on the row: it must not also open the file.
+      row.dataset.dragged = '1';
+      setTimeout(() => { delete row.dataset.dragged; }, 0);
+      if (aim) act(item, findWindow(aim.win), ev);
+    };
+
+    if (touch) hold = setTimeout(start, 350);
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+  });
+}
+
 /** The tray itself: a list you click, and empty when it stops being useful. */
-function attachTray(host, wsId, extras, open) {
+function attachTray(host, wsId, extras, deliver) {
   const list = el('div', { className: 'traylist' });
   host.append(list);
 
@@ -4690,7 +4816,9 @@ function attachTray(host, wsId, extras, open) {
         el('span', { className: 'trayleaf' }, bidi(cut >= 0 ? item.text.slice(cut + 1) : item.text)),
       ]);
       if (item.from) row.append(el('span', { className: 'verb', textContent: item.from }));
+      dragLink(row, item, deliver.find, deliver.drop);
       row.onclick = () => {
+        if (row.dataset.dragged) return;               // that was the end of a drag
         if (item.url) return openUrl(item.text);
         // It was there when it was caught; it may not be now.
         locatePaths([item.text], item.from).then((found) => {
@@ -4698,6 +4826,12 @@ function attachTray(host, wsId, extras, open) {
           if (hit) openLocated('wall', hit, host.closest('.win'));
           else toast(t('No file at {path}', { path: item.text }), true);
         });
+      };
+      const grab = el('button', { className: 'winbtn', title: t('Copy the path') }, icon('copy'));
+      grab.onclick = async (e) => {
+        e.stopPropagation();
+        if (await copyText(item.text)) toast(t('copied'));
+        else showText(t('The path'), item.text);
       };
       const drop = el('button', { className: 'winbtn', title: t('Forget this one') }, icon('close'));
       drop.onclick = (e) => {
@@ -4707,7 +4841,7 @@ function attachTray(host, wsId, extras, open) {
         savePrefs();
         draw();
       };
-      list.append(el('div', { className: 'trayline' }, [row, drop]));
+      list.append(el('div', { className: 'trayline' }, [row, grab, drop]));
     }
   };
 
@@ -4893,6 +5027,8 @@ function attachBrowser(host, spec, setLabel, landing) {
   return {
     relayout: () => {},
     dispose: () => { if (entry) browsers.delete(entry); },
+    // Somebody dropped a path on this window: show that folder.
+    goTo: (p) => { here = p; spec.path = p; savePrefs(); setLabel(p.split('/').pop() || p, p); draw(); },
   };
 }
 
