@@ -238,6 +238,11 @@ services.</sub>
 - The window that rang is outlined, green for finished and amber for waiting; the tab of
   the desk holding it is marked; a message takes you there; two short tones you can turn
   off. Looking at the window is what stops it.
+- **A bell per session.** Every terminal window carries one: lit means that session
+  rings, struck through means it keeps quiet. Ringing for everything is the default,
+  because a bell you have to switch on for each session is a bell that is silent the day
+  you needed it — and silencing is a property of the session, so it holds wherever that
+  session is shown and across reloads.
 - **It works in another tab, over plain http.** Bells arrive on an open stream rather
   than by polling, because a background tab has its timers throttled to about once a
   minute — which is exactly the case that matters. The tab title changes to `● session`
