@@ -195,9 +195,12 @@ def test_a_bell_is_only_heard_once_and_never_from_before_you_arrived(client):
                        headers={"Authorization": f"Bearer {TOKEN}"})
     assert rung.status_code == 200 and rung.json()["seq"] == 1
 
-    # Arriving: the answer says where "now" is and hands over nothing.
+    # The answer always says where "now" is, which is what a browser marks on arrival so
+    # that it is never told about the morning. Asking from 0 really does mean from the
+    # beginning, though: a server with nothing rung yet answers seq 0, and treating that
+    # as "you have just arrived" once left a page deaf for its whole life.
     first = get(client, "/api/bells?since=0").json()
-    assert first["seq"] == 1 and first["bells"] == []
+    assert first["seq"] == 1 and [b["text"] for b in first["bells"]] == ["made it"]
 
     client.post("/api/bell", json={"session": "build", "why": "asking"},
                 headers={"Authorization": f"Bearer {TOKEN}"})
@@ -218,3 +221,13 @@ def test_a_bell_needs_a_reason_it_knows(client):
 def test_bells_are_behind_the_token(client):
     assert client.get("/api/bells").status_code == 401
     assert client.post("/api/bell", json={"why": "done"}).status_code == 401
+
+
+def test_a_server_that_has_not_rung_yet_still_delivers_the_first_one(client):
+    """The bug this is here for: an empty server answers `seq: 0`, a browser marks 0 as
+    "now", and every poll after that asks from 0. If the answer to 0 were "nothing", that
+    page would never hear anything again."""
+    assert get(client, "/api/bells?since=0").json() == {"seq": 0, "bells": []}
+    client.post("/api/bell", json={"session": "x", "why": "done"}, headers={"Authorization": f"Bearer {TOKEN}"})
+    caught = get(client, "/api/bells?since=0").json()
+    assert [b["session"] for b in caught["bells"]] == ["x"]

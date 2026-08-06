@@ -14,13 +14,15 @@ here.
 
 from __future__ import annotations
 
+import asyncio
+import json
 import time
 from collections import deque
+from pathlib import Path
 from typing import Any
 
-from pathlib import Path
-
 from fastapi import APIRouter, Request
+from fastapi.responses import StreamingResponse
 
 from . import wiring
 from .errors import ApiError
@@ -37,10 +39,18 @@ MAX_TEXT = 300
 REASONS = {"done", "asking", "failed", "note"}
 
 
+# A page in a background tab has its timers throttled to about once a minute, so polling
+# is the wrong shape for the one case that matters: you are in another tab, which is
+# exactly when you need telling. An open stream is not throttled — the message arrives and
+# the page wakes.
+HEARTBEAT = 25
+LISTENERS = 32
+
+
 def store(request: Request) -> dict[str, Any]:
     state = request.app.state
     if not hasattr(state, "bells"):
-        state.bells = {"seq": 0, "list": deque(maxlen=KEEP)}
+        state.bells = {"seq": 0, "list": deque(maxlen=KEEP), "ears": set()}
     return state.bells
 
 
@@ -62,6 +72,12 @@ async def ring(request: Request, body: dict) -> dict:
         "text": str(body.get("text") or "")[:MAX_TEXT],
     }
     kept["list"].append(bell)
+    for ear in list(kept["ears"]):
+        # A listener that has stopped reading must not hold up the hook that is ringing.
+        try:
+            ear.put_nowait(bell)
+        except asyncio.QueueFull:
+            kept["ears"].discard(ear)
     return bell
 
 
@@ -70,12 +86,16 @@ async def since(request: Request, since: int = 0) -> dict:
     """Everything rung after `since`.
 
     The answer always carries the current sequence, so a browser that has just started —
-    or one that was away long enough for the list to roll over — can catch up to the
-    present without replaying a morning's worth of notifications at you.
+    or one that was away long enough for the list to roll over — can mark where "now" is
+    and catch up from there rather than replaying a morning's worth of notifications.
+
+    Deciding *that* is the browser's job, not this one's. An earlier version tried to help
+    by treating `since=0` as "you have just arrived, here is nothing", and it meant a
+    server that had not rung yet handed out `seq: 0`, took `since=0` back for ever after,
+    and stayed silent for the life of the page.
     """
     kept = store(request)
-    fresh = [b for b in kept["list"] if b["seq"] > since] if since else []
-    return {"seq": kept["seq"], "bells": fresh}
+    return {"seq": kept["seq"], "bells": [b for b in kept["list"] if b["seq"] > since]}
 
 
 @router.get("/api/bell/wiring")
@@ -97,3 +117,39 @@ async def rewire(_request: Request, body: dict) -> dict:
         return wiring.wire(Path.home(), bool(body.get("on", True)))
     except (OSError, ValueError, FileNotFoundError) as e:
         raise ApiError(400, str(e)) from e
+
+
+@router.get("/api/bells/stream")
+async def stream(request: Request, since: int = 0) -> StreamingResponse:
+    """Bells as they happen, over one connection that stays open.
+
+    This is what makes a background tab work. It also needs no HTTPS, unlike the
+    browser's own notifications — the sound and the tab title are what is left over
+    plain http, and both want to happen the moment it rings rather than a minute later.
+    """
+    kept = store(request)
+    ear: asyncio.Queue = asyncio.Queue(maxsize=KEEP)
+    if len(kept["ears"]) >= LISTENERS:
+        raise ApiError(429, "too many listeners")
+    kept["ears"].add(ear)
+
+    async def bells():
+        try:
+            # Anything missed between the last connection and this one, then live.
+            for old in [b for b in kept["list"] if b["seq"] > since]:
+                yield f"data: {json.dumps(old)}\n\n"
+            yield f": here, at {kept['seq']}\n\n"
+            while True:
+                try:
+                    bell = await asyncio.wait_for(ear.get(), timeout=HEARTBEAT)
+                except asyncio.TimeoutError:
+                    yield ": still here\n\n"          # keeps a proxy from closing us
+                    continue
+                yield f"data: {json.dumps(bell)}\n\n"
+        finally:
+            kept["ears"].discard(ear)
+
+    return StreamingResponse(bells(), media_type="text/event-stream", headers={
+        "Cache-Control": "no-store",
+        "X-Accel-Buffering": "no",       # nginx would sit on this otherwise
+    })

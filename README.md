@@ -238,9 +238,15 @@ services.</sub>
 - The window that rang is outlined, green for finished and amber for waiting; the tab of
   the desk holding it is marked; a message takes you there; two short tones you can turn
   off. Looking at the window is what stops it.
-- A notification from the browser needs HTTPS, and Settings says so plainly instead of
-  failing quietly. For a phone with the tab closed, point the same hook at ntfy or
-  Gotify as well: Argus does not try to be a push service.
+- **It works in another tab, over plain http.** Bells arrive on an open stream rather
+  than by polling, because a background tab has its timers throttled to about once a
+  minute — which is exactly the case that matters. The tab title changes to `● session`
+  and the sound plays, neither of which needs a permission or a certificate.
+- A notification from the browser itself does need a secure context, and Settings says
+  so plainly instead of failing quietly. Three ways round it, in order of effort: mark
+  the origin trusted in `chrome://flags/#unsafely-treat-insecure-origin-as-secure`; put a
+  real certificate in front (`tailscale serve`, or mkcert); or point the same hook at
+  ntfy or Gotify as well — Argus does not try to be a push service.
 
 ### Everything else
 

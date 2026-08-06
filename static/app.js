@@ -4828,6 +4828,8 @@ function ring(bell) {
   if (session) rung.set(session, { why, text, at: Date.now() });
   paintBells();
 
+  markTitle(session, why);
+
   const label = session ? `${session}: ` : '';
   const said = text || (why === 'asking' ? t('is waiting for you') : why === 'failed' ? t('failed') : t('has finished'));
   toast(label + said, why === 'failed', session ? () => showSession(session) : null);
@@ -4841,6 +4843,26 @@ function ring(bell) {
       note.onclick = () => { window.focus(); if (session) showSession(session); };
     } catch { /* some browsers refuse this outside a service worker */ }
   }
+}
+
+/** The tab title, which is what somebody in another tab actually sees.
+ *
+ *  No permission, no secure context, no service worker: a changed title shows in the tab
+ *  strip immediately. Over plain http this and the sound are the whole of it, which is
+ *  why they have to be right. */
+let realTitle = null;
+
+function markTitle(session, why) {
+  if (!document.hidden) return;
+  if (realTitle === null) realTitle = document.title;
+  const mark = why === 'asking' ? '\u25CF' : '\u2713';
+  document.title = `${mark} ${session || 'Argus'}`;
+}
+
+function restoreTitle() {
+  if (realTitle === null) return;
+  document.title = realTitle;
+  realTitle = null;
 }
 
 /** Bring the session that rang to the front, wherever it is. */
@@ -4876,7 +4898,24 @@ function paintBells() {
   }
 }
 
-/** Two short tones, made rather than fetched: one asset fewer, and it works offline. */
+/** Two short tones, made rather than fetched: one asset fewer, and it works offline.
+ *
+ *  A browser refuses to make a sound on a page nobody has touched yet, and a context
+ *  built at the moment of the first bell is born suspended — so the first one, the one
+ *  you were waiting for, would be the silent one. It is opened on the first tap instead
+ *  and kept. */
+function openEars() {
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!Ctx || bellSound.ctx) return;
+  try {
+    bellSound.ctx = new Ctx();
+    bellSound.ctx.resume?.();
+  } catch { /* no audio here */ }
+}
+for (const gesture of ['pointerdown', 'keydown']) {
+  window.addEventListener(gesture, openEars, { once: true, capture: true });
+}
+
 function bellSound(why) {
   try {
     const Ctx = window.AudioContext || window.webkitAudioContext;
@@ -4900,30 +4939,73 @@ function bellSound(why) {
   } catch { /* no audio, no bell: the marks still happened */ }
 }
 
-/** Ask the server what has rung. Only while the page is on screen: a hidden tab has its
- *  timers throttled anyway, and the catch-up on return says what was missed. */
-async function listenForBells() {
-  clearTimeout(bellClock);
-  bellClock = null;
-  if (document.hidden || !token) return schedule();
-  try {
-    const answer = await getJSON(`/api/bells?since=${heardUpTo ?? 0}`);
-    // The first answer only establishes where "now" is: a browser opening at noon must
-    // not be told about everything that finished during the morning.
-    if (heardUpTo === null) heardUpTo = answer.seq;
-    else {
-      for (const bell of answer.bells) ring(bell);
-      heardUpTo = answer.seq;
-    }
-  } catch { /* the server will still be there next time */ }
-  schedule();
+/** Listen for bells.
+ *
+ *  Over one open stream, not by polling: a tab in the background has its timers throttled
+ *  to roughly once a minute, and being in another tab is precisely when you need telling.
+ *  A message arriving on an open connection is not throttled. Polling stays as the
+ *  fallback for the case where something in between will not pass a stream through.
+ */
+let bellStream = null;
 
-  function schedule() {
-    if (!bellClock) bellClock = setTimeout(listenForBells, BELL_POLL);
+function listenForBells() {
+  if (!token || bellStream) return;
+  // The first sighting only marks where "now" is: opening the app at noon must not
+  // replay everything that finished during the morning.
+  if (heardUpTo === null) {
+    getJSON('/api/bells?since=0')
+      .then((answer) => { heardUpTo = answer.seq; openStream(); })
+      .catch(() => setTimeout(listenForBells, BELL_POLL));
+    return;
   }
+  openStream();
 }
 
-document.addEventListener('visibilitychange', () => { if (!document.hidden) listenForBells(); });
+function openStream() {
+  if (bellStream || !window.EventSource) return pollForBells();
+  // EventSource cannot carry a header, so the token rides in the query, the way the
+  // websockets already do.
+  const source = new EventSource(`/api/bells/stream?since=${heardUpTo ?? 0}&token=${encodeURIComponent(token)}`);
+  bellStream = source;
+  source.onmessage = (e) => {
+    try {
+      const bell = JSON.parse(e.data);
+      heardUpTo = Math.max(heardUpTo ?? 0, bell.seq);
+      ring(bell);
+    } catch { /* not a bell */ }
+  };
+  source.onerror = () => {
+    // The browser reconnects a stream by itself, but not if the server refused it
+    // outright; falling back to polling means one awkward proxy cannot make the app deaf.
+    if (source.readyState === EventSource.CLOSED) {
+      bellStream = null;
+      pollForBells();
+    }
+  };
+}
+
+async function pollForBells() {
+  clearTimeout(bellClock);
+  bellClock = null;
+  if (!token) return;
+  if (!document.hidden) {
+    try {
+      const answer = await getJSON(`/api/bells?since=${heardUpTo ?? 0}`);
+      if (heardUpTo === null) heardUpTo = answer.seq;
+      else {
+        for (const bell of answer.bells) ring(bell);
+        heardUpTo = answer.seq;
+      }
+    } catch { /* the server will still be there next time */ }
+  }
+  bellClock = setTimeout(pollForBells, BELL_POLL);
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) return;
+  restoreTitle();
+  if (!bellStream) listenForBells();
+});
 
 /* ------------------------------------------------------------------ chained terminals */
 
