@@ -4882,24 +4882,59 @@ function ring(bell) {
   }
 }
 
-/** The tab title, which is what somebody in another tab actually sees.
+/** What somebody in another tab actually sees.
  *
- *  No permission, no secure context, no service worker: a changed title shows in the tab
- *  strip immediately. Over plain http this and the sound are the whole of it, which is
- *  why they have to be right. */
+ *  No permission, no secure context, no service worker — but the title alone is not
+ *  enough: with a dozen tabs open the strip shrinks each one to its icon and the title is
+ *  never read. So the icon is marked too, which is the part that survives a crowded
+ *  window. Over plain http this and the sound are the whole of it. */
 let realTitle = null;
+let realIcon = null;
 
 function markTitle(session, why) {
   if (!document.hidden) return;
   if (realTitle === null) realTitle = document.title;
   const mark = why === 'asking' ? '\u25CF' : '\u2713';
   document.title = `${mark} ${session || 'Argus'}`;
+  markIcon(why);
+}
+
+/** A dot burnt into a copy of the favicon. Drawn rather than shipped, so it follows the
+ *  icon rather than being a second thing to keep in step with it. */
+function markIcon(why) {
+  const link = document.querySelector('link[rel="icon"]');
+  if (!link) return;
+  if (realIcon === null) realIcon = link.getAttribute('href');
+  const source = new Image();
+  source.onload = () => {
+    try {
+      const size = 64;
+      const canvas = el('canvas', { width: size, height: size });
+      const pen = canvas.getContext('2d');
+      pen.drawImage(source, 0, 0, size, size);
+      pen.beginPath();
+      pen.arc(size - 17, 17, 15, 0, Math.PI * 2);
+      pen.fillStyle = '#0b0e14';                        // a rim, so the dot reads on any icon
+      pen.fill();
+      pen.beginPath();
+      pen.arc(size - 17, 17, 11, 0, Math.PI * 2);
+      pen.fillStyle = why === 'asking' ? '#fab219' : why === 'failed' ? '#e5786d' : '#8fd6a0';
+      pen.fill();
+      link.setAttribute('href', canvas.toDataURL('image/png'));
+    } catch { /* a tainted canvas, or no canvas: the title still changed */ }
+  };
+  source.src = realIcon;
 }
 
 function restoreTitle() {
-  if (realTitle === null) return;
-  document.title = realTitle;
-  realTitle = null;
+  if (realTitle !== null) {
+    document.title = realTitle;
+    realTitle = null;
+  }
+  if (realIcon !== null) {
+    document.querySelector('link[rel="icon"]')?.setAttribute('href', realIcon);
+    realIcon = null;
+  }
 }
 
 /** Bring the session that rang to the front, wherever it is. */
