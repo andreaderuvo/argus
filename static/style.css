@@ -1450,3 +1450,6 @@ button.winbtn.chainbtn.on { color: #2b2000; background: var(--st-warning); borde
   color: var(--text); text-decoration: none; font-size: .85rem;
 }
 .about a:hover { border-color: var(--accent); color: var(--bright); }
+
+/* A session told to keep quiet. */
+button.winbtn.bellbtn.off { color: var(--dim); opacity: .75; }
