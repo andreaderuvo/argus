@@ -14,7 +14,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 
-from . import favourites, files, fsops, languages, mounts, paths, ports, proxy, system, term, tmux
+from . import bells, favourites, files, fsops, languages, mounts, paths, ports, proxy, system, term, tmux
 import httpx
 
 from .auth import PROXY_COOKIE, TokenAuthMiddleware
@@ -56,6 +56,7 @@ def create_app(cfg: Config) -> FastAPI:
 
     app.include_router(files.router)
     app.include_router(proxy.router)
+    app.include_router(bells.router)
     app.include_router(fsops.router)
     app.include_router(paths.router)
     app.include_router(term.router)

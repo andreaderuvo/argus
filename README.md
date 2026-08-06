@@ -214,6 +214,25 @@ services.</sub>
   is the answer when all you have is a browser — a phone, a borrowed laptop — and the
   price is that the address changes.
 
+### Being told when it is done
+
+- **It has finished** and **it is waiting for you** are different events, and a
+  notification that cannot tell them apart is noise by the end of the day. So nothing is
+  guessed from the output: an agent hook posts to `/api/bell` and says which of the two
+  it is. Claude Code's `Stop` and `Notification` hooks and codex's `notify` both do this
+  in one line of configuration.
+- **For everything that is not an agent**, the escape sequence every modern terminal
+  implements: `OSC 9`. One `printf` at the end of a build, no configuration. Note that
+  tmux swallows it unless it is wrapped in tmux's passthrough with
+  `set -g allow-passthrough on` — measured, and the wiki has the shell function that gets
+  it right in both cases.
+- The window that rang is outlined, green for finished and amber for waiting; the tab of
+  the desk holding it is marked; a message takes you there; two short tones you can turn
+  off. Looking at the window is what stops it.
+- A notification from the browser needs HTTPS, and Settings says so plainly instead of
+  failing quietly. For a phone with the tab closed, point the same hook at ntfy or
+  Gotify as well: Argus does not try to be a push service.
+
 ### Everything else
 
 - **Editing the tmux config** and handing it to every session at once. Sourcing a config
