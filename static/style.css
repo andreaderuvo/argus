@@ -810,10 +810,10 @@ button.ghost.dup:hover { color: var(--accent); border-color: var(--accent); }
   border-color: var(--accent);
 }
 
-/* The menu is on every tab, quiet until the tab is the one you are on or under. */
-.wstab .tabmore { opacity: .45; }
-.wstab.on .tabmore, .wstab:hover .tabmore { opacity: 1; }
-@media (hover: none) { .wstab .tabmore { opacity: .8; } }
+/* The menu is on every tab, quieter on the ones you are not on — but by colour, not by
+   opacity: --dim at 45% over the dark background came out as good as invisible. */
+.wstab .tabmore { color: var(--dim); }
+.wstab.on .tabmore, .wstab:hover .tabmore { color: var(--text); }
 
 .wstab.on { background: var(--panel); color: var(--bright); border-color: var(--line); }
 .wstab.on .tabname { font-weight: 600; }
@@ -850,7 +850,9 @@ button.ghost.dup:hover { color: var(--accent); border-color: var(--accent); }
   padding: 0;
   margin-left: .15rem;
 }
-.tabmore .ico { width: 15px; height: 15px; }
+.tabmore .ico { width: 16px; height: 16px; }
+/* Three dots drawn as zero-length strokes: at the icon set's usual 1.6 they are specks. */
+.tabmore .ico path { stroke-width: 2.6; }
 .tabmore:hover { color: var(--accent); }
 
 #wall { flex: 1; min-height: 0; position: relative; }
