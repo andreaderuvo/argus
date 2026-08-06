@@ -116,6 +116,12 @@ services.</sub>
   on the server, where a browser cannot reach it. The copy button brings it to the
   clipboard of the device in your hand — even over plain HTTP, where the clipboard API
   does not exist.
+- **Chain two sessions and type into both.** A chain button on each terminal; what you
+  type in any chained window reaches all the others, Enter and Ctrl+C included. tmux's
+  own `synchronize-panes` only spans the panes of one window and changes what every
+  attached client sees — this crosses sessions and belongs to your browser alone. Chained
+  windows are outlined and counted in the toolbar, because a broadcast you have forgotten
+  about is the one genuinely dangerous thing in here.
 - **Clickable paths.** Hovering a line asks the server which of its words are real files;
   those get underlined, and opening one shows it in the viewer *and* points the file
   browser at it. Relative paths resolve against the pane's own working directory. On a
