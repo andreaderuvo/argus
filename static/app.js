@@ -3498,10 +3498,14 @@ async function screenWall() {
 
       // Moving or resizing a maximised window is how you un-maximise it: keeping the flag
       // would snap it back to full screen the next time the desk is rebuilt.
-      const settled = () => settleWindow(win);
+      // Moving or resizing by hand replaces the remembered size: whatever it was before
+      // the window was maximised, this is where you want it back now.
+      const settled = () => { delete win.dataset.prev; settleWindow(win); };
       win.addEventListener('argus:moved', settled);
+      // Anywhere on the bar except a button: aiming for the two spots that used to work
+      // is not something anyone should have to do.
       head.addEventListener('dblclick', (e) => {
-        if (e.target === head || e.target === title) solo.onclick();
+        if (!e.target?.closest?.('button')) solo.onclick();
       });
 
       send.onclick = () => sendSheet(spec, ws, entry);
@@ -4098,6 +4102,12 @@ function saveGeom(name, win) {
   // screen opens it next; stored as pixels it would come back the size of the screen it
   // was maximised on, which on a phone is off the edge and on a desk is a stub.
   if (win.dataset.full) geom.full = 1;
+  // And the size it had before it was maximised, so un-maximising gives that back rather
+  // than a default — a window rebuilt by a reload or a tab switch would otherwise forget
+  // where it came from, since the DOM is the only place that knew.
+  if (win.dataset.prev) {
+    try { geom.prev = JSON.parse(win.dataset.prev); } catch { /* not usable */ }
+  }
   prefs.winGeom = { ...(prefs.winGeom || {}), [name]: geom };
   savePrefs();
 }
@@ -4108,10 +4118,12 @@ const DEFAULT_GEOM = { left: '28px', top: '24px', width: 'min(620px, 78%)', heig
 
 /** Put a window where its stored geometry says, maximised state included. */
 function applyGeom(win, geom) {
-  const { full, ...style } = geom || {};
+  const { full, prev, ...style } = geom || {};
   Object.assign(win.style, full ? FULL_GEOM : style);
   if (full) win.dataset.full = '1';
   else delete win.dataset.full;
+  if (prev) win.dataset.prev = JSON.stringify(prev);
+  else delete win.dataset.prev;
 }
 
 /** Pointer-events drag, so it works with a mouse, a trackpad and a stylus alike. */
@@ -4137,6 +4149,11 @@ function dragBy(grabber, win, bounds, onDone, ignore = [], peers = () => [], onT
     let drop = null;
     let overTab = null;
     let duplicating = false;
+    // A press that never travels is a click, not a drag. Treating it as a drag meant a
+    // double-click on the title bar maximised the window and then immediately had its
+    // "settled" handler write the new geometry back and clear the maximised state — so
+    // the second double-click found nothing to restore.
+    let moved = false;
 
     const move = (ev) => {
       // Holding ctrl (or alt) while dropping on a tab copies instead of moving, the way
@@ -4168,6 +4185,7 @@ function dragBy(grabber, win, bounds, onDone, ignore = [], peers = () => [], onT
       drop = aero ? { zone: aero } : gap ? { zone: gap } : dockZone(px, py, peers, area);
       showGhost(bounds, drop?.zone || null);
 
+      moved = true;
       const x = Math.max(0, Math.min(px - dx, area.width - 60));
       const y = Math.max(0, Math.min(py - dy, area.height - 30));
       const hx = {};
@@ -4188,6 +4206,7 @@ function dragBy(grabber, win, bounds, onDone, ignore = [], peers = () => [], onT
         return;
       }
       if (drop) {
+        moved = true;
         delete win.dataset.prev;
         place(win, drop.zone);
         if (drop.peer) {
@@ -4196,7 +4215,7 @@ function dragBy(grabber, win, bounds, onDone, ignore = [], peers = () => [], onT
           drop.peer.dispatchEvent(new CustomEvent('argus:moved', { bubbles: true }));
         }
       }
-      onDone();
+      if (moved) onDone();
     };
     grabber.addEventListener('pointermove', move);
     grabber.addEventListener('pointerup', up);
