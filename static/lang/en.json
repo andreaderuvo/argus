@@ -270,6 +270,17 @@
   "chain one more session for this to do anything": "chain one more session for this to do anything",
   "Unchain all of them": "Unchain all of them",
   "chained": "chained",
-  "nothing is chained now": "nothing is chained now"
+  "nothing is chained now": "nothing is chained now",
+  "is waiting for you": "is waiting for you",
+  "has finished": "has finished",
+  "failed": "failed",
+  "Desktop notifications": "Desktop notifications",
+  "not available": "not available",
+  "needs HTTPS": "needs HTTPS",
+  "refused": "refused",
+  "a bell also raises a notification from the browser": "a bell also raises a notification from the browser",
+  "the browser only allows these over HTTPS — the bell still rings inside Argus": "the browser only allows these over HTTPS — the bell still rings inside Argus",
+  "Sound when something rings": "Sound when something rings",
+  "two short tones when an agent finishes or asks for you": "two short tones when an agent finishes or asks for you"
  }
 }

@@ -2430,6 +2430,39 @@ async function screenSettings() {
     return row;
   };
 
+  const bellRow = () => {
+    const secure = window.isSecureContext;
+    const state = el('span', { className: 'sw' });
+    const paint = () => {
+      const how = !window.Notification ? t('not available')
+        : !secure ? t('needs HTTPS')
+          : Notification.permission === 'granted' ? 'ON'
+            : Notification.permission === 'denied' ? t('refused') : 'OFF';
+      state.textContent = how;
+      state.classList.toggle('on', how === 'ON');
+    };
+    const row = el('button', { className: 'row setting', type: 'button' }, [
+      el('span', { className: 'grow' }, [
+        el('span', { className: 'name', textContent: t('Desktop notifications') }),
+        el('span', {
+          className: 'meta',
+          textContent: secure
+            ? t('a bell also raises a notification from the browser')
+            : t('the browser only allows these over HTTPS — the bell still rings inside Argus'),
+        }),
+      ]),
+      state,
+    ]);
+    paint();
+    row.onclick = async () => {
+      if (!window.Notification || !secure) return;
+      // Asking has to come from a click; browsers refuse it on load, and rightly.
+      await Notification.requestPermission();
+      paint();
+    };
+    return row;
+  };
+
   // A cycle rather than a switch: three states do not fit an ON/OFF.
   const choice = (label, hint, values, get, set) => {
     const state = el('span', { className: 'sw on', textContent: get() });
@@ -2505,7 +2538,10 @@ async function screenSettings() {
       () => prefs.wrap, (v) => { prefs.wrap = v; }),
     toggle(t('Open files inside the desk'), t('a file opened from a window becomes a window, instead of taking the screen'),
       () => prefs.openInDesk !== false, (v) => { prefs.openInDesk = v; }),
+    toggle(t('Sound when something rings'), t('two short tones when an agent finishes or asks for you'),
+      () => prefs.bellSound !== false, (v) => { prefs.bellSound = v; }),
   );
+  wrap.append(bellRow());
 
   // Font size: a stepper rather than a toggle, applied the next time a session opens.
   const size = el('span', { className: 'sw', textContent: `${prefs.fontSize} px` });
@@ -2963,6 +2999,19 @@ function attachTerminal(container, name, { transform, onGone, onPath, onLinks, m
       const text = new TextDecoder().decode(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)));
       copyText(text).then((ok) => ok && toast(t('copied {count} characters', { count: text.length })));
     } catch { /* not base64 we can use */ }
+    return true;
+  });
+
+  // OSC 9 and OSC 777 are what a program prints to say "tell the user". Every modern
+  // terminal implements them — iTerm2, WezTerm, Windows Terminal, foot — and being a
+  // terminal, so does this one. It costs a program one printf and needs no configuration
+  // at all, which is what makes it the fallback for everything that is not an agent.
+  const notify = (text) => ring({ session: name, why: 'note', text: (text || '').slice(0, 300) });
+  term.parser?.registerOscHandler?.(9, (payload) => { notify(payload); return true; });
+  term.parser?.registerOscHandler?.(777, (payload) => {
+    const parts = String(payload).split(';');
+    if (parts[0] !== 'notify') return false;
+    notify([parts[1], parts.slice(2).join(';')].filter(Boolean).join(' — '));
     return true;
   });
 
@@ -3518,6 +3567,7 @@ async function screenWall() {
    *  so switching back does not detach and re-attach every terminal. */
   function buildDeck(ws) {
     const node = el('div', { className: 'deck' });
+    node.dataset.ws = ws.id;
     wall.append(node);
     const open = [];
 
@@ -3656,7 +3706,10 @@ async function screenWall() {
       open.push(entry);
       if (chain) paintChain();
 
-      win.addEventListener('pointerdown', () => { win.style.zIndex = ++top; }, true);
+      win.addEventListener('pointerdown', () => {
+        win.style.zIndex = ++top;
+        if (spec.kind === 'term') quieten(spec.name);
+      }, true);
 
       close.onclick = () => {
         handle.dispose();
@@ -4089,6 +4142,9 @@ async function screenWall() {
       if (ws.pinned) tab.prepend(icon('pin', 'pinmark'));
       tab.dataset.ws = ws.id;
       tab.onclick = () => { if (!tab.dataset.dragged) activate(ws.id); };
+      // Tabs are rebuilt from scratch on every change; without this a bell mark would
+      // vanish the moment anything else on the strip moved.
+      if (rung.size) requestAnimationFrame(paintBells);
       reorderTab(tab, tabs, saveTabOrder);
 
       const rename = async () => {
@@ -4672,6 +4728,125 @@ function reorderTab(tab, strip, onDone) {
     window.addEventListener('pointercancel', up);
   });
 }
+
+/* ------------------------------------------------------------------ bells */
+
+/** "It has finished", or "it is waiting for you".
+ *
+ *  Watching the terminal cannot tell those two apart, and the difference is the whole
+ *  value: a notification that does not distinguish them becomes noise within a day. So
+ *  the signal comes from whoever knows — an agent hook posting to /api/bell, or a program
+ *  printing the notification escape sequence every modern terminal implements.
+ *
+ *  Delivery stops at this browser. A phone with the tab shut needs Web Push (and so
+ *  HTTPS) or a relay like ntfy; neither is decided here.
+ */
+const BELL_POLL = 4000;
+const rung = new Map();          // session -> the last bell from it
+let heardUpTo = null;            // null until the first answer says where "now" is
+let bellClock = null;
+
+function ring(bell) {
+  const { session, why = 'note', text = '' } = bell;
+  if (session) rung.set(session, { why, text, at: Date.now() });
+  paintBells();
+
+  const label = session ? `${session}: ` : '';
+  const said = text || (why === 'asking' ? t('is waiting for you') : why === 'failed' ? t('failed') : t('has finished'));
+  toast(label + said, why === 'failed', session ? () => showSession(session) : null);
+  if (prefs.bellSound !== false) bellSound(why);
+
+  // A real notification only exists on a secure origin, and only once you have allowed
+  // it. Where it does not, the toast and the marks above are the whole of it.
+  if (window.Notification?.permission === 'granted') {
+    try {
+      const note = new Notification(session || 'Argus', { body: said, tag: `argus-${session || 'x'}`, icon: '/img/mark-192.png' });
+      note.onclick = () => { window.focus(); if (session) showSession(session); };
+    } catch { /* some browsers refuse this outside a service worker */ }
+  }
+}
+
+/** Bring the session that rang to the front, wherever it is. */
+function showSession(name) {
+  const win = [...document.querySelectorAll('.deck.on .win[data-kind="term"]')]
+    .find((w) => w.querySelector('.wintitle')?.textContent === name);
+  if (win) {
+    win.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    win.scrollIntoView?.({ block: 'nearest' });
+  } else {
+    go(`#/term?s=${encodeURIComponent(name)}`);
+  }
+  quieten(name);
+}
+
+function quieten(name) {
+  if (!rung.delete(name)) return;
+  paintBells();
+}
+
+/** The marks: on the window that rang, and on the tab of the desk holding it. */
+function paintBells() {
+  const desks = new Set();
+  for (const win of document.querySelectorAll('.win[data-kind="term"]')) {
+    const name = win.querySelector('.wintitle')?.textContent;
+    const bell = name && rung.get(name);
+    win.classList.toggle('ringing', !!bell);
+    win.classList.toggle('asking', bell?.why === 'asking');
+    if (bell) desks.add(win.closest('.deck')?.dataset.ws);
+  }
+  for (const tab of document.querySelectorAll('.wstab[data-ws]')) {
+    tab.classList.toggle('ringing', desks.has(tab.dataset.ws));
+  }
+}
+
+/** Two short tones, made rather than fetched: one asset fewer, and it works offline. */
+function bellSound(why) {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = (bellSound.ctx = bellSound.ctx || new Ctx());
+    if (ctx.state === 'suspended') ctx.resume();
+    const notes = why === 'asking' ? [660, 880] : why === 'failed' ? [440, 330] : [880, 1170];
+    notes.forEach((hz, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = hz;
+      const at = ctx.currentTime + i * 0.13;
+      gain.gain.setValueAtTime(0.0001, at);
+      gain.gain.exponentialRampToValueAtTime(0.12, at + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.12);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(at);
+      osc.stop(at + 0.14);
+    });
+  } catch { /* no audio, no bell: the marks still happened */ }
+}
+
+/** Ask the server what has rung. Only while the page is on screen: a hidden tab has its
+ *  timers throttled anyway, and the catch-up on return says what was missed. */
+async function listenForBells() {
+  clearTimeout(bellClock);
+  bellClock = null;
+  if (document.hidden || !token) return schedule();
+  try {
+    const answer = await getJSON(`/api/bells?since=${heardUpTo ?? 0}`);
+    // The first answer only establishes where "now" is: a browser opening at noon must
+    // not be told about everything that finished during the morning.
+    if (heardUpTo === null) heardUpTo = answer.seq;
+    else {
+      for (const bell of answer.bells) ring(bell);
+      heardUpTo = answer.seq;
+    }
+  } catch { /* the server will still be there next time */ }
+  schedule();
+
+  function schedule() {
+    if (!bellClock) bellClock = setTimeout(listenForBells, BELL_POLL);
+  }
+}
+
+document.addEventListener('visibilitychange', () => { if (!document.hidden) listenForBells(); });
 
 /* ------------------------------------------------------------------ chained terminals */
 
@@ -5567,4 +5742,7 @@ function translateMarkup() {
   }
   await render();
   applySidebar();
+  // Only after the first paint: the first answer sets the mark for "now" and rings
+  // nothing, so this can never greet you with the morning's leftovers.
+  if (token) listenForBells();
 })();
