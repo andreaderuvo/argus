@@ -680,7 +680,8 @@ dialog.sheet h2 {
 .ghost.block .sw { margin-left: auto; }
 .ghost.block bdi { unicode-bidi: isolate; overflow: hidden; text-overflow: ellipsis; }
 
-button.ghost.block {
+/* A row in a sheet is sometimes a link rather than a button — same row either way. */
+button.ghost.block, a.ghost.block {
   width: 100%;
   display: flex;
   align-items: center;
@@ -691,7 +692,9 @@ button.ghost.block {
   background: none;
 }
 
-button.ghost.block:hover { background: var(--bg); border-color: var(--line); }
+button.ghost.block:hover, a.ghost.block:hover { background: var(--bg); border-color: var(--line); }
+a.ghost.block { text-decoration: none; color: var(--text); box-sizing: border-box; }
+a.ghost.block:hover .name { color: var(--bright); }
 button.winbtn.wide { display: inline-flex; align-items: center; gap: .35rem; }
 
 .sheetfoot {
@@ -1437,3 +1440,13 @@ button.winbtn.chainbtn.on { color: #2b2000; background: var(--st-warning); borde
 
 /* A line of explanation under a setting. */
 .hint { margin: .35rem 0 .7rem; padding: 0 .9rem; color: var(--dim); font-size: .78rem; line-height: 1.5; }
+
+/* Where to read more, at the foot of Settings. */
+.about { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
+.about a {
+  display: inline-flex; align-items: center; gap: .45rem;
+  min-height: var(--tap); padding: 0 .9rem;
+  border: 1px solid var(--line); border-radius: .5rem;
+  color: var(--text); text-decoration: none; font-size: .85rem;
+}
+.about a:hover { border-color: var(--accent); color: var(--bright); }
