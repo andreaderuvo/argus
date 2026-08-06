@@ -170,6 +170,11 @@ services.</sub>
 - **Shared edges behave as splitters**: widen one column and the next gives up precisely
   what the first one took.
 - Tile as a grid, columns or rows when you want to start over.
+- **Drag a line out of the tray onto a window**: onto a terminal it is typed into that
+  session — with shell quoting, and without an Enter, because what to do with it is the
+  point of handing it over; onto a file browser that folder is shown. Holding the line
+  starts the drag on a phone too, so the list still scrolls. There is a copy button on
+  each line for the times you want it on the clipboard instead.
 - **A link tray per desk.** What an agent produces is mostly *references* — where it
   wrote the report, what port it is serving on, which file failed — and by the time you
   have read the sentence it is four screens up. The tray catches every absolute path and
