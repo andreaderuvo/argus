@@ -240,6 +240,23 @@
   "Rename…": "Rename…",
   "Change colour…": "Change colour…",
   "Opens in {folder}…": "Opens in {folder}…",
-  "Choose the folder it opens in…": "Choose the folder it opens in…"
+  "Choose the folder it opens in…": "Choose the folder it opens in…",
+  "This workspace…": "This workspace…",
+  "Use it": "Use it",
+  "/a/folder/of/your/own": "/a/folder/of/your/own",
+  "There is no folder at {path}": "There is no folder at {path}",
+  "Start from here and keep typing": "Start from here and keep typing",
+  "a port, or a localhost URL that went nowhere": "a port, or a localhost URL that went nowhere",
+  "That is neither a port nor a URL": "That is neither a port nor a URL",
+  "That is not a port": "That is not a port",
+  "opened by hand": "opened by hand",
+  "forwarded to 127.0.0.1:{port}": "forwarded to 127.0.0.1:{port}",
+  "Links": "Links",
+  "the tray": "the tray",
+  "What went past in this desk": "What went past in this desk",
+  "Everything printed in this desk that can be opened": "Everything printed in this desk that can be opened",
+  "Paths and links printed in this desk’s terminals collect here.": "Paths and links printed in this desk’s terminals collect here.",
+  "Forget this one": "Forget this one",
+  "Empty the tray": "Empty the tray"
  }
 }

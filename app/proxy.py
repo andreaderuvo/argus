@@ -12,6 +12,7 @@ port was opened by hand. A port bound to loopback was bound there on purpose.
 from __future__ import annotations
 
 import re
+from urllib.parse import parse_qsl, urlencode
 
 import httpx
 from fastapi import APIRouter, Request
@@ -85,10 +86,16 @@ def check(request: Request, port: int) -> None:
 async def through(request: Request, port: int, path: str) -> Response:
     check(request, port)
 
-    url = httpx.URL(f"http://127.0.0.1:{port}/{path}", query=request.url.query.encode())
+    # Our own credentials stop here. The token travels in the query when a page is opened
+    # directly, and in the header when the app opens it — either way the service behind
+    # the proxy has no business seeing it, and an OAuth callback is exactly the kind of
+    # URL that gets written to somebody's log.
+    onward = [(k, v) for k, v in parse_qsl(request.url.query, keep_blank_values=True) if k != "token"]
+    url = httpx.URL(f"http://127.0.0.1:{port}/{path}", query=urlencode(onward).encode())
     headers = {k: v for k, v in request.headers.items() if k.lower() not in HOP_BY_HOP}
     headers["host"] = f"127.0.0.1:{port}"
     headers.pop("cookie", None)      # our own cookie is not the service's business
+    headers.pop("authorization", None)
 
     client: httpx.AsyncClient = request.app.state.http
     try:

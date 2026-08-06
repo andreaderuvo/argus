@@ -240,6 +240,23 @@
   "Rename…": "Rinomina…",
   "Change colour…": "Cambia colore…",
   "Opens in {folder}…": "Si apre in {folder}…",
-  "Choose the folder it opens in…": "Scegli la cartella in cui si apre…"
+  "Choose the folder it opens in…": "Scegli la cartella in cui si apre…",
+  "This workspace…": "Questo desk…",
+  "Use it": "Usa questa",
+  "/a/folder/of/your/own": "/una/cartella/tua",
+  "There is no folder at {path}": "Non c'è nessuna cartella in {path}",
+  "Start from here and keep typing": "Parti da qui e continua a scrivere",
+  "a port, or a localhost URL that went nowhere": "una porta, o una URL localhost che non è arrivata da nessuna parte",
+  "That is neither a port nor a URL": "Non è né una porta né una URL",
+  "That is not a port": "Quella non è una porta",
+  "opened by hand": "aperta a mano",
+  "forwarded to 127.0.0.1:{port}": "inoltrata a 127.0.0.1:{port}",
+  "Links": "Link",
+  "the tray": "il vassoio",
+  "What went past in this desk": "Quello che è passato in questo desk",
+  "Everything printed in this desk that can be opened": "Tutto quello che è stato stampato in questo desk e si può aprire",
+  "Paths and links printed in this desk’s terminals collect here.": "Qui si raccolgono i percorsi e i link stampati nei terminali di questo desk.",
+  "Forget this one": "Dimentica questo",
+  "Empty the tray": "Svuota il vassoio"
  }
 }
