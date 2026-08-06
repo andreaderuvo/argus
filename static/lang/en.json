@@ -281,6 +281,13 @@
   "a bell also raises a notification from the browser": "a bell also raises a notification from the browser",
   "the browser only allows these over HTTPS — the bell still rings inside Argus": "the browser only allows these over HTTPS — the bell still rings inside Argus",
   "Sound when something rings": "Sound when something rings",
-  "two short tones when an agent finishes or asks for you": "two short tones when an agent finishes or asks for you"
+  "two short tones when an agent finishes or asks for you": "two short tones when an agent finishes or asks for you",
+  "Let your agents ring": "Let your agents ring",
+  "wired": "wired",
+  "not wired": "not wired",
+  "partly": "partly",
+  "nothing to change": "nothing to change",
+  "you already have your own hook on {what} — Argus left it alone": "you already have your own hook on {what} — Argus left it alone",
+  "agents read their configuration when they start, so this counts from the next one you open": "agents read their configuration when they start, so this counts from the next one you open"
  }
 }

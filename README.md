@@ -221,6 +221,12 @@ services.</sub>
   guessed from the output: an agent hook posts to `/api/bell` and says which of the two
   it is. Claude Code's `Stop` and `Notification` hooks and codex's `notify` both do this
   in one line of configuration.
+  **Settings has a button that does the wiring for you** — *Let your agents ring*. It
+  writes the little script and adds the hooks to each agent's own configuration file,
+  additively: an event you have already claimed is reported and left exactly as it was,
+  a copy of each file as it was before Argus first touched it is kept beside it, and the
+  same button takes it all back out. Agents read their configuration at startup, so it
+  counts from the next one you open.
   `tools/argus-bell` in this repository is that one line: it reads the token from the
   config so no copy of it ends up in a hook, works out the tmux session by itself, and
   unwraps the JSON codex hands its notify program.
