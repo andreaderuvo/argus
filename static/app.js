@@ -2927,7 +2927,7 @@ function linkPaths(term, container, session, open, following = () => {}) {
   }
 }
 
-function attachTerminal(container, name, { transform, onGone, onPath, onLinks } = {}) {
+function attachTerminal(container, name, { transform, onGone, onPath, onLinks, mirror } = {}) {
   const term = new Terminal({
     fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace',
     fontSize: prefs.fontSize,
@@ -3180,7 +3180,11 @@ function attachTerminal(container, name, { transform, onGone, onPath, onLinks } 
 
   term.onData((d) => {
     if (duplicated(d)) return;
-    send(transform ? transform(d) : d);
+    const out = transform ? transform(d) : d;
+    send(out);
+    // Whatever was typed here, offered to whoever else is meant to receive it. It goes to
+    // their `send`, never back through their input, so a chain cannot echo round itself.
+    mirror?.(out);
   });
 
   // tmux sizes a window for its most recently used client, so simply asking again when
@@ -3531,6 +3535,33 @@ async function screenWall() {
       saveGeom(geomKey(ws, o.name), node);
     }
 
+    /** What was typed in one chained terminal, handed to the others. */
+    function echoToChain(from, data) {
+      if (!chained(ws.id, from)) return;
+      for (const o of open) {
+        if (o.name === `term:${from}`) continue;
+        if (!o.name.startsWith('term:')) continue;
+        if (!chained(ws.id, o.name.slice(5))) continue;
+        o.handle.send?.(data);
+      }
+    }
+
+    /** Every window shows whether it is in the chain, and the toolbar says how many are.
+     *  A broadcast you have forgotten about is the one dangerous thing in here. */
+    function paintChain() {
+      for (const o of open) {
+        const name = o.name.startsWith('term:') ? o.name.slice(5) : null;
+        const on = !!name && chained(ws.id, name);
+        o.win.classList.toggle('chained', on);
+        o.chainBtn?.classList.toggle('on', on);
+        if (o.chainBtn) o.chainBtn.title = on ? t('Stop typing into the others') : t('Type into every chained session');
+      }
+      if (ws.id !== activeSpace().id) return;      // the toolbar belongs to the desk on screen
+      const n = deskChain(ws.id).filter((name) => open.some((o) => o.name === `term:${name}`)).length;
+      chainNote.hidden = n < 2;
+      chainNote.querySelector('.count').textContent = String(n);
+    }
+
     /** A path dropped on a window. A terminal is told about it, a browser goes there. */
     function deliverLink(item, target) {
       if (!target) return;
@@ -3601,15 +3632,29 @@ async function screenWall() {
             onPath: (hit) => openLocated('wall', hit, win),
             // A session that is not there any more has to say so, not sit blank.
             onLinks: (found) => noteLinks(ws.id, found),
+            mirror: (data) => echoToChain(spec.name, data),
             onGone: () => {
               win.classList.add('gone');
               extras.prepend(el('span', { className: 'state critical', textContent: t('gone') }));
             },
           });
       if (handle.extra) extras.append(handle.extra);
-      if (spec.kind === 'term') extras.append(copyButton(handle, 'winbtn'), ...sizeButtons(handle, 'winbtn'));
-      const entry = { win, handle, name: id };
+      const chain = spec.kind === 'term'
+        ? el('button', { className: 'winbtn chainbtn' }, icon('link'))
+        : null;
+      if (chain) {
+        chain.onclick = () => {
+          const on = toggleChain(ws.id, spec.name);
+          paintChain();
+          const n = deskChain(ws.id).length;
+          if (on && n > 1) toast(t('what you type here now goes to {n} sessions', { n }));
+          else if (on) toast(t('chain one more session for this to do anything'));
+        };
+      }
+      if (spec.kind === 'term') extras.append(copyButton(handle, 'winbtn'), chain, ...sizeButtons(handle, 'winbtn'));
+      const entry = { win, handle, name: id, chainBtn: chain };
       open.push(entry);
+      if (chain) paintChain();
 
       win.addEventListener('pointerdown', () => { win.style.zIndex = ++top; }, true);
 
@@ -3682,7 +3727,7 @@ async function screenWall() {
       }
     }
 
-    return { ws, node, open, addWindow };
+    return { ws, node, open, addWindow, paintChain };
   }
 
   /** Send a window somewhere else. Duplicating leaves the original in place — two
@@ -4260,6 +4305,21 @@ async function screenWall() {
     onclick: windowSheet,
   }, [icon('layers'), el('span', { textContent: t('List') })]));
 
+  // Chained terminals are the one thing in here that can do damage you did not intend,
+  // so the count sits in the toolbar and unhooks everything in one click.
+  const chainNote = el('button', {
+    className: 'winbtn wide chainnote',
+    hidden: true,
+    title: t('Unchain all of them'),
+    onclick: () => {
+      prefs.chain[activeSpace().id] = [];
+      savePrefs();
+      decks.get(activeSpace().id)?.paintChain();
+      toast(t('nothing is chained now'));
+    },
+  }, [icon('link'), el('span', {}, [el('span', { className: 'count' }), document.createTextNode(' '), el('span', { textContent: t('chained') })])]);
+  tools.append(chainNote);
+
   // One tray per desk: opening it twice would be two views of the same list, and the
   // second would take the first one's place in the layout.
   tools.append(el('button', {
@@ -4341,6 +4401,7 @@ async function screenWall() {
       const deck = deckFor(activeSpace());
       syncDeck(deck);
       for (const d of decks.values()) d.node.classList.toggle('on', d === deck);
+      deck.paintChain();
       drawTabs();
       deck.open.forEach((o) => o.handle.relayout());
     },
@@ -4610,6 +4671,35 @@ function reorderTab(tab, strip, onDone) {
     window.addEventListener('pointerup', up);
     window.addEventListener('pointercancel', up);
   });
+}
+
+/* ------------------------------------------------------------------ chained terminals */
+
+/** Typing once into several sessions.
+ *
+ *  tmux has `synchronize-panes`, but only across the panes of one window, and it changes
+ *  what every client attached sees. This is across sessions and belongs to this browser.
+ *
+ *  There is no pairing: a terminal is either in the desk's chain or it is not, and
+ *  everything typed into any member reaches all the others. Two states per window, and
+ *  the answer to "who is hearing this" is on screen rather than in your memory — which
+ *  matters more here than anywhere else in the app, because the thing being broadcast is
+ *  a command line.
+ */
+function deskChain(id) {
+  prefs.chain = prefs.chain || {};
+  return (prefs.chain[id] = prefs.chain[id] || []);
+}
+
+const chained = (wsId, name) => deskChain(wsId).includes(name);
+
+function toggleChain(wsId, name) {
+  const links = deskChain(wsId);
+  const at = links.indexOf(name);
+  if (at < 0) links.push(name);
+  else links.splice(at, 1);
+  savePrefs();
+  return at < 0;
 }
 
 /* ------------------------------------------------------------------ the link tray */
