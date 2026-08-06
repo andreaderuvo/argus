@@ -1242,10 +1242,31 @@ button.more.weigh.partial { color: var(--warn, #d6b98f); }
 
 /* Searching a PDF. The results sit over the top of the viewer rather than beside it:
    on a phone there is no beside. */
-.pdfsearch { position: relative; padding: .4rem .5rem; background: var(--panel); border-bottom: 1px solid var(--line); flex: none; }
+/* `flex: 1` alone only means something when the parent is a flex container, and the
+   preview screen's is not — the wrapper collapsed and took the PDF down to 150px with it.
+   Both, so it fills whichever kind of parent it lands in. */
+.pdfwrap { position: relative; height: 100%; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.pdfwrap iframe.preview { flex: 1; min-height: 0; }
+
+/* The finder folds into a button over the page: a search row costs a strip of every PDF
+   for as long as it is open, and most of the time nobody is searching. */
+button.pdffind {
+  position: absolute; top: .6rem; right: 1.2rem; z-index: 21;
+  width: 2.2rem; height: 2.2rem; display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%; border: 1px solid var(--line); background: var(--panel); color: var(--text);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .45); opacity: .92;
+}
+button.pdffind:hover, button.pdffind.on { color: var(--accent); border-color: var(--accent); }
+
+.pdfsearch {
+  position: absolute; top: .6rem; right: 4rem; left: auto; z-index: 21;
+  width: min(24rem, calc(100% - 6rem));
+  padding: .4rem .5rem; background: var(--panel); border: 1px solid var(--line);
+  border-radius: .5rem; box-shadow: 0 10px 26px rgba(0, 0, 0, .5);
+}
 .pdfsearch input { width: 100%; }
 .pdfhits {
-  position: absolute; left: .5rem; right: .5rem; top: 100%; z-index: 20;
+  position: absolute; left: .5rem; right: .5rem; top: calc(100% + .3rem); z-index: 20;
   max-height: min(22rem, 50vh); overflow: auto;
   background: var(--panel); border: 1px solid var(--line); border-radius: .5rem;
   box-shadow: 0 14px 34px rgba(0, 0, 0, .45);
