@@ -270,6 +270,17 @@
   "chain one more session for this to do anything": "lega almeno un'altra sessione perché serva a qualcosa",
   "Unchain all of them": "Slega tutte",
   "chained": "legate",
-  "nothing is chained now": "ora non è legato niente"
+  "nothing is chained now": "ora non è legato niente",
+  "is waiting for you": "ti sta aspettando",
+  "has finished": "ha finito",
+  "failed": "è fallito",
+  "Desktop notifications": "Notifiche di sistema",
+  "not available": "non disponibili",
+  "needs HTTPS": "serve HTTPS",
+  "refused": "rifiutate",
+  "a bell also raises a notification from the browser": "una campanella fa comparire anche una notifica del browser",
+  "the browser only allows these over HTTPS — the bell still rings inside Argus": "il browser le permette solo su HTTPS — dentro Argus la campanella suona comunque",
+  "Sound when something rings": "Suono quando qualcosa suona",
+  "two short tones when an agent finishes or asks for you": "due note brevi quando un agente finisce o ti cerca"
  }
 }

@@ -186,3 +186,35 @@ def test_config_says_whether_proxying_is_allowed(tmp_path):
         client = TestClient(create_app(Config(token=token, roots=[tmp_path], allow_proxy=allowed)))
         r = client.get("/api/config", headers={"Authorization": f"Bearer {token}"})
         assert r.json()["allow_proxy"] is allowed
+
+
+def test_a_bell_is_only_heard_once_and_never_from_before_you_arrived(client):
+    """A browser opening at noon must not be told about everything that finished in the
+    morning, and must then hear each thing exactly once."""
+    rung = client.post("/api/bell", json={"session": "build", "why": "done", "text": "made it"},
+                       headers={"Authorization": f"Bearer {TOKEN}"})
+    assert rung.status_code == 200 and rung.json()["seq"] == 1
+
+    # Arriving: the answer says where "now" is and hands over nothing.
+    first = get(client, "/api/bells?since=0").json()
+    assert first["seq"] == 1 and first["bells"] == []
+
+    client.post("/api/bell", json={"session": "build", "why": "asking"},
+                headers={"Authorization": f"Bearer {TOKEN}"})
+    later = get(client, f"/api/bells?since={first['seq']}").json()
+    assert [b["why"] for b in later["bells"]] == ["asking"]
+    # And asking again with the new mark hands over nothing a second time.
+    assert get(client, f"/api/bells?since={later['seq']}").json()["bells"] == []
+
+
+def test_a_bell_needs_a_reason_it_knows(client):
+    bad = client.post("/api/bell", json={"why": "whatever"}, headers={"Authorization": f"Bearer {TOKEN}"})
+    assert bad.status_code == 400
+    # A session is optional: something with no tmux session of its own still rings.
+    fine = client.post("/api/bell", json={"text": "cron finished"}, headers={"Authorization": f"Bearer {TOKEN}"})
+    assert fine.status_code == 200 and fine.json()["session"] is None and fine.json()["why"] == "done"
+
+
+def test_bells_are_behind_the_token(client):
+    assert client.get("/api/bells").status_code == 401
+    assert client.post("/api/bell", json={"why": "done"}).status_code == 401
