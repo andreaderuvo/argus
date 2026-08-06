@@ -248,10 +248,13 @@ services.</sub>
   minute — which is exactly the case that matters. The tab title changes to `● session`
   and the sound plays, neither of which needs a permission or a certificate.
 - A notification from the browser itself does need a secure context, and Settings says
-  so plainly instead of failing quietly. Three ways round it, in order of effort: mark
-  the origin trusted in `chrome://flags/#unsafely-treat-insecure-origin-as-secure`; put a
-  real certificate in front (`tailscale serve`, or mkcert); or point the same hook at
-  ntfy or Gotify as well — Argus does not try to be a push service.
+  so plainly instead of failing quietly. Three ways round it, in order of effort: declare
+  the origin trusted in your own browser (`chrome://flags/#unsafely-treat-insecure-origin-as-secure`
+  takes a full origin with its port; Firefox's `dom.securecontext.allowlist` takes bare
+  hostnames and needs a second preference to stop it breaking images; Safari has no
+  equivalent at all); put a real certificate in front (`tailscale serve`, or mkcert
+  offline); or point the same hook at ntfy or Gotify as well — Argus does not try to be a
+  push service. The wiki has the steps for each.
 
 ### Everything else
 
