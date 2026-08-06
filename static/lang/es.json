@@ -293,6 +293,10 @@
   "How it all works": "Cómo funciona todo",
   "The repository": "El repositorio",
   "The landing page": "La página de presentación",
-  "every feature, written out": "cada funcionalidad, explicada"
+  "every feature, written out": "cada funcionalidad, explicada",
+  "This session rings": "Esta sesión avisa",
+  "This session is not to ring": "Esta sesión no debe avisar",
+  "{session} will not ring": "{session} ya no avisará",
+  "{session} rings again": "{session} vuelve a avisar"
  }
 }

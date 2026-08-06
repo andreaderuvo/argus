@@ -293,6 +293,10 @@
   "How it all works": "How it all works",
   "The repository": "The repository",
   "The landing page": "The landing page",
-  "every feature, written out": "every feature, written out"
+  "every feature, written out": "every feature, written out",
+  "This session rings": "This session rings",
+  "This session is not to ring": "This session is not to ring",
+  "{session} will not ring": "{session} will not ring",
+  "{session} rings again": "{session} rings again"
  }
 }

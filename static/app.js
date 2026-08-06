@@ -544,6 +544,8 @@ const ICONS = {
   compress: 'M20 4l-6.2 6.2M13.8 10.2h5M13.8 10.2v-5M4 20l6.2-6.2M10.2 13.8h-5M10.2 13.8v5',
   fit: 'M4.5 9V4.5H9M15 4.5h4.5V9M19.5 15v4.5H15M9 19.5H4.5V15',
   lock: 'M6.5 10.5h11v9h-11zM9 10.5V7.6a3 3 0 0 1 6 0v2.9',
+  bell: 'M12 3.5a5.5 5.5 0 0 0-5.5 5.5c0 4-1.5 5.2-1.5 6.2 0 .5.4.8 1 .8h12c.6 0 1-.3 1-.8 0-1-1.5-2.2-1.5-6.2A5.5 5.5 0 0 0 12 3.5zM10 19a2 2 0 0 0 4 0',
+  bellOff: 'M12 3.5a5.5 5.5 0 0 0-5.5 5.5c0 4-1.5 5.2-1.5 6.2 0 .5.4.8 1 .8h12c.6 0 1-.3 1-.8 0-1-1.5-2.2-1.5-6.2A5.5 5.5 0 0 0 12 3.5zM10 19a2 2 0 0 0 4 0M4 4l16 16',
   github: 'M12 1.3a10.7 10.7 0 0 0-3.4 20.9c.54.1.73-.24.73-.52v-1.83c-2.98.65-3.6-1.44-3.6-1.44-.49-1.24-1.19-1.57-1.19-1.57-.97-.66.08-.65.08-.65 1.07.07 1.64 1.1 1.64 1.1.95 1.64 2.5 1.17 3.11.89.1-.69.37-1.16.68-1.43-2.38-.27-4.88-1.19-4.88-5.29 0-1.17.42-2.13 1.1-2.88-.11-.27-.48-1.36.1-2.83 0 0 .9-.29 2.94 1.1a10.2 10.2 0 0 1 5.36 0c2.04-1.39 2.94-1.1 2.94-1.1.58 1.47.21 2.56.1 2.83.69.75 1.1 1.71 1.1 2.88 0 4.11-2.5 5.02-4.89 5.28.38.33.72.98.72 1.98v2.93c0 .28.19.62.74.52A10.7 10.7 0 0 0 12 1.3z',
   link: 'M10.5 13.5a3.6 3.6 0 0 0 5.2 0l2.6-2.6a3.6 3.6 0 0 0-5.1-5.1l-1.3 1.3M13.5 10.5a3.6 3.6 0 0 0-5.2 0l-2.6 2.6a3.6 3.6 0 0 0 5.1 5.1l1.3-1.3',
   star: 'M12 3.8l2.6 5.3 5.8.85-4.2 4.1 1 5.75L12 17.1l-5.2 2.7 1-5.75-4.2-4.1 5.8-.85z',
@@ -3766,6 +3768,23 @@ async function screenWall() {
             },
           });
       if (handle.extra) extras.append(handle.extra);
+      const quiet = spec.kind === 'term' ? el('button', { className: 'winbtn bellbtn' }) : null;
+      const paintQuiet = () => {
+        const off = muted(spec.name);
+        quiet.replaceChildren(icon(off ? 'bellOff' : 'bell'));
+        quiet.classList.toggle('off', off);
+        quiet.title = off ? t('This session is not to ring') : t('This session rings');
+      };
+      if (quiet) {
+        paintQuiet();
+        quiet.onclick = () => {
+          const off = muteSession(spec.name);
+          paintQuiet();
+          if (off) win.classList.remove('ringing', 'asking');
+          toast(off ? t('{session} will not ring', { session: spec.name }) : t('{session} rings again', { session: spec.name }));
+        };
+      }
+
       const chain = spec.kind === 'term'
         ? el('button', { className: 'winbtn chainbtn' }, icon('link'))
         : null;
@@ -3778,7 +3797,7 @@ async function screenWall() {
           else if (on) toast(t('chain one more session for this to do anything'));
         };
       }
-      if (spec.kind === 'term') extras.append(copyButton(handle, 'winbtn'), chain, ...sizeButtons(handle, 'winbtn'));
+      if (spec.kind === 'term') extras.append(copyButton(handle, 'winbtn'), quiet, chain, ...sizeButtons(handle, 'winbtn'));
       const entry = { win, handle, name: id, chainBtn: chain };
       open.push(entry);
       if (chain) paintChain();
@@ -4819,12 +4838,30 @@ function reorderTab(tab, strip, onDone) {
  *  HTTPS) or a relay like ntfy; neither is decided here.
  */
 const BELL_POLL = 4000;
+
+/** Which sessions are not to ring.
+ *
+ *  Ringing for everything is the right default — a bell you have to switch on for each
+ *  session is a bell that is silent the day you needed it. But a session that natters, or
+ *  one somebody else is watching, should be able to shut up, and that is per session
+ *  rather than per desk: it is the same tmux session wherever it is shown. */
+const muted = (name) => (prefs.mute || []).includes(name);
+
+function muteSession(name) {
+  const list = (prefs.mute = prefs.mute || []);
+  const at = list.indexOf(name);
+  if (at < 0) list.push(name);
+  else list.splice(at, 1);
+  savePrefs();
+  return at < 0;
+}
 const rung = new Map();          // session -> the last bell from it
 let heardUpTo = null;            // null until the first answer says where "now" is
 let bellClock = null;
 
 function ring(bell) {
   const { session, why = 'note', text = '' } = bell;
+  if (session && muted(session)) return;
   if (session) rung.set(session, { why, text, at: Date.now() });
   paintBells();
 
