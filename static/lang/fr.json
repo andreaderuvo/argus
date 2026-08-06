@@ -240,6 +240,23 @@
   "Rename…": "Renommer…",
   "Change colour…": "Changer la couleur…",
   "Opens in {folder}…": "S'ouvre dans {folder}…",
-  "Choose the folder it opens in…": "Choisir le dossier d'ouverture…"
+  "Choose the folder it opens in…": "Choisir le dossier d'ouverture…",
+  "This workspace…": "Ce bureau…",
+  "Use it": "Utiliser",
+  "/a/folder/of/your/own": "/un/dossier/à/vous",
+  "There is no folder at {path}": "Il n'y a aucun dossier à {path}",
+  "Start from here and keep typing": "Partir d'ici et continuer à écrire",
+  "a port, or a localhost URL that went nowhere": "un port, ou une URL localhost restée sans réponse",
+  "That is neither a port nor a URL": "Ce n'est ni un port ni une URL",
+  "That is not a port": "Ce n'est pas un port",
+  "opened by hand": "ouvert à la main",
+  "forwarded to 127.0.0.1:{port}": "transmis à 127.0.0.1:{port}",
+  "Links": "Liens",
+  "the tray": "le plateau",
+  "What went past in this desk": "Ce qui est passé dans ce bureau",
+  "Everything printed in this desk that can be opened": "Tout ce qui a été affiché dans ce bureau et peut s'ouvrir",
+  "Paths and links printed in this desk’s terminals collect here.": "Les chemins et les liens affichés dans les terminaux de ce bureau s'accumulent ici.",
+  "Forget this one": "Oublier celui-ci",
+  "Empty the tray": "Vider le plateau"
  }
 }

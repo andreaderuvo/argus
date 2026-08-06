@@ -155,7 +155,13 @@ services.</sub>
 
 - **Desks (tabs)** you can name, colour, reorder by dragging, and pin. Each holds its own
   set of windows, has its own address (`#/wall?ws=3`, copyable from the tab menu) and its
-  own starting folder, and survives a reload.
+  own starting folder, and survives a reload. Every tab carries a **⋮** for its menu —
+  holding it and right-clicking still work, but neither is a gesture anybody finds.
+- **A folder each desk starts in.** A desk is usually *about* something, so its browsers
+  should land there rather than in the same home directory as everything else. Pick one
+  of the shortcuts or type the path: it completes folder names as you go, Tab finishes
+  the word the way a shell does, and a folder that is not there is refused rather than
+  quietly stored.
 - **Windows** for terminals, file browsers, documents and proxied web pages. Move or
   duplicate them between desks.
 - **Magnetic layout**: windows snap to each other and to the wall's edges, with a preview
@@ -164,6 +170,13 @@ services.</sub>
 - **Shared edges behave as splitters**: widen one column and the next gives up precisely
   what the first one took.
 - Tile as a grid, columns or rows when you want to start over.
+- **A link tray per desk.** What an agent produces is mostly *references* — where it
+  wrote the report, what port it is serving on, which file failed — and by the time you
+  have read the sentence it is four screens up. The tray catches every absolute path and
+  URL that goes past in the desk's terminals and keeps them in a list you click. A path
+  only earns a line if it is really there, so what collects is a short list of things
+  that open, not everything that looked like a path. Empty it whenever it stops being
+  useful.
 
 ### The machine
 
@@ -173,6 +186,16 @@ services.</sub>
 - **Listening ports**, with what is holding them. A service bound to `127.0.0.1` is
   unreachable from a phone by design; Argus will stand in front of it (`--allow-proxy`,
   then open that port by hand) and serve it under `/proxy/<port>/`.
+- **Reach a port nobody found**, by typing its number: a service that has not started
+  yet, or one the scan did not see. It appears in the list either way, so you can close
+  it again.
+- **Rescue a login that went to the wrong machine.** A tool running on the server starts
+  a browser login whose callback is `http://localhost:1455/…`. You log in on your own
+  laptop, where localhost is *your* laptop, and the callback lands on nothing. Paste that
+  dead URL into the same box and Argus forwards it — path and query intact — to the port
+  it was always meant for.
+- Argus's own credentials stop at the proxy: neither the token in the query nor the
+  `Authorization` header is passed to the service behind it.
 
 ### Everything else
 
@@ -311,6 +334,10 @@ What protects it:
   is escaped before rendering and `javascript:` links are stripped.
 - **The tmux config is validated on a throwaway server** before being applied to the one
   holding your sessions.
+- **The proxy keeps the token to itself.** A port has to be opened by hand before
+  anything is forwarded to it, and what is forwarded carries neither the token in the
+  query nor the `Authorization` header — a service behind the proxy, and its log, never
+  see the credential.
 
 What does not:
 

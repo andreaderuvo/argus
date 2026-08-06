@@ -74,3 +74,59 @@ def test_our_own_port_is_flagged_so_the_ui_can_say_so():
 
 def test_process_name_of_this_process():
     assert process_name(os.getpid()) in ("python3", "python", "pytest")
+
+
+def test_the_proxy_keeps_our_credentials_to_itself(tmp_path):
+    """Whatever is behind the proxy must not learn the token.
+
+    It rides in the query when a page is opened directly and in the header when the app
+    opens it, and an OAuth callback — the reason for reaching a port by hand — is exactly
+    the kind of URL a service writes into a log.
+    """
+    import json
+    import threading
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+
+    from fastapi.testclient import TestClient
+
+    from app.config import Config
+    from app.main import create_app
+
+    seen = {}
+
+    class Echo(BaseHTTPRequestHandler):
+        def do_GET(self):                                    # noqa: N802 - http.server's spelling
+            seen["path"] = self.path
+            seen["headers"] = {k.lower(): v for k, v in self.headers.items()}
+            body = json.dumps({"ok": True}).encode()
+            self.send_response(200)
+            self.send_header("content-type", "application/json")
+            self.send_header("content-length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *_args):                       # keep the test output clean
+            pass
+
+    server = HTTPServer(("127.0.0.1", 0), Echo)
+    port = server.server_address[1]
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+
+    token = "testtoken-0123456789abcdef"
+    app = create_app(Config(token=token, roots=[tmp_path], allow_proxy=True))
+    client = TestClient(app)
+    app.state.proxied.add(port)
+    try:
+        r = client.get(
+            f"/proxy/{port}/auth/callback?code=abc123&state=xyz&token={token}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+    finally:
+        server.shutdown()
+
+    assert r.status_code == 200
+    assert token not in seen["path"], "the token reached the service in the query string"
+    assert "authorization" not in seen["headers"], "the token reached the service in a header"
+    # What the callback is actually for still arrives, in one piece.
+    assert "code=abc123" in seen["path"] and "state=xyz" in seen["path"]
+    assert seen["path"].startswith("/auth/callback?")

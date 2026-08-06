@@ -656,6 +656,27 @@ dialog.sheet h2 {
 
 .sheetbody.actions { display: flex; flex-direction: column; gap: .35rem; max-height: 60vh; overflow-y: auto; }
 .sheetsep { height: 1px; background: var(--line); margin: .35rem 0; }
+
+/* A path typed by hand, with the folders that could come next underneath it. */
+/* Inside a column flex both of these would be squeezed by whatever is under them:
+   the chips row lost half its height and showed the tops of the words. */
+.pathpick { display: flex; gap: .4rem; align-items: stretch; flex: none; }
+.pathpick input { flex: 1; min-width: 0; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .86rem; }
+.pathhints { display: flex; flex-wrap: wrap; gap: .3rem; margin: .45rem 0 .1rem; flex: none; max-height: 5.4rem; overflow-y: auto; }
+.pathhints:empty { display: none; }
+
+/* Reaching a port by hand, above the list of the ones that were found. */
+.portpick { display: flex; gap: .4rem; align-items: stretch; margin: .1rem 0 .5rem; }
+.portpick input {
+  flex: 1; min-width: 0; min-height: var(--tap); padding: 0 .7rem;
+  background: var(--bg); border: 1px solid var(--line); border-radius: .5rem;
+  color: var(--text); font: inherit; font-size: .84rem;
+}
+.pathhints .chip {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .76rem; padding: .18rem .5rem;
+  border: 1px solid var(--line); border-radius: .8rem; background: var(--bg); color: var(--text);
+}
+.pathhints .chip:hover { border-color: var(--accent); color: var(--bright); }
 .ghost.block .sw { margin-left: auto; }
 .ghost.block bdi { unicode-bidi: isolate; overflow: hidden; text-overflow: ellipsis; }
 
@@ -786,6 +807,11 @@ button.ghost.dup:hover { color: var(--accent); border-color: var(--accent); }
   border-color: var(--accent);
 }
 
+/* The menu is on every tab, quiet until the tab is the one you are on or under. */
+.wstab .tabmore { opacity: .45; }
+.wstab.on .tabmore, .wstab:hover .tabmore { opacity: 1; }
+@media (hover: none) { .wstab .tabmore { opacity: .8; } }
+
 .wstab.on { background: var(--panel); color: var(--bright); border-color: var(--line); }
 .wstab.on .tabname { font-weight: 600; }
 .wstab.add { padding: 0 .5rem; color: var(--dim); }
@@ -811,6 +837,18 @@ button.ghost.dup:hover { color: var(--accent); border-color: var(--accent); }
 
 .tabclose .ico { width: 13px; height: 13px; }
 .tabclose:hover { color: var(--danger); }
+
+.tabmore {
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  background: none;
+  color: var(--dim);
+  padding: 0;
+  margin-left: .15rem;
+}
+.tabmore .ico { width: 15px; height: 15px; }
+.tabmore:hover { color: var(--accent); }
 
 #wall { flex: 1; min-height: 0; position: relative; }
 
@@ -1324,3 +1362,37 @@ button.toend.fresh::after {
   border-radius: 50%;
   background: var(--accent);
 }
+
+
+/* ------------------------------------------------------------------ the link tray */
+.winbody.traybody { overflow: hidden; display: flex; }
+.traylist { flex: 1; overflow-y: auto; padding: .3rem; display: flex; flex-direction: column; gap: .12rem; }
+.traylist .empty { padding: .8rem; color: var(--dim); }
+.trayline { display: flex; align-items: stretch; gap: .15rem; }
+.trayline .winbtn { flex: none; opacity: 0; }
+.trayline:hover .winbtn, .trayline:focus-within .winbtn { opacity: 1; }
+/* No hover on a phone: a button that only appears on hover never appears at all. */
+@media (hover: none) { .trayline .winbtn { opacity: .7; } }
+button.trayrow {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: .3rem .45rem;
+  border: 1px solid transparent;
+  border-radius: .4rem;
+  background: none;
+  color: var(--text);
+  font: 12px/1.4 ui-monospace, "SF Mono", Menlo, monospace;
+  text-align: left;
+}
+/* The folder gives way, the name stays whole. */
+.trayhead { flex: 0 999 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dim); }
+.trayhead:empty { display: none; }
+.trayleaf { flex: 0 1 auto; padding-right: .5rem; min-width: 2.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+button.trayrow bdi { unicode-bidi: isolate; }
+button.trayrow:hover { background: var(--bg); border-color: var(--line); color: var(--bright); }
+button.trayrow .ico { flex: none; color: var(--dim); margin-right: .45rem; }
+button.trayrow:hover .ico { color: var(--accent); }
+button.trayrow .verb { flex: none; margin-left: auto; font-size: .66rem; color: var(--dim); text-transform: uppercase; letter-spacing: .04em; }

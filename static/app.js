@@ -522,6 +522,7 @@ const ICONS = {
   compress: 'M20 4l-6.2 6.2M13.8 10.2h5M13.8 10.2v-5M4 20l6.2-6.2M10.2 13.8h-5M10.2 13.8v5',
   fit: 'M4.5 9V4.5H9M15 4.5h4.5V9M19.5 15v4.5H15M9 19.5H4.5V15',
   lock: 'M6.5 10.5h11v9h-11zM9 10.5V7.6a3 3 0 0 1 6 0v2.9',
+  link: 'M10.5 13.5a3.6 3.6 0 0 0 5.2 0l2.6-2.6a3.6 3.6 0 0 0-5.1-5.1l-1.3 1.3M13.5 10.5a3.6 3.6 0 0 0-5.2 0l-2.6 2.6a3.6 3.6 0 0 0 5.1 5.1l1.3-1.3',
   star: 'M12 3.8l2.6 5.3 5.8.85-4.2 4.1 1 5.75L12 17.1l-5.2 2.7 1-5.75-4.2-4.1 5.8-.85z',
 };
 
@@ -2053,6 +2054,46 @@ function portsSection() {
   const list = el('div');
   box.append(list);
 
+  /** Reach a port nobody detected, or finish a login that went to the wrong machine.
+   *
+   *  The case this is really for: a tool running in here starts a browser login whose
+   *  callback is `http://localhost:1455/…`. You log in on your own machine, and localhost
+   *  there is *your* machine, so the callback lands on nothing. Paste that dead URL in
+   *  here and Argus forwards it to the port it was always meant for. A bare number works
+   *  too, for a service that is not listening yet or that the scan did not see.
+   */
+  async function reach(raw) {
+    const text = raw.trim();
+    if (!text) return;
+    let port = 0;
+    let rest = '/';
+    if (/^\d+$/.test(text)) {
+      port = Number(text);
+    } else {
+      let url;
+      try { url = new URL(/^[a-z]+:\/\//i.test(text) ? text : `http://${text}`); } catch { url = null; }
+      if (!url) return toast(t('That is neither a port nor a URL'), true);
+      port = Number(url.port || (url.protocol === 'https:' ? 443 : 80));
+      rest = url.pathname.replace(/^\//, '') + url.search;
+    }
+    if (!(port >= 1 && port <= 65535)) return toast(t('That is not a port'), true);
+    try {
+      await postJSON('/api/ports', { port, open: true });
+      openWindow({ kind: 'web', url: withToken(`/proxy/${port}/${rest}`), label: `:${port}` });
+      paint();
+    } catch (e) { toast(e.message, true); }
+  }
+
+  const byHand = () => {
+    const field = el('input', {
+      type: 'text', spellcheck: false, autocapitalize: 'off', autocomplete: 'off',
+      placeholder: t('a port, or a localhost URL that went nowhere'),
+    });
+    const go = el('button', { className: 'ghost dup', textContent: t('Reach it'), onclick: () => reach(field.value) });
+    field.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); reach(field.value); } });
+    return el('div', { className: 'portpick' }, [field, go]);
+  };
+
   const paint = async () => {
     let data;
     try { data = await getJSON('/api/ports'); } catch (e) {
@@ -2064,7 +2105,40 @@ function portsSection() {
       ? t('Listening ports · {n} reachable through Argus', { n: data.open.length })
       : 'Listening ports';
     const mine = data.ports.filter((p) => p.mine && !p.self);
-    if (!mine.length) return list.append(el('p', { className: 'empty tiny', textContent: t('Nothing of yours is listening.') }));
+    if (data.allow_proxy) list.append(byHand());
+
+    // A port opened by hand may belong to nothing the scan can see — a service that has
+    // not started yet, or one listening in a way `ss` did not report. It still has to be
+    // listed, or there is no way to close it again.
+    const unseen = data.open.filter((port) => !mine.some((p) => p.port === port));
+    for (const port of unseen) {
+      list.append(el('div', { className: 'portrow' }, [
+        el('span', { className: 'portnum', textContent: String(port) }),
+        el('span', { className: 'grow' }, [
+          el('span', { className: 'name', textContent: t('opened by hand') }),
+          el('span', { className: 'meta', textContent: t('forwarded to 127.0.0.1:{port}', { port }) }),
+        ]),
+        el('span', { className: 'state good', textContent: t('reachable') }),
+        el('button', {
+          className: 'ghost dup on', textContent: t('View'),
+          onclick: () => openWindow({ kind: 'web', url: withToken(`/proxy/${port}/`), label: `:${port}` }),
+        }),
+        el('button', {
+          className: 'winbtn', title: `Stop reaching port ${port}`,
+          onclick: async () => {
+            try {
+              await postJSON('/api/ports', { port, open: false });
+              toast(t('port {port} closed', { port }));
+              paint();
+            } catch (e) { toast(e.message, true); }
+          },
+        }, icon('close')),
+      ]));
+    }
+
+    if (!mine.length && !unseen.length) {
+      list.append(el('p', { className: 'empty tiny', textContent: t('Nothing of yours is listening.') }));
+    }
 
     for (const p of mine) {
       const open = data.open.includes(p.port);
@@ -2689,6 +2763,11 @@ function logicalLine(term, y) {
 // every time the mouse crosses it.
 const located = new Map();
 const LOCATE_TTL = 20000;
+// How long a burst of output is allowed to settle before the tray reads it, how far back
+// a single sweep will look, and how many paths go to the server in one question.
+const HARVEST_EVERY = 700;
+const HARVEST_ROWS = 400;
+const LOCATE_BATCH = 24;
 
 async function locatePaths(tokens, session) {
   const key = (session || '') + ' ' + tokens.join(' ');
@@ -2848,7 +2927,7 @@ function linkPaths(term, container, session, open, following = () => {}) {
   }
 }
 
-function attachTerminal(container, name, { transform, onGone, onPath } = {}) {
+function attachTerminal(container, name, { transform, onGone, onPath, onLinks } = {}) {
   const term = new Terminal({
     fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace',
     fontSize: prefs.fontSize,
@@ -2949,6 +3028,9 @@ function attachTerminal(container, name, { transform, onGone, onPath } = {}) {
   linkPaths(term, container, name, (hit) => (onPath || openLocated.bind(null, 'term'))(hit),
     () => { followedAt = Date.now(); });
 
+  // Everything worth clicking that goes past in here, offered to the desk's tray.
+  const harvest = onLinks ? linkHarvester(term, name, onLinks) : null;
+
   let ws = null;
   let ready = false;
   let disposed = false;
@@ -2996,6 +3078,7 @@ function attachTerminal(container, name, { transform, onGone, onPath } = {}) {
       for (const chunk of pending) { merged.set(chunk, at); at += chunk.length; }
       pending = [];
       term.write(merged);
+      harvest?.();
     };
 
     ws.onmessage = (ev) => {
@@ -3450,10 +3533,12 @@ async function screenWall() {
       const isFile = spec.kind === 'file';
       const isBrowser = spec.kind === 'browser';
       const label = spec.kind === 'term' ? spec.name
-        : spec.kind === 'web' ? (spec.label || spec.url)
-          : (spec.path.split('/').pop() || spec.path);
+        : spec.kind === 'links' ? t('Links')
+          : spec.kind === 'web' ? (spec.label || spec.url)
+            : (spec.path.split('/').pop() || spec.path);
 
-      const body = el('div', { className: `winbody${isFile || isBrowser ? ' filebody' : ''}${isBrowser ? ' browserbody' : ''}` });
+      const isTray = spec.kind === 'links';
+      const body = el('div', { className: `winbody${isFile || isBrowser ? ' filebody' : ''}${isBrowser ? ' browserbody' : ''}${isTray ? ' traybody' : ''}` });
       const win = el('div', { className: 'win' });
       win.style.setProperty('--wc', colorFor(id));
 
@@ -3466,7 +3551,7 @@ async function screenWall() {
       const solo = el('button', { className: 'winbtn', title: t('Full screen') }, icon('maximise'));
       const title = el('span', {
         className: 'wintitle',
-        title: spec.kind === 'term' ? label : (spec.path || spec.url),
+        title: spec.kind === 'term' ? label : isTray ? t('What went past in this desk') : (spec.path || spec.url),
         textContent: label,
       });
       const setLabel = (text, full) => { title.textContent = text; title.title = full; };
@@ -3474,7 +3559,8 @@ async function screenWall() {
       win.append(head, body);
       node.append(win);
 
-      const handle = spec.kind === 'web' ? attachWeb(body, spec, setLabel)
+      const handle = isTray ? attachTray(body, ws.id, extras, openWindow)
+        : spec.kind === 'web' ? attachWeb(body, spec, setLabel)
         // Where a browser *lands* is the desk's business, not the folder it happened to
         // be left in: reopening a desk should put you where that desk starts.
         : isBrowser ? attachBrowser(body, spec, setLabel, landingFor(ws, spec))
@@ -3484,6 +3570,7 @@ async function screenWall() {
             // whole reason for having windows.
             onPath: (hit) => openLocated('wall', hit, win),
             // A session that is not there any more has to say so, not sit blank.
+            onLinks: (found) => noteLinks(ws.id, found),
             onGone: () => {
               win.classList.add('gone');
               extras.prepend(el('span', { className: 'state critical', textContent: t('gone') }));
@@ -3646,41 +3733,142 @@ async function screenWall() {
     ]);
   }
 
-  /** Pick the desk's starting folder: one of the roots, or — more usefully — the folder a
-   *  browser in this desk is already showing, which is nearly always the one meant. */
+  /** Pick the desk's starting folder.
+   *
+   *  The rows underneath are the common case — a root, or the folder a browser in this
+   *  desk is already showing. But a desk is usually *about* something several levels down,
+   *  and no list of shortcuts contains it, so the field on top takes any path, completes
+   *  folder names as you type, and refuses one that is not there. The pencil beside a row
+   *  loads it into the field to carry on from. */
   function deskFolderSheet(ws) {
     const body = el('div', { className: 'sheetbody actions' });
     let sheet;
-    const choose = (path) => {
-      sheet.close();
+    const apply = (path) => {
       ws.home = path;
       savePrefs();
       sayWhereBrowsersOpen();
       toast(path ? t('{desk} starts in {path}', { desk: ws.name, path }) : t('{desk} follows the usual home', { desk: ws.name }));
+      sheet.close();
+    };
+
+    const home = homePath(server?.roots || ['/']);
+    // A path typed by a person may well start with the shorthand a shell would expand.
+    const expand = (raw) => {
+      const p = raw.trim();
+      if (p === '~') return home;
+      if (p.startsWith('~/')) return home.replace(/\/$/, '') + p.slice(1);
+      return p;
+    };
+
+    const field = el('input', {
+      type: 'text', spellcheck: false, autocapitalize: 'off', autocorrect: 'off',
+      autocomplete: 'off', placeholder: t('/a/folder/of/your/own'), value: ws.home || '',
+    });
+    const hints = el('div', { className: 'pathhints' });
+    const use = el('button', { className: 'primary inline', textContent: t('Use it') });
+
+    // One request per parent folder, kept: holding a key down must not fire one per
+    // character, and walking back up a path you have already typed asks nothing.
+    const cache = new Map();
+    const foldersIn = (dir) => {
+      if (!cache.has(dir)) {
+        cache.set(dir, getJSON(`/api/files?path=${encodeURIComponent(dir)}`)
+          .then((rows) => rows.filter((r) => r.type === 'directory').map((r) => r.name))
+          .catch(() => []));
+      }
+      return cache.get(dir);
+    };
+
+    let offered = { dir: '', names: [] };
+    const suggest = async () => {
+      const raw = expand(field.value);
+      if (!raw.startsWith('/')) return hints.replaceChildren();
+      const cut = raw.lastIndexOf('/');
+      const dir = cut === 0 ? '/' : raw.slice(0, cut);
+      const tail = raw.slice(cut + 1).toLowerCase();
+      const names = await foldersIn(dir);
+      if (expand(field.value) !== raw) return;          // typed on while we were asking
+      const hit = names.filter((n) => n.toLowerCase().startsWith(tail));
+      offered = { dir, names: hit };
+      hints.replaceChildren(...hit.slice(0, 12).map((n) => el('button', {
+        className: 'chip', textContent: n, onclick: () => { walk(dir, n); },
+      })));
+    };
+    const walk = (dir, name) => {
+      field.value = `${dir === '/' ? '' : dir}/${name}/`;
+      field.focus();
+      suggest();
+    };
+
+    let timer;
+    field.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(suggest, 160); });
+    field.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); confirm(); return; }
+      if (e.key !== 'Tab' || e.shiftKey) return;
+      // Tab is what the fingers do anyway. One match completes; several complete as far
+      // as they agree, which is how a shell behaves and how you get through a deep path.
+      const { dir, names } = offered;
+      if (!names.length) return;
+      e.preventDefault();
+      if (names.length === 1) return walk(dir, names[0]);
+      let common = names[0];
+      for (const n of names) { while (!n.toLowerCase().startsWith(common.toLowerCase())) common = common.slice(0, -1); }
+      const now = expand(field.value);
+      if (common.length > now.slice(now.lastIndexOf('/') + 1).length) {
+        field.value = `${dir === '/' ? '' : dir}/${common}`;
+        suggest();
+      }
+    });
+
+    const confirm = async () => {
+      if (!field.value.trim()) return apply('');        // cleared by hand: no folder of its own
+      const path = expand(field.value).replace(/(.)\/+$/, '$1');
+      use.disabled = true;
+      try {
+        // It has to be there, and be a folder: a desk that starts nowhere sends every
+        // browser back to the home directory with no explanation.
+        await getJSON(`/api/files?path=${encodeURIComponent(path)}`);
+        apply(path);
+      } catch {
+        toast(t('There is no folder at {path}', { path }), true);
+        field.focus();
+      } finally {
+        use.disabled = false;
+      }
+    };
+    use.onclick = confirm;
+
+    body.append(el('div', { className: 'pathpick' }, [field, use]), hints);
+    body.append(el('div', { className: 'sheetsep' }));
+
+    const quick = (path, glyph, note) => {
+      const row = el('button', { className: 'ghost block grow', onclick: () => apply(path) },
+        [icon(glyph), el('span', { className: 'grow' }, bidi(path))]);
+      if (note) row.append(el('span', { className: 'verb', textContent: note }));
+      const carry = el('button', {
+        className: 'ghost dup', title: t('Start from here and keep typing'),
+        onclick: () => { field.value = path.replace(/(.)\/$/, '$1') + '/'; field.focus(); suggest(); },
+      }, icon('rename'));
+      body.append(el('div', { className: 'sendrow' }, [row, carry]));
     };
 
     const open = [...new Set(ws.desktop.filter((w) => w.kind === 'browser').map((w) => w.path))];
-    for (const path of open) {
-      body.append(el('button', { className: 'ghost block', onclick: () => choose(path) },
-        [icon('folder'), el('span', { className: 'grow' }, bidi(path)),
-          el('span', { className: 'verb', textContent: t('open here') })]));
-    }
+    for (const path of open) quick(path, 'folder', t('open here'));
     if (open.length) body.append(el('div', { className: 'sheetsep' }));
 
     for (const root of (server?.roots || [])) {
-      if (open.includes(root)) continue;
-      body.append(el('button', { className: 'ghost block', onclick: () => choose(root) },
-        [icon('home'), el('span', {}, bidi(root))]));
+      if (!open.includes(root)) quick(root, root === home ? 'home' : 'folder');
     }
     if (ws.home) {
       body.append(el('div', { className: 'sheetsep' }));
-      body.append(el('button', { className: 'ghost block', onclick: () => choose('') },
+      body.append(el('button', { className: 'ghost block', onclick: () => apply('') },
         [icon('refresh'), el('span', { textContent: t('No folder of its own') })]));
     }
 
     sheet = modal(t('Where {desk} starts', { desk: ws.name }), body, [
       el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),
     ]);
+    setTimeout(() => { if (ws.home) suggest(); }, 0);
   }
 
   function tabSheet(ws, rename, shut) {
@@ -3855,6 +4043,11 @@ async function screenWall() {
       for (const done of ['pointerup', 'pointerleave', 'pointercancel', 'pointermove']) {
         tab.addEventListener(done, () => clearTimeout(held));
       }
+      // Holding the tab and right-clicking both still work, but neither is a gesture
+      // anybody finds: every tab carries the menu where you can see it.
+      const more = el('button', { className: 'tabmore', title: t('This workspace…') }, icon('more'));
+      more.onclick = (e) => { e.stopPropagation(); tabSheet(ws, rename, shut); };
+      tab.append(more);
       if (on && spaces.length > 1 && !ws.pinned) {
         const x = el('button', { className: 'tabclose', title: t('Close this workspace') }, icon('close'));
         x.onclick = (e) => { e.stopPropagation(); shut(); };
@@ -3991,7 +4184,7 @@ async function screenWall() {
         dot,
         el('span', { className: 'grow' }, [
           el('span', { className: 'name', textContent: title }),
-          el('span', { className: 'meta', textContent: t(kind === 'term' ? 'session' : kind === 'browser' ? 'files' : kind === 'web' ? 'page' : 'document') }),
+          el('span', { className: 'meta', textContent: t(kind === 'term' ? 'session' : kind === 'browser' ? 'files' : kind === 'web' ? 'page' : kind === 'links' ? 'the tray' : 'document') }),
         ]),
         buried ? el('span', { className: 'state warning', textContent: t('hidden') })
           : adrift ? el('span', { className: 'state warning', textContent: t('off the desk') })
@@ -4036,6 +4229,20 @@ async function screenWall() {
     title: t('List the windows in this workspace'),
     onclick: windowSheet,
   }, [icon('layers'), el('span', { textContent: t('List') })]));
+
+  // One tray per desk: opening it twice would be two views of the same list, and the
+  // second would take the first one's place in the layout.
+  tools.append(el('button', {
+    className: 'winbtn wide',
+    title: t('Everything printed in this desk that can be opened'),
+    onclick: () => {
+      // Already open somewhere behind another window: bring it out rather than doing
+      // nothing, which is what a second identical window would amount to.
+      const there = deckFor(activeSpace()).open.find((o) => o.name === 'links');
+      if (there) raiseWindow(there);
+      else openWindow({ kind: 'links' });
+    },
+  }, [icon('link'), el('span', { textContent: t('Links') })]));
 
   const browserBtn = el('button', {
     className: 'winbtn wide',
@@ -4375,12 +4582,159 @@ function reorderTab(tab, strip, onDone) {
   });
 }
 
+/* ------------------------------------------------------------------ the link tray */
+
+/** Absolute paths and URLs that went past in a terminal, kept per desk.
+ *
+ *  What an agent produces is mostly *references*: it says where it wrote the report, what
+ *  port it is serving on, which file failed. By the time you have read the sentence it is
+ *  four screens up, and finding it again means scrolling through the reasoning to get at
+ *  the one line that pointed somewhere. The tray catches them as they go by, so the desk
+ *  keeps a short list of everything worth clicking. */
+const LINK_CAP = 200;
+const trayWatch = new Map();          // desk id -> redraw its tray window
+
+function deskLinks(id) {
+  prefs.links = prefs.links || {};
+  return (prefs.links[id] = prefs.links[id] || []);
+}
+
+/** Newest first, no repeats: a path an agent mentions in every message earns one line,
+ *  and it is the line at the top. */
+function noteLinks(id, found) {
+  const have = deskLinks(id);
+  const known = new Set(have.map((l) => l.text));
+  const fresh = found.filter((l) => !known.has(l.text));
+  if (!fresh.length) return;
+  have.unshift(...fresh.reverse());
+  if (have.length > LINK_CAP) have.length = LINK_CAP;
+  savePrefs();
+  trayWatch.get(id)?.();
+}
+
+/** Watch a terminal for things worth keeping.
+ *
+ *  It reads the rendered buffer rather than the bytes arriving: no escape sequences to
+ *  strip, and a path the terminal wrapped over two rows is already joined. Only what is
+ *  unambiguous later goes in — an absolute path or a URL — because a relative one means
+ *  nothing once the pane it was printed in has moved on. */
+function linkHarvester(term, session, hand) {
+  const seen = new Set();
+  let read = 0;                       // absolute row we have looked at up to
+  let due = null;
+
+  const sweep = async () => {
+    due = null;
+    const buf = term.buffer.active;
+    // A full-screen program paints over itself instead of scrolling, so there is no
+    // "new rows" to count: read what is on show and let the seen-set absorb the repeats.
+    const alt = buf.type === 'alternate';
+    const to = alt ? buf.viewportY + term.rows : buf.baseY + buf.cursorY + 1;
+    const from = alt ? buf.viewportY : Math.max(read, to - HARVEST_ROWS);
+    if (to <= from) return;
+    if (!alt) read = to;
+
+    const urls = [];
+    const paths = [];
+    for (let y = from; y < to; y++) {
+      const line = buf.getLine(y);
+      if (!line || line.isWrapped) continue;        // a wrapped line is read from its head
+      for (const c of pathCandidates(logicalLine(term, y + 1).text)) {
+        if (seen.has(c.text)) continue;
+        if (c.url) { seen.add(c.text); urls.push(c.text); continue; }
+        if (!c.text.startsWith('/') && !c.text.startsWith('~/')) continue;
+        seen.add(c.text);
+        paths.push(c.text);
+      }
+    }
+    if (seen.size > 4000) seen.clear();
+    if (urls.length) hand(urls.map((text) => ({ text, url: true, from: session })));
+
+    // A path only earns a place if it is really there: a terminal prints plenty that
+    // looks like one and is not, and a tray full of things that do not open is noise.
+    for (let i = 0; i < paths.length; i += LOCATE_BATCH) {
+      const batch = paths.slice(i, i + LOCATE_BATCH);
+      const found = await locatePaths(batch, session).catch(() => ({}));
+      const real = batch.filter((text) => found[text])
+        .map((text) => ({ text, path: found[text].path, dir: found[text].type === 'directory', from: session }));
+      if (real.length) hand(real);
+    }
+  };
+
+  // Output arrives in bursts; one sweep per burst is plenty, and it keeps the lookups
+  // for a chatty agent down to a handful a second rather than one per frame.
+  return () => { if (!due) due = setTimeout(sweep, HARVEST_EVERY); };
+}
+
+/** The tray itself: a list you click, and empty when it stops being useful. */
+function attachTray(host, wsId, extras, open) {
+  const list = el('div', { className: 'traylist' });
+  host.append(list);
+
+  const draw = () => {
+    const items = deskLinks(wsId);
+    list.replaceChildren();
+    if (!items.length) {
+      list.append(el('p', { className: 'empty tiny', textContent: t('Paths and links printed in this desk\u2019s terminals collect here.') }));
+      return;
+    }
+    for (const item of items) {
+      // The name is the part you read, so it is the part that never gets cut: the folder
+      // in front of it takes the ellipsis instead. (Clipping the whole path from the left
+      // with `direction: rtl` is the usual trick, and it moves the leading slash to the
+      // far end — `tmp/…/report.md/`, which is not a path.)
+      const cut = item.url ? -1 : item.text.lastIndexOf('/');
+      const row = el('button', { className: 'trayrow', title: item.text }, [
+        icon(item.url ? 'link' : item.dir ? 'folder' : 'file'),
+        el('span', { className: 'trayhead' }, bidi(cut > 0 ? item.text.slice(0, cut + 1) : '')),
+        el('span', { className: 'trayleaf' }, bidi(cut >= 0 ? item.text.slice(cut + 1) : item.text)),
+      ]);
+      if (item.from) row.append(el('span', { className: 'verb', textContent: item.from }));
+      row.onclick = () => {
+        if (item.url) return openUrl(item.text);
+        // It was there when it was caught; it may not be now.
+        locatePaths([item.text], item.from).then((found) => {
+          const hit = found[item.text];
+          if (hit) openLocated('wall', hit, host.closest('.win'));
+          else toast(t('No file at {path}', { path: item.text }), true);
+        });
+      };
+      const drop = el('button', { className: 'winbtn', title: t('Forget this one') }, icon('close'));
+      drop.onclick = (e) => {
+        e.stopPropagation();
+        const all = deskLinks(wsId);
+        all.splice(all.indexOf(item), 1);
+        savePrefs();
+        draw();
+      };
+      list.append(el('div', { className: 'trayline' }, [row, drop]));
+    }
+  };
+
+  const empty = el('button', { className: 'winbtn', title: t('Empty the tray') }, icon('trash'));
+  empty.onclick = () => {
+    if (!deskLinks(wsId).length) return;
+    prefs.links[wsId] = [];
+    savePrefs();
+    draw();
+  };
+  extras.append(empty);
+
+  trayWatch.set(wsId, draw);
+  draw();
+  return {
+    dispose: () => { if (trayWatch.get(wsId) === draw) trayWatch.delete(wsId); },
+    relayout: () => {},
+  };
+}
+
 /** A window is identified by what it shows, so geometry and colour survive a reload. */
 /** A window is identified by what it shows, so geometry and colour survive a reload —
  *  except a file browser, which shows a *different* folder every time you click something.
  *  Those carry an id of their own, so two of them can sit in one desk on the same folder
  *  and neither loses its place in the layout when you navigate. */
-const specId = (spec) => (spec.kind === 'term' ? `term:${spec.name}`
+const specId = (spec) => (spec.kind === 'links' ? 'links'
+  : spec.kind === 'term' ? `term:${spec.name}`
   : spec.kind === 'web' ? `web:${spec.url}`
     : spec.kind === 'browser' && spec.id ? `browser:${spec.id}`
       : `${spec.kind}:${spec.path}`);
