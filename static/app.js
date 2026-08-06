@@ -24,10 +24,32 @@ const bar = {
   alt: document.getElementById('alt'),
   settings: document.getElementById('settings'),
   full: document.getElementById('fullscreen'),
+  about: document.getElementById('about'),
 };
 
 // The bottom bar is for the places you go; settings are not one of them.
 bar.settings.onclick = () => go('#/settings');
+
+/** Where to read about this thing. Two destinations behind one mark rather than two
+ *  marks: the header is the most crowded strip on a phone, and a menu that opens is at
+ *  least something you can find — unlike a gesture. */
+bar.about.onclick = () => {
+  const body = el('div', { className: 'sheetbody actions' });
+  let sheet;
+  const place = (glyph, label, hint, url) => body.append(el('a', {
+    className: 'ghost block', href: url, target: '_blank', rel: 'noopener',
+    onclick: () => sheet.close(),
+  }, [icon(glyph), el('span', { className: 'grow' }, [
+    el('span', { className: 'name', textContent: label }),
+    el('span', { className: 'meta', textContent: hint }),
+  ])]));
+  place('github', t('The repository'), 'github.com/andreaderuvo/argus', 'https://github.com/andreaderuvo/argus');
+  place('layers', t('How it all works'), t('every feature, written out'), 'https://github.com/andreaderuvo/argus/wiki');
+  place('activity', t('The landing page'), 'andreaderuvo.github.io/argus', 'https://andreaderuvo.github.io/argus/');
+  sheet = modal('Argus', body, [
+    el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),
+  ]);
+};
 
 /* Full screen — what F11 does, for the times a keyboard is not in the room.
  *
@@ -522,16 +544,22 @@ const ICONS = {
   compress: 'M20 4l-6.2 6.2M13.8 10.2h5M13.8 10.2v-5M4 20l6.2-6.2M10.2 13.8h-5M10.2 13.8v5',
   fit: 'M4.5 9V4.5H9M15 4.5h4.5V9M19.5 15v4.5H15M9 19.5H4.5V15',
   lock: 'M6.5 10.5h11v9h-11zM9 10.5V7.6a3 3 0 0 1 6 0v2.9',
+  github: 'M12 1.3a10.7 10.7 0 0 0-3.4 20.9c.54.1.73-.24.73-.52v-1.83c-2.98.65-3.6-1.44-3.6-1.44-.49-1.24-1.19-1.57-1.19-1.57-.97-.66.08-.65.08-.65 1.07.07 1.64 1.1 1.64 1.1.95 1.64 2.5 1.17 3.11.89.1-.69.37-1.16.68-1.43-2.38-.27-4.88-1.19-4.88-5.29 0-1.17.42-2.13 1.1-2.88-.11-.27-.48-1.36.1-2.83 0 0 .9-.29 2.94 1.1a10.2 10.2 0 0 1 5.36 0c2.04-1.39 2.94-1.1 2.94-1.1.58 1.47.21 2.56.1 2.83.69.75 1.1 1.71 1.1 2.88 0 4.11-2.5 5.02-4.89 5.28.38.33.72.98.72 1.98v2.93c0 .28.19.62.74.52A10.7 10.7 0 0 0 12 1.3z',
   link: 'M10.5 13.5a3.6 3.6 0 0 0 5.2 0l2.6-2.6a3.6 3.6 0 0 0-5.1-5.1l-1.3 1.3M13.5 10.5a3.6 3.6 0 0 0-5.2 0l-2.6 2.6a3.6 3.6 0 0 0 5.1 5.1l1.3-1.3',
   star: 'M12 3.8l2.6 5.3 5.8.85-4.2 4.1 1 5.75L12 17.1l-5.2 2.7 1-5.75-4.2-4.1 5.8-.85z',
 };
 
-/** An inline icon. Stroked, never filled, so one colour rule covers every state. */
+// Two marks are somebody's logo rather than a drawing of ours: they are filled shapes
+// and come out as scribble if stroked like the rest.
+const FILLED = new Set(['github']);
+
+/** An inline icon. Stroked unless it is a logo, so one colour rule covers every state. */
 function icon(name, extra = '') {
+  const solid = FILLED.has(name);
   const path = svg('path', {
     d: ICONS[name] || '',
-    fill: 'none',
-    stroke: 'currentColor',
+    fill: solid ? 'currentColor' : 'none',
+    stroke: solid ? 'none' : 'currentColor',
     'stroke-width': '1.6',
     'stroke-linecap': 'round',
     'stroke-linejoin': 'round',
@@ -2613,6 +2641,12 @@ async function screenSettings() {
     el('p', { className: 'meta', textContent: t('preview limit: {size}', { size: human(info.max_preview_bytes) }) }),
     el('p', { className: 'meta', textContent: t('file operations: {state}', { state: info.allow_write ? t('enabled') : t('read-only (start with --allow-write)') }) }),
     el('button', { className: 'ghost', textContent: t('Forget token on this device'), onclick: signOut }),
+    el('div', { className: 'about' }, [
+      el('a', { className: 'ghost inline', href: 'https://github.com/andreaderuvo/argus', target: '_blank', rel: 'noopener' },
+        [icon('github'), el('span', { textContent: t('Argus on GitHub') })]),
+      el('a', { className: 'ghost inline', href: 'https://github.com/andreaderuvo/argus/wiki', target: '_blank', rel: 'noopener' },
+        [icon('layers'), el('span', { textContent: t('How it all works') })]),
+    ]),
   ]));
 }
 

@@ -288,6 +288,11 @@
   "partly": "en parte",
   "nothing to change": "no había nada que cambiar",
   "you already have your own hook on {what} — Argus left it alone": "ya tienes tu propio hook en {what} — Argus no lo ha tocado",
-  "agents read their configuration when they start, so this counts from the next one you open": "los agentes leen su configuración al arrancar, así que vale desde el próximo que abras"
+  "agents read their configuration when they start, so this counts from the next one you open": "los agentes leen su configuración al arrancar, así que vale desde el próximo que abras",
+  "Argus on GitHub": "Argus en GitHub",
+  "How it all works": "Cómo funciona todo",
+  "The repository": "El repositorio",
+  "The landing page": "La página de presentación",
+  "every feature, written out": "cada funcionalidad, explicada"
  }
 }
