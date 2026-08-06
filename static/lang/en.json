@@ -236,6 +236,10 @@
   "port {port} opened and served through Argus": "port {port} opened and served through Argus",
   "Back to the live end": "Back to the live end",
   "tmux was not holding the history — the program itself is scrolling, so use its own key": "tmux was not holding the history — the program itself is scrolling, so use its own key",
-  "Find in this document": "Find in this document"
+  "Find in this document": "Find in this document",
+  "Rename…": "Rename…",
+  "Change colour…": "Change colour…",
+  "Opens in {folder}…": "Opens in {folder}…",
+  "Choose the folder it opens in…": "Choose the folder it opens in…"
  }
 }
