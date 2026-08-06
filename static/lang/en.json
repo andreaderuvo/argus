@@ -288,6 +288,11 @@
   "partly": "partly",
   "nothing to change": "nothing to change",
   "you already have your own hook on {what} — Argus left it alone": "you already have your own hook on {what} — Argus left it alone",
-  "agents read their configuration when they start, so this counts from the next one you open": "agents read their configuration when they start, so this counts from the next one you open"
+  "agents read their configuration when they start, so this counts from the next one you open": "agents read their configuration when they start, so this counts from the next one you open",
+  "Argus on GitHub": "Argus on GitHub",
+  "How it all works": "How it all works",
+  "The repository": "The repository",
+  "The landing page": "The landing page",
+  "every feature, written out": "every feature, written out"
  }
 }

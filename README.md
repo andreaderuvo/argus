@@ -253,6 +253,9 @@ services.</sub>
 - **A phone-shaped interface**: bottom navigation, thumb-sized targets, drag-to-scroll in
   the terminal, a full-screen button (F11 is not on a phone), light and dark themes.
 - **A QR code** to pair a phone, and an installable PWA over HTTPS.
+- **The GitHub mark in the header** opens the repository, this wiki and the landing page,
+  so the documentation is one tap from wherever you are rather than something you have to
+  go and look for.
 - **No build step.** The frontend is plain ES modules; xterm.js, marked and the QR
   library are vendored. `pip install -r requirements.txt` and run it.
 
