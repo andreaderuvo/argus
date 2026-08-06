@@ -9,6 +9,8 @@
 *Your agents run in tmux. Argus is where you watch them, answer them, and look at what
 they produced — the log, the plot, the report — from a desk or from a phone.*
 
+**[argus, in one page →](https://andreaderuvo.github.io/argus/)**
+
 [![tests](https://github.com/andreaderuvo/argus/actions/workflows/tests.yml/badge.svg)](https://github.com/andreaderuvo/argus/actions/workflows/tests.yml)
 [![python](https://img.shields.io/badge/python-3.11%2B-3776ab?logo=python&logoColor=white)](https://www.python.org/)
 [![licence](https://img.shields.io/badge/licence-MIT-blue)](LICENSE)
