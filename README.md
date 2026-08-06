@@ -245,8 +245,10 @@ services.</sub>
   session is shown and across reloads.
 - **It works in another tab, over plain http.** Bells arrive on an open stream rather
   than by polling, because a background tab has its timers throttled to about once a
-  minute — which is exactly the case that matters. The tab title changes to `● session`
-  and the sound plays, neither of which needs a permission or a certificate.
+  minute — which is exactly the case that matters. The tab title changes to `● session`,
+  a coloured dot is burnt onto the favicon (the part that survives a crowded tab strip,
+  where the title is not shown at all), and the sound plays. None of the three needs a
+  permission or a certificate.
 - A notification from the browser itself does need a secure context, and Settings says
   so plainly instead of failing quietly. Three ways round it, in order of effort: declare
   the origin trusted in your own browser (`chrome://flags/#unsafely-treat-insecure-origin-as-secure`
