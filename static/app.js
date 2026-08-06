@@ -516,6 +516,7 @@ const ICONS = {
   layers: 'M12 3.6 3.4 8 12 12.4 20.6 8zM3.4 12.4 12 16.8l8.6-4.4M3.4 16.6 12 21l8.6-4.4',
   pin: 'M9.5 3.5h5l-.8 5.2 3.3 3.1H7l3.3-3.1zM12 11.8V20.5',
   copy: 'M9 9h10.5v10.5H9zM15 9V4.5H4.5V15H9',
+  search: 'M10.8 4.6a6.2 6.2 0 1 1 0 12.4 6.2 6.2 0 0 1 0-12.4zM15.4 15.4 20 20',
   usage: 'M12 3.6a8.4 8.4 0 1 0 8.4 8.4H12z',
   expand: 'M14.5 4.5h5v5M9.5 19.5h-5v-5M19.5 4.5l-6.2 6.2M4.5 19.5l6.2-6.2',
   compress: 'M20 4l-6.2 6.2M13.8 10.2h5M13.8 10.2v-5M4 20l6.2-6.2M10.2 13.8h-5M10.2 13.8v5',
@@ -719,7 +720,7 @@ function fileActions(entry, refresh, dest, favGroup = 'main') {
   if (dir) {
     body.append(el('button', {
       className: 'ghost block',
-      onclick: () => { sheet.close(); chooseDesk({ kind: 'browser', path: entry.path }, entry.name); },
+      onclick: () => { sheet.close(); chooseDesk({ kind: 'browser', id: nextWindowId(), path: entry.path, fresh: true }, entry.name); },
     }, [icon('split'), el('span', { textContent: t('Open in a window') })]));
     body.append(el('button', {
       className: 'ghost block',
@@ -1785,8 +1786,20 @@ async function mountPreview(host, path, ctl) {
     const frame = el('iframe', { className: 'preview', src });
     const results = el('div', { className: 'pdfhits', hidden: true });
     const box = el('input', { type: 'search', placeholder: t('find in this document…'), spellcheck: false });
-    const bar = el('div', { className: 'pdfsearch' }, [box, results]);
-    host.append(bar, frame);
+    const bar = el('div', { className: 'pdfsearch', hidden: true }, [box, results]);
+    // A search box costs a row of the document for as long as the document is open, and
+    // most of the time nobody is searching. It folds into the button that opens it, over
+    // the page rather than above it.
+    const finder = el('button', { className: 'pdffind', title: t('Find in this document') }, icon('search'));
+    finder.onclick = () => {
+      bar.hidden = !bar.hidden;
+      finder.classList.toggle('on', !bar.hidden);
+      if (bar.hidden) { results.hidden = true; results.textContent = ''; } else box.focus();
+    };
+    // Positioned against this wrapper, so it floats over the viewer in a window and on the
+    // preview screen alike.
+    const wrap = el('div', { className: 'pdfwrap' }, [frame, finder, bar]);
+    host.append(wrap);
 
     const goToPage = (page) => { frame.src = `${src}#page=${page}`; };
     let asked = null;
@@ -1816,7 +1829,10 @@ async function mountPreview(host, path, ctl) {
       }
     };
     box.addEventListener('input', () => { clearTimeout(asked); asked = setTimeout(look, 350); });
-    box.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); look(); } });
+    box.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); look(); }
+      if (e.key === 'Escape') finder.onclick();
+    });
     return;
   }
 
@@ -2738,7 +2754,7 @@ function openLocated(where, hit, from) {
   pointAt(hit.path);
   if (where === 'wall') {
     openWindow(hit.type === 'directory'
-      ? { kind: 'browser', path: hit.path }
+      ? { kind: 'browser', id: nextWindowId(), path: hit.path, fresh: true }
       : { kind: 'file', path: hit.path }, from && beside(from));
     return;
   }
@@ -3397,6 +3413,17 @@ async function screenWall() {
   const activeSpace = () => spaces.find((w) => w.id === prefs.ws) || spaces[0];
   const geomKey = (ws, id) => `${ws.id}:${id}`;
 
+  /** Where a browser window opens.
+   *
+   *  The desk decides — that is the point of giving a desk a folder — and the home
+   *  directory when it has not. The exception is the moment of creation: a browser opened
+   *  *at* something, by clicking a folder in a terminal, has to land on that something.
+   */
+  function landingFor(ws, spec) {
+    if (spec.fresh) { delete spec.fresh; return spec.path; }
+    return ws.home || homePath(server?.roots || ['/']);
+  }
+
   /** One workspace's windows. Built the first time you open the tab and kept alive after,
    *  so switching back does not detach and re-attach every terminal. */
   function buildDeck(ws) {
@@ -3448,7 +3475,9 @@ async function screenWall() {
       node.append(win);
 
       const handle = spec.kind === 'web' ? attachWeb(body, spec, setLabel)
-        : isBrowser ? attachBrowser(body, spec, setLabel)
+        // Where a browser *lands* is the desk's business, not the folder it happened to
+        // be left in: reopening a desk should put you where that desk starts.
+        : isBrowser ? attachBrowser(body, spec, setLabel, landingFor(ws, spec))
           : isFile ? attachViewer(body, spec.path, extras)
             : attachTerminal(body, spec.name, {
             // A path clicked in here opens beside it, not instead of it: that is the
@@ -4006,7 +4035,7 @@ async function screenWall() {
 
   const browserBtn = el('button', {
     className: 'winbtn wide',
-    onclick: () => openWindow({ kind: 'browser', path: deskFolder() }),
+    onclick: () => openWindow({ kind: 'browser', id: nextWindowId(), path: deskFolder() }),
   }, [icon('folderPlus'), el('span', { textContent: t('Browser') })]);
   tools.append(browserBtn);
 
@@ -4343,9 +4372,20 @@ function reorderTab(tab, strip, onDone) {
 }
 
 /** A window is identified by what it shows, so geometry and colour survive a reload. */
+/** A window is identified by what it shows, so geometry and colour survive a reload —
+ *  except a file browser, which shows a *different* folder every time you click something.
+ *  Those carry an id of their own, so two of them can sit in one desk on the same folder
+ *  and neither loses its place in the layout when you navigate. */
 const specId = (spec) => (spec.kind === 'term' ? `term:${spec.name}`
   : spec.kind === 'web' ? `web:${spec.url}`
-    : `${spec.kind}:${spec.path}`);
+    : spec.kind === 'browser' && spec.id ? `browser:${spec.id}`
+      : `${spec.kind}:${spec.path}`);
+
+function nextWindowId() {
+  prefs.winSeq = (prefs.winSeq || 0) + 1;
+  savePrefs();
+  return prefs.winSeq;
+}
 
 /** The tabs, created on first use out of whatever single desktop existed before. */
 function workspaces() {
@@ -4462,13 +4502,16 @@ function attachWeb(host, spec, setLabel) {
 
 /** A file browser inside a window. It keeps its own folder, so two of them side by side
  *  is how you look at two filesystems at once — no hidden mode, just two windows. */
-function attachBrowser(host, spec, setLabel) {
+function attachBrowser(host, spec, setLabel, landing) {
   let entry = null;
+  // The first draw lands where the desk says; every draw after it is you navigating.
+  let here = landing || spec.path;
+  setLabel?.(here.split('/').pop() || here, here);
   const draw = () => {
     if (entry) browsers.delete(entry);
     host.textContent = '';
     entry = fileBrowser({
-      path: spec.path,
+      path: here,
       roots: server?.roots || [spec.path],
       compact: true,
       other: () => null,
@@ -4476,8 +4519,10 @@ function attachBrowser(host, spec, setLabel) {
       setTree: (v) => { spec.tree = v; savePrefs(); },
       favGroup: 'windows',
       setPath: (p) => {
+        here = p;
+        // Kept so the window says where it is now; the landing folder above is what it
+        // opens on next time.
         spec.path = p;
-        prefs.desktop = [...prefs.desktop];   // the spec object is shared; persist the move
         savePrefs();
         setLabel(p.split('/').pop() || p, p);
         draw();

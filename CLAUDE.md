@@ -128,6 +128,15 @@ reloading is the whole loop — only Python changes need the server restarted.
   `/api/file` — the jail still decides what can be read. They used to be deleted outright
   (anything not `http(s):`), which quietly threw away the plots that are the point of a
   report.
+- **A browser window lands where the desk says** (`ws.home`), or in the home directory,
+  rather than in the folder it was last left in — except at the moment of creation, when
+  clicking a folder has to land on that folder (`spec.fresh`). Browser windows therefore
+  carry an `id`: identity used to be the path, so two of them in one desk on the same
+  folder collided and navigating changed the window's identity and its geometry key.
+- **The PDF finder folds into a button** over the page. A search row costs a strip of every
+  document for as long as it is open, and nobody is searching most of the time. Note
+  `.pdfwrap` needs `height: 100%` *and* `flex: 1`: the preview screen's host is not a flex
+  container, and `flex` alone collapsed the viewer to 150px.
 - **PDF search** is `pdftotext -q -- file -` split on form feeds, so one pass gives every
   page in order and "which page is this on" becomes answerable. `NoExtractor` and
   `Unreadable` are separate: telling someone the server cannot search PDFs when the truth

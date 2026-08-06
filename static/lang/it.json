@@ -235,6 +235,7 @@
   "{host} is this machine, not yours — start Argus with --allow-proxy to reach it": "{host} è questa macchina, non la tua — avvia Argus con --allow-proxy per raggiungerla",
   "port {port} opened and served through Argus": "porta {port} aperta e servita da Argus",
   "Back to the live end": "Torna alla fine",
-  "tmux was not holding the history — the program itself is scrolling, so use its own key": "la cronologia non era di tmux — sta scorrendo il programma, quindi serve il suo tasto"
+  "tmux was not holding the history — the program itself is scrolling, so use its own key": "la cronologia non era di tmux — sta scorrendo il programma, quindi serve il suo tasto",
+  "Find in this document": "Cerca in questo documento"
  }
 }
