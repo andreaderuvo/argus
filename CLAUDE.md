@@ -104,6 +104,13 @@ reloading is the whole loop — only Python changes need the server restarted.
   check, in the **capture** phase, because xterm consumes the wheel and stops it bubbling.
   With tmux attached the terminal has no scrollback of its own: measured, always 0/0, which
   is why nothing here can be built on `viewportY`.
+- **Double-click maximises and un-maximises**, and the size it had before is stored *with*
+  the geometry (`prev`), not in `dataset` alone — the DOM is thrown away by a reload or a
+  tab switch, which is how un-maximising used to land on a default. Two things had to be
+  true for it to work at all: a press that never travels is a click, not a drag, or
+  `dragBy`'s settle handler rewrites the geometry and clears the maximised state before the
+  `dblclick` even arrives; and moving or resizing by hand forgets the remembered size,
+  because that is now where you want the window.
 - **No button in a title bar is a drag handle.** `dragBy` used to skip an explicit list of
   the four buttons that existed when it was written; every button added since — the
   viewer's download, edit, source and watch, the terminal's copy and size — began a drag
