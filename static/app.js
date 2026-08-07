@@ -2701,12 +2701,14 @@ async function screenMessages() {
   view.append(wrap);
 
   const ws = currentSpace();
-  // The preview showed a made-up `/your/project`, under a label promising this desk's
-  // values — which reads exactly like a placeholder that failed to resolve, and that is
-  // how it was read. It shows this desk's folder now, and says plainly that when a prompt
-  // is actually sent, {folder} is the working directory of the session sending it.
+  // What the preview fills from. It starts on the set this desk uses — the honest default
+  // — but you can look through another one without changing what the desk is on: reading
+  // is not choosing, and having to switch a desk to see what a prompt would say is a
+  // silly price.
+  let previewSet = deskSetName(ws.id);
   const sample = () => ({
-    ...allVars(ws.id),
+    ...groundVars(),
+    ...(previewSet === GROUND ? {} : varSetNamed(previewSet)?.vars || {}),
     folder: ws.home || homePath(server?.roots || ['/']),
     from: 'claude',
     to: 'codex',
@@ -2748,8 +2750,16 @@ async function screenMessages() {
       savePrefs();
       drawMessagePane();
     };
+    const withSet = el('select', { className: 'setpick' });
+    for (const set of varSets()) {
+      withSet.append(el('option', { value: set.name, textContent: set.name, selected: set.name === previewSet }));
+    }
+    withSet.onchange = () => { previewSet = withSet.value; drawMessagePane(); };
+
     body.append(el('div', { className: 'grouphead libhead' }, [
       el('span', { className: 'hint', textContent: t('Folders you name, each with its own prompts.') }),
+      el('span', { className: 'meta', textContent: t('preview with') }),
+      withSet,
       newGroup,
     ]));
 
@@ -2907,9 +2917,9 @@ async function screenMessages() {
       // only way to know why a value came out that way is to remember what the desk is on.
       el('p', {
         className: 'hint',
-        textContent: t('filled from {set}, the set {desk} uses — when you send it, {folder} is the folder of the session it comes from:', {
-          set: deskSetName(ws.id), desk: ws.name,
-        }),
+        textContent: previewSet === deskSetName(ws.id)
+          ? t('filled from {set}, the set {desk} uses — when you send it, {folder} is the folder of the session it comes from:', { set: previewSet, desk: ws.name })
+          : t('filled from {set}, which {desk} does not use — it is on {other}', { set: previewSet, desk: ws.name, other: deskSetName(ws.id) }),
       }),
       preview,
       gaps,
@@ -5994,6 +6004,49 @@ function attachMessages(host, wsId, extras, deliver) {
           if (!target) return toast(t('no session in this desk to send it to'), true);
           send(kind, target);
         };
+
+        // What it will actually say, without sending it. Hover on a mouse; on a touch
+        // screen the ⋯ opens the same thing, since hovering is not a gesture a finger has.
+        let peek = null;
+        let peeking = null;
+        const showPeek = () => {
+          const target = deliver.aim();
+          const from = target ? senderFor(target) : null;
+          const known = {
+            ...allVars(wsId),
+            folder: deliver.folder(),
+            from: from?.name.slice(5) || '',
+            to: target?.name.slice(5) || '',
+          };
+          peek = el('div', { className: 'promptpeek' }, [
+            el('div', { className: 'peekname', textContent: kind.name }),
+            el('pre', { textContent: fillBaton(kind.text, known) }),
+          ]);
+          document.body.append(peek);
+          const box = row.getBoundingClientRect();
+          const wide = peek.getBoundingClientRect();
+          // Beside the row if it fits, otherwise on its other side: a panel that runs off
+          // the screen is worse than no panel.
+          const left = box.left - wide.width - 10 > 8 ? box.left - wide.width - 10 : Math.min(box.right + 10, window.innerWidth - wide.width - 8);
+          peek.style.left = `${Math.max(8, left)}px`;
+          peek.style.top = `${Math.max(8, Math.min(box.top, window.innerHeight - wide.height - 8))}px`;
+        };
+        const hidePeek = () => {
+          clearTimeout(peeking);
+          peeking = null;
+          peek?.remove();
+          peek = null;
+        };
+        // Pointer events rather than a media query: the event itself says whether a mouse
+        // did this, which is the thing that matters and is right on the hybrids a query
+        // gets wrong. A finger never opens it — tapping sends the prompt, and the ⋯ is
+        // where a touch screen looks at one first.
+        row.addEventListener('pointerenter', (e) => {
+          if (e.pointerType !== 'mouse') return;
+          peeking = setTimeout(showPeek, 320);
+        });
+        row.addEventListener('pointerleave', hidePeek);
+        row.addEventListener('pointerdown', hidePeek);
 
         // For the times a word needs changing before it goes. Not saved anywhere: this is
         // a one-off, and the library is edited where the library lives.
