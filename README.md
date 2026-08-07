@@ -181,6 +181,8 @@ services.</sub>
   point of handing it over; onto a file browser that folder is shown. Holding the line
   starts the drag on a phone too, so the list still scrolls. There is a copy button on
   each line for the times you want it on the clipboard instead.
+- **The Links button carries the count**, and it moves as things are printed whether or
+  not the tray is open — per desk, so switching tabs shows that desk's own number.
 - **A link tray per desk.** What an agent produces is mostly *references* — where it
   wrote the report, what port it is serving on, which file failed — and by the time you
   have read the sentence it is four screens up. The tray catches every absolute path and
