@@ -360,6 +360,11 @@
   "no desk is using this one": "aucun bureau ne l'utilise",
   "Placeholders: {set}": "Variables : {set}",
   "{desk} uses {set}": "{desk} utilise {set}",
-  "Edit them…": "Les modifier…"
+  "Edit them…": "Les modifier…",
+  "Add here": "Ajouter ici",
+  "which group it belongs to": "à quel groupe il appartient",
+  "in": "dans",
+  "New group": "Nouveau groupe",
+  "Name for this group": "Nom du groupe"
  }
 }

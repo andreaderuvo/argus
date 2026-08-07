@@ -360,6 +360,11 @@
   "no desk is using this one": "no desk is using this one",
   "Placeholders: {set}": "Placeholders: {set}",
   "{desk} uses {set}": "{desk} uses {set}",
-  "Edit them…": "Edit them…"
+  "Edit them…": "Edit them…",
+  "Add here": "Add here",
+  "which group it belongs to": "which group it belongs to",
+  "in": "in",
+  "New group": "New group",
+  "Name for this group": "Name for this group"
  }
 }

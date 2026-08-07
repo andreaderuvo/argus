@@ -130,8 +130,11 @@ services.</sub>
 
   It comes with **Referee** (one makes, the other reviews without editing and ends on a
   verdict; the return leg is a fix) and **Relay** (both improve the same work in turn),
-  and you can save your own — a template library that follows you between desks. The
-  sheet **shows what will actually be typed**, filled in, before anything is sent.
+  and you can save your own — a library that follows you between desks, **kept in groups**
+  you name: *Paper review*, *Web development*, whatever you are doing, because a flat list
+  of fifteen sentences is a list nobody reads. The sheet shows the groups first, then only
+  the messages in the one you picked, and **what will actually be typed**, filled in,
+  before anything is sent.
 
   Writing them has a screen of its own — **Messages**, in the bottom bar — with
   full editing of the library: rename, duplicate, delete, and each one previewed with
