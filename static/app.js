@@ -25,10 +25,13 @@ const bar = {
   settings: document.getElementById('settings'),
   full: document.getElementById('fullscreen'),
   about: document.getElementById('about'),
+  keys: document.getElementById('keys'),
 };
 
 // The bottom bar is for the places you go; settings are not one of them.
 bar.settings.onclick = () => go('#/settings');
+
+bar.keys.onclick = () => keyHelp();
 
 /** Where to read about this thing. Two destinations behind one mark rather than two
  *  marks: the header is the most crowded strip on a phone, and a menu that opens is at

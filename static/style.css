@@ -1852,6 +1852,10 @@ input.groupbox:focus { border-style: solid; border-color: var(--accent); color: 
 .msgpane .trayleaf { color: var(--text); }
 .msgpane .trayrow:hover .trayleaf { color: var(--bright); }
 
+/* A phone has no keyboard to take a shortcut with, and the header has no room for the
+   icon: measured, it was what pushed the bar past the width of the screen. */
+@media (max-width: 560px) { #keys { display: none; } }
+
 /* Keys, and the list of them. */
 kbd {
   display: inline-block;
