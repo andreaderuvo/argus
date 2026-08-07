@@ -2707,11 +2707,11 @@ async function screenMessages() {
   // silly price.
   let previewSet = deskSetName(ws.id);
   const sample = () => ({
-    ...groundVars(),
-    ...(previewSet === GROUND ? {} : varSetNamed(previewSet)?.vars || {}),
     folder: ws.home || homePath(server?.roots || ['/']),
     from: 'claude',
     to: 'codex',
+    ...groundVars(),
+    ...(previewSet === GROUND ? {} : varSetNamed(previewSet)?.vars || {}),
   });
 
   const tabs = el('div', { className: 'msgtabs' });
@@ -2974,7 +2974,14 @@ async function screenMessages() {
       const grid = varsGrid(
         () => set.vars,
         (kept) => { set.vars = kept; savePrefs(); around(); },
-        (name) => (!ground && name && name in groundVars() ? groundVars()[name] : null),
+        (name) => {
+          // Three names are worked out from the situation. Defining one is allowed — you
+          // may well want every prompt pointed at one folder — but it has to say so, or
+          // {folder} quietly stops meaning "where the session is".
+          if (name === 'folder') return t('the folder of the session it comes from');
+          if (name === 'from' || name === 'to') return t('the name of the session');
+          return !ground && name && name in groundVars() ? groundVars()[name] : null;
+        },
       );
 
       const tools = el('div', { className: 'setrow' });
@@ -5955,7 +5962,9 @@ function attachMessages(host, wsId, extras, deliver) {
     const toName = target.name.slice(5);
     let folder = '';
     try { folder = (await getJSON(`/api/tmux/cwd?session=${encodeURIComponent(fromName)}`)).cwd || ''; } catch { /* the desk's then */ }
-    const known = { ...allVars(wsId), folder: folder || deliver.folder(), from: fromName, to: toName };
+    // Worked out first, yours second: three names are filled in from the situation, and
+    // a set that defines one of them anyway means it on purpose.
+    const known = { folder: folder || deliver.folder(), from: fromName, to: toName, ...allVars(wsId) };
     target.handle.send(fillBaton(kind.text, known));
     target.handle.focus();
     deliver.raise(target);
@@ -6016,10 +6025,10 @@ function attachMessages(host, wsId, extras, deliver) {
           const target = deliver.aim();
           const from = target ? senderFor(target) : null;
           const known = {
-            ...allVars(wsId),
             folder: deliver.folder(),
             from: from?.name.slice(5) || '',
             to: target?.name.slice(5) || '',
+            ...allVars(wsId),
           };
           peek = el('div', { className: 'promptpeek' }, [
             el('div', { className: 'peekname', textContent: kind.name }),
@@ -6059,7 +6068,7 @@ function attachMessages(host, wsId, extras, deliver) {
           const target = deliver.aim();
           if (!target) return toast(t('no session in this desk to send it to'), true);
           const from = senderFor(target);
-          const known = { ...allVars(wsId), folder: deliver.folder(), from: from?.name.slice(5) || '', to: target.name.slice(5) };
+          const known = { folder: deliver.folder(), from: from?.name.slice(5) || '', to: target.name.slice(5), ...allVars(wsId) };
           const note = el('textarea', { className: 'baton', spellcheck: false, rows: 7, value: kind.text });
           const shown = el('pre', { className: 'batonpreview' });
           const see = () => { shown.textContent = fillBaton(note.value, known); };

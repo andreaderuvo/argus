@@ -414,6 +414,8 @@
   "with this desk’s values — when you send it, {folder} is the folder of the session it comes from:": "con i valori di questo desk — quando lo mandi, {folder} è la cartella della sessione da cui parte:",
   "filled from {set}, the set {desk} uses — when you send it, {folder} is the folder of the session it comes from:": "riempito da {set}, l'insieme che usa {desk} — quando lo mandi, {folder} è la cartella della sessione da cui parte:",
   "preview with": "anteprima con",
-  "filled from {set}, which {desk} does not use — it is on {other}": "riempito da {set}, che {desk} non usa — sta su {other}"
+  "filled from {set}, which {desk} does not use — it is on {other}": "riempito da {set}, che {desk} non usa — sta su {other}",
+  "the folder of the session it comes from": "la cartella della sessione da cui parte",
+  "the name of the session": "il nome della sessione"
  }
 }

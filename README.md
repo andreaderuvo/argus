@@ -141,9 +141,11 @@ services.</sub>
   this desk's values as you type. The hand-over sheet is for sending; a place you pass
   through in a hurry is the wrong place to keep a library.
 
-  Templates are written with **placeholders**. Three come from the situation and cannot
-  be set: `{folder}` — the *sending session's own working directory*, since a desk's
-  folder says nothing about where tmux put the agent — plus `{from}` and `{to}`. The rest
+  Templates are written with **placeholders**. Three are filled in from the situation:
+  `{folder}` — the *sending session's own working directory*, since a desk's folder says
+  nothing about where tmux put the agent — plus `{from}` and `{to}`. They are defaults,
+  not reserved words: define one in a set and yours wins, with the row saying what it is
+  covering. The rest
   are yours, kept in **named sets**. `Default` is the ground truth; any other set says
   only what it changes and takes the rest from it, showing what it is covering — *instead
   of BMC Genomics* — and what it is inheriting, one tap to claim. A desk picks a set, from
