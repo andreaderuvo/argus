@@ -1628,8 +1628,10 @@ input.groupbox {
   color: var(--dim); font: inherit; font-size: .8rem;
 }
 input.groupbox:focus { border-style: solid; border-color: var(--accent); color: var(--text); outline: none; }
-.grouphead { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin: .2rem 0 .6rem; }
-.grouphead .hint { margin: 0; flex: 1; }
+.grouphead { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin: .2rem 0 .9rem; }
+.grouphead .hint { margin: 0; flex: 1; min-width: 12rem; }
+/* Not a thumb-sized button: it sits on a line of explanation, not in a row of taps. */
+.grouphead .ghost.dup { min-height: 2.1rem; padding: 0 .8rem; font-size: .78rem; }
 
 /* A path being carried from the tray to a window. */
 .traydrag {
@@ -1797,11 +1799,6 @@ textarea.baton {
   color: var(--bright); font: inherit; font-weight: 600;
 }
 .msgcard .hint { padding: 0; margin: .5rem 0 .25rem; }
-.grouphead { display: flex; align-items: baseline; gap: .6rem; margin: .9rem 0 -.2rem; flex-wrap: wrap; }
-.grouphead.libhead { margin: 1.3rem 0 0; align-items: center; }
-.grouphead.libhead .msghead { margin: 0; }
-.grouphead h3 { margin: 0; font-size: .85rem; color: var(--accent); letter-spacing: .04em; text-transform: uppercase; }
-.msglist > .grouphead:first-of-type { margin-top: .2rem; }
 .msgfoot { display: flex; align-items: center; gap: .4rem; margin-top: .5rem; }
 .msgfoot .meta { flex: none; }
 input.groupbox {
