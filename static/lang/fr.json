@@ -382,6 +382,8 @@
   "no session in this desk to send it to": "aucune session dans ce bureau",
   "to": "vers",
   "no session here": "aucune session ici",
-  "tap one to send it there, or drag it onto another terminal": "touchez-en un pour l'envoyer là, ou glissez-le sur un autre terminal"
+  "tap one to send it there, or drag it onto another terminal": "touchez-en un pour l'envoyer là, ou glissez-le sur un autre terminal",
+  "Change it before sending": "Le modifier avant l'envoi",
+  "Send it": "Envoyer"
  }
 }

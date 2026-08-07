@@ -158,10 +158,10 @@ services.</sub>
   that follows the terminal you last touched, so the usual case is one tap and no question
   asked. Tap a name up there to aim it somewhere else and it stays put.
 
-  Which template comes up in the sheet is the one you last sent *from that session*, which is how a
-  referee's outward and return sentences sort themselves out without anybody declaring a
-  direction. Deliberately not a loop: automating the round trip is the part to add last,
-  once the sentence has proved itself.
+  The ⋯ on a row is for the times a word needs changing before it goes: it shows the text
+  filled in, lets you edit it once and sends it. Not saved — the library is edited where
+  the library lives. Deliberately not a loop: automating the round trip is the part to add
+  last, once the sentence has proved itself.
 - **Clickable paths.** Hovering a line asks the server which of its words are real files;
   those get underlined, and opening one shows it in the viewer *and* points the file
   browser at it. Relative paths resolve against the pane's own working directory. On a
