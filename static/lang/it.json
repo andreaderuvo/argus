@@ -371,6 +371,8 @@
   "“{name}” holds {count} message(s); they move to {ground}.": "«{name}» contiene {count} messaggi; passano a {ground}.",
   "“{name}” is empty.": "«{name}» è vuoto.",
   "Nothing in here yet.": "Qui dentro non c'è ancora niente.",
-  "A desk picks which set it uses, from its own ⋮ menu. {desk} is on {set}.": "È il desk a scegliere quale insieme usare, dal suo menu ⋮. {desk} sta su {set}."
+  "A desk picks which set it uses, from its own ⋮ menu. {desk} is on {set}.": "È il desk a scegliere quale insieme usare, dal suo menu ⋮. {desk} sta su {set}.",
+  "Grouped into folders you name. Each folder has its own Add here.": "Raggruppati in cartelle che nomini tu. Ogni cartella ha il suo Aggiungi qui.",
+  "Folders you name, each with its own messages.": "Cartelle che nomini tu, ognuna coi suoi messaggi."
  }
 }
