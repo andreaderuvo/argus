@@ -158,6 +158,10 @@ services.</sub>
   that follows the terminal you last touched, so the usual case is one tap and no question
   asked. Tap a name up there to aim it somewhere else and it stays put.
 
+  **Hovering a prompt shows what it will actually say**, filled in, without sending it —
+  and on the Prompts screen you can preview with any set of placeholders, not only the one
+  the desk is on, since reading is not choosing.
+
   The ⋯ on a row is for the times a word needs changing before it goes: it shows the text
   filled in, lets you edit it once and sends it. Not saved — the library is edited where
   the library lives, where deleting one needs no confirmation: the row becomes a red line
