@@ -384,6 +384,21 @@
   "no session here": "nessuna sessione qui",
   "tap one to send it there, or drag it onto another terminal": "toccane uno per mandarlo lì, o trascinalo su un altro terminale",
   "Change it before sending": "Modificalo prima di mandarlo",
-  "Send it": "Manda"
+  "Send it": "Manda",
+  "Prompts": "Prompt",
+  "Prompts and placeholders": "Prompt e segnaposto",
+  "Prompts and placeholders…": "Prompt e segnaposto…",
+  "The prompts you hand to an agent, kept open": "I prompt da passare a un agente, sempre aperti",
+  "Write the prompts": "Scrivi i prompt",
+  "Folders you name, each with its own prompts.": "Cartelle che nomini tu, ognuna coi suoi prompt.",
+  "Name for this prompt": "Nome del prompt",
+  "Delete this prompt": "Elimina questo prompt",
+  "No prompts yet.": "Ancora nessun prompt.",
+  "“{name}” holds {count} prompt(s); they move to {ground}.": "«{name}» contiene {count} prompt; passano a {ground}.",
+  "{name} deleted — tap to undo": "{name} eliminato — tocca per annullare",
+  "Silent: this session will not tell you when it finishes": "Muta: questa sessione non ti avviserà quando finisce",
+  "Will ring when this session finishes or wants you": "Suonerà quando questa sessione finisce o ti cerca",
+  "Undo": "Annulla",
+  "{name} deleted": "{name} eliminato"
  }
 }
