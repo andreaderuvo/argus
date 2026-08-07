@@ -124,7 +124,7 @@
   "dotfiles and dot-directories, in both panes": "dotfiles and dot-directories, in both panes",
   "drawing…": "drawing…",
   "duplicated to {desk}": "duplicated to {desk}",
-  "empty": "empty",
+  "empty": "vide",
   "enabled": "enabled",
   "expand folders in place instead of navigating into them": "expand folders in place instead of navigating into them",
   "file operations: {state}": "file operations: {state}",
@@ -346,6 +346,20 @@
   "the ones that hold on every desk — your name, the journal you always submit to, the house style": "celles qui valent sur tous les bureaux — votre nom, la revue habituelle, le style maison",
   "Only in {desk}": "Seulement dans {desk}",
   "what is different about this desk. A name repeated here wins over the one above.": "ce qui change sur ce bureau. Un nom repris ici l'emporte sur celui du dessus.",
-  "instead of {value}": "au lieu de {value}"
+  "instead of {value}": "au lieu de {value}",
+  "Placeholders": "Variables",
+  "New set": "Nouvel ensemble",
+  "Name for this set": "Nom de l'ensemble",
+  "Delete this set": "Supprimer cet ensemble",
+  "“{name}” goes for good; the desks using it fall back to {ground}.": "« {name} » disparaît ; les bureaux qui l'utilisent reviennent à {ground}.",
+  "Sets with a name. {ground} is the ground truth; another set says only what it changes and takes the rest from it.": "Des ensembles nommés. {ground} est la référence ; un autre ensemble ne dit que ce qu'il change et prend le reste de là.",
+  "{desk} uses": "{desk} utilise",
+  "taken from {ground}:": "repris de {ground} :",
+  "give this set its own": "donner à cet ensemble le sien",
+  "used by: {list}": "utilisé par : {list}",
+  "no desk is using this one": "aucun bureau ne l'utilise",
+  "Placeholders: {set}": "Variables : {set}",
+  "{desk} uses {set}": "{desk} utilise {set}",
+  "Edit them…": "Les modifier…"
  }
 }
