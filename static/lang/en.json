@@ -341,6 +341,11 @@
   "name": "name",
   "value": "value",
   "Remove": "Remove",
-  "They belong to this desk, so one message serves every project.": "They belong to this desk, so one message serves every project."
+  "They belong to this desk, so one message serves every project.": "They belong to this desk, so one message serves every project.",
+  "Placeholders everywhere": "Placeholders everywhere",
+  "the ones that hold on every desk — your name, the journal you always submit to, the house style": "the ones that hold on every desk — your name, the journal you always submit to, the house style",
+  "Only in {desk}": "Only in {desk}",
+  "what is different about this desk. A name repeated here wins over the one above.": "what is different about this desk. A name repeated here wins over the one above.",
+  "instead of {value}": "instead of {value}"
  }
 }

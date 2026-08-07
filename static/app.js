@@ -2682,83 +2682,86 @@ async function screenMessages() {
   view.append(wrap);
 
   const ws = currentSpace();
-  const vars = deskVars(ws.id);
 
   /* ---------------------------------------------------------------- placeholders */
-  // A grid with two boxes per row, not one line you have to punctuate: `name = value`
-  // is quick to write and a nuisance to edit, and the `=` becomes something to fight.
-  const grid = el('div', { className: 'varsgrid' });
-  let rows = Object.entries(vars).map(([name, value]) => ({ name, value }));
+  /** A grid of name-and-value, editable in place.
+   *
+   *  Two boxes rather than one `name = value` line: the `=` is something to fight rather
+   *  than something to type. An empty row waits at the bottom, so adding one is typing.
+   *  `shadows` names the value this row is covering up, when there is one.
+   */
+  function varsGrid(read, write, shadows = () => null) {
+    const grid = el('div', { className: 'varsgrid' });
+    let rows = Object.entries(read()).map(([name, value]) => ({ name, value }));
 
-  const keep = () => {
-    const kept = {};
-    for (const row of rows) {
-      const name = row.name.trim().replace(/^\{|\}$/g, '');
-      if (/^[\w.-]+$/.test(name) && row.value.trim()) kept[name] = row.value.trim();
-    }
-    prefs.vars[ws.id] = kept;
-    savePrefs();
-    Object.keys(vars).forEach((k) => delete vars[k]);
-    Object.assign(vars, kept);
-    drawTemplates();
-  };
-
-  function drawVars() {
-    grid.replaceChildren();
-    // One empty row waiting at the bottom: adding is typing, not finding a button.
-    const shown = [...rows, { name: '', value: '', fresh: true }];
-    shown.forEach((row, i) => {
-      const name = el('input', { type: 'text', className: 'varname', value: row.name, spellcheck: false, placeholder: t('name') });
-      const value = el('input', { type: 'text', className: 'varvalue', value: row.value, spellcheck: false, placeholder: t('value') });
-      const drop = el('button', { className: 'winbtn', title: t('Remove') }, icon('close'));
-      drop.hidden = !!row.fresh;
-      drop.onclick = () => { rows.splice(i, 1); keep(); drawVars(); };
-
-      const touched = () => {
-        row.name = name.value;
-        row.value = value.value;
-        if (row.fresh && (row.name || row.value)) {
-          delete row.fresh;
-          rows.push(row);
-          drop.hidden = false;
-          grid.append(...blank());          // a new empty one takes its place
-        }
-        keep();
-      };
-      name.addEventListener('input', touched);
-      value.addEventListener('input', touched);
-      grid.append(name, value, drop);
-    });
-  }
-  const blank = () => {
-    const row = { name: '', value: '', fresh: true };
-    const name = el('input', { type: 'text', className: 'varname', spellcheck: false, placeholder: t('name') });
-    const value = el('input', { type: 'text', className: 'varvalue', spellcheck: false, placeholder: t('value') });
-    const drop = el('button', { className: 'winbtn', hidden: true });
-    const touched = () => {
-      row.name = name.value;
-      row.value = value.value;
-      if (row.fresh && (row.name || row.value)) { delete row.fresh; rows.push(row); grid.append(...blank()); }
-      keep();
+    const keep = () => {
+      const kept = {};
+      for (const row of rows) {
+        const name = row.name.trim().replace(/^\{|\}$/g, '');
+        if (/^[\w.-]+$/.test(name) && row.value.trim()) kept[name] = row.value.trim();
+      }
+      write(kept);
+      drawTemplates();
     };
-    name.addEventListener('input', touched);
-    value.addEventListener('input', touched);
-    return [name, value, drop];
-  };
+
+    function draw() {
+      grid.replaceChildren();
+      for (const [i, row] of [...rows, { name: '', value: '', fresh: true }].entries()) {
+        const name = el('input', { type: 'text', className: 'varname', value: row.name, spellcheck: false, placeholder: t('name') });
+        const value = el('input', { type: 'text', className: 'varvalue', value: row.value, spellcheck: false, placeholder: t('value') });
+        const under = el('span', { className: 'shadowed' });
+        const drop = el('button', { className: 'winbtn', title: t('Remove') }, icon('close'));
+        drop.hidden = !!row.fresh;
+        drop.onclick = () => { rows.splice(i, 1); keep(); draw(); };
+
+        const sayShadow = () => {
+          const covered = shadows(row.name.trim());
+          under.textContent = covered ? t('instead of {value}', { value: covered }) : '';
+          under.hidden = !covered;
+        };
+        const touched = () => {
+          row.name = name.value;
+          row.value = value.value;
+          if (row.fresh && (row.name || row.value)) { delete row.fresh; rows.push(row); draw(); focusEnd(); }
+          sayShadow();
+          keep();
+        };
+        const focusEnd = () => {
+          // Redrawing to grow the grid would drop the caret; put it back where it was.
+          const boxes = grid.querySelectorAll(row.name ? '.varvalue' : '.varname');
+          const box = boxes[rows.length - 1];
+          box?.focus();
+          box?.setSelectionRange(box.value.length, box.value.length);
+        };
+        name.addEventListener('input', touched);
+        value.addEventListener('input', touched);
+        sayShadow();
+        grid.append(name, value, drop, under);
+      }
+    }
+    draw();
+    return grid;
+  }
 
   wrap.append(
-    el('h2', { className: 'msghead', textContent: t('Placeholders in {desk}', { desk: ws.name }) }),
-    el('p', { className: 'hint', textContent: t('They belong to this desk, so one message serves every project.') }),
-    grid,
+    el('h2', { className: 'msghead', textContent: t('Placeholders everywhere') }),
+    el('p', { className: 'hint', textContent: t('the ones that hold on every desk — your name, the journal you always submit to, the house style') }),
+    varsGrid(everywhereVars, (kept) => { prefs.globalVars = kept; savePrefs(); }),
+    el('h2', { className: 'msghead', textContent: t('Only in {desk}', { desk: ws.name }) }),
+    el('p', { className: 'hint', textContent: t('what is different about this desk. A name repeated here wins over the one above.') }),
+    varsGrid(
+      () => deskVars(ws.id),
+      (kept) => { prefs.vars[ws.id] = kept; savePrefs(); },
+      (name) => (name && name in everywhereVars() ? everywhereVars()[name] : null),
+    ),
     el('p', { className: 'hint', textContent: t('Always there, from the situation itself: {folder} is the working directory of the session handing over, {from} and {to} are the two sessions.') }),
   );
-  drawVars();
 
   /* ---------------------------------------------------------------- the library */
   const list = el('div', { className: 'msglist' });
   wrap.append(el('h2', { className: 'msghead', textContent: t('Messages') }), list);
 
-  const sample = () => ({ ...vars, folder: deskVars.demo || '/your/project', from: 'claude', to: 'codex' });
+  const sample = () => ({ ...allVars(ws.id), folder: '/your/project', from: 'claude', to: 'codex' });
 
   function drawTemplates() {
     list.replaceChildren();
@@ -3861,7 +3864,7 @@ async function screenWall() {
       let sheet;
 
       const pair = deskPair(ws.id);
-      const vars = deskVars(ws.id);
+      const vars = allVars(ws.id);
       let where = deskFolder();
       let picked = pair.lastBy?.[from] ?? batonTemplates()[0]?.name;
 
@@ -5519,6 +5522,15 @@ function deskVars(wsId) {
   prefs.vars = prefs.vars || {};
   return (prefs.vars[wsId] = prefs.vars[wsId] || {});
 }
+
+/** The ones that hold everywhere — your name, the journal you always submit to, the
+ *  house style — so a desk only has to say what is different about it. */
+function everywhereVars() {
+  return (prefs.globalVars = prefs.globalVars || {});
+}
+
+/** Everything a desk can fill in, with the desk's own winning. */
+const allVars = (wsId) => ({ ...everywhereVars(), ...deskVars(wsId) });
 
 const varsToText = (vars) => Object.entries(vars).map(([k, v]) => `${k} = ${v}`).join('\n');
 
