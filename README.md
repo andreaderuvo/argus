@@ -318,7 +318,7 @@ services.</sub>
 - **A phone-shaped interface**: bottom navigation, thumb-sized targets, drag-to-scroll in
   the terminal, a full-screen button (F11 is not on a phone), light and dark themes.
 - **Keyboard shortcuts** for the places you go and the windows you open, with `?` for the
-  list. Any of them can be changed — click the row, press the key — and Backspace clears
+  list — and a key icon in the header, on screens wide enough to have a keyboard. Any of them can be changed — click the row, press the key — and Backspace clears
   one. They fire only when you are *not* typing: a terminal, or any box you are writing
   in, keeps the keyboard to itself, because stealing one key from tmux would be worse than
   having no shortcuts at all.
