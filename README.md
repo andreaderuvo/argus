@@ -149,7 +149,7 @@ services.</sub>
   are yours, kept in **named sets**. `Default` is the ground truth; any other set says
   only what it changes and takes the rest from it, showing what it is covering — *instead
   of BMC Genomics* — and what it is inheriting, one tap to claim. A desk picks a set, from
-  its own tab menu or from the Messages screen, so the same set serves every desk about
+  its own tab menu, so the same set serves every desk about
   the same thing instead of each desk keeping a copy of your name. A placeholder with nothing to put in it is
   flagged and passed through as written, where you can see it.
 
