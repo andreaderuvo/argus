@@ -416,6 +416,9 @@
   "preview with": "preview with",
   "filled from {set}, which {desk} does not use — it is on {other}": "filled from {set}, which {desk} does not use — it is on {other}",
   "the folder of the session it comes from": "the folder of the session it comes from",
-  "the name of the session": "the name of the session"
+  "the name of the session": "the name of the session",
+  "empties after": "empties after",
+  "never": "never",
+  "{n} min": "{n} min"
  }
 }

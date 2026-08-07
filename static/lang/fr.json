@@ -416,6 +416,9 @@
   "preview with": "aperçu avec",
   "filled from {set}, which {desk} does not use — it is on {other}": "rempli depuis {set}, que {desk} n'utilise pas — il est sur {other}",
   "the folder of the session it comes from": "le dossier de la session d'origine",
-  "the name of the session": "le nom de la session"
+  "the name of the session": "le nom de la session",
+  "empties after": "se vide après",
+  "never": "jamais",
+  "{n} min": "{n} min"
  }
 }

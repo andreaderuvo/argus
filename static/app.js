@@ -6151,6 +6151,11 @@ function toggleChain(wsId, name) {
  *  the one line that pointed somewhere. The tray catches them as they go by, so the desk
  *  keeps a short list of everything worth clicking. */
 const LINK_CAP = 200;
+// How long a link stays. Not "wipe the lot every N minutes", which would snatch away one
+// that arrived a second ago: nothing older than N survives, which is the same tidiness
+// without the surprise.
+const KEEP_FOR = [0, 1, 3, 5, 10, 30];
+const SWEEP_EVERY = 20000;
 const trayWatch = new Map();          // desk id -> redraw its tray window
 let trayTally = null;                 // and the toolbar's count, open window or not
 
@@ -6164,7 +6169,7 @@ function deskLinks(id) {
 function noteLinks(id, found) {
   const have = deskLinks(id);
   const known = new Set(have.map((l) => l.text));
-  const fresh = found.filter((l) => !known.has(l.text));
+  const fresh = found.filter((l) => !known.has(l.text)).map((l) => ({ ...l, at: Date.now() }));
   if (!fresh.length) return;
   have.unshift(...fresh.reverse());
   if (have.length > LINK_CAP) have.length = LINK_CAP;
@@ -6352,9 +6357,48 @@ function attachTray(host, wsId, extras, deliver) {
   const list = el('div', { className: 'traylist' });
   host.append(list);
 
+  const keepFor = () => Number(prefs.trayAge?.[wsId] ?? 0);
+  const sweep = () => {
+    const minutes = keepFor();
+    if (!minutes) return;
+    const cutoff = Date.now() - minutes * 60000;
+    const have = deskLinks(wsId);
+    // A link caught before there was a clock on them is treated as new, once: nothing
+    // should vanish the instant this is switched on.
+    for (const item of have) if (!item.at) item.at = Date.now();
+    const left = have.filter((item) => item.at >= cutoff);
+    if (left.length === have.length) return;
+    prefs.links[wsId] = left;
+    savePrefs();
+    draw();
+    trayTally?.(wsId);
+  };
+  const clock = setInterval(sweep, SWEEP_EVERY);
+
+  const ageRow = () => {
+    const pick = el('select', { className: 'setpick' });
+    for (const minutes of KEEP_FOR) {
+      pick.append(el('option', {
+        value: String(minutes),
+        textContent: minutes ? t('{n} min', { n: minutes }) : t('never'),
+        selected: minutes === keepFor(),
+      }));
+    }
+    pick.onchange = () => {
+      prefs.trayAge = prefs.trayAge || {};
+      prefs.trayAge[wsId] = Number(pick.value);
+      savePrefs();
+      sweep();
+    };
+    return el('div', { className: 'aimbar' }, [
+      el('span', { className: 'to', textContent: t('empties after') }),
+      pick,
+    ]);
+  };
+
   const draw = () => {
     const items = deskLinks(wsId);
-    list.replaceChildren();
+    list.replaceChildren(ageRow());
     if (!items.length) {
       list.append(el('p', { className: 'empty tiny', textContent: t('Paths and links printed in this desk\u2019s terminals collect here.') }));
       return;
@@ -6413,8 +6457,12 @@ function attachTray(host, wsId, extras, deliver) {
 
   trayWatch.set(wsId, draw);
   draw();
+  sweep();
   return {
-    dispose: () => { if (trayWatch.get(wsId) === draw) trayWatch.delete(wsId); },
+    dispose: () => {
+      clearInterval(clock);
+      if (trayWatch.get(wsId) === draw) trayWatch.delete(wsId);
+    },
     relayout: () => {},
   };
 }
