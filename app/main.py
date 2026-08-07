@@ -158,6 +158,18 @@ def create_app(cfg: Config) -> FastAPI:
             raise ApiError(404, f"no tmux session named {name!r}")
         return name
 
+    @app.get("/api/tmux/cwd")
+    async def pane_directory(request: Request, session: str) -> dict:
+        """Where this session actually is.
+
+        Not the same thing as the folder a desk was given: that one decides where a file
+        browser lands and what a hand-over sentence says, while this is the directory the
+        agent is really working in, set when the session was made. Telling the other agent
+        to look somewhere its counterpart never was is a whole round wasted.
+        """
+        name = await _known(request, session)
+        return {"session": name, "cwd": await asyncio.to_thread(paths.pane_cwd, request.app.state.socket, name)}
+
     @app.get("/api/tmux/copymode")
     async def read_copy_mode(request: Request, session: str) -> dict:
         """Is this session showing history rather than the live end?"""

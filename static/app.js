@@ -3706,9 +3706,20 @@ async function screenWall() {
       }
       showLeg();
 
-      // {folder} is the desk's own if it has one, since that is what the desk is about.
+      // Where the work is, which is the sending session's own directory — not the desk's
+      // folder. A desk's folder decides where its browsers land; it says nothing about
+      // where tmux put the agent, and pointing the reviewer at a folder its counterpart
+      // was never in wastes the whole round. The desk's is the fallback.
+      let where = deskFolder();
+      const said = el('p', { className: 'hint' });
+      const sayWhere = () => { said.textContent = t('{folder} is {path}', { folder: '{folder}', path: where }); };
+      sayWhere();
+      getJSON(`/api/tmux/cwd?session=${encodeURIComponent(from)}`)
+        .then((answer) => { if (answer.cwd) { where = answer.cwd; sayWhere(); } })
+        .catch(() => {});
+
       const fill = (text) => text
-        .replace(/\{folder\}/g, deskFolder())
+        .replace(/\{folder\}/g, where)
         .replace(/\{from\}/g, from);
 
       const hand = (target, andRun) => {
@@ -3732,7 +3743,8 @@ async function screenWall() {
         preset,
         which,
         note,
-        el('p', { className: 'hint', textContent: t('{folder} and {from} are filled in. It goes into their prompt without an Enter, so you can still change it there.') }),
+        said,
+        el('p', { className: 'hint', textContent: t('It goes into their prompt without an Enter, so you can still change it there.') }),
       );
 
       const rows = el('div', { className: 'sheetbody actions' });
