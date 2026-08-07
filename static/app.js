@@ -2899,62 +2899,102 @@ async function screenMessages() {
     const all = batonTemplates();
     if (!all.length) list.append(el('p', { className: 'empty', textContent: t('No messages yet.') }));
 
-    for (const kind of all) {
-      const card = el('div', { className: 'msgcard' });
-      const name = el('input', { type: 'text', value: kind.name, spellcheck: false });
-      const text = el('textarea', { className: 'baton', spellcheck: false, rows: 6, value: kind.text });
-      const preview = el('pre', { className: 'batonpreview' });
-      const gaps = el('p', { className: 'hint warn' });
+    // Every group that exists, so the name can be picked rather than spelled again.
+    const groups = el('datalist', { id: 'batongroups' });
+    for (const name of batonGroups()) groups.append(el('option', { value: name }));
+    list.append(groups);
 
-      const refresh = () => {
-        preview.textContent = fillBaton(text.value, sample());
-        const missing = unknownVars(text.value, sample());
-        gaps.textContent = missing.length
-          ? t('nothing to put in {list} — they will go across as they are', { list: missing.map((g) => `{${g}}`).join(' ') })
-          : '';
-        gaps.hidden = !missing.length;
-      };
-      const keep = () => {
-        kind.name = name.value.trim() || kind.name;
-        kind.text = text.value;
-        // Edited is yours: what it came with is only what you have not touched.
-        delete kind.stock;
-        savePrefs();
+    for (const group of batonGroups()) {
+      const head = el('div', { className: 'grouphead' }, [
+        el('h3', { textContent: group }),
+        el('button', {
+          className: 'ghost dup',
+          textContent: t('Add here'),
+          onclick: () => {
+            batonTemplates().push({ group, name: t('Untitled'), text: '' });
+            savePrefs();
+            drawTemplates();
+          },
+        }),
+      ]);
+      list.append(head);
+
+      for (const kind of all.filter((x) => x.group === group)) {
+        const card = el('div', { className: 'msgcard' });
+        const name = el('input', { type: 'text', value: kind.name, spellcheck: false });
+        const where = el('input', {
+          type: 'text', className: 'groupbox', value: kind.group, spellcheck: false,
+          title: t('which group it belongs to'),
+        });
+        // `list` is read-only as a property: assigning it throws, and the throw took the
+        // whole list of cards with it. It is an attribute.
+        where.setAttribute('list', 'batongroups');
+        const text = el('textarea', { className: 'baton', spellcheck: false, rows: 6, value: kind.text });
+        const preview = el('pre', { className: 'batonpreview' });
+        const gaps = el('p', { className: 'hint warn' });
+
+        const refresh = () => {
+          preview.textContent = fillBaton(text.value, sample());
+          const missing = unknownVars(text.value, sample());
+          gaps.textContent = missing.length
+            ? t('nothing to put in {list} — they will go across as they are', { list: missing.map((g) => `{${g}}`).join(' ') })
+            : '';
+          gaps.hidden = !missing.length;
+        };
+        const keep = () => {
+          kind.name = name.value.trim() || kind.name;
+          kind.text = text.value;
+          // Edited is yours: what it came with is only what you have not touched.
+          delete kind.stock;
+          savePrefs();
+          refresh();
+        };
+        name.addEventListener('input', keep);
+        text.addEventListener('input', keep);
+        // Moving it is a redraw, so only when the typing has settled.
+        where.addEventListener('change', () => {
+          kind.group = where.value.trim() || LOOSE;
+          delete kind.stock;
+          savePrefs();
+          drawTemplates();
+        });
+
+        const drop = el('button', { className: 'ghost dup', textContent: t('Delete') });
+        drop.onclick = async () => {
+          if (!await confirmBox(t('Delete this message'), t('“{name}” goes for good.', { name: kind.name }), t('Delete'))) return;
+          prefs.templates = batonTemplates().filter((x) => x !== kind);
+          savePrefs();
+          drawTemplates();
+        };
+        const copy = el('button', { className: 'ghost dup', textContent: t('Duplicate') });
+        copy.onclick = () => {
+          batonTemplates().splice(all.indexOf(kind) + 1, 0, { group: kind.group, name: `${kind.name} 2`, text: kind.text });
+          savePrefs();
+          drawTemplates();
+        };
+
+        card.append(
+          el('div', { className: 'msgtop' }, [name, copy, drop]),
+          text,
+          el('div', { className: 'msgfoot' }, [
+            el('span', { className: 'meta', textContent: t('in') }),
+            where,
+          ]),
+          el('p', { className: 'hint', textContent: t('with this desk\u2019s values:') }),
+          preview,
+          gaps,
+        );
         refresh();
-      };
-      name.addEventListener('input', keep);
-      text.addEventListener('input', keep);
-      name.addEventListener('change', drawTemplates);
-
-      const drop = el('button', { className: 'ghost dup', textContent: t('Delete') });
-      drop.onclick = async () => {
-        if (!await confirmBox(t('Delete this message'), t('“{name}” goes for good.', { name: kind.name }), t('Delete'))) return;
-        prefs.templates = batonTemplates().filter((x) => x !== kind);
-        savePrefs();
-        drawTemplates();
-      };
-      const copy = el('button', { className: 'ghost dup', textContent: t('Duplicate') });
-      copy.onclick = () => {
-        batonTemplates().splice(all.indexOf(kind) + 1, 0, { name: `${kind.name} 2`, text: kind.text });
-        savePrefs();
-        drawTemplates();
-      };
-
-      card.append(
-        el('div', { className: 'msgtop' }, [name, copy, drop]),
-        text,
-        el('p', { className: 'hint', textContent: t('with this desk\u2019s values:') }),
-        preview,
-        gaps,
-      );
-      refresh();
-      list.append(card);
+        list.append(card);
+      }
     }
   }
 
-  const add = el('button', { className: 'ghost block wide', textContent: t('New message') });
-  add.onclick = () => {
-    batonTemplates().push({ name: t('Untitled'), text: '' });
+  const add = el('button', { className: 'ghost block wide', textContent: t('New group') });
+  add.onclick = async () => {
+    const group = await ask(t('Name for this group'), '', t('Create'));
+    if (!group) return;
+    batonTemplates().push({ group, name: t('Untitled'), text: '' });
     savePrefs();
     drawTemplates();
     list.lastElementChild?.querySelector('input')?.focus();
@@ -4027,7 +4067,30 @@ async function screenWall() {
 
       function drawChips() {
         chips.replaceChildren();
-        for (const kind of batonTemplates()) {
+        // Groups first, then only the messages inside the one you are looking at: fifteen
+        // sentences in a row is a wall, and picking is meant to be the quick part.
+        const groups = batonGroups();
+        const chosen = batonTemplates().find((x) => x.name === picked);
+        let group = chosen?.group ?? groups[0];
+        if (groups.length > 1) {
+          const bar = el('div', { className: 'batongroups' });
+          for (const name of groups) {
+            bar.append(el('button', {
+              className: `ghost dup${name === group ? ' on' : ''}`,
+              textContent: name,
+              onclick: () => {
+                const first = batonTemplates().find((x) => x.group === name);
+                if (!first) return;
+                picked = first.name;
+                note.value = first.text;
+                drawChips();
+                describe();
+              },
+            }));
+          }
+          chips.append(bar);
+        }
+        for (const kind of batonTemplates().filter((x) => x.group === group)) {
           const chip = el('button', {
             className: `ghost dup${kind.name === picked ? ' on' : ''}`,
             textContent: kind.name,
@@ -5629,8 +5692,11 @@ document.addEventListener('visibilitychange', () => {
  */
 /** The templates that ship with it. Two roles, three legs: a referee's outward and
  *  return sentence differ, a relay's do not, and everything else is yours to write. */
+const LOOSE = 'General';
+
 const BATONS = [
   {
+    group: 'Code review',
     name: 'Referee',
     text: 'Review the change just made in {folder} — read the diff against HEAD.\n'
       + 'Do not edit anything: your job is to find what is wrong with it.\n'
@@ -5638,6 +5704,7 @@ const BATONS = [
       + 'with one line: VERDICT: OK or VERDICT: REDO, and why.',
   },
   {
+    group: 'Code review',
     name: 'Referee back',
     text: 'The review of your change in {folder} is above, from {from}.\n'
       + 'Fix what it got right and say plainly what you disagree with and why —\n'
@@ -5660,10 +5727,21 @@ function deskPair(wsId) {
   return (prefs.pair[wsId] = prefs.pair[wsId] || { lastBy: {}, scratch: {} });
 }
 
-/** The library, kept whole: templates are worth more the more desks they see. */
+/** The library, kept whole: templates are worth more the more desks they see.
+ *
+ *  Each belongs to a group — "Paper review", "Migration", whatever you are doing — because
+ *  a flat list of fifteen sentences is a list nobody reads. */
 function batonTemplates() {
   if (!prefs.templates) prefs.templates = BATONS.map((b) => ({ ...b, stock: true }));
+  for (const kind of prefs.templates) if (!kind.group) kind.group = LOOSE;
   return prefs.templates;
+}
+
+/** The groups in the order they first appear, so the library keeps the shape you gave it. */
+function batonGroups() {
+  const seen = [];
+  for (const kind of batonTemplates()) if (!seen.includes(kind.group)) seen.push(kind.group);
+  return seen.length ? seen : [LOOSE];
 }
 
 /** What a desk knows how to fill in.
