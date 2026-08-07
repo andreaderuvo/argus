@@ -1455,3 +1455,16 @@ button.winbtn.chainbtn.on { color: #2b2000; background: var(--st-warning); borde
 
 /* A session told to keep quiet. */
 button.winbtn.bellbtn.off { color: var(--dim); opacity: .75; }
+
+/* How many links are waiting, on the toolbar button itself. */
+.winbtn.wide .tally {
+  min-width: 1.15rem;
+  padding: 0 .3rem;
+  border-radius: .7rem;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: .68rem;
+  font-weight: 700;
+  line-height: 1.15rem;
+  text-align: center;
+}
