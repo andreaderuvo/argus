@@ -365,6 +365,12 @@
   "which group it belongs to": "a qué grupo pertenece",
   "in": "en",
   "New group": "Nuevo grupo",
-  "Name for this group": "Nombre del grupo"
+  "Name for this group": "Nombre del grupo",
+  "Name for this message": "Nombre del mensaje",
+  "Delete this group": "Eliminar este grupo",
+  "“{name}” holds {count} message(s); they move to {ground}.": "«{name}» contiene {count} mensajes; pasan a {ground}.",
+  "“{name}” is empty.": "«{name}» está vacío.",
+  "Nothing in here yet.": "Aquí todavía no hay nada.",
+  "A desk picks which set it uses, from its own ⋮ menu. {desk} is on {set}.": "Es el escritorio el que elige su conjunto, desde su menú ⋮. {desk} está en {set}."
  }
 }
