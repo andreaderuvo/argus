@@ -365,6 +365,12 @@
   "which group it belongs to": "which group it belongs to",
   "in": "in",
   "New group": "New group",
-  "Name for this group": "Name for this group"
+  "Name for this group": "Name for this group",
+  "Name for this message": "Name for this message",
+  "Delete this group": "Delete this group",
+  "“{name}” holds {count} message(s); they move to {ground}.": "“{name}” holds {count} message(s); they move to {ground}.",
+  "“{name}” is empty.": "“{name}” is empty.",
+  "Nothing in here yet.": "Nothing in here yet.",
+  "A desk picks which set it uses, from its own ⋮ menu. {desk} is on {set}.": "A desk picks which set it uses, from its own ⋮ menu. {desk} is on {set}."
  }
 }

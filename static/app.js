@@ -2865,27 +2865,16 @@ async function screenMessages() {
     held.replaceChildren(tools, grid, inherited, usedBy);
   }
 
-  /* ---------------------------------------------------------------- which set this desk uses */
-  const pick = el('select', { className: 'setpick' });
-  const drawPick = () => {
-    pick.replaceChildren(...varSets().map((set) => el('option', {
-      value: set.name, textContent: set.name, selected: set.name === deskSetName(ws.id),
-    })));
-  };
-  pick.onchange = () => { chooseDeskSet(ws.id, pick.value); showing = pick.value; drawSet(); drawTemplates(); };
+  const drawPick = () => {};        // the desk chooses; this screen only keeps the library
 
   wrap.append(
     el('h2', { className: 'msghead', textContent: t('Placeholders') }),
     el('p', { className: 'hint', textContent: t('Sets with a name. {ground} is the ground truth; another set says only what it changes and takes the rest from it.', { ground: GROUND }) }),
-    el('div', { className: 'setrow' }, [
-      el('span', { className: 'meta', textContent: t('{desk} uses', { desk: ws.name }) }),
-      pick,
-    ]),
+    el('p', { className: 'hint', textContent: t('A desk picks which set it uses, from its own ⋮ menu. {desk} is on {set}.', { desk: ws.name, set: deskSetName(ws.id) }) }),
     chips,
     held,
     el('p', { className: 'hint', textContent: t('Always there, from the situation itself: {folder} is the working directory of the session handing over, {from} and {to} are the two sessions.') }),
   );
-  drawPick();
   drawSet();
 
   /* ---------------------------------------------------------------- the library */
@@ -2910,14 +2899,50 @@ async function screenMessages() {
         el('button', {
           className: 'ghost dup',
           textContent: t('Add here'),
-          onclick: () => {
-            batonTemplates().push({ group, name: t('Untitled'), text: '' });
+          onclick: async () => {
+            // Named before it exists: an empty card appended below the fold is one
+            // nobody notices, and then there are three of them.
+            const name = await ask(t('Name for this message'), '', t('Create'));
+            if (!name) return;
+            batonTemplates().push({ group, name, text: '' });
+            savePrefs();
+            drawTemplates();
+            [...list.querySelectorAll('.msgcard')].pop()?.querySelector('textarea')?.focus();
+          },
+        }),
+        el('button', {
+          className: 'ghost dup',
+          textContent: t('Rename'),
+          onclick: async () => {
+            const name = await ask(t('Name for this group'), group, t('Rename'));
+            if (!name || name === group) return;
+            prefs.groups = batonGroups().map((x) => (x === group ? name : x));
+            for (const kind of batonTemplates()) if (kind.group === group) kind.group = name;
+            savePrefs();
+            drawTemplates();
+          },
+        }),
+        el('button', {
+          className: 'ghost dup',
+          textContent: t('Delete'),
+          onclick: async () => {
+            const inside = batonTemplates().filter((x) => x.group === group);
+            const say = inside.length
+              ? t('“{name}” holds {count} message(s); they move to {ground}.', { name: group, count: inside.length, ground: LOOSE })
+              : t('“{name}” is empty.', { name: group });
+            if (!await confirmBox(t('Delete this group'), say, t('Delete'))) return;
+            for (const kind of inside) kind.group = LOOSE;
+            prefs.groups = batonGroups().filter((x) => x !== group);
+            if (inside.length && !prefs.groups.includes(LOOSE)) prefs.groups.unshift(LOOSE);
             savePrefs();
             drawTemplates();
           },
         }),
       ]);
       list.append(head);
+      if (!all.some((x) => x.group === group)) {
+        list.append(el('p', { className: 'empty tiny', textContent: t('Nothing in here yet.') }));
+      }
 
       for (const kind of all.filter((x) => x.group === group)) {
         const card = el('div', { className: 'msgcard' });
@@ -2993,11 +3018,10 @@ async function screenMessages() {
   const add = el('button', { className: 'ghost block wide', textContent: t('New group') });
   add.onclick = async () => {
     const group = await ask(t('Name for this group'), '', t('Create'));
-    if (!group) return;
-    batonTemplates().push({ group, name: t('Untitled'), text: '' });
+    if (!group || batonGroups().includes(group)) return;
+    prefs.groups = [...batonGroups(), group];
     savePrefs();
     drawTemplates();
-    list.lastElementChild?.querySelector('input')?.focus();
   };
   const stock = el('button', { className: 'ghost block wide', textContent: t('Put back the ones it came with') });
   stock.onclick = () => {
@@ -5737,11 +5761,16 @@ function batonTemplates() {
   return prefs.templates;
 }
 
-/** The groups in the order they first appear, so the library keeps the shape you gave it. */
+/** The groups, in the order you made them.
+ *
+ *  Kept in their own list rather than inferred from the messages, so a group can exist
+ *  while empty — otherwise making one means making a message you did not want yet, and
+ *  the folder disappears the moment you empty it. */
 function batonGroups() {
-  const seen = [];
-  for (const kind of batonTemplates()) if (!seen.includes(kind.group)) seen.push(kind.group);
-  return seen.length ? seen : [LOOSE];
+  const named = (prefs.groups = prefs.groups || []);
+  for (const kind of batonTemplates()) if (!named.includes(kind.group)) named.push(kind.group);
+  if (!named.length) named.push(LOOSE);
+  return named;
 }
 
 /** What a desk knows how to fill in.
