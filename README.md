@@ -151,7 +151,13 @@ services.</sub>
   the same thing instead of each desk keeping a copy of your name. A placeholder with nothing to put in it is
   flagged and passed through as written, where you can see it.
 
-  Which template comes up is the one you last sent *from that session*, which is how a
+  **Or keep them open as a window.** A modal you open, aim and dismiss thirty times in an
+  afternoon is thirty times too many, so *Messages* is also a window on the desk: the
+  folders, the messages, and you **drag one onto a terminal** — the same gesture as a path
+  out of the link tray. Tapping one sends it too, asking which session when there is more
+  than one.
+
+  Which template comes up in the sheet is the one you last sent *from that session*, which is how a
   referee's outward and return sentences sort themselves out without anybody declaring a
   direction. Deliberately not a loop: automating the round trip is the part to add last,
   once the sentence has proved itself.

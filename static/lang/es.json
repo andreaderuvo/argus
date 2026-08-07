@@ -373,6 +373,12 @@
   "Nothing in here yet.": "Aquí todavía no hay nada.",
   "A desk picks which set it uses, from its own ⋮ menu. {desk} is on {set}.": "Es el escritorio el que elige su conjunto, desde su menú ⋮. {desk} está en {set}.",
   "Grouped into folders you name. Each folder has its own Add here.": "Agrupados en carpetas que nombras tú. Cada carpeta tiene su Añadir aquí.",
-  "Folders you name, each with its own messages.": "Carpetas que nombras tú, cada una con sus mensajes."
+  "Folders you name, each with its own messages.": "Carpetas que nombras tú, cada una con sus mensajes.",
+  "What to hand to an agent": "Qué pasarle a un agente",
+  "Write the messages": "Escribir los mensajes",
+  "The messages you hand to an agent, kept open": "Los mensajes que pasas a un agente, siempre abiertos",
+  "drag one onto a terminal, or tap it": "arrastra uno a una terminal, o tócalo",
+  "{name} put into {session}": "{name} puesto en {session}",
+  "no session in this desk to send it to": "no hay ninguna sesión en este escritorio"
  }
 }
