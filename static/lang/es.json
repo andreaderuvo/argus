@@ -337,6 +337,10 @@
   "Put back the ones it came with": "Restaurar los de serie",
   "Delete this message": "Eliminar este mensaje",
   "“{name}” goes for good.": "«{name}» desaparece para siempre.",
-  "Untitled": "Sin nombre"
+  "Untitled": "Sin nombre",
+  "name": "nombre",
+  "value": "valor",
+  "Remove": "Quitar",
+  "They belong to this desk, so one message serves every project.": "Son de este escritorio, así un mensaje sirve para cada proyecto."
  }
 }
