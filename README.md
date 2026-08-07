@@ -133,7 +133,7 @@ services.</sub>
   and you can save your own — a template library that follows you between desks. The
   sheet **shows what will actually be typed**, filled in, before anything is sent.
 
-  Writing them has a screen of its own — **Settings → Messages and placeholders** — with
+  Writing them has a screen of its own — **Messages**, in the bottom bar — with
   full editing of the library: rename, duplicate, delete, and each one previewed with
   this desk's values as you type. The hand-over sheet is for sending; a place you pass
   through in a hurry is the wrong place to keep a library.
@@ -141,8 +141,8 @@ services.</sub>
   Templates are written with **placeholders**. Three come from the situation and cannot
   be set: `{folder}` — the *sending session's own working directory*, since a desk's
   folder says nothing about where tmux put the agent — plus `{from}` and `{to}`. The rest
-  are the desk's own: `paper = main.tex`, `journal = BMC Genomics`, whatever this desk is
-  about, so one wording serves every project. A placeholder with nothing to put in it is
+  are the desk's own, set two boxes to a row — `paper` / `main.tex`, `journal` /
+  `BMC Genomics`, whatever this desk is about — so one wording serves every project. A placeholder with nothing to put in it is
   flagged and passed through as written, where you can see it.
 
   Which template comes up is the one you last sent *from that session*, which is how a
