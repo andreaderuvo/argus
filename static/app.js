@@ -2903,7 +2903,14 @@ async function screenMessages() {
       el('div', { className: 'msgtop' }, [name, copy]),
       text,
       el('div', { className: 'msgfoot' }, [el('span', { className: 'meta', textContent: t('in') }), where]),
-      el('p', { className: 'hint', textContent: t('with this desk\u2019s values — when you send it, {folder} is the folder of the session it comes from:') }),
+      // Which set is doing the filling, said where the filling is shown: otherwise the
+      // only way to know why a value came out that way is to remember what the desk is on.
+      el('p', {
+        className: 'hint',
+        textContent: t('filled from {set}, the set {desk} uses — when you send it, {folder} is the folder of the session it comes from:', {
+          set: deskSetName(ws.id), desk: ws.name,
+        }),
+      }),
       preview,
       gaps,
     );
