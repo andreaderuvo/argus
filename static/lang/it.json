@@ -410,6 +410,7 @@
   "The link tray": "Il vassoio dei link",
   "The prompts window": "La finestra dei prompt",
   "Next desk": "Desk successivo",
-  "Previous desk": "Desk precedente"
+  "Previous desk": "Desk precedente",
+  "with this desk’s values — when you send it, {folder} is the folder of the session it comes from:": "con i valori di questo desk — quando lo mandi, {folder} è la cartella della sessione da cui parte:"
  }
 }
