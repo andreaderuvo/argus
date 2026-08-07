@@ -297,6 +297,22 @@
   "This session rings": "This session rings",
   "This session is not to ring": "This session is not to ring",
   "{session} will not ring": "{session} will not ring",
-  "{session} rings again": "{session} rings again"
+  "{session} rings again": "{session} rings again",
+  "Hand over": "Hand over",
+  "Hand this over to the other agent": "Hand this over to the other agent",
+  "Referee": "Referee",
+  "Relay": "Relay",
+  "one produces, the other tries to break it": "one produces, the other tries to break it",
+  "both improve the same work, in turn": "both improve the same work, in turn",
+  "{from} has finished. What should the other one be told?": "{from} has finished. What should the other one be told?",
+  "{folder} and {from} are filled in. It goes into their prompt without an Enter, so you can still change it there.": "{folder} and {from} are filled in. It goes into their prompt without an Enter, so you can still change it there.",
+  "type it": "type it",
+  "and run": "and run",
+  "send it with an Enter": "send it with an Enter",
+  "there is no other session in this desk to hand to": "there is no other session in this desk to hand to",
+  "handed to {session} and started": "handed to {session} and started",
+  "handed to {session} — press Enter there when you are happy with it": "handed to {session} — press Enter there when you are happy with it",
+  "going out to be looked at": "going out to be looked at",
+  "coming back to {who}, who made it": "coming back to {who}, who made it"
  }
 }
