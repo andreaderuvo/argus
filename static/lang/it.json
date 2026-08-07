@@ -124,7 +124,7 @@
   "dotfiles and dot-directories, in both panes": "file e cartelle che iniziano con un punto, in entrambi i pannelli",
   "drawing…": "sto disegnando…",
   "duplicated to {desk}": "duplicata in {desk}",
-  "empty": "vuota",
+  "empty": "vuoto",
   "enabled": "attive",
   "expand folders in place instead of navigating into them": "espande le cartelle sul posto invece di entrarci",
   "file operations: {state}": "operazioni sui file: {state}",
@@ -346,6 +346,20 @@
   "the ones that hold on every desk — your name, the journal you always submit to, the house style": "quelli che valgono su ogni desk — il tuo nome, la rivista a cui sottometti sempre, lo stile di casa",
   "Only in {desk}": "Solo in {desk}",
   "what is different about this desk. A name repeated here wins over the one above.": "cosa cambia in questo desk. Un nome ripetuto qui vince su quello sopra.",
-  "instead of {value}": "al posto di {value}"
+  "instead of {value}": "al posto di {value}",
+  "Placeholders": "Segnaposto",
+  "New set": "Nuovo insieme",
+  "Name for this set": "Nome dell'insieme",
+  "Delete this set": "Elimina questo insieme",
+  "“{name}” goes for good; the desks using it fall back to {ground}.": "«{name}» sparisce per sempre; i desk che lo usano tornano a {ground}.",
+  "Sets with a name. {ground} is the ground truth; another set says only what it changes and takes the rest from it.": "Insiemi con un nome. {ground} è la verità di base; un altro insieme dice solo cosa cambia e prende il resto da lì.",
+  "{desk} uses": "{desk} usa",
+  "taken from {ground}:": "presi da {ground}:",
+  "give this set its own": "dagliene uno suo",
+  "used by: {list}": "usato da: {list}",
+  "no desk is using this one": "nessun desk lo sta usando",
+  "Placeholders: {set}": "Segnaposto: {set}",
+  "{desk} uses {set}": "{desk} usa {set}",
+  "Edit them…": "Modificali…"
  }
 }
