@@ -4056,178 +4056,6 @@ async function screenWall() {
       saveGeom(geomKey(ws, o.name), node);
     }
 
-    /** Hand the work to the other agent in this desk.
-     *
-     *  A template plus the desk's own placeholders. Which template comes up is the one
-     *  you last sent *from this session*, which is how a referee's outward and return
-     *  sentences sort themselves out without anybody declaring a direction — and it keeps
-     *  working when there are three sessions and five templates.
-     */
-    function batonSheet(from) {
-      const others = open.filter((o) => o.name.startsWith('term:') && o.name !== `term:${from}`);
-      if (!others.length) return toast(t('there is no other session in this desk to hand to'), true);
-
-      const body = el('div', { className: 'sheetbody' });
-      let sheet;
-
-      const pair = deskPair(ws.id);
-      const vars = allVars(ws.id);
-      let where = deskFolder();
-      let picked = pair.lastBy?.[from] ?? batonTemplates()[0]?.name;
-
-      const note = el('textarea', { className: 'baton', spellcheck: false, rows: 8 });
-      const chips = el('div', { className: 'batonpresets' });
-      const said = el('p', { className: 'hint' });
-      const missing = el('p', { className: 'hint warn' });
-      // What will actually be typed over there. A template is written with holes in it,
-      // and reading the holes is not the same as reading the sentence.
-      const preview = el('pre', { className: 'batonpreview' });
-
-      // Where the work is: the sending session's own directory, not the desk's folder.
-      getJSON(`/api/tmux/cwd?session=${encodeURIComponent(from)}`)
-        .then((answer) => { if (answer.cwd) { where = answer.cwd; describe(); } })
-        .catch(() => {});
-
-      const known = (to = '…') => ({ ...vars, folder: where, from, to });
-
-      function describe() {
-        const first = others[0].name.slice(5);
-        preview.textContent = fillBaton(note.value, known(first));
-        const gaps = unknownVars(note.value, known());
-        said.textContent = t('{folder} is {path}', { folder: '{folder}', path: where });
-        missing.textContent = gaps.length
-          ? t('nothing to put in {list} — they will go across as they are', { list: gaps.map((g) => `{${g}}`).join(' ') })
-          : '';
-        missing.hidden = !gaps.length;
-      }
-
-      function drawChips() {
-        chips.replaceChildren();
-        // Groups first, then only the messages inside the one you are looking at: fifteen
-        // sentences in a row is a wall, and picking is meant to be the quick part.
-        const groups = batonGroups();
-        const chosen = batonTemplates().find((x) => x.name === picked);
-        let group = chosen?.group ?? groups[0];
-        if (groups.length > 1) {
-          const bar = el('div', { className: 'batongroups' });
-          for (const name of groups) {
-            bar.append(el('button', {
-              className: `ghost dup${name === group ? ' on' : ''}`,
-              textContent: name,
-              onclick: () => {
-                const first = batonTemplates().find((x) => x.group === name);
-                if (!first) return;
-                picked = first.name;
-                note.value = first.text;
-                drawChips();
-                describe();
-              },
-            }));
-          }
-          chips.append(bar);
-        }
-        for (const kind of batonTemplates().filter((x) => x.group === group)) {
-          const chip = el('button', {
-            className: `ghost dup${kind.name === picked ? ' on' : ''}`,
-            textContent: kind.name,
-            onclick: () => { picked = kind.name; note.value = kind.text; drawChips(); describe(); },
-          });
-          if (!kind.stock) {
-            // Yours to delete; the ones it came with stay.
-            const gone = el('span', { className: 'drop', textContent: '×', title: t('Forget this template') });
-            gone.onclick = (e) => {
-              e.stopPropagation();
-              prefs.templates = batonTemplates().filter((x) => x !== kind);
-              savePrefs();
-              drawChips();
-            };
-            chip.append(gone);
-          }
-          chips.append(chip);
-        }
-        chips.append(el('button', {
-          className: 'ghost dup',
-          textContent: t('Save as…'),
-          title: t('keep this wording as a template of your own'),
-          onclick: async () => {
-            const name = await ask(t('Name for this template'), picked?.startsWith('Referee') ? '' : picked || '', t('Save'));
-            if (!name) return;
-            const already = batonTemplates().find((x) => x.name === name && !x.stock);
-            if (already) already.text = note.value;
-            else batonTemplates().push({ name, text: note.value });
-            picked = name;
-            savePrefs();
-            drawChips();
-          },
-        }));
-      }
-
-      note.value = (batonTemplates().find((x) => x.name === picked) || batonTemplates()[0] || { text: '' }).text;
-      note.addEventListener('input', describe);
-      drawChips();
-      describe();
-
-      const varsPart = el('button', {
-        className: 'ghost block wide',
-        textContent: t('Messages and placeholders…'),
-        onclick: () => { sheet.close(); go('#/messages'); },
-      });
-
-      const hand = (target, andRun) => {
-        const to = target.name.slice(5);
-        pair.lastBy = pair.lastBy || {};
-        pair.lastBy[from] = picked;
-        // An edit made here and not saved as a template still belongs to this session's
-        // next hand-over: losing what you just wrote would be its own small betrayal.
-        const kind = batonTemplates().find((x) => x.name === picked);
-        if (kind && !kind.stock) kind.text = note.value;
-        else pair.scratch = { ...(pair.scratch || {}), [from]: note.value };
-        savePrefs();
-
-        target.handle.send(fillBaton(note.value, known(to)) + (andRun ? '\r' : ''));
-        target.handle.focus();
-        raiseWindow(target);
-        quieten(from);
-        sheet.close();
-        toast(andRun
-          ? t('handed to {session} and started', { session: to })
-          : t('handed to {session} — press Enter there when you are happy with it', { session: to }));
-      };
-
-      // Whatever was typed last from this session, if it was never saved anywhere.
-      if (pair.scratch?.[from] && !batonTemplates().some((x) => x.name === picked && !x.stock)) {
-        note.value = pair.scratch[from];
-        describe();
-      }
-
-      body.append(
-        el('p', { className: 'meta', textContent: t('{from} has finished. What should the other one be told?', { from }) }),
-        chips,
-        note,
-        el('p', { className: 'hint', textContent: t('what will be typed over there:') }),
-        preview,
-        said,
-        missing,
-        varsPart,
-        el('p', { className: 'hint', textContent: t('It goes into their prompt without an Enter, so you can still change it there.') }),
-      );
-
-      const rows = el('div', { className: 'sheetbody actions' });
-      for (const target of others) {
-        const name = target.name.slice(5);
-        rows.append(el('div', { className: 'sendrow' }, [
-          el('button', { className: 'ghost block grow', onclick: () => hand(target, false) },
-            [icon('relay'), el('span', { className: 'grow' }, bidi(name)), el('span', { className: 'verb', textContent: t('type it') })]),
-          el('button', { className: 'ghost dup', textContent: t('and run'), title: t('send it with an Enter'), onclick: () => hand(target, true) }),
-        ]));
-      }
-      body.append(rows);
-
-      sheet = modal(t('Hand over'), body, [
-        el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),
-      ]);
-    }
-
     /** What was typed in one chained terminal, handed to the others. */
     function echoToChain(from, data) {
       if (!chained(ws.id, from)) return;
@@ -4361,11 +4189,6 @@ async function screenWall() {
         };
       }
 
-      const pass = spec.kind === 'term'
-        ? el('button', { className: 'winbtn relaybtn', title: t('Hand this over to the other agent') }, icon('relay'))
-        : null;
-      if (pass) pass.onclick = () => batonSheet(spec.name);
-
       const chain = spec.kind === 'term'
         ? el('button', { className: 'winbtn chainbtn' }, icon('link'))
         : null;
@@ -4378,7 +4201,7 @@ async function screenWall() {
           else if (on) toast(t('chain one more session for this to do anything'));
         };
       }
-      if (spec.kind === 'term') extras.append(copyButton(handle, 'winbtn'), quiet, pass, chain, ...sizeButtons(handle, 'winbtn'));
+      if (spec.kind === 'term') extras.append(copyButton(handle, 'winbtn'), quiet, chain, ...sizeButtons(handle, 'winbtn'));
       const entry = { win, handle, name: id, chainBtn: chain };
       open.push(entry);
       if (chain) paintChain();
@@ -5618,8 +5441,6 @@ function paintBells() {
     const bell = name && rung.get(name);
     win.classList.toggle('ringing', !!bell);
     win.classList.toggle('asking', bell?.why === 'asking');
-    // Finished, and there is somebody to hand it to: that is the moment the baton is for.
-    win.querySelector('.relaybtn')?.classList.toggle('due', !!bell && bell.why !== 'asking');
     if (bell) desks.add(win.closest('.deck')?.dataset.ws);
   }
   for (const tab of document.querySelectorAll('.wstab[data-ws]')) {
@@ -5779,13 +5600,6 @@ const BATONS = [
       + 'ends.',
   },
 ];
-
-/** What a desk remembers about handing over: which template went out from which
- *  session last, and any wording typed but never saved. */
-function deskPair(wsId) {
-  prefs.pair = prefs.pair || {};
-  return (prefs.pair[wsId] = prefs.pair[wsId] || { lastBy: {}, scratch: {} });
-}
 
 /** The library, kept whole: templates are worth more the more desks they see.
  *
@@ -5967,7 +5781,37 @@ function attachMessages(host, wsId, extras, deliver) {
           if (!target) return toast(t('no session in this desk to send it to'), true);
           send(kind, target);
         };
-        folder.append(el('div', { className: 'trayline' }, [row]));
+
+        // For the times a word needs changing before it goes. Not saved anywhere: this is
+        // a one-off, and the library is edited where the library lives.
+        const more = el('button', { className: 'winbtn', title: t('Change it before sending') }, icon('more'));
+        more.onclick = (e) => {
+          e.stopPropagation();
+          const target = deliver.aim();
+          if (!target) return toast(t('no session in this desk to send it to'), true);
+          const from = senderFor(target);
+          const known = { ...allVars(wsId), folder: deliver.folder(), from: from?.name.slice(5) || '', to: target.name.slice(5) };
+          const note = el('textarea', { className: 'baton', spellcheck: false, rows: 7, value: kind.text });
+          const shown = el('pre', { className: 'batonpreview' });
+          const see = () => { shown.textContent = fillBaton(note.value, known); };
+          note.addEventListener('input', see);
+          see();
+          let sheet;
+          sheet = modal(`${kind.name} → ${target.name.slice(5)}`, el('div', { className: 'sheetbody' }, [
+            note,
+            el('p', { className: 'hint', textContent: t('what will be typed over there:') }),
+            shown,
+          ]), [
+            el('button', { className: 'ghost', textContent: t('Cancel'), onclick: () => sheet.close() }),
+            el('button', {
+              className: 'primary inline',
+              textContent: t('Send it'),
+              onclick: () => { sheet.close(); send({ ...kind, text: note.value }, target); },
+            }),
+          ]);
+        };
+
+        folder.append(el('div', { className: 'trayline' }, [row, more]));
       }
       list.append(folder);
     }
