@@ -1632,10 +1632,10 @@ details.msgcard > summary .winbtn:hover { opacity: 1; color: var(--danger); }
 @media (hover: none) { details.msgcard > summary .winbtn { opacity: .7; } }
 details.msgcard[open] > summary { background: var(--bg); }
 details.msgcard[open] > summary .name { color: var(--accent); }
-details.msgcard > :not(summary) { margin-left: .8rem; margin-right: .8rem; }
-details.msgcard > :last-child { margin-bottom: .7rem; }
+.msgbody { padding: 0 .8rem .7rem; }
+.msgbody > :last-child { margin-bottom: 0; }
 .msgwrap textarea.baton { width: 100%; }
-.msgtop { display: flex; gap: .4rem; align-items: center; margin: .5rem .8rem; }
+.msgtop { display: flex; gap: .4rem; align-items: center; margin: .5rem 0; }
 .msgtop input {
   flex: 1; min-width: 0; min-height: var(--tap); padding: 0 .7rem;
   background: var(--bg); border: 1px solid var(--line); border-radius: .5rem;
