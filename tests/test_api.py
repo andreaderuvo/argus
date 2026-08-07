@@ -231,3 +231,14 @@ def test_a_server_that_has_not_rung_yet_still_delivers_the_first_one(client):
     client.post("/api/bell", json={"session": "x", "why": "done"}, headers={"Authorization": f"Bearer {TOKEN}"})
     caught = get(client, "/api/bells?since=0").json()
     assert [b["session"] for b in caught["bells"]] == ["x"]
+
+
+def test_a_session_reports_the_directory_it_is_really_in(client, monkeypatch):
+    """The desk's folder is a UI convention; this is where tmux actually put the agent,
+    and it is what a hand-over sentence has to point at."""
+    from app import paths
+
+    monkeypatch.setattr(tmux, "list_sessions", lambda _s: [{"name": "work"}])
+    monkeypatch.setattr(paths, "pane_cwd", lambda _s, name: f"/somewhere/{name}")
+    assert get(client, "/api/tmux/cwd?session=work").json() == {"session": "work", "cwd": "/somewhere/work"}
+    assert get(client, "/api/tmux/cwd?session=missing").status_code == 404
