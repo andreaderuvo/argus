@@ -1527,10 +1527,18 @@ textarea.baton {
 .varsgrid {
   display: grid;
   grid-template-columns: minmax(6rem, 12rem) 1fr auto;
-  gap: .35rem;
+  gap: .35rem .35rem;
   align-items: center;
   margin: .4rem 0 .6rem;
 }
+/* The note about what a row is covering up sits under it, across the whole width. */
+.varsgrid .shadowed {
+  grid-column: 1 / -1;
+  margin: -.15rem 0 .2rem .2rem;
+  color: var(--st-warning);
+  font-size: .7rem;
+}
+.varsgrid .shadowed:empty { display: none; }
 .varsgrid input {
   min-height: var(--tap);
   min-width: 0;
