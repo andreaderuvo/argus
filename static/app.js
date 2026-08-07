@@ -1174,6 +1174,7 @@ async function render() {
     if (path === '/system') return await screenSystem();
     if (path === '/settings') return await screenSettings();
     if (path === '/tmuxconf') return await screenTmuxConf();
+    if (path === '/messages') return await screenMessages();
     if (path === '/term') return await screenTerm(q.get('s'));
     if (path === '/wall') return await screenWall();
     return await screenSessions();
@@ -2565,6 +2566,16 @@ async function screenSettings() {
   conf.onclick = () => go('#/tmuxconf');
   wrap.append(conf);
 
+  const messages = el('div', { className: 'row setting' }, [
+    el('span', { className: 'grow' }, [
+      el('span', { className: 'name', textContent: t('Messages and placeholders') }),
+      el('span', { className: 'meta', textContent: t('what one agent hands to the other, and what fills the gaps') }),
+    ]),
+    icon('relay'),
+  ]);
+  messages.onclick = () => go('#/messages');
+  wrap.append(messages);
+
   const handoff = el('div', { className: 'row setting' }, [
     el('span', { className: 'grow' }, [
       el('span', { className: 'name', textContent: t('Open on another device') }),
@@ -2656,6 +2667,124 @@ async function screenSettings() {
 /* ---------------------------------------------------------------- sidebar */
 
 let sideBrowser = null;   // the sidebar's own listing, so it can be pointed at a file
+
+/** The messages one agent hands to the other, and the placeholders that fill them.
+ *
+ *  Authoring belongs here rather than in the hand-over sheet: that sheet is for sending,
+ *  and a place you pass through in a hurry is the wrong place to keep a library.
+ */
+async function screenMessages() {
+  setTitle(t('Messages'));
+  bar.back.hidden = false;
+  bar.back.onclick = () => go('#/settings');
+
+  const wrap = el('div', { className: 'msgwrap' });
+  view.append(wrap);
+
+  const ws = currentSpace();
+  const vars = deskVars(ws.id);
+
+  /* ---------------------------------------------------------------- placeholders */
+  const varsBox = el('textarea', {
+    className: 'baton vars', spellcheck: false, rows: 5, value: varsToText(vars),
+    placeholder: 'paper = main.tex\njournal = BMC Genomics',
+  });
+  varsBox.addEventListener('input', () => {
+    prefs.vars[ws.id] = varsFromText(varsBox.value);
+    savePrefs();
+    drawTemplates();
+  });
+
+  wrap.append(
+    el('h2', { className: 'msghead', textContent: t('Placeholders in {desk}', { desk: ws.name }) }),
+    el('p', { className: 'hint', textContent: t('one per line, name = value. They belong to this desk, so one template serves every project.') }),
+    varsBox,
+    el('p', { className: 'hint', textContent: t('Always there, from the situation itself: {folder} is the working directory of the session handing over, {from} and {to} are the two sessions.') }),
+  );
+
+  /* ---------------------------------------------------------------- the library */
+  const list = el('div', { className: 'msglist' });
+  wrap.append(el('h2', { className: 'msghead', textContent: t('Messages') }), list);
+
+  const sample = () => ({ ...vars, folder: deskVars.demo || '/your/project', from: 'claude', to: 'codex' });
+
+  function drawTemplates() {
+    list.replaceChildren();
+    const all = batonTemplates();
+    if (!all.length) list.append(el('p', { className: 'empty', textContent: t('No messages yet.') }));
+
+    for (const kind of all) {
+      const card = el('div', { className: 'msgcard' });
+      const name = el('input', { type: 'text', value: kind.name, spellcheck: false });
+      const text = el('textarea', { className: 'baton', spellcheck: false, rows: 6, value: kind.text });
+      const preview = el('pre', { className: 'batonpreview' });
+      const gaps = el('p', { className: 'hint warn' });
+
+      const refresh = () => {
+        preview.textContent = fillBaton(text.value, sample());
+        const missing = unknownVars(text.value, sample());
+        gaps.textContent = missing.length
+          ? t('nothing to put in {list} — they will go across as they are', { list: missing.map((g) => `{${g}}`).join(' ') })
+          : '';
+        gaps.hidden = !missing.length;
+      };
+      const keep = () => {
+        kind.name = name.value.trim() || kind.name;
+        kind.text = text.value;
+        // Edited is yours: what it came with is only what you have not touched.
+        delete kind.stock;
+        savePrefs();
+        refresh();
+      };
+      name.addEventListener('input', keep);
+      text.addEventListener('input', keep);
+      name.addEventListener('change', drawTemplates);
+
+      const drop = el('button', { className: 'ghost dup', textContent: t('Delete') });
+      drop.onclick = async () => {
+        if (!await confirmBox(t('Delete this message'), t('“{name}” goes for good.', { name: kind.name }), t('Delete'))) return;
+        prefs.templates = batonTemplates().filter((x) => x !== kind);
+        savePrefs();
+        drawTemplates();
+      };
+      const copy = el('button', { className: 'ghost dup', textContent: t('Duplicate') });
+      copy.onclick = () => {
+        batonTemplates().splice(all.indexOf(kind) + 1, 0, { name: `${kind.name} 2`, text: kind.text });
+        savePrefs();
+        drawTemplates();
+      };
+
+      card.append(
+        el('div', { className: 'msgtop' }, [name, copy, drop]),
+        text,
+        el('p', { className: 'hint', textContent: t('with this desk\u2019s values:') }),
+        preview,
+        gaps,
+      );
+      refresh();
+      list.append(card);
+    }
+  }
+
+  const add = el('button', { className: 'ghost block wide', textContent: t('New message') });
+  add.onclick = () => {
+    batonTemplates().push({ name: t('Untitled'), text: '' });
+    savePrefs();
+    drawTemplates();
+    list.lastElementChild?.querySelector('input')?.focus();
+  };
+  const stock = el('button', { className: 'ghost block wide', textContent: t('Put back the ones it came with') });
+  stock.onclick = () => {
+    for (const kind of BATONS) {
+      if (!batonTemplates().some((x) => x.name === kind.name)) batonTemplates().push({ ...kind, stock: true });
+    }
+    savePrefs();
+    drawTemplates();
+  };
+
+  drawTemplates();
+  wrap.append(add, stock);
+}
 
 /** The tmux configuration, editable, with a way to make it take effect.
  *
@@ -3753,24 +3882,11 @@ async function screenWall() {
       drawChips();
       describe();
 
-      // The desk's own placeholders, edited as plain lines because that is quicker than
-      // any list of fields and reads back as what it is.
-      const varsBox = el('textarea', {
-        className: 'baton vars', spellcheck: false, rows: 4, value: varsToText(vars),
-        placeholder: 'paper = main.tex\njournal = BMC Genomics',
+      const varsPart = el('button', {
+        className: 'ghost block wide',
+        textContent: t('Messages and placeholders…'),
+        onclick: () => { sheet.close(); go('#/messages'); },
       });
-      varsBox.addEventListener('input', () => {
-        prefs.vars[ws.id] = varsFromText(varsBox.value);
-        savePrefs();
-        Object.keys(vars).forEach((k) => delete vars[k]);
-        Object.assign(vars, prefs.vars[ws.id]);
-        describe();
-      });
-      const varsPart = el('details', { className: 'varspart' }, [
-        el('summary', { textContent: t('Placeholders for this desk') }),
-        el('p', { className: 'hint', textContent: t('one per line, name = value. Always available: {folder} {from} {to}') }),
-        varsBox,
-      ]);
 
       const hand = (target, andRun) => {
         const to = target.name.slice(5);

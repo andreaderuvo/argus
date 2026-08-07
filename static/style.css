@@ -1522,3 +1522,18 @@ textarea.baton {
   font: 12px/1.55 ui-monospace, "SF Mono", Menlo, monospace;
   resize: vertical;
 }
+
+/* Writing the messages, as opposed to sending one. */
+.msgwrap { padding: .9rem 1rem 2rem; max-width: 46rem; }
+.msghead { font-size: .95rem; color: var(--bright); margin: 1.2rem 0 .3rem; }
+.msgwrap > .msghead:first-child { margin-top: 0; }
+.msgwrap textarea.baton { width: 100%; }
+.msglist { display: flex; flex-direction: column; gap: .8rem; margin: .5rem 0 .8rem; }
+.msgcard { border: 1px solid var(--line); border-radius: .6rem; padding: .7rem .8rem; background: var(--panel); }
+.msgtop { display: flex; gap: .4rem; align-items: center; margin-bottom: .5rem; }
+.msgtop input {
+  flex: 1; min-width: 0; min-height: var(--tap); padding: 0 .7rem;
+  background: var(--bg); border: 1px solid var(--line); border-radius: .5rem;
+  color: var(--bright); font: inherit; font-weight: 600;
+}
+.msgcard .hint { padding: 0; margin: .5rem 0 .25rem; }

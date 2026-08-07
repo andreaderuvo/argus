@@ -323,6 +323,20 @@
   "Placeholders for this desk": "Segnaposto di questo desk",
   "one per line, name = value. Always available: {folder} {from} {to}": "uno per riga, nome = valore. Sempre disponibili: {folder} {from} {to}",
   "nothing to put in {list} — they will go across as they are": "non c'è niente da mettere in {list} — passeranno così come sono",
-  "what will be typed over there:": "quello che verrà scritto di là:"
+  "what will be typed over there:": "quello che verrà scritto di là:",
+  "Messages": "Messaggi",
+  "Messages and placeholders": "Messaggi e segnaposto",
+  "Messages and placeholders…": "Messaggi e segnaposto…",
+  "what one agent hands to the other, and what fills the gaps": "cosa un agente passa all'altro, e cosa riempie i buchi",
+  "Placeholders in {desk}": "Segnaposto in {desk}",
+  "one per line, name = value. They belong to this desk, so one template serves every project.": "uno per riga, nome = valore. Sono di questo desk, così un modello solo serve per ogni progetto.",
+  "Always there, from the situation itself: {folder} is the working directory of the session handing over, {from} and {to} are the two sessions.": "Sempre presenti, dalla situazione stessa: {folder} è la cartella della sessione che passa il testimone, {from} e {to} sono le due sessioni.",
+  "No messages yet.": "Ancora nessun messaggio.",
+  "with this desk’s values:": "con i valori di questo desk:",
+  "New message": "Nuovo messaggio",
+  "Put back the ones it came with": "Rimetti quelli di serie",
+  "Delete this message": "Elimina questo messaggio",
+  "“{name}” goes for good.": "«{name}» sparisce per sempre.",
+  "Untitled": "Senza nome"
  }
 }
