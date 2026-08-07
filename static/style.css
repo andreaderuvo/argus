@@ -232,6 +232,24 @@ button.icon:active { background: var(--line); }
 }
 
 #nav a span { font-size: 1.1rem; }
+#nav a { position: relative; }
+#nav a .tally {
+  position: absolute;
+  top: .28rem;
+  left: 50%;
+  margin-left: .35rem;
+  min-width: 1.05rem;
+  padding: 0 .25rem;
+  border-radius: .6rem;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: .62rem;
+  font-weight: 700;
+  line-height: 1.05rem;
+  text-align: center;
+  letter-spacing: 0;
+}
+#nav a .tally.wants { background: var(--st-warning); color: #2b2000; }
 #nav a.on { color: var(--accent); }
 
 /* ---------- lists ---------- */
