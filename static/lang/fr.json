@@ -399,6 +399,17 @@
   "Silent: this session will not tell you when it finishes": "Muette : cette session ne vous préviendra pas",
   "Will ring when this session finishes or wants you": "Sonnera quand cette session termine ou vous demande",
   "Undo": "Annuler",
-  "{name} deleted": "{name} supprimé"
+  "{name} deleted": "{name} supprimé",
+  "Keyboard shortcuts": "Raccourcis clavier",
+  "see them all, and change any of them": "les voir toutes et les modifier",
+  "These work when you are not typing: a terminal, or any box you are writing in, keeps the keyboard to itself.": "Ils fonctionnent quand vous n'écrivez pas : un terminal, ou toute zone de saisie, garde le clavier.",
+  "press a key…": "appuyez sur une touche…",
+  "Put the original keys back": "Remettre les touches d'origine",
+  "Show or hide the file sidebar": "Afficher ou masquer le panneau de fichiers",
+  "New file browser in this desk": "Nouvel explorateur dans ce bureau",
+  "The link tray": "Le plateau de liens",
+  "The prompts window": "La fenêtre des prompts",
+  "Next desk": "Bureau suivant",
+  "Previous desk": "Bureau précédent"
  }
 }
