@@ -480,7 +480,7 @@ window.addEventListener('resize', measureFurniture);
 /** A message at the bottom of the screen. With `onTap` it is also a button — which is
  *  the only reliable way to reach the clipboard, since a browser grants that to a gesture
  *  and an upload finishing is not one. */
-function toast(message, bad = false, onTap = null) {
+function toast(message, bad = false, onTap = null, lasts = null) {
   measureFurniture();
   // An upload bar sits in this exact corner. Stack above it rather than on top of it:
   // two messages covering each other is how the last attempt at feedback went wrong.
@@ -491,7 +491,7 @@ function toast(message, bad = false, onTap = null) {
   if (onTap) t.onclick = () => { onTap(); t.remove(); };
   document.body.append(t);
   // A message you are meant to act on has to outlast the glance that notices it.
-  setTimeout(() => t.remove(), bad ? 5000 : onTap ? 6000 : 2200);
+  setTimeout(() => t.remove(), lasts ?? (bad ? 5000 : onTap ? 6000 : 2200));
 }
 
 /* ------------------------------------------------------------------- icons */
@@ -1174,7 +1174,7 @@ async function render() {
     if (path === '/system') return await screenSystem();
     if (path === '/settings') return await screenSettings();
     if (path === '/tmuxconf') return await screenTmuxConf();
-    if (path === '/messages') return await screenMessages();
+    if (path === '/prompts' || path === '/messages') return await screenMessages();
     if (path === '/term') return await screenTerm(q.get('s'));
     if (path === '/wall') return await screenWall();
     return await screenSessions();
@@ -2568,12 +2568,12 @@ async function screenSettings() {
 
   const messages = el('div', { className: 'row setting' }, [
     el('span', { className: 'grow' }, [
-      el('span', { className: 'name', textContent: t('Messages and placeholders') }),
+      el('span', { className: 'name', textContent: t('Prompts and placeholders') }),
       el('span', { className: 'meta', textContent: t('what one agent hands to the other, and what fills the gaps') }),
     ]),
     icon('relay'),
   ]);
-  messages.onclick = () => go('#/messages');
+  messages.onclick = () => go('#/prompts');
   wrap.append(messages);
 
   const handoff = el('div', { className: 'row setting' }, [
@@ -2680,7 +2680,7 @@ let sideBrowser = null;   // the sidebar's own listing, so it can be pointed at 
  *  thing you edited.
  */
 async function screenMessages() {
-  setTitle(t('Messages'));
+  setTitle(t('Prompts'));
   bar.back.hidden = false;
   bar.back.onclick = () => go('#/settings');
 
@@ -2696,7 +2696,7 @@ async function screenMessages() {
 
   const drawTabs = () => {
     tabs.replaceChildren();
-    for (const [key, label] of [['messages', t('Messages')], ['vars', t('Placeholders')]]) {
+    for (const [key, label] of [['messages', t('Prompts')], ['vars', t('Placeholders')]]) {
       tabs.append(el('button', {
         className: `ghost dup${(prefs.msgTab || 'messages') === key ? ' on' : ''}`,
         textContent: label,
@@ -2727,7 +2727,7 @@ async function screenMessages() {
       drawMessagePane();
     };
     body.append(el('div', { className: 'grouphead libhead' }, [
-      el('span', { className: 'hint', textContent: t('Folders you name, each with its own messages.') }),
+      el('span', { className: 'hint', textContent: t('Folders you name, each with its own prompts.') }),
       newGroup,
     ]));
 
@@ -2745,7 +2745,7 @@ async function screenMessages() {
         el('button', {
           className: 'ghost dup', textContent: t('Add here'),
           onclick: async () => {
-            const name = await ask(t('Name for this message'), '', t('Create'));
+            const name = await ask(t('Name for this prompt'), '', t('Create'));
             if (!name) return;
             all.push({ group, name, text: '' });
             savePrefs();
@@ -2767,7 +2767,7 @@ async function screenMessages() {
           className: 'ghost dup', textContent: t('Delete'),
           onclick: async () => {
             const say = mine.length
-              ? t('“{name}” holds {count} message(s); they move to {ground}.', { name: group, count: mine.length, ground: LOOSE })
+              ? t('“{name}” holds {count} prompt(s); they move to {ground}.', { name: group, count: mine.length, ground: LOOSE })
               : t('“{name}” is empty.', { name: group });
             if (!await confirmBox(t('Delete this group'), say, t('Delete'))) return;
             for (const kind of mine) kind.group = LOOSE;
@@ -2800,9 +2800,41 @@ async function screenMessages() {
   function messageCard(kind, all) {
     const card = el('details', { className: 'msgcard' });
     const first = (kind.text || '').split('\n')[0] || t('empty');
+    // Delete without opening it and without being asked: a confirmation for something
+    // this small is a click charged for nothing. Five seconds to change your mind is a
+    // better bargain than a dialog every time.
+    const bin = el('button', { className: 'winbtn', title: t('Delete') }, icon('trash'));
+    bin.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const at = all.indexOf(kind);
+      prefs.templates = all.filter((x) => x !== kind);
+      savePrefs();
+      messagesChanged();
+
+      // The undo goes where the row was, not into the corner of the screen: your eye is
+      // already here, and a notice five hundred pixels away is one you find after it has
+      // gone. Five seconds, then it is done.
+      const back = el('button', { className: 'ghost dup', textContent: t('Undo') });
+      const strip = el('div', { className: 'undoline' }, [
+        icon('trash'),
+        el('span', { className: 'grow', textContent: t('{name} deleted', { name: kind.name }) }),
+        back,
+      ]);
+      card.replaceWith(strip);
+      const settle = setTimeout(() => strip.remove(), 5000);
+      back.onclick = () => {
+        clearTimeout(settle);
+        batonTemplates().splice(Math.min(at, batonTemplates().length), 0, kind);
+        savePrefs();
+        messagesChanged();
+        drawMessagePane();
+      };
+    };
     card.append(el('summary', {}, [
       el('span', { className: 'name', textContent: kind.name }),
       el('span', { className: 'meta', textContent: first }),
+      bin,
     ]));
 
     const name = el('input', { type: 'text', value: kind.name, spellcheck: false });
@@ -2825,6 +2857,7 @@ async function screenMessages() {
       kind.text = text.value;
       delete kind.stock;
       savePrefs();
+      messagesChanged();
       refresh();
       card.querySelector('summary .name').textContent = kind.name;
       card.querySelector('summary .meta').textContent = (kind.text || '').split('\n')[0] || t('empty');
@@ -2844,16 +2877,8 @@ async function screenMessages() {
       savePrefs();
       drawMessagePane();
     };
-    const drop = el('button', { className: 'ghost dup', textContent: t('Delete') });
-    drop.onclick = async () => {
-      if (!await confirmBox(t('Delete this message'), t('“{name}” goes for good.', { name: kind.name }), t('Delete'))) return;
-      prefs.templates = all.filter((x) => x !== kind);
-      savePrefs();
-      drawMessagePane();
-    };
-
     card.append(
-      el('div', { className: 'msgtop' }, [name, copy, drop]),
+      el('div', { className: 'msgtop' }, [name, copy]),
       text,
       el('div', { className: 'msgfoot' }, [el('span', { className: 'meta', textContent: t('in') }), where]),
       el('p', { className: 'hint', textContent: t('with this desk\u2019s values:') }),
@@ -4111,7 +4136,7 @@ async function screenWall() {
       const isFile = spec.kind === 'file';
       const isBrowser = spec.kind === 'browser';
       const label = spec.kind === 'term' ? spec.name
-        : spec.kind === 'messages' ? t('Messages')
+        : spec.kind === 'messages' ? t('Prompts')
           : spec.kind === 'links' ? t('Links')
           : spec.kind === 'web' ? (spec.label || spec.url)
             : (spec.path.split('/').pop() || spec.path);
@@ -4177,7 +4202,9 @@ async function screenWall() {
         const off = muted(spec.name);
         quiet.replaceChildren(icon(off ? 'bellOff' : 'bell'));
         quiet.classList.toggle('off', off);
-        quiet.title = off ? t('This session is not to ring') : t('This session rings');
+        quiet.title = off
+          ? t('Silent: this session will not tell you when it finishes')
+          : t('Will ring when this session finishes or wants you');
       };
       if (quiet) {
         paintQuiet();
@@ -4536,7 +4563,7 @@ async function screenWall() {
         ]));
       }
       body.append(el('div', { className: 'sheetsep' }));
-      body.append(el('button', { className: 'ghost block', onclick: () => { which.close(); go('#/messages'); } },
+      body.append(el('button', { className: 'ghost block', onclick: () => { which.close(); go('#/prompts'); } },
         [icon('rename'), el('span', { textContent: t('Edit them…') })]));
       which = modal(t('Placeholders'), body, [
         el('button', { className: 'ghost', textContent: t('Close'), onclick: () => which.close() }),
@@ -4953,13 +4980,13 @@ async function screenWall() {
 
   tools.append(el('button', {
     className: 'winbtn wide',
-    title: t('The messages you hand to an agent, kept open'),
+    title: t('The prompts you hand to an agent, kept open'),
     onclick: () => {
       const there = deckFor(activeSpace()).open.find((o) => o.name === 'messages');
       if (there) raiseWindow(there);
       else openWindow({ kind: 'messages' });
     },
-  }, [icon('relay'), el('span', { textContent: t('Messages') })]));
+  }, [icon('relay'), el('span', { textContent: t('Prompts') })]));
 
   const browserBtn = el('button', {
     className: 'winbtn wide',
@@ -5817,8 +5844,8 @@ function attachMessages(host, wsId, extras, deliver) {
     }
   };
 
-  const edit = el('button', { className: 'winbtn', title: t('Write the messages') }, icon('rename'));
-  edit.onclick = () => go('#/messages');
+  const edit = el('button', { className: 'winbtn', title: t('Write the prompts') }, icon('rename'));
+  edit.onclick = () => go('#/prompts');
   extras.append(edit);
 
   msgWatch.add(draw);

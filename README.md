@@ -136,7 +136,7 @@ services.</sub>
   the messages in the one you picked, and **what will actually be typed**, filled in,
   before anything is sent.
 
-  Writing them has a screen of its own — **Messages**, in the bottom bar — with
+  Writing them has a screen of its own — **Prompts**, in the bottom bar — with
   full editing of the library: rename, duplicate, delete, and each one previewed with
   this desk's values as you type. The hand-over sheet is for sending; a place you pass
   through in a hurry is the wrong place to keep a library.
@@ -152,7 +152,7 @@ services.</sub>
   flagged and passed through as written, where you can see it.
 
   **Or keep them open as a window.** A modal you open, aim and dismiss thirty times in an
-  afternoon is thirty times too many, so *Messages* is also a window on the desk: the
+  afternoon is thirty times too many, so *Prompts* is also a window on the desk: the
   folders, the messages, and you **drag one onto a terminal** — the same gesture as a path
   out of the link tray. Or just tap it: the window says at the top where a tap goes, and
   that follows the terminal you last touched, so the usual case is one tap and no question
@@ -160,7 +160,9 @@ services.</sub>
 
   The ⋯ on a row is for the times a word needs changing before it goes: it shows the text
   filled in, lets you edit it once and sends it. Not saved — the library is edited where
-  the library lives. Deliberately not a loop: automating the round trip is the part to add
+  the library lives, where deleting one needs no confirmation: the row becomes a red line
+  with **Undo** in it for five seconds, which is a better bargain than a dialog every
+  time. Deliberately not a loop: automating the round trip is the part to add
   last, once the sentence has proved itself.
 - **Clickable paths.** Hovering a line asks the server which of its words are real files;
   those get underlined, and opening one shows it in the viewer *and* points the file
