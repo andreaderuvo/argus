@@ -4,6 +4,9 @@ on:
   push:
     branches: [master, main]
   pull_request:
+  # By hand as well: when Actions has an incident the queued runs are cancelled rather
+  # than retried, and a commit can end up with no run at all through nobody's fault.
+  workflow_dispatch:
 
 jobs:
   pytest:
