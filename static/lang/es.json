@@ -416,6 +416,9 @@
   "preview with": "vista previa con",
   "filled from {set}, which {desk} does not use — it is on {other}": "rellenado desde {set}, que {desk} no usa — está en {other}",
   "the folder of the session it comes from": "la carpeta de la sesión de origen",
-  "the name of the session": "el nombre de la sesión"
+  "the name of the session": "el nombre de la sesión",
+  "empties after": "se vacía tras",
+  "never": "nunca",
+  "{n} min": "{n} min"
  }
 }
