@@ -419,6 +419,8 @@
   "the name of the session": "il nome della sessione",
   "empties after": "si svuota dopo",
   "never": "mai",
-  "{n} min": "{n} min"
+  "{n} min": "{n} min",
+  "nothing to put in {list}": "non c'è niente da mettere in {list}",
+  "A placeholder works here too — {folder}, {paper} — filled from this desk’s set.": "Qui funziona anche un segnaposto — {folder}, {paper} — riempito dall'insieme di questo desk."
  }
 }
