@@ -297,6 +297,22 @@
   "This session rings": "Cette session sonne",
   "This session is not to ring": "Cette session ne doit pas sonner",
   "{session} will not ring": "{session} ne sonnera plus",
-  "{session} rings again": "{session} sonne à nouveau"
+  "{session} rings again": "{session} sonne à nouveau",
+  "Hand over": "Passer le relais",
+  "Hand this over to the other agent": "Passer ce travail à l'autre agent",
+  "Referee": "Arbitre",
+  "Relay": "Relais",
+  "one produces, the other tries to break it": "l'un produit, l'autre essaie de le démolir",
+  "both improve the same work, in turn": "les deux améliorent le même travail, à tour de rôle",
+  "{from} has finished. What should the other one be told?": "{from} a terminé. Que dit-on à l'autre ?",
+  "{folder} and {from} are filled in. It goes into their prompt without an Enter, so you can still change it there.": "{folder} et {from} sont remplis. Cela arrive dans son invite sans Entrée, vous pouvez encore le modifier.",
+  "type it": "l'écrire",
+  "and run": "et lancer",
+  "send it with an Enter": "l'envoyer avec Entrée",
+  "there is no other session in this desk to hand to": "il n'y a pas d'autre session dans ce bureau",
+  "handed to {session} and started": "passé à {session} et lancé",
+  "handed to {session} — press Enter there when you are happy with it": "passé à {session} — l'Entrée, c'est vous quand cela vous convient",
+  "going out to be looked at": "part pour être examiné",
+  "coming back to {who}, who made it": "revient à {who}, qui l'a fait"
  }
 }

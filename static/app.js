@@ -544,6 +544,7 @@ const ICONS = {
   compress: 'M20 4l-6.2 6.2M13.8 10.2h5M13.8 10.2v-5M4 20l6.2-6.2M10.2 13.8h-5M10.2 13.8v5',
   fit: 'M4.5 9V4.5H9M15 4.5h4.5V9M19.5 15v4.5H15M9 19.5H4.5V15',
   lock: 'M6.5 10.5h11v9h-11zM9 10.5V7.6a3 3 0 0 1 6 0v2.9',
+  relay: 'M6.5 8.5h11M14.5 5.5l3 3-3 3M17.5 15.5h-11M9.5 12.5l-3 3 3 3',
   bell: 'M12 3.5a5.5 5.5 0 0 0-5.5 5.5c0 4-1.5 5.2-1.5 6.2 0 .5.4.8 1 .8h12c.6 0 1-.3 1-.8 0-1-1.5-2.2-1.5-6.2A5.5 5.5 0 0 0 12 3.5zM10 19a2 2 0 0 0 4 0',
   bellOff: 'M12 3.5a5.5 5.5 0 0 0-5.5 5.5c0 4-1.5 5.2-1.5 6.2 0 .5.4.8 1 .8h12c.6 0 1-.3 1-.8 0-1-1.5-2.2-1.5-6.2A5.5 5.5 0 0 0 12 3.5zM10 19a2 2 0 0 0 4 0M4 4l16 16',
   github: 'M12 1.3a10.7 10.7 0 0 0-3.4 20.9c.54.1.73-.24.73-.52v-1.83c-2.98.65-3.6-1.44-3.6-1.44-.49-1.24-1.19-1.57-1.19-1.57-.97-.66.08-.65.08-.65 1.07.07 1.64 1.1 1.64 1.1.95 1.64 2.5 1.17 3.11.89.1-.69.37-1.16.68-1.43-2.38-.27-4.88-1.19-4.88-5.29 0-1.17.42-2.13 1.1-2.88-.11-.27-.48-1.36.1-2.83 0 0 .9-.29 2.94 1.1a10.2 10.2 0 0 1 5.36 0c2.04-1.39 2.94-1.1 2.94-1.1.58 1.47.21 2.56.1 2.83.69.75 1.1 1.71 1.1 2.88 0 4.11-2.5 5.02-4.89 5.28.38.33.72.98.72 1.98v2.93c0 .28.19.62.74.52A10.7 10.7 0 0 0 12 1.3z',
@@ -3664,6 +3665,92 @@ async function screenWall() {
       saveGeom(geomKey(ws, o.name), node);
     }
 
+    /** Hand the work to the other agent in this desk.
+     *
+     *  The sheet shows the sentence before it goes, and it is editable and remembered:
+     *  finding the wording that works is the whole exercise, and it is not something
+     *  anybody gets right the first time. */
+    function batonSheet(from) {
+      const others = open.filter((o) => o.name.startsWith('term:') && o.name !== `term:${from}`);
+      if (!others.length) return toast(t('there is no other session in this desk to hand to'), true);
+
+      const body = el('div', { className: 'sheetbody' });
+      let sheet;
+
+      let leg = batonText(ws.id, from);
+      const note = el('textarea', { className: 'baton', spellcheck: false, rows: 7, value: leg.text });
+      const which = el('p', { className: 'meta' });
+      const preset = el('div', { className: 'batonpresets' });
+
+      const showLeg = () => {
+        which.textContent = leg.back
+          ? t('coming back to {who}, who made it', { who: leg.pair.maker })
+          : t('going out to be looked at');
+        for (const b of preset.children) b.classList.toggle('on', b.dataset.kind === leg.pair.kind);
+      };
+      for (const [key, kind] of Object.entries(BATONS)) {
+        const b = el('button', {
+          className: 'ghost dup',
+          textContent: t(kind.name),
+          title: key === 'referee' ? t('one produces, the other tries to break it') : t('both improve the same work, in turn'),
+          onclick: () => {
+            leg.pair.kind = key;
+            savePrefs();
+            leg = batonText(ws.id, from);
+            note.value = leg.text;
+            showLeg();
+          },
+        });
+        b.dataset.kind = key;
+        preset.append(b);
+      }
+      showLeg();
+
+      // {folder} is the desk's own if it has one, since that is what the desk is about.
+      const fill = (text) => text
+        .replace(/\{folder\}/g, deskFolder())
+        .replace(/\{from\}/g, from);
+
+      const hand = (target, andRun) => {
+        // The first hand-over says who is the maker; from then on the direction is known
+        // and the sentence follows it without being asked.
+        if (!leg.pair.maker) leg.pair.maker = from;
+        leg.pair.texts[leg.key] = note.value;
+        savePrefs();
+        target.handle.send(fill(note.value) + (andRun ? '\r' : ''));
+        target.handle.focus();
+        raiseWindow(target);
+        quieten(from);
+        sheet.close();
+        toast(andRun
+          ? t('handed to {session} and started', { session: target.name.slice(5) })
+          : t('handed to {session} — press Enter there when you are happy with it', { session: target.name.slice(5) }));
+      };
+
+      body.append(
+        el('p', { className: 'meta', textContent: t('{from} has finished. What should the other one be told?', { from }) }),
+        preset,
+        which,
+        note,
+        el('p', { className: 'hint', textContent: t('{folder} and {from} are filled in. It goes into their prompt without an Enter, so you can still change it there.') }),
+      );
+
+      const rows = el('div', { className: 'sheetbody actions' });
+      for (const target of others) {
+        const name = target.name.slice(5);
+        rows.append(el('div', { className: 'sendrow' }, [
+          el('button', { className: 'ghost block grow', onclick: () => hand(target, false) },
+            [icon('relay'), el('span', { className: 'grow' }, bidi(name)), el('span', { className: 'verb', textContent: t('type it') })]),
+          el('button', { className: 'ghost dup', textContent: t('and run'), title: t('send it with an Enter'), onclick: () => hand(target, true) }),
+        ]));
+      }
+      body.append(rows);
+
+      sheet = modal(t('Hand over'), body, [
+        el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),
+      ]);
+    }
+
     /** What was typed in one chained terminal, handed to the others. */
     function echoToChain(from, data) {
       if (!chained(ws.id, from)) return;
@@ -3785,6 +3872,11 @@ async function screenWall() {
         };
       }
 
+      const pass = spec.kind === 'term'
+        ? el('button', { className: 'winbtn relaybtn', title: t('Hand this over to the other agent') }, icon('relay'))
+        : null;
+      if (pass) pass.onclick = () => batonSheet(spec.name);
+
       const chain = spec.kind === 'term'
         ? el('button', { className: 'winbtn chainbtn' }, icon('link'))
         : null;
@@ -3797,7 +3889,7 @@ async function screenWall() {
           else if (on) toast(t('chain one more session for this to do anything'));
         };
       }
-      if (spec.kind === 'term') extras.append(copyButton(handle, 'winbtn'), quiet, chain, ...sizeButtons(handle, 'winbtn'));
+      if (spec.kind === 'term') extras.append(copyButton(handle, 'winbtn'), quiet, pass, chain, ...sizeButtons(handle, 'winbtn'));
       const entry = { win, handle, name: id, chainBtn: chain };
       open.push(entry);
       if (chain) paintChain();
@@ -4988,6 +5080,8 @@ function paintBells() {
     const bell = name && rung.get(name);
     win.classList.toggle('ringing', !!bell);
     win.classList.toggle('asking', bell?.why === 'asking');
+    // Finished, and there is somebody to hand it to: that is the moment the baton is for.
+    win.querySelector('.relaybtn')?.classList.toggle('due', !!bell && bell.why !== 'asking');
     if (bell) desks.add(win.closest('.deck')?.dataset.ws);
   }
   for (const tab of document.querySelectorAll('.wstab[data-ws]')) {
@@ -5103,6 +5197,63 @@ document.addEventListener('visibilitychange', () => {
   restoreTitle();
   if (!bellStream) listenForBells();
 });
+
+/* ------------------------------------------------------------------ handing over */
+
+/** Passing the work from one agent to the other.
+ *
+ *  Two agents on one machine do not need to talk: they share a filesystem, so what has to
+ *  travel between them is not the work but a *baton* — a short sentence and a pointer to
+ *  where the work is. Prose passed from one to the other loses context and turns the
+ *  first one's output into the second one's instructions, which is a bad shape.
+ *
+ *  Deliberately not a loop. The sentence goes into the other terminal without an Enter,
+ *  the way a path dragged from the tray does, and you decide. Automating the round trip
+ *  is easy and is the part that should be added last, once the sentence has proved
+ *  itself — a wrong baton repeated six times is just a faster way to be wrong.
+ */
+const BATONS = {
+  // Fixed roles: one makes, the other tries to break it. The asymmetry is the value —
+  // a reviewer who may rewrite is not reviewing, and the return leg is a fix, not a turn.
+  referee: {
+    name: 'Referee',
+    there: 'Review the change just made in {folder} — read the diff against HEAD.\n'
+      + 'Do not edit anything: your job is to find what is wrong with it.\n'
+      + 'Cite exact files and line numbers, run the tests if there are any, and finish\n'
+      + 'with one line: VERDICT: OK or VERDICT: REDO, and why.',
+    back: 'The review of your change in {folder} is above, from {from}.\n'
+      + 'Fix what it got right and say plainly what you disagree with and why —\n'
+      + 'a review is not an order. Run the tests before you say you are done.',
+  },
+  // Symmetric: the same sentence in both directions, because the roles are the same one.
+  relay: {
+    name: 'Relay',
+    there: 'Take over the work in {folder}. {from} has just finished a pass.\n'
+      + 'Read the diff against HEAD, improve what is weakest, and stop when your change\n'
+      + 'is one you can defend. Then say what you changed and what you left alone,\n'
+      + 'and if you changed nothing worth changing, say that instead — that is how this\n'
+      + 'ends.',
+  },
+};
+
+const batonLeg = (kind, back) => BATONS[kind][back ? 'back' : 'there'] || BATONS[kind].there;
+
+/** Which pattern this desk is running, and who started it.
+ *
+ *  Knowing the maker is what makes the two patterns behave differently rather than merely
+ *  read differently: in Referee the return leg is "here is the review, fix it", in Relay
+ *  it is the same instruction going the other way. */
+function deskPair(wsId) {
+  prefs.pair = prefs.pair || {};
+  return (prefs.pair[wsId] = prefs.pair[wsId] || { kind: 'referee', maker: null, texts: {} });
+}
+
+function batonText(wsId, from) {
+  const pair = deskPair(wsId);
+  const back = !!pair.maker && pair.maker !== from;
+  const key = `${pair.kind}:${back ? 'back' : 'there'}`;
+  return { text: pair.texts[key] ?? batonLeg(pair.kind, back), key, back, pair };
+}
 
 /* ------------------------------------------------------------------ chained terminals */
 
