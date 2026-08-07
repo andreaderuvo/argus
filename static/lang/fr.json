@@ -379,6 +379,9 @@
   "The messages you hand to an agent, kept open": "Les messages à passer à un agent, gardés ouverts",
   "drag one onto a terminal, or tap it": "glissez-en un sur un terminal, ou touchez-le",
   "{name} put into {session}": "{name} mis dans {session}",
-  "no session in this desk to send it to": "aucune session dans ce bureau"
+  "no session in this desk to send it to": "aucune session dans ce bureau",
+  "to": "vers",
+  "no session here": "aucune session ici",
+  "tap one to send it there, or drag it onto another terminal": "touchez-en un pour l'envoyer là, ou glissez-le sur un autre terminal"
  }
 }

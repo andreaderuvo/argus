@@ -4029,6 +4029,21 @@ async function screenWall() {
 
     const peersOf = (win) => () => open.filter((o) => o.win !== win).map((o) => o.win);
 
+    /** The terminal a message would go to: the last one you touched.
+     *
+     *  Asking "which session?" every time is the click worth removing, and guessing
+     *  silently is worse than asking — so it is not a guess: it follows what you are
+     *  working in, and it is shown before you send anything. */
+    let aimed = null;
+    const aiming = new Set();
+    const terminals = () => open.filter((o) => o.name.startsWith('term:'));
+    const aim = () => (terminals().includes(aimed) ? aimed : terminals()[0] || null);
+    const setAim = (entry) => {
+      if (aimed === entry) return;
+      aimed = entry;
+      for (const tell of aiming) tell();
+    };
+
     /** One window has finished moving or being resized — including a neighbour pushed by
      *  somebody else's drag, which has to be saved too or it snaps back on the next
      *  visit. Moving or resizing also ends "full screen": keeping the flag would restore
@@ -4300,7 +4315,10 @@ async function screenWall() {
 
       const handle = spec.kind === 'messages' ? attachMessages(body, ws.id, extras, {
         find: (node) => open.find((o) => o.win === node),
-        terminals: () => open.filter((o) => o.name.startsWith('term:')),
+        terminals,
+        aim,
+        setAim,
+        onAim: (tell) => { aiming.add(tell); return () => aiming.delete(tell); },
         folder: () => deskFolder(),
         raise: raiseWindow,
       })
@@ -4368,7 +4386,9 @@ async function screenWall() {
 
       win.addEventListener('pointerdown', () => {
         win.style.zIndex = ++top;
-        if (spec.kind === 'term') quieten(spec.name);
+        if (spec.kind !== 'term') return;
+        quieten(spec.name);
+        setAim(open.find((o) => o.win === win));
       }, true);
 
       close.onclick = () => {
@@ -5899,12 +5919,37 @@ function attachMessages(host, wsId, extras, deliver) {
     target.handle.send(fillBaton(kind.text, known));
     target.handle.focus();
     deliver.raise(target);
+    // Sending one there is working there: the next tap should not go somewhere else.
+    deliver.setAim(target);
+    drawAim();
     toast(t('{name} put into {session}', { name: kind.name, session: toName }));
+  };
+
+  /** Who it is going to, at the top, as buttons: one is lit and that is where a tap
+   *  sends. It follows the terminal you last touched, and you can pin it by tapping. */
+  const aimBar = el('div', { className: 'aimbar' });
+  const drawAim = () => {
+    const terms = deliver.terminals();
+    aimBar.replaceChildren(el('span', { className: 'to', textContent: t('to') }));
+    if (!terms.length) {
+      aimBar.append(el('span', { className: 'hint', textContent: t('no session here') }));
+      return;
+    }
+    const now = deliver.aim();
+    for (const term of terms) {
+      aimBar.append(el('button', {
+        className: `ghost dup${term === now ? ' on' : ''}`,
+        textContent: term.name.slice(5),
+        onclick: () => { deliver.setAim(term); drawAim(); },
+      }));
+    }
   };
 
   const draw = () => {
     list.replaceChildren();
-    list.append(el('p', { className: 'hint', textContent: t('drag one onto a terminal, or tap it') }));
+    list.append(aimBar);
+    drawAim();
+    list.append(el('p', { className: 'hint', textContent: t('tap one to send it there, or drag it onto another terminal') }));
     for (const group of batonGroups()) {
       const mine = batonTemplates().filter((x) => x.group === group);
       if (!mine.length) continue;
@@ -5918,21 +5963,9 @@ function attachMessages(host, wsId, extras, deliver) {
         dragLink(row, { text: kind.name, message: kind }, deliver.find, (item, target) => send(item.message, target));
         row.onclick = () => {
           if (row.dataset.dragged) return;
-          const terms = deliver.terminals();
-          if (!terms.length) return toast(t('no session in this desk to send it to'), true);
-          if (terms.length === 1) return send(kind, terms[0]);
-          // More than one: say which, rather than guessing.
-          const body = el('div', { className: 'sheetbody actions' });
-          let sheet;
-          for (const target of terms) {
-            body.append(el('button', {
-              className: 'ghost block',
-              onclick: () => { sheet.close(); send(kind, target); },
-            }, [icon('terminal'), el('span', { textContent: target.name.slice(5) })]));
-          }
-          sheet = modal(kind.name, body, [
-            el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),
-          ]);
+          const target = deliver.aim();
+          if (!target) return toast(t('no session in this desk to send it to'), true);
+          send(kind, target);
         };
         folder.append(el('div', { className: 'trayline' }, [row]));
       }
@@ -5945,9 +5978,10 @@ function attachMessages(host, wsId, extras, deliver) {
   extras.append(edit);
 
   msgWatch.add(draw);
+  const stopWatching = deliver.onAim(drawAim);
   draw();
   return {
-    dispose: () => msgWatch.delete(draw),
+    dispose: () => { msgWatch.delete(draw); stopWatching(); },
     relayout: () => {},
   };
 }
