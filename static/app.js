@@ -3801,6 +3801,7 @@ async function screenWall() {
       const entry = { win, handle, name: id, chainBtn: chain };
       open.push(entry);
       if (chain) paintChain();
+      paintTally();
 
       win.addEventListener('pointerdown', () => {
         win.style.zIndex = ++top;
@@ -3813,6 +3814,7 @@ async function screenWall() {
         open.splice(open.indexOf(entry), 1);
         ws.desktop = ws.desktop.filter((x) => specId(x) !== id);
         savePrefs();
+        paintTally();
         // Deliberately no re-tiling. Grid, Columns and Rows are things you *do*, not modes
         // the desk stays in: re-running the last one here threw away an arrangement made
         // by hand every time a window was closed.
@@ -4455,11 +4457,12 @@ async function screenWall() {
     saveGeom(geomKey(activeSpace(), entry.name), win);
   }
 
+  const listCount = el('span', { className: 'tally', hidden: true });
   tools.append(el('button', {
     className: 'winbtn wide',
     title: t('List the windows in this workspace'),
     onclick: windowSheet,
-  }, [icon('layers'), el('span', { textContent: t('List') })]));
+  }, [icon('layers'), el('span', { textContent: t('List') }), listCount]));
 
   // Chained terminals are the one thing in here that can do damage you did not intend,
   // so the count sits in the toolbar and unhooks everything in one click.
@@ -4491,12 +4494,17 @@ async function screenWall() {
     },
   }, [icon('link'), el('span', { textContent: t('Links') }), trayCount]));
 
-  /** How many are waiting in this desk's tray. Counted for the desk on screen only: the
-   *  others have their own, and showing somebody else's number would be a lie. */
+  /** The two numbers on the toolbar: what is waiting in this desk's tray, and how many
+   *  windows it holds. For the desk on screen only — the others have their own, and
+   *  showing somebody else's number would be a lie. */
   function paintTally() {
-    const n = deskLinks(activeSpace().id).length;
-    trayCount.textContent = String(n);
-    trayCount.hidden = !n;
+    const links = deskLinks(activeSpace().id).length;
+    trayCount.textContent = String(links);
+    trayCount.hidden = !links;
+
+    const windows = decks.get(activeSpace().id)?.open.length ?? activeSpace().desktop.length;
+    listCount.textContent = String(windows);
+    listCount.hidden = !windows;
   }
   trayTally = (id) => { if (id === activeSpace().id) paintTally(); };
 
@@ -4973,6 +4981,7 @@ function quieten(name) {
 
 /** The marks: on the window that rang, and on the tab of the desk holding it. */
 function paintBells() {
+  countSessions();
   const desks = new Set();
   for (const win of document.querySelectorAll('.win[data-kind="term"]')) {
     const name = win.querySelector('.wintitle')?.textContent;
@@ -5974,6 +5983,40 @@ function updateBar(onAccept) {
 applyTheme();
 for (const node of document.querySelectorAll('[data-icon]')) node.replaceChildren(icon(node.dataset.icon));
 
+/** How many tmux sessions there are, on the Sessions tab.
+ *
+ *  Cheap to ask and useful to know from anywhere: a session started somewhere else shows
+ *  up without you going to look, and the badge turns amber while any of them is ringing —
+ *  which is the difference between "there are five" and "one of them wants you".
+ */
+const SESSION_COUNT_EVERY = 20000;
+
+async function countSessions() {
+  if (!token) return;
+  try {
+    const list = await getJSON('/api/tmux/sessions');
+    showCount('sessions', list.length);
+  } catch { /* the server will be asked again shortly */ }
+}
+
+function showCount(tab, n) {
+  const link = nav.querySelector(`a[data-tab="${tab}"]`);
+  if (!link) return;
+  let badge = link.querySelector('.tally');
+  if (!n) return badge?.remove();
+  if (!badge) {
+    badge = el('span', { className: 'tally' });
+    link.append(badge);
+  }
+  badge.textContent = String(n);
+  // Amber the moment one of them is asking for you: the number alone says how many
+  // exist, not that one of them has stopped and is waiting.
+  badge.classList.toggle('wants', [...rung.values()].some((b) => b.why === 'asking'));
+}
+
+setInterval(() => { if (!document.hidden) countSessions(); }, SESSION_COUNT_EVERY);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) countSessions(); });
+
 /** The nav labels and the title sit in the HTML, so they are translated in place. */
 function translateMarkup() {
   for (const a of nav.querySelectorAll('a')) {
@@ -5995,6 +6038,7 @@ function translateMarkup() {
   }
   await render();
   applySidebar();
+  countSessions();
   // Only after the first paint: the first answer sets the mark for "now" and rings
   // nothing, so this can never greet you with the morning's leftovers.
   if (token) listenForBells();
