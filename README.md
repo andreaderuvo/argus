@@ -154,8 +154,9 @@ services.</sub>
   **Or keep them open as a window.** A modal you open, aim and dismiss thirty times in an
   afternoon is thirty times too many, so *Messages* is also a window on the desk: the
   folders, the messages, and you **drag one onto a terminal** — the same gesture as a path
-  out of the link tray. Tapping one sends it too, asking which session when there is more
-  than one.
+  out of the link tray. Or just tap it: the window says at the top where a tap goes, and
+  that follows the terminal you last touched, so the usual case is one tap and no question
+  asked. Tap a name up there to aim it somewhere else and it stays put.
 
   Which template comes up in the sheet is the one you last sent *from that session*, which is how a
   referee's outward and return sentences sort themselves out without anybody declaring a
