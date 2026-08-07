@@ -211,6 +211,11 @@ services.</sub>
   set of windows, has its own address (`#/wall?ws=3`, copyable from the tab menu) and its
   own starting folder, and survives a reload. Every tab carries a **⋮** for its menu —
   holding it and right-clicking still work, but neither is a gesture anybody finds.
+- **A desk's folder can be written with a placeholder** — `{folder}`, `{paper}` — filled
+  from the set that desk is on, so a desk pointed at a project does not repeat what its
+  set already says. The sheet shows what it resolves to as you type, and a placeholder
+  with nothing to fill it sends browsers home rather than to a folder with a brace in its
+  name.
 - **A folder each desk starts in.** A desk is usually *about* something, so its browsers
   should land there rather than in the same home directory as everything else. Pick one
   of the shortcuts or type the path: it completes folder names as you go, Tab finishes
