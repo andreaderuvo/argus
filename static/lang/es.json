@@ -315,6 +315,14 @@
   "going out to be looked at": "va al otro para que lo examine",
   "coming back to {who}, who made it": "vuelve a {who}, que lo hizo",
   "{folder} is {path}": "{folder} es {path}",
-  "It goes into their prompt without an Enter, so you can still change it there.": "Llega a su prompt sin Enter, así que aún puedes cambiarlo allí."
+  "It goes into their prompt without an Enter, so you can still change it there.": "Llega a su prompt sin Enter, así que aún puedes cambiarlo allí.",
+  "Save as…": "Guardar como…",
+  "keep this wording as a template of your own": "guarda esta redacción como plantilla tuya",
+  "Name for this template": "Nombre de la plantilla",
+  "Forget this template": "Eliminar esta plantilla",
+  "Placeholders for this desk": "Marcadores de este escritorio",
+  "one per line, name = value. Always available: {folder} {from} {to}": "uno por línea, nombre = valor. Siempre disponibles: {folder} {from} {to}",
+  "nothing to put in {list} — they will go across as they are": "no hay nada que poner en {list} — pasarán tal cual",
+  "what will be typed over there:": "lo que se escribirá allí:"
  }
 }
