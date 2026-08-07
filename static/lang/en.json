@@ -411,6 +411,7 @@
   "The prompts window": "The prompts window",
   "Next desk": "Next desk",
   "Previous desk": "Previous desk",
-  "with this desk’s values — when you send it, {folder} is the folder of the session it comes from:": "with this desk’s values — when you send it, {folder} is the folder of the session it comes from:"
+  "with this desk’s values — when you send it, {folder} is the folder of the session it comes from:": "with this desk’s values — when you send it, {folder} is the folder of the session it comes from:",
+  "filled from {set}, the set {desk} uses — when you send it, {folder} is the folder of the session it comes from:": "filled from {set}, the set {desk} uses — when you send it, {folder} is the folder of the session it comes from:"
  }
 }
