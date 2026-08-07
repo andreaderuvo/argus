@@ -323,6 +323,20 @@
   "Placeholders for this desk": "Placeholders for this desk",
   "one per line, name = value. Always available: {folder} {from} {to}": "one per line, name = value. Always available: {folder} {from} {to}",
   "nothing to put in {list} — they will go across as they are": "nothing to put in {list} — they will go across as they are",
-  "what will be typed over there:": "what will be typed over there:"
+  "what will be typed over there:": "what will be typed over there:",
+  "Messages": "Messages",
+  "Messages and placeholders": "Messages and placeholders",
+  "Messages and placeholders…": "Messages and placeholders…",
+  "what one agent hands to the other, and what fills the gaps": "what one agent hands to the other, and what fills the gaps",
+  "Placeholders in {desk}": "Placeholders in {desk}",
+  "one per line, name = value. They belong to this desk, so one template serves every project.": "one per line, name = value. They belong to this desk, so one template serves every project.",
+  "Always there, from the situation itself: {folder} is the working directory of the session handing over, {from} and {to} are the two sessions.": "Always there, from the situation itself: {folder} is the working directory of the session handing over, {from} and {to} are the two sessions.",
+  "No messages yet.": "No messages yet.",
+  "with this desk’s values:": "with this desk’s values:",
+  "New message": "New message",
+  "Put back the ones it came with": "Put back the ones it came with",
+  "Delete this message": "Delete this message",
+  "“{name}” goes for good.": "“{name}” goes for good.",
+  "Untitled": "Untitled"
  }
 }
