@@ -399,6 +399,17 @@
   "Silent: this session will not tell you when it finishes": "Silent: this session will not tell you when it finishes",
   "Will ring when this session finishes or wants you": "Will ring when this session finishes or wants you",
   "Undo": "Undo",
-  "{name} deleted": "{name} deleted"
+  "{name} deleted": "{name} deleted",
+  "Keyboard shortcuts": "Keyboard shortcuts",
+  "see them all, and change any of them": "see them all, and change any of them",
+  "These work when you are not typing: a terminal, or any box you are writing in, keeps the keyboard to itself.": "These work when you are not typing: a terminal, or any box you are writing in, keeps the keyboard to itself.",
+  "press a key…": "press a key…",
+  "Put the original keys back": "Put the original keys back",
+  "Show or hide the file sidebar": "Show or hide the file sidebar",
+  "New file browser in this desk": "New file browser in this desk",
+  "The link tray": "The link tray",
+  "The prompts window": "The prompts window",
+  "Next desk": "Next desk",
+  "Previous desk": "Previous desk"
  }
 }

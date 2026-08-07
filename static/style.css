@@ -1851,3 +1851,22 @@ input.groupbox:focus { border-style: solid; border-color: var(--accent); color: 
 .msgpane .trayrow { font-family: inherit; font-size: 12.5px; }
 .msgpane .trayleaf { color: var(--text); }
 .msgpane .trayrow:hover .trayleaf { color: var(--bright); }
+
+/* Keys, and the list of them. */
+kbd {
+  display: inline-block;
+  min-width: 1.6rem;
+  padding: .1rem .4rem;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: .35rem;
+  background: var(--bg);
+  color: var(--bright);
+  font: 600 .74rem/1.5 ui-monospace, "SF Mono", Menlo, monospace;
+  text-align: center;
+}
+kbd.listening { color: var(--accent); border-color: var(--accent); }
+.keylist { max-height: 70vh; overflow-y: auto; }
+.keylist .hint { padding: 0 .2rem .5rem; margin: 0; }
+button.keyrow { min-height: 2.4rem; }
+button.keyrow kbd { flex: none; }
