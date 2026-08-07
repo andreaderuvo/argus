@@ -337,6 +337,10 @@
   "Put back the ones it came with": "Put back the ones it came with",
   "Delete this message": "Delete this message",
   "“{name}” goes for good.": "“{name}” goes for good.",
-  "Untitled": "Untitled"
+  "Untitled": "Untitled",
+  "name": "name",
+  "value": "value",
+  "Remove": "Remove",
+  "They belong to this desk, so one message serves every project.": "They belong to this desk, so one message serves every project."
  }
 }

@@ -1523,6 +1523,28 @@ textarea.baton {
   resize: vertical;
 }
 
+/* The desk's placeholders: two boxes and a way to remove the row. */
+.varsgrid {
+  display: grid;
+  grid-template-columns: minmax(6rem, 12rem) 1fr auto;
+  gap: .35rem;
+  align-items: center;
+  margin: .4rem 0 .6rem;
+}
+.varsgrid input {
+  min-height: var(--tap);
+  min-width: 0;
+  padding: 0 .7rem;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: .5rem;
+  color: var(--text);
+  font: 12.5px/1 ui-monospace, "SF Mono", Menlo, monospace;
+}
+.varsgrid input.varname { color: var(--accent); }
+.varsgrid input:focus { border-color: var(--accent); outline: none; }
+.varsgrid .winbtn { justify-self: center; }
+
 /* Writing the messages, as opposed to sending one. */
 .msgwrap { padding: .9rem 1rem 2rem; max-width: 46rem; }
 .msghead { font-size: .95rem; color: var(--bright); margin: 1.2rem 0 .3rem; }

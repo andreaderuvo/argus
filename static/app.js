@@ -2685,22 +2685,74 @@ async function screenMessages() {
   const vars = deskVars(ws.id);
 
   /* ---------------------------------------------------------------- placeholders */
-  const varsBox = el('textarea', {
-    className: 'baton vars', spellcheck: false, rows: 5, value: varsToText(vars),
-    placeholder: 'paper = main.tex\njournal = BMC Genomics',
-  });
-  varsBox.addEventListener('input', () => {
-    prefs.vars[ws.id] = varsFromText(varsBox.value);
+  // A grid with two boxes per row, not one line you have to punctuate: `name = value`
+  // is quick to write and a nuisance to edit, and the `=` becomes something to fight.
+  const grid = el('div', { className: 'varsgrid' });
+  let rows = Object.entries(vars).map(([name, value]) => ({ name, value }));
+
+  const keep = () => {
+    const kept = {};
+    for (const row of rows) {
+      const name = row.name.trim().replace(/^\{|\}$/g, '');
+      if (/^[\w.-]+$/.test(name) && row.value.trim()) kept[name] = row.value.trim();
+    }
+    prefs.vars[ws.id] = kept;
     savePrefs();
+    Object.keys(vars).forEach((k) => delete vars[k]);
+    Object.assign(vars, kept);
     drawTemplates();
-  });
+  };
+
+  function drawVars() {
+    grid.replaceChildren();
+    // One empty row waiting at the bottom: adding is typing, not finding a button.
+    const shown = [...rows, { name: '', value: '', fresh: true }];
+    shown.forEach((row, i) => {
+      const name = el('input', { type: 'text', className: 'varname', value: row.name, spellcheck: false, placeholder: t('name') });
+      const value = el('input', { type: 'text', className: 'varvalue', value: row.value, spellcheck: false, placeholder: t('value') });
+      const drop = el('button', { className: 'winbtn', title: t('Remove') }, icon('close'));
+      drop.hidden = !!row.fresh;
+      drop.onclick = () => { rows.splice(i, 1); keep(); drawVars(); };
+
+      const touched = () => {
+        row.name = name.value;
+        row.value = value.value;
+        if (row.fresh && (row.name || row.value)) {
+          delete row.fresh;
+          rows.push(row);
+          drop.hidden = false;
+          grid.append(...blank());          // a new empty one takes its place
+        }
+        keep();
+      };
+      name.addEventListener('input', touched);
+      value.addEventListener('input', touched);
+      grid.append(name, value, drop);
+    });
+  }
+  const blank = () => {
+    const row = { name: '', value: '', fresh: true };
+    const name = el('input', { type: 'text', className: 'varname', spellcheck: false, placeholder: t('name') });
+    const value = el('input', { type: 'text', className: 'varvalue', spellcheck: false, placeholder: t('value') });
+    const drop = el('button', { className: 'winbtn', hidden: true });
+    const touched = () => {
+      row.name = name.value;
+      row.value = value.value;
+      if (row.fresh && (row.name || row.value)) { delete row.fresh; rows.push(row); grid.append(...blank()); }
+      keep();
+    };
+    name.addEventListener('input', touched);
+    value.addEventListener('input', touched);
+    return [name, value, drop];
+  };
 
   wrap.append(
     el('h2', { className: 'msghead', textContent: t('Placeholders in {desk}', { desk: ws.name }) }),
-    el('p', { className: 'hint', textContent: t('one per line, name = value. They belong to this desk, so one template serves every project.') }),
-    varsBox,
+    el('p', { className: 'hint', textContent: t('They belong to this desk, so one message serves every project.') }),
+    grid,
     el('p', { className: 'hint', textContent: t('Always there, from the situation itself: {folder} is the working directory of the session handing over, {from} and {to} are the two sessions.') }),
   );
+  drawVars();
 
   /* ---------------------------------------------------------------- the library */
   const list = el('div', { className: 'msglist' });
