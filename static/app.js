@@ -4206,6 +4206,10 @@ async function screenWall() {
     const deck = deckFor(activeSpace());
     syncDeck(deck);
     for (const d of decks.values()) d.node.classList.toggle('on', d === deck);
+    // The toolbar belongs to the desk on screen: both of these say something about *this*
+    // desk, and left alone they went on showing the last one's numbers.
+    deck.paintChain();
+    paintTally();
     drawTabs();
     requestAnimationFrame(() => deck.open.forEach((o) => o.handle.relayout()));
   }
@@ -4474,6 +4478,7 @@ async function screenWall() {
 
   // One tray per desk: opening it twice would be two views of the same list, and the
   // second would take the first one's place in the layout.
+  const trayCount = el('span', { className: 'tally', hidden: true });
   tools.append(el('button', {
     className: 'winbtn wide',
     title: t('Everything printed in this desk that can be opened'),
@@ -4484,7 +4489,16 @@ async function screenWall() {
       if (there) raiseWindow(there);
       else openWindow({ kind: 'links' });
     },
-  }, [icon('link'), el('span', { textContent: t('Links') })]));
+  }, [icon('link'), el('span', { textContent: t('Links') }), trayCount]));
+
+  /** How many are waiting in this desk's tray. Counted for the desk on screen only: the
+   *  others have their own, and showing somebody else's number would be a lie. */
+  function paintTally() {
+    const n = deskLinks(activeSpace().id).length;
+    trayCount.textContent = String(n);
+    trayCount.hidden = !n;
+  }
+  trayTally = (id) => { if (id === activeSpace().id) paintTally(); };
 
   const browserBtn = el('button', {
     className: 'winbtn wide',
@@ -4554,6 +4568,7 @@ async function screenWall() {
       syncDeck(deck);
       for (const d of decks.values()) d.node.classList.toggle('on', d === deck);
       deck.paintChain();
+      paintTally();
       drawTabs();
       deck.open.forEach((o) => o.handle.relayout());
     },
@@ -4568,6 +4583,7 @@ async function screenWall() {
       requestAnimationFrame(() => entry.handle.relayout());
     },
     dispose: () => {
+      trayTally = null;
       wallRO.disconnect();
       for (const deck of decks.values()) deck.open.forEach((o) => o.handle.dispose());
       decks.clear();
@@ -5119,6 +5135,7 @@ function toggleChain(wsId, name) {
  *  keeps a short list of everything worth clicking. */
 const LINK_CAP = 200;
 const trayWatch = new Map();          // desk id -> redraw its tray window
+let trayTally = null;                 // and the toolbar's count, open window or not
 
 function deskLinks(id) {
   prefs.links = prefs.links || {};
@@ -5136,6 +5153,9 @@ function noteLinks(id, found) {
   if (have.length > LINK_CAP) have.length = LINK_CAP;
   savePrefs();
   trayWatch.get(id)?.();
+  // The count is on the toolbar button, so it has to move whether or not the tray window
+  // is open — which is the whole point of a count you can see from across the desk.
+  trayTally?.(id);
 }
 
 /** Watch a terminal for things worth keeping.
@@ -5336,6 +5356,7 @@ function attachTray(host, wsId, extras, deliver) {
         all.splice(all.indexOf(item), 1);
         savePrefs();
         draw();
+        trayTally?.(wsId);
       };
       list.append(el('div', { className: 'trayline' }, [row, grab, drop]));
     }
@@ -5347,6 +5368,7 @@ function attachTray(host, wsId, extras, deliver) {
     prefs.links[wsId] = [];
     savePrefs();
     draw();
+    trayTally?.(wsId);
   };
   extras.append(empty);
 
