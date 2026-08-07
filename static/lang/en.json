@@ -373,6 +373,12 @@
   "Nothing in here yet.": "Nothing in here yet.",
   "A desk picks which set it uses, from its own ⋮ menu. {desk} is on {set}.": "A desk picks which set it uses, from its own ⋮ menu. {desk} is on {set}.",
   "Grouped into folders you name. Each folder has its own Add here.": "Grouped into folders you name. Each folder has its own Add here.",
-  "Folders you name, each with its own messages.": "Folders you name, each with its own messages."
+  "Folders you name, each with its own messages.": "Folders you name, each with its own messages.",
+  "What to hand to an agent": "What to hand to an agent",
+  "Write the messages": "Write the messages",
+  "The messages you hand to an agent, kept open": "The messages you hand to an agent, kept open",
+  "drag one onto a terminal, or tap it": "drag one onto a terminal, or tap it",
+  "{name} put into {session}": "{name} put into {session}",
+  "no session in this desk to send it to": "no session in this desk to send it to"
  }
 }

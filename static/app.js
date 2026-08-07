@@ -2704,7 +2704,10 @@ async function screenMessages() {
       }));
     }
   };
-  const draw = () => ((prefs.msgTab || 'messages') === 'vars' ? drawVarsPane() : drawMessagePane());
+  const draw = () => {
+    messagesChanged();          // any Messages window on a desk follows what you write here
+    return (prefs.msgTab || 'messages') === 'vars' ? drawVarsPane() : drawMessagePane();
+  };
 
   /* ================================================================ messages */
   function drawMessagePane() {
@@ -4265,11 +4268,12 @@ async function screenWall() {
       const isFile = spec.kind === 'file';
       const isBrowser = spec.kind === 'browser';
       const label = spec.kind === 'term' ? spec.name
-        : spec.kind === 'links' ? t('Links')
+        : spec.kind === 'messages' ? t('Messages')
+          : spec.kind === 'links' ? t('Links')
           : spec.kind === 'web' ? (spec.label || spec.url)
             : (spec.path.split('/').pop() || spec.path);
 
-      const isTray = spec.kind === 'links';
+      const isTray = spec.kind === 'links' || spec.kind === 'messages';
       const body = el('div', { className: `winbody${isFile || isBrowser ? ' filebody' : ''}${isBrowser ? ' browserbody' : ''}${isTray ? ' traybody' : ''}` });
       const win = el('div', { className: 'win' });
       win.dataset.kind = spec.kind;
@@ -4284,7 +4288,9 @@ async function screenWall() {
       const solo = el('button', { className: 'winbtn', title: t('Full screen') }, icon('maximise'));
       const title = el('span', {
         className: 'wintitle',
-        title: spec.kind === 'term' ? label : isTray ? t('What went past in this desk') : (spec.path || spec.url),
+        title: spec.kind === 'term' ? label
+          : spec.kind === 'messages' ? t('What to hand to an agent')
+            : isTray ? t('What went past in this desk') : (spec.path || spec.url),
         textContent: label,
       });
       const setLabel = (text, full) => { title.textContent = text; title.title = full; };
@@ -4292,10 +4298,16 @@ async function screenWall() {
       win.append(head, body);
       node.append(win);
 
-      const handle = isTray ? attachTray(body, ws.id, extras, {
+      const handle = spec.kind === 'messages' ? attachMessages(body, ws.id, extras, {
         find: (node) => open.find((o) => o.win === node),
-        drop: deliverLink,
+        terminals: () => open.filter((o) => o.name.startsWith('term:')),
+        folder: () => deskFolder(),
+        raise: raiseWindow,
       })
+        : isTray ? attachTray(body, ws.id, extras, {
+          find: (node) => open.find((o) => o.win === node),
+          drop: deliverLink,
+        })
         : spec.kind === 'web' ? attachWeb(body, spec, setLabel)
         // Where a browser *lands* is the desk's business, not the folder it happened to
         // be left in: reopening a desk should put you where that desk starts.
@@ -5096,6 +5108,16 @@ async function screenWall() {
   }
   trayTally = (id) => { if (id === activeSpace().id) paintTally(); };
 
+  tools.append(el('button', {
+    className: 'winbtn wide',
+    title: t('The messages you hand to an agent, kept open'),
+    onclick: () => {
+      const there = deckFor(activeSpace()).open.find((o) => o.name === 'messages');
+      if (there) raiseWindow(there);
+      else openWindow({ kind: 'messages' });
+    },
+  }, [icon('relay'), el('span', { textContent: t('Messages') })]));
+
   const browserBtn = el('button', {
     className: 'winbtn wide',
     onclick: () => openWindow({ kind: 'browser', id: nextWindowId(), path: deskFolder() }),
@@ -5847,6 +5869,93 @@ function fillBaton(text, known) {
 const unknownVars = (text, known) =>
   [...new Set([...text.matchAll(/\{([\w.-]+)\}/g)].map((m) => m[1]))].filter((n) => !(n in known));
 
+/** The messages, as a window that stays open.
+ *
+ *  The sheet behind the ⇄ button is right when a turn has just ended and you are deciding
+ *  what to say. It is wrong when you are doing this all afternoon: a modal you open, aim
+ *  and dismiss thirty times is thirty times too many. Left open on the desk, a message is
+ *  something you drag onto a terminal — the same gesture as a path out of the link tray,
+ *  already learnt.
+ */
+function attachMessages(host, wsId, extras, deliver) {
+  const list = el('div', { className: 'traylist msgpane' });
+  host.append(list);
+
+  /** Who the message is coming *from*: the other terminal, since a message dropped on B
+   *  is work being handed over by A. With one terminal it is that one. */
+  const senderFor = (target) => {
+    const terms = deliver.terminals();
+    return terms.find((o) => o !== target) || target;
+  };
+
+  const send = async (kind, target) => {
+    if (!target) return;
+    const from = senderFor(target);
+    const fromName = from?.name.slice(5) || '';
+    const toName = target.name.slice(5);
+    let folder = '';
+    try { folder = (await getJSON(`/api/tmux/cwd?session=${encodeURIComponent(fromName)}`)).cwd || ''; } catch { /* the desk's then */ }
+    const known = { ...allVars(wsId), folder: folder || deliver.folder(), from: fromName, to: toName };
+    target.handle.send(fillBaton(kind.text, known));
+    target.handle.focus();
+    deliver.raise(target);
+    toast(t('{name} put into {session}', { name: kind.name, session: toName }));
+  };
+
+  const draw = () => {
+    list.replaceChildren();
+    list.append(el('p', { className: 'hint', textContent: t('drag one onto a terminal, or tap it') }));
+    for (const group of batonGroups()) {
+      const mine = batonTemplates().filter((x) => x.group === group);
+      if (!mine.length) continue;
+      const folder = el('details', { className: 'msgfolder', open: true });
+      folder.append(el('summary', {}, [icon('folder'), el('span', { textContent: group })]));
+      for (const kind of mine) {
+        const row = el('button', { className: 'trayrow', title: kind.text.split('\n')[0] }, [
+          icon('relay'),
+          el('span', { className: 'trayleaf', textContent: kind.name }),
+        ]);
+        dragLink(row, { text: kind.name, message: kind }, deliver.find, (item, target) => send(item.message, target));
+        row.onclick = () => {
+          if (row.dataset.dragged) return;
+          const terms = deliver.terminals();
+          if (!terms.length) return toast(t('no session in this desk to send it to'), true);
+          if (terms.length === 1) return send(kind, terms[0]);
+          // More than one: say which, rather than guessing.
+          const body = el('div', { className: 'sheetbody actions' });
+          let sheet;
+          for (const target of terms) {
+            body.append(el('button', {
+              className: 'ghost block',
+              onclick: () => { sheet.close(); send(kind, target); },
+            }, [icon('terminal'), el('span', { textContent: target.name.slice(5) })]));
+          }
+          sheet = modal(kind.name, body, [
+            el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),
+          ]);
+        };
+        folder.append(el('div', { className: 'trayline' }, [row]));
+      }
+      list.append(folder);
+    }
+  };
+
+  const edit = el('button', { className: 'winbtn', title: t('Write the messages') }, icon('rename'));
+  edit.onclick = () => go('#/messages');
+  extras.append(edit);
+
+  msgWatch.add(draw);
+  draw();
+  return {
+    dispose: () => msgWatch.delete(draw),
+    relayout: () => {},
+  };
+}
+
+/** Message windows redraw when the library changes under them. */
+const msgWatch = new Set();
+const messagesChanged = () => { for (const draw of msgWatch) draw(); };
+
 /* ------------------------------------------------------------------ chained terminals */
 
 /** Typing once into several sessions.
@@ -5987,6 +6096,8 @@ function whatDrop(win, item) {
   const kind = win?.dataset?.kind;
   if (!win || !kind) return null;
   if (kind === 'term') return { verb: t('type it here'), win };
+  // A message is an instruction for an agent; a file browser has nothing to do with it.
+  if (item.message) return null;
   if (kind === 'browser' && !item.url) return { verb: t('show it here'), win };
   return null;
 }
@@ -6138,6 +6249,7 @@ function attachTray(host, wsId, extras, deliver) {
  *  Those carry an id of their own, so two of them can sit in one desk on the same folder
  *  and neither loses its place in the layout when you navigate. */
 const specId = (spec) => (spec.kind === 'links' ? 'links'
+  : spec.kind === 'messages' ? 'messages'
   : spec.kind === 'term' ? `term:${spec.name}`
   : spec.kind === 'web' ? `web:${spec.url}`
     : spec.kind === 'browser' && spec.id ? `browser:${spec.id}`
