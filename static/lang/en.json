@@ -313,6 +313,8 @@
   "handed to {session} and started": "handed to {session} and started",
   "handed to {session} — press Enter there when you are happy with it": "handed to {session} — press Enter there when you are happy with it",
   "going out to be looked at": "going out to be looked at",
-  "coming back to {who}, who made it": "coming back to {who}, who made it"
+  "coming back to {who}, who made it": "coming back to {who}, who made it",
+  "{folder} is {path}": "{folder} is {path}",
+  "It goes into their prompt without an Enter, so you can still change it there.": "It goes into their prompt without an Enter, so you can still change it there."
  }
 }

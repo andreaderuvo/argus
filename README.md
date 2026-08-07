@@ -126,7 +126,10 @@ services.</sub>
   what travels between them is not the work but a baton: a short sentence and a pointer.
   When one finishes — the bell knows — a button offers to type the sentence into the
   other's prompt, without an Enter. Two patterns, and they differ in behaviour rather
-  than only in wording: **Referee** (one makes, the other reviews without editing and
+  than only in wording. The sentence points at the *sending session's own working
+  directory* — a desk's folder decides where its browsers land and says nothing about
+  where tmux put the agent, and pointing a reviewer at a folder its counterpart was never
+  in wastes the whole round. Two patterns: **Referee** (one makes, the other reviews without editing and
   ends on a verdict; the return leg is a fix) and **Relay** (both improve the same work
   in turn, and the same sentence goes each way). Argus remembers who made it, so the
   direction is worked out for you. Deliberately not a loop: automating the round trip is

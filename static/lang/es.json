@@ -313,6 +313,8 @@
   "handed to {session} and started": "pasado a {session} y arrancado",
   "handed to {session} — press Enter there when you are happy with it": "pasado a {session} — el Enter lo das tú cuando te convenza",
   "going out to be looked at": "va al otro para que lo examine",
-  "coming back to {who}, who made it": "vuelve a {who}, que lo hizo"
+  "coming back to {who}, who made it": "vuelve a {who}, que lo hizo",
+  "{folder} is {path}": "{folder} es {path}",
+  "It goes into their prompt without an Enter, so you can still change it there.": "Llega a su prompt sin Enter, así que aún puedes cambiarlo allí."
  }
 }
