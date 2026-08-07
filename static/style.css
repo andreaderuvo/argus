@@ -1490,6 +1490,10 @@ button.winbtn.bellbtn.off { color: var(--dim); opacity: .75; }
 /* Handing the work to the other agent. */
 button.winbtn.relaybtn.due { color: var(--accent); }
 .batonpresets { display: flex; flex-wrap: wrap; gap: .35rem; margin: .2rem 0 .5rem; }
+/* The groups sit on their own line above the messages in the one you picked. */
+.batongroups { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: .35rem; margin-bottom: .2rem; }
+.batongroups .ghost.dup { font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; }
+.batongroups .ghost.dup.on { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
 .batonpresets .ghost.dup { position: relative; padding-right: .7rem; }
 .batonpresets .drop { margin-left: .35rem; opacity: .5; font-weight: 700; }
 .batonpresets .drop:hover { opacity: 1; color: var(--danger); }
@@ -1582,3 +1586,14 @@ textarea.baton {
   color: var(--bright); font: inherit; font-weight: 600;
 }
 .msgcard .hint { padding: 0; margin: .5rem 0 .25rem; }
+.grouphead { display: flex; align-items: baseline; gap: .6rem; margin: .9rem 0 -.2rem; }
+.grouphead h3 { margin: 0; font-size: .85rem; color: var(--accent); letter-spacing: .04em; text-transform: uppercase; }
+.msglist > .grouphead:first-of-type { margin-top: .2rem; }
+.msgfoot { display: flex; align-items: center; gap: .4rem; margin-top: .5rem; }
+.msgfoot .meta { flex: none; }
+input.groupbox {
+  flex: 1; min-width: 0; min-height: 2rem; padding: 0 .6rem;
+  background: var(--bg); border: 1px dashed var(--line); border-radius: .5rem;
+  color: var(--dim); font: inherit; font-size: .8rem;
+}
+input.groupbox:focus { border-style: solid; border-color: var(--accent); color: var(--text); outline: none; }
