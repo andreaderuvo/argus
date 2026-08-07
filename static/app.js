@@ -4514,6 +4514,19 @@ async function screenWall() {
       const title = o.win.querySelector('.wintitle')?.textContent || o.name;
       const kind = o.name.split(':')[0];
 
+      const under = el('span', {
+        className: 'meta',
+        textContent: t(kind === 'term' ? 'session' : kind === 'browser' ? 'files' : kind === 'web' ? 'page' : kind === 'links' ? 'the tray' : 'document'),
+      });
+      // For a terminal the useful second line is not the word "session" — it is where
+      // that session actually is, which is otherwise written down nowhere.
+      if (kind === 'term') {
+        const name = o.name.slice(5);
+        getJSON(`/api/tmux/cwd?session=${encodeURIComponent(name)}`)
+          .then((answer) => { if (answer.cwd) under.replaceChildren(bidi(answer.cwd)); })
+          .catch(() => {});
+      }
+
       body.append(el('button', {
         className: 'ghost block',
         onclick: () => { sheet.close(); raiseWindow(o); },
@@ -4521,7 +4534,7 @@ async function screenWall() {
         dot,
         el('span', { className: 'grow' }, [
           el('span', { className: 'name', textContent: title }),
-          el('span', { className: 'meta', textContent: t(kind === 'term' ? 'session' : kind === 'browser' ? 'files' : kind === 'web' ? 'page' : kind === 'links' ? 'the tray' : 'document') }),
+          under,
         ]),
         buried ? el('span', { className: 'state warning', textContent: t('hidden') })
           : adrift ? el('span', { className: 'state warning', textContent: t('off the desk') })
