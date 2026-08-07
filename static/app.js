@@ -362,6 +362,19 @@ const parentOf = (p) => p.replace(/\/[^/]*$/, '') || '/';
  *  land in from the phone is rarely the one you want at the desk. */
 const homePath = (roots) => prefs.home || roots[0];
 
+/** Where a desk starts, as a path.
+ *
+ *  What is stored may be written with placeholders — `{folder}`, `{paper}` — so that a
+ *  desk pointed at a project does not repeat what its placeholder set already says. If
+ *  one of them has nothing to fill it, the desk falls back to the home directory rather
+ *  than sending a browser to a folder with a brace in its name. */
+function deskHome(ws) {
+  const raw = ws?.home;
+  if (!raw) return homePath(server?.roots || ['/']);
+  const filled = fillBaton(raw, allVars(ws.id));
+  return /\{[\w.-]+\}/.test(filled) ? homePath(server?.roots || ['/']) : filled;
+}
+
 function setHome(path) {
   prefs.home = path;
   savePrefs();
@@ -2707,7 +2720,7 @@ async function screenMessages() {
   // silly price.
   let previewSet = deskSetName(ws.id);
   const sample = () => ({
-    folder: ws.home || homePath(server?.roots || ['/']),
+    folder: deskHome(ws),
     from: 'claude',
     to: 'codex',
     ...groundVars(),
@@ -4107,7 +4120,7 @@ async function screenWall() {
    */
   function landingFor(ws, spec) {
     if (spec.fresh) { delete spec.fresh; return spec.path; }
-    return ws.home || homePath(server?.roots || ['/']);
+    return deskHome(ws);
   }
 
   /** One workspace's windows. Built the first time you open the tab and kept alive after,
@@ -4472,7 +4485,12 @@ async function screenWall() {
       ws.home = path;
       savePrefs();
       sayWhereBrowsersOpen();
-      toast(path ? t('{desk} starts in {path}', { desk: ws.name, path }) : t('{desk} follows the usual home', { desk: ws.name }));
+      // Say the real folder, not the placeholder: "starts in {folder}" tells you nothing
+      // about where it starts.
+      const real = deskHome(ws);
+      toast(path
+        ? t('{desk} starts in {path}', { desk: ws.name, path: path === real ? path : `${path} → ${real}` })
+        : t('{desk} follows the usual home', { desk: ws.name }));
       sheet.close();
     };
 
@@ -4525,8 +4543,21 @@ async function screenWall() {
       suggest();
     };
 
+    const resolved = el('p', { className: 'hint' });
+    const sayResolved = () => {
+      const written = field.value.trim();
+      if (!written.includes('{')) { resolved.textContent = ''; resolved.hidden = true; return; }
+      const filled = fillBaton(expand(written), allVars(ws.id));
+      const gaps = unknownVars(written, allVars(ws.id));
+      resolved.hidden = false;
+      resolved.className = gaps.length ? 'hint warn' : 'hint';
+      resolved.textContent = gaps.length
+        ? t('nothing to put in {list}', { list: gaps.map((g) => `{${g}}`).join(' ') })
+        : `→ ${filled}`;
+    };
+
     let timer;
-    field.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(suggest, 160); });
+    field.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(suggest, 160); sayResolved(); });
     field.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { e.preventDefault(); confirm(); return; }
       if (e.key !== 'Tab' || e.shiftKey) return;
@@ -4547,13 +4578,23 @@ async function screenWall() {
 
     const confirm = async () => {
       if (!field.value.trim()) return apply('');        // cleared by hand: no folder of its own
-      const path = expand(field.value).replace(/(.)\/+$/, '$1');
+      const written = expand(field.value).replace(/(.)\/+$/, '$1');
+      // Placeholders are allowed here, and what is stored keeps them: the desk follows
+      // its set, so changing the set moves the desk with it. Only the filled-in version
+      // is checked, since that is the one a browser will be sent to.
+      const path = fillBaton(written, allVars(ws.id));
+      const gaps = unknownVars(written, allVars(ws.id));
+      if (gaps.length) {
+        toast(t('nothing to put in {list}', { list: gaps.map((g) => `{${g}}`).join(' ') }), true);
+        field.focus();
+        return;
+      }
       use.disabled = true;
       try {
         // It has to be there, and be a folder: a desk that starts nowhere sends every
         // browser back to the home directory with no explanation.
         await getJSON(`/api/files?path=${encodeURIComponent(path)}`);
-        apply(path);
+        apply(written);
       } catch {
         toast(t('There is no folder at {path}', { path }), true);
         field.focus();
@@ -4563,7 +4604,9 @@ async function screenWall() {
     };
     use.onclick = confirm;
 
-    body.append(el('div', { className: 'pathpick' }, [field, use]), hints);
+    body.append(el('div', { className: 'pathpick' }, [field, use]), resolved, hints);
+    sayResolved();
+    body.append(el('p', { className: 'hint', textContent: t('A placeholder works here too — {folder}, {paper} — filled from this desk\u2019s set.') }));
     body.append(el('div', { className: 'sheetsep' }));
 
     const quick = (path, glyph, note) => {
@@ -4608,7 +4651,7 @@ async function screenWall() {
     item('rename', t('Rename…'), rename);
     item('star', t('Change colour…'), () => pickColor(`ws:${ws.id}`, drawTabs));
     item('folder', ws.home
-      ? t('Opens in {folder}…', { folder: ws.home.split('/').pop() || ws.home })
+      ? t('Opens in {folder}…', { folder: deskHome(ws).split('/').pop() || deskHome(ws) })
       : t('Choose the folder it opens in…'),
       () => deskFolderSheet(ws));
     item('relay', t('Placeholders: {set}', { set: deskSetName(ws.id) }), () => {
@@ -4874,7 +4917,7 @@ async function screenWall() {
       onclick: async () => {
         sheet.close();
         // In the desk's folder, for the same reason the browser opens there.
-        const name = await createSession({ path: activeSpace().home || undefined });
+        const name = await createSession({ path: activeSpace().home ? deskHome(activeSpace()) : undefined });
         if (name) openWindow({ kind: 'term', name });
       },
     }, [icon('folderPlus'), el('span', { textContent: t('Start a new session…') })]));
@@ -4893,7 +4936,7 @@ async function screenWall() {
   /** Where this desk starts. A workspace is usually *about* something — one project, one
    *  run — so a browser opened in it should land there, not in the same home directory
    *  every other desk lands in. */
-  const deskFolder = () => activeSpace().home || homePath(server?.roots || ['/']);
+  const deskFolder = () => deskHome(activeSpace());
 
   /** Every window in this desk, and which of them you cannot see.
    *
