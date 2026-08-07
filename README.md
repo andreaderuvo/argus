@@ -181,8 +181,11 @@ services.</sub>
   point of handing it over; onto a file browser that folder is shown. Holding the line
   starts the drag on a phone too, so the list still scrolls. There is a copy button on
   each line for the times you want it on the clipboard instead.
-- **The Links button carries the count**, and it moves as things are printed whether or
-  not the tray is open — per desk, so switching tabs shows that desk's own number.
+- **Numbers where they are useful**: the Links button carries how many are waiting and
+  moves as things are printed whether or not the tray is open; the List button carries how
+  many windows the desk holds; the Sessions tab carries how many tmux sessions exist, and
+  turns amber while one of them is waiting for you. All of them are about the desk you are
+  on, so switching tabs shows that desk's own numbers.
 - **A link tray per desk.** What an agent produces is mostly *references* — where it
   wrote the report, what port it is serving on, which file failed — and by the time you
   have read the sentence it is four screens up. The tray catches every absolute path and
