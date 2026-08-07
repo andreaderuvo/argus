@@ -236,6 +236,9 @@ services.</sub>
   many windows the desk holds; the Sessions tab carries how many tmux sessions exist, and
   turns amber while one of them is waiting for you. All of them are about the desk you are
   on, so switching tabs shows that desk's own numbers.
+- **The tray can empty itself**: 1, 3, 5, 10, 30 minutes or never, per desk. It drops
+  what is older than the span rather than wiping the lot on a timer, so a link that just
+  arrived is never snatched away.
 - **A link tray per desk.** What an agent produces is mostly *references* — where it
   wrote the report, what port it is serving on, which file failed — and by the time you
   have read the sentence it is four screens up. The tray catches every absolute path and
