@@ -315,6 +315,14 @@
   "going out to be looked at": "going out to be looked at",
   "coming back to {who}, who made it": "coming back to {who}, who made it",
   "{folder} is {path}": "{folder} is {path}",
-  "It goes into their prompt without an Enter, so you can still change it there.": "It goes into their prompt without an Enter, so you can still change it there."
+  "It goes into their prompt without an Enter, so you can still change it there.": "It goes into their prompt without an Enter, so you can still change it there.",
+  "Save as…": "Save as…",
+  "keep this wording as a template of your own": "keep this wording as a template of your own",
+  "Name for this template": "Name for this template",
+  "Forget this template": "Forget this template",
+  "Placeholders for this desk": "Placeholders for this desk",
+  "one per line, name = value. Always available: {folder} {from} {to}": "one per line, name = value. Always available: {folder} {from} {to}",
+  "nothing to put in {list} — they will go across as they are": "nothing to put in {list} — they will go across as they are",
+  "what will be typed over there:": "what will be typed over there:"
  }
 }

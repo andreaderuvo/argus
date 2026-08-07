@@ -126,14 +126,24 @@ services.</sub>
   what travels between them is not the work but a baton: a short sentence and a pointer.
   When one finishes — the bell knows — a button offers to type the sentence into the
   other's prompt, without an Enter. Two patterns, and they differ in behaviour rather
-  than only in wording. The sentence points at the *sending session's own working
-  directory* — a desk's folder decides where its browsers land and says nothing about
-  where tmux put the agent, and pointing a reviewer at a folder its counterpart was never
-  in wastes the whole round. Two patterns: **Referee** (one makes, the other reviews without editing and
-  ends on a verdict; the return leg is a fix) and **Relay** (both improve the same work
-  in turn, and the same sentence goes each way). Argus remembers who made it, so the
-  direction is worked out for you. Deliberately not a loop: automating the round trip is
-  the part to add last, once the sentence has proved itself.
+  than only in wording.
+
+  It comes with **Referee** (one makes, the other reviews without editing and ends on a
+  verdict; the return leg is a fix) and **Relay** (both improve the same work in turn),
+  and you can save your own — a template library that follows you between desks. The
+  sheet **shows what will actually be typed**, filled in, before anything is sent.
+
+  Templates are written with **placeholders**. Three come from the situation and cannot
+  be set: `{folder}` — the *sending session's own working directory*, since a desk's
+  folder says nothing about where tmux put the agent — plus `{from}` and `{to}`. The rest
+  are the desk's own: `paper = main.tex`, `journal = BMC Genomics`, whatever this desk is
+  about, so one wording serves every project. A placeholder with nothing to put in it is
+  flagged and passed through as written, where you can see it.
+
+  Which template comes up is the one you last sent *from that session*, which is how a
+  referee's outward and return sentences sort themselves out without anybody declaring a
+  direction. Deliberately not a loop: automating the round trip is the part to add last,
+  once the sentence has proved itself.
 - **Clickable paths.** Hovering a line asks the server which of its words are real files;
   those get underlined, and opening one shows it in the viewer *and* points the file
   browser at it. Relative paths resolve against the pane's own working directory. On a
