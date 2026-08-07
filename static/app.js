@@ -2566,6 +2566,16 @@ async function screenSettings() {
   conf.onclick = () => go('#/tmuxconf');
   wrap.append(conf);
 
+  const keys = el('div', { className: 'row setting' }, [
+    el('span', { className: 'grow' }, [
+      el('span', { className: 'name', textContent: t('Keyboard shortcuts') }),
+      el('span', { className: 'meta', textContent: t('see them all, and change any of them') }),
+    ]),
+    el('kbd', { textContent: keyFor('help') }),
+  ]);
+  keys.onclick = () => keyHelp();
+  wrap.append(keys);
+
   const messages = el('div', { className: 'row setting' }, [
     el('span', { className: 'grow' }, [
       el('span', { className: 'name', textContent: t('Prompts and placeholders') }),
@@ -5344,6 +5354,146 @@ function reorderTab(tab, strip, onDone) {
     window.addEventListener('pointerup', up);
     window.addEventListener('pointercancel', up);
   });
+}
+
+/* ------------------------------------------------------------------ shortcuts */
+
+/** Keys, and the one rule that shapes all of them: a terminal owns the keyboard.
+ *
+ *  Anything typed while a session has the focus belongs to that session — stealing even
+ *  one key from tmux would be worse than having no shortcuts at all. So these fire only
+ *  when the focus is somewhere else, and the help says so rather than leaving you to
+ *  wonder why nothing happened.
+ */
+const KEYS = [
+  { id: 'help', name: 'Keyboard shortcuts', key: '?' },
+  { id: 'files', name: 'Files', key: 'f' },
+  { id: 'sessions', name: 'Sessions', key: 's' },
+  { id: 'wall', name: 'Windows', key: 'w' },
+  { id: 'prompts', name: 'Prompts', key: 'p' },
+  { id: 'system', name: 'System', key: 'y' },
+  { id: 'settings', name: 'Settings', key: ',' },
+  { id: 'sidebar', name: 'Show or hide the file sidebar', key: 'b' },
+  { id: 'full', name: 'Full screen', key: 'F11' },
+  { id: 'browser', name: 'New file browser in this desk', key: 'n' },
+  { id: 'links', name: 'The link tray', key: 'l' },
+  { id: 'messages', name: 'The prompts window', key: 'm' },
+  { id: 'nextDesk', name: 'Next desk', key: ']' },
+  { id: 'prevDesk', name: 'Previous desk', key: '[' },
+];
+
+/** What a key press is called, so it can be compared and shown. */
+function keyName(e) {
+  const bits = [];
+  if (e.ctrlKey) bits.push('ctrl');
+  if (e.altKey) bits.push('alt');
+  if (e.metaKey) bits.push('meta');
+  // Shift is part of the character on a printable key — "?" already says shift — and a
+  // modifier of its own on the named ones.
+  if (e.shiftKey && e.key.length > 1) bits.push('shift');
+  bits.push(e.key.length === 1 ? e.key : e.key);
+  return bits.join('+');
+}
+
+const keyFor = (id) => (prefs.keys?.[id] ?? KEYS.find((k) => k.id === id)?.key ?? '');
+
+/** Whoever has the focus may need the key more than we do. */
+function keyboardIsTaken() {
+  const node = document.activeElement;
+  if (!node) return false;
+  if (node.isContentEditable) return true;
+  if (/^(input|textarea|select)$/i.test(node.tagName)) return true;
+  // xterm keeps a hidden textarea; the check above catches it, but a click on the canvas
+  // leaves the focus on a div inside the terminal, which still means "typing in there".
+  return !!node.closest?.('.xterm, .win[data-kind="term"]');
+}
+
+function runKey(id) {
+  const wall = () => document.getElementById('walltools');
+  const press = (label) => [...(wall()?.querySelectorAll('button') || [])]
+    .find((b) => new RegExp(label, 'i').test(b.textContent))?.click();
+  const desk = (step) => {
+    const tabs = [...document.querySelectorAll('#walltabs .wstab[data-ws]')];
+    if (tabs.length < 2) return;
+    const at = tabs.findIndex((n) => n.classList.contains('on'));
+    tabs[(at + step + tabs.length) % tabs.length].click();
+  };
+  const jobs = {
+    help: () => keyHelp(),
+    files: () => go('#/files'),
+    sessions: () => go('#/sessions'),
+    wall: () => go('#/wall'),
+    prompts: () => go('#/prompts'),
+    system: () => go('#/system'),
+    settings: () => go('#/settings'),
+    sidebar: () => { prefs.sidebar = !prefs.sidebar; savePrefs(); applySidebar(); },
+    full: () => bar.full.click(),
+    browser: () => { go('#/wall'); press('browser'); },
+    links: () => { go('#/wall'); press('links'); },
+    messages: () => { go('#/wall'); press('prompt|messag'); },
+    nextDesk: () => desk(1),
+    prevDesk: () => desk(-1),
+  };
+  jobs[id]?.();
+}
+
+window.addEventListener('keydown', (e) => {
+  if (!token || e.repeat || keyboardIsTaken()) return;
+  if (document.querySelector('dialog.sheet[open]') && e.key !== 'Escape') {
+    // A sheet is a conversation; let it finish.
+    if (!document.querySelector('dialog.keyhelp[open]')) return;
+  }
+  const pressed = keyName(e);
+  const hit = KEYS.find((k) => keyFor(k.id) === pressed);
+  if (!hit) return;
+  e.preventDefault();
+  runKey(hit.id);
+});
+
+/** The list of them, and the way to change one. */
+function keyHelp() {
+  if (document.querySelector('dialog.keyhelp[open]')) return;
+  const body = el('div', { className: 'sheetbody keylist' });
+  let sheet;
+
+  const draw = () => {
+    body.replaceChildren(el('p', { className: 'hint', textContent: t('These work when you are not typing: a terminal, or any box you are writing in, keeps the keyboard to itself.') }));
+    for (const action of KEYS) {
+      const shown = el('kbd', { textContent: keyFor(action.id) });
+      const row = el('button', { className: 'ghost block keyrow' }, [
+        el('span', { className: 'grow', textContent: t(action.name) }),
+        shown,
+      ]);
+      row.onclick = () => {
+        shown.textContent = t('press a key…');
+        shown.classList.add('listening');
+        const grab = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          window.removeEventListener('keydown', grab, true);
+          if (e.key === 'Escape') return draw();
+          prefs.keys = prefs.keys || {};
+          if (e.key === 'Backspace') delete prefs.keys[action.id];
+          else prefs.keys[action.id] = keyName(e);
+          savePrefs();
+          draw();
+        };
+        window.addEventListener('keydown', grab, true);
+      };
+      body.append(row);
+    }
+    body.append(el('button', {
+      className: 'ghost block wide',
+      textContent: t('Put the original keys back'),
+      onclick: () => { delete prefs.keys; savePrefs(); draw(); },
+    }));
+  };
+  draw();
+
+  sheet = modal(t('Keyboard shortcuts'), body, [
+    el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),
+  ]);
+  sheet.classList.add('keyhelp');
 }
 
 /* ------------------------------------------------------------------ bells */
