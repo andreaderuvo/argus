@@ -3667,9 +3667,11 @@ async function screenWall() {
 
     /** Hand the work to the other agent in this desk.
      *
-     *  The sheet shows the sentence before it goes, and it is editable and remembered:
-     *  finding the wording that works is the whole exercise, and it is not something
-     *  anybody gets right the first time. */
+     *  A template plus the desk's own placeholders. Which template comes up is the one
+     *  you last sent *from this session*, which is how a referee's outward and return
+     *  sentences sort themselves out without anybody declaring a direction — and it keeps
+     *  working when there are three sessions and five templates.
+     */
     function batonSheet(from) {
       const others = open.filter((o) => o.name.startsWith('term:') && o.name !== `term:${from}`);
       if (!others.length) return toast(t('there is no other session in this desk to hand to'), true);
@@ -3677,73 +3679,135 @@ async function screenWall() {
       const body = el('div', { className: 'sheetbody' });
       let sheet;
 
-      let leg = batonText(ws.id, from);
-      const note = el('textarea', { className: 'baton', spellcheck: false, rows: 7, value: leg.text });
-      const which = el('p', { className: 'meta' });
-      const preset = el('div', { className: 'batonpresets' });
-
-      const showLeg = () => {
-        which.textContent = leg.back
-          ? t('coming back to {who}, who made it', { who: leg.pair.maker })
-          : t('going out to be looked at');
-        for (const b of preset.children) b.classList.toggle('on', b.dataset.kind === leg.pair.kind);
-      };
-      for (const [key, kind] of Object.entries(BATONS)) {
-        const b = el('button', {
-          className: 'ghost dup',
-          textContent: t(kind.name),
-          title: key === 'referee' ? t('one produces, the other tries to break it') : t('both improve the same work, in turn'),
-          onclick: () => {
-            leg.pair.kind = key;
-            savePrefs();
-            leg = batonText(ws.id, from);
-            note.value = leg.text;
-            showLeg();
-          },
-        });
-        b.dataset.kind = key;
-        preset.append(b);
-      }
-      showLeg();
-
-      // Where the work is, which is the sending session's own directory — not the desk's
-      // folder. A desk's folder decides where its browsers land; it says nothing about
-      // where tmux put the agent, and pointing the reviewer at a folder its counterpart
-      // was never in wastes the whole round. The desk's is the fallback.
+      const pair = deskPair(ws.id);
+      const vars = deskVars(ws.id);
       let where = deskFolder();
+      let picked = pair.lastBy?.[from] ?? batonTemplates()[0]?.name;
+
+      const note = el('textarea', { className: 'baton', spellcheck: false, rows: 8 });
+      const chips = el('div', { className: 'batonpresets' });
       const said = el('p', { className: 'hint' });
-      const sayWhere = () => { said.textContent = t('{folder} is {path}', { folder: '{folder}', path: where }); };
-      sayWhere();
+      const missing = el('p', { className: 'hint warn' });
+      // What will actually be typed over there. A template is written with holes in it,
+      // and reading the holes is not the same as reading the sentence.
+      const preview = el('pre', { className: 'batonpreview' });
+
+      // Where the work is: the sending session's own directory, not the desk's folder.
       getJSON(`/api/tmux/cwd?session=${encodeURIComponent(from)}`)
-        .then((answer) => { if (answer.cwd) { where = answer.cwd; sayWhere(); } })
+        .then((answer) => { if (answer.cwd) { where = answer.cwd; describe(); } })
         .catch(() => {});
 
-      const fill = (text) => text
-        .replace(/\{folder\}/g, where)
-        .replace(/\{from\}/g, from);
+      const known = (to = '…') => ({ ...vars, folder: where, from, to });
+
+      function describe() {
+        const first = others[0].name.slice(5);
+        preview.textContent = fillBaton(note.value, known(first));
+        const gaps = unknownVars(note.value, known());
+        said.textContent = t('{folder} is {path}', { folder: '{folder}', path: where });
+        missing.textContent = gaps.length
+          ? t('nothing to put in {list} — they will go across as they are', { list: gaps.map((g) => `{${g}}`).join(' ') })
+          : '';
+        missing.hidden = !gaps.length;
+      }
+
+      function drawChips() {
+        chips.replaceChildren();
+        for (const kind of batonTemplates()) {
+          const chip = el('button', {
+            className: `ghost dup${kind.name === picked ? ' on' : ''}`,
+            textContent: kind.name,
+            onclick: () => { picked = kind.name; note.value = kind.text; drawChips(); describe(); },
+          });
+          if (!kind.stock) {
+            // Yours to delete; the ones it came with stay.
+            const gone = el('span', { className: 'drop', textContent: '×', title: t('Forget this template') });
+            gone.onclick = (e) => {
+              e.stopPropagation();
+              prefs.templates = batonTemplates().filter((x) => x !== kind);
+              savePrefs();
+              drawChips();
+            };
+            chip.append(gone);
+          }
+          chips.append(chip);
+        }
+        chips.append(el('button', {
+          className: 'ghost dup',
+          textContent: t('Save as…'),
+          title: t('keep this wording as a template of your own'),
+          onclick: async () => {
+            const name = await ask(t('Name for this template'), picked?.startsWith('Referee') ? '' : picked || '', t('Save'));
+            if (!name) return;
+            const already = batonTemplates().find((x) => x.name === name && !x.stock);
+            if (already) already.text = note.value;
+            else batonTemplates().push({ name, text: note.value });
+            picked = name;
+            savePrefs();
+            drawChips();
+          },
+        }));
+      }
+
+      note.value = (batonTemplates().find((x) => x.name === picked) || batonTemplates()[0] || { text: '' }).text;
+      note.addEventListener('input', describe);
+      drawChips();
+      describe();
+
+      // The desk's own placeholders, edited as plain lines because that is quicker than
+      // any list of fields and reads back as what it is.
+      const varsBox = el('textarea', {
+        className: 'baton vars', spellcheck: false, rows: 4, value: varsToText(vars),
+        placeholder: 'paper = main.tex\njournal = BMC Genomics',
+      });
+      varsBox.addEventListener('input', () => {
+        prefs.vars[ws.id] = varsFromText(varsBox.value);
+        savePrefs();
+        Object.keys(vars).forEach((k) => delete vars[k]);
+        Object.assign(vars, prefs.vars[ws.id]);
+        describe();
+      });
+      const varsPart = el('details', { className: 'varspart' }, [
+        el('summary', { textContent: t('Placeholders for this desk') }),
+        el('p', { className: 'hint', textContent: t('one per line, name = value. Always available: {folder} {from} {to}') }),
+        varsBox,
+      ]);
 
       const hand = (target, andRun) => {
-        // The first hand-over says who is the maker; from then on the direction is known
-        // and the sentence follows it without being asked.
-        if (!leg.pair.maker) leg.pair.maker = from;
-        leg.pair.texts[leg.key] = note.value;
+        const to = target.name.slice(5);
+        pair.lastBy = pair.lastBy || {};
+        pair.lastBy[from] = picked;
+        // An edit made here and not saved as a template still belongs to this session's
+        // next hand-over: losing what you just wrote would be its own small betrayal.
+        const kind = batonTemplates().find((x) => x.name === picked);
+        if (kind && !kind.stock) kind.text = note.value;
+        else pair.scratch = { ...(pair.scratch || {}), [from]: note.value };
         savePrefs();
-        target.handle.send(fill(note.value) + (andRun ? '\r' : ''));
+
+        target.handle.send(fillBaton(note.value, known(to)) + (andRun ? '\r' : ''));
         target.handle.focus();
         raiseWindow(target);
         quieten(from);
         sheet.close();
         toast(andRun
-          ? t('handed to {session} and started', { session: target.name.slice(5) })
-          : t('handed to {session} — press Enter there when you are happy with it', { session: target.name.slice(5) }));
+          ? t('handed to {session} and started', { session: to })
+          : t('handed to {session} — press Enter there when you are happy with it', { session: to }));
       };
+
+      // Whatever was typed last from this session, if it was never saved anywhere.
+      if (pair.scratch?.[from] && !batonTemplates().some((x) => x.name === picked && !x.stock)) {
+        note.value = pair.scratch[from];
+        describe();
+      }
 
       body.append(
         el('p', { className: 'meta', textContent: t('{from} has finished. What should the other one be told?', { from }) }),
-        preset,
-        which,
+        chips,
         note,
+        el('p', { className: 'hint', textContent: t('what will be typed over there:') }),
+        preview,
         said,
+        missing,
+        varsPart,
         el('p', { className: 'hint', textContent: t('It goes into their prompt without an Enter, so you can still change it there.') }),
       );
 
@@ -5237,48 +5301,79 @@ document.addEventListener('visibilitychange', () => {
  *  is easy and is the part that should be added last, once the sentence has proved
  *  itself — a wrong baton repeated six times is just a faster way to be wrong.
  */
-const BATONS = {
-  // Fixed roles: one makes, the other tries to break it. The asymmetry is the value —
-  // a reviewer who may rewrite is not reviewing, and the return leg is a fix, not a turn.
-  referee: {
+/** The templates that ship with it. Two roles, three legs: a referee's outward and
+ *  return sentence differ, a relay's do not, and everything else is yours to write. */
+const BATONS = [
+  {
     name: 'Referee',
-    there: 'Review the change just made in {folder} — read the diff against HEAD.\n'
+    text: 'Review the change just made in {folder} — read the diff against HEAD.\n'
       + 'Do not edit anything: your job is to find what is wrong with it.\n'
       + 'Cite exact files and line numbers, run the tests if there are any, and finish\n'
       + 'with one line: VERDICT: OK or VERDICT: REDO, and why.',
-    back: 'The review of your change in {folder} is above, from {from}.\n'
+  },
+  {
+    name: 'Referee back',
+    text: 'The review of your change in {folder} is above, from {from}.\n'
       + 'Fix what it got right and say plainly what you disagree with and why —\n'
       + 'a review is not an order. Run the tests before you say you are done.',
   },
-  // Symmetric: the same sentence in both directions, because the roles are the same one.
-  relay: {
+  {
     name: 'Relay',
-    there: 'Take over the work in {folder}. {from} has just finished a pass.\n'
+    text: 'Take over the work in {folder}. {from} has just finished a pass.\n'
       + 'Read the diff against HEAD, improve what is weakest, and stop when your change\n'
       + 'is one you can defend. Then say what you changed and what you left alone,\n'
       + 'and if you changed nothing worth changing, say that instead — that is how this\n'
       + 'ends.',
   },
-};
+];
 
-const batonLeg = (kind, back) => BATONS[kind][back ? 'back' : 'there'] || BATONS[kind].there;
-
-/** Which pattern this desk is running, and who started it.
- *
- *  Knowing the maker is what makes the two patterns behave differently rather than merely
- *  read differently: in Referee the return leg is "here is the review, fix it", in Relay
- *  it is the same instruction going the other way. */
+/** What a desk remembers about handing over: which template went out from which
+ *  session last, and any wording typed but never saved. */
 function deskPair(wsId) {
   prefs.pair = prefs.pair || {};
-  return (prefs.pair[wsId] = prefs.pair[wsId] || { kind: 'referee', maker: null, texts: {} });
+  return (prefs.pair[wsId] = prefs.pair[wsId] || { lastBy: {}, scratch: {} });
 }
 
-function batonText(wsId, from) {
-  const pair = deskPair(wsId);
-  const back = !!pair.maker && pair.maker !== from;
-  const key = `${pair.kind}:${back ? 'back' : 'there'}`;
-  return { text: pair.texts[key] ?? batonLeg(pair.kind, back), key, back, pair };
+/** The library, kept whole: templates are worth more the more desks they see. */
+function batonTemplates() {
+  if (!prefs.templates) prefs.templates = BATONS.map((b) => ({ ...b, stock: true }));
+  return prefs.templates;
 }
+
+/** What a desk knows how to fill in.
+ *
+ *  Three come from the situation and cannot be set: where the sending session is, who is
+ *  sending, who is receiving. The rest are the desk's own — {paper}, {journal}, {issue},
+ *  whatever this desk is actually about — because a template is only reusable if the
+ *  thing that changes between desks is named rather than typed in again.
+ */
+function deskVars(wsId) {
+  prefs.vars = prefs.vars || {};
+  return (prefs.vars[wsId] = prefs.vars[wsId] || {});
+}
+
+const varsToText = (vars) => Object.entries(vars).map(([k, v]) => `${k} = ${v}`).join('\n');
+
+function varsFromText(text) {
+  const out = {};
+  for (const line of text.split('\n')) {
+    const at = line.indexOf('=');
+    if (at < 1) continue;
+    const name = line.slice(0, at).trim().replace(/^\{|\}$/g, '');
+    const value = line.slice(at + 1).trim();
+    if (/^[\w.-]+$/.test(name) && value) out[name] = value;
+  }
+  return out;
+}
+
+/** Fill what we know and leave the rest visible: a `{paper}` that survives into the
+ *  other agent's prompt is a mistake you can see, which beats a silent empty string. */
+function fillBaton(text, known) {
+  return text.replace(/\{([\w.-]+)\}/g, (whole, name) => (name in known ? known[name] : whole));
+}
+
+const unknownVars = (text, known) =>
+  [...new Set([...text.matchAll(/\{([\w.-]+)\}/g)].map((m) => m[1]))].filter((n) => !(n in known));
 
 /* ------------------------------------------------------------------ chained terminals */
 
