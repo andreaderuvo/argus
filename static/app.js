@@ -2701,7 +2701,16 @@ async function screenMessages() {
   view.append(wrap);
 
   const ws = currentSpace();
-  const sample = () => ({ ...allVars(ws.id), folder: '/your/project', from: 'claude', to: 'codex' });
+  // The preview showed a made-up `/your/project`, under a label promising this desk's
+  // values — which reads exactly like a placeholder that failed to resolve, and that is
+  // how it was read. It shows this desk's folder now, and says plainly that when a prompt
+  // is actually sent, {folder} is the working directory of the session sending it.
+  const sample = () => ({
+    ...allVars(ws.id),
+    folder: ws.home || homePath(server?.roots || ['/']),
+    from: 'claude',
+    to: 'codex',
+  });
 
   const tabs = el('div', { className: 'msgtabs' });
   const body = el('div');
@@ -2894,7 +2903,7 @@ async function screenMessages() {
       el('div', { className: 'msgtop' }, [name, copy]),
       text,
       el('div', { className: 'msgfoot' }, [el('span', { className: 'meta', textContent: t('in') }), where]),
-      el('p', { className: 'hint', textContent: t('with this desk\u2019s values:') }),
+      el('p', { className: 'hint', textContent: t('with this desk\u2019s values — when you send it, {folder} is the folder of the session it comes from:') }),
       preview,
       gaps,
     );
