@@ -3002,12 +3002,16 @@ async function screenMessages() {
       held.replaceChildren(tools, grid, inherited, usedBy);
     }
 
-    /** A grid of name-and-value, editable in place. Saving must not rebuild it: a row
-     *  whose name is typed but whose value is not yet is deliberately not saved, and
-     *  redrawing from what *is* saved would delete the row under the cursor. */
+    /** A grid of name-and-value, editable in place.
+     *
+     *  Nothing here redraws while you type. The waiting row at the bottom becomes real by
+     *  growing a new one *after* it rather than by rebuilding the grid — rebuilding takes
+     *  the focus with it, and losing the caret on the first letter of a name is the most
+     *  irritating bug a form can have.
+     */
     function varsGrid(read, write, shadows = () => null) {
       const grid = el('div', { className: 'varsgrid' });
-      let rows = Object.entries(read()).map(([name, value]) => ({ name, value }));
+      const rows = [];
 
       const keep = () => {
         const kept = {};
@@ -3018,35 +3022,45 @@ async function screenMessages() {
         write(kept);
       };
 
-      function draw() {
-        grid.replaceChildren();
-        for (const [i, row] of [...rows, { name: '', value: '', fresh: true }].entries()) {
-          const name = el('input', { type: 'text', className: 'varname', value: row.name, spellcheck: false, placeholder: t('name') });
-          const value = el('input', { type: 'text', className: 'varvalue', value: row.value, spellcheck: false, placeholder: t('value') });
-          const under = el('span', { className: 'shadowed' });
-          const drop = el('button', { className: 'winbtn', title: t('Remove') }, icon('close'));
-          drop.hidden = !!row.fresh;
-          drop.onclick = () => { rows.splice(i, 1); keep(); draw(); };
+      const addRow = (start = { name: '', value: '', fresh: true }) => {
+        const row = start;
+        rows.push(row);
+        const name = el('input', { type: 'text', className: 'varname', value: row.name, spellcheck: false, placeholder: t('name') });
+        const value = el('input', { type: 'text', className: 'varvalue', value: row.value, spellcheck: false, placeholder: t('value') });
+        const under = el('span', { className: 'shadowed' });
+        const drop = el('button', { className: 'winbtn', title: t('Remove') }, icon('close'));
+        drop.hidden = !!row.fresh;
+        drop.onclick = () => {
+          rows.splice(rows.indexOf(row), 1);
+          for (const node of [name, value, drop, under]) node.remove();
+          keep();
+        };
 
-          const sayShadow = () => {
-            const covered = shadows(row.name.trim());
-            under.textContent = covered ? t('instead of {value}', { value: covered }) : '';
-            under.hidden = !covered;
-          };
-          const touched = () => {
-            row.name = name.value;
-            row.value = value.value;
-            if (row.fresh && (row.name || row.value)) { delete row.fresh; rows.push(row); draw(); }
-            sayShadow();
-            keep();
-          };
-          name.addEventListener('input', touched);
-          value.addEventListener('input', touched);
+        const sayShadow = () => {
+          const covered = shadows(row.name.trim());
+          under.textContent = covered ? t('instead of {value}', { value: covered }) : '';
+          under.hidden = !covered;
+        };
+        const touched = () => {
+          row.name = name.value;
+          row.value = value.value;
+          if (row.fresh && (row.name || row.value)) {
+            delete row.fresh;
+            drop.hidden = false;
+            addRow();                 // a new empty one below, this one keeps the caret
+          }
           sayShadow();
-          grid.append(name, value, drop, under);
-        }
-      }
-      draw();
+          keep();
+        };
+        name.addEventListener('input', touched);
+        value.addEventListener('input', touched);
+        sayShadow();
+        grid.append(name, value, drop, under);
+        return row;
+      };
+
+      for (const [name, value] of Object.entries(read())) addRow({ name, value });
+      addRow();
       return grid;
     }
 
@@ -3267,13 +3281,16 @@ function pathCandidates(text) {
  *  reading one row at a time would miss the long ones — which here are most of them. */
 function logicalLine(term, y) {
   const buf = term.buffer.active;
+  const row = (i) => buf.getLine(i)?.translateToString(false) ?? '';
+
   let first = y - 1;
   while (first > 0 && buf.getLine(first)?.isWrapped && y - first < MAX_WRAP_ROWS) first--;
   let last = y - 1;
   while (buf.getLine(last + 1)?.isWrapped && last - first < MAX_WRAP_ROWS) last++;
+
   let text = '';
-  for (let i = first; i <= last; i++) text += buf.getLine(i)?.translateToString(false) ?? '';
-  return { text, first };
+  for (let i = first; i <= last; i++) text += row(i);
+  return { text, first, last };
 }
 
 // One lookup per distinct line, not per pointer move: the same line is offered again
@@ -5957,13 +5974,33 @@ function linkHarvester(term, session, hand) {
     for (let y = from; y < to; y++) {
       const line = buf.getLine(y);
       if (!line || line.isWrapped) continue;        // a wrapped line is read from its head
-      for (const c of pathCandidates(logicalLine(term, y + 1).text)) {
+      const { text, last } = logicalLine(term, y + 1);
+      const cands = pathCandidates(text);
+      for (const c of cands) {
         if (seen.has(c.text)) continue;
         if (c.url) { seen.add(c.text); urls.push(c.text); continue; }
         if (!c.text.startsWith('/') && !c.text.startsWith('~/')) continue;
         seen.add(c.text);
         paths.push(c.text);
       }
+
+      // A program that lays out its own text — any full-screen one — writes each row
+      // separately, so nothing is marked as wrapped even where the sentence plainly runs
+      // on, and a long path comes out cut in half. The tell is a candidate that reaches
+      // the very end of what is written on the row: whatever it is, it may continue below.
+      // Guessing costs nothing when it is wrong, because the joined path is looked up like
+      // any other and a path that is not there is dropped.
+      const tail = cands[cands.length - 1];
+      const written = text.replace(/\s+$/, '').length;
+      if (!tail || tail.url || tail.end < written) continue;
+      const below = buf.getLine(last + 1);
+      if (!below || below.isWrapped) continue;
+      const carried = below.translateToString(true).trimStart().split(/\s/)[0] || '';
+      const joined = tail.text + carried;
+      if (!carried || seen.has(joined)) continue;
+      if (!joined.startsWith('/') && !joined.startsWith('~/')) continue;
+      seen.add(joined);
+      paths.push(joined);
     }
     if (seen.size > 4000) seen.clear();
     if (urls.length) hand(urls.map((text) => ({ text, url: true, from: session })));
