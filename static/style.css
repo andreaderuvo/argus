@@ -1553,6 +1553,21 @@ textarea.baton {
 .varsgrid input:focus { border-color: var(--accent); outline: none; }
 .varsgrid .winbtn { justify-self: center; }
 
+/* Named sets of placeholders. */
+.setrow { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; margin: .4rem 0; }
+.setpick {
+  min-height: var(--tap); padding: 0 .6rem;
+  background: var(--bg); border: 1px solid var(--line); border-radius: .5rem;
+  color: var(--bright); font: inherit; font-size: .85rem;
+}
+.ghostvar {
+  margin: 0 .3rem .25rem 0; padding: .12rem .45rem;
+  border: 1px dashed var(--line); border-radius: .8rem;
+  background: none; color: var(--dim);
+  font: 11px/1.5 ui-monospace, "SF Mono", Menlo, monospace;
+}
+.ghostvar:hover { border-color: var(--accent); color: var(--text); border-style: solid; }
+
 /* Writing the messages, as opposed to sending one. */
 .msgwrap { padding: .9rem 1rem 2rem; max-width: 46rem; }
 .msghead { font-size: .95rem; color: var(--bright); margin: 1.2rem 0 .3rem; }

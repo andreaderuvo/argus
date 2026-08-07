@@ -2743,19 +2743,150 @@ async function screenMessages() {
     return grid;
   }
 
+  /* ---------------------------------------------------------------- the sets */
+  let showing = deskSetName(ws.id);
+
+  const chips = el('div', { className: 'batonpresets' });
+  const held = el('div');
+  const inherited = el('p', { className: 'hint' });
+  const usedBy = el('p', { className: 'hint' });
+
+  function drawSet() {
+    const set = varSetNamed(showing) || varSetNamed(GROUND);
+    showing = set.name;
+    const ground = set.name === GROUND;
+
+    // The chips: every set, and a way to make another.
+    chips.replaceChildren();
+    for (const other of varSets()) {
+      chips.append(el('button', {
+        className: `ghost dup${other.name === showing ? ' on' : ''}`,
+        textContent: other.name,
+        onclick: () => { showing = other.name; drawSet(); },
+      }));
+    }
+    chips.append(el('button', {
+      className: 'ghost dup',
+      textContent: t('New set'),
+      onclick: async () => {
+        const name = await ask(t('Name for this set'), '', t('Create'));
+        if (!name || varSetNamed(name)) return;
+        varSets().push({ name, vars: {} });
+        savePrefs();
+        showing = name;
+        drawSet();
+        drawPick();
+      },
+    }));
+
+    // The grid for the set being shown, plus what it takes from the ground truth.
+    // Saving must not redraw this grid: a row whose name is typed but whose value is not
+    // yet is deliberately not saved, so rebuilding from what *is* saved would delete the
+    // row under the cursor, letter by letter.
+    const grid = varsGrid(
+      () => set.vars,
+      (kept) => { set.vars = kept; savePrefs(); around(); drawTemplates(); },
+      (name) => (!ground && name && name in groundVars() ? groundVars()[name] : null),
+    );
+
+    const tools = el('div', { className: 'setrow' });
+    if (!ground) {
+      tools.append(
+        el('button', {
+          className: 'ghost dup', textContent: t('Rename'),
+          onclick: async () => {
+            const name = await ask(t('Name for this set'), set.name, t('Rename'));
+            if (!name || (name !== set.name && varSetNamed(name))) return;
+            // Any desk pointing here must follow the name.
+            for (const [wsId, chosen] of Object.entries(prefs.deskSet || {})) {
+              if (chosen === set.name) prefs.deskSet[wsId] = name;
+            }
+            set.name = name;
+            showing = name;
+            savePrefs();
+            drawSet();
+            drawPick();
+          },
+        }),
+        el('button', {
+          className: 'ghost dup', textContent: t('Duplicate'),
+          onclick: () => {
+            varSets().push({ name: `${set.name} 2`, vars: { ...set.vars } });
+            savePrefs();
+            showing = `${set.name} 2`;
+            drawSet();
+            drawPick();
+          },
+        }),
+        el('button', {
+          className: 'ghost dup', textContent: t('Delete'),
+          onclick: async () => {
+            if (!await confirmBox(t('Delete this set'), t('“{name}” goes for good; the desks using it fall back to {ground}.', { name: set.name, ground: GROUND }), t('Delete'))) return;
+            prefs.varsets = varSets().filter((x) => x !== set);
+            for (const [wsId, chosen] of Object.entries(prefs.deskSet || {})) {
+              if (chosen === set.name) delete prefs.deskSet[wsId];
+            }
+            savePrefs();
+            showing = GROUND;
+            drawSet();
+            drawTemplates();
+            drawPick();
+          },
+        }),
+      );
+    }
+
+    // What it is getting from the ground truth without saying so, and one tap to take a
+    // copy of any of them into this set. Redrawn on its own, so typing in the grid above
+    // keeps its place.
+    function around() {
+      inherited.replaceChildren();
+      if (!ground) {
+        const taken = Object.entries(groundVars()).filter(([name]) => !(name in set.vars));
+        if (taken.length) {
+          inherited.append(document.createTextNode(t('taken from {ground}:', { ground: GROUND }) + ' '));
+          for (const [name, value] of taken) {
+            inherited.append(el('button', {
+              className: 'ghostvar',
+              textContent: `${name} = ${value}`,
+              title: t('give this set its own'),
+              onclick: () => { set.vars[name] = value; savePrefs(); drawSet(); drawTemplates(); },
+            }));
+          }
+        }
+      }
+      const desks = (prefs.workspaces || []).filter((w) => deskSetName(w.id) === set.name).map((w) => w.name);
+      usedBy.textContent = desks.length
+        ? t('used by: {list}', { list: desks.join(', ') })
+        : t('no desk is using this one');
+    }
+    around();
+
+    held.replaceChildren(tools, grid, inherited, usedBy);
+  }
+
+  /* ---------------------------------------------------------------- which set this desk uses */
+  const pick = el('select', { className: 'setpick' });
+  const drawPick = () => {
+    pick.replaceChildren(...varSets().map((set) => el('option', {
+      value: set.name, textContent: set.name, selected: set.name === deskSetName(ws.id),
+    })));
+  };
+  pick.onchange = () => { chooseDeskSet(ws.id, pick.value); showing = pick.value; drawSet(); drawTemplates(); };
+
   wrap.append(
-    el('h2', { className: 'msghead', textContent: t('Placeholders everywhere') }),
-    el('p', { className: 'hint', textContent: t('the ones that hold on every desk — your name, the journal you always submit to, the house style') }),
-    varsGrid(everywhereVars, (kept) => { prefs.globalVars = kept; savePrefs(); }),
-    el('h2', { className: 'msghead', textContent: t('Only in {desk}', { desk: ws.name }) }),
-    el('p', { className: 'hint', textContent: t('what is different about this desk. A name repeated here wins over the one above.') }),
-    varsGrid(
-      () => deskVars(ws.id),
-      (kept) => { prefs.vars[ws.id] = kept; savePrefs(); },
-      (name) => (name && name in everywhereVars() ? everywhereVars()[name] : null),
-    ),
+    el('h2', { className: 'msghead', textContent: t('Placeholders') }),
+    el('p', { className: 'hint', textContent: t('Sets with a name. {ground} is the ground truth; another set says only what it changes and takes the rest from it.', { ground: GROUND }) }),
+    el('div', { className: 'setrow' }, [
+      el('span', { className: 'meta', textContent: t('{desk} uses', { desk: ws.name }) }),
+      pick,
+    ]),
+    chips,
+    held,
     el('p', { className: 'hint', textContent: t('Always there, from the situation itself: {folder} is the working directory of the session handing over, {from} and {to} are the two sessions.') }),
   );
+  drawPick();
+  drawSet();
 
   /* ---------------------------------------------------------------- the library */
   const list = el('div', { className: 'msglist' });
@@ -4451,6 +4582,30 @@ async function screenWall() {
       ? t('Opens in {folder}…', { folder: ws.home.split('/').pop() || ws.home })
       : t('Choose the folder it opens in…'),
       () => deskFolderSheet(ws));
+    item('relay', t('Placeholders: {set}', { set: deskSetName(ws.id) }), () => {
+      // Choosing here as well as on the Messages screen: this is a property of the desk,
+      // and the desk's own menu is where you look for those.
+      const body = el('div', { className: 'sheetbody actions' });
+      let which;
+      for (const set of varSets()) {
+        body.append(el('button', {
+          className: 'ghost block',
+          onclick: () => { chooseDeskSet(ws.id, set.name); which.close(); toast(t('{desk} uses {set}', { desk: ws.name, set: set.name })); },
+        }, [
+          icon(set.name === deskSetName(ws.id) ? 'star' : 'relay'),
+          el('span', { className: 'grow' }, [
+            el('span', { className: 'name', textContent: set.name }),
+            el('span', { className: 'meta', textContent: Object.keys(set.vars).length ? Object.keys(set.vars).join(', ') : t('empty') }),
+          ]),
+        ]));
+      }
+      body.append(el('div', { className: 'sheetsep' }));
+      body.append(el('button', { className: 'ghost block', onclick: () => { which.close(); go('#/messages'); } },
+        [icon('rename'), el('span', { textContent: t('Edit them…') })]));
+      which = modal(t('Placeholders'), body, [
+        el('button', { className: 'ghost', textContent: t('Close'), onclick: () => which.close() }),
+      ]);
+    });
     item('copy', t('Copy a link to this desk'), async () => {
       const link = `${location.origin}/#/wall?ws=${ws.id}`;
       if (await copyText(link)) toast(t('link copied'));
@@ -5518,19 +5673,55 @@ function batonTemplates() {
  *  whatever this desk is actually about — because a template is only reusable if the
  *  thing that changes between desks is named rather than typed in again.
  */
-function deskVars(wsId) {
-  prefs.vars = prefs.vars || {};
-  return (prefs.vars[wsId] = prefs.vars[wsId] || {});
+/** Placeholders come in named sets.
+ *
+ *  One of them is the ground truth and is called Default; the others say only what they
+ *  change and fall back to it for everything else. A desk picks a set — so the same set
+ *  serves every desk about the same thing, and a desk about something else picks another,
+ *  instead of every desk keeping its own copy of your name.
+ */
+const GROUND = 'Default';
+
+function varSets() {
+  if (!prefs.varsets) {
+    // What was there before: one global bag, plus a bag per desk. Each desk that had
+    // anything of its own becomes a set named after it, still chosen by that desk.
+    prefs.varsets = [{ name: GROUND, vars: { ...(prefs.globalVars || {}) } }];
+    for (const [wsId, vars] of Object.entries(prefs.vars || {})) {
+      if (!vars || !Object.keys(vars).length) continue;
+      const ws = (prefs.workspaces || []).find((w) => String(w.id) === String(wsId));
+      const name = ws?.name || `desk ${wsId}`;
+      prefs.varsets.push({ name, vars: { ...vars } });
+      prefs.deskSet = prefs.deskSet || {};
+      prefs.deskSet[wsId] = name;
+    }
+    savePrefs();
+  }
+  if (!prefs.varsets.some((set) => set.name === GROUND)) prefs.varsets.unshift({ name: GROUND, vars: {} });
+  return prefs.varsets;
 }
 
-/** The ones that hold everywhere — your name, the journal you always submit to, the
- *  house style — so a desk only has to say what is different about it. */
-function everywhereVars() {
-  return (prefs.globalVars = prefs.globalVars || {});
+const varSetNamed = (name) => varSets().find((set) => set.name === name);
+const groundVars = () => varSetNamed(GROUND).vars;
+
+/** Which set this desk uses, by name. */
+function deskSetName(wsId) {
+  const chosen = prefs.deskSet?.[wsId];
+  return chosen && varSetNamed(chosen) ? chosen : GROUND;
 }
 
-/** Everything a desk can fill in, with the desk's own winning. */
-const allVars = (wsId) => ({ ...everywhereVars(), ...deskVars(wsId) });
+function chooseDeskSet(wsId, name) {
+  prefs.deskSet = prefs.deskSet || {};
+  if (name === GROUND) delete prefs.deskSet[wsId];
+  else prefs.deskSet[wsId] = name;
+  savePrefs();
+}
+
+/** Everything a desk can fill in: the ground truth, with its own set laid over it. */
+function allVars(wsId) {
+  const chosen = deskSetName(wsId);
+  return { ...groundVars(), ...(chosen === GROUND ? {} : varSetNamed(chosen)?.vars || {}) };
+}
 
 const varsToText = (vars) => Object.entries(vars).map(([k, v]) => `${k} = ${v}`).join('\n');
 

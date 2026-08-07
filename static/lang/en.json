@@ -346,6 +346,20 @@
   "the ones that hold on every desk — your name, the journal you always submit to, the house style": "the ones that hold on every desk — your name, the journal you always submit to, the house style",
   "Only in {desk}": "Only in {desk}",
   "what is different about this desk. A name repeated here wins over the one above.": "what is different about this desk. A name repeated here wins over the one above.",
-  "instead of {value}": "instead of {value}"
+  "instead of {value}": "instead of {value}",
+  "Placeholders": "Placeholders",
+  "New set": "New set",
+  "Name for this set": "Name for this set",
+  "Delete this set": "Delete this set",
+  "“{name}” goes for good; the desks using it fall back to {ground}.": "“{name}” goes for good; the desks using it fall back to {ground}.",
+  "Sets with a name. {ground} is the ground truth; another set says only what it changes and takes the rest from it.": "Sets with a name. {ground} is the ground truth; another set says only what it changes and takes the rest from it.",
+  "{desk} uses": "{desk} uses",
+  "taken from {ground}:": "taken from {ground}:",
+  "give this set its own": "give this set its own",
+  "used by: {list}": "used by: {list}",
+  "no desk is using this one": "no desk is using this one",
+  "Placeholders: {set}": "Placeholders: {set}",
+  "{desk} uses {set}": "{desk} uses {set}",
+  "Edit them…": "Edit them…"
  }
 }

@@ -141,9 +141,11 @@ services.</sub>
   Templates are written with **placeholders**. Three come from the situation and cannot
   be set: `{folder}` — the *sending session's own working directory*, since a desk's
   folder says nothing about where tmux put the agent — plus `{from}` and `{to}`. The rest
-  are yours, in two layers: the ones that hold **everywhere** (your name, the journal you
-  always submit to, the house style) and the ones **only in this desk**, which win over
-  them and say so on screen. That is what makes one wording serve every project. A placeholder with nothing to put in it is
+  are yours, kept in **named sets**. `Default` is the ground truth; any other set says
+  only what it changes and takes the rest from it, showing what it is covering — *instead
+  of BMC Genomics* — and what it is inheriting, one tap to claim. A desk picks a set, from
+  its own tab menu or from the Messages screen, so the same set serves every desk about
+  the same thing instead of each desk keeping a copy of your name. A placeholder with nothing to put in it is
   flagged and passed through as written, where you can see it.
 
   Which template comes up is the one you last sent *from that session*, which is how a

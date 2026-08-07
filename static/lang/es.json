@@ -124,7 +124,7 @@
   "dotfiles and dot-directories, in both panes": "dotfiles and dot-directories, in both panes",
   "drawing…": "drawing…",
   "duplicated to {desk}": "duplicated to {desk}",
-  "empty": "empty",
+  "empty": "vacío",
   "enabled": "enabled",
   "expand folders in place instead of navigating into them": "expand folders in place instead of navigating into them",
   "file operations: {state}": "file operations: {state}",
@@ -346,6 +346,20 @@
   "the ones that hold on every desk — your name, the journal you always submit to, the house style": "los que valen en todos los escritorios — tu nombre, la revista de siempre, el estilo de la casa",
   "Only in {desk}": "Solo en {desk}",
   "what is different about this desk. A name repeated here wins over the one above.": "qué cambia en este escritorio. Un nombre repetido aquí gana sobre el de arriba.",
-  "instead of {value}": "en lugar de {value}"
+  "instead of {value}": "en lugar de {value}",
+  "Placeholders": "Marcadores",
+  "New set": "Nuevo conjunto",
+  "Name for this set": "Nombre del conjunto",
+  "Delete this set": "Eliminar este conjunto",
+  "“{name}” goes for good; the desks using it fall back to {ground}.": "«{name}» desaparece; los escritorios que lo usan vuelven a {ground}.",
+  "Sets with a name. {ground} is the ground truth; another set says only what it changes and takes the rest from it.": "Conjuntos con nombre. {ground} es la verdad base; otro conjunto solo dice qué cambia y toma el resto de ahí.",
+  "{desk} uses": "{desk} usa",
+  "taken from {ground}:": "tomados de {ground}:",
+  "give this set its own": "dale uno propio a este conjunto",
+  "used by: {list}": "usado por: {list}",
+  "no desk is using this one": "ningún escritorio lo usa",
+  "Placeholders: {set}": "Marcadores: {set}",
+  "{desk} uses {set}": "{desk} usa {set}",
+  "Edit them…": "Editarlos…"
  }
 }
