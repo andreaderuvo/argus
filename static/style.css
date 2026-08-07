@@ -1573,6 +1573,217 @@ textarea.baton {
 .ghostvar:hover { border-color: var(--accent); color: var(--text); border-style: solid; }
 
 /* Writing the messages, as opposed to sending one. */
+.msgwrap { padding: .8rem 1rem 2rem; max-width: 46rem; }
+.msgtabs { display: flex; gap: .4rem; margin-bottom: .7rem; }
+.msgtabs .ghost.dup { font-size: .82rem; padding: 0 .9rem; min-height: 2.1rem; }
+.msgtabs .ghost.dup.on { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
+.msgwrap .hint { padding: 0; margin: .2rem 0 .5rem; }
+
+/* A folder of messages. */
+.folder { border: 1px solid var(--line); border-radius: .6rem; margin-bottom: .5rem; background: var(--panel); }
+.folder > summary {
+  display: flex; align-items: center; gap: .5rem;
+  padding: .6rem .8rem; cursor: pointer; list-style: none;
+  color: var(--bright); font-size: .9rem; font-weight: 600;
+}
+.folder > summary::-webkit-details-marker { display: none; }
+.folder > summary .ico { color: var(--accent); }
+.folder > summary .count {
+  margin-left: auto; padding: 0 .45rem; border-radius: .7rem;
+  background: var(--bg); color: var(--dim); font-size: .72rem; font-weight: 700;
+}
+.foldertools { display: flex; flex-wrap: wrap; gap: .35rem; padding: 0 .8rem .6rem; }
+.foldertools .ghost.dup { font-size: .74rem; min-height: 1.9rem; padding: 0 .6rem; }
+.folder > .empty.tiny { padding: 0 .8rem .7rem; color: var(--dim); }
+
+/* One message inside it, shut until you open it. */
+details.msgcard { border: 0; border-top: 1px solid var(--line); border-radius: 0; padding: 0; background: none; }
+details.msgcard > summary {
+  display: flex; align-items: baseline; gap: .6rem;
+  padding: .55rem .8rem; cursor: pointer; list-style: none;
+}
+details.msgcard > summary::-webkit-details-marker { display: none; }
+details.msgcard > summary .name { color: var(--text); font-size: .86rem; font-weight: 600; flex: none; }
+details.msgcard > summary .meta {
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--dim); font-size: .76rem;
+}
+details.msgcard[open] > summary { background: var(--bg); }
+details.msgcard[open] > summary .name { color: var(--accent); }
+details.msgcard > :not(summary) { margin-left: .8rem; margin-right: .8rem; }
+details.msgcard > :last-child { margin-bottom: .7rem; }
+.msgwrap textarea.baton { width: 100%; }
+.msgtop { display: flex; gap: .4rem; align-items: center; margin: .5rem .8rem; }
+.msgtop input {
+  flex: 1; min-width: 0; min-height: var(--tap); padding: 0 .7rem;
+  background: var(--bg); border: 1px solid var(--line); border-radius: .5rem;
+  color: var(--bright); font: inherit; font-weight: 600;
+}
+.msgtop .ghost.dup, .setrow .ghost.dup { font-size: .76rem; min-height: 2rem; padding: 0 .65rem; }
+.msgfoot { display: flex; align-items: center; gap: .4rem; margin-top: .5rem; }
+.msgfoot .meta { flex: none; }
+input.groupbox {
+  flex: 1; min-width: 0; min-height: 2rem; padding: 0 .6rem;
+  background: var(--bg); border: 1px dashed var(--line); border-radius: .5rem;
+  color: var(--dim); font: inherit; font-size: .8rem;
+}
+input.groupbox:focus { border-style: solid; border-color: var(--accent); color: var(--text); outline: none; }
+.grouphead { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; margin: .2rem 0 .6rem; }
+.grouphead .hint { margin: 0; flex: 1; }
+
+/* A path being carried from the tray to a window. */
+.traydrag {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: .1rem;
+  padding: .35rem .6rem;
+  border: 1px solid var(--accent);
+  border-radius: .45rem;
+  background: var(--panel);
+  box-shadow: 0 6px 20px rgb(0 0 0 / .45);
+  max-width: 60vw;
+}
+.traydrag .what { font: 12px/1.3 ui-monospace, "SF Mono", Menlo, monospace; color: var(--bright); }
+.traydrag .verb { font-size: .68rem; color: var(--dim); text-transform: uppercase; letter-spacing: .04em; }
+.trayrow.dragging { opacity: .45; }
+.win.droptarget { outline: 2px solid var(--accent); outline-offset: -2px; }
+.win.droptarget .winbar { background: color-mix(in srgb, var(--accent) 22%, var(--panel)); }
+
+/* A terminal that is typing into others, and the count that says how many. */
+.win.chained { outline: 2px solid var(--st-warning); outline-offset: -2px; }
+.win.chained .winbar { background: color-mix(in srgb, var(--st-warning) 18%, var(--panel)); }
+/* The lit state is the app's usual filled square, in the colour the chain uses
+   everywhere else: green would read as "fine", and this is the one control that can
+   send a command line to three machines at once. */
+button.winbtn.chainbtn.on { color: #2b2000; background: var(--st-warning); border-color: var(--st-warning); }
+.chainnote { color: var(--st-warning); }
+.chainnote .count { font-weight: 700; }
+
+/* Something rang in here. A steady mark, not an animation that becomes wallpaper. */
+.win.ringing { outline: 2px solid var(--accent); outline-offset: -2px; }
+.win.ringing .winbar { background: color-mix(in srgb, var(--accent) 22%, var(--panel)); }
+.win.ringing.asking { outline-color: var(--st-warning); }
+.win.ringing.asking .winbar { background: color-mix(in srgb, var(--st-warning) 22%, var(--panel)); }
+.wstab.ringing .tabdot { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 55%, transparent); }
+
+/* A line of explanation under a setting. */
+.hint { margin: .35rem 0 .7rem; padding: 0 .9rem; color: var(--dim); font-size: .78rem; line-height: 1.5; }
+
+/* Where to read more, at the foot of Settings. */
+.about { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
+.about a {
+  display: inline-flex; align-items: center; gap: .45rem;
+  min-height: var(--tap); padding: 0 .9rem;
+  border: 1px solid var(--line); border-radius: .5rem;
+  color: var(--text); text-decoration: none; font-size: .85rem;
+}
+.about a:hover { border-color: var(--accent); color: var(--bright); }
+
+/* A session told to keep quiet. */
+button.winbtn.bellbtn.off { color: var(--dim); opacity: .75; }
+
+/* How many links are waiting, on the toolbar button itself. */
+.winbtn.wide .tally {
+  min-width: 1.15rem;
+  padding: 0 .3rem;
+  border-radius: .7rem;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: .68rem;
+  font-weight: 700;
+  line-height: 1.15rem;
+  text-align: center;
+}
+
+/* Handing the work to the other agent. */
+button.winbtn.relaybtn.due { color: var(--accent); }
+.batonpresets { display: flex; flex-wrap: wrap; gap: .35rem; margin: .2rem 0 .5rem; }
+/* The groups sit on their own line above the messages in the one you picked. */
+.batongroups { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: .35rem; margin-bottom: .2rem; }
+.batongroups .ghost.dup { font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; }
+.batongroups .ghost.dup.on { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
+.batonpresets .ghost.dup { position: relative; padding-right: .7rem; }
+.batonpresets .drop { margin-left: .35rem; opacity: .5; font-weight: 700; }
+.batonpresets .drop:hover { opacity: 1; color: var(--danger); }
+pre.batonpreview {
+  margin: 0 0 .2rem;
+  padding: .55rem .7rem;
+  max-height: 9rem;
+  overflow: auto;
+  background: color-mix(in srgb, var(--accent) 7%, var(--bg));
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line));
+  border-radius: .5rem;
+  color: var(--bright);
+  font: 11.5px/1.5 ui-monospace, "SF Mono", Menlo, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.varspart { margin: .5rem 0 .2rem; }
+.varspart summary { cursor: pointer; color: var(--dim); font-size: .8rem; padding: .2rem 0; }
+.varspart summary:hover { color: var(--text); }
+textarea.baton.vars { font-size: 11.5px; margin-top: .3rem; }
+.hint.warn { color: var(--st-warning); }
+.batonpresets .ghost.dup.on { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
+textarea.baton {
+  width: 100%;
+  padding: .6rem .7rem;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: .5rem;
+  color: var(--text);
+  font: 12px/1.55 ui-monospace, "SF Mono", Menlo, monospace;
+  resize: vertical;
+}
+
+/* The desk's placeholders: two boxes and a way to remove the row. */
+.varsgrid {
+  display: grid;
+  grid-template-columns: minmax(6rem, 12rem) 1fr auto;
+  gap: .35rem .35rem;
+  align-items: center;
+  margin: .4rem 0 .6rem;
+}
+/* The note about what a row is covering up sits under it, across the whole width. */
+.varsgrid .shadowed {
+  grid-column: 1 / -1;
+  margin: -.15rem 0 .2rem .2rem;
+  color: var(--st-warning);
+  font-size: .7rem;
+}
+.varsgrid .shadowed:empty { display: none; }
+.varsgrid input {
+  min-height: var(--tap);
+  min-width: 0;
+  padding: 0 .7rem;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: .5rem;
+  color: var(--text);
+  font: 12.5px/1 ui-monospace, "SF Mono", Menlo, monospace;
+}
+.varsgrid input.varname { color: var(--accent); }
+.varsgrid input:focus { border-color: var(--accent); outline: none; }
+.varsgrid .winbtn { justify-self: center; }
+
+/* Named sets of placeholders. */
+.setrow { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; margin: .4rem 0; }
+.setpick {
+  min-height: var(--tap); padding: 0 .6rem;
+  background: var(--bg); border: 1px solid var(--line); border-radius: .5rem;
+  color: var(--bright); font: inherit; font-size: .85rem;
+}
+.ghostvar {
+  margin: 0 .3rem .25rem 0; padding: .12rem .45rem;
+  border: 1px dashed var(--line); border-radius: .8rem;
+  background: none; color: var(--dim);
+  font: 11px/1.5 ui-monospace, "SF Mono", Menlo, monospace;
+}
+.ghostvar:hover { border-color: var(--accent); color: var(--text); border-style: solid; }
+
+/* Writing the messages, as opposed to sending one. */
 .msgwrap { padding: .9rem 1rem 2rem; max-width: 46rem; }
 .msghead { font-size: .95rem; color: var(--bright); margin: 1.2rem 0 .3rem; }
 .msgwrap > .msghead:first-child { margin-top: 0; }
@@ -1586,7 +1797,9 @@ textarea.baton {
   color: var(--bright); font: inherit; font-weight: 600;
 }
 .msgcard .hint { padding: 0; margin: .5rem 0 .25rem; }
-.grouphead { display: flex; align-items: baseline; gap: .6rem; margin: .9rem 0 -.2rem; }
+.grouphead { display: flex; align-items: baseline; gap: .6rem; margin: .9rem 0 -.2rem; flex-wrap: wrap; }
+.grouphead.libhead { margin: 1.3rem 0 0; align-items: center; }
+.grouphead.libhead .msghead { margin: 0; }
 .grouphead h3 { margin: 0; font-size: .85rem; color: var(--accent); letter-spacing: .04em; text-transform: uppercase; }
 .msglist > .grouphead:first-of-type { margin-top: .2rem; }
 .msgfoot { display: flex; align-items: center; gap: .4rem; margin-top: .5rem; }

@@ -2673,6 +2673,12 @@ let sideBrowser = null;   // the sidebar's own listing, so it can be pointed at 
  *  Authoring belongs here rather than in the hand-over sheet: that sheet is for sending,
  *  and a place you pass through in a hurry is the wrong place to keep a library.
  */
+/** The messages one agent hands to the other, and the placeholders that fill them.
+ *
+ *  Two sections, one at a time, and every message closed until you open it: the first
+ *  version showed everything at once and became a wall you scrolled past rather than a
+ *  thing you edited.
+ */
 async function screenMessages() {
   setTitle(t('Messages'));
   bar.back.hidden = false;
@@ -2682,359 +2688,347 @@ async function screenMessages() {
   view.append(wrap);
 
   const ws = currentSpace();
+  const sample = () => ({ ...allVars(ws.id), folder: '/your/project', from: 'claude', to: 'codex' });
 
-  /* ---------------------------------------------------------------- placeholders */
-  /** A grid of name-and-value, editable in place.
-   *
-   *  Two boxes rather than one `name = value` line: the `=` is something to fight rather
-   *  than something to type. An empty row waits at the bottom, so adding one is typing.
-   *  `shadows` names the value this row is covering up, when there is one.
-   */
-  function varsGrid(read, write, shadows = () => null) {
-    const grid = el('div', { className: 'varsgrid' });
-    let rows = Object.entries(read()).map(([name, value]) => ({ name, value }));
+  const tabs = el('div', { className: 'msgtabs' });
+  const body = el('div');
+  wrap.append(tabs, body);
 
-    const keep = () => {
-      const kept = {};
-      for (const row of rows) {
-        const name = row.name.trim().replace(/^\{|\}$/g, '');
-        if (/^[\w.-]+$/.test(name) && row.value.trim()) kept[name] = row.value.trim();
-      }
-      write(kept);
-      drawTemplates();
-    };
-
-    function draw() {
-      grid.replaceChildren();
-      for (const [i, row] of [...rows, { name: '', value: '', fresh: true }].entries()) {
-        const name = el('input', { type: 'text', className: 'varname', value: row.name, spellcheck: false, placeholder: t('name') });
-        const value = el('input', { type: 'text', className: 'varvalue', value: row.value, spellcheck: false, placeholder: t('value') });
-        const under = el('span', { className: 'shadowed' });
-        const drop = el('button', { className: 'winbtn', title: t('Remove') }, icon('close'));
-        drop.hidden = !!row.fresh;
-        drop.onclick = () => { rows.splice(i, 1); keep(); draw(); };
-
-        const sayShadow = () => {
-          const covered = shadows(row.name.trim());
-          under.textContent = covered ? t('instead of {value}', { value: covered }) : '';
-          under.hidden = !covered;
-        };
-        const touched = () => {
-          row.name = name.value;
-          row.value = value.value;
-          if (row.fresh && (row.name || row.value)) { delete row.fresh; rows.push(row); draw(); focusEnd(); }
-          sayShadow();
-          keep();
-        };
-        const focusEnd = () => {
-          // Redrawing to grow the grid would drop the caret; put it back where it was.
-          const boxes = grid.querySelectorAll(row.name ? '.varvalue' : '.varname');
-          const box = boxes[rows.length - 1];
-          box?.focus();
-          box?.setSelectionRange(box.value.length, box.value.length);
-        };
-        name.addEventListener('input', touched);
-        value.addEventListener('input', touched);
-        sayShadow();
-        grid.append(name, value, drop, under);
-      }
-    }
-    draw();
-    return grid;
-  }
-
-  /* ---------------------------------------------------------------- the sets */
-  let showing = deskSetName(ws.id);
-
-  const chips = el('div', { className: 'batonpresets' });
-  const held = el('div');
-  const inherited = el('p', { className: 'hint' });
-  const usedBy = el('p', { className: 'hint' });
-
-  function drawSet() {
-    const set = varSetNamed(showing) || varSetNamed(GROUND);
-    showing = set.name;
-    const ground = set.name === GROUND;
-
-    // The chips: every set, and a way to make another.
-    chips.replaceChildren();
-    for (const other of varSets()) {
-      chips.append(el('button', {
-        className: `ghost dup${other.name === showing ? ' on' : ''}`,
-        textContent: other.name,
-        onclick: () => { showing = other.name; drawSet(); },
+  const drawTabs = () => {
+    tabs.replaceChildren();
+    for (const [key, label] of [['messages', t('Messages')], ['vars', t('Placeholders')]]) {
+      tabs.append(el('button', {
+        className: `ghost dup${(prefs.msgTab || 'messages') === key ? ' on' : ''}`,
+        textContent: label,
+        onclick: () => { prefs.msgTab = key; savePrefs(); drawTabs(); draw(); },
       }));
     }
-    chips.append(el('button', {
-      className: 'ghost dup',
-      textContent: t('New set'),
-      onclick: async () => {
-        const name = await ask(t('Name for this set'), '', t('Create'));
-        if (!name || varSetNamed(name)) return;
-        varSets().push({ name, vars: {} });
-        savePrefs();
-        showing = name;
-        drawSet();
-        drawPick();
-      },
-    }));
+  };
+  const draw = () => ((prefs.msgTab || 'messages') === 'vars' ? drawVarsPane() : drawMessagePane());
 
-    // The grid for the set being shown, plus what it takes from the ground truth.
-    // Saving must not redraw this grid: a row whose name is typed but whose value is not
-    // yet is deliberately not saved, so rebuilding from what *is* saved would delete the
-    // row under the cursor, letter by letter.
-    const grid = varsGrid(
-      () => set.vars,
-      (kept) => { set.vars = kept; savePrefs(); around(); drawTemplates(); },
-      (name) => (!ground && name && name in groundVars() ? groundVars()[name] : null),
-    );
+  /* ================================================================ messages */
+  function drawMessagePane() {
+    body.replaceChildren();
+    const all = batonTemplates();
 
-    const tools = el('div', { className: 'setrow' });
-    if (!ground) {
-      tools.append(
+    const groups = el('datalist', { id: 'batongroups' });
+    for (const name of batonGroups()) groups.append(el('option', { value: name }));
+    body.append(groups);
+
+    const newGroup = el('button', { className: 'ghost dup', textContent: t('New group') });
+    newGroup.onclick = async () => {
+      const group = await ask(t('Name for this group'), '', t('Create'));
+      if (!group || batonGroups().includes(group)) return;
+      prefs.groups = [...batonGroups(), group];
+      savePrefs();
+      drawMessagePane();
+    };
+    body.append(el('div', { className: 'grouphead libhead' }, [
+      el('span', { className: 'hint', textContent: t('Folders you name, each with its own messages.') }),
+      newGroup,
+    ]));
+
+    for (const group of batonGroups()) {
+      const mine = all.filter((x) => x.group === group);
+      const folder = el('details', { className: 'folder', open: !!mine.length });
+      const summary = el('summary', {}, [
+        icon('folder'),
+        el('span', { className: 'foldername', textContent: group }),
+        el('span', { className: 'count', textContent: String(mine.length) }),
+      ]);
+      folder.append(summary);
+
+      const tools = el('div', { className: 'foldertools' }, [
         el('button', {
-          className: 'ghost dup', textContent: t('Rename'),
+          className: 'ghost dup', textContent: t('Add here'),
           onclick: async () => {
-            const name = await ask(t('Name for this set'), set.name, t('Rename'));
-            if (!name || (name !== set.name && varSetNamed(name))) return;
-            // Any desk pointing here must follow the name.
-            for (const [wsId, chosen] of Object.entries(prefs.deskSet || {})) {
-              if (chosen === set.name) prefs.deskSet[wsId] = name;
-            }
-            set.name = name;
-            showing = name;
+            const name = await ask(t('Name for this message'), '', t('Create'));
+            if (!name) return;
+            all.push({ group, name, text: '' });
             savePrefs();
-            drawSet();
-            drawPick();
+            drawMessagePane();
           },
         }),
         el('button', {
-          className: 'ghost dup', textContent: t('Duplicate'),
-          onclick: () => {
-            varSets().push({ name: `${set.name} 2`, vars: { ...set.vars } });
+          className: 'ghost dup', textContent: t('Rename'),
+          onclick: async () => {
+            const name = await ask(t('Name for this group'), group, t('Rename'));
+            if (!name || name === group) return;
+            prefs.groups = batonGroups().map((x) => (x === group ? name : x));
+            for (const kind of all) if (kind.group === group) kind.group = name;
             savePrefs();
-            showing = `${set.name} 2`;
-            drawSet();
-            drawPick();
+            drawMessagePane();
           },
         }),
         el('button', {
           className: 'ghost dup', textContent: t('Delete'),
           onclick: async () => {
-            if (!await confirmBox(t('Delete this set'), t('“{name}” goes for good; the desks using it fall back to {ground}.', { name: set.name, ground: GROUND }), t('Delete'))) return;
-            prefs.varsets = varSets().filter((x) => x !== set);
-            for (const [wsId, chosen] of Object.entries(prefs.deskSet || {})) {
-              if (chosen === set.name) delete prefs.deskSet[wsId];
-            }
-            savePrefs();
-            showing = GROUND;
-            drawSet();
-            drawTemplates();
-            drawPick();
-          },
-        }),
-      );
-    }
-
-    // What it is getting from the ground truth without saying so, and one tap to take a
-    // copy of any of them into this set. Redrawn on its own, so typing in the grid above
-    // keeps its place.
-    function around() {
-      inherited.replaceChildren();
-      if (!ground) {
-        const taken = Object.entries(groundVars()).filter(([name]) => !(name in set.vars));
-        if (taken.length) {
-          inherited.append(document.createTextNode(t('taken from {ground}:', { ground: GROUND }) + ' '));
-          for (const [name, value] of taken) {
-            inherited.append(el('button', {
-              className: 'ghostvar',
-              textContent: `${name} = ${value}`,
-              title: t('give this set its own'),
-              onclick: () => { set.vars[name] = value; savePrefs(); drawSet(); drawTemplates(); },
-            }));
-          }
-        }
-      }
-      const desks = (prefs.workspaces || []).filter((w) => deskSetName(w.id) === set.name).map((w) => w.name);
-      usedBy.textContent = desks.length
-        ? t('used by: {list}', { list: desks.join(', ') })
-        : t('no desk is using this one');
-    }
-    around();
-
-    held.replaceChildren(tools, grid, inherited, usedBy);
-  }
-
-  const drawPick = () => {};        // the desk chooses; this screen only keeps the library
-
-  wrap.append(
-    el('h2', { className: 'msghead', textContent: t('Placeholders') }),
-    el('p', { className: 'hint', textContent: t('Sets with a name. {ground} is the ground truth; another set says only what it changes and takes the rest from it.', { ground: GROUND }) }),
-    el('p', { className: 'hint', textContent: t('A desk picks which set it uses, from its own ⋮ menu. {desk} is on {set}.', { desk: ws.name, set: deskSetName(ws.id) }) }),
-    chips,
-    held,
-    el('p', { className: 'hint', textContent: t('Always there, from the situation itself: {folder} is the working directory of the session handing over, {from} and {to} are the two sessions.') }),
-  );
-  drawSet();
-
-  /* ---------------------------------------------------------------- the library */
-  const list = el('div', { className: 'msglist' });
-  wrap.append(el('h2', { className: 'msghead', textContent: t('Messages') }), list);
-
-  const sample = () => ({ ...allVars(ws.id), folder: '/your/project', from: 'claude', to: 'codex' });
-
-  function drawTemplates() {
-    list.replaceChildren();
-    const all = batonTemplates();
-    if (!all.length) list.append(el('p', { className: 'empty', textContent: t('No messages yet.') }));
-
-    // Every group that exists, so the name can be picked rather than spelled again.
-    const groups = el('datalist', { id: 'batongroups' });
-    for (const name of batonGroups()) groups.append(el('option', { value: name }));
-    list.append(groups);
-
-    for (const group of batonGroups()) {
-      const head = el('div', { className: 'grouphead' }, [
-        el('h3', { textContent: group }),
-        el('button', {
-          className: 'ghost dup',
-          textContent: t('Add here'),
-          onclick: async () => {
-            // Named before it exists: an empty card appended below the fold is one
-            // nobody notices, and then there are three of them.
-            const name = await ask(t('Name for this message'), '', t('Create'));
-            if (!name) return;
-            batonTemplates().push({ group, name, text: '' });
-            savePrefs();
-            drawTemplates();
-            [...list.querySelectorAll('.msgcard')].pop()?.querySelector('textarea')?.focus();
-          },
-        }),
-        el('button', {
-          className: 'ghost dup',
-          textContent: t('Rename'),
-          onclick: async () => {
-            const name = await ask(t('Name for this group'), group, t('Rename'));
-            if (!name || name === group) return;
-            prefs.groups = batonGroups().map((x) => (x === group ? name : x));
-            for (const kind of batonTemplates()) if (kind.group === group) kind.group = name;
-            savePrefs();
-            drawTemplates();
-          },
-        }),
-        el('button', {
-          className: 'ghost dup',
-          textContent: t('Delete'),
-          onclick: async () => {
-            const inside = batonTemplates().filter((x) => x.group === group);
-            const say = inside.length
-              ? t('“{name}” holds {count} message(s); they move to {ground}.', { name: group, count: inside.length, ground: LOOSE })
+            const say = mine.length
+              ? t('“{name}” holds {count} message(s); they move to {ground}.', { name: group, count: mine.length, ground: LOOSE })
               : t('“{name}” is empty.', { name: group });
             if (!await confirmBox(t('Delete this group'), say, t('Delete'))) return;
-            for (const kind of inside) kind.group = LOOSE;
+            for (const kind of mine) kind.group = LOOSE;
             prefs.groups = batonGroups().filter((x) => x !== group);
-            if (inside.length && !prefs.groups.includes(LOOSE)) prefs.groups.unshift(LOOSE);
+            if (mine.length && !prefs.groups.includes(LOOSE)) prefs.groups.unshift(LOOSE);
             savePrefs();
-            drawTemplates();
+            drawMessagePane();
           },
         }),
       ]);
-      list.append(head);
-      if (!all.some((x) => x.group === group)) {
-        list.append(el('p', { className: 'empty tiny', textContent: t('Nothing in here yet.') }));
-      }
+      folder.append(tools);
 
-      for (const kind of all.filter((x) => x.group === group)) {
-        const card = el('div', { className: 'msgcard' });
-        const name = el('input', { type: 'text', value: kind.name, spellcheck: false });
-        const where = el('input', {
-          type: 'text', className: 'groupbox', value: kind.group, spellcheck: false,
-          title: t('which group it belongs to'),
-        });
-        // `list` is read-only as a property: assigning it throws, and the throw took the
-        // whole list of cards with it. It is an attribute.
-        where.setAttribute('list', 'batongroups');
-        const text = el('textarea', { className: 'baton', spellcheck: false, rows: 6, value: kind.text });
-        const preview = el('pre', { className: 'batonpreview' });
-        const gaps = el('p', { className: 'hint warn' });
-
-        const refresh = () => {
-          preview.textContent = fillBaton(text.value, sample());
-          const missing = unknownVars(text.value, sample());
-          gaps.textContent = missing.length
-            ? t('nothing to put in {list} — they will go across as they are', { list: missing.map((g) => `{${g}}`).join(' ') })
-            : '';
-          gaps.hidden = !missing.length;
-        };
-        const keep = () => {
-          kind.name = name.value.trim() || kind.name;
-          kind.text = text.value;
-          // Edited is yours: what it came with is only what you have not touched.
-          delete kind.stock;
-          savePrefs();
-          refresh();
-        };
-        name.addEventListener('input', keep);
-        text.addEventListener('input', keep);
-        // Moving it is a redraw, so only when the typing has settled.
-        where.addEventListener('change', () => {
-          kind.group = where.value.trim() || LOOSE;
-          delete kind.stock;
-          savePrefs();
-          drawTemplates();
-        });
-
-        const drop = el('button', { className: 'ghost dup', textContent: t('Delete') });
-        drop.onclick = async () => {
-          if (!await confirmBox(t('Delete this message'), t('“{name}” goes for good.', { name: kind.name }), t('Delete'))) return;
-          prefs.templates = batonTemplates().filter((x) => x !== kind);
-          savePrefs();
-          drawTemplates();
-        };
-        const copy = el('button', { className: 'ghost dup', textContent: t('Duplicate') });
-        copy.onclick = () => {
-          batonTemplates().splice(all.indexOf(kind) + 1, 0, { group: kind.group, name: `${kind.name} 2`, text: kind.text });
-          savePrefs();
-          drawTemplates();
-        };
-
-        card.append(
-          el('div', { className: 'msgtop' }, [name, copy, drop]),
-          text,
-          el('div', { className: 'msgfoot' }, [
-            el('span', { className: 'meta', textContent: t('in') }),
-            where,
-          ]),
-          el('p', { className: 'hint', textContent: t('with this desk\u2019s values:') }),
-          preview,
-          gaps,
-        );
-        refresh();
-        list.append(card);
-      }
+      if (!mine.length) folder.append(el('p', { className: 'empty tiny', textContent: t('Nothing in here yet.') }));
+      for (const kind of mine) folder.append(messageCard(kind, all));
+      body.append(folder);
     }
+
+    const stock = el('button', { className: 'ghost block wide', textContent: t('Put back the ones it came with') });
+    stock.onclick = () => {
+      for (const kind of BATONS) {
+        if (!all.some((x) => x.name === kind.name)) all.push({ ...kind, stock: true });
+      }
+      savePrefs();
+      drawMessagePane();
+    };
+    body.append(stock);
   }
 
-  const add = el('button', { className: 'ghost block wide', textContent: t('New group') });
-  add.onclick = async () => {
-    const group = await ask(t('Name for this group'), '', t('Create'));
-    if (!group || batonGroups().includes(group)) return;
-    prefs.groups = [...batonGroups(), group];
-    savePrefs();
-    drawTemplates();
-  };
-  const stock = el('button', { className: 'ghost block wide', textContent: t('Put back the ones it came with') });
-  stock.onclick = () => {
-    for (const kind of BATONS) {
-      if (!batonTemplates().some((x) => x.name === kind.name)) batonTemplates().push({ ...kind, stock: true });
-    }
-    savePrefs();
-    drawTemplates();
-  };
+  /** One message, shut until you open it. */
+  function messageCard(kind, all) {
+    const card = el('details', { className: 'msgcard' });
+    const first = (kind.text || '').split('\n')[0] || t('empty');
+    card.append(el('summary', {}, [
+      el('span', { className: 'name', textContent: kind.name }),
+      el('span', { className: 'meta', textContent: first }),
+    ]));
 
-  drawTemplates();
-  wrap.append(add, stock);
+    const name = el('input', { type: 'text', value: kind.name, spellcheck: false });
+    const text = el('textarea', { className: 'baton', spellcheck: false, rows: 6, value: kind.text });
+    const where = el('input', { type: 'text', className: 'groupbox', value: kind.group, spellcheck: false, title: t('which group it belongs to') });
+    where.setAttribute('list', 'batongroups');
+    const preview = el('pre', { className: 'batonpreview' });
+    const gaps = el('p', { className: 'hint warn' });
+
+    const refresh = () => {
+      preview.textContent = fillBaton(text.value, sample());
+      const missing = unknownVars(text.value, sample());
+      gaps.textContent = missing.length
+        ? t('nothing to put in {list} — they will go across as they are', { list: missing.map((g) => `{${g}}`).join(' ') })
+        : '';
+      gaps.hidden = !missing.length;
+    };
+    const keep = () => {
+      kind.name = name.value.trim() || kind.name;
+      kind.text = text.value;
+      delete kind.stock;
+      savePrefs();
+      refresh();
+      card.querySelector('summary .name').textContent = kind.name;
+      card.querySelector('summary .meta').textContent = (kind.text || '').split('\n')[0] || t('empty');
+    };
+    name.addEventListener('input', keep);
+    text.addEventListener('input', keep);
+    where.addEventListener('change', () => {
+      kind.group = where.value.trim() || LOOSE;
+      delete kind.stock;
+      savePrefs();
+      drawMessagePane();
+    });
+
+    const copy = el('button', { className: 'ghost dup', textContent: t('Duplicate') });
+    copy.onclick = () => {
+      all.splice(all.indexOf(kind) + 1, 0, { group: kind.group, name: `${kind.name} 2`, text: kind.text });
+      savePrefs();
+      drawMessagePane();
+    };
+    const drop = el('button', { className: 'ghost dup', textContent: t('Delete') });
+    drop.onclick = async () => {
+      if (!await confirmBox(t('Delete this message'), t('“{name}” goes for good.', { name: kind.name }), t('Delete'))) return;
+      prefs.templates = all.filter((x) => x !== kind);
+      savePrefs();
+      drawMessagePane();
+    };
+
+    card.append(
+      el('div', { className: 'msgtop' }, [name, copy, drop]),
+      text,
+      el('div', { className: 'msgfoot' }, [el('span', { className: 'meta', textContent: t('in') }), where]),
+      el('p', { className: 'hint', textContent: t('with this desk\u2019s values:') }),
+      preview,
+      gaps,
+    );
+    refresh();
+    return card;
+  }
+
+  /* ================================================================ placeholders */
+  function drawVarsPane() {
+    body.replaceChildren();
+    let showing = deskSetName(ws.id);
+
+    const chips = el('div', { className: 'batonpresets' });
+    const held = el('div');
+    body.append(
+      el('p', { className: 'hint', textContent: t('Sets with a name. {ground} is the ground truth; another set says only what it changes and takes the rest from it.', { ground: GROUND }) }),
+      el('p', { className: 'hint', textContent: t('A desk picks which set it uses, from its own ⋮ menu. {desk} is on {set}.', { desk: ws.name, set: deskSetName(ws.id) }) }),
+      chips,
+      held,
+      el('p', { className: 'hint', textContent: t('Always there, from the situation itself: {folder} is the working directory of the session handing over, {from} and {to} are the two sessions.') }),
+    );
+
+    function drawSet() {
+      const set = varSetNamed(showing) || varSetNamed(GROUND);
+      showing = set.name;
+      const ground = set.name === GROUND;
+
+      chips.replaceChildren();
+      for (const other of varSets()) {
+        chips.append(el('button', {
+          className: `ghost dup${other.name === showing ? ' on' : ''}`,
+          textContent: other.name,
+          onclick: () => { showing = other.name; drawSet(); },
+        }));
+      }
+      chips.append(el('button', {
+        className: 'ghost dup', textContent: t('New set'),
+        onclick: async () => {
+          const name = await ask(t('Name for this set'), '', t('Create'));
+          if (!name || varSetNamed(name)) return;
+          varSets().push({ name, vars: {} });
+          savePrefs();
+          showing = name;
+          drawSet();
+        },
+      }));
+
+      const grid = varsGrid(
+        () => set.vars,
+        (kept) => { set.vars = kept; savePrefs(); around(); },
+        (name) => (!ground && name && name in groundVars() ? groundVars()[name] : null),
+      );
+
+      const tools = el('div', { className: 'setrow' });
+      if (!ground) {
+        tools.append(
+          el('button', {
+            className: 'ghost dup', textContent: t('Rename'),
+            onclick: async () => {
+              const name = await ask(t('Name for this set'), set.name, t('Rename'));
+              if (!name || (name !== set.name && varSetNamed(name))) return;
+              for (const [wsId, chosen] of Object.entries(prefs.deskSet || {})) {
+                if (chosen === set.name) prefs.deskSet[wsId] = name;
+              }
+              set.name = name;
+              showing = name;
+              savePrefs();
+              drawSet();
+            },
+          }),
+          el('button', {
+            className: 'ghost dup', textContent: t('Duplicate'),
+            onclick: () => {
+              varSets().push({ name: `${set.name} 2`, vars: { ...set.vars } });
+              savePrefs();
+              showing = `${set.name} 2`;
+              drawSet();
+            },
+          }),
+          el('button', {
+            className: 'ghost dup', textContent: t('Delete'),
+            onclick: async () => {
+              if (!await confirmBox(t('Delete this set'), t('“{name}” goes for good; the desks using it fall back to {ground}.', { name: set.name, ground: GROUND }), t('Delete'))) return;
+              prefs.varsets = varSets().filter((x) => x !== set);
+              for (const [wsId, chosen] of Object.entries(prefs.deskSet || {})) {
+                if (chosen === set.name) delete prefs.deskSet[wsId];
+              }
+              savePrefs();
+              showing = GROUND;
+              drawSet();
+            },
+          }),
+        );
+      }
+
+      const inherited = el('p', { className: 'hint' });
+      const usedBy = el('p', { className: 'hint' });
+      function around() {
+        inherited.replaceChildren();
+        if (!ground) {
+          const taken = Object.entries(groundVars()).filter(([name]) => !(name in set.vars));
+          if (taken.length) {
+            inherited.append(document.createTextNode(t('taken from {ground}:', { ground: GROUND }) + ' '));
+            for (const [name, value] of taken) {
+              inherited.append(el('button', {
+                className: 'ghostvar', textContent: `${name} = ${value}`, title: t('give this set its own'),
+                onclick: () => { set.vars[name] = value; savePrefs(); drawSet(); },
+              }));
+            }
+          }
+        }
+        const desks = (prefs.workspaces || []).filter((w) => deskSetName(w.id) === set.name).map((w) => w.name);
+        usedBy.textContent = desks.length
+          ? t('used by: {list}', { list: desks.join(', ') })
+          : t('no desk is using this one');
+      }
+      around();
+      held.replaceChildren(tools, grid, inherited, usedBy);
+    }
+
+    /** A grid of name-and-value, editable in place. Saving must not rebuild it: a row
+     *  whose name is typed but whose value is not yet is deliberately not saved, and
+     *  redrawing from what *is* saved would delete the row under the cursor. */
+    function varsGrid(read, write, shadows = () => null) {
+      const grid = el('div', { className: 'varsgrid' });
+      let rows = Object.entries(read()).map(([name, value]) => ({ name, value }));
+
+      const keep = () => {
+        const kept = {};
+        for (const row of rows) {
+          const name = row.name.trim().replace(/^\{|\}$/g, '');
+          if (/^[\w.-]+$/.test(name) && row.value.trim()) kept[name] = row.value.trim();
+        }
+        write(kept);
+      };
+
+      function draw() {
+        grid.replaceChildren();
+        for (const [i, row] of [...rows, { name: '', value: '', fresh: true }].entries()) {
+          const name = el('input', { type: 'text', className: 'varname', value: row.name, spellcheck: false, placeholder: t('name') });
+          const value = el('input', { type: 'text', className: 'varvalue', value: row.value, spellcheck: false, placeholder: t('value') });
+          const under = el('span', { className: 'shadowed' });
+          const drop = el('button', { className: 'winbtn', title: t('Remove') }, icon('close'));
+          drop.hidden = !!row.fresh;
+          drop.onclick = () => { rows.splice(i, 1); keep(); draw(); };
+
+          const sayShadow = () => {
+            const covered = shadows(row.name.trim());
+            under.textContent = covered ? t('instead of {value}', { value: covered }) : '';
+            under.hidden = !covered;
+          };
+          const touched = () => {
+            row.name = name.value;
+            row.value = value.value;
+            if (row.fresh && (row.name || row.value)) { delete row.fresh; rows.push(row); draw(); }
+            sayShadow();
+            keep();
+          };
+          name.addEventListener('input', touched);
+          value.addEventListener('input', touched);
+          sayShadow();
+          grid.append(name, value, drop, under);
+        }
+      }
+      draw();
+      return grid;
+    }
+
+    drawSet();
+  }
+
+  drawTabs();
+  draw();
 }
+
 
 /** The tmux configuration, editable, with a way to make it take effect.
  *
