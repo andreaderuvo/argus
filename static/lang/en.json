@@ -384,6 +384,21 @@
   "no session here": "no session here",
   "tap one to send it there, or drag it onto another terminal": "tap one to send it there, or drag it onto another terminal",
   "Change it before sending": "Change it before sending",
-  "Send it": "Send it"
+  "Send it": "Send it",
+  "Prompts": "Prompts",
+  "Prompts and placeholders": "Prompts and placeholders",
+  "Prompts and placeholders…": "Prompts and placeholders…",
+  "The prompts you hand to an agent, kept open": "The prompts you hand to an agent, kept open",
+  "Write the prompts": "Write the prompts",
+  "Folders you name, each with its own prompts.": "Folders you name, each with its own prompts.",
+  "Name for this prompt": "Name for this prompt",
+  "Delete this prompt": "Delete this prompt",
+  "No prompts yet.": "No prompts yet.",
+  "“{name}” holds {count} prompt(s); they move to {ground}.": "“{name}” holds {count} prompt(s); they move to {ground}.",
+  "{name} deleted — tap to undo": "{name} deleted — tap to undo",
+  "Silent: this session will not tell you when it finishes": "Silent: this session will not tell you when it finishes",
+  "Will ring when this session finishes or wants you": "Will ring when this session finishes or wants you",
+  "Undo": "Undo",
+  "{name} deleted": "{name} deleted"
  }
 }
