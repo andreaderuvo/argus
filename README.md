@@ -188,6 +188,8 @@ services.</sub>
 - **Shared edges behave as splitters**: widen one column and the next gives up precisely
   what the first one took.
 - Tile as a grid, columns or rows when you want to start over.
+- **The window list says where each session actually is** — its tmux working directory,
+  which is otherwise written down nowhere and is what a hand-over sentence points at.
 - **Drag a line out of the tray onto a window**: onto a terminal it is typed into that
   session — with shell quoting, and without an Enter, because what to do with it is the
   point of handing it over; onto a file browser that folder is shown. Holding the line
