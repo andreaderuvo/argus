@@ -341,6 +341,11 @@
   "name": "nom",
   "value": "valeur",
   "Remove": "Retirer",
-  "They belong to this desk, so one message serves every project.": "Elles appartiennent à ce bureau : un seul message sert à tous les projets."
+  "They belong to this desk, so one message serves every project.": "Elles appartiennent à ce bureau : un seul message sert à tous les projets.",
+  "Placeholders everywhere": "Variables partout",
+  "the ones that hold on every desk — your name, the journal you always submit to, the house style": "celles qui valent sur tous les bureaux — votre nom, la revue habituelle, le style maison",
+  "Only in {desk}": "Seulement dans {desk}",
+  "what is different about this desk. A name repeated here wins over the one above.": "ce qui change sur ce bureau. Un nom repris ici l'emporte sur celui du dessus.",
+  "instead of {value}": "au lieu de {value}"
  }
 }
