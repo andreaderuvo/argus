@@ -2909,7 +2909,10 @@ async function screenMessages() {
       savePrefs();
       drawMessagePane();
     };
-    card.append(
+    // Everything below the summary lives in one padded box. Spacing the children with
+    // margins instead put a full-width textarea 13px past the edge of its own card: a
+    // width of 100% is 100% of the parent, and a margin is added on top of it.
+    card.append(el('div', { className: 'msgbody' }, [
       el('div', { className: 'msgtop' }, [name, copy]),
       text,
       el('div', { className: 'msgfoot' }, [el('span', { className: 'meta', textContent: t('in') }), where]),
@@ -2923,7 +2926,7 @@ async function screenMessages() {
       }),
       preview,
       gaps,
-    );
+    ]));
     refresh();
     return card;
   }
