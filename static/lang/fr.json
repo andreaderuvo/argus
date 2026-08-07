@@ -411,6 +411,7 @@
   "The prompts window": "La fenêtre des prompts",
   "Next desk": "Bureau suivant",
   "Previous desk": "Bureau précédent",
-  "with this desk’s values — when you send it, {folder} is the folder of the session it comes from:": "avec les valeurs de ce bureau — à l'envoi, {folder} est le dossier de la session d'origine :"
+  "with this desk’s values — when you send it, {folder} is the folder of the session it comes from:": "avec les valeurs de ce bureau — à l'envoi, {folder} est le dossier de la session d'origine :",
+  "filled from {set}, the set {desk} uses — when you send it, {folder} is the folder of the session it comes from:": "rempli depuis {set}, l'ensemble utilisé par {desk} — à l'envoi, {folder} est le dossier de la session d'origine :"
  }
 }
