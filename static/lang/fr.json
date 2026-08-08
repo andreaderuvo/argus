@@ -421,6 +421,7 @@
   "never": "jamais",
   "{n} min": "{n} min",
   "nothing to put in {list}": "rien à mettre dans {list}",
-  "A placeholder works here too — {folder}, {paper} — filled from this desk’s set.": "Une variable marche aussi ici — {folder}, {paper} — remplie depuis l'ensemble de ce bureau."
+  "A placeholder works here too — {folder}, {paper} — filled from this desk’s set.": "Une variable marche aussi ici — {folder}, {paper} — remplie depuis l'ensemble de ce bureau.",
+  "More": "Plus"
  }
 }
