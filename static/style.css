@@ -934,6 +934,40 @@ button.ghost.dup:hover { color: var(--accent); border-color: var(--accent); }
 .rz-se { bottom: -14px; right: -14px; cursor: nwse-resize; }
 .rz-sw { bottom: -14px; left: -14px; cursor: nesw-resize; }
 
+/* A finger is not a pointer.
+ *
+ *  8px of edge is fine to aim a mouse at and impossible to hit with a thumb, and handles
+ *  living entirely outside the frame are off the screen altogether when a window sits
+ *  against the edge of a phone. On a coarse pointer they straddle the frame instead —
+ *  except the top one, which would land on the title bar and its buttons, and the sides,
+ *  which start below the bar for the same reason. */
+@media (pointer: coarse) {
+  .rz-s { bottom: -12px; height: 26px; }
+  .rz-e, .rz-w { top: 2.3rem; width: 26px; }
+  .rz-e { right: -12px; }
+  .rz-w { left: -12px; }
+  .rz-n { top: -16px; height: 16px; }
+  .rz-ne, .rz-nw, .rz-se, .rz-sw { width: 34px; height: 34px; }
+  .rz-ne { top: -16px; right: -16px; }
+  .rz-nw { top: -16px; left: -16px; }
+  .rz-se { bottom: -16px; right: -16px; }
+  .rz-sw { bottom: -16px; left: -16px; }
+
+  /* And something to aim at: an invisible corner is one nobody knows is there. */
+  .rz-se::after {
+    content: '';
+    position: absolute;
+    right: 18px;
+    bottom: 18px;
+    width: 14px;
+    height: 14px;
+    border-right: 2px solid var(--dim);
+    border-bottom: 2px solid var(--dim);
+    border-bottom-right-radius: 3px;
+    opacity: .8;
+  }
+}
+
 .winbar {
   display: flex;
   align-items: center;
@@ -1189,6 +1223,10 @@ video.scanner { width: 100%; border-radius: .6rem; background: #000; aspect-rati
   padding: .4rem 0;
   border-top: 1px solid var(--line);
 }
+/* A command line is as long as somebody's argv, and on a phone that ran hundreds of
+   pixels past the edge — clipped, not scrollable, so simply gone. */
+.portrow > .grow { min-width: 0; }
+.portrow .name, .portrow .meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
 
 .portrow:first-of-type { border-top: 0; }
 .portnum {
@@ -1916,4 +1954,27 @@ button.keyrow kbd { flex: none; }
   .winbar > .sendbtn,
   .winbar > .solobtn { display: none; }
   .winbar > .winmore { display: inline-flex; }
+}
+
+/* Sized for a thumb rather than a cursor. 30px is comfortable with a mouse and a miss
+   with a finger; the audit found a dozen of them at exactly that. */
+@media (pointer: coarse) {
+  button.winbtn.wide,
+  .foldertools .ghost.dup,
+  .msgtabs .ghost.dup,
+  .batonpresets .ghost.dup,
+  .aimbar .ghost.dup,
+  .setrow .ghost.dup,
+  .grouphead .ghost.dup { min-height: 36px; }
+  .tabmore, .tabclose { padding: .35rem .2rem; }
+  .tabmore .ico { width: 17px; height: 17px; }
+  /* One rule rather than a list of the places it happened to be small: every icon
+     button gets a thumb's worth of room. The colour dot keeps its size — it is a dot,
+     and hitting it by accident is worse than missing it. */
+  button.winbtn { min-width: 32px; min-height: 32px; }
+  button.winbtn.swatchbtn { min-width: 20px; min-height: 20px; }
+  .crumb { min-height: 34px; }
+  .tabmore, .tabclose { min-height: 32px; min-width: 26px; }
+  /* The file browser's own header: up, home, refresh, tree, pin. */
+  .sidehead > button { min-width: 34px; min-height: 34px; }
 }

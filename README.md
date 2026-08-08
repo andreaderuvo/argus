@@ -335,6 +335,9 @@ services.</sub>
   JSON file keyed by the English strings, importable from Settings.
 - **A phone-shaped interface**: bottom navigation, thumb-sized targets, drag-to-scroll in
   the terminal, a full-screen button (F11 is not on a phone), light and dark themes.
+  Windows resize with a finger — the handles straddle the frame and are 34px at the
+  corners on a touch screen, rather than the 8px strip outside it that a mouse is happy
+  with and a thumb cannot find.
 - **Keyboard shortcuts** for the places you go and the windows you open, with `?` for the
   list — and a key icon in the header, on screens wide enough to have a keyboard. Any of them can be changed — click the row, press the key — and Backspace clears
   one. They fire only when you are *not* typing: a terminal, or any box you are writing
