@@ -4878,12 +4878,15 @@ async function screenWall() {
       tabs.append(tab);
     }
     const add = el('button', { className: 'wstab add', title: t('New workspace') }, icon('folderPlus'));
-    add.onclick = () => {
+    add.onclick = async () => {
       const id = (prefs.wsSeq || spaces.length) + 1;
       prefs.wsSeq = id;
       spaces.push({ id, name: `Desk ${spaces.length + 1}`, desktop: [] });
       savePrefs();
       activate(id);
+      // A new desk is made *to hold* something, so the question comes straight away
+      // rather than leaving you looking at an empty wall.
+      await sessionSheet();
     };
     tabs.append(add);
   }
@@ -4917,22 +4920,51 @@ async function screenWall() {
 
     if (!sessions.length) body.append(el('p', { className: 'empty', textContent: t('No tmux sessions on this server.') }));
 
-    for (const t of sessions) {
-      const here = ws.desktop.some((x) => specId(x) === `term:${t.name}`);
+    // Ticked rather than opened one at a time: a desk is usually made of two or three
+    // sessions, and closing the sheet after each one meant opening it three times.
+    const chosen = new Set();
+    const take = el('button', { className: 'primary inline', disabled: true });
+    const sayTake = () => {
+      take.disabled = !chosen.size;
+      take.textContent = chosen.size > 1
+        ? t('Add {n}', { n: chosen.size })
+        : t('Add');
+    };
+
+    for (const session of sessions) {
+      const here = ws.desktop.some((x) => specId(x) === `term:${session.name}`);
       const dot = el('span', { className: 'tabdot' });
-      dot.style.background = colorFor(`term:${t.name}`);
+      dot.style.background = colorFor(`term:${session.name}`);
+      const tick = el('span', { className: 'tick' });
       const row = el('button', {
         className: 'ghost block',
         disabled: here,
-        title: here ? 'already in this workspace' : `Add ${t.name} to ${ws.name}`,
-        onclick: () => { sheet.close(); openWindow({ kind: 'term', name: t.name }); },
+        title: here ? t('already in this workspace') : t('Add {name} to {desk}', { name: session.name, desk: ws.name }),
       }, [
         dot,
-        el('span', { className: 'grow', textContent: t.name }),
-        el('span', { className: 'verb', textContent: here ? 'open' : `${t.windows}w` }),
+        el('span', { className: 'grow', textContent: session.name }),
+        el('span', { className: 'verb', textContent: here ? t('open') : `${session.windows}w` }),
+        tick,
       ]);
+      if (!here) {
+        row.onclick = () => {
+          if (chosen.has(session.name)) chosen.delete(session.name);
+          else chosen.add(session.name);
+          row.classList.toggle('on', chosen.has(session.name));
+          tick.textContent = chosen.has(session.name) ? '✓' : '';
+          sayTake();
+        };
+      }
       body.append(row);
     }
+    take.onclick = () => {
+      sheet.close();
+      // In the order they are listed, so what you see is what you get.
+      for (const session of sessions) {
+        if (chosen.has(session.name)) openWindow({ kind: 'term', name: session.name });
+      }
+    };
+    sayTake();
 
     body.append(el('div', { className: 'sheetsep' }));
     body.append(el('button', {
@@ -4945,8 +4977,9 @@ async function screenWall() {
       },
     }, [icon('folderPlus'), el('span', { textContent: t('Start a new session…') })]));
 
-    sheet = modal(t('Add a session to {desk}', { desk: ws.name }), body, [
+    sheet = modal(t('Add sessions to {desk}', { desk: ws.name }), body, [
       el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),
+      take,
     ]);
   }
 

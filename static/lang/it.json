@@ -422,6 +422,12 @@
   "{n} min": "{n} min",
   "nothing to put in {list}": "non c'è niente da mettere in {list}",
   "A placeholder works here too — {folder}, {paper} — filled from this desk’s set.": "Qui funziona anche un segnaposto — {folder}, {paper} — riempito dall'insieme di questo desk.",
-  "More": "Altro"
+  "More": "Altro",
+  "Add": "Aggiungi",
+  "Add {n}": "Aggiungine {n}",
+  "Add sessions to {desk}": "Aggiungi sessioni a {desk}",
+  "Add {name} to {desk}": "Aggiungi {name} a {desk}",
+  "already in this workspace": "già in questo desk",
+  "open": "aperta"
  }
 }
