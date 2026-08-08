@@ -422,6 +422,12 @@
   "{n} min": "{n} min",
   "nothing to put in {list}": "nothing to put in {list}",
   "A placeholder works here too — {folder}, {paper} — filled from this desk’s set.": "A placeholder works here too — {folder}, {paper} — filled from this desk’s set.",
-  "More": "More"
+  "More": "More",
+  "Add": "Add",
+  "Add {n}": "Add {n}",
+  "Add sessions to {desk}": "Add sessions to {desk}",
+  "Add {name} to {desk}": "Add {name} to {desk}",
+  "already in this workspace": "already in this workspace",
+  "open": "open"
  }
 }

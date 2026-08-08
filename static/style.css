@@ -1978,3 +1978,7 @@ button.keyrow kbd { flex: none; }
   /* The file browser's own header: up, home, refresh, tree, pin. */
   .sidehead > button { min-width: 34px; min-height: 34px; }
 }
+
+/* Sessions ticked for a new desk. */
+.ghost.block .tick { flex: none; width: 1.1rem; text-align: center; color: var(--accent); font-weight: 700; }
+.ghost.block.on { background: color-mix(in srgb, var(--accent) 12%, transparent); border-color: var(--accent); }

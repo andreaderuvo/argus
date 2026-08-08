@@ -207,6 +207,9 @@ services.</sub>
 
 ### Workspaces and windows
 
+- **A new desk asks what goes in it**: the session list opens straight away and takes as
+  many as you tick, rather than one at a time with the sheet closing after each. The same
+  sheet adds sessions to a desk you already have.
 - **Desks (tabs)** you can name, colour, reorder by dragging, and pin. Each holds its own
   set of windows, has its own address (`#/wall?ws=3`, copyable from the tab menu) and its
   own starting folder, and survives a reload. Every tab carries a **⋮** for its menu —
