@@ -229,6 +229,10 @@ services.</sub>
 - **Shared edges behave as splitters**: widen one column and the next gives up precisely
   what the first one took.
 - Tile as a grid, columns or rows when you want to start over.
+- **A narrow window folds its own title bar**: below about 340px the buttons move into a
+  ⋯, which reads them off the bar itself, so nothing runs past the edge on a phone. It is
+  asked of the window, not the screen — a 300px window on a wide monitor has the same
+  problem, and a media query cannot tell the two apart.
 - **The window list says where each session actually is** — its tmux working directory,
   which is otherwise written down nowhere and is what a hand-over sentence points at.
 - **Drag a line out of the tray onto a window**: onto a terminal it is typed into that

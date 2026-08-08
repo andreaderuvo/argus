@@ -4230,9 +4230,32 @@ async function screenWall() {
       swatch.onclick = () => pickColor(id, () => win.style.setProperty('--wc', colorFor(id)));
 
       const extras = el('span', { className: 'winextras' });
-      const send = el('button', { className: 'winbtn', title: t('Move or duplicate to another workspace') }, icon('move'));
-      const close = el('button', { className: 'winbtn', title: t('Close') }, icon('close'));
-      const solo = el('button', { className: 'winbtn', title: t('Full screen') }, icon('maximise'));
+      const send = el('button', { className: 'winbtn sendbtn', title: t('Move or duplicate to another workspace') }, icon('move'));
+      const close = el('button', { className: 'winbtn closebtn', title: t('Close') }, icon('close'));
+      const solo = el('button', { className: 'winbtn solobtn', title: t('Full screen') }, icon('maximise'));
+
+      /** A narrow window has no room for nine buttons, and on a phone every window is
+       *  narrow. Below a certain width the title bar keeps the name, this and Close, and
+       *  everything else moves in here — read off the bar itself, so a window carrying
+       *  buttons of its own needs no special case. */
+      const more = el('button', { className: 'winbtn winmore', title: t('More') }, icon('more'));
+      more.onclick = () => {
+        const body = el('div', { className: 'sheetbody actions' });
+        let sheet;
+        const tucked = [...head.querySelectorAll('button')]
+          .filter((b) => b !== more && !b.offsetParent);       // the ones the width hid
+        if (!tucked.length) return;
+        for (const button of tucked) {
+          const glyph = button.querySelector('svg')?.cloneNode(true);
+          body.append(el('button', {
+            className: 'ghost block',
+            onclick: () => { sheet.close(); button.click(); },
+          }, [glyph || icon('more'), el('span', { textContent: button.title || '—' })]));
+        }
+        sheet = modal(label, body, [
+          el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),
+        ]);
+      };
       const title = el('span', {
         className: 'wintitle',
         title: spec.kind === 'term' ? label
@@ -4241,7 +4264,7 @@ async function screenWall() {
         textContent: label,
       });
       const setLabel = (text, full) => { title.textContent = text; title.title = full; };
-      const head = el('div', { className: 'winbar' }, [swatch, title, extras, send, solo, close]);
+      const head = el('div', { className: 'winbar' }, [swatch, title, extras, send, solo, more, close]);
       win.append(head, body);
       node.append(win);
 

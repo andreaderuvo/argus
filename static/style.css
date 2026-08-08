@@ -1903,3 +1903,17 @@ button.keyrow kbd { flex: none; }
   color: var(--bright);
   font: 11.5px/1.55 ui-monospace, "SF Mono", Menlo, monospace;
 }
+
+/* A window's title bar, when the window is narrow.
+   Asked of the window rather than the screen: a 300px window on a wide monitor has the
+   same problem as a phone, and a media query cannot tell the difference. */
+.win { container-type: inline-size; }
+/* Same specificity as the rule inside the query, or the base one loses to
+   `button.winbtn` and the ⋯ never goes away again. */
+.winbar > .winmore { display: none; }
+@container (max-width: 340px) {
+  .winbar > .winextras,
+  .winbar > .sendbtn,
+  .winbar > .solobtn { display: none; }
+  .winbar > .winmore { display: inline-flex; }
+}
