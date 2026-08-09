@@ -460,6 +460,7 @@
   "Placeholders as you type": "Placeholders as you type",
   "{a.name} typed straight into a session becomes its value — in a shell, or in an agent’s own box": "{a.name} typed straight into a session becomes its value — in a shell, or in an agent’s own box",
   "How a placeholder is written": "How a placeholder is written",
-  "in a session — a saved prompt takes any of them": "in a session — a saved prompt takes any of them"
+  "in a session — a saved prompt takes any of them": "in a session — a saved prompt takes any of them",
+  "clear the line, without interrupting": "clear the line, without interrupting"
  }
 }
