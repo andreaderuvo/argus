@@ -465,6 +465,11 @@
   "write a line, then send": "écrivez une ligne, puis envoyez",
   "Send": "Envoyer",
   "Put it in without running it": "L'insérer sans l'exécuter",
-  "Write a line in a box instead": "Écrire dans une zone plutôt que dans le terminal"
+  "Write a line in a box instead": "Écrire dans une zone plutôt que dans le terminal",
+  "sends it": "l'envoie",
+  "waits for Enter": "attend Entrée",
+  "goes straight in, Enter and all": "part directement, Entrée comprise",
+  "lands in the box; you press Enter": "arrive dans la zone ; à vous d'appuyer sur Entrée",
+  "{name} sent to {session}": "{name} envoyé à {session}"
  }
 }
