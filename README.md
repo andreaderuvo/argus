@@ -178,6 +178,11 @@ services.</sub>
   with **Undo** in it for five seconds, which is a better bargain than a dialog every
   time. Deliberately not a loop: automating the round trip is the part to add
   last, once the sentence has proved itself.
+- **Placeholders as you type.** `{genpat_paper.paper_tex}` typed at a prompt *in the
+  session* becomes the path, not only in a saved prompt: as the closing brace lands, what
+  you wrote is erased and the value written in its place. Left alone while a full-screen
+  program has the pane — asked of tmux, since a browser cannot tell: tmux itself lives in
+  the alternate screen, so the terminal says "full screen" always.
 - **Clickable paths.** Hovering a line asks the server which of its words are real files;
   those get underlined, and opening one shows it in the viewer *and* points the file
   browser at it. Relative paths resolve against the pane's own working directory. On a

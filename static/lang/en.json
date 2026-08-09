@@ -456,6 +456,8 @@
   "nothing named {name} in this desk’s set": "nothing named {name} in this desk’s set",
   "{set}.{key} needs “Placeholders from another set”, which is off in Settings": "{set}.{key} needs “Placeholders from another set”, which is off in Settings",
   "there is no set called {set} — there is {list}": "there is no set called {set} — there is {list}",
-  "{set} has no {key} — it has {list}": "{set} has no {key} — it has {list}"
+  "{set} has no {key} — it has {list}": "{set} has no {key} — it has {list}",
+  "Placeholders as you type": "Placeholders as you type",
+  "{a.name} typed straight into a session becomes its value, outside full-screen programs": "{a.name} typed straight into a session becomes its value, outside full-screen programs"
  }
 }
