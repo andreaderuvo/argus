@@ -428,6 +428,7 @@
   "Add sessions to {desk}": "Aggiungi sessioni a {desk}",
   "Add {name} to {desk}": "Aggiungi {name} a {desk}",
   "already in this workspace": "già in questo desk",
-  "open": "aperta"
+  "open": "aperta",
+  "Hold a path or a link to open it": "Tieni premuto un percorso o un link per aprirlo"
  }
 }

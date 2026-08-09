@@ -428,6 +428,7 @@
   "Add sessions to {desk}": "Add sessions to {desk}",
   "Add {name} to {desk}": "Add {name} to {desk}",
   "already in this workspace": "already in this workspace",
-  "open": "open"
+  "open": "open",
+  "Hold a path or a link to open it": "Hold a path or a link to open it"
  }
 }
