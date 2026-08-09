@@ -3441,6 +3441,22 @@ function openLocated(where, hit, from) {
   go(`#${route}?path=${encodeURIComponent(hit.path)}`);
 }
 
+/** A candidate cut in half by the edge of the pane.
+ *
+ *  A program that lays out its own text writes each row separately, so nothing is marked
+ *  as wrapped and a long path comes out in two pieces. The tell is a candidate that
+ *  reaches the very end of what is written on the row: whatever is below may be the rest
+ *  of it. Joining costs nothing when it is wrong — the result is looked up like any other
+ *  path, and one that is not there is dropped. */
+function carriedOn(term, last, text, cand) {
+  if (!cand || cand.url) return null;
+  if (cand.end < text.replace(/\s+$/, '').length) return null;
+  const below = term.buffer.active.getLine(last + 1);
+  if (!below || below.isWrapped) return null;
+  const rest = below.translateToString(true).trimStart().split(/\s/)[0] || '';
+  return rest ? cand.text + rest : null;
+}
+
 /** Make the paths in this terminal clickable.
  *
  *  Hovering asks the server which words on that line are real files; only those get
@@ -3455,7 +3471,7 @@ function linkPaths(term, container, session, open, following = () => {}) {
 
   term.registerLinkProvider({
     provideLinks(y, done) {
-      const { text, first } = logicalLine(term, y);
+      const { text, first, last } = logicalLine(term, y);
       const cands = pathCandidates(text);
       if (!cands.length) return done(undefined);
       const urls = cands.filter((c) => c.url).map((c) => ({
@@ -3466,11 +3482,18 @@ function linkPaths(term, container, session, open, following = () => {}) {
       const paths = cands.filter((c) => !c.url);
       if (!paths.length) return done(urls.length ? urls : undefined);
 
-      locatePaths(paths.map((c) => c.text), session).then((found) => {
-        const links = paths.filter((c) => found[c.text]).map((c) => ({
+      // The last candidate on the line may be a path the pane cut in two; ask about the
+      // joined-up version as well and prefer it when it is the one that exists.
+      const tail = cands[cands.length - 1];
+      const joined = carriedOn(term, last, text, tail);
+      const asking = paths.map((c) => c.text);
+      if (joined) asking.unshift(joined);
+
+      locatePaths(asking, session).then((found) => {
+        const links = paths.filter((c) => found[c.text] || (joined && c === tail && found[joined])).map((c) => ({
           text: c.text,
           range: { start: at(c.start, first), end: at(c.end - 1, first) },
-          activate: () => { following(); open(found[c.text]); },
+          activate: () => { following(); open((c === tail && joined && found[joined]) || found[c.text]); },
         }));
         done(urls.concat(links).length ? urls.concat(links) : undefined);
       }).catch(() => done(urls.length ? urls : undefined));
@@ -3495,13 +3518,18 @@ function linkPaths(term, container, session, open, following = () => {}) {
 
   const openUnderFinger = async (spot) => {
     const y = term.buffer.active.viewportY + spot.row + 1;
-    const { text, first } = logicalLine(term, y);
+    const { text, first, last } = logicalLine(term, y);
     const offset = (y - 1 - first) * term.cols + spot.col;
     const cand = pathCandidates(text).find((c) => offset >= c.start && offset < c.end);
     if (!cand) return;
     if (cand.url) return openUrl(cand.text);
-    const found = await locatePaths([cand.text], session);
-    if (found[cand.text]) { following(); open(found[cand.text]); }
+    // Ask about the joined-up version as well: in a narrow pane a path is more often than
+    // not broken across two rows, and half a path opens the wrong thing or nothing.
+    const joined = carriedOn(term, last, text, cand);
+    const asked = joined ? [joined, cand.text] : [cand.text];
+    const found = await locatePaths(asked, session);
+    const hit = found[asked[0]] || found[cand.text];
+    if (hit) { following(); open(hit); }
     else toast(t('No file at {path}', { path: cand.text }), true);
   };
 
@@ -3509,8 +3537,16 @@ function linkPaths(term, container, session, open, following = () => {}) {
     if (e.touches.length !== 1) return;
     const spot = cellAt(e.touches[0]);
     if (!spot) return;
+    // A tap belongs to tmux — with mouse mode on it is a click in the pane — so opening a
+    // path is a hold. Nobody guesses that, so it is said once, the first time a finger
+    // lands on a session.
+    if (!prefs.heldHint) {
+      prefs.heldHint = true;
+      savePrefs();
+      toast(t('Hold a path or a link to open it'));
+    }
     press = { spot, x: e.touches[0].clientX, y: e.touches[0].clientY };
-    press.timer = setTimeout(() => { press = null; openUnderFinger(spot); }, 500);
+    press.timer = setTimeout(() => { press = null; openUnderFinger(spot); }, 400);
   }, { passive: true });
 
   const cancel = (e) => {
