@@ -2662,6 +2662,11 @@ async function screenSettings() {
       () => prefs.openInDesk !== false, (v) => { prefs.openInDesk = v; }),
     toggle(t('Sound when something rings'), t('two short tones when an agent finishes or asks for you'),
       () => prefs.bellSound !== false, (v) => { prefs.bellSound = v; }),
+    choice(t('How a placeholder is written'),
+      t('in a session — a saved prompt takes any of them'),
+      Object.keys(MARKS).map((k) => MARKS[k].show),
+      () => mark().show,
+      (v) => { prefs.varMark = Object.keys(MARKS).find((k) => MARKS[k].show === v) || 'double'; }),
     toggle(t('Placeholders as you type'),
       t('{a.name} typed straight into a session becomes its value — in a shell, or in an agent’s own box'),
       () => prefs.typedVars !== false, (v) => { prefs.typedVars = v; }),
@@ -4036,7 +4041,7 @@ function attachTerminal(container, name, { transform, onGone, onPath, onLinks, m
    *  Only what you type by hand, and only outside a full-screen program: in vim or a
    *  pager a brace is not a placeholder and backspaces are not corrections.
    */
-  let brace = null;                  // what has been typed since a `{`
+  let recent = '';                   // the tail of what has been typed, for spotting {{…}}
 
   // Everywhere, full-screen programs included — an agent's own input box is the whole
   // point of this, and that is always a full-screen program. In a text field a backspace
@@ -4045,15 +4050,23 @@ function attachTerminal(container, name, { transform, onGone, onPath, onLinks, m
   // typing `{name}` anyway; the switch in Settings is for anyone who disagrees.
   const expandable = () => prefs.typedVars !== false;
 
-  /** A whole string at once — a paste, or anything sent in one go.
+  /** Placeholders in what you type into the session itself.
    *
-   *  Nothing has reached tmux yet at this point, so there is nothing to erase: the
-   *  placeholders are simply filled in before it goes. Only names that resolve are
-   *  touched, which leaves `{"a": 1}` and `mv x{,.bak}` exactly as they were. */
+   *  Here the text is yours, not a template of ours, and `{...}` already means something
+   *  to a shell — brace expansion, JSON, half the languages there are. So this half wants
+   *  two braces: `{{genpat_paper.paper_tex}}` cannot be mistaken for anything, and
+   *  `mv x{,.bak}` or `{"a": 1}` are never touched even by accident. In a saved prompt
+   *  one brace still works, because there the whole text is a template.
+   */
+
+
+  /** A whole string at once — a paste, or anything sent in one go. Nothing has reached
+   *  tmux yet, so it is filled in on its way through. */
   const pasted = (d) => {
-    if (!expandable() || d.length < 4 || !d.includes('{')) return null;
+    const m = mark();
+    if (!expandable() || d.length < m.open.length + m.close.length + 1 || !d.includes(m.open)) return null;
     let changed = false;
-    const out = d.replace(/\{([\w.-]+)\}/g, (whole, name) => {
+    const out = d.replace(markRe(), (whole, name) => {
       const value = valueFor(name, { ...allVars(currentSpace().id) });
       if (value === undefined || value === '') return whole;
       changed = true;
@@ -4062,25 +4075,30 @@ function attachTerminal(container, name, { transform, onGone, onPath, onLinks, m
     return changed ? out : null;
   };
 
-  const typed = (d) => {
-    if (!expandable()) { brace = null; return null; }
-    if (d.length !== 1) { brace = null; return null; }     // a key, not a character
-    if (d === '{') { brace = ''; return null; }
-    if (brace === null) return null;
-    if (d === '\x7f' || d === '\b') { brace = brace.slice(0, -1); return null; }
-    if (d !== '}') {
-      if (!/^[\w.-]$/.test(d)) { brace = null; return null; }
-      if (brace.length > 60) { brace = null; return null; }
-      brace += d;
-      return null;
+  /** Everything that goes to the session, typed or pasted, kept as a running tail.
+   *
+   *  One buffer for both, so a placeholder does not have to arrive all one way: paste
+   *  `{{pap`, type `er}}`, and it is still a placeholder. What was sent has already gone,
+   *  so the correction is the one a person would make — backspaces, then the value.
+   */
+  const trail = (text) => {
+    if (!expandable()) { recent = ''; return null; }
+    // A paste arrives wrapped in bracketed-paste markers. They are escape sequences, so
+    // without this the wrapper resets the buffer and half a placeholder is lost between
+    // the paste and what you type next.
+    for (const ch of text.replace(/\x1b\[20[01]~/g, '')) {
+      if (ch === '\x7f' || ch === '\b') recent = recent.slice(0, -1);
+      else if (ch < ' ') recent = '';                     // Enter, Escape, a control key
+      else recent += ch;
     }
-    const name = brace;
-    brace = null;
-    if (!name) return null;
-    const value = valueFor(name, { ...allVars(currentSpace().id) });
+    recent = recent.slice(-200);
+    if (!recent.endsWith(mark().close)) return null;
+    const hit = recent.match(markRe(true));
+    if (!hit) return null;
+    const value = valueFor(hit[1], { ...allVars(currentSpace().id) });
     if (value === undefined || value === '') return null;
-    // `{name}` and the `}` just typed: erase all of it, then write the value.
-    return { erase: name.length + 2, value };
+    recent = recent.slice(0, -hit[0].length) + value;
+    return { erase: hit[0].length, value };
   };
 
   term.onData((d) => {
@@ -4090,7 +4108,7 @@ function attachTerminal(container, name, { transform, onGone, onPath, onLinks, m
     // one is corrected afterwards with backspaces.
     out = pasted(out) ?? out;
     send(out);
-    const swap = typed(out);
+    const swap = trail(out);
     if (swap) send('\x7f'.repeat(swap.erase) + swap.value);
     // Whatever was typed here, offered to whoever else is meant to receive it. It goes to
     // their `send`, never back through their input, so a chain cannot echo round itself.
@@ -6441,6 +6459,29 @@ function batonGroups() {
  */
 const GROUND = 'Default';
 
+/** How a placeholder is written when you type it into a session.
+ *
+ *  In a saved prompt the whole text is a template, so `{paper}` is unambiguous. In a
+ *  terminal it is not: `{...}` already belongs to the shell, and to JSON, and to half the
+ *  languages there are. So the typed form is yours to pick, and it defaults to the one
+ *  that cannot collide with anything.
+ */
+const MARKS = {
+  double: { name: '{{ }}', show: '{{paper}}', open: '{{', close: '}}' },
+  single: { name: '{ }', show: '{paper}', open: '{', close: '}' },
+  at: { name: '@{ }', show: '@{paper}', open: '@{', close: '}' },
+};
+
+const mark = () => MARKS[prefs.varMark] || MARKS.double;
+
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** The pattern for the chosen shape, built fresh so changing it takes effect at once. */
+const markRe = (anchored = false) => {
+  const m = mark();
+  return new RegExp(`${escapeRe(m.open)}([\\w.-]+)${escapeRe(m.close)}${anchored ? '$' : ''}`, anchored ? '' : 'g');
+};
+
 function varSets() {
   if (!prefs.varsets) {
     // What was there before: one global bag, plus a bag per desk. Each desk that had
@@ -6539,15 +6580,24 @@ function whyEmpty(name) {
 }
 
 function fillBaton(text, known) {
-  return text.replace(/\{([\w.-]+)\}/g, (whole, name) => {
+  // Both forms in a prompt: the text there is a template and nothing else, so `{paper}`
+  // is unambiguous. `{{paper}}` is the form to use in a terminal — see below — and it
+  // works here too, so one wording can serve both places.
+  const swap = (whole, name) => {
     const value = valueFor(name, known);
     return value === undefined ? whole : value;
-  });
+  };
+  return text
+    .replace(markRe(), swap)                    // whichever shape you chose
+    .replace(/\{\{([\w.-]+)\}\}/g, swap)      // and the two written forms, always
+    .replace(/\{([\w.-]+)\}/g, swap);
 }
 
-const unknownVars = (text, known) =>
-  [...new Set([...text.matchAll(/\{([\w.-]+)\}/g)].map((m) => m[1]))]
-    .filter((n) => valueFor(n, known) === undefined);
+const unknownVars = (text, known) => {
+  const names = [...text.matchAll(/\{\{?([\w.-]+)\}?\}/g)].map((m) => m[1])
+    .concat([...text.matchAll(markRe())].map((m) => m[1]));
+  return [...new Set(names)].filter((n) => valueFor(n, known) === undefined);
+};
 
 /** The messages, as a window that stays open.
  *

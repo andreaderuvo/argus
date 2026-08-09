@@ -178,13 +178,17 @@ services.</sub>
   with **Undo** in it for five seconds, which is a better bargain than a dialog every
   time. Deliberately not a loop: automating the round trip is the part to add
   last, once the sentence has proved itself.
-- **Placeholders as you type.** `{genpat_paper.paper_tex}` typed at a prompt *in the
-  session* becomes the path, not only in a saved prompt: as the closing brace lands, what
-  you wrote is erased and the value written in its place. **Pasted** text is filled in
-  before it goes, since nothing has been sent yet. It works **inside an agent's own input
-  box too**, which is a full-screen program and the whole reason for having it. Only names
-  that resolve are touched, so `{"a": 1}` and `mv x{,.bak}` go across exactly as they
-  were.
+- **Placeholders as you type.** `{{genpat_paper.paper_tex}}` typed at a prompt *in the
+  session* becomes the path, not only in a saved prompt — and it works **inside an agent's
+  own input box**, which is the whole reason for having it. Typed, pasted, or half of
+  each: one buffer holds what has gone to the session, so a placeholder does not have to
+  arrive all one way.
+
+  In a terminal the text is yours and `{...}` already belongs to the shell, so the typed
+  form takes **two braces** by default, and `{ }` or `@{ }` if you prefer — the choice is
+  in Settings. With the default, `{"a": 1}` and `mv x{,.bak}` can never be touched even by
+  accident. A saved prompt accepts any of the three, since there the whole text is a
+  template.
 - **Clickable paths.** Hovering a line asks the server which of its words are real files;
   those get underlined, and opening one shows it in the viewer *and* points the file
   browser at it. Relative paths resolve against the pane's own working directory. On a

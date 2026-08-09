@@ -458,6 +458,8 @@
   "there is no set called {set} — there is {list}": "there is no set called {set} — there is {list}",
   "{set} has no {key} — it has {list}": "{set} has no {key} — it has {list}",
   "Placeholders as you type": "Placeholders as you type",
-  "{a.name} typed straight into a session becomes its value — in a shell, or in an agent’s own box": "{a.name} typed straight into a session becomes its value — in a shell, or in an agent’s own box"
+  "{a.name} typed straight into a session becomes its value — in a shell, or in an agent’s own box": "{a.name} typed straight into a session becomes its value — in a shell, or in an agent’s own box",
+  "How a placeholder is written": "How a placeholder is written",
+  "in a session — a saved prompt takes any of them": "in a session — a saved prompt takes any of them"
  }
 }
