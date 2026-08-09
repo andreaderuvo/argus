@@ -465,6 +465,11 @@
   "write a line, then send": "scrivi una riga, poi manda",
   "Send": "Manda",
   "Put it in without running it": "Mettila dentro senza eseguirla",
-  "Write a line in a box instead": "Scrivi in una casella invece che nel terminale"
+  "Write a line in a box instead": "Scrivi in una casella invece che nel terminale",
+  "sends it": "lo manda",
+  "waits for Enter": "aspetta l'Invio",
+  "goes straight in, Enter and all": "va dentro subito, Invio compreso",
+  "lands in the box; you press Enter": "arriva nella casella; l'Invio lo dai tu",
+  "{name} sent to {session}": "{name} mandato a {session}"
  }
 }

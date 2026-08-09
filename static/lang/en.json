@@ -465,6 +465,11 @@
   "write a line, then send": "write a line, then send",
   "Send": "Send",
   "Put it in without running it": "Put it in without running it",
-  "Write a line in a box instead": "Write a line in a box instead"
+  "Write a line in a box instead": "Write a line in a box instead",
+  "sends it": "sends it",
+  "waits for Enter": "waits for Enter",
+  "goes straight in, Enter and all": "goes straight in, Enter and all",
+  "lands in the box; you press Enter": "lands in the box; you press Enter",
+  "{name} sent to {session}": "{name} sent to {session}"
  }
 }

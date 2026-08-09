@@ -2950,6 +2950,25 @@ async function screenMessages(open = null) {
       drawMessagePane();
     });
 
+    // Whether this one presses Enter for you. Off by default: a prompt that runs itself
+    // the first time you try it is a surprise, and deciding to send is the cheap half.
+    const runs = el('button', { className: `ghost dup${kind.run ? ' on' : ''}` });
+    const sayRuns = () => {
+      runs.textContent = kind.run ? t('sends it') : t('waits for Enter');
+      runs.title = kind.run
+        ? t('goes straight in, Enter and all')
+        : t('lands in the box; you press Enter');
+      runs.classList.toggle('on', !!kind.run);
+    };
+    runs.onclick = () => {
+      kind.run = !kind.run;
+      delete kind.stock;
+      savePrefs();
+      messagesChanged();
+      sayRuns();
+    };
+    sayRuns();
+
     const copy = el('button', { className: 'ghost dup', textContent: t('Duplicate') });
     copy.onclick = () => {
       all.splice(all.indexOf(kind) + 1, 0, { group: kind.group, name: `${kind.name} 2`, text: kind.text });
@@ -2962,7 +2981,11 @@ async function screenMessages(open = null) {
     card.append(el('div', { className: 'msgbody' }, [
       el('div', { className: 'msgtop' }, [name, copy]),
       text,
-      el('div', { className: 'msgfoot' }, [el('span', { className: 'meta', textContent: t('in') }), where]),
+      el('div', { className: 'msgfoot' }, [
+        el('span', { className: 'meta', textContent: t('in') }),
+        where,
+        runs,
+      ]),
       // Which set is doing the filling, said where the filling is shown: otherwise the
       // only way to know why a value came out that way is to remember what the desk is on.
       el('p', {
@@ -6697,13 +6720,17 @@ function attachMessages(host, wsId, extras, deliver) {
     // Worked out first, yours second: three names are filled in from the situation, and
     // a set that defines one of them anyway means it on purpose.
     const known = { folder: folder || deliver.folder(), from: fromName, to: toName, ...allVars(wsId) };
-    target.handle.send(fillBaton(kind.text, known));
+    // Whether it runs is the prompt's own business: "run the tests" wants to go, while
+    // "here is the file, now tell me what you think" wants a look before Enter.
+    target.handle.send(fillBaton(kind.text, known) + (kind.run ? '\r' : ''));
     target.handle.focus();
     deliver.raise(target);
     // Sending one there is working there: the next tap should not go somewhere else.
     deliver.setAim(target);
     drawAim();
-    toast(t('{name} put into {session}', { name: kind.name, session: toName }));
+    toast(kind.run
+      ? t('{name} sent to {session}', { name: kind.name, session: toName })
+      : t('{name} put into {session}', { name: kind.name, session: toName }));
   };
 
   /** Who it is going to, at the top, as buttons: one is lit and that is where a tap
@@ -6737,10 +6764,14 @@ function attachMessages(host, wsId, extras, deliver) {
       const folder = el('details', { className: 'msgfolder', open: true });
       folder.append(el('summary', {}, [icon('folder'), el('span', { textContent: group })]));
       for (const kind of mine) {
-        const row = el('button', { className: 'trayrow', title: kind.text.split('\n')[0] }, [
+        const row = el('button', {
+          className: 'trayrow',
+          title: (kind.run ? t('sends it') + ' — ' : '') + kind.text.split('\n')[0],
+        }, [
           icon('relay'),
           el('span', { className: 'trayleaf', textContent: kind.name }),
-        ]);
+          kind.run ? el('span', { className: 'verb', textContent: '↵' }) : null,
+        ].filter(Boolean));
         dragLink(row, { text: kind.name, message: kind }, deliver.find, (item, target) => send(item.message, target));
         row.onclick = () => {
           if (row.dataset.dragged) return;

@@ -180,6 +180,11 @@ services.</sub>
   and on the Prompts screen you can preview with any set of placeholders, not only the one
   the desk is on, since reading is not choosing.
 
+  **A prompt says whether it runs.** "Run the tests" wants to go; "here is the file, now
+  tell me what you think" wants a look before Enter. The switch is on the prompt itself,
+  off by default, and a prompt that will run says so with a ↵ in the list — before you
+  tap, not after.
+
   The ⋯ on a row is for the times a word needs changing before it goes: it shows the text
   filled in, lets you edit it once and sends it. Not saved — the library is edited where
   the library lives, where deleting one needs no confirmation: the row becomes a red line
