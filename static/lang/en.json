@@ -429,6 +429,13 @@
   "Add {name} to {desk}": "Add {name} to {desk}",
   "already in this workspace": "already in this workspace",
   "open": "open",
-  "Hold a path or a link to open it": "Hold a path or a link to open it"
+  "Hold a path or a link to open it": "Hold a path or a link to open it",
+  "A look:": "A look:",
+  "{name} written in — save and apply it to see it": "{name} written in — save and apply it to see it",
+  "the app’s own greens": "the app’s own greens",
+  "dark ink on a light page": "dark ink on a light page",
+  "a terminal that remembers phosphor": "a terminal that remembers phosphor",
+  "quiet blues, nothing shouting": "quiet blues, nothing shouting",
+  "tmux as it comes, and the app’s own colours back": "tmux as it comes, and the app’s own colours back"
  }
 }

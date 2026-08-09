@@ -429,6 +429,13 @@
   "Add {name} to {desk}": "Ajouter {name} à {desk}",
   "already in this workspace": "déjà dans ce bureau",
   "open": "ouverte",
-  "Hold a path or a link to open it": "Maintenez un chemin ou un lien pour l'ouvrir"
+  "Hold a path or a link to open it": "Maintenez un chemin ou un lien pour l'ouvrir",
+  "A look:": "Une allure :",
+  "{name} written in — save and apply it to see it": "{name} écrit dans le fichier — enregistrez et appliquez",
+  "the app’s own greens": "les verts de l'application",
+  "dark ink on a light page": "encre sombre sur page claire",
+  "a terminal that remembers phosphor": "un terminal qui se souvient du phosphore",
+  "quiet blues, nothing shouting": "des bleus discrets",
+  "tmux as it comes, and the app’s own colours back": "tmux tel quel, et les couleurs de l'app"
  }
 }
