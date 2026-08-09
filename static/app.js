@@ -2662,6 +2662,9 @@ async function screenSettings() {
       () => prefs.openInDesk !== false, (v) => { prefs.openInDesk = v; }),
     toggle(t('Sound when something rings'), t('two short tones when an agent finishes or asks for you'),
       () => prefs.bellSound !== false, (v) => { prefs.bellSound = v; }),
+    toggle(t('Placeholders as you type'),
+      t('{a.name} typed straight into a session becomes its value, outside full-screen programs'),
+      () => prefs.typedVars !== false, (v) => { prefs.typedVars = v; }),
     toggle(t('Placeholders from another set'),
       t('write {genpat_paper.paper} in a prompt to take a value from that set, whatever set the desk is on'),
       () => prefs.crossSet !== false, (v) => { prefs.crossSet = v; }),
@@ -3820,12 +3823,20 @@ function attachTerminal(container, name, { transform, onGone, onPath, onLinks, m
   // The terminal's own scrollback, for a session tmux is not driving the mouse for.
   const ownScrollback = () => term.buffer.active.viewportY < term.buffer.active.baseY;
 
+  // Whether a program like vim or less has the pane. Written by the poll below and read
+  // when expanding a placeholder, so it has to be declared before both.
+  let fullScreen = false;
+
   const check = async () => {
     if (disposed) { clearInterval(asking); asking = null; return; }
     if (!onScreen()) return;
     let inMode = false;
     try {
-      inMode = (await getJSON(`/api/tmux/copymode?session=${encodeURIComponent(name)}`)).in_mode;
+      const where = await getJSON(`/api/tmux/copymode?session=${encodeURIComponent(name)}`);
+      inMode = where.in_mode;
+      // Which program owns the screen. Asked of tmux, because the browser cannot tell:
+      // tmux itself lives in the alternate buffer, so xterm says "alternate" always.
+      fullScreen = !!where.alternate;
     } catch { inMode = false; }
     toEnd.hidden = !(inMode || ownScrollback());
   };
@@ -4014,13 +4025,52 @@ function attachTerminal(container, name, { transform, onGone, onPath, onLinks, m
     return committed.seen > 1;
   };
 
+  /* Placeholders typed straight into the session.
+   *
+   *  This is the half that was missing: `{genpat_paper.paper_tex}` typed at a prompt in
+   *  tmux — not in the Prompts window — should become the path, the same as it would if
+   *  Argus had delivered it. What is typed has already gone to tmux by the time the
+   *  closing brace arrives, so the expansion is done the way a person would: erase what
+   *  was written with as many backspaces, then send the value.
+   *
+   *  Only what you type by hand, and only outside a full-screen program: in vim or a
+   *  pager a brace is not a placeholder and backspaces are not corrections.
+   */
+  let brace = null;                  // what has been typed since a `{`
+
+  const expandable = () => prefs.typedVars !== false && !fullScreen;
+
+  const typed = (d) => {
+    if (!expandable()) { brace = null; return null; }
+    if (d.length !== 1) { brace = null; return null; }     // a key, not a character
+    if (d === '{') { brace = ''; return null; }
+    if (brace === null) return null;
+    if (d === '\x7f' || d === '\b') { brace = brace.slice(0, -1); return null; }
+    if (d !== '}') {
+      if (!/^[\w.-]$/.test(d)) { brace = null; return null; }
+      if (brace.length > 60) { brace = null; return null; }
+      brace += d;
+      return null;
+    }
+    const name = brace;
+    brace = null;
+    if (!name) return null;
+    const value = valueFor(name, { ...allVars(currentSpace().id) });
+    if (value === undefined || value === '') return null;
+    // `{name}` and the `}` just typed: erase all of it, then write the value.
+    return { erase: name.length + 2, value };
+  };
+
   term.onData((d) => {
     if (duplicated(d)) return;
     const out = transform ? transform(d) : d;
     send(out);
+    const swap = typed(out);
+    if (swap) send('\x7f'.repeat(swap.erase) + swap.value);
     // Whatever was typed here, offered to whoever else is meant to receive it. It goes to
     // their `send`, never back through their input, so a chain cannot echo round itself.
     mirror?.(out);
+    if (swap) mirror?.('\x7f'.repeat(swap.erase) + swap.value);
   });
 
   // tmux sizes a window for its most recently used client, so simply asking again when

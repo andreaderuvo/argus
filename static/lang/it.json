@@ -456,6 +456,8 @@
   "nothing named {name} in this desk’s set": "non c'è niente chiamato {name} nell'insieme di questo desk",
   "{set}.{key} needs “Placeholders from another set”, which is off in Settings": "{set}.{key} richiede «Segnaposto da un altro insieme», che è spento nelle impostazioni",
   "there is no set called {set} — there is {list}": "non esiste nessun insieme chiamato {set} — ci sono {list}",
-  "{set} has no {key} — it has {list}": "{set} non ha {key} — ha {list}"
+  "{set} has no {key} — it has {list}": "{set} non ha {key} — ha {list}",
+  "Placeholders as you type": "Segnaposto mentre scrivi",
+  "{a.name} typed straight into a session becomes its value, outside full-screen programs": "{un.nome} scritto direttamente in una sessione diventa il suo valore, fuori dai programmi a tutto schermo"
  }
 }

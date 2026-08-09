@@ -456,6 +456,8 @@
   "nothing named {name} in this desk’s set": "no hay nada llamado {name} en el conjunto de este escritorio",
   "{set}.{key} needs “Placeholders from another set”, which is off in Settings": "{set}.{key} necesita «Marcadores de otro conjunto», que está apagado en ajustes",
   "there is no set called {set} — there is {list}": "no existe ningún conjunto llamado {set} — hay {list}",
-  "{set} has no {key} — it has {list}": "{set} no tiene {key} — tiene {list}"
+  "{set} has no {key} — it has {list}": "{set} no tiene {key} — tiene {list}",
+  "Placeholders as you type": "Marcadores mientras escribes",
+  "{a.name} typed straight into a session becomes its value, outside full-screen programs": "{un.nombre} escrito directamente en una sesión se convierte en su valor, fuera de programas a pantalla completa"
  }
 }

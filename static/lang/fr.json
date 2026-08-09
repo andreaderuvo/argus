@@ -456,6 +456,8 @@
   "nothing named {name} in this desk’s set": "rien qui s'appelle {name} dans l'ensemble de ce bureau",
   "{set}.{key} needs “Placeholders from another set”, which is off in Settings": "{set}.{key} exige « Variables d'un autre ensemble », désactivé dans les réglages",
   "there is no set called {set} — there is {list}": "aucun ensemble nommé {set} — il y a {list}",
-  "{set} has no {key} — it has {list}": "{set} n'a pas {key} — il a {list}"
+  "{set} has no {key} — it has {list}": "{set} n'a pas {key} — il a {list}",
+  "Placeholders as you type": "Variables pendant la saisie",
+  "{a.name} typed straight into a session becomes its value, outside full-screen programs": "{un.nom} tapé directement dans une session devient sa valeur, hors des programmes plein écran"
  }
 }
