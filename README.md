@@ -110,6 +110,13 @@ services.</sub>
   drag is turned into whole lines with the remainder carried, and how far tmux moves per
   wheel turn is *measured* rather than assumed — before that, a finger travelling ten
   lines sent the history forty-five lines away.
+- **A box to write a line in**, for the phones where typing into a terminal duplicates
+  words. Chrome on Android wraps Enter and Backspace in composition events of its own, and
+  interrupting one makes the word arrive twice — [xterm.js
+  #3600](https://github.com/xtermjs/xterm.js/issues/3600), not something an app can fix
+  from outside. So there is a way in that never meets it: an ordinary text box, where
+  predictive typing behaves as it does everywhere else, and the finished line goes to the
+  session in one go. Enter sends, Shift+Enter is a new line, placeholders are filled in.
 - **A key bar for what a phone has not got** — Esc, Tab, arrows, `^B` (the tmux prefix),
   `^C`, `^D`, and a sticky Ctrl for everything else.
 - **Sizing you decide.** Two clients on one session cannot both pick the size, so the

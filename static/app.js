@@ -4023,11 +4023,23 @@ function attachTerminal(container, name, { transform, onGone, onPath, onLinks, m
    *  duplicate would otherwise lose it entirely, which is a far worse bug than the one
    *  this is here to fix.
    */
+  let lastSent = { text: '', at: 0 };
+
   const duplicated = (data) => {
-    if (!committed || data !== committed.text) return false;
-    if (Date.now() - committed.at > 250) { committed = null; return false; }
-    committed.seen += 1;
-    return committed.seen > 1;
+    if (committed && data === committed.text && Date.now() - committed.at <= 250) {
+      committed.seen += 1;
+      if (committed.seen > 1) return true;
+    } else if (committed && Date.now() - committed.at > 250) {
+      committed = null;
+    }
+    // The same word twice in a blink, with no commit to blame. Chrome on Android wraps
+    // Enter and Backspace in composition events of its own, and when those are cut short
+    // the word comes through again without a `compositionend` to mark it. Whole words
+    // only, and only within a moment: two of the same letter are two keystrokes and go
+    // through, a paste of the same text twice is far slower than this.
+    const twice = data.length > 1 && data === lastSent.text && Date.now() - lastSent.at < 120;
+    lastSent = { text: data, at: Date.now() };
+    return twice;
   };
 
   /* Placeholders typed straight into the session.
@@ -4395,6 +4407,60 @@ async function screenTerm(name) {
   keys.append(el('button', { title: t('Smaller'), textContent: 'A-', onclick: zoom(-1) }));
   keys.append(el('button', { title: t('Bigger'), textContent: 'A+', onclick: zoom(1) }));
   keys.append(el('button', { title: t('Keyboard'), onclick: () => handle.focus() }, icon('keyboard')));
+
+  /* Writing a line somewhere the keyboard behaves.
+   *
+   *  A terminal takes its input through a hidden textarea, and Chrome on Android — with
+   *  GBoard especially — wraps Enter and Backspace in composition events of its own.
+   *  Interrupt one and the word arrives twice. It is xterm.js issue 3600, it is not
+   *  something this app can fix from the outside, and the guard above only catches the
+   *  clean cases.
+   *
+   *  So there is a way in that never meets it: an ordinary text box, where predictive
+   *  typing behaves the way it does everywhere else on the phone, and the finished line
+   *  is handed to the session in one go. It is also simply nicer for writing a paragraph
+   *  to an agent, which is most of what a phone is used for here.
+   */
+  const line = el('textarea', {
+    className: 'compose', rows: 1, placeholder: t('write a line, then send'),
+    spellcheck: true, autocapitalize: 'sentences',
+  });
+  const deliver = (andRun) => {
+    const text = line.value;
+    if (!text.trim()) return;
+    handle.send(fillBaton(text, { ...allVars(currentSpace().id) }) + (andRun ? '\r' : ''));
+    line.value = '';
+    line.style.height = '';
+    if (!andRun) handle.focus();
+  };
+  line.addEventListener('input', () => {
+    // Grow with what is written, up to a third of the screen.
+    line.style.height = 'auto';
+    line.style.height = `${Math.min(line.scrollHeight, Math.round(window.innerHeight / 3))}px`;
+  });
+  line.addEventListener('keydown', (e) => {
+    // Enter sends; Shift+Enter is a new line, the way every chat box works.
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); deliver(true); }
+  });
+  const compose = el('div', { id: 'compose', hidden: !prefs.composeBar }, [
+    line,
+    el('button', { className: 'ghost dup', title: t('Put it in without running it'), textContent: '↵', onclick: () => deliver(false) }),
+    el('button', { className: 'primary inline', textContent: t('Send'), onclick: () => deliver(true) }),
+  ]);
+  document.body.insertBefore(compose, keys);
+
+  keys.append(el('button', {
+    title: t('Write a line in a box instead'),
+    className: prefs.composeBar ? 'on' : '',
+    onclick: (e) => {
+      prefs.composeBar = !prefs.composeBar;
+      savePrefs();
+      compose.hidden = !prefs.composeBar;
+      e.currentTarget.classList.toggle('on', prefs.composeBar);
+      if (prefs.composeBar) line.focus(); else handle.focus();
+      relayout();
+    },
+  }, icon('rename')));
 
   // The software keyboard shrinks the visual viewport without firing a window resize, so
   // without this the prompt ends up underneath it.

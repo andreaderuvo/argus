@@ -461,6 +461,10 @@
   "{a.name} typed straight into a session becomes its value — in a shell, or in an agent’s own box": "{un.nome} scritto direttamente in una sessione diventa il suo valore — nella shell, o nella casella di un agente",
   "How a placeholder is written": "Come si scrive un segnaposto",
   "in a session — a saved prompt takes any of them": "in una sessione — un prompt salvato le accetta tutte",
-  "clear the line, without interrupting": "svuota la riga, senza interrompere"
+  "clear the line, without interrupting": "svuota la riga, senza interrompere",
+  "write a line, then send": "scrivi una riga, poi manda",
+  "Send": "Manda",
+  "Put it in without running it": "Mettila dentro senza eseguirla",
+  "Write a line in a box instead": "Scrivi in una casella invece che nel terminale"
  }
 }
