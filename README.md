@@ -180,9 +180,9 @@ services.</sub>
   last, once the sentence has proved itself.
 - **Placeholders as you type.** `{genpat_paper.paper_tex}` typed at a prompt *in the
   session* becomes the path, not only in a saved prompt: as the closing brace lands, what
-  you wrote is erased and the value written in its place. Left alone while a full-screen
-  program has the pane — asked of tmux, since a browser cannot tell: tmux itself lives in
-  the alternate screen, so the terminal says "full screen" always.
+  you wrote is erased and the value written in its place. It works **inside an agent's own
+  input box too**, which is a full-screen program and the whole reason for having it —
+  verified by typing one into vim and reading back what the file held.
 - **Clickable paths.** Hovering a line asks the server which of its words are real files;
   those get underlined, and opening one shows it in the viewer *and* points the file
   browser at it. Relative paths resolve against the pane's own working directory. On a

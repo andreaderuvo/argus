@@ -458,6 +458,6 @@
   "there is no set called {set} — there is {list}": "non esiste nessun insieme chiamato {set} — ci sono {list}",
   "{set} has no {key} — it has {list}": "{set} non ha {key} — ha {list}",
   "Placeholders as you type": "Segnaposto mentre scrivi",
-  "{a.name} typed straight into a session becomes its value, outside full-screen programs": "{un.nome} scritto direttamente in una sessione diventa il suo valore, fuori dai programmi a tutto schermo"
+  "{a.name} typed straight into a session becomes its value — in a shell, or in an agent’s own box": "{un.nome} scritto direttamente in una sessione diventa il suo valore — nella shell, o nella casella di un agente"
  }
 }
