@@ -150,7 +150,10 @@ services.</sub>
   nothing about where tmux put the agent — plus `{from}` and `{to}`. They are defaults,
   not reserved words: define one in a set and yours wins, with the row saying what it is
   covering. The rest
-  are yours, kept in **named sets**. `Default` is the ground truth; any other set says
+  are yours, kept in **named sets**. A prompt can also name one outright —
+  `{genpat_paper.paper_text}` reaches into that set whatever set the desk is on, which is
+  what you want when one prompt is about one project and the desk is doing something
+  else. On by default; the switch is in Settings. `Default` is the ground truth; any other set says
   only what it changes and takes the rest from it, showing what it is covering — *instead
   of BMC Genomics* — and what it is inheriting, one tap to claim. A desk picks a set, from
   its own tab menu, so the same set serves every desk about

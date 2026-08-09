@@ -447,6 +447,10 @@
   "Written into the config, so it dresses every session and outlives a restart.": "Écrit dans le fichier : toutes les sessions, et cela survit à un redémarrage.",
   "filter…": "filtrer…",
   "{n} of {all}": "{n} sur {all}",
-  "Nothing here matches.": "Rien ne correspond ici."
+  "Nothing here matches.": "Rien ne correspond ici.",
+  "Placeholders from another set": "Variables d'un autre ensemble",
+  "write {genpat_paper.paper} in a prompt to take a value from that set, whatever set the desk is on": "écrivez {genpat_paper.paper} dans un prompt pour prendre la valeur de cet ensemble, quel que soit celui du bureau",
+  "A prompt takes its values from the set its desk is on.": "Un prompt prend ses valeurs dans l'ensemble de son bureau.",
+  "A prompt can also name one: {set.value} reaches into that set whatever the desk is using.": "Un prompt peut aussi en nommer un : {ensemble.valeur} puise dans cet ensemble, quel que soit celui du bureau."
  }
 }

@@ -2661,6 +2661,9 @@ async function screenSettings() {
       () => prefs.openInDesk !== false, (v) => { prefs.openInDesk = v; }),
     toggle(t('Sound when something rings'), t('two short tones when an agent finishes or asks for you'),
       () => prefs.bellSound !== false, (v) => { prefs.bellSound = v; }),
+    toggle(t('Placeholders from another set'),
+      t('write {genpat_paper.paper} in a prompt to take a value from that set, whatever set the desk is on'),
+      () => prefs.crossSet !== false, (v) => { prefs.crossSet = v; }),
   );
   wrap.append(wiringRows(), bellRow());
 
@@ -2967,6 +2970,12 @@ async function screenMessages() {
       chips,
       held,
       el('p', { className: 'hint', textContent: t('Always there, from the situation itself: {folder} is the working directory of the session handing over, {from} and {to} are the two sessions.') }),
+      el('p', {
+        className: 'hint',
+        textContent: prefs.crossSet === false
+          ? t('A prompt takes its values from the set its desk is on.')
+          : t('A prompt can also name one: {set.value} reaches into that set whatever the desk is using.'),
+      }),
     );
 
     function drawSet() {
@@ -6401,12 +6410,40 @@ function varsFromText(text) {
 
 /** Fill what we know and leave the rest visible: a `{paper}` that survives into the
  *  other agent's prompt is a mistake you can see, which beats a silent empty string. */
+/** A `{set.name}` written out in full: a value from a set the desk is not using.
+ *
+ *  The ordinary `{paper}` comes from whichever set the desk is on, which is the point of
+ *  sets. But one prompt often wants a value from a particular one — the paper in
+ *  `genpat_paper`, whatever the desk is doing — and having to switch the desk to say so
+ *  is a silly price. So a name with a dot in it is read as set-then-value: it reaches
+ *  into `genpat_paper` for `paper_text` and leaves everything else alone.
+ *
+ *  Whichever set is named still falls back to Default for what it does not define, the
+ *  same as it would if the desk were using it.
+ */
+function fromNamedSet(name) {
+  if (prefs.crossSet === false) return undefined;
+  const dot = name.indexOf('.');
+  if (dot < 1) return undefined;
+  const set = varSetNamed(name.slice(0, dot));
+  if (!set) return undefined;
+  const key = name.slice(dot + 1);
+  const vars = set.name === GROUND ? groundVars() : { ...groundVars(), ...set.vars };
+  return key in vars ? vars[key] : undefined;
+}
+
+const valueFor = (name, known) => (name in known ? known[name] : fromNamedSet(name));
+
 function fillBaton(text, known) {
-  return text.replace(/\{([\w.-]+)\}/g, (whole, name) => (name in known ? known[name] : whole));
+  return text.replace(/\{([\w.-]+)\}/g, (whole, name) => {
+    const value = valueFor(name, known);
+    return value === undefined ? whole : value;
+  });
 }
 
 const unknownVars = (text, known) =>
-  [...new Set([...text.matchAll(/\{([\w.-]+)\}/g)].map((m) => m[1]))].filter((n) => !(n in known));
+  [...new Set([...text.matchAll(/\{([\w.-]+)\}/g)].map((m) => m[1]))]
+    .filter((n) => valueFor(n, known) === undefined);
 
 /** The messages, as a window that stays open.
  *
