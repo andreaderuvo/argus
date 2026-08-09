@@ -451,6 +451,11 @@
   "Placeholders from another set": "Variables d'un autre ensemble",
   "write {genpat_paper.paper} in a prompt to take a value from that set, whatever set the desk is on": "écrivez {genpat_paper.paper} dans un prompt pour prendre la valeur de cet ensemble, quel que soit celui du bureau",
   "A prompt takes its values from the set its desk is on.": "Un prompt prend ses valeurs dans l'ensemble de son bureau.",
-  "A prompt can also name one: {set.value} reaches into that set whatever the desk is using.": "Un prompt peut aussi en nommer un : {ensemble.valeur} puise dans cet ensemble, quel que soit celui du bureau."
+  "A prompt can also name one: {set.value} reaches into that set whatever the desk is using.": "Un prompt peut aussi en nommer un : {ensemble.valeur} puise dans cet ensemble, quel que soit celui du bureau.",
+  "Values": "Valeurs",
+  "nothing named {name} in this desk’s set": "rien qui s'appelle {name} dans l'ensemble de ce bureau",
+  "{set}.{key} needs “Placeholders from another set”, which is off in Settings": "{set}.{key} exige « Variables d'un autre ensemble », désactivé dans les réglages",
+  "there is no set called {set} — there is {list}": "aucun ensemble nommé {set} — il y a {list}",
+  "{set} has no {key} — it has {list}": "{set} n'a pas {key} — il a {list}"
  }
 }

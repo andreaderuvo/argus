@@ -1200,7 +1200,8 @@ async function render() {
     if (path === '/system') return await screenSystem();
     if (path === '/settings') return await screenSettings();
     if (path === '/tmuxconf') return await screenTmuxConf();
-    if (path === '/prompts' || path === '/messages') return await screenMessages();
+    if (path === '/placeholders') return await screenMessages('vars');
+    if (path === '/prompts' || path === '/messages') return await screenMessages('messages');
     if (path === '/term') return await screenTerm(q.get('s'));
     if (path === '/wall') return await screenWall();
     return await screenSessions();
@@ -2718,8 +2719,11 @@ let sideBrowser = null;   // the sidebar's own listing, so it can be pointed at 
  *  version showed everything at once and became a wall you scrolled past rather than a
  *  thing you edited.
  */
-async function screenMessages() {
-  setTitle(t('Prompts'));
+async function screenMessages(open = null) {
+  // Two things that are not the same thing: what you send, and what fills the gaps in it.
+  // They share a screen because they are edited together, and each has its own way in.
+  if (open) prefs.msgTab = open;
+  setTitle(t(prefs.msgTab === 'vars' ? 'Placeholders' : 'Prompts'));
   bar.back.hidden = false;
   bar.back.onclick = () => go('#/settings');
 
@@ -2750,7 +2754,16 @@ async function screenMessages() {
       tabs.append(el('button', {
         className: `ghost dup${(prefs.msgTab || 'messages') === key ? ' on' : ''}`,
         textContent: label,
-        onclick: () => { prefs.msgTab = key; savePrefs(); drawTabs(); draw(); },
+        onclick: () => {
+          prefs.msgTab = key;
+          savePrefs();
+          // The address follows, so the tab lights up and a reload comes back here.
+          history.replaceState(null, '', key === 'vars' ? '#/placeholders' : '#/prompts');
+          setTitle(t(key === 'vars' ? 'Placeholders' : 'Prompts'));
+          for (const a of nav.querySelectorAll('a')) a.classList.toggle('on', a.dataset.tab === (key === 'vars' ? 'placeholders' : 'prompts'));
+          drawTabs();
+          draw();
+        },
       }));
     }
   };
@@ -2906,7 +2919,7 @@ async function screenMessages() {
       preview.textContent = fillBaton(text.value, sample());
       const missing = unknownVars(text.value, sample());
       gaps.textContent = missing.length
-        ? t('nothing to put in {list} — they will go across as they are', { list: missing.map((g) => `{${g}}`).join(' ') })
+        ? missing.map(whyEmpty).join(' · ')
         : '';
       gaps.hidden = !missing.length;
     };
@@ -6433,6 +6446,22 @@ function fromNamedSet(name) {
 }
 
 const valueFor = (name, known) => (name in known ? known[name] : fromNamedSet(name));
+
+/** Why this one came out empty, in words. A placeholder that silently stays written is
+ *  the kind of thing you stare at; the answer is nearly always one of three. */
+function whyEmpty(name) {
+  const dot = name.indexOf('.');
+  if (dot < 1) return t('nothing named {name} in this desk\u2019s set', { name });
+  const setName = name.slice(0, dot);
+  const key = name.slice(dot + 1);
+  if (prefs.crossSet === false) {
+    return t('{set}.{key} needs “Placeholders from another set”, which is off in Settings', { set: setName, key });
+  }
+  const set = varSetNamed(setName);
+  if (!set) return t('there is no set called {set} — there is {list}', { set: setName, list: varSets().map((x) => x.name).join(', ') });
+  const has = Object.keys(set.name === GROUND ? groundVars() : { ...groundVars(), ...set.vars });
+  return t('{set} has no {key} — it has {list}', { set: setName, key, list: has.join(', ') || '(nothing)' });
+}
 
 function fillBaton(text, known) {
   return text.replace(/\{([\w.-]+)\}/g, (whole, name) => {

@@ -451,6 +451,11 @@
   "Placeholders from another set": "Segnaposto da un altro insieme",
   "write {genpat_paper.paper} in a prompt to take a value from that set, whatever set the desk is on": "scrivi {genpat_paper.paper} in un prompt per prendere il valore da quell'insieme, qualunque sia quello del desk",
   "A prompt takes its values from the set its desk is on.": "Un prompt prende i valori dall'insieme del suo desk.",
-  "A prompt can also name one: {set.value} reaches into that set whatever the desk is using.": "Un prompt può anche nominarne uno: {insieme.valore} pesca da quell'insieme qualunque sia quello del desk."
+  "A prompt can also name one: {set.value} reaches into that set whatever the desk is using.": "Un prompt può anche nominarne uno: {insieme.valore} pesca da quell'insieme qualunque sia quello del desk.",
+  "Values": "Valori",
+  "nothing named {name} in this desk’s set": "non c'è niente chiamato {name} nell'insieme di questo desk",
+  "{set}.{key} needs “Placeholders from another set”, which is off in Settings": "{set}.{key} richiede «Segnaposto da un altro insieme», che è spento nelle impostazioni",
+  "there is no set called {set} — there is {list}": "non esiste nessun insieme chiamato {set} — ci sono {list}",
+  "{set} has no {key} — it has {list}": "{set} non ha {key} — ha {list}"
  }
 }
