@@ -3357,6 +3357,10 @@ function logicalLine(term, y) {
 
 // One lookup per distinct line, not per pointer move: the same line is offered again
 // every time the mouse crosses it.
+// How many lines tmux moves per wheel turn, per session: measured once, then reused by
+// every terminal showing that session.
+const wheelStep = new Map();
+
 const located = new Map();
 const LOCATE_TTL = 20000;
 // How long a burst of output is allowed to settle before the tray reads it, how far back
@@ -3816,25 +3820,88 @@ function attachTerminal(container, name, { transform, onGone, onPath, onLinks, m
   // a hundred thousand lines of history. The drag is turned into wheel events and tmux
   // treats them exactly as it treats the mouse.
   let touchY = null;
+  let dragged = 0;        // how far this drag has gone, for telling it from a tap
+  let carried = 0;        // pixels not yet worth a whole line, kept rather than dropped
+  let sentWheels = 0;     // how many were sent this drag, for working out the step
+  let wasAt = null;       // where tmux's history stood when the drag started
+  let wasBack = false;    // and whether it was already showing history
+
+  const lineHeight = () => term._core?._renderService?.dimensions?.css?.cell?.height || 17;
+
+  /** How far tmux moves for one turn of a wheel.
+   *
+   *  A wheel click is not one line: tmux scrolls several, and how many is its own
+   *  business — measured here it was between four and five, so a finger that had moved
+   *  ten lines' worth sent the text forty-five lines away. Rather than guessing at a
+   *  constant, the first drag of a session measures it: how far the history actually
+   *  moved, divided by the wheels it took. After that the text keeps up with the thumb. */
+  let perWheel = wheelStep.get(name) || 0;
+
+  const learnStep = async () => {
+    // Only from a drag that began in the history already. The turn that *enters* copy
+    // mode does not move the same distance as the ones after it, and counting it made
+    // the answer come out differently every time.
+    if (perWheel || !sentWheels || wasAt === null || !wasBack) return;
+    try {
+      const now = await getJSON(`/api/tmux/copymode?session=${encodeURIComponent(name)}`);
+      const moved = Math.abs((now.position ?? 0) - wasAt);
+      if (!moved) return;
+      perWheel = Math.min(10, Math.max(1, Math.round(moved / sentWheels)));
+      wheelStep.set(name, perWheel);
+    } catch { /* one drag at the wrong speed is not worth an error */ }
+  };
+
   container.addEventListener('touchstart', (e) => {
     touchY = e.touches.length === 1 ? e.touches[0].clientY : null;
+    dragged = 0;
+    carried = 0;
+    sentWheels = 0;
+    wasAt = null;
+    // Only while we still have to find out; afterwards this costs nothing.
+    if (!perWheel && touchY !== null) {
+      getJSON(`/api/tmux/copymode?session=${encodeURIComponent(name)}`)
+        .then((where) => { wasAt = where.position ?? 0; wasBack = !!where.in_mode; })
+        .catch(() => {});
+    }
   }, { passive: true });
 
   container.addEventListener('touchmove', (e) => {
     if (touchY === null || e.touches.length !== 1) return;
     const y = e.touches[0].clientY;
     const dy = touchY - y;
-    if (Math.abs(dy) < 6) return;      // a tap that wobbles is still a tap
-    if (dy < 0) check();               // dragging downwards is going back: ask tmux where we are
     touchY = y;
-    (container.querySelector('.xterm-screen') || container).dispatchEvent(
-      new WheelEvent('wheel', { deltaY: dy, deltaMode: 0, bubbles: true, cancelable: true }),
-    );
+    dragged += Math.abs(dy);
+    if (dragged < 8) return;           // a tap that wobbles is still a tap
+
+    // Whole lines, with the remainder kept for the next move. Sending the raw pixels
+    // meant every fraction of a line was thrown away and the content lurched a line at a
+    // time behind the finger; carrying it makes the text follow the thumb.
+    carried += dy;
+    // A wheel turn is worth `perWheel` lines over there, so ask for one turn per that
+    // many lines of finger. Until it has been measured, three — tmux's usual — so even
+    // the first drag of a session is roughly right rather than five times too fast.
+    const step = lineHeight() * (perWheel || 3);
+    const lines = Math.trunc(carried / step);
     if (e.cancelable) e.preventDefault();
+    if (!lines) return;
+    carried -= lines * step;
+    sentWheels += Math.abs(lines);
+    if (lines < 0) check();            // going back up: ask tmux whether it is in its history
+
+    // One event carrying the lines, rather than a burst of pixel ones: each of these is
+    // a round trip to tmux and a repaint of the whole pane, so fewer and bigger is both
+    // smoother and cheaper.
+    (container.querySelector('.xterm-screen') || container).dispatchEvent(
+      new WheelEvent('wheel', { deltaY: lines, deltaMode: WheelEvent.DOM_DELTA_LINE, bubbles: true, cancelable: true }),
+    );
   }, { passive: false });
 
   for (const done of ['touchend', 'touchcancel']) {
-    container.addEventListener(done, () => { touchY = null; }, { passive: true });
+    container.addEventListener(done, () => {
+      touchY = null;
+      carried = 0;
+      learnStep();
+    }, { passive: true });
   }
 
   // When another device is already attached, tmux will not let us change the window

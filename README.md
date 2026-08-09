@@ -106,6 +106,10 @@ services.</sub>
   everything running; a dropped connection reattaches by itself.
 - **A real pseudo-terminal.** `pty.openpty` → `login_tty` → `tmux attach`, so anything
   that works in a terminal works here: full-screen programs, colour, mouse mode.
+- **Dragging a finger scrolls the session**, and the text keeps up with the thumb: the
+  drag is turned into whole lines with the remainder carried, and how far tmux moves per
+  wheel turn is *measured* rather than assumed — before that, a finger travelling ten
+  lines sent the history forty-five lines away.
 - **A key bar for what a phone has not got** — Esc, Tab, arrows, `^B` (the tmux prefix),
   `^C`, `^D`, and a sticky Ctrl for everything else.
 - **Sizing you decide.** Two clients on one session cannot both pick the size, so the
