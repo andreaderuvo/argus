@@ -444,6 +444,9 @@
   "{name} on {session}": "{name} sur {session}",
   "Dress every session instead…": "Habiller plutôt toutes les sessions…",
   "Only {session}, and only until the tmux server restarts — nothing is written to the config.": "Seulement {session}, et jusqu'au redémarrage du serveur tmux — rien n'est écrit dans le fichier.",
-  "Written into the config, so it dresses every session and outlives a restart.": "Écrit dans le fichier : toutes les sessions, et cela survit à un redémarrage."
+  "Written into the config, so it dresses every session and outlives a restart.": "Écrit dans le fichier : toutes les sessions, et cela survit à un redémarrage.",
+  "filter…": "filtrer…",
+  "{n} of {all}": "{n} sur {all}",
+  "Nothing here matches.": "Rien ne correspond ici."
  }
 }
