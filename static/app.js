@@ -4045,6 +4045,23 @@ function attachTerminal(container, name, { transform, onGone, onPath, onLinks, m
   // typing `{name}` anyway; the switch in Settings is for anyone who disagrees.
   const expandable = () => prefs.typedVars !== false;
 
+  /** A whole string at once — a paste, or anything sent in one go.
+   *
+   *  Nothing has reached tmux yet at this point, so there is nothing to erase: the
+   *  placeholders are simply filled in before it goes. Only names that resolve are
+   *  touched, which leaves `{"a": 1}` and `mv x{,.bak}` exactly as they were. */
+  const pasted = (d) => {
+    if (!expandable() || d.length < 4 || !d.includes('{')) return null;
+    let changed = false;
+    const out = d.replace(/\{([\w.-]+)\}/g, (whole, name) => {
+      const value = valueFor(name, { ...allVars(currentSpace().id) });
+      if (value === undefined || value === '') return whole;
+      changed = true;
+      return value;
+    });
+    return changed ? out : null;
+  };
+
   const typed = (d) => {
     if (!expandable()) { brace = null; return null; }
     if (d.length !== 1) { brace = null; return null; }     // a key, not a character
@@ -4068,7 +4085,10 @@ function attachTerminal(container, name, { transform, onGone, onPath, onLinks, m
 
   term.onData((d) => {
     if (duplicated(d)) return;
-    const out = transform ? transform(d) : d;
+    let out = transform ? transform(d) : d;
+    // A paste is filled in before it goes; a single character has already gone, so that
+    // one is corrected afterwards with backspaces.
+    out = pasted(out) ?? out;
     send(out);
     const swap = typed(out);
     if (swap) send('\x7f'.repeat(swap.erase) + swap.value);
