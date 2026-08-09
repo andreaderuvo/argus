@@ -173,12 +173,12 @@ matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
 });
 
 /** The terminal takes its colours from the same palette, read off the document. */
-function termTheme() {
+function termTheme(session = null) {
   const cs = getComputedStyle(document.documentElement);
   const v = (name, fallback) => cs.getPropertyValue(name).trim() || fallback;
   // A chosen look dresses the terminal here as well: tmux paints its own status line, but
-  // the paper it sits on belongs to the browser.
-  const look = prefs.termLook || null;
+  // the paper it sits on belongs to the browser. A session dressed on its own wins.
+  const look = (session && prefs.termLookBy?.[session]) || prefs.termLook || null;
   return {
     background: look?.background || v('--term-bg', '#000000'),
     foreground: look?.foreground || v('--term-fg', '#c5cad3'),
@@ -570,6 +570,7 @@ const ICONS = {
   fit: 'M4.5 9V4.5H9M15 4.5h4.5V9M19.5 15v4.5H15M9 19.5H4.5V15',
   lock: 'M6.5 10.5h11v9h-11zM9 10.5V7.6a3 3 0 0 1 6 0v2.9',
   relay: 'M6.5 8.5h11M14.5 5.5l3 3-3 3M17.5 15.5h-11M9.5 12.5l-3 3 3 3',
+  palette: 'M12 3.5a8.5 8.5 0 0 0 0 17c1.4 0 2.5-1.1 2.5-2.5 0-.7-.3-1.3-.7-1.7-.4-.5-.7-1-.7-1.7 0-1.4 1.1-2.5 2.5-2.5h1.4a5 5 0 0 0 5-5c0-2-2.4-3.6-5.5-3.6M7.5 9v.01M11 6.5v.01M15.5 7.5v.01M6.5 13.5v.01',
   bell: 'M12 3.5a5.5 5.5 0 0 0-5.5 5.5c0 4-1.5 5.2-1.5 6.2 0 .5.4.8 1 .8h12c.6 0 1-.3 1-.8 0-1-1.5-2.2-1.5-6.2A5.5 5.5 0 0 0 12 3.5zM10 19a2 2 0 0 0 4 0',
   bellOff: 'M12 3.5a5.5 5.5 0 0 0-5.5 5.5c0 4-1.5 5.2-1.5 6.2 0 .5.4.8 1 .8h12c.6 0 1-.3 1-.8 0-1-1.5-2.2-1.5-6.2A5.5 5.5 0 0 0 12 3.5zM10 19a2 2 0 0 0 4 0M4 4l16 16',
   github: 'M12 1.3a10.7 10.7 0 0 0-3.4 20.9c.54.1.73-.24.73-.52v-1.83c-2.98.65-3.6-1.44-3.6-1.44-.49-1.24-1.19-1.57-1.19-1.57-.97-.66.08-.65.08-.65 1.07.07 1.64 1.1 1.64 1.1.95 1.64 2.5 1.17 3.11.89.1-.69.37-1.16.68-1.43-2.38-.27-4.88-1.19-4.88-5.29 0-1.17.42-2.13 1.1-2.88-.11-.27-.48-1.36.1-2.83 0 0 .9-.29 2.94 1.1a10.2 10.2 0 0 1 5.36 0c2.04-1.39 2.94-1.1 2.94-1.1.58 1.47.21 2.56.1 2.83.69.75 1.1 1.71 1.1 2.88 0 4.11-2.5 5.02-4.89 5.28.38.33.72.98.72 1.98v2.93c0 .28.19.62.74.52A10.7 10.7 0 0 0 12 1.3z',
@@ -3248,6 +3249,21 @@ const TMUX_LOOKS = [
 const LOOK_START = '# --- argus theme: do not edit between these two lines ---';
 const LOOK_END = '# --- end argus theme ---';
 
+/** A look as tmux options, for dressing one session rather than the whole server. */
+function lookOptions(look) {
+  const out = {};
+  for (const name of ['status-style', 'status-left', 'status-right', 'window-status-style',
+    'window-status-current-style', 'pane-border-style', 'pane-active-border-style',
+    'message-style', 'mode-style']) {
+    out[name] = '';                       // Plain, unless the look says otherwise
+  }
+  for (const line of look.conf) {
+    const m = line.match(/^set -g (\S+) "(.*)"$/);
+    if (m && m[1] in out) out[m[1]] = m[2];
+  }
+  return out;
+}
+
 function withLook(conf, look) {
   const body = look ? [LOOK_START, ...look.conf, LOOK_END].join('\n') : '';
   const already = conf.indexOf(LOOK_START);
@@ -3715,7 +3731,7 @@ function attachTerminal(container, name, { transform, onGone, onPath, onLinks, m
     fontSize: prefs.fontSize,
     cursorBlink: true,
     scrollback: 5000,
-    theme: termTheme(),
+    theme: termTheme(name),
   });
   const fit = new FitAddon();
   term.loadAddon(fit);
@@ -3823,7 +3839,7 @@ function attachTerminal(container, name, { transform, onGone, onPath, onLinks, m
   linkPaths(term, container, name, (hit) => (onPath || openLocated.bind(null, 'term'))(hit),
     () => { followedAt = Date.now(); });
 
-  const repaint = () => { term.options.theme = termTheme(); };
+  const repaint = () => { term.options.theme = termTheme(name); };
   termThemeWatch.add(repaint);
 
   // Everything worth clicking that goes past in here, offered to the desk's tray.
@@ -4552,6 +4568,11 @@ async function screenWall() {
             },
           });
       if (handle.extra) extras.append(handle.extra);
+      const dress = spec.kind === 'term'
+        ? el('button', { className: 'winbtn', title: t('How it looks') }, icon('palette'))
+        : null;
+      if (dress) dress.onclick = () => lookSheet(spec.name);
+
       const quiet = spec.kind === 'term' ? el('button', { className: 'winbtn bellbtn' }) : null;
       const paintQuiet = () => {
         const off = muted(spec.name);
@@ -4583,7 +4604,7 @@ async function screenWall() {
           else if (on) toast(t('chain one more session for this to do anything'));
         };
       }
-      if (spec.kind === 'term') extras.append(copyButton(handle, 'winbtn'), quiet, chain, ...sizeButtons(handle, 'winbtn'));
+      if (spec.kind === 'term') extras.append(copyButton(handle, 'winbtn'), quiet, dress, chain, ...sizeButtons(handle, 'winbtn'));
       const entry = { win, handle, name: id, chainBtn: chain };
       open.push(entry);
       if (chain) paintChain();
@@ -5745,6 +5766,105 @@ function reorderTab(tab, strip, onDone) {
     window.addEventListener('pointerup', up);
     window.addEventListener('pointercancel', up);
   });
+}
+
+/** Put a look on, from wherever you are.
+ *
+ *  The config screen can do this by hand, but changing how your terminals look is not a
+ *  configuration errand: it is a thing you do while looking at them. So it happens in one
+ *  go here — the block is written into the file, saved, and handed to every session —
+ *  with the same throwaway-server check underneath, which is what makes it safe to offer
+ *  as a single tap.
+ */
+async function wearLook(look) {
+  const info = await serverInfo();
+  const path = info.tmux_conf;
+  let text = '';
+  let mtime = 0;
+  try {
+    const r = await fetch(withToken(`/api/file?path=${encodeURIComponent(path)}`));
+    if (r.ok) {
+      text = await r.text();
+      mtime = Number(r.headers.get('x-mtime') || 0);
+    }
+  } catch { /* no file yet: one will be written */ }
+
+  await postJSON('/api/fs/write', { path, content: withLook(text, look), mtime });
+  prefs.tmuxLook = look.name;
+  prefs.termLook = look.term || null;
+  savePrefs();
+  redressTerminals();
+  const said = await postJSON('/api/tmux/source', {});
+  return said.message || t('every session on this server now has it');
+}
+
+/** The same look, but only on the session you are looking at.
+ *
+ *  Style options are session options, so tmux can dress one and leave the rest alone —
+ *  no file is touched, and nothing is asked of the sessions somebody else is watching. */
+async function wearLookHere(look, session) {
+  await postJSON('/api/tmux/style', { session, options: lookOptions(look) });
+  prefs.termLookBy = prefs.termLookBy || {};
+  if (look.term) prefs.termLookBy[session] = look.term;
+  else delete prefs.termLookBy[session];
+  savePrefs();
+  redressTerminals();
+  return t('{name} on {session}', { name: look.name, session });
+}
+
+/** The looks, offered where you can see what they do. */
+function lookSheet(session = null) {
+  const body = el('div', { className: 'sheetbody actions' });
+  let sheet;
+  for (const look of TMUX_LOOKS) {
+    const swatch = el('span', { className: 'lookdot' });
+    if (look.term) {
+      swatch.style.background = look.term.background;
+      swatch.style.borderColor = look.term.cursor;
+    }
+    const chosen = session
+      ? prefs.termLookBy?.[session]?.background === look.term?.background && (!!look.term || !prefs.termLookBy?.[session])
+      : prefs.tmuxLook === look.name;
+    body.append(el('button', {
+      className: `ghost block${chosen ? ' on' : ''}`,
+      onclick: async () => {
+        sheet.close();
+        try {
+          toast(session ? await wearLookHere(look, session) : await wearLook(look));
+        } catch (e) {
+          // A refusal means nothing was applied: the test server took it instead.
+          toast(e.message, true);
+        }
+      },
+    }, [
+      swatch,
+      el('span', { className: 'grow' }, [
+        el('span', { className: 'name', textContent: look.name }),
+        el('span', { className: 'meta', textContent: t(look.note) }),
+      ]),
+    ]));
+  }
+  body.append(el('div', { className: 'sheetsep' }));
+  if (session) {
+    body.append(el('button', {
+      className: 'ghost block',
+      onclick: () => { sheet.close(); lookSheet(null); },
+    }, [icon('layers'), el('span', { textContent: t('Dress every session instead…') })]));
+  }
+  body.append(el('button', {
+    className: 'ghost block',
+    onclick: () => { sheet.close(); go('#/tmuxconf'); },
+  }, [icon('rename'), el('span', { textContent: t('Edit the tmux config…') })]));
+  body.append(el('p', {
+    className: 'hint',
+    textContent: session
+      ? t('Only {session}, and only until the tmux server restarts — nothing is written to the config.', { session })
+      : t('Written into the config, so it dresses every session and outlives a restart.'),
+  }));
+
+  sheet = modal(session ? t('How {session} looks', { session }) : t('How it looks'), body, [
+    el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),
+  ]);
 }
 
 /* ------------------------------------------------------------------ shortcuts */

@@ -158,6 +158,24 @@ def create_app(cfg: Config) -> FastAPI:
             raise ApiError(404, f"no tmux session named {name!r}")
         return name
 
+    @app.post("/api/tmux/style")
+    async def dress(request: Request, body: dict) -> dict:
+        """Put a look on one session, live.
+
+        A look in the config file belongs to the server and dresses everything; this
+        dresses the session named and leaves the rest alone. Only style options are
+        accepted, from a fixed list — see tmux.STYLE_OPTIONS.
+        """
+        name = await _known(request, str(body.get("session", "")))
+        options = body.get("options")
+        if not isinstance(options, dict):
+            raise ApiError(400, "options must be an object")
+        try:
+            await asyncio.to_thread(tmux.style, request.app.state.socket, name, options)
+        except tmux.TmuxError as e:
+            raise ApiError(400, str(e)) from e
+        return {"session": name, "set": sorted(options)}
+
     @app.get("/api/tmux/cwd")
     async def pane_directory(request: Request, session: str) -> dict:
         """Where this session actually is.
