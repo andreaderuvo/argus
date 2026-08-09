@@ -176,13 +176,22 @@ matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
 function termTheme() {
   const cs = getComputedStyle(document.documentElement);
   const v = (name, fallback) => cs.getPropertyValue(name).trim() || fallback;
+  // A chosen look dresses the terminal here as well: tmux paints its own status line, but
+  // the paper it sits on belongs to the browser.
+  const look = prefs.termLook || null;
   return {
-    background: v('--term-bg', '#000000'),
-    foreground: v('--term-fg', '#c5cad3'),
-    cursor: v('--accent', '#8fd6a0'),
+    background: look?.background || v('--term-bg', '#000000'),
+    foreground: look?.foreground || v('--term-fg', '#c5cad3'),
+    cursor: look?.cursor || v('--accent', '#8fd6a0'),
     selectionBackground: '#3a4657',
   };
 }
+
+/** Every terminal on screen, redressed without reattaching anything. */
+function redressTerminals() {
+  for (const paint of termThemeWatch) paint();
+}
+const termThemeWatch = new Set();
 
 /* ---------------------------------------------------------------- plumbing */
 
@@ -3141,6 +3150,113 @@ async function screenMessages() {
  *  obvious. What is worth being careful about is that sourcing *runs* the file, so it is
  *  tried on a throwaway server first.
  */
+/** Ready-made looks for tmux.
+ *
+ *  Only the status line, the borders and the messages: colours tmux draws itself. Nothing
+ *  here touches keys, options that change behaviour, or anything a running program cares
+ *  about — a theme that could break a session would not be worth having, and every one of
+ *  these is tried on a throwaway tmux server before it reaches the one holding your work.
+ *
+ *  The font is not tmux's to set: it belongs to the terminal, which here is Argus. So a
+ *  theme carries the terminal's own colours too, and the font size stays where you put it.
+ */
+const TMUX_LOOKS = [
+  {
+    name: 'Argus',
+    note: 'the app\u2019s own greens',
+    conf: [
+      'set -g status-style "bg=#11151d fg=#8fd6a0"',
+      'set -g status-left "#[bg=#8fd6a0,fg=#0b0e14,bold] #S #[default] "',
+      'set -g status-right "#[fg=#6b7484]#{?client_prefix,PREFIX ,}%H:%M "',
+      'set -g window-status-current-style "fg=#e6e9ef,bold"',
+      'set -g window-status-style "fg=#6b7484"',
+      'set -g pane-border-style "fg=#1e2530"',
+      'set -g pane-active-border-style "fg=#8fd6a0"',
+      'set -g message-style "bg=#8fd6a0 fg=#0b0e14"',
+      'set -g mode-style "bg=#8fd6a0 fg=#0b0e14"',
+    ],
+    term: { background: '#0b0e14', foreground: '#c5cad3', cursor: '#8fd6a0' },
+  },
+  {
+    name: 'Paper',
+    note: 'dark ink on a light page',
+    conf: [
+      'set -g status-style "bg=#e7e4dc fg=#3b3a36"',
+      'set -g status-left "#[bg=#3b3a36,fg=#f6f4ef,bold] #S #[default] "',
+      'set -g status-right "#[fg=#6f6b61]%H:%M "',
+      'set -g window-status-current-style "fg=#1b1a17,bold"',
+      'set -g window-status-style "fg=#6f6b61"',
+      'set -g pane-border-style "fg=#d8d4ca"',
+      'set -g pane-active-border-style "fg=#3b3a36"',
+      'set -g message-style "bg=#3b3a36 fg=#f6f4ef"',
+      'set -g mode-style "bg=#d8d4ca fg=#1b1a17"',
+    ],
+    term: { background: '#f6f4ef', foreground: '#3b3a36', cursor: '#1b1a17' },
+  },
+  {
+    name: 'Amber',
+    note: 'a terminal that remembers phosphor',
+    conf: [
+      'set -g status-style "bg=#1a1206 fg=#f5a623"',
+      'set -g status-left "#[bg=#f5a623,fg=#1a1206,bold] #S #[default] "',
+      'set -g status-right "#[fg=#9a7b3a]%H:%M "',
+      'set -g window-status-current-style "fg=#ffd591,bold"',
+      'set -g window-status-style "fg=#9a7b3a"',
+      'set -g pane-border-style "fg=#3a2c12"',
+      'set -g pane-active-border-style "fg=#f5a623"',
+      'set -g message-style "bg=#f5a623 fg=#1a1206"',
+      'set -g mode-style "bg=#f5a623 fg=#1a1206"',
+    ],
+    term: { background: '#140e04', foreground: '#f5c877', cursor: '#f5a623' },
+  },
+  {
+    name: 'Slate',
+    note: 'quiet blues, nothing shouting',
+    conf: [
+      'set -g status-style "bg=#1b2230 fg=#8fb3d9"',
+      'set -g status-left "#[bg=#8fb3d9,fg=#0f141d,bold] #S #[default] "',
+      'set -g status-right "#[fg=#5d708a]%H:%M "',
+      'set -g window-status-current-style "fg=#dfe7f2,bold"',
+      'set -g window-status-style "fg=#5d708a"',
+      'set -g pane-border-style "fg=#232c3d"',
+      'set -g pane-active-border-style "fg=#8fb3d9"',
+      'set -g message-style "bg=#8fb3d9 fg=#0f141d"',
+      'set -g mode-style "bg=#8fb3d9 fg=#0f141d"',
+    ],
+    term: { background: '#0f141d', foreground: '#c3cddd', cursor: '#8fb3d9' },
+  },
+  {
+    name: 'Plain',
+    note: 'tmux as it comes, and the app\u2019s own colours back',
+    conf: [
+      'set -gu status-style',
+      'set -gu status-left',
+      'set -gu status-right',
+      'set -gu window-status-current-style',
+      'set -gu window-status-style',
+      'set -gu pane-border-style',
+      'set -gu pane-active-border-style',
+      'set -gu message-style',
+      'set -gu mode-style',
+    ],
+    term: null,
+  },
+];
+
+// The block a look is written into, so applying another replaces it rather than piling
+// up, and anything you wrote yourself is never touched.
+const LOOK_START = '# --- argus theme: do not edit between these two lines ---';
+const LOOK_END = '# --- end argus theme ---';
+
+function withLook(conf, look) {
+  const body = look ? [LOOK_START, ...look.conf, LOOK_END].join('\n') : '';
+  const already = conf.indexOf(LOOK_START);
+  if (already < 0) return body ? `${conf.replace(/\s*$/, '')}\n\n${body}\n` : conf;
+  const ends = conf.indexOf(LOOK_END, already);
+  const after = ends < 0 ? '' : conf.slice(ends + LOOK_END.length);
+  return `${conf.slice(0, already)}${body}${after}`.replace(/\n{3,}/g, '\n\n');
+}
+
 async function screenTmuxConf() {
   const info = await serverInfo();
   const path = info.tmux_conf;
@@ -3189,7 +3305,37 @@ async function screenTmuxConf() {
     }
   } catch { /* offline; the editor still opens empty */ }
 
+  // The looks sit above the file, because picking one is what most people came for and
+  // editing the file is what a few do afterwards.
+  const looks = el('div', { className: 'lookrow' });
+  const drawLooks = () => {
+    looks.replaceChildren(el('span', { className: 'meta', textContent: t('A look:') }));
+    for (const look of TMUX_LOOKS) {
+      looks.append(el('button', {
+        className: `ghost dup${prefs.tmuxLook === look.name ? ' on' : ''}`,
+        title: t(look.note),
+        textContent: look.name,
+        onclick: () => useLook(look),
+      }));
+    }
+  };
+
+  const useLook = async (look) => {
+    const box = host.querySelector('textarea');
+    if (!box) return;
+    box.value = withLook(box.value, look.name === 'Plain' ? look : look);
+    box.dispatchEvent(new Event('input', { bubbles: true }));
+    prefs.tmuxLook = look.name;
+    prefs.termLook = look.term || null;
+    savePrefs();
+    redressTerminals();
+    drawLooks();
+    toast(t('{name} written in — save and apply it to see it', { name: look.name }));
+  };
+
+  wrap.insertBefore(looks, host);
   editor({ text, mtime, host, path }, { onDone: () => go('#/settings') });
+  drawLooks();
   // The editor owns its own bar; the apply button joins it, because saving and applying
   // are two halves of the same errand.
   host.querySelector('.editbar')?.prepend(apply);
@@ -3677,6 +3823,9 @@ function attachTerminal(container, name, { transform, onGone, onPath, onLinks, m
   linkPaths(term, container, name, (hit) => (onPath || openLocated.bind(null, 'term'))(hit),
     () => { followedAt = Date.now(); });
 
+  const repaint = () => { term.options.theme = termTheme(); };
+  termThemeWatch.add(repaint);
+
   // Everything worth clicking that goes past in here, offered to the desk's tray.
   const harvest = onLinks ? linkHarvester(term, name, onLinks) : null;
 
@@ -4026,6 +4175,7 @@ function attachTerminal(container, name, { transform, onGone, onPath, onLinks, m
       disposed = true;
       stopAsking();
       clearTimeout(timer);
+      termThemeWatch.delete(repaint);
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onFocus);
       document.removeEventListener('visibilitychange', onVisible);
