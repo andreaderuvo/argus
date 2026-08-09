@@ -334,12 +334,16 @@ services.</sub>
 
 ### Everything else
 
-- **Ready-made looks for tmux** — Argus, Paper, Amber, Slate, or Plain to undo them.
-  Each writes one marked block into your config, replacing the previous one and leaving
-  everything you wrote yourself alone, and dresses the terminal in the browser to match.
-  They set colours only — status line, borders, messages — never keys or behaviour, and
-  they go through the same throwaway-server check as anything else, so a look cannot take
-  a session down.
+- **Ready-made looks for tmux**, from a button on the terminal itself — Argus, Paper,
+  Amber, Slate, or Plain to undo them. **One session or all of them**: style options are
+  session options, so a look can dress the window you are looking at and leave everybody
+  else's alone, without writing anything to disk. Choosing "every session" writes it into
+  the config instead, where it outlives a restart.
+  Either way they set colours only — status line, borders, messages — never keys or
+  behaviour, from a fixed list of options checked on the server, and the config route goes
+  through the same throwaway-server check as anything else. A look cannot take a session
+  down. The browser's own terminal is dressed to match, per session when that is what you
+  chose.
 - **Editing the tmux config** and handing it to every session at once. Sourcing a config
   *runs* it, so the file is tried on a throwaway tmux server first and only applied if it
   survives — a bad line ends the server it is sourced into, and that server holds all

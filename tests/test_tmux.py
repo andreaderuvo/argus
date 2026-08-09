@@ -210,3 +210,50 @@ def test_an_unreadable_mode_reads_as_live(monkeypatch):
 
     monkeypatch.setattr(tmux.subprocess, "run", lambda argv, **kw: Done())
     assert tmux.copy_mode(Socket.new(None), "work") == {"in_mode": False, "position": 0, "alternate": False}
+
+
+def test_only_style_options_may_be_set(monkeypatch):
+    """A look may repaint a session and nothing else: the list is fixed, because "looks
+    like a style option" is not a security boundary."""
+    import pytest
+
+    from app import tmux
+
+    ran = []
+    monkeypatch.setattr(tmux.subprocess, "run",
+                        lambda argv, **kw: ran.append(argv) or _ok())
+    sock = tmux.Socket("argus-test")
+
+    tmux.style(sock, "work", {"status-style": "bg=#111 fg=#eee"})
+    assert ran[-1][-2:] == ["status-style", "bg=#111 fg=#eee"]
+
+    for forbidden in ("prefix", "default-command", "mouse", "status-styleX"):
+        with pytest.raises(tmux.TmuxError):
+            tmux.style(sock, "work", {forbidden: "x"})
+
+
+def test_a_style_value_cannot_smuggle_anything(monkeypatch):
+    import pytest
+
+    from app import tmux
+
+    monkeypatch.setattr(tmux.subprocess, "run", lambda argv, **kw: _ok())
+    sock = tmux.Socket("argus-test")
+    for nasty in ("bg=#111; kill-server", "$(id)", "`id`", "a\nset -g prefix C-x"):
+        with pytest.raises(tmux.TmuxError):
+            tmux.style(sock, "work", {"status-style": nasty})
+
+
+def test_an_empty_value_puts_the_option_back(monkeypatch):
+    from app import tmux
+
+    ran = []
+    monkeypatch.setattr(tmux.subprocess, "run", lambda argv, **kw: ran.append(argv) or _ok())
+    tmux.style(tmux.Socket("argus-test"), "work", {"mode-style": ""})
+    assert ran[-1][-2:] == ["-u", "mode-style"]
+
+
+class _ok:
+    returncode = 0
+    stdout = ""
+    stderr = ""

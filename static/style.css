@@ -1987,3 +1987,6 @@ button.keyrow kbd { flex: none; }
 .lookrow { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; padding: .2rem 1rem .6rem; }
 .lookrow .meta { flex: none; }
 .lookrow .ghost.dup.on { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
+
+/* A look, shown as the paper it puts under the text. */
+.lookdot { flex: none; width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--line); background: var(--panel); }

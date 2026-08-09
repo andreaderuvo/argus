@@ -436,6 +436,14 @@
   "dark ink on a light page": "tinta oscura sobre página clara",
   "a terminal that remembers phosphor": "una terminal que recuerda el fósforo",
   "quiet blues, nothing shouting": "azules tranquilos",
-  "tmux as it comes, and the app’s own colours back": "tmux tal cual, y los colores de la app"
+  "tmux as it comes, and the app’s own colours back": "tmux tal cual, y los colores de la app",
+  "How it looks": "Qué aspecto tiene",
+  "Edit the tmux config…": "Editar la configuración de tmux…",
+  "A look belongs to the tmux server, so it dresses every session at once.": "Un aspecto pertenece al servidor tmux, así que viste todas las sesiones a la vez.",
+  "How {session} looks": "Qué aspecto tiene {session}",
+  "{name} on {session}": "{name} en {session}",
+  "Dress every session instead…": "Vestir todas las sesiones en su lugar…",
+  "Only {session}, and only until the tmux server restarts — nothing is written to the config.": "Solo {session}, y solo hasta que reinicie el servidor tmux — no se escribe nada en el archivo.",
+  "Written into the config, so it dresses every session and outlives a restart.": "Escrito en el archivo: viste todas las sesiones y sobrevive a un reinicio."
  }
 }

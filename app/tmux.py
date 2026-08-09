@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import re
 import subprocess
 from dataclasses import dataclass
 
@@ -309,3 +310,46 @@ def session_exists(sock: Socket, name: str) -> bool:
         return any(s["name"] == name for s in list_sessions(sock))
     except TmuxError:
         return False
+
+
+# The only options a look may set. Style options and nothing else: no keys, no behaviour,
+# nothing a running program can notice — and a fixed list rather than a pattern, because
+# "looks like a style option" is not a security boundary.
+STYLE_OPTIONS = frozenset({
+    "status-style",
+    "status-left",
+    "status-right",
+    "window-status-style",
+    "window-status-current-style",
+    "pane-border-style",
+    "pane-active-border-style",
+    "message-style",
+    "mode-style",
+})
+
+# What a value may contain. tmux styles are colours, attributes and its own #{} bits;
+# anything outside this is refused rather than escaped, since there is no reason for a
+# look to need it.
+SAFE_STYLE = re.compile(r"^[\w #,=\-.:?%{}\[\]<>|&!/]*$")
+
+
+def style(sock: Socket, session: str, options: dict[str, str]) -> None:
+    """Dress one session, without touching the config file.
+
+    Style options are session options, so this reaches exactly the session named and
+    nothing else — which is what "just this window" means. An empty value unsets it,
+    putting that option back to whatever the server says.
+    """
+    for name, value in options.items():
+        if name not in STYLE_OPTIONS:
+            raise TmuxError(f"{name} is not a style option")
+        if not isinstance(value, str) or not SAFE_STYLE.match(value):
+            raise TmuxError(f"that is not a style value for {name}")
+        argv = ["tmux", *sock.args(), "set-option", "-t", session]
+        argv += ["-u", name] if value == "" else [name, value]
+        try:
+            done = subprocess.run(argv, capture_output=True, text=True, timeout=5)
+        except (OSError, subprocess.SubprocessError) as e:
+            raise TmuxError(f"could not set {name}: {e}") from e
+        if done.returncode != 0:
+            raise TmuxError(complaint(done) or f"tmux refused {name}")
