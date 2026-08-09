@@ -2663,7 +2663,7 @@ async function screenSettings() {
     toggle(t('Sound when something rings'), t('two short tones when an agent finishes or asks for you'),
       () => prefs.bellSound !== false, (v) => { prefs.bellSound = v; }),
     toggle(t('Placeholders as you type'),
-      t('{a.name} typed straight into a session becomes its value, outside full-screen programs'),
+      t('{a.name} typed straight into a session becomes its value — in a shell, or in an agent’s own box'),
       () => prefs.typedVars !== false, (v) => { prefs.typedVars = v; }),
     toggle(t('Placeholders from another set'),
       t('write {genpat_paper.paper} in a prompt to take a value from that set, whatever set the desk is on'),
@@ -4038,7 +4038,12 @@ function attachTerminal(container, name, { transform, onGone, onPath, onLinks, m
    */
   let brace = null;                  // what has been typed since a `{`
 
-  const expandable = () => prefs.typedVars !== false && !fullScreen;
+  // Everywhere, full-screen programs included — an agent's own input box is the whole
+  // point of this, and that is always a full-screen program. In a text field a backspace
+  // is a correction, which is all this relies on. The one place it could surprise is a
+  // program where `{` is a command rather than a character, and there you would not be
+  // typing `{name}` anyway; the switch in Settings is for anyone who disagrees.
+  const expandable = () => prefs.typedVars !== false;
 
   const typed = (d) => {
     if (!expandable()) { brace = null; return null; }
