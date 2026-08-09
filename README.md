@@ -252,6 +252,8 @@ services.</sub>
   many windows the desk holds; the Sessions tab carries how many tmux sessions exist, and
   turns amber while one of them is waiting for you. All of them are about the desk you are
   on, so switching tabs shows that desk's own numbers.
+- **A filter in the tray**, for when it holds thirty things and you want the one with
+  `report` in it. It says how many of how many, and clearing it brings the rest back.
 - **The tray can empty itself**: 1, 3, 5, 10, 30 minutes or never, per desk. It drops
   what is older than the span rather than wiping the lot on a timer, so a link that just
   arrived is never snatched away.

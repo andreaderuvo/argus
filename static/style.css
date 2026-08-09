@@ -1990,3 +1990,16 @@ button.keyrow kbd { flex: none; }
 
 /* A look, shown as the paper it puts under the text. */
 .lookdot { flex: none; width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--line); background: var(--panel); }
+
+/* The tray's head: kept out of the redraw so typing in it survives. */
+.winbody.traybody { flex-direction: column; }
+.trayhead { flex: none; border-bottom: 1px solid var(--line); }
+.trayfind { display: flex; align-items: center; gap: .4rem; padding: .1rem .45rem .4rem; }
+.trayfind .meta { flex: none; font-size: .7rem; }
+input.traysearch {
+  flex: 1; min-width: 0; min-height: 30px; padding: 0 .6rem;
+  background: var(--bg); border: 1px solid var(--line); border-radius: .5rem;
+  color: var(--text); font: inherit; font-size: .8rem;
+}
+input.traysearch:focus { border-color: var(--accent); outline: none; }
+@media (pointer: coarse) { input.traysearch { min-height: 36px; } }

@@ -6826,8 +6826,12 @@ function dragLink(row, item, findWindow, act) {
 
 /** The tray itself: a list you click, and empty when it stops being useful. */
 function attachTray(host, wsId, extras, deliver) {
+  // The head is built once and the list is redrawn: a box you are typing in must not be
+  // inside the part that gets rebuilt, or the caret goes with it on the first letter.
+  const head = el('div', { className: 'trayhead' });
   const list = el('div', { className: 'traylist' });
-  host.append(list);
+  host.append(head, list);
+  let needle = '';
 
   const keepFor = () => Number(prefs.trayAge?.[wsId] ?? 0);
   const sweep = () => {
@@ -6846,6 +6850,13 @@ function attachTray(host, wsId, extras, deliver) {
     trayTally?.(wsId);
   };
   const clock = setInterval(sweep, SWEEP_EVERY);
+
+  const found = el('span', { className: 'meta' });
+  const sift = el('input', {
+    type: 'search', className: 'traysearch', spellcheck: false,
+    placeholder: t('filter…'), autocomplete: 'off',
+  });
+  sift.addEventListener('input', () => { needle = sift.value.trim().toLowerCase(); draw(); });
 
   const ageRow = () => {
     const pick = el('select', { className: 'setpick' });
@@ -6869,10 +6880,16 @@ function attachTray(host, wsId, extras, deliver) {
   };
 
   const draw = () => {
-    const items = deskLinks(wsId);
-    list.replaceChildren(ageRow());
-    if (!items.length) {
+    const all = deskLinks(wsId);
+    const items = needle ? all.filter((x) => x.text.toLowerCase().includes(needle)) : all;
+    list.replaceChildren();
+    found.textContent = needle ? t('{n} of {all}', { n: items.length, all: all.length }) : '';
+    if (!all.length) {
       list.append(el('p', { className: 'empty tiny', textContent: t('Paths and links printed in this desk\u2019s terminals collect here.') }));
+      return;
+    }
+    if (!items.length) {
+      list.append(el('p', { className: 'empty tiny', textContent: t('Nothing here matches.') }));
       return;
     }
     for (const item of items) {
@@ -6927,6 +6944,7 @@ function attachTray(host, wsId, extras, deliver) {
   };
   extras.append(empty);
 
+  head.append(ageRow(), el('div', { className: 'trayfind' }, [sift, found]));
   trayWatch.set(wsId, draw);
   draw();
   sweep();

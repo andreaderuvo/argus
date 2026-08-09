@@ -444,6 +444,9 @@
   "{name} on {session}": "{name} on {session}",
   "Dress every session instead…": "Dress every session instead…",
   "Only {session}, and only until the tmux server restarts — nothing is written to the config.": "Only {session}, and only until the tmux server restarts — nothing is written to the config.",
-  "Written into the config, so it dresses every session and outlives a restart.": "Written into the config, so it dresses every session and outlives a restart."
+  "Written into the config, so it dresses every session and outlives a restart.": "Written into the config, so it dresses every session and outlives a restart.",
+  "filter…": "filter…",
+  "{n} of {all}": "{n} of {all}",
+  "Nothing here matches.": "Nothing here matches."
  }
 }
