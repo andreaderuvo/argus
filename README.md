@@ -140,7 +140,8 @@ services.</sub>
   the messages in the one you picked, and **what will actually be typed**, filled in,
   before anything is sent.
 
-  Writing them has a screen of its own — **Prompts**, in the bottom bar — with
+  Writing them has a screen of its own — **Prompts** and **Values**, two entries in the
+  bottom bar because they are two different things — with
   full editing of the library: rename, duplicate, delete, and each one previewed with
   this desk's values as you type. The hand-over sheet is for sending; a place you pass
   through in a hurry is the wrong place to keep a library.

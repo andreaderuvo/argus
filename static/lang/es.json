@@ -451,6 +451,11 @@
   "Placeholders from another set": "Marcadores de otro conjunto",
   "write {genpat_paper.paper} in a prompt to take a value from that set, whatever set the desk is on": "escribe {genpat_paper.paper} en un prompt para tomar el valor de ese conjunto, sea cual sea el del escritorio",
   "A prompt takes its values from the set its desk is on.": "Un prompt toma sus valores del conjunto de su escritorio.",
-  "A prompt can also name one: {set.value} reaches into that set whatever the desk is using.": "Un prompt también puede nombrar uno: {conjunto.valor} saca de ese conjunto sea cual sea el del escritorio."
+  "A prompt can also name one: {set.value} reaches into that set whatever the desk is using.": "Un prompt también puede nombrar uno: {conjunto.valor} saca de ese conjunto sea cual sea el del escritorio.",
+  "Values": "Valores",
+  "nothing named {name} in this desk’s set": "no hay nada llamado {name} en el conjunto de este escritorio",
+  "{set}.{key} needs “Placeholders from another set”, which is off in Settings": "{set}.{key} necesita «Marcadores de otro conjunto», que está apagado en ajustes",
+  "there is no set called {set} — there is {list}": "no existe ningún conjunto llamado {set} — hay {list}",
+  "{set} has no {key} — it has {list}": "{set} no tiene {key} — tiene {list}"
  }
 }
