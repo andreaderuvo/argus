@@ -460,6 +460,7 @@
   "Placeholders as you type": "Marcadores mientras escribes",
   "{a.name} typed straight into a session becomes its value — in a shell, or in an agent’s own box": "{un.nombre} escrito directamente en una sesión se convierte en su valor — en un shell, o en la caja de un agente",
   "How a placeholder is written": "Cómo se escribe un marcador",
-  "in a session — a saved prompt takes any of them": "en una sesión — un prompt guardado las acepta todas"
+  "in a session — a saved prompt takes any of them": "en una sesión — un prompt guardado las acepta todas",
+  "clear the line, without interrupting": "vaciar la línea, sin interrumpir"
  }
 }

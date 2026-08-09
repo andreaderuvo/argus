@@ -4330,6 +4330,9 @@ const CTRL_CODES = [
   // and every tmux command starts with it.
   ['^B', '\x02', 'tmux prefix'],
   ['^C', '\x03'], ['^D', '\x04'],
+  // Clear the line without touching what is running. Ctrl+C in an agent's input box
+  // interrupts the work; this empties the box and leaves the job alone.
+  ['^U', '\x15', 'clear the line, without interrupting'],
 ];
 
 /** Header bits for the terminal screen, re-applied whenever it comes back to the front.

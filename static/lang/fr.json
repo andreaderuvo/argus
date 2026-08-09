@@ -460,6 +460,7 @@
   "Placeholders as you type": "Variables pendant la saisie",
   "{a.name} typed straight into a session becomes its value — in a shell, or in an agent’s own box": "{un.nom} tapé directement dans une session devient sa valeur — dans un shell, ou dans la zone d’un agent",
   "How a placeholder is written": "Comment s'écrit une variable",
-  "in a session — a saved prompt takes any of them": "dans une session — un prompt enregistré les accepte toutes"
+  "in a session — a saved prompt takes any of them": "dans une session — un prompt enregistré les accepte toutes",
+  "clear the line, without interrupting": "vider la ligne, sans interrompre"
  }
 }
