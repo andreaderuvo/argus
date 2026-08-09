@@ -2003,3 +2003,30 @@ input.traysearch {
 }
 input.traysearch:focus { border-color: var(--accent); outline: none; }
 @media (pointer: coarse) { input.traysearch { min-height: 36px; } }
+
+/* A box to write a line in, for phones whose keyboard fights the terminal. */
+#compose {
+  display: flex;
+  align-items: flex-end;
+  gap: .4rem;
+  padding: .4rem .5rem;
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+}
+#compose[hidden] { display: none; }
+#compose .compose {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--tap);
+  max-height: 33vh;
+  padding: .5rem .7rem;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: .6rem;
+  color: var(--text);
+  font: inherit;
+  font-size: .95rem;
+  resize: none;
+}
+#compose .compose:focus { border-color: var(--accent); outline: none; }
+#compose .ghost.dup, #compose .primary { flex: none; min-height: var(--tap); }
