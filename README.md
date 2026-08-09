@@ -118,7 +118,8 @@ services.</sub>
   predictive typing behaves as it does everywhere else, and the finished line goes to the
   session in one go. Enter sends, Shift+Enter is a new line, placeholders are filled in.
 - **A key bar for what a phone has not got** — Esc, Tab, arrows, `^B` (the tmux prefix),
-  `^C`, `^D`, and a sticky Ctrl for everything else.
+  `^C`, `^D`, `^U` (clear the line without interrupting what is running, which `^C` would),
+  and a sticky Ctrl for everything else.
 - **Sizing you decide.** Two clients on one session cannot both pick the size, so the
   size is *claimed*: ⤢ takes it for the screen you are looking at, and the lock beside it
   says "I am only watching" — the desk keeps its geometry and the phone shrinks the type
