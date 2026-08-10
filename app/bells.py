@@ -54,7 +54,7 @@ def store(request: Request) -> dict[str, Any]:
     return state.bells
 
 
-@router.post("/api/bell")
+@router.post("/api/bell", tags=["Notifications"], summary="Ring: something finished, or wants you")
 async def ring(request: Request, body: dict) -> dict:
     """Called by an agent hook, or by anything else that knows it has finished."""
     kept = store(request)
@@ -81,7 +81,7 @@ async def ring(request: Request, body: dict) -> dict:
     return bell
 
 
-@router.get("/api/bells")
+@router.get("/api/bells", tags=["Notifications"], summary="What has rung since a given point")
 async def since(request: Request, since: int = 0) -> dict:
     """Everything rung after `since`.
 
@@ -98,13 +98,13 @@ async def since(request: Request, since: int = 0) -> dict:
     return {"seq": kept["seq"], "bells": [b for b in kept["list"] if b["seq"] > since]}
 
 
-@router.get("/api/bell/wiring")
+@router.get("/api/bell/wiring", tags=["Notifications"], summary="Which agents on this machine are set up to ring")
 async def wired(_request: Request) -> dict:
     """Which agents on this machine are set up to ring, and which are not."""
     return wiring.state(Path.home())
 
 
-@router.post("/api/bell/wiring")
+@router.post("/api/bell/wiring", tags=["Notifications"], summary="Set the agents up to ring, or undo it")
 async def rewire(_request: Request, body: dict) -> dict:
     """Do the setting up, or take it back out.
 
@@ -119,7 +119,7 @@ async def rewire(_request: Request, body: dict) -> dict:
         raise ApiError(400, str(e)) from e
 
 
-@router.get("/api/bells/stream")
+@router.get("/api/bells/stream", tags=["Notifications"], summary="Bells as they happen, over one open connection")
 async def stream(request: Request, since: int = 0) -> StreamingResponse:
     """Bells as they happen, over one connection that stays open.
 

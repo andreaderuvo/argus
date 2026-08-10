@@ -112,7 +112,7 @@ def _entry(path: Path, name: str | None = None) -> dict:
     }
 
 
-@router.get("/api/config")
+@router.get("/api/config", tags=["Setup"], summary="What this server allows")
 async def server_info(request: Request) -> dict:
     cfg = request.app.state.cfg
     return {
@@ -135,7 +135,7 @@ async def server_info(request: Request) -> dict:
     }
 
 
-@router.get("/api/files")
+@router.get("/api/files", tags=["Files"], summary="List a folder")
 async def list_dir(request: Request, path: str) -> list[dict]:
     directory = _resolve(request, path)
     if not directory.is_dir():
@@ -157,7 +157,7 @@ async def list_dir(request: Request, path: str) -> list[dict]:
     return out
 
 
-@router.get("/api/file")
+@router.get("/api/file", tags=["Files"], summary="Read a file, or its tail if it is large")
 async def read_file(request: Request, path: str) -> Response:
     target = _resolve(request, path)
     if target.is_dir():
@@ -255,7 +255,7 @@ def tail_of(path: Path, limit: int) -> bytes:
     return data[cut + 1 :] if 0 <= cut < 4096 else data
 
 
-@router.get("/api/download")
+@router.get("/api/download", tags=["Files"], summary="Download a file under its own name")
 async def download(request: Request, path: str) -> Response:
     target = _resolve(request, path)
     if target.is_dir():
@@ -267,7 +267,7 @@ async def download(request: Request, path: str) -> Response:
     )
 
 
-@router.get("/api/search")
+@router.get("/api/search", tags=["Files"], summary="Find files by name under a folder")
 async def search(request: Request, path: str, q: str) -> list[dict]:
     root = _resolve(request, path)
     needle = q.strip().lower()
@@ -345,7 +345,7 @@ def hits_in(pages: list[str], needle: str) -> list[dict]:
     return found
 
 
-@router.get("/api/pdf/search")
+@router.get("/api/pdf/search", tags=["Files"], summary="Find text in a PDF, page by page")
 async def pdf_search(request: Request, path: str, q: str) -> dict:
     """Find a string in a PDF and say which pages it is on.
 
@@ -373,7 +373,7 @@ async def pdf_search(request: Request, path: str, q: str) -> dict:
     return {"hits": hits_in(pages, needle), "pages": len(pages)}
 
 
-@router.get("/api/fs/usage")
+@router.get("/api/fs/usage", tags=["Files"], summary="What a folder weighs, walked on request")
 async def usage(request: Request, path: str) -> dict:
     """What a folder actually weighs, added up by hand.
 
