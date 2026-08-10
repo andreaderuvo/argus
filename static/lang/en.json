@@ -470,6 +470,12 @@
   "waits for Enter": "waits for Enter",
   "goes straight in, Enter and all": "goes straight in, Enter and all",
   "lands in the box; you press Enter": "lands in the box; you press Enter",
-  "{name} sent to {session}": "{name} sent to {session}"
+  "{name} sent to {session}": "{name} sent to {session}",
+  "How a PDF opens": "How a PDF opens",
+  "the whole page, the width, or whatever zoom the browser had": "the whole page, the width, or whatever zoom the browser had",
+  "whole page": "whole page",
+  "page width": "page width",
+  "as it comes": "as it comes",
+  "This file has changed.": "This file has changed."
  }
 }

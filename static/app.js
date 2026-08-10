@@ -1783,6 +1783,10 @@ async function screenFiles(path) {
  *  here and the chrome around it — where the download button goes, where the
  *  source/rendered switch goes — is supplied by the caller.
  */
+// Which page a document was last sent to, so reopening it or reloading it lands there
+// rather than at the beginning. Only pages we navigated to ourselves: see below.
+const pdfPage = new Map();
+
 async function mountPreview(host, path, ctl) {
   host.textContent = '';
   const src = withToken(`/api/file?path=${encodeURIComponent(path)}`);
@@ -1843,7 +1847,30 @@ async function mountPreview(host, path, ctl) {
   // than the document. So the finding is done here and the viewer is sent to the page.
   if (type.startsWith('application/pdf')) {
     ctl.fill?.(true);
-    const frame = el('iframe', { className: 'preview', src });
+    /* Reloading a PDF loses your place, and there is no getting it back.
+     *
+     *  The browser's own viewer does not say which page you are on — measured: the
+     *  address in the frame stays exactly as we set it however far you scroll. So a
+     *  document that is rebuilt while you read it (latexmk, a report an agent
+     *  regenerates) must not be reloaded under you: the watcher offers instead, and
+     *  reloading is your click.
+     */
+    ctl.askBeforeReload?.(true);
+    /* How the document is scaled when it opens.
+     *
+     *  A PDF opens at whatever zoom the browser last used, which on a phone is usually
+     *  the wrong one — the page arrives cropped and you pinch before you can read a word.
+     *  These are the PDF open parameters, and the two spellings are for the two viewers:
+     *  Chrome reads `view`, and pdf.js — Firefox's — reads `zoom`. Each ignores the other.
+     */
+    const FITS = {
+      page: 'view=Fit&zoom=page-fit',
+      width: 'view=FitH&zoom=page-width',
+      actual: '',
+    };
+    const fit = FITS[prefs.pdfFit] ?? FITS.page;
+    const opened = fit ? `${src}#${fit}` : src;
+    const frame = el('iframe', { className: 'preview', src: opened });
     const results = el('div', { className: 'pdfhits', hidden: true });
     const box = el('input', { type: 'search', placeholder: t('find in this document…'), spellcheck: false });
     const bar = el('div', { className: 'pdfsearch', hidden: true }, [box, results]);
@@ -1861,7 +1888,15 @@ async function mountPreview(host, path, ctl) {
     const wrap = el('div', { className: 'pdfwrap' }, [frame, finder, bar]);
     host.append(wrap);
 
-    const goToPage = (page) => { frame.src = `${src}#page=${page}`; };
+    // Jumping to a hit keeps the scaling: landing on page 12 at a zoom you did not
+    // choose is the same annoyance a second time.
+    // The one page we can honestly claim to know: the one we sent it to.
+    const goToPage = (page) => {
+      pdfPage.set(path, page);
+      frame.src = `${src}#page=${page}${fit ? `&${fit}` : ''}`;
+    };
+    const seen = pdfPage.get(path);
+    if (seen && seen > 1) frame.src = `${src}#page=${seen}${fit ? `&${fit}` : ''}`;
     let asked = null;
     const look = async () => {
       const needle = box.value.trim();
@@ -2662,6 +2697,12 @@ async function screenSettings() {
       () => prefs.openInDesk !== false, (v) => { prefs.openInDesk = v; }),
     toggle(t('Sound when something rings'), t('two short tones when an agent finishes or asks for you'),
       () => prefs.bellSound !== false, (v) => { prefs.bellSound = v; }),
+    choice(t('How a PDF opens'), t('the whole page, the width, or whatever zoom the browser had'),
+      [t('whole page'), t('page width'), t('as it comes')],
+      () => ({ page: t('whole page'), width: t('page width'), actual: t('as it comes') })[prefs.pdfFit || 'page'],
+      (v) => {
+        prefs.pdfFit = v === t('page width') ? 'width' : v === t('as it comes') ? 'actual' : 'page';
+      }),
     choice(t('How a placeholder is written'),
       t('in a session — a saved prompt takes any of them'),
       Object.keys(MARKS).map((k) => MARKS[k].show),
@@ -7434,7 +7475,9 @@ function attachViewer(host, path, extras) {
   extras.append(srcBtn, editBtn, watchBtn, dl);
 
   let rendered = true;
+  let askFirst = false;         // this document loses your place when it reloads
   const ctl = {
+    askBeforeReload: (on) => { askFirst = on; },
     download: (fn) => { dl.onclick = fn; },
     fill: (on) => host.classList.toggle('fill', on),
     toBottom: () => { host.scrollTop = host.scrollHeight; },
@@ -7472,13 +7515,32 @@ function attachViewer(host, path, extras) {
       const s = await getJSON(`/api/stat?path=${encodeURIComponent(path)}`);
       const now = `${s.mtime}:${s.size}`;
       if (stamp && stamp !== now) {
-        const keep = host.scrollTop;
-        await load();
-        host.scrollTop = keep;   // a log that grew should not jump back to the top
+        if (askFirst) {
+          // A PDF rebuilt while you are reading page 30 must not throw you to page 1.
+          offer();
+        } else {
+          const keep = host.scrollTop;
+          await load();
+          host.scrollTop = keep;   // a log that grew should not jump back to the top
+        }
       }
       stamp = now;
     } catch { /* vanished or unreachable: leave what is on screen */ }
   };
+  /** The file changed underneath a document that cannot be reloaded quietly. */
+  let notice = null;
+  const offer = () => {
+    if (notice?.isConnected) return;
+    const again = el('button', { className: 'primary inline', textContent: t('Reload') });
+    notice = el('div', { className: 'changed' }, [
+      el('span', { className: 'grow', textContent: t('This file has changed.') }),
+      again,
+      el('button', { className: 'winbtn', title: t('Close'), onclick: () => notice.remove() }, icon('close')),
+    ]);
+    again.onclick = async () => { notice.remove(); askFirst = false; await load(); };
+    host.append(notice);
+  };
+
   const timer = setInterval(poll, 3000);
   poll();
 

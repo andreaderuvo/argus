@@ -470,6 +470,12 @@
   "waits for Enter": "espera al Enter",
   "goes straight in, Enter and all": "entra directamente, Enter incluido",
   "lands in the box; you press Enter": "llega a la caja; el Enter lo das tú",
-  "{name} sent to {session}": "{name} enviado a {session}"
+  "{name} sent to {session}": "{name} enviado a {session}",
+  "How a PDF opens": "Cómo se abre un PDF",
+  "the whole page, the width, or whatever zoom the browser had": "la página entera, el ancho, o el zoom que tuviera el navegador",
+  "whole page": "página entera",
+  "page width": "ancho de página",
+  "as it comes": "tal cual",
+  "This file has changed.": "Este archivo ha cambiado."
  }
 }

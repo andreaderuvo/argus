@@ -2030,3 +2030,25 @@ input.traysearch:focus { border-color: var(--accent); outline: none; }
 }
 #compose .compose:focus { border-color: var(--accent); outline: none; }
 #compose .ghost.dup, #compose .primary { flex: none; min-height: var(--tap); }
+
+/* The file changed under a document that cannot be reloaded without losing your place. */
+.changed {
+  /* Fixed, not absolute: the host is sometimes a window body and sometimes the whole
+     screen, and only one of those is a positioning context. */
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--furniture, 0px) + 1rem);
+  transform: translateX(-50%);
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  max-width: calc(100% - 2rem);
+  padding: .5rem .6rem .5rem .9rem;
+  border: 1px solid var(--accent);
+  border-radius: .6rem;
+  background: var(--panel);
+  box-shadow: 0 6px 22px rgb(0 0 0 / .45);
+  font-size: .85rem;
+}
+.changed .grow { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

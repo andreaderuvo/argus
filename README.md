@@ -227,6 +227,12 @@ services.</sub>
 
 - **Markdown** rendered, with a source toggle, and the figures beside it on disk shown
   where they belong — `![](results/plot.png)` resolves against the document's own folder.
+- **PDF** opens fitted to the page rather than at whatever zoom the browser last used —
+  page width or as-it-comes if you prefer, in Settings. A document rebuilt while you are
+  reading it (latexmk, a report an agent regenerates) is **not** reloaded under you: you
+  get an offer, because the browser's own viewer does not tell anyone which page you are
+  on, so a reload cannot put you back. Argus does remember the page when it was the one
+  that moved you there — a search hit — and returns to it.
 - **PDF** in the browser's own viewer, with a search box that Argus answers itself:
   inside an iframe Ctrl+F searches the page around the document, and a phone has no
   Ctrl+F at all, so the text is extracted here and each hit jumps the viewer to its page.
