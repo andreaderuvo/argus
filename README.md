@@ -403,6 +403,24 @@ services.</sub>
 - **No build step.** The frontend is plain ES modules; xterm.js, marked and the QR
   library are vendored. `pip install -r requirements.txt` and run it.
 
+## The API
+
+Everything Argus does, it does through its API — the browser is one client of it, not a
+privileged one. That is the extension story: a script, a cron job, an agent hook or another
+machine can do anything the app can, with no plugin to install and nothing running inside
+the page.
+
+**[The routes, described](https://andreaderuvo.github.io/argus/api.html)** — or
+[`openapi.json`](https://andreaderuvo.github.io/argus/openapi.json) for Swagger UI, Postman
+or a client generator. A running server serves its own at `/api/openapi.json`, behind the
+token like everything else.
+
+Two rules hold throughout: **one token**, in an `Authorization: Bearer …` header or a
+`?token=` query where a header cannot go; and **everything under `/api`**, the description
+included, so a single rule guards the lot.
+
+The page is generated from the routes themselves, and a test fails when it drifts.
+
 ## Reaching it from outside
 
 Argus listens on plain HTTP and has one token. That is fine on a LAN or a VPN and not

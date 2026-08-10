@@ -41,8 +41,52 @@ display:grid;place-items:center;min-height:100vh;margin:0;padding:1.5rem}</style
 """
 
 
+# What the API is, for whoever reads the spec rather than the app. Kept here rather than
+# in a wiki page so it cannot drift away from the routes it describes.
+ABOUT = """
+Everything Argus does, it does through this API — the browser is one client of it, not a
+privileged one. That is the whole extension story: a script, a cron job, an agent hook or
+another machine can do anything the app can, with no plugin to install and nothing running
+inside the page.
+
+**Every route is behind the same token**, in an `Authorization: Bearer …` header or a
+`?token=` query for the places a header cannot go — a WebSocket, an `<img>`, a page opened
+directly. Anyone holding it can run anything you can: treat it like an SSH key.
+
+**Everything lives under `/api`.** Nothing outside it answers with data, this document
+included, so a single rule guards the lot.
+
+The most useful thing to build against first is `POST /api/bell` — that is how an agent
+tells you it has finished or wants you, and it needs nothing but curl.
+"""
+
+TAGS = [
+    {"name": "Files", "description": "Reading the filesystem, previewing and searching it. Confined to the configured roots, canonicalised before the check, symlinks out of them refused."},
+    {"name": "Writing", "description": "Making, moving, deleting, uploading. Every route here is off unless the server was started with `--allow-write`."},
+    {"name": "Sessions", "description": "tmux: what exists, where it is, what it is showing, and how it looks. The terminal itself is a WebSocket."},
+    {"name": "Notifications", "description": "Something has finished, or wants you. Post to it from an agent hook; read the stream to be told as it happens."},
+    {"name": "Prompts", "description": "Working out what a path in a session refers to, so it can be opened."},
+    {"name": "The machine", "description": "CPU, memory, disks, GPUs, and the ports that are listening."},
+    {"name": "Ports", "description": "Standing in front of a service that only listens on loopback, one port at a time."},
+    {"name": "Setup", "description": "What this server allows, which languages it has, and the tmux configuration it reads."},
+]
+
+
 def create_app(cfg: Config) -> FastAPI:
-    app = FastAPI(title="argus", version=VERSION, docs_url=None, redoc_url=None)
+    app = FastAPI(
+        title="Argus",
+        version=VERSION,
+        summary="Watch your agents run in tmux, and read what they produced.",
+        description=ABOUT,
+        openapi_tags=TAGS,
+        # Under /api like everything else, which is what puts it behind the token: the
+        # list of routes of a shell-access server is not a thing to hand out.
+        openapi_url="/api/openapi.json",
+        docs_url=None,
+        redoc_url=None,
+        license_info={"name": "MIT", "url": "https://github.com/andreaderuvo/argus/blob/master/LICENSE"},
+        contact={"name": "Argus", "url": "https://github.com/andreaderuvo/argus"},
+    )
     app.state.cfg = cfg
     app.state.jail = Jail(cfg.roots)
     app.state.socket = tmux.Socket.new(cfg.tmux_socket)
@@ -54,25 +98,48 @@ def create_app(cfg: Config) -> FastAPI:
     app.state.http = httpx.AsyncClient(timeout=30.0, follow_redirects=False)
     app.state.port = None
 
+    # Readable, stable names for the operations.
+    #
+    #  FastAPI builds them from the function and the method, and for the proxy — one
+    #  function answering seven verbs — it walks a *set*, so the names came out in a
+    #  different order on every run and the published copy of the spec never matched the
+    #  code. These are derived from the verb and the path, which is both deterministic and
+    #  far kinder to anyone generating a client: `getApiTmuxSessions`, not
+    #  `sessions_api_tmux_sessions_get`.
+    plain = app.openapi
+
+    def described() -> dict:
+        schema = plain()
+        for path, operations in schema.get("paths", {}).items():
+            for verb, operation in operations.items():
+                words = [w for w in path.replace("{", "").replace("}", "").split("/") if w]
+                operation["operationId"] = verb + "".join(
+                    "".join(part.capitalize() for part in word.replace("-", "_").split("_"))
+                    for word in words
+                )
+        return schema
+
+    app.openapi = described
+
     app.include_router(files.router)
     app.include_router(proxy.router)
     app.include_router(bells.router)
-    app.include_router(fsops.router)
-    app.include_router(paths.router)
-    app.include_router(term.router)
+    app.include_router(fsops.router, tags=["Writing"])
+    app.include_router(paths.router, tags=["Prompts"])
+    app.include_router(term.router, tags=["Sessions"])
 
-    @app.get("/api/tmux/sessions")
+    @app.get("/api/tmux/sessions", tags=["Sessions"], summary="Every tmux session on this server")
     async def sessions(request: Request) -> list[dict]:
         try:
             return await asyncio.to_thread(tmux.list_sessions, request.app.state.socket)
         except tmux.TmuxError as e:
             raise ApiError(502, str(e)) from e
 
-    @app.get("/api/languages")
+    @app.get("/api/languages", tags=["Setup"], summary="The interface languages available")
     async def list_languages(request: Request) -> list[dict]:
         return languages.available(BUILTIN_LANG, request.app.state.lang)
 
-    @app.get("/api/language/{code}")
+    @app.get("/api/language/{code}", tags=["Setup"], summary="One language catalogue")
     async def one_language(request: Request, code: str) -> dict:
         try:
             path = languages.locate(code, BUILTIN_LANG, request.app.state.lang)
@@ -83,7 +150,7 @@ def create_app(cfg: Config) -> FastAPI:
             raise ApiError(404, f"no language called {code}")
         return entry
 
-    @app.post("/api/language")
+    @app.post("/api/language", tags=["Setup"], summary="Add or replace a language catalogue")
     async def import_language(request: Request, body: dict) -> dict:
         """Anyone can translate the catalogue and add it here; it is a flat JSON object
         keyed by the English strings, so it needs no tooling to produce."""
@@ -97,11 +164,11 @@ def create_app(cfg: Config) -> FastAPI:
             raise ApiError(500, f"could not save the language: {e.strerror}") from e
         return {"code": code, "name": name, "count": len(strings)}
 
-    @app.get("/api/favourites")
+    @app.get("/api/favourites", tags=["Files"], summary="Pinned folders, kept on the server")
     async def list_favourites(request: Request) -> dict:
         return favourites.describe_all(favourites.load(request.app.state.favourites))
 
-    @app.post("/api/favourites")
+    @app.post("/api/favourites", tags=["Files"], summary="Pin or unpin a folder")
     async def toggle_favourite(request: Request, body: dict) -> dict:
         raw = str(body.get("path", ""))
         # Pinning is jailed like everything else: you cannot bookmark your way out.
@@ -112,7 +179,7 @@ def create_app(cfg: Config) -> FastAPI:
         favourites.save(store, paths)
         return {"pinned": pinned, "group": group, "favourites": favourites.describe_all(paths)}
 
-    @app.get("/api/stat")
+    @app.get("/api/stat", tags=["Files"], summary="Size and modification time, for watching a file")
     async def stat_path(request: Request, path: str) -> dict:
         """Just enough to notice a file has changed: a window watching a report being
         regenerated polls this rather than re-downloading the whole thing."""
@@ -127,7 +194,7 @@ def create_app(cfg: Config) -> FastAPI:
         st = target.stat()
         return {"path": str(target), "mtime": int(st.st_mtime), "size": st.st_size}
 
-    @app.post("/api/tmux/source")
+    @app.post("/api/tmux/source", tags=["Setup"], summary="Hand the tmux config to every session, after trying it safely")
     async def source_conf(request: Request, body: dict) -> dict:
         """Make every session pick up the configuration file.
 
@@ -158,7 +225,7 @@ def create_app(cfg: Config) -> FastAPI:
             raise ApiError(404, f"no tmux session named {name!r}")
         return name
 
-    @app.post("/api/tmux/style")
+    @app.post("/api/tmux/style", tags=["Sessions"], summary="Dress one session, without touching the config")
     async def dress(request: Request, body: dict) -> dict:
         """Put a look on one session, live.
 
@@ -176,7 +243,7 @@ def create_app(cfg: Config) -> FastAPI:
             raise ApiError(400, str(e)) from e
         return {"session": name, "set": sorted(options)}
 
-    @app.get("/api/tmux/cwd")
+    @app.get("/api/tmux/cwd", tags=["Sessions"], summary="The directory a session is really in")
     async def pane_directory(request: Request, session: str) -> dict:
         """Where this session actually is.
 
@@ -188,13 +255,13 @@ def create_app(cfg: Config) -> FastAPI:
         name = await _known(request, session)
         return {"session": name, "cwd": await asyncio.to_thread(paths.pane_cwd, request.app.state.socket, name)}
 
-    @app.get("/api/tmux/copymode")
+    @app.get("/api/tmux/copymode", tags=["Sessions"], summary="Is this session showing history rather than the live end")
     async def read_copy_mode(request: Request, session: str) -> dict:
         """Is this session showing history rather than the live end?"""
         name = await _known(request, session)
         return await asyncio.to_thread(tmux.copy_mode, request.app.state.socket, name)
 
-    @app.post("/api/tmux/copymode")
+    @app.post("/api/tmux/copymode", tags=["Sessions"], summary="Back to the live end")
     async def exit_copy_mode(request: Request, body: dict) -> dict:
         """Leave history and return to the live end."""
         name = await _known(request, str(body.get("session", "")))
@@ -207,7 +274,7 @@ def create_app(cfg: Config) -> FastAPI:
         # and a button that had nothing to do.
         return {"left": left, "alternate": state["alternate"]}
 
-    @app.get("/api/tmux/buffer")
+    @app.get("/api/tmux/buffer", tags=["Sessions"], summary="The last thing copied inside tmux")
     async def tmux_buffer(request: Request) -> dict:
         """The last thing copied inside tmux, so it can reach the device's clipboard."""
         try:
@@ -216,7 +283,7 @@ def create_app(cfg: Config) -> FastAPI:
             raise ApiError(502, str(e)) from e
         return {"text": text, "chars": len(text)}
 
-    @app.post("/api/tmux/new")
+    @app.post("/api/tmux/new", tags=["Sessions"], summary="Start a session")
     async def new_session(request: Request, body: dict) -> dict:
         state = request.app.state
         try:
@@ -239,7 +306,7 @@ def create_app(cfg: Config) -> FastAPI:
             raise ApiError(502, str(e)) from e
         return {"name": name, "path": where}
 
-    @app.post("/api/tmux/rename")
+    @app.post("/api/tmux/rename", tags=["Sessions"], summary="Rename a session")
     async def rename_session(request: Request, body: dict) -> dict:
         state = request.app.state
         try:
@@ -253,7 +320,7 @@ def create_app(cfg: Config) -> FastAPI:
             raise ApiError(502, str(e)) from e
         return {"name": to}
 
-    @app.post("/api/tmux/kill")
+    @app.post("/api/tmux/kill", tags=["Sessions"], summary="End a session")
     async def kill_session(request: Request, body: dict) -> dict:
         """Killing a session ends everything running in it. The UI asks first."""
         state = request.app.state
@@ -267,7 +334,7 @@ def create_app(cfg: Config) -> FastAPI:
             raise ApiError(502, str(e)) from e
         return {"killed": name}
 
-    @app.get("/api/ports")
+    @app.get("/api/ports", tags=["Ports"], summary="What is listening, and what is holding it")
     async def list_ports(request: Request) -> dict:
         state = request.app.state
         return {
@@ -276,7 +343,7 @@ def create_app(cfg: Config) -> FastAPI:
             "ports": await asyncio.to_thread(ports.listening, state.port),
         }
 
-    @app.post("/api/ports")
+    @app.post("/api/ports", tags=["Ports"], summary="Open or close a port for proxying")
     async def open_port(request: Request, body: dict) -> Response:
         """Opening a port also hands back the cookie the proxied page needs: its own
         stylesheets and scripts cannot carry an Authorization header."""
@@ -302,7 +369,7 @@ def create_app(cfg: Config) -> FastAPI:
             )
         return answer
 
-    @app.get("/api/system")
+    @app.get("/api/system", tags=["The machine"], summary="CPU, memory, swap, GPUs, disks, uptime")
     async def vitals(request: Request) -> dict:
         # Sampling /proc/stat needs a real pause, so it goes to a thread.
         return await asyncio.to_thread(system.snapshot, request.app.state.jail.roots)
@@ -317,7 +384,7 @@ def create_app(cfg: Config) -> FastAPI:
         return JSONResponse({"error": f"bad or missing query parameter: {missing}"}, status_code=400)
 
     # Registered last so it never shadows the API: unknown paths are the frontend's.
-    @app.get("/{requested:path}")
+    @app.get("/{requested:path}", include_in_schema=False)
     async def static_handler(requested: str) -> Response:
         return serve_static(requested)
 

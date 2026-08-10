@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Argus — the API</title>
+<meta name="description" content="Everything Argus does, it does through this API. One token, everything under /api, and no plugin to install.">
+<link rel="icon" href="img/mark-192.png">
+<meta property="og:title" content="Argus — the API">
+<meta property="og:description" content="Everything Argus does, it does through this API — the browser is one client of it, not a privileged one.">
+<meta property="og:url" content="https://andreaderuvo.github.io/argus/api.html">
+
+<style>
+  :root {
+    --bg: #0b0e14;
+    --panel: #11151d;
+    --line: #1e2530;
+    --text: #c5cad3;
+    --dim: #6b7484;
+    --bright: #e6e9ef;
+    --accent: #8fd6a0;
+    --on-accent: #0b0e14;
+    --get: #7aa2d6;
+    --post: #8fd6a0;
+    --other: #d6b46f;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); }
+  code, kbd, .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+
+  header { border-bottom: 1px solid var(--line); background: var(--panel); }
+  .wrap { max-width: 60rem; margin: 0 auto; padding: 0 1.2rem; }
+  header .wrap { padding-top: 2.2rem; padding-bottom: 1.6rem; }
+  h1 { margin: 0 0 .3rem; font-size: 1.9rem; color: var(--bright); letter-spacing: -.02em; }
+  h1 .ver {
+    margin-left: .5rem; padding: .1rem .45rem; border-radius: .4rem;
+    background: var(--bg); border: 1px solid var(--line);
+    font: 600 .62em/1.5 ui-monospace, monospace; color: var(--dim); vertical-align: .18em;
+  }
+  header p { margin: .2rem 0 0; color: var(--dim); max-width: 44rem; }
+  .crumbs { margin-bottom: .8rem; font-size: .85rem; }
+  .crumbs a { color: var(--dim); text-decoration: none; }
+  .crumbs a:hover { color: var(--accent); }
+
+  .intro { padding: 1.6rem 0 .4rem; }
+  .intro p { max-width: 44rem; }
+  .intro strong { color: var(--bright); }
+
+  .toolbar { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: .9rem 0; border-bottom: 1px solid var(--line); }
+  .toolbar .wrap { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
+  #find {
+    flex: 1; min-width: 12rem; min-height: 2.4rem; padding: 0 .8rem;
+    background: var(--panel); border: 1px solid var(--line); border-radius: .5rem;
+    color: var(--text); font: inherit; font-size: .92rem;
+  }
+  #find:focus { border-color: var(--accent); outline: none; }
+  #count { color: var(--dim); font-size: .82rem; }
+
+  section.group { padding: 1.8rem 0 .4rem; }
+  section.group > h2 { margin: 0 0 .2rem; font-size: 1.15rem; color: var(--accent); }
+  section.group > p { margin: 0 0 1rem; color: var(--dim); max-width: 46rem; font-size: .93rem; }
+
+  details.op {
+    border: 1px solid var(--line);
+    border-radius: .6rem;
+    background: var(--panel);
+    margin-bottom: .5rem;
+    overflow: hidden;
+  }
+  details.op > summary {
+    display: flex; gap: .7rem; align-items: baseline;
+    padding: .7rem .9rem; cursor: pointer; list-style: none;
+  }
+  details.op > summary::-webkit-details-marker { display: none; }
+  details.op[open] > summary { border-bottom: 1px solid var(--line); }
+  .verb {
+    flex: none; min-width: 3.6rem; text-align: center;
+    padding: .12rem .4rem; border-radius: .35rem;
+    font: 700 .7rem/1.5 ui-monospace, monospace; letter-spacing: .04em;
+    color: var(--on-accent); background: var(--other);
+  }
+  .verb.get { background: var(--get); }
+  .verb.post { background: var(--post); }
+  .path { font: 600 .92rem/1.5 ui-monospace, monospace; color: var(--bright); word-break: break-all; }
+  .path .var { color: var(--other); }
+  summary .what { flex: 1; min-width: 0; color: var(--dim); font-size: .88rem; }
+
+  .body { padding: .9rem; }
+  .body p { margin: 0 0 .8rem; }
+  .body p:last-child { margin-bottom: 0; }
+  .body h4 { margin: 1rem 0 .4rem; font-size: .78rem; color: var(--dim); text-transform: uppercase; letter-spacing: .06em; }
+  .body h4:first-child { margin-top: 0; }
+  table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  td { padding: .35rem .5rem .35rem 0; border-top: 1px solid var(--line); vertical-align: top; }
+  tr:first-child td { border-top: 0; }
+  td.name { white-space: nowrap; font-family: ui-monospace, monospace; color: var(--bright); }
+  td.type { white-space: nowrap; color: var(--dim); font-family: ui-monospace, monospace; font-size: .82rem; }
+  .req { color: var(--other); font-size: .75rem; }
+  pre {
+    margin: 0; padding: .7rem .8rem; overflow-x: auto;
+    background: var(--bg); border: 1px solid var(--line); border-radius: .5rem;
+    font: 12.5px/1.6 ui-monospace, "SF Mono", Menlo, monospace; color: var(--bright);
+  }
+  .hint { color: var(--dim); font-size: .84rem; }
+
+  footer { margin-top: 2.5rem; padding: 2rem 0 3.5rem; border-top: 1px solid var(--line); color: var(--dim); font-size: .9rem; }
+  footer a { color: var(--accent); }
+  @media (max-width: 620px) {
+    details.op > summary { flex-wrap: wrap; }
+    summary .what { flex-basis: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <p class="crumbs"><a href="./">← Argus</a></p>
+    <h1>The API<span class="ver" id="ver">…</span></h1>
+    <p>Everything Argus does, it does through this. The browser is one client of it, not a
+      privileged one.</p>
+  </div>
+</header>
+
+<div class="wrap intro">
+  <p><strong>One token guards all of it</strong>, in an <code>Authorization: Bearer …</code>
+    header, or a <code>?token=</code> query for the places a header cannot go — a WebSocket,
+    an <code>&lt;img&gt;</code>, a page opened directly. Anyone holding it can run anything
+    you can, so treat it like an SSH key.</p>
+  <p><strong>Everything lives under <code>/api</code></strong>, this document included, so a
+    single rule guards the lot. The one exception is <code>/proxy/…</code>, which is a
+    service of yours being passed through.</p>
+  <p>The most useful thing to build against first is <code>POST /api/bell</code> — how an
+    agent says it has finished, or wants you. It needs nothing but curl:</p>
+  <pre>curl -s -X POST http://your-server:8090/api/bell \
+  -H "Authorization: Bearer $ARGUS_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"session":"build","why":"done","text":"the tests passed"}'</pre>
+  <p class="hint">The machine-readable description is
+    <a href="openapi.json">openapi.json</a> — point Swagger UI, Postman or a client
+    generator at it. A running server serves its own at <code>/api/openapi.json</code>,
+    behind the token.</p>
+</div>
+
+<div class="toolbar">
+  <div class="wrap">
+    <input id="find" type="search" placeholder="filter — a path, a word, a verb" autocomplete="off" spellcheck="false">
+    <span id="count"></span>
+  </div>
+</div>
+
+<main class="wrap" id="out"><p class="hint">Loading the description…</p></main>
+
+<footer>
+  <div class="wrap">
+    <p><a href="./">Argus</a> ·
+      <a href="https://github.com/andreaderuvo/argus">GitHub</a> ·
+      <a href="https://github.com/andreaderuvo/argus/wiki">Wiki</a> · MIT</p>
+    <p>This page is generated from the routes themselves, and a test fails if it drifts
+      from them.</p>
+  </div>
+</footer>
+
+<script type="module">
+const out = document.getElementById('out');
+const find = document.getElementById('find');
+const count = document.getElementById('count');
+
+const el = (tag, props = {}, kids = []) => {
+  const n = Object.assign(document.createElement(tag), props);
+  for (const k of [].concat(kids)) if (k) n.append(k);
+  return n;
+};
+
+/** A path with its variables picked out, so `{port}` reads as a hole to fill. */
+const showPath = (path) => {
+  const node = el('span', { className: 'path' });
+  for (const bit of path.split(/(\{[^}]+\})/)) {
+    if (!bit) continue;
+    node.append(bit.startsWith('{') ? el('span', { className: 'var', textContent: bit }) : document.createTextNode(bit));
+  }
+  return node;
+};
+
+/** What a schema is, in as few words as carry the meaning. */
+const nameType = (schema, spec) => {
+  if (!schema) return '';
+  if (schema.$ref) {
+    const named = schema.$ref.split('/').pop();
+    return nameType(spec.components?.schemas?.[named], spec) || named;
+  }
+  if (schema.anyOf) return schema.anyOf.map((s) => nameType(s, spec)).filter((s) => s !== 'null').join(' or ');
+  if (schema.type === 'array') return `${nameType(schema.items, spec)}[]`;
+  return schema.type || 'object';
+};
+
+/** An example body, built from the schema so it cannot claim a field that is not there. */
+const exampleOf = (schema, spec, depth = 0) => {
+  if (!schema || depth > 3) return null;
+  if (schema.$ref) return exampleOf(spec.components?.schemas?.[schema.$ref.split('/').pop()], spec, depth);
+  if (schema.anyOf) return exampleOf(schema.anyOf.find((s) => s.type !== 'null'), spec, depth);
+  if (schema.type === 'array') return [exampleOf(schema.items, spec, depth + 1)].filter((x) => x !== null);
+  if (schema.type === 'object' || schema.properties) {
+    const body = {};
+    for (const [name, sub] of Object.entries(schema.properties || {})) body[name] = exampleOf(sub, spec, depth + 1);
+    return body;
+  }
+  if (schema.default !== undefined) return schema.default;
+  return { string: '…', integer: 0, number: 0, boolean: true }[schema.type] ?? null;
+};
+
+const render = (spec) => {
+  document.getElementById('ver').textContent = `v${spec.info.version}`;
+  const groups = new Map();
+  for (const t of spec.tags || []) groups.set(t.name, { note: t.description, ops: [] });
+
+  for (const [path, operations] of Object.entries(spec.paths)) {
+    for (const [verb, op] of Object.entries(operations)) {
+      const tag = (op.tags || ['Other'])[0];
+      if (!groups.has(tag)) groups.set(tag, { note: '', ops: [] });
+      groups.get(tag).ops.push({ path, verb, op });
+    }
+  }
+
+  out.replaceChildren();
+  for (const [name, { note, ops }] of groups) {
+    if (!ops.length) continue;
+    ops.sort((a, b) => a.path.localeCompare(b.path) || a.verb.localeCompare(b.verb));
+    const section = el('section', { className: 'group' }, [
+      el('h2', { textContent: name }),
+      note ? el('p', { textContent: note }) : null,
+    ]);
+
+    for (const { path, verb, op } of ops) {
+      const card = el('details', { className: 'op' });
+      card.dataset.hay = `${verb} ${path} ${op.summary || ''} ${op.description || ''}`.toLowerCase();
+      card.append(el('summary', {}, [
+        el('span', { className: `verb ${verb}`, textContent: verb.toUpperCase() }),
+        showPath(path),
+        el('span', { className: 'what', textContent: op.summary || '' }),
+      ]));
+
+      const body = el('div', { className: 'body' });
+      if (op.description) {
+        for (const para of op.description.trim().split(/\n\s*\n/)) {
+          body.append(el('p', { textContent: para.replace(/\s*\n\s*/g, ' ') }));
+        }
+      }
+
+      const params = (op.parameters || []).filter((p) => p.name !== 'token');
+      if (params.length) {
+        body.append(el('h4', { textContent: 'Parameters' }));
+        const rows = el('table');
+        for (const p of params) {
+          rows.append(el('tr', {}, [
+            el('td', { className: 'name' }, [
+              document.createTextNode(p.name),
+              p.required ? el('span', { className: 'req', textContent: ' required' }) : null,
+            ]),
+            el('td', { className: 'type', textContent: `${p.in} · ${nameType(p.schema, spec)}` }),
+            el('td', { textContent: p.description || '' }),
+          ]));
+        }
+        body.append(rows);
+      }
+
+      const sent = op.requestBody?.content?.['application/json']?.schema
+        || op.requestBody?.content?.['multipart/form-data']?.schema;
+      if (sent) {
+        body.append(el('h4', { textContent: 'Body' }));
+        const shown = exampleOf(sent, spec);
+        body.append(el('pre', {
+          textContent: shown && Object.keys(shown).length
+            ? JSON.stringify(shown, null, 2)
+            : 'any JSON object — see the routes above for the fields each one reads',
+        }));
+      }
+
+      const ok = op.responses?.['200'];
+      if (ok?.description && ok.description !== 'Successful Response') {
+        body.append(el('h4', { textContent: 'Answers' }));
+        body.append(el('p', { textContent: ok.description }));
+      }
+      card.append(body);
+      section.append(card);
+    }
+    out.append(section);
+  }
+  sift();
+};
+
+const sift = () => {
+  const needle = find.value.trim().toLowerCase();
+  let shown = 0;
+  for (const section of out.querySelectorAll('section.group')) {
+    let here = 0;
+    for (const card of section.querySelectorAll('details.op')) {
+      const hit = !needle || card.dataset.hay.includes(needle);
+      card.hidden = !hit;
+      if (hit) { here += 1; shown += 1; }
+    }
+    section.hidden = !here;
+  }
+  count.textContent = needle ? `${shown} shown` : `${out.querySelectorAll('details.op').length} routes`;
+};
+find.addEventListener('input', sift);
+
+try {
+  render(await (await fetch('openapi.json')).json());
+} catch (e) {
+  out.replaceChildren(el('p', { className: 'hint', textContent: `Could not read openapi.json: ${e.message}` }));
+}
+</script>
+</body>
+</html>

@@ -82,6 +82,8 @@ def check(request: Request, port: int) -> None:
 @router.api_route(
     "/proxy/{port}/{path:path}",
     methods=["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"],
+    tags=["Ports"],
+    summary="Reach a service that only listens on loopback",
 )
 async def through(request: Request, port: int, path: str) -> Response:
     check(request, port)

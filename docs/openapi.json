@@ -1,0 +1,2168 @@
+{
+ "components": {
+  "schemas": {
+   "Body_upload_api_fs_upload_post": {
+    "properties": {
+     "files": {
+      "items": {
+       "contentMediaType": "application/octet-stream",
+       "type": "string"
+      },
+      "title": "Files",
+      "type": "array"
+     },
+     "path": {
+      "title": "Path",
+      "type": "string"
+     },
+     "sequence": {
+      "default": "",
+      "title": "Sequence",
+      "type": "string"
+     }
+    },
+    "required": [
+     "path",
+     "files"
+    ],
+    "title": "Body_upload_api_fs_upload_post",
+    "type": "object"
+   },
+   "DeleteBody": {
+    "properties": {
+     "path": {
+      "title": "Path",
+      "type": "string"
+     },
+     "recursive": {
+      "default": false,
+      "title": "Recursive",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "path"
+    ],
+    "title": "DeleteBody",
+    "type": "object"
+   },
+   "DestBody": {
+    "properties": {
+     "dest": {
+      "title": "Dest",
+      "type": "string"
+     },
+     "path": {
+      "title": "Path",
+      "type": "string"
+     }
+    },
+    "required": [
+     "path",
+     "dest"
+    ],
+    "title": "DestBody",
+    "type": "object"
+   },
+   "HTTPValidationError": {
+    "properties": {
+     "detail": {
+      "items": {
+       "$ref": "#/components/schemas/ValidationError"
+      },
+      "title": "Detail",
+      "type": "array"
+     }
+    },
+    "title": "HTTPValidationError",
+    "type": "object"
+   },
+   "LocateBody": {
+    "properties": {
+     "base": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Base"
+     },
+     "paths": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Paths",
+      "type": "array"
+     },
+     "session": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Session"
+     }
+    },
+    "required": [
+     "paths"
+    ],
+    "title": "LocateBody",
+    "type": "object"
+   },
+   "NameBody": {
+    "properties": {
+     "name": {
+      "title": "Name",
+      "type": "string"
+     },
+     "path": {
+      "title": "Path",
+      "type": "string"
+     }
+    },
+    "required": [
+     "path",
+     "name"
+    ],
+    "title": "NameBody",
+    "type": "object"
+   },
+   "ValidationError": {
+    "properties": {
+     "ctx": {
+      "title": "Context",
+      "type": "object"
+     },
+     "input": {
+      "title": "Input"
+     },
+     "loc": {
+      "items": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "integer"
+        }
+       ]
+      },
+      "title": "Location",
+      "type": "array"
+     },
+     "msg": {
+      "title": "Message",
+      "type": "string"
+     },
+     "type": {
+      "title": "Error Type",
+      "type": "string"
+     }
+    },
+    "required": [
+     "loc",
+     "msg",
+     "type"
+    ],
+    "title": "ValidationError",
+    "type": "object"
+   },
+   "WriteBody": {
+    "properties": {
+     "content": {
+      "title": "Content",
+      "type": "string"
+     },
+     "mtime": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mtime"
+     },
+     "path": {
+      "title": "Path",
+      "type": "string"
+     }
+    },
+    "required": [
+     "path",
+     "content"
+    ],
+    "title": "WriteBody",
+    "type": "object"
+   }
+  }
+ },
+ "info": {
+  "contact": {
+   "name": "Argus",
+   "url": "https://github.com/andreaderuvo/argus"
+  },
+  "description": "\nEverything Argus does, it does through this API \u2014 the browser is one client of it, not a\nprivileged one. That is the whole extension story: a script, a cron job, an agent hook or\nanother machine can do anything the app can, with no plugin to install and nothing running\ninside the page.\n\n**Every route is behind the same token**, in an `Authorization: Bearer \u2026` header or a\n`?token=` query for the places a header cannot go \u2014 a WebSocket, an `<img>`, a page opened\ndirectly. Anyone holding it can run anything you can: treat it like an SSH key.\n\n**Everything lives under `/api`.** Nothing outside it answers with data, this document\nincluded, so a single rule guards the lot.\n\nThe most useful thing to build against first is `POST /api/bell` \u2014 that is how an agent\ntells you it has finished or wants you, and it needs nothing but curl.\n",
+  "license": {
+   "name": "MIT",
+   "url": "https://github.com/andreaderuvo/argus/blob/master/LICENSE"
+  },
+  "summary": "Watch your agents run in tmux, and read what they produced.",
+  "title": "Argus",
+  "version": "0.1.0"
+ },
+ "openapi": "3.1.0",
+ "paths": {
+  "/api/bell": {
+   "post": {
+    "description": "Called by an agent hook, or by anything else that knows it has finished.",
+    "operationId": "postApiBell",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Ring Api Bell Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Ring: something finished, or wants you",
+    "tags": [
+     "Notifications"
+    ]
+   }
+  },
+  "/api/bell/wiring": {
+   "get": {
+    "description": "Which agents on this machine are set up to ring, and which are not.",
+    "operationId": "getApiBellWiring",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Wired Api Bell Wiring Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Which agents on this machine are set up to ring",
+    "tags": [
+     "Notifications"
+    ]
+   },
+   "post": {
+    "description": "Do the setting up, or take it back out.\n\nThis writes into the agents' own configuration files, which is exactly the work the\nperson would otherwise be doing by hand \u2014 and it is additive: an event they have\nalready claimed is reported, never overwritten, and a copy of each file as it was\nbefore Argus first touched it is kept beside it.",
+    "operationId": "postApiBellWiring",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Rewire Api Bell Wiring Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Set the agents up to ring, or undo it",
+    "tags": [
+     "Notifications"
+    ]
+   }
+  },
+  "/api/bells": {
+   "get": {
+    "description": "Everything rung after `since`.\n\nThe answer always carries the current sequence, so a browser that has just started \u2014\nor one that was away long enough for the list to roll over \u2014 can mark where \"now\" is\nand catch up from there rather than replaying a morning's worth of notifications.\n\nDeciding *that* is the browser's job, not this one's. An earlier version tried to help\nby treating `since=0` as \"you have just arrived, here is nothing\", and it meant a\nserver that had not rung yet handed out `seq: 0`, took `since=0` back for ever after,\nand stayed silent for the life of the page.",
+    "operationId": "getApiBells",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "since",
+      "required": false,
+      "schema": {
+       "default": 0,
+       "title": "Since",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Since Api Bells Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "What has rung since a given point",
+    "tags": [
+     "Notifications"
+    ]
+   }
+  },
+  "/api/bells/stream": {
+   "get": {
+    "description": "Bells as they happen, over one connection that stays open.\n\nThis is what makes a background tab work. It also needs no HTTPS, unlike the\nbrowser's own notifications \u2014 the sound and the tab title are what is left over\nplain http, and both want to happen the moment it rings rather than a minute later.",
+    "operationId": "getApiBellsStream",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "since",
+      "required": false,
+      "schema": {
+       "default": 0,
+       "title": "Since",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Bells as they happen, over one open connection",
+    "tags": [
+     "Notifications"
+    ]
+   }
+  },
+  "/api/config": {
+   "get": {
+    "operationId": "getApiConfig",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Server Info Api Config Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "What this server allows",
+    "tags": [
+     "Setup"
+    ]
+   }
+  },
+  "/api/download": {
+   "get": {
+    "operationId": "getApiDownload",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "path",
+      "required": true,
+      "schema": {
+       "title": "Path",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Download a file under its own name",
+    "tags": [
+     "Files"
+    ]
+   }
+  },
+  "/api/favourites": {
+   "get": {
+    "operationId": "getApiFavourites",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response List Favourites Api Favourites Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Pinned folders, kept on the server",
+    "tags": [
+     "Files"
+    ]
+   },
+   "post": {
+    "operationId": "postApiFavourites",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Toggle Favourite Api Favourites Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Pin or unpin a folder",
+    "tags": [
+     "Files"
+    ]
+   }
+  },
+  "/api/file": {
+   "get": {
+    "operationId": "getApiFile",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "path",
+      "required": true,
+      "schema": {
+       "title": "Path",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Read a file, or its tail if it is large",
+    "tags": [
+     "Files"
+    ]
+   }
+  },
+  "/api/files": {
+   "get": {
+    "operationId": "getApiFiles",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "path",
+      "required": true,
+      "schema": {
+       "title": "Path",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "additionalProperties": true,
+          "type": "object"
+         },
+         "title": "Response List Dir Api Files Get",
+         "type": "array"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "List a folder",
+    "tags": [
+     "Files"
+    ]
+   }
+  },
+  "/api/fs/copy": {
+   "post": {
+    "operationId": "postApiFsCopy",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/DestBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Copy Api Fs Copy Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Copy",
+    "tags": [
+     "Writing"
+    ]
+   }
+  },
+  "/api/fs/delete": {
+   "post": {
+    "operationId": "postApiFsDelete",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/DeleteBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Delete Api Fs Delete Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Delete",
+    "tags": [
+     "Writing"
+    ]
+   }
+  },
+  "/api/fs/locate": {
+   "post": {
+    "description": "Which of these words are files? Read-only, and jailed like everything else.",
+    "operationId": "postApiFsLocate",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/LocateBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Locate Api Fs Locate Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Locate",
+    "tags": [
+     "Prompts"
+    ]
+   }
+  },
+  "/api/fs/mkdir": {
+   "post": {
+    "operationId": "postApiFsMkdir",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/NameBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Mkdir Api Fs Mkdir Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Mkdir",
+    "tags": [
+     "Writing"
+    ]
+   }
+  },
+  "/api/fs/move": {
+   "post": {
+    "operationId": "postApiFsMove",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/DestBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Move Api Fs Move Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Move",
+    "tags": [
+     "Writing"
+    ]
+   }
+  },
+  "/api/fs/rename": {
+   "post": {
+    "operationId": "postApiFsRename",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/NameBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Rename Api Fs Rename Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Rename",
+    "tags": [
+     "Writing"
+    ]
+   }
+  },
+  "/api/fs/upload": {
+   "post": {
+    "description": "Receive files into a directory.\n\nEach one is streamed to a dotted part-file and renamed into place only once it is\ncomplete, so an interrupted upload never leaves a truncated file wearing the real\nname \u2014 which for a 40 GB fastq is the difference between \"retry\" and \"silent\ncorruption three steps down the pipeline\".",
+    "operationId": "postApiFsUpload",
+    "requestBody": {
+     "content": {
+      "multipart/form-data": {
+       "schema": {
+        "$ref": "#/components/schemas/Body_upload_api_fs_upload_post"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Upload Api Fs Upload Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Upload",
+    "tags": [
+     "Writing"
+    ]
+   }
+  },
+  "/api/fs/usage": {
+   "get": {
+    "description": "What a folder actually weighs, added up by hand.\n\nApparent size, the sum of the file sizes \u2014 the number that matches what you see in a\nlisting, rather than the blocks on disk, which sparse files and compression make a\ndifferent question.",
+    "operationId": "getApiFsUsage",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "path",
+      "required": true,
+      "schema": {
+       "title": "Path",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Usage Api Fs Usage Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "What a folder weighs, walked on request",
+    "tags": [
+     "Files"
+    ]
+   }
+  },
+  "/api/fs/write": {
+   "post": {
+    "description": "Save an edited text file.\n\nTwo things must hold. The file cannot have moved on since it was read \u2014 otherwise a\nphone would quietly undo whatever the running job just wrote \u2014 and a file too large\nto have been previewed whole must never be saved from a preview, because that\npreview was only its tail.",
+    "operationId": "postApiFsWrite",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/WriteBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Write Api Fs Write Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Write",
+    "tags": [
+     "Writing"
+    ]
+   }
+  },
+  "/api/language": {
+   "post": {
+    "description": "Anyone can translate the catalogue and add it here; it is a flat JSON object\nkeyed by the English strings, so it needs no tooling to produce.",
+    "operationId": "postApiLanguage",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Import Language Api Language Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Add or replace a language catalogue",
+    "tags": [
+     "Setup"
+    ]
+   }
+  },
+  "/api/language/{code}": {
+   "get": {
+    "operationId": "getApiLanguageCode",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "code",
+      "required": true,
+      "schema": {
+       "title": "Code",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response One Language Api Language  Code  Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "One language catalogue",
+    "tags": [
+     "Setup"
+    ]
+   }
+  },
+  "/api/languages": {
+   "get": {
+    "operationId": "getApiLanguages",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "additionalProperties": true,
+          "type": "object"
+         },
+         "title": "Response List Languages Api Languages Get",
+         "type": "array"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "The interface languages available",
+    "tags": [
+     "Setup"
+    ]
+   }
+  },
+  "/api/pdf/search": {
+   "get": {
+    "description": "Find a string in a PDF and say which pages it is on.\n\nThe browser's own viewer has a search box on a desktop and nothing at all on a phone,\nand inside an iframe Ctrl+F searches the page around it rather than the document. So\nthe text is extracted here and the viewer is sent to the page.",
+    "operationId": "getApiPdfSearch",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "path",
+      "required": true,
+      "schema": {
+       "title": "Path",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "q",
+      "required": true,
+      "schema": {
+       "title": "Q",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Pdf Search Api Pdf Search Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Find text in a PDF, page by page",
+    "tags": [
+     "Files"
+    ]
+   }
+  },
+  "/api/ports": {
+   "get": {
+    "operationId": "getApiPorts",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response List Ports Api Ports Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "What is listening, and what is holding it",
+    "tags": [
+     "Ports"
+    ]
+   },
+   "post": {
+    "description": "Opening a port also hands back the cookie the proxied page needs: its own\nstylesheets and scripts cannot carry an Authorization header.",
+    "operationId": "postApiPorts",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Open or close a port for proxying",
+    "tags": [
+     "Ports"
+    ]
+   }
+  },
+  "/api/search": {
+   "get": {
+    "operationId": "getApiSearch",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "path",
+      "required": true,
+      "schema": {
+       "title": "Path",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "q",
+      "required": true,
+      "schema": {
+       "title": "Q",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "additionalProperties": true,
+          "type": "object"
+         },
+         "title": "Response Search Api Search Get",
+         "type": "array"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Find files by name under a folder",
+    "tags": [
+     "Files"
+    ]
+   }
+  },
+  "/api/stat": {
+   "get": {
+    "description": "Just enough to notice a file has changed: a window watching a report being\nregenerated polls this rather than re-downloading the whole thing.",
+    "operationId": "getApiStat",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "path",
+      "required": true,
+      "schema": {
+       "title": "Path",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Stat Path Api Stat Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Size and modification time, for watching a file",
+    "tags": [
+     "Files"
+    ]
+   }
+  },
+  "/api/system": {
+   "get": {
+    "operationId": "getApiSystem",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Vitals Api System Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "CPU, memory, swap, GPUs, disks, uptime",
+    "tags": [
+     "The machine"
+    ]
+   }
+  },
+  "/api/tmux/buffer": {
+   "get": {
+    "description": "The last thing copied inside tmux, so it can reach the device's clipboard.",
+    "operationId": "getApiTmuxBuffer",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Tmux Buffer Api Tmux Buffer Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "The last thing copied inside tmux",
+    "tags": [
+     "Sessions"
+    ]
+   }
+  },
+  "/api/tmux/copymode": {
+   "get": {
+    "description": "Is this session showing history rather than the live end?",
+    "operationId": "getApiTmuxCopymode",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "session",
+      "required": true,
+      "schema": {
+       "title": "Session",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Read Copy Mode Api Tmux Copymode Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Is this session showing history rather than the live end",
+    "tags": [
+     "Sessions"
+    ]
+   },
+   "post": {
+    "description": "Leave history and return to the live end.",
+    "operationId": "postApiTmuxCopymode",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Exit Copy Mode Api Tmux Copymode Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Back to the live end",
+    "tags": [
+     "Sessions"
+    ]
+   }
+  },
+  "/api/tmux/cwd": {
+   "get": {
+    "description": "Where this session actually is.\n\nNot the same thing as the folder a desk was given: that one decides where a file\nbrowser lands and what a hand-over sentence says, while this is the directory the\nagent is really working in, set when the session was made. Telling the other agent\nto look somewhere its counterpart never was is a whole round wasted.",
+    "operationId": "getApiTmuxCwd",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "session",
+      "required": true,
+      "schema": {
+       "title": "Session",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Pane Directory Api Tmux Cwd Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "The directory a session is really in",
+    "tags": [
+     "Sessions"
+    ]
+   }
+  },
+  "/api/tmux/kill": {
+   "post": {
+    "description": "Killing a session ends everything running in it. The UI asks first.",
+    "operationId": "postApiTmuxKill",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Kill Session Api Tmux Kill Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "End a session",
+    "tags": [
+     "Sessions"
+    ]
+   }
+  },
+  "/api/tmux/new": {
+   "post": {
+    "operationId": "postApiTmuxNew",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response New Session Api Tmux New Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Start a session",
+    "tags": [
+     "Sessions"
+    ]
+   }
+  },
+  "/api/tmux/rename": {
+   "post": {
+    "operationId": "postApiTmuxRename",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Rename Session Api Tmux Rename Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Rename a session",
+    "tags": [
+     "Sessions"
+    ]
+   }
+  },
+  "/api/tmux/sessions": {
+   "get": {
+    "operationId": "getApiTmuxSessions",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "additionalProperties": true,
+          "type": "object"
+         },
+         "title": "Response Sessions Api Tmux Sessions Get",
+         "type": "array"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Every tmux session on this server",
+    "tags": [
+     "Sessions"
+    ]
+   }
+  },
+  "/api/tmux/source": {
+   "post": {
+    "description": "Make every session pick up the configuration file.\n\ntmux options are per-server, so one source-file reaches every session on it \u2014\nthere is nothing to do per session. The file is tried on a throwaway server first,\nbecause sourcing runs it and a bad line can end the server everything is in.",
+    "operationId": "postApiTmuxSource",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Source Conf Api Tmux Source Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Hand the tmux config to every session, after trying it safely",
+    "tags": [
+     "Setup"
+    ]
+   }
+  },
+  "/api/tmux/style": {
+   "post": {
+    "description": "Put a look on one session, live.\n\nA look in the config file belongs to the server and dresses everything; this\ndresses the session named and leaves the rest alone. Only style options are\naccepted, from a fixed list \u2014 see tmux.STYLE_OPTIONS.",
+    "operationId": "postApiTmuxStyle",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Dress Api Tmux Style Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Dress one session, without touching the config",
+    "tags": [
+     "Sessions"
+    ]
+   }
+  },
+  "/proxy/{port}/{path}": {
+   "delete": {
+    "operationId": "deleteProxyPortPath",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "port",
+      "required": true,
+      "schema": {
+       "title": "Port",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "path",
+      "name": "path",
+      "required": true,
+      "schema": {
+       "title": "Path",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Reach a service that only listens on loopback",
+    "tags": [
+     "Ports"
+    ]
+   },
+   "get": {
+    "operationId": "getProxyPortPath",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "port",
+      "required": true,
+      "schema": {
+       "title": "Port",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "path",
+      "name": "path",
+      "required": true,
+      "schema": {
+       "title": "Path",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Reach a service that only listens on loopback",
+    "tags": [
+     "Ports"
+    ]
+   },
+   "head": {
+    "operationId": "headProxyPortPath",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "port",
+      "required": true,
+      "schema": {
+       "title": "Port",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "path",
+      "name": "path",
+      "required": true,
+      "schema": {
+       "title": "Path",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Reach a service that only listens on loopback",
+    "tags": [
+     "Ports"
+    ]
+   },
+   "options": {
+    "operationId": "optionsProxyPortPath",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "port",
+      "required": true,
+      "schema": {
+       "title": "Port",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "path",
+      "name": "path",
+      "required": true,
+      "schema": {
+       "title": "Path",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Reach a service that only listens on loopback",
+    "tags": [
+     "Ports"
+    ]
+   },
+   "patch": {
+    "operationId": "patchProxyPortPath",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "port",
+      "required": true,
+      "schema": {
+       "title": "Port",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "path",
+      "name": "path",
+      "required": true,
+      "schema": {
+       "title": "Path",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Reach a service that only listens on loopback",
+    "tags": [
+     "Ports"
+    ]
+   },
+   "post": {
+    "operationId": "postProxyPortPath",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "port",
+      "required": true,
+      "schema": {
+       "title": "Port",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "path",
+      "name": "path",
+      "required": true,
+      "schema": {
+       "title": "Path",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Reach a service that only listens on loopback",
+    "tags": [
+     "Ports"
+    ]
+   },
+   "put": {
+    "operationId": "putProxyPortPath",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "port",
+      "required": true,
+      "schema": {
+       "title": "Port",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "path",
+      "name": "path",
+      "required": true,
+      "schema": {
+       "title": "Path",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Reach a service that only listens on loopback",
+    "tags": [
+     "Ports"
+    ]
+   }
+  }
+ },
+ "tags": [
+  {
+   "description": "Reading the filesystem, previewing and searching it. Confined to the configured roots, canonicalised before the check, symlinks out of them refused.",
+   "name": "Files"
+  },
+  {
+   "description": "Making, moving, deleting, uploading. Every route here is off unless the server was started with `--allow-write`.",
+   "name": "Writing"
+  },
+  {
+   "description": "tmux: what exists, where it is, what it is showing, and how it looks. The terminal itself is a WebSocket.",
+   "name": "Sessions"
+  },
+  {
+   "description": "Something has finished, or wants you. Post to it from an agent hook; read the stream to be told as it happens.",
+   "name": "Notifications"
+  },
+  {
+   "description": "Working out what a path in a session refers to, so it can be opened.",
+   "name": "Prompts"
+  },
+  {
+   "description": "CPU, memory, disks, GPUs, and the ports that are listening.",
+   "name": "The machine"
+  },
+  {
+   "description": "Standing in front of a service that only listens on loopback, one port at a time.",
+   "name": "Ports"
+  },
+  {
+   "description": "What this server allows, which languages it has, and the tmux configuration it reads.",
+   "name": "Setup"
+  }
+ ]
+}
