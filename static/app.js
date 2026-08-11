@@ -1793,9 +1793,31 @@ async function mountPreview(host, path, ctl) {
   const download = () => { location.href = withToken(`/api/download?path=${encodeURIComponent(path)}`); };
   ctl.download?.(download);
 
+  /* The address of this exact version of the document.
+   *
+   *  Two things hang off naming the version. A file handed to the browser's own viewer
+   *  keeps its address as its identity: it is the same page, so the viewer is free to
+   *  carry over what it was doing — the zoom, the place on the page — and the open
+   *  parameters we send are ones it has already applied and can ignore. When the file is
+   *  rebuilt underneath, that is precisely wrong: it is a new document and must open the
+   *  way a new document opens.
+   *
+   *  The version is asked for before the file rather than read off it, and that ordering
+   *  is load-bearing: this address is fetched twice — once here to find out what the file
+   *  is, and again by the frame that shows it — and the browser only spares the second
+   *  transfer while both are the same address. Measured: 760 KiB for a 760 KiB paper,
+   *  which is what it was before any of this. Deriving the version from the first reply
+   *  would send it down the wire twice.
+   */
+  let versioned = src;
+  try {
+    const s = await getJSON(`/api/stat?path=${encodeURIComponent(path)}`);
+    versioned = `${src}&v=${Math.floor(s.mtime)}-${s.size}`;
+  } catch { /* no stat, no version: the fetch below reports whatever is really wrong */ }
+
   let r;
   try {
-    r = await fetch(src);
+    r = await fetch(versioned);
   } catch {
     host.append(el('p', { className: 'error', textContent: t('could not reach the server') }));
     return;
@@ -1816,7 +1838,7 @@ async function mountPreview(host, path, ctl) {
 
   if (type.startsWith('image/')) {
     ctl.fill?.(false);
-    host.append(el('img', { className: 'preview', src }));
+    host.append(el('img', { className: 'preview', src: versioned }));
     return;
   }
 
@@ -1869,7 +1891,7 @@ async function mountPreview(host, path, ctl) {
       actual: '',
     };
     const fit = FITS[prefs.pdfFit] ?? FITS.page;
-    const opened = fit ? `${src}#${fit}` : src;
+    const opened = fit ? `${versioned}#${fit}` : versioned;
     const frame = el('iframe', { className: 'preview', src: opened });
     const results = el('div', { className: 'pdfhits', hidden: true });
     const box = el('input', { type: 'search', placeholder: t('find in this document…'), spellcheck: false });
@@ -1893,10 +1915,10 @@ async function mountPreview(host, path, ctl) {
     // The one page we can honestly claim to know: the one we sent it to.
     const goToPage = (page) => {
       pdfPage.set(path, page);
-      frame.src = `${src}#page=${page}${fit ? `&${fit}` : ''}`;
+      frame.src = `${versioned}#page=${page}${fit ? `&${fit}` : ''}`;
     };
     const seen = pdfPage.get(path);
-    if (seen && seen > 1) frame.src = `${src}#page=${seen}${fit ? `&${fit}` : ''}`;
+    if (seen && seen > 1) frame.src = `${versioned}#page=${seen}${fit ? `&${fit}` : ''}`;
     let asked = null;
     const look = async () => {
       const needle = box.value.trim();

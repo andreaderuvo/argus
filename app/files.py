@@ -164,8 +164,15 @@ async def read_file(request: Request, path: str) -> Response:
         raise ApiError(400, "path is a directory")
 
     limit = request.app.state.cfg.max_preview_bytes
-    size = target.stat().st_size
+    stat = target.stat()
+    size = stat.st_size
     guessed = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
+    # A document is identified by when it was last written and how big it is. Two things
+    # hang off this: a rebuilt PDF can never be served from the cache in place of the new
+    # one, and the viewer downloads it once rather than twice — the preview fetches the
+    # file to find out what it is, and the frame that shows it then asks for the same
+    # bytes a second time.
+    stamp = f'W/"{int(stat.st_mtime)}-{size}"'
 
     # Office documents: rendered as a document where the machine can, unzipped into plain
     # text where it cannot, and never a download-only blob.
@@ -204,6 +211,13 @@ async def read_file(request: Request, path: str) -> Response:
             headers={"x-truncated": "tail", "x-total-size": str(size)},
         )
 
+    # Only the types handed straight to the browser's own viewer are cached, and only
+    # against this stamp: text is re-read every time, because a log that grew by a line
+    # must show that line.
+    inline = guessed.startswith("image/") or guessed in INLINE_TYPES
+    if inline and request.headers.get("if-none-match") == stamp:
+        return Response(status_code=304, headers={"etag": stamp, "cache-control": "no-cache"})
+
     data = target.read_bytes()
 
     if guessed == "text/html":
@@ -216,11 +230,16 @@ async def read_file(request: Request, path: str) -> Response:
     # Images and PDFs go out with their real type, so the preview screen can hand them
     # straight to the browser's own viewer — with their name attached, so saving one from
     # inside that viewer keeps it.
-    if guessed.startswith("image/") or guessed in INLINE_TYPES:
+    if inline:
         return Response(
             content=data,
             media_type=guessed,
-            headers={"content-disposition": content_disposition(target.name, inline=True)},
+            headers={
+                "content-disposition": content_disposition(target.name, inline=True),
+                "etag": stamp,
+                # Kept, but never used without asking first: the file is expected to change.
+                "cache-control": "no-cache",
+            },
         )
 
     # Everything else must look like text. A NUL byte in the first 8 KiB is the cheap,

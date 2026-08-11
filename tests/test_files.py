@@ -117,3 +117,51 @@ def test_a_pdf_is_served_for_reading_with_its_name(tmp_path):
     assert r.headers["content-type"] == "application/pdf"
     assert r.headers["content-disposition"].startswith("inline; ")
     assert "Relazione finale.pdf" in r.headers["content-disposition"]
+
+
+def test_a_pdf_is_stamped_with_its_version(tmp_path):
+    """The address of a document names the version, so a rebuilt one is never mistaken
+    for the one already on screen — and an unchanged one is not sent down twice."""
+    from fastapi.testclient import TestClient
+
+    from app.config import Config
+    from app.main import create_app
+
+    token = "testtoken-0123456789abcdef"
+    doc = tmp_path / "paper.pdf"
+    doc.write_bytes(b"%PDF-1.4\n%%EOF\n")
+    client = TestClient(create_app(Config(token=token, roots=[tmp_path])))
+    auth = {"Authorization": f"Bearer {token}"}
+    ask = f"/api/file?path={doc}"
+
+    first = client.get(ask, headers=auth)
+    tag = first.headers.get("etag")
+    assert tag, "a document handed to the browser's own viewer must say which version it is"
+    assert first.headers["cache-control"] == "no-cache"
+
+    again = client.get(ask, headers={**auth, "if-none-match": tag})
+    assert again.status_code == 304
+    assert not again.content
+
+    # latexmk has been at it. Same address, same question, different answer.
+    import os
+    doc.write_bytes(b"%PDF-1.4\n% rebuilt\n%%EOF\n")
+    os.utime(doc, (0, 0))
+    after = client.get(ask, headers={**auth, "if-none-match": tag})
+    assert after.status_code == 200
+    assert after.headers["etag"] != tag
+
+
+def test_text_is_read_again_every_time(tmp_path):
+    """A log that grew by a line must show that line: nothing here is cached."""
+    from fastapi.testclient import TestClient
+
+    from app.config import Config
+    from app.main import create_app
+
+    token = "testtoken-0123456789abcdef"
+    note = tmp_path / "run.log"
+    note.write_text("one\n")
+    client = TestClient(create_app(Config(token=token, roots=[tmp_path])))
+    r = client.get(f"/api/file?path={note}", headers={"Authorization": f"Bearer {token}"})
+    assert "etag" not in r.headers
