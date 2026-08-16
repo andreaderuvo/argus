@@ -108,6 +108,15 @@
   }
   .warn { border-left-color: #d6b98f; background: color-mix(in srgb, #d6b98f 8%, transparent); }
   footer { padding: 2.5rem 0 4rem; color: var(--dim); font-size: .9rem; text-align: center; border-top: 1px solid var(--line); }
+
+  /* The clips. Video rather than animated GIF: a fifth of the weight for the same six
+     seconds, and it does not stutter on a phone. */
+  .clips { display: grid; gap: 1.6rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); }
+  .clips figure { margin: 0; }
+  .clips video {
+    width: 100%; display: block; border: 1px solid var(--line); border-radius: .5rem; background: #000;
+  }
+  .clips figcaption { margin-top: .5rem; color: var(--dim); font-size: .92rem; line-height: 1.5; }
 </style>
 </head>
 <body>
@@ -132,6 +141,34 @@
         just wrote. One workspace, one browser tab.</figcaption>
     </figure>
   </header>
+
+  <section>
+    <h2>Four things it does</h2>
+    <p class="lead">Recorded from a demo instance: fabricated sessions, fabricated files,
+      real interface.</p>
+    <div class="clips">
+      <figure>
+        <video src="img/paths.mp4" autoplay muted loop playsinline preload="metadata"></video>
+        <figcaption>An agent prints where it wrote. One click and the report is open beside
+          the session that made it.</figcaption>
+      </figure>
+      <figure>
+        <video src="img/handover.mp4" autoplay muted loop playsinline preload="metadata"></video>
+        <figcaption>A saved prompt, its placeholders already filled from the desk, typed
+          into the other agent's session — without the Enter.</figcaption>
+      </figure>
+      <figure>
+        <video src="img/keep.mp4" autoplay muted loop playsinline preload="metadata"></video>
+        <figcaption>Keep the arrangement you made. Any tiling throws it away; one button
+          brings it back, windows and all.</figcaption>
+      </figure>
+      <figure>
+        <video src="img/phone.mp4" autoplay muted loop playsinline preload="metadata"></video>
+        <figcaption>The same session on the phone. The one that was already running, not a
+          new one.</figcaption>
+      </figure>
+    </div>
+  </section>
 
   <section>
     <h2>Why</h2>

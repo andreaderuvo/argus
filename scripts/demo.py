@@ -244,9 +244,14 @@ def build_sessions(root: Path) -> None:
     (root / ".transcript-codex").write_text(CODEX)
 
     shell = f"bash --rcfile {root}/.demorc --noprofile -i"
+    # An agent waits at a prompt of its own; it does not run what you hand it as a shell
+    # command. Ending these sessions in a shell made a handed-over prompt come back as four
+    # lines of "command not found", which is a demo showing the opposite of the point.
+    waiting = ("while :; do printf '\\n\\033[38;5;108m> \\033[0m'; "
+               "IFS= read -r __line || break; done")
     plan = (
-        ("claude", project, f"printf '%b\\n' \"$(cat {root}/.transcript-claude)\"; {shell}"),
-        ("codex", project, f"printf '%b\\n' \"$(cat {root}/.transcript-codex)\"; {shell}"),
+        ("claude", project, f"printf '%b\\n' \"$(cat {root}/.transcript-claude)\"; {waiting}"),
+        ("codex", project, f"printf '%b\\n' \"$(cat {root}/.transcript-codex)\"; {waiting}"),
         ("shell", project, f"tail -n 8 logs/pipeline.log; {shell}"),
     )
     for name, cwd, command in plan:

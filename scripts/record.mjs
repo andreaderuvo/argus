@@ -126,6 +126,33 @@ const SCENES = {
     ],
   },
 
+  handover: {
+    title: 'Hand the work to the other agent',
+    size: WIDE,
+    prefs: {
+      sidebar: false,
+      workspaces: [{ id: 1, name: 'Salmonella', desktop: [
+        { kind: 'term', name: 'claude' }, { kind: 'term', name: 'codex' }, { kind: 'messages' }] }],
+      ws: 1, wsSeq: 1,
+      winGeom: {
+        '1:term:claude': { left: '8px', top: '8px', width: '600px', height: '316px' },
+        '1:term:codex': { left: '8px', top: '332px', width: '600px', height: '316px' },
+        '1:messages': { left: '616px', top: '8px', width: '648px', height: '640px' },
+      },
+    },
+    steps: [
+      { hold: 1200 },
+      { say: 'Two agents, one filesystem. What travels between them is a sentence.', hold: 2200 },
+      { hover: '.msgfolder .trayrow', hold: 1000 },
+      { say: 'What it will say — with this desk’s folder already in it.', hold: 2200 },
+      { away: true, hold: 600 },
+      { click: '.aimbar button.ghost.dup:not(.on)', hold: 1000 },
+      { say: 'Aim it at the other one…', hold: 1400 },
+      { click: '.msgfolder .trayrow', hold: 2600 },
+      { say: '…and it is typed there, waiting for your Enter.', hold: 2400 },
+    ],
+  },
+
   path: {
     title: 'Type a path where the path is shown',
     size: WIDE,
@@ -244,6 +271,17 @@ async function record(name) {
         await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
       }
     }
+    if (step.hover) {
+      const spot = await ev(`(() => {
+        const n = document.querySelector(${JSON.stringify(step.hover)});
+        if (!n) return null;
+        const b = n.getBoundingClientRect();
+        return { x: Math.round(b.left + b.width / 2), y: Math.round(b.top + b.height / 2) };
+      })()`);
+      if (spot?.x) await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: spot.x, y: spot.y });
+      else console.log(`    (${name}: nothing to hover at ${step.hover})`);
+    }
+    if (step.away) await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 5, y: 5 });
     if (step.at) {
       const spot = await ev(step.at);
       if (spot && spot.x) {
