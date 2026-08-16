@@ -7935,6 +7935,53 @@ function touching(win, peers, dir, area) {
       if (dir.includes('n') && Math.abs(r.bottom - me.top) < TOUCH) add('bottom');
     }
   }
+  return followTheRun(found, peers, area);
+}
+
+/** A column pushed on one side gives way as a column.
+ *
+ *  Only the row that actually touches the dragged edge shares an edge with it, so widening
+ *  one tall window against a column of two shrank the top row and left the bottom one
+ *  exactly where it was — measured, in both the ways a column comes apart: rows of
+ *  different widths, and a window not quite tall enough to reach the second row.
+ *
+ *  What makes those two windows a column is not the ragged inner edge the drag happens to
+ *  touch; it is the outer edge they share and the fact that they are stacked. So the run
+ *  is followed out from every neighbour that is touching: same outer edge, back to back,
+ *  as far as it goes. Each keeps whatever inset it had — the column gives way, it does not
+ *  get tidied up.
+ */
+function followTheRun(found, peers, area) {
+  const inRun = new Set(found.map((n) => n.node));
+  const outside = peers().filter((p) => !inRun.has(p));
+  if (!outside.length) return found;
+  const boxes = new Map(outside.map((p) => [p, p.getBoundingClientRect()]));
+  // The edge away from the drag: two windows are in the same column when theirs agree.
+  const far = (edge, r) => (edge === 'left' ? r.right : edge === 'right' ? r.left
+    : edge === 'top' ? r.bottom : r.top);
+  // And back to back along the column, rather than merely sharing a line somewhere else
+  // on the desk entirely.
+  const backToBack = (edge, a, b) => (edge === 'left' || edge === 'right'
+    ? Math.min(Math.abs(a.top - b.bottom), Math.abs(b.top - a.bottom)) < TOUCH
+    : Math.min(Math.abs(a.left - b.right), Math.abs(b.left - a.right)) < TOUCH);
+
+  // found grows as the run is followed, and the loop walks into what it appends: three
+  // rows reached through the second are as much a column as two.
+  for (let i = 0; i < found.length; i += 1) {
+    const n = found[i];
+    const mine = n.node.getBoundingClientRect();
+    for (const p of outside) {
+      if (inRun.has(p)) continue;
+      const r = boxes.get(p);
+      if (Math.abs(far(n.edge, r) - far(n.edge, mine)) > TOUCH) continue;
+      if (!backToBack(n.edge, r, mine)) continue;
+      inRun.add(p);
+      found.push({
+        node: p, edge: n.edge,
+        left: r.left - area.left, top: r.top - area.top, width: r.width, height: r.height,
+      });
+    }
+  }
   return found;
 }
 
