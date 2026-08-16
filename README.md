@@ -268,7 +268,8 @@ services.</sub>
   of where the drop will land — including into the gap between two windows, which it
   fills exactly.
 - **Shared edges behave as splitters**: widen one column and the next gives up precisely
-  what the first one took.
+  what the first one took — and a **column gives way as a column**, every row of it, not
+  only the one whose edge you happen to be touching.
 - Tile as a grid, columns or rows when you want to start over.
 - **Keep the arrangement you made**, and one button to come back to it. Grid, Columns and
   Rows are arrangements the machine picks and every one of them throws yours away; **Keep**
