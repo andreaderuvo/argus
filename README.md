@@ -150,7 +150,11 @@ services.</sub>
   attached client sees — this crosses sessions and belongs to your browser alone. Chained
   windows are outlined and counted in the toolbar, because a broadcast you have forgotten
   about is the one genuinely dangerous thing in here.
-- **Hand the work to the other agent.** Two agents on one machine share a filesystem, so
+- **Hand the work to the other agent.**
+
+  ![A saved prompt, its placeholders already filled in, typed into the other agent's session](docs/img/handover.gif)
+
+  Two agents on one machine share a filesystem, so
   what travels between them is not the work but a baton: a short sentence and a pointer.
   When one finishes — the bell knows — a button offers to type the sentence into the
   other's prompt, without an Enter. Two patterns, and they differ in behaviour rather
