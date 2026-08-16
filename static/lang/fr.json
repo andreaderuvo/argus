@@ -498,6 +498,9 @@
   "How it fits": "Comment elle tient",
   "{n} of {total}": "{n} sur {total}",
   "shown by the browser: {why}": "affiché par le navigateur : {why}",
-  "a document you have not read before — after that it opens where you left it": "un document que vous n’avez pas encore lu — ensuite il s’ouvre là où vous en étiez"
+  "a document you have not read before — after that it opens where you left it": "un document que vous n’avez pas encore lu — ensuite il s’ouvre là où vous en étiez",
+  "Previous page": "Page précédente",
+  "Next page": "Page suivante",
+  "of {total}": "sur {total}"
  }
 }

@@ -1350,15 +1350,17 @@ button.more.weigh.partial { color: var(--warn, #d6b98f); }
 /* The finder folds into a button over the page: a search row costs a strip of every PDF
    for as long as it is open, and most of the time nobody is searching. */
 button.pdffind {
-  position: absolute; top: .6rem; right: 1.2rem; z-index: 21;
-  width: 2.2rem; height: 2.2rem; display: inline-flex; align-items: center; justify-content: center;
-  border-radius: 50%; border: 1px solid var(--line); background: var(--panel); color: var(--text);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, .45); opacity: .92;
+  position: static; z-index: 21;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: .3rem; border: 1px solid transparent; background: none; color: var(--dim);
+  opacity: 1;
 }
 button.pdffind:hover, button.pdffind.on { color: var(--accent); border-color: var(--accent); }
 
+/* Hung under the bar it belongs to. Floating, so it costs the document no room while it
+   is open, and below rather than over, so it hides neither the bar nor the first line. */
 .pdfsearch {
-  position: absolute; top: .6rem; right: 4rem; left: auto; z-index: 21;
+  position: absolute; top: 2.3rem; right: .5rem; left: auto; z-index: 21;
   width: min(24rem, calc(100% - 6rem));
   padding: .4rem .5rem; background: var(--panel); border: 1px solid var(--line);
   border-radius: .5rem; box-shadow: 0 10px 26px rgba(0, 0, 0, .5);
@@ -2115,3 +2117,24 @@ canvas.pdfcanvas { display: block; }
 .textLayer .endOfContent {
   position: absolute; inset: 100% 0 0; display: block; z-index: 0; cursor: default;
 }
+
+/* The page you are on is the box you type in: on a long paper what you want is to put 31
+   in and be there, not to scroll until you arrive. */
+input.pdfat {
+  width: 2.8rem;
+  height: 22px;
+  padding: 0 .25rem;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: .25rem;
+  color: var(--text);
+  font: inherit;
+  font-size: .74rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+input.pdfat:focus { border-color: var(--accent); outline: none; }
+.pdfbar button.winbtn:disabled { opacity: .35; }
+/* The bar has two ends: where you are on the left, how big it is on the right. Without
+   this the spacer does nothing — .grow is only defined inside other containers. */
+.pdfbar .grow { flex: 1; min-width: 0; }
