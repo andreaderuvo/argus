@@ -476,6 +476,17 @@
   "whole page": "whole page",
   "page width": "page width",
   "as it comes": "as it comes",
-  "This file has changed.": "This file has changed."
+  "This file has changed.": "This file has changed.",
+  "Mine": "Mine",
+  "Keep": "Keep",
+  "Put the windows back where you saved them ({count})": "Put the windows back where you saved them ({count})",
+  "Remember how the windows are arranged now": "Remember how the windows are arranged now",
+  "Remember this arrangement": "Remember this arrangement",
+  "Save this arrangement again": "Save this arrangement again",
+  "Forget the saved arrangement": "Forget the saved arrangement",
+  "arrangement forgotten": "arrangement forgotten",
+  "layout remembered": "layout remembered",
+  "layout replaced": "layout replaced",
+  "layout restored": "layout restored"
  }
 }
