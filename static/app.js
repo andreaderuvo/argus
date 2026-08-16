@@ -1904,7 +1904,20 @@ async function mountPreview(host, path, ctl) {
       actual: '',
     };
     const fit = FITS[prefs.pdfFit] ?? FITS.page;
-    const opened = fit ? `${versioned}#${fit}` : versioned;
+    /* How a PDF opens is a request, and a viewer is free to refuse it.
+     *
+     *  Chrome honours it — measured here, on opening, after a reload of the file and after
+     *  F5 alike. Reported from a browser where it does not: the zoom the viewer had comes
+     *  back every time and the fit has to be clicked again. A viewer that behaves that way
+     *  is remembering something about *this document*, so the answer is to hand it one it
+     *  has never seen: a fresh address has no remembered zoom and no scroll to restore.
+     *
+     *  It costs the document being fetched again instead of reused, which is why it is
+     *  asked for rather than assumed.
+     */
+    const afresh = prefs.pdfForceFit ? `&fresh=${Date.now()}` : '';
+    const address = `${versioned}${afresh}`;
+    const opened = fit ? `${address}#${fit}` : address;
     const frame = el('iframe', { className: 'preview', src: opened });
     const results = el('div', { className: 'pdfhits', hidden: true });
     const box = el('input', { type: 'search', placeholder: t('find in this document…'), spellcheck: false });
@@ -1928,10 +1941,10 @@ async function mountPreview(host, path, ctl) {
     // The one page we can honestly claim to know: the one we sent it to.
     const goToPage = (page) => {
       pdfPage.set(path, page);
-      frame.src = `${versioned}#page=${page}${fit ? `&${fit}` : ''}`;
+      frame.src = `${address}#page=${page}${fit ? `&${fit}` : ''}`;
     };
     const seen = pdfPage.get(path);
-    if (seen && seen > 1) frame.src = `${versioned}#page=${seen}${fit ? `&${fit}` : ''}`;
+    if (seen && seen > 1) frame.src = `${address}#page=${seen}${fit ? `&${fit}` : ''}`;
     let asked = null;
     const look = async () => {
       const needle = box.value.trim();
@@ -2738,6 +2751,9 @@ async function screenSettings() {
       (v) => {
         prefs.pdfFit = v === t('page width') ? 'width' : v === t('as it comes') ? 'actual' : 'page';
       }),
+    toggle(t('Insist on that size'),
+      t('ask for the document afresh every time, for a viewer that prefers its own zoom — it is fetched again rather than reused'),
+      () => !!prefs.pdfForceFit, (v) => { prefs.pdfForceFit = v; }),
     choice(t('How a placeholder is written'),
       t('in a session — a saved prompt takes any of them'),
       Object.keys(MARKS).map((k) => MARKS[k].show),
@@ -5405,10 +5421,17 @@ async function screenWall() {
       dot.title = t('Change colour');
       dot.onclick = (e) => { e.stopPropagation(); pickColor(`ws:${ws.id}`, drawTabs); };
 
+      /* How many windows this desk holds, on the desk itself.
+       *
+       *  A plain dim number rather than the accent pill the link tray wears: that one
+       *  means "something is waiting for you", and an inventory that shouted the same way
+       *  would cheapen it. Read off the stored list, not the live deck, because a desk you
+       *  have not opened yet has no deck and would otherwise count zero. */
+      const count = el('span', { className: 'tabcount' });
       const tab = el('button', {
         className: `wstab${on ? ' on' : ''}${ws.pinned ? ' pinned' : ''}`,
         title: ws.pinned ? t('Pinned — hold for the menu') : t('Double-click to rename'),
-      }, [dot, el('span', { className: 'tabname', textContent: ws.name })]);
+      }, [dot, el('span', { className: 'tabname', textContent: ws.name }), count]);
       if (ws.pinned) tab.prepend(icon('pin', 'pinmark'));
       tab.dataset.ws = ws.id;
       tab.onclick = () => { if (!tab.dataset.dragged) activate(ws.id); };
@@ -5463,6 +5486,7 @@ async function screenWall() {
       }
       tabs.append(tab);
     }
+    paintTabCounts();
     const add = el('button', { className: 'wstab add', title: t('New workspace') }, icon('folderPlus'));
     add.onclick = async () => {
       const id = (prefs.wsSeq || spaces.length) + 1;
@@ -5806,7 +5830,23 @@ async function screenWall() {
   /** The two numbers on the toolbar: what is waiting in this desk's tray, and how many
    *  windows it holds. For the desk on screen only — the others have their own, and
    *  showing somebody else's number would be a lie. */
+  /** The number on every desk tab, written in place. Rebuilding the strip to change a
+   *  digit would drop a drag half done and wipe a bell mark painted a frame ago. */
+  function paintTabCounts() {
+    for (const node of tabs.querySelectorAll('.wstab[data-ws]')) {
+      const ws = spaces.find((w) => w.id === Number(node.dataset.ws));
+      const badge = node.querySelector('.tabcount');
+      if (!ws || !badge) continue;
+      // The live deck where there is one — it knows about a window closed a moment ago —
+      // and the stored list for every desk that has not been opened this visit.
+      const n = decks.get(ws.id)?.open.length ?? ws.desktop.length;
+      badge.textContent = String(n);
+      badge.hidden = !n;
+    }
+  }
+
   function paintTally() {
+    paintTabCounts();
     const links = deskLinks(activeSpace().id).length;
     trayCount.textContent = String(links);
     trayCount.hidden = !links;
@@ -5815,7 +5855,10 @@ async function screenWall() {
     listCount.textContent = String(windows);
     listCount.hidden = !windows;
   }
-  trayTally = (id) => { if (id === activeSpace().id) paintTally(); };
+  // A window opened in a desk you are not looking at still changes that desk's number, so
+  // the tabs are repainted whichever desk moved; the toolbar's own counts are about the
+  // one on screen and stay that way.
+  trayTally = (id) => { paintTabCounts(); if (id === activeSpace().id) paintTally(); };
 
   tools.append(el('button', {
     className: 'winbtn wide',
@@ -5833,6 +5876,14 @@ async function screenWall() {
   }, [icon('folderPlus'), el('span', { textContent: t('Browser') })]);
   tools.append(browserBtn);
 
+  /* Everything above this line answers "what is on the desk"; everything below it answers
+   *  "how is it arranged". Flat in a flat row they read as nine things of equal weight, so
+   *  the second question is ruled off: a divider, and the arrangements gathered into
+   *  controls instead of left loose. What scrolls off the end of a phone is then a whole
+   *  group rather than whichever items happened not to fit. */
+  tools.append(el('span', { className: 'toolsplit' }));
+
+  const tiles = [];
   for (const [mode, glyph, label] of LAYOUTS) {
     const b = el('button', {
       className: 'winbtn wide',
@@ -5840,8 +5891,9 @@ async function screenWall() {
       onclick: () => applyLayout(mode),
     }, [icon(glyph), el('span', { textContent: label })]);
     b.dataset.mode = mode;
-    tools.append(b);
+    tiles.push(b);
   }
+  tools.append(el('div', { className: 'btnset' }, tiles));
 
   /* The arrangement that is yours, at the end of the row of the ones the machine picks.
    *
@@ -5864,8 +5916,9 @@ async function screenWall() {
 
   // Ruled together into one control rather than dropped side by side in a row of flat
   // buttons, where they read as two unrelated things — reported. They are two halves of
-  // the same idea, and the outline and the divider say so.
-  tools.append(el('div', { className: 'btnpair' }, [keepBtn, mineBtn]));
+  // the same idea, and the outline and the divider say so. Same treatment as the tiling
+  // controls beside them, which is what makes the pair of groups read as one answer.
+  tools.append(el('div', { className: 'btnset' }, [keepBtn, mineBtn]));
 
   paintLayoutButton = () => {
     const kept = savedLayout(activeSpace());

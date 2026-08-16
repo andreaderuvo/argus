@@ -2053,19 +2053,62 @@ input.traysearch:focus { border-color: var(--accent); outline: none; }
 }
 .changed .grow { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* Two halves of one idea: keep this arrangement, and go back to it. Loose in the toolbar
-   they read as two unrelated buttons, so they are ruled together — one outline, one
-   divider, and the row's own flat buttons keep their meaning. */
-.btnpair {
+/* The toolbar answers two questions: what is on the desk, and how it is arranged. The
+   first stays flat; the second is ruled off, so a row of nine equal things reads as two.
+   Loose side by side these controls read as unrelated buttons — reported — and one
+   outline with dividers inside says they are halves of the same idea. */
+.toolsplit {
+  flex: none;
+  width: 1px;
+  height: 18px;
+  margin: 0 .25rem;
+  background: var(--line);
+}
+.btnset {
   display: inline-flex;
   align-items: center;
   flex: none;
   border: 1px solid var(--line);
   border-radius: .3rem;
 }
-.btnpair > button.winbtn { border-radius: 0; }
-.btnpair > button.winbtn:first-child { border-top-left-radius: .25rem; border-bottom-left-radius: .25rem; }
-.btnpair > button.winbtn:last-child { border-top-right-radius: .25rem; border-bottom-right-radius: .25rem; }
-/* Only between two that are both there: the second appears once there is something to go
-   back to, and a divider with nothing after it is a stray line. */
-.btnpair > button.winbtn + button.winbtn:not([hidden]) { border-left-color: var(--line); }
+.btnset > button.winbtn { border-radius: 0; }
+.btnset > button.winbtn:first-child { border-top-left-radius: .25rem; border-bottom-left-radius: .25rem; }
+.btnset > button.winbtn:last-child { border-top-right-radius: .25rem; border-bottom-right-radius: .25rem; }
+/* Only between two that are both there: a segment appears once there is something behind
+   it, and a divider with nothing after it is a stray line. */
+.btnset > button.winbtn + button.winbtn:not([hidden]) { border-left-color: var(--line); }
+/* The chosen tiling fills its segment; its own accent border would otherwise sit a pixel
+   inside the group's outline and read as a box within a box. */
+.btnset > button.winbtn.on { border-color: var(--accent); }
+
+/* Narrow: the tiling buttons lose their words. Their icons are drawings of the thing —
+   a grid, two columns, three rows — so nothing is lost, and it buys back more than the
+   grouping cost. Keep and Mine keep theirs: nobody guesses those from a picture.
+   On width rather than pointer, because a narrow window on a wide screen has exactly the
+   same problem and a hover query cannot tell the two apart. */
+@media (max-width: 560px) {
+  .btnset > button[data-mode] > span { display: none; }
+  .btnset > button[data-mode] { padding: 0 .5rem; }
+}
+
+/* How many windows a desk holds, on the desk's own tab.
+   A pill rather than a bare number, because a dim digit set against the name was there and
+   nobody saw it — but a quiet one: the accent pill on the link tray means something is
+   waiting for you, and an inventory shouting the same way would cheapen it. Tabular
+   figures so a tab does not twitch going from 9 to 10. */
+.wstab .tabcount {
+  flex: none;
+  margin-left: .35rem;
+  min-width: 1.1rem;
+  padding: .05rem .3rem;
+  border-radius: .7rem;
+  background: var(--line);
+  color: var(--dim);
+  font-size: .66rem;
+  font-weight: 600;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+}
+/* On the desk you are looking at the tab itself turns to the panel colour, which the pill
+   would otherwise sink into. */
+.wstab.on .tabcount { background: var(--bg); color: var(--text); }

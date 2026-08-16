@@ -488,6 +488,8 @@
   "layout remembered": "disposizione memorizzata",
   "layout replaced": "disposizione sostituita",
   "layout restored": "disposizione ripristinata",
-  "Save this arrangement over the one you kept ({count})": "Salva questa disposizione al posto di quella memorizzata ({count})"
+  "Save this arrangement over the one you kept ({count})": "Salva questa disposizione al posto di quella memorizzata ({count})",
+  "Insist on that size": "Imponi quella dimensione",
+  "ask for the document afresh every time, for a viewer that prefers its own zoom — it is fetched again rather than reused": "richiedi il documento da capo ogni volta, per un visualizzatore che preferisce il proprio zoom — viene riscaricato invece che riusato"
  }
 }
