@@ -587,6 +587,7 @@ const ICONS = {
   bell: 'M12 3.5a5.5 5.5 0 0 0-5.5 5.5c0 4-1.5 5.2-1.5 6.2 0 .5.4.8 1 .8h12c.6 0 1-.3 1-.8 0-1-1.5-2.2-1.5-6.2A5.5 5.5 0 0 0 12 3.5zM10 19a2 2 0 0 0 4 0',
   bellOff: 'M12 3.5a5.5 5.5 0 0 0-5.5 5.5c0 4-1.5 5.2-1.5 6.2 0 .5.4.8 1 .8h12c.6 0 1-.3 1-.8 0-1-1.5-2.2-1.5-6.2A5.5 5.5 0 0 0 12 3.5zM10 19a2 2 0 0 0 4 0M4 4l16 16',
   github: 'M12 1.3a10.7 10.7 0 0 0-3.4 20.9c.54.1.73-.24.73-.52v-1.83c-2.98.65-3.6-1.44-3.6-1.44-.49-1.24-1.19-1.57-1.19-1.57-.97-.66.08-.65.08-.65 1.07.07 1.64 1.1 1.64 1.1.95 1.64 2.5 1.17 3.11.89.1-.69.37-1.16.68-1.43-2.38-.27-4.88-1.19-4.88-5.29 0-1.17.42-2.13 1.1-2.88-.11-.27-.48-1.36.1-2.83 0 0 .9-.29 2.94 1.1a10.2 10.2 0 0 1 5.36 0c2.04-1.39 2.94-1.1 2.94-1.1.58 1.47.21 2.56.1 2.83.69.75 1.1 1.71 1.1 2.88 0 4.11-2.5 5.02-4.89 5.28.38.33.72.98.72 1.98v2.93c0 .28.19.62.74.52A10.7 10.7 0 0 0 12 1.3z',
+  newtab: 'M14 4.5h5.5V10M19.5 4.5 12 12M16.5 13v5.5a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1v-11a1 1 0 0 1 1-1H10',
   link: 'M10.5 13.5a3.6 3.6 0 0 0 5.2 0l2.6-2.6a3.6 3.6 0 0 0-5.1-5.1l-1.3 1.3M13.5 10.5a3.6 3.6 0 0 0-5.2 0l-2.6 2.6a3.6 3.6 0 0 0 5.1 5.1l1.3-1.3',
   star: 'M12 3.8l2.6 5.3 5.8.85-4.2 4.1 1 5.75L12 17.1l-5.2 2.7 1-5.75-4.2-4.1 5.8-.85z',
 };
@@ -1980,9 +1981,17 @@ async function mountPdf(host, path, address, download) {
   // In the bar, not floating over the page. It floated because there was no bar to put it
   // in; now there is one, and a button hovering over the top corner of a document is a
   // button covering the top corner of a document.
+  /* Out to the browser, for the things it does and we do not: printing, its own search,
+   *  handing the file to something else. The fit we would ask for goes with it, since that
+   *  is a preference you have already expressed. */
+  const away = el('button', { className: 'winbtn', title: t('Open in a browser tab') }, icon('newtab'));
+  away.onclick = () => {
+    const asks = { width: '#view=FitBH&zoom=page-width', page: '#view=Fit&zoom=page-fit' };
+    window.open(`${address}${asks[mode] || ''}`, '_blank', 'noopener');
+  };
   const finder = el('button', { className: 'winbtn pdffind', title: t('Find in this document') }, icon('search'));
   const head = el('div', { className: 'pdfbar' },
-    [back, on, count, next, el('span', { className: 'grow' }), zoomOut, zoomSays, zoomIn, fitBtn, finder]);
+    [back, on, count, next, el('span', { className: 'grow' }), zoomOut, zoomSays, zoomIn, fitBtn, away, finder]);
   const wrap = el('div', { className: 'pdfwrap' }, [head, scroller, bar]);
   host.textContent = '';
   host.append(wrap);

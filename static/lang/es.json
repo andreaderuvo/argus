@@ -501,6 +501,7 @@
   "a document you have not read before — after that it opens where you left it": "un documento que aún no has leído — después se abre donde lo dejaste",
   "Previous page": "Página anterior",
   "Next page": "Página siguiente",
-  "of {total}": "de {total}"
+  "of {total}": "de {total}",
+  "Open in a browser tab": "Abrir en una pestaña del navegador"
  }
 }
