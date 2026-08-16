@@ -487,6 +487,7 @@
   "arrangement forgotten": "arrangement forgotten",
   "layout remembered": "layout remembered",
   "layout replaced": "layout replaced",
-  "layout restored": "layout restored"
+  "layout restored": "layout restored",
+  "Save this arrangement over the one you kept ({count})": "Save this arrangement over the one you kept ({count})"
  }
 }

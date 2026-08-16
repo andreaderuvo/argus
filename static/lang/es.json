@@ -487,6 +487,7 @@
   "arrangement forgotten": "disposición olvidada",
   "layout remembered": "disposición recordada",
   "layout replaced": "disposición reemplazada",
-  "layout restored": "disposición restaurada"
+  "layout restored": "disposición restaurada",
+  "Save this arrangement over the one you kept ({count})": "Guardar esta disposición en lugar de la guardada ({count})"
  }
 }
