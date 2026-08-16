@@ -494,6 +494,10 @@
   "click to type a path": "haz clic para escribir una ruta",
   "Copy this path": "Copiar esta ruta",
   "this browser cannot play {name}": "este navegador no puede reproducir {name}",
-  "Every window in this desk, including the ones buried behind another": "Cada ventana de este escritorio, incluidas las que quedan detrás de otra"
+  "Every window in this desk, including the ones buried behind another": "Cada ventana de este escritorio, incluidas las que quedan detrás de otra",
+  "How it fits": "Cómo encaja",
+  "{n} of {total}": "{n} de {total}",
+  "shown by the browser: {why}": "mostrado por el navegador: {why}",
+  "a document you have not read before — after that it opens where you left it": "un documento que aún no has leído — después se abre donde lo dejaste"
  }
 }

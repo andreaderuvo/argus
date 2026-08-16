@@ -1892,9 +1892,6 @@ async function screenFiles(path) {
  *  here and the chrome around it — where the download button goes, where the
  *  source/rendered switch goes — is supplied by the caller.
  */
-// Which page a document was last sent to, so reopening it or reloading it lands there
-// rather than at the beginning. Only pages we navigated to ourselves: see below.
-const pdfPage = new Map();
 /* How far into a recording you had got.
  *
  *  In the preferences and not merely in memory, because the reload is exactly when it is
@@ -1915,6 +1912,280 @@ function keepMyPlace(path, at, force = false) {
   placeWritten = now;
   prefs.playedTo = Object.fromEntries(playedTo);
   savePrefs();
+}
+
+/* ------------------------------------------------------------- the PDF viewer */
+
+/* Drawn here rather than handed to the browser.
+ *
+ *  The browser's own viewer will not say where it is. Measured: an <embed> answers
+ *  documentLoaded and getSelectedText and stays silent while you scroll, so the place you
+ *  had reached was not something that could be recorded, let alone put back — and it obeys
+ *  `view=Fit` while silently dropping `view=FitH`, which is why page width never survived
+ *  anything. Every one of those is a consequence of not owning the viewer.
+ *
+ *  So: pdf.js. Page width applies because we compute it, the place is remembered because
+ *  we know it, and a rebuilt document comes back where you were reading.
+ */
+const PDFJS = '/vendor/pdfjs-4.10.38/';
+let pdfjs = null;
+async function pdfEngine() {
+  if (!pdfjs) {
+    pdfjs = await import(`${PDFJS}pdf.min.mjs`);
+    pdfjs.GlobalWorkerOptions.workerSrc = `${PDFJS}pdf.worker.min.mjs`;
+  }
+  return pdfjs;
+}
+
+/** Where you had got to in each document: the zoom you chose and how far down you read.
+ *  In the preferences, because the reload is exactly when it is wanted. */
+const pdfPlace = new Map(Object.entries(prefs.pdfPlace || {}));
+const PLACES_KEPT = 60;
+let placeSaved = 0;
+function keepThePlace(path, place, force = false) {
+  pdfPlace.delete(path);
+  pdfPlace.set(path, place);
+  while (pdfPlace.size > PLACES_KEPT) pdfPlace.delete(pdfPlace.keys().next().value);
+  const now = Date.now();
+  if (!force && now - placeSaved < 2000) return;   // scrolling fires constantly
+  placeSaved = now;
+  prefs.pdfPlace = Object.fromEntries(pdfPlace);
+  savePrefs();
+}
+
+const PAGE_GAP = 10;
+
+async function mountPdf(host, path, address, download) {
+  const scroller = el('div', { className: 'pdfscroll' });
+  const count = el('span', { className: 'pdfcount' });
+  const zoomOut = el('button', { className: 'winbtn', title: t('Smaller') }, icon('compress'));
+  const zoomIn = el('button', { className: 'winbtn', title: t('Bigger') }, icon('expand'));
+  const zoomSays = el('span', { className: 'pdfzoom' });
+  const fitBtn = el('button', { className: 'winbtn wide', title: t('How it fits') }, [icon('fit'), el('span', {})]);
+  const results = el('div', { className: 'pdfhits', hidden: true });
+  const box = el('input', { type: 'search', placeholder: t('find in this document…'), spellcheck: false });
+  const bar = el('div', { className: 'pdfsearch', hidden: true }, [box, results]);
+  // A search box costs a row of the document for as long as it is open, and most of the
+  // time nobody is searching. It folds into the button that opens it, over the page.
+  const finder = el('button', { className: 'pdffind', title: t('Find in this document') }, icon('search'));
+  const head = el('div', { className: 'pdfbar' }, [count, el('span', { className: 'grow' }), zoomOut, zoomSays, zoomIn, fitBtn]);
+  const wrap = el('div', { className: 'pdfwrap' }, [head, scroller, finder, bar]);
+  host.textContent = '';
+  host.append(wrap);
+
+  let lib;
+  let doc;
+  try {
+    lib = await pdfEngine();
+    doc = await lib.getDocument({ url: address, standardFontDataUrl: `${PDFJS}standard_fonts/` }).promise;
+  } catch (e) {
+    // Never leave the reader with nothing: the browser's viewer is still there, and for a
+    // document pdf.js will not open it may well cope.
+    host.textContent = '';
+    host.append(el('div', { className: 'notice', textContent: t('shown by the browser: {why}', { why: e?.message || 'pdf.js' }) }));
+    host.append(el('iframe', { className: 'preview', src: `${address}#view=FitBH&zoom=page-width` }));
+    return;
+  }
+
+  // Every page's own size, asked once. Everything else is arithmetic on these.
+  const sizes = [];
+  for (let n = 1; n <= doc.numPages; n += 1) {
+    const page = await doc.getPage(n);
+    const v = page.getViewport({ scale: 1 });
+    sizes.push({ width: v.width, height: v.height });
+  }
+  const widest = Math.max(...sizes.map((s) => s.width));
+  const tallest = Math.max(...sizes.map((s) => s.height));
+
+  const MODES = ['width', 'page', 'actual'];
+  const NAMED = () => ({ width: t('page width'), page: t('whole page'), actual: t('as it comes') });
+  const was = pdfPlace.get(path);
+  let mode = was?.mode || (MODES.includes(prefs.pdfFit) ? prefs.pdfFit : 'width');
+  let scale = 1;
+
+  const room = () => ({
+    width: Math.max(120, scroller.clientWidth - PAGE_GAP * 2 - 2),
+    height: Math.max(120, scroller.clientHeight - PAGE_GAP * 2),
+  });
+  const scaleFor = () => {
+    const r = room();
+    if (mode === 'actual') return lib.PixelsPerInch.PDF_TO_CSS_UNITS;
+    if (mode === 'page') return Math.min(r.width / widest, r.height / tallest);
+    return r.width / widest;
+  };
+
+  const slots = [];
+  for (let n = 1; n <= doc.numPages; n += 1) {
+    const slot = el('div', { className: 'pdfsheet' });
+    slot.dataset.page = String(n);
+    slots.push(slot);
+    scroller.append(slot);
+  }
+
+  /** Give every page its size at this scale, so the scrollbar tells the truth before a
+   *  single page has been drawn. */
+  const layout = () => {
+    slots.forEach((slot, i) => {
+      const w = Math.floor(sizes[i].width * scale);
+      const h = Math.floor(sizes[i].height * scale);
+      slot.style.width = `${w}px`;
+      slot.style.height = `${h}px`;
+      slot.style.setProperty('--scale-factor', String(scale));
+    });
+    zoomSays.textContent = `${Math.round((scale / lib.PixelsPerInch.PDF_TO_CSS_UNITS) * 100)}%`;
+    fitBtn.lastChild.textContent = NAMED()[mode];
+  };
+
+  const drawn = new Map();          // page number -> the scale it was drawn at
+  const busy = new Set();
+
+  async function draw(slot) {
+    const n = Number(slot.dataset.page);
+    if (busy.has(n) || drawn.get(n) === scale) return;
+    busy.add(n);
+    try {
+      const page = await doc.getPage(n);
+      const viewport = page.getViewport({ scale });
+      const ratio = Math.min(window.devicePixelRatio || 1, 2);   // beyond 2 it is memory for nothing
+      const canvas = el('canvas', { className: 'pdfcanvas' });
+      canvas.width = Math.floor(viewport.width * ratio);
+      canvas.height = Math.floor(viewport.height * ratio);
+      canvas.style.width = `${Math.floor(viewport.width)}px`;
+      canvas.style.height = `${Math.floor(viewport.height)}px`;
+      await page.render({
+        canvasContext: canvas.getContext('2d', { alpha: false }),
+        viewport,
+        transform: ratio === 1 ? null : [ratio, 0, 0, ratio, 0, 0],
+      }).promise;
+      // The text, invisible, laid exactly over the picture: that is what makes a selection
+      // you can copy out of a drawing of a page.
+      const layer = el('div', { className: 'textLayer' });
+      const text = new lib.TextLayer({ textContentSource: await page.getTextContent(), container: layer, viewport });
+      await text.render();
+      slot.replaceChildren(canvas, layer);
+      drawn.set(n, scale);
+    } catch { /* one page that will not draw must not take the document with it */ }
+    busy.delete(n);
+  }
+
+  /** Pages far from the eye give their pixels back. A 53-page paper at page width is
+   *  200MB of canvas if every page is kept, which a phone does not have. */
+  const forget = (slot) => {
+    const n = Number(slot.dataset.page);
+    if (!drawn.has(n)) return;
+    slot.replaceChildren();
+    drawn.delete(n);
+  };
+
+  const near = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (entry.isIntersecting) draw(entry.target);
+      else forget(entry.target);
+    }
+  }, { root: scroller, rootMargin: '600px 0px' });
+  slots.forEach((slot) => near.observe(slot));
+
+  /** Which page you are looking at: the one crossing the middle of the window. */
+  const showing = () => {
+    const middle = scroller.scrollTop + scroller.clientHeight / 2;
+    let at = 0;
+    for (let i = 0; i < slots.length; i += 1) {
+      if (slots[i].offsetTop <= middle) at = i; else break;
+    }
+    return at + 1;
+  };
+  const sayPage = () => { count.textContent = t('{n} of {total}', { n: showing(), total: doc.numPages }); };
+
+  const remember = (force = false) => {
+    keepThePlace(path, { mode, scale, top: Math.round(scroller.scrollTop), page: showing() }, force);
+  };
+
+  const rescale = (next, keepMiddle = true) => {
+    const before = scroller.scrollTop / Math.max(1, scroller.scrollHeight - scroller.clientHeight);
+    scale = next;
+    layout();
+    drawn.clear();
+    for (const slot of slots) if (slot.firstChild) slot.replaceChildren();
+    if (keepMiddle) {
+      scroller.scrollTop = before * Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+    }
+    for (const slot of slots) {
+      const top = slot.offsetTop;
+      if (top + slot.offsetHeight > scroller.scrollTop - 600 && top < scroller.scrollTop + scroller.clientHeight + 600) draw(slot);
+    }
+    sayPage();
+    remember(true);
+  };
+
+  fitBtn.onclick = () => {
+    mode = MODES[(MODES.indexOf(mode) + 1) % MODES.length];
+    rescale(scaleFor());
+  };
+  zoomIn.onclick = () => { mode = 'free'; rescale(Math.min(scale * 1.25, 8)); };
+  zoomOut.onclick = () => { mode = 'free'; rescale(Math.max(scale / 1.25, 0.1)); };
+
+  scroller.addEventListener('scroll', () => { sayPage(); remember(); }, { passive: true });
+  window.addEventListener('pagehide', () => remember(true), { once: true });
+
+  // A window being resized changes what "page width" means, and only while a fit is what
+  // you asked for: a zoom you set by hand is yours to keep.
+  let last = scroller.clientWidth;
+  const watchRoom = new ResizeObserver(() => {
+    if (mode === 'free' || Math.abs(scroller.clientWidth - last) < 2) return;
+    last = scroller.clientWidth;
+    rescale(scaleFor());
+  });
+  watchRoom.observe(scroller);
+
+  scale = was?.scale || scaleFor();
+  if (was?.mode) mode = was.mode;
+  layout();
+  sayPage();
+  // Back where you were reading, to the pixel — the whole reason for drawing this ourselves.
+  if (was?.top) scroller.scrollTop = was.top;
+  for (const slot of slots.slice(0, 3)) draw(slot);
+
+  const goToPage = (n) => {
+    const slot = slots[Math.max(0, Math.min(doc.numPages, n) - 1)];
+    if (slot) scroller.scrollTop = slot.offsetTop - PAGE_GAP;
+  };
+
+  finder.onclick = () => {
+    bar.hidden = !bar.hidden;
+    finder.classList.toggle('on', !bar.hidden);
+    if (bar.hidden) { results.hidden = true; results.textContent = ''; } else box.focus();
+  };
+  let asked = null;
+  const look = async () => {
+    const needle = box.value.trim();
+    clearTimeout(asked);
+    if (needle.length < 2) { results.hidden = true; results.textContent = ''; return; }
+    results.hidden = false;
+    results.textContent = t('looking…');
+    try {
+      const r = await getJSON(`/api/pdf/search?path=${encodeURIComponent(path)}&q=${encodeURIComponent(needle)}`);
+      results.textContent = '';
+      if (!r.hits.length) {
+        results.append(el('p', { className: 'empty tiny', textContent: t('not in these {count} pages', { count: r.pages }) }));
+        return;
+      }
+      for (const hit of r.hits) {
+        results.append(el('button', { className: 'pdfhit', type: 'button', onclick: () => goToPage(hit.page) }, [
+          el('span', { className: 'pdfpage', textContent: t('p. {n}', { n: hit.page }) }),
+          el('span', { className: 'grow', textContent: hit.text }),
+        ]));
+      }
+    } catch (e) {
+      results.textContent = '';
+      results.append(el('p', { className: 'error tiny', textContent: e.message }));
+    }
+  };
+  box.addEventListener('input', () => { clearTimeout(asked); asked = setTimeout(look, 350); });
+  box.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); look(); }
+    if (e.key === 'Escape') finder.onclick();
+  });
+  void download;
 }
 
 async function mountPreview(host, path, ctl) {
@@ -2052,110 +2323,11 @@ async function mountPreview(host, path, ctl) {
   // than the document. So the finding is done here and the viewer is sent to the page.
   if (type.startsWith('application/pdf')) {
     ctl.fill?.(true);
-    /* Reloading a PDF loses your place, and there is no getting it back.
-     *
-     *  The browser's own viewer does not say which page you are on — measured: the
-     *  address in the frame stays exactly as we set it however far you scroll. So a
-     *  document that is rebuilt while you read it (latexmk, a report an agent
-     *  regenerates) must not be reloaded under you: the watcher offers instead, and
-     *  reloading is your click.
-     */
+    /* A document that is rebuilt while you are reading it — latexmk, a report an agent
+     *  regenerates — is not reloaded under you: the watcher offers, and reloading is your
+     *  click. It now returns you to where you were, which it never used to. */
     ctl.askBeforeReload?.(true);
-    /* How the document is scaled when it opens.
-     *
-     *  A PDF opens at whatever zoom the browser last used, which on a phone is usually
-     *  the wrong one — the page arrives cropped and you pinch before you can read a word.
-     *  These are the PDF open parameters, and the two spellings are for the two viewers:
-     *  Chrome reads `view`, and pdf.js — Firefox's — reads `zoom`. Each ignores the other.
-     */
-    /* Chrome ignores `view=FitH`.
-     *
-     *  Measured, seven spellings against the same document: `view=FitH`, `view=FitH,0`,
-     *  `view=FitH&zoom=page-width` and `zoom=page-width` all render *pixel for pixel the
-     *  same as no fragment at all* — silently dropped, leaving the document at whatever
-     *  zoom the viewer happened to have. Which is exactly the report: page width never
-     *  survives a reload and has to be set again by hand, every time. `view=FitBH` is
-     *  honoured, and fits the width of what is printed rather than of the paper, which is
-     *  the better answer on a phone anyway: 105% here against 53% for the whole page.
-     */
-    const FITS = {
-      page: 'view=Fit&zoom=page-fit',
-      width: 'view=FitBH&zoom=page-width',
-      actual: '',
-    };
-    const fit = FITS[prefs.pdfFit] ?? FITS.page;
-    /* How a PDF opens is a request, and a viewer is free to refuse it.
-     *
-     *  Chrome honours it — measured here, on opening, after a reload of the file and after
-     *  F5 alike. Reported from a browser where it does not: the zoom the viewer had comes
-     *  back every time and the fit has to be clicked again. A viewer that behaves that way
-     *  is remembering something about *this document*, so the answer is to hand it one it
-     *  has never seen: a fresh address has no remembered zoom and no scroll to restore.
-     *
-     *  It costs the document being fetched again instead of reused, which is why it is
-     *  asked for rather than assumed.
-     */
-    const afresh = prefs.pdfForceFit ? `&fresh=${Date.now()}` : '';
-    const address = `${versioned}${afresh}`;
-    const opened = fit ? `${address}#${fit}` : address;
-    const frame = el('iframe', { className: 'preview', src: opened });
-    const results = el('div', { className: 'pdfhits', hidden: true });
-    const box = el('input', { type: 'search', placeholder: t('find in this document…'), spellcheck: false });
-    const bar = el('div', { className: 'pdfsearch', hidden: true }, [box, results]);
-    // A search box costs a row of the document for as long as the document is open, and
-    // most of the time nobody is searching. It folds into the button that opens it, over
-    // the page rather than above it.
-    const finder = el('button', { className: 'pdffind', title: t('Find in this document') }, icon('search'));
-    finder.onclick = () => {
-      bar.hidden = !bar.hidden;
-      finder.classList.toggle('on', !bar.hidden);
-      if (bar.hidden) { results.hidden = true; results.textContent = ''; } else box.focus();
-    };
-    // Positioned against this wrapper, so it floats over the viewer in a window and on the
-    // preview screen alike.
-    const wrap = el('div', { className: 'pdfwrap' }, [frame, finder, bar]);
-    host.append(wrap);
-
-    // Jumping to a hit keeps the scaling: landing on page 12 at a zoom you did not
-    // choose is the same annoyance a second time.
-    // The one page we can honestly claim to know: the one we sent it to.
-    const goToPage = (page) => {
-      pdfPage.set(path, page);
-      frame.src = `${address}#page=${page}${fit ? `&${fit}` : ''}`;
-    };
-    const seen = pdfPage.get(path);
-    if (seen && seen > 1) frame.src = `${address}#page=${seen}${fit ? `&${fit}` : ''}`;
-    let asked = null;
-    const look = async () => {
-      const needle = box.value.trim();
-      clearTimeout(asked);
-      if (needle.length < 2) { results.hidden = true; results.textContent = ''; return; }
-      results.hidden = false;
-      results.textContent = t('looking…');
-      try {
-        const r = await getJSON(`/api/pdf/search?path=${encodeURIComponent(path)}&q=${encodeURIComponent(needle)}`);
-        results.textContent = '';
-        if (!r.hits.length) {
-          results.append(el('p', { className: 'empty tiny', textContent: t('not in these {count} pages', { count: r.pages }) }));
-          return;
-        }
-        for (const hit of r.hits) {
-          const row = el('button', { className: 'pdfhit', type: 'button', onclick: () => goToPage(hit.page) }, [
-            el('span', { className: 'pdfpage', textContent: t('p. {n}', { n: hit.page }) }),
-            el('span', { className: 'grow', textContent: hit.text }),
-          ]);
-          results.append(row);
-        }
-      } catch (e) {
-        results.textContent = '';
-        results.append(el('p', { className: 'error tiny', textContent: e.message }));
-      }
-    };
-    box.addEventListener('input', () => { clearTimeout(asked); asked = setTimeout(look, 350); });
-    box.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); look(); }
-      if (e.key === 'Escape') finder.onclick();
-    });
+    await mountPdf(host, path, versioned, download);
     return;
   }
 
@@ -2925,15 +3097,12 @@ async function screenSettings() {
       () => prefs.openInDesk !== false, (v) => { prefs.openInDesk = v; }),
     toggle(t('Sound when something rings'), t('two short tones when an agent finishes or asks for you'),
       () => prefs.bellSound !== false, (v) => { prefs.bellSound = v; }),
-    choice(t('How a PDF opens'), t('the whole page, the width, or whatever zoom the browser had'),
+    choice(t('How a PDF opens'), t('a document you have not read before — after that it opens where you left it'),
       [t('whole page'), t('page width'), t('as it comes')],
       () => ({ page: t('whole page'), width: t('page width'), actual: t('as it comes') })[prefs.pdfFit || 'page'],
       (v) => {
         prefs.pdfFit = v === t('page width') ? 'width' : v === t('as it comes') ? 'actual' : 'page';
       }),
-    toggle(t('Insist on that size'),
-      t('ask for the document afresh every time, for a viewer that prefers its own zoom — it is fetched again rather than reused'),
-      () => !!prefs.pdfForceFit, (v) => { prefs.pdfForceFit = v; }),
     choice(t('How a placeholder is written'),
       t('in a session — a saved prompt takes any of them'),
       Object.keys(MARKS).map((k) => MARKS[k].show),

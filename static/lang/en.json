@@ -494,6 +494,10 @@
   "click to type a path": "click to type a path",
   "Copy this path": "Copy this path",
   "this browser cannot play {name}": "this browser cannot play {name}",
-  "Every window in this desk, including the ones buried behind another": "Every window in this desk, including the ones buried behind another"
+  "Every window in this desk, including the ones buried behind another": "Every window in this desk, including the ones buried behind another",
+  "How it fits": "How it fits",
+  "{n} of {total}": "{n} of {total}",
+  "shown by the browser: {why}": "shown by the browser: {why}",
+  "a document you have not read before — after that it opens where you left it": "a document you have not read before — after that it opens where you left it"
  }
 }
