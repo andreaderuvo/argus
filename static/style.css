@@ -2052,3 +2052,20 @@ input.traysearch:focus { border-color: var(--accent); outline: none; }
   font-size: .85rem;
 }
 .changed .grow { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Two halves of one idea: keep this arrangement, and go back to it. Loose in the toolbar
+   they read as two unrelated buttons, so they are ruled together — one outline, one
+   divider, and the row's own flat buttons keep their meaning. */
+.btnpair {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  border: 1px solid var(--line);
+  border-radius: .3rem;
+}
+.btnpair > button.winbtn { border-radius: 0; }
+.btnpair > button.winbtn:first-child { border-top-left-radius: .25rem; border-bottom-left-radius: .25rem; }
+.btnpair > button.winbtn:last-child { border-top-right-radius: .25rem; border-bottom-right-radius: .25rem; }
+/* Only between two that are both there: the second appears once there is something to go
+   back to, and a divider with nothing after it is a stray line. */
+.btnpair > button.winbtn + button.winbtn:not([hidden]) { border-left-color: var(--line); }

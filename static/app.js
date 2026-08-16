@@ -5855,14 +5855,17 @@ async function screenWall() {
     onclick: () => keepLayout(activeSpace()),
   }, [icon('save'), el('span', { textContent: t('Keep') })]);
   keepBtn.dataset.keep = '1';
-  tools.append(keepBtn);
 
   const mineBtn = el('button', {
     className: 'winbtn wide',
     onclick: () => restoreLayout(activeSpace()),
   }, [icon('layers'), el('span', { textContent: t('Mine') })]);
   mineBtn.dataset.mine = '1';
-  tools.append(mineBtn);
+
+  // Ruled together into one control rather than dropped side by side in a row of flat
+  // buttons, where they read as two unrelated things — reported. They are two halves of
+  // the same idea, and the outline and the divider say so.
+  tools.append(el('div', { className: 'btnpair' }, [keepBtn, mineBtn]));
 
   paintLayoutButton = () => {
     const kept = savedLayout(activeSpace());
