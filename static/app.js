@@ -1994,9 +1994,19 @@ async function mountPreview(host, path, ctl) {
      *  These are the PDF open parameters, and the two spellings are for the two viewers:
      *  Chrome reads `view`, and pdf.js — Firefox's — reads `zoom`. Each ignores the other.
      */
+    /* Chrome ignores `view=FitH`.
+     *
+     *  Measured, seven spellings against the same document: `view=FitH`, `view=FitH,0`,
+     *  `view=FitH&zoom=page-width` and `zoom=page-width` all render *pixel for pixel the
+     *  same as no fragment at all* — silently dropped, leaving the document at whatever
+     *  zoom the viewer happened to have. Which is exactly the report: page width never
+     *  survives a reload and has to be set again by hand, every time. `view=FitBH` is
+     *  honoured, and fits the width of what is printed rather than of the paper, which is
+     *  the better answer on a phone anyway: 105% here against 53% for the whole page.
+     */
     const FITS = {
       page: 'view=Fit&zoom=page-fit',
-      width: 'view=FitH&zoom=page-width',
+      width: 'view=FitBH&zoom=page-width',
       actual: '',
     };
     const fit = FITS[prefs.pdfFit] ?? FITS.page;
