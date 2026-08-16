@@ -501,6 +501,7 @@
   "a document you have not read before — after that it opens where you left it": "a document you have not read before — after that it opens where you left it",
   "Previous page": "Previous page",
   "Next page": "Next page",
-  "of {total}": "of {total}"
+  "of {total}": "of {total}",
+  "Open in a browser tab": "Open in a browser tab"
  }
 }
