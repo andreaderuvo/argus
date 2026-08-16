@@ -69,15 +69,14 @@ const SCENES = {
     steps: [
       { hold: 1400 },
       { say: 'An agent finished. It printed where it wrote.', hold: 1200 },
-      { run: `(() => {
+      { at: `(() => {
           const rows = [...document.querySelectorAll('.deck.on .xterm-rows > div')];
-          const row = rows.find(r => /report.md/.test(r.textContent || ''));
+          const row = rows.find(r => (r.textContent || '').includes('/tmp/lab/'));
           if (!row) return 'no path on screen';
-          const a = row.querySelector('a') || row;
-          a.scrollIntoView({ block: 'center' });
-          return 'found';
-        })()`, hold: 900 },
-      { click: '.deck.on .xterm-rows a', hold: 2600 },
+          const b = row.getBoundingClientRect();
+          // A little in from the start of the line: the middle of the text, not the margin.
+          return { x: Math.round(b.left + 120), y: Math.round(b.top + b.height / 2) };
+        })()`, hold: 2800 },
       { say: 'One click. It is open next to the session that made it.', hold: 1800 },
     ],
   },
@@ -89,12 +88,12 @@ const SCENES = {
       sidebar: false,
       workspaces: [{ id: 1, name: 'Salmonella', desktop: [
         { kind: 'term', name: 'claude' }, { kind: 'term', name: 'codex' },
-        { kind: 'file', path: '/tmp/argus-demo/work/salmonella-2026/results/report.md' }] }],
+        { kind: 'file', path: '/tmp/lab/salmonella-2026/results/report.md' }] }],
       ws: 1, wsSeq: 1,
       winGeom: {
         '1:term:claude': { left: '8px', top: '8px', width: '620px', height: '330px' },
         '1:term:codex': { left: '8px', top: '346px', width: '620px', height: '300px' },
-        '1:file:/tmp/argus-demo/work/salmonella-2026/results/report.md':
+        '1:file:/tmp/lab/salmonella-2026/results/report.md':
           { left: '636px', top: '8px', width: '628px', height: '638px' },
       },
     },
@@ -132,7 +131,7 @@ const SCENES = {
     size: WIDE,
     prefs: {
       sidebar: false,
-      workspaces: [{ id: 1, name: 'Files', desktop: [{ kind: 'browser', id: 7, path: '/tmp/argus-demo' }] }],
+      workspaces: [{ id: 1, name: 'Files', desktop: [{ kind: 'browser', id: 7, path: '/tmp/lab' }] }],
       ws: 1, wsSeq: 1,
       winGeom: { '1:browser:7': { left: '260px', top: '40px', width: '760px', height: '600px' } },
     },
@@ -140,8 +139,10 @@ const SCENES = {
       { hold: 1200 },
       { click: '.deck.on .win .crumb', hold: 900 },
       { say: 'Click the address and write in it.', hold: 900 },
-      { type: '/tmp/argus-demo/work/salmonella-2026/results', into: '.crumbbox', hold: 1400 },
-      { key: 'Enter', hold: 2200 },
+      { type: '/tmp/lab/salmonella-2026/results', into: '.crumbbox', hold: 1400 },
+      // Two: the suggestion list is open over the box and eats the first one.
+      { key: 'Enter', hold: 350 },
+      { key: 'Enter', hold: 2400 },
     ],
   },
 };
@@ -222,10 +223,28 @@ async function record(name) {
         await wait(45);
       }
     }
+    if (step.at) {
+      const spot = await ev(step.at);
+      if (spot && spot.x) {
+        await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: spot.x, y: spot.y });
+        await wait(450);
+        for (const type of ['mousePressed', 'mouseReleased']) {
+          await send('Input.dispatchMouseEvent', { type, x: spot.x, y: spot.y, button: 'left', clickCount: 1 });
+        }
+      } else {
+        console.log(`    (${name}: nothing to click at — ${JSON.stringify(spot)})`);
+      }
+    }
     if (step.key) {
+      // A real Enter carries its character. Sent as a bare rawKeyDown it reached the page
+      // but the box never acted on it — measured, twice.
       const code = step.key === 'Enter' ? 13 : 27;
-      await send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: step.key, code: step.key, windowsVirtualKeyCode: code });
-      await send('Input.dispatchKeyEvent', { type: 'keyUp', key: step.key, code: step.key });
+      const text = step.key === 'Enter' ? '\r' : undefined;
+      await send('Input.dispatchKeyEvent', {
+        type: 'keyDown', key: step.key, code: step.key, windowsVirtualKeyCode: code,
+        nativeVirtualKeyCode: code, ...(text ? { text } : {}),
+      });
+      await send('Input.dispatchKeyEvent', { type: 'keyUp', key: step.key, code: step.key, windowsVirtualKeyCode: code });
     }
     if (step.say !== undefined) await ev(`window.__say(${JSON.stringify(step.say)})`);
     await wait(step.hold ?? 1000);

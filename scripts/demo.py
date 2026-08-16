@@ -34,8 +34,8 @@ PORT = 8123
 # with fabricated files: there is nothing here worth protecting.
 TOKEN = "0" * 62 + "de"
 
-ROOT = Path("/tmp/argus-demo")
-CONFIG = Path("/tmp/argus-demo.yaml")
+ROOT = Path("/tmp/lab")
+CONFIG = Path("/tmp/lab-demo.yaml")
 HERE = Path(__file__).resolve().parent.parent
 
 
@@ -129,7 +129,7 @@ Everything under results/ is rebuilt from data/ and can be deleted.
 def build_files(root: Path) -> None:
     if root.exists():
         shutil.rmtree(root)
-    project = root / "work" / "salmonella-2026"
+    project = root / "salmonella-2026"
     for folder in ("data", "src", "logs", "results", "notes"):
         (project / folder).mkdir(parents=True, exist_ok=True)
 
@@ -190,6 +190,10 @@ Three things are weak, in the order I would fix them.
   3. The plasmid sentence is right and buried: it belongs above the table,
      not under it.
 
+I have written the three up in full:
+
+  /tmp/lab/salmonella-2026/results/report.md
+
 Shall I rerun C1 without the four and report both distances?
 """
 
@@ -233,7 +237,7 @@ def tmux(*args: str) -> subprocess.CompletedProcess:
 def build_sessions(root: Path) -> None:
     tmux("kill-server")
     time.sleep(0.4)
-    project = root / "work" / "salmonella-2026"
+    project = root / "salmonella-2026"
     (root / ".tmux.conf").write_text(TMUXCONF)
     (root / ".demorc").write_text(RCFILE)
     (root / ".transcript-claude").write_text(CLAUDE)
@@ -295,7 +299,7 @@ def start() -> None:
     # recording would be made of whatever *they* serve. Measured, once.
     if taken(PORT):
         sys.exit(f"port {PORT} is already in use by something else — nothing started")
-    log = open("/tmp/argus-demo.log", "w")
+    log = open("/tmp/lab-demo.log", "w")
     subprocess.Popen([sys.executable, "-m", "app.main", "--config", str(CONFIG)],
                      cwd=HERE, stdout=log, stderr=log, start_new_session=True)
     for _ in range(40):
@@ -303,7 +307,7 @@ def start() -> None:
         if taken(PORT):
             break
     else:
-        sys.exit("the demo did not come up — see /tmp/argus-demo.log")
+        sys.exit("the demo did not come up — see /tmp/lab-demo.log")
     print(f"demo at http://127.0.0.1:{PORT}/?token={TOKEN}")
 
 
