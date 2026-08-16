@@ -139,10 +139,8 @@ const SCENES = {
       { hold: 1200 },
       { click: '.deck.on .win .crumb', hold: 900 },
       { say: 'Click the address and write in it.', hold: 900 },
-      { type: '/tmp/lab/salmonella-2026/results', into: '.crumbbox', hold: 1400 },
-      // Two: the suggestion list is open over the box and eats the first one.
-      { key: 'Enter', hold: 350 },
-      { key: 'Enter', hold: 2400 },
+      { type: '/tmp/lab/salmonella-2026/results', into: '.crumbbox', enter: true, hold: 2600 },
+      { say: 'Enter, and you are there.', hold: 1600 },
     ],
   },
 };
@@ -176,20 +174,32 @@ async function record(name) {
   };
   const url = (route = '#/wall') => `${DEMO}/?token=${TOKEN}${route}`;
 
-  // Settle the preferences, then load the page they describe.
+  /* The preferences are planted before the app runs, not written and then reloaded.
+   *
+   *  Written afterwards they were being overwritten: the app that was already on screen
+   *  saves its own state on a timer and on activation, and it kept winning the race — two
+   *  clips were recorded of the wrong desk entirely before this was noticed. At
+   *  document-start there is nothing to race.
+   */
+  const planted = await send('Page.addScriptToEvaluateOnNewDocument', {
+    source: `localStorage.setItem('argus.prefs', ${JSON.stringify(JSON.stringify(scene.prefs))});`,
+  });
   await send('Page.navigate', { url: 'about:blank' });
   await wait(300);
   await send('Page.navigate', { url: url() });
-  await wait(4500);
+  await wait(scene.size.mobile ? 9000 : 8000);
+  await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: planted.identifier });
   await ev(`document.querySelector('#update button:last-child')?.click()`);
-  await ev(`localStorage.setItem('argus.prefs', JSON.stringify(${JSON.stringify(scene.prefs)}))`);
-  await send('Page.navigate', { url: 'about:blank' });
-  await wait(300);
-  await send('Page.navigate', { url: url() });
-  await wait(scene.size.mobile ? 8000 : 7000);
-  await ev(`document.querySelector('#update button:last-child')?.click()`);
-  // A caption lives in the page, so it is recorded with everything else rather than
-  // burned in afterwards by a filter nobody can read.
+
+  // Refuse to record the wrong thing: the scene says what should be on screen.
+  const windows = await ev(`document.querySelectorAll('.deck.on .win').length`);
+  const wanted = scene.prefs.workspaces[0].desktop.length;
+  if (windows !== wanted && wanted > 0) {
+    throw new Error(`${name}: ${windows} windows on screen, the scene asks for ${wanted}`);
+  }
+
+  // A caption lives in the page, so it is recorded with everything else rather than burned
+  // in afterwards by a filter nobody can read.
   await ev(`(() => {
     const s = document.createElement('style');
     s.textContent = '#shotsay{position:fixed;left:50%;bottom:6%;transform:translateX(-50%);z-index:99999;'
@@ -212,15 +222,26 @@ async function record(name) {
   await send('Page.startScreencast', { format: 'png', everyNthFrame: 1 });
 
   for (const step of scene.steps) {
-    if (step.route) { await send('Page.navigate', { url: url(step.route) }); await wait(4000); }
+    if (step.route) { await ev(`location.hash = ${JSON.stringify(step.route.slice(1))}`); await wait(2500); }
     if (step.run) await ev(step.run);
     if (step.click) await ev(`document.querySelector(${JSON.stringify(step.click)})?.click()`);
     if (step.type) {
-      await ev(`document.querySelector(${JSON.stringify(step.into)})?.select()`);
+      await ev(`(() => { const b = document.querySelector(${JSON.stringify(step.into)}); if (b) { b.focus(); b.select(); } })()`);
       for (const ch of step.type) {
         await send('Input.dispatchKeyEvent', { type: 'keyDown', text: ch, key: ch });
         await send('Input.dispatchKeyEvent', { type: 'keyUp', key: ch });
-        await wait(45);
+        await wait(38);
+      }
+      // Committed in the same step as the typing. Sent as a step of its own it never took
+      // — the box had let go of the keyboard by then — while typing and pressing together
+      // works every time, which is also what a person does.
+      if (step.enter) {
+        await wait(500);
+        await send('Input.dispatchKeyEvent', {
+          type: 'keyDown', key: 'Enter', code: 'Enter', text: '\r',
+          windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13,
+        });
+        await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
       }
     }
     if (step.at) {
