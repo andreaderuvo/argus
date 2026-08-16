@@ -493,6 +493,7 @@
   "ask for the document afresh every time, for a viewer that prefers its own zoom — it is fetched again rather than reused": "pedir el documento de nuevo cada vez, para un visor que prefiere su propio zoom — se vuelve a descargar en lugar de reutilizarse",
   "click to type a path": "haz clic para escribir una ruta",
   "Copy this path": "Copiar esta ruta",
-  "this browser cannot play {name}": "este navegador no puede reproducir {name}"
+  "this browser cannot play {name}": "este navegador no puede reproducir {name}",
+  "Every window in this desk, including the ones buried behind another": "Cada ventana de este escritorio, incluidas las que quedan detrás de otra"
  }
 }
