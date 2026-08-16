@@ -476,6 +476,17 @@
   "whole page": "page entière",
   "page width": "largeur de page",
   "as it comes": "tel quel",
-  "This file has changed.": "Ce fichier a changé."
+  "This file has changed.": "Ce fichier a changé.",
+  "Mine": "À moi",
+  "Keep": "Garder",
+  "Put the windows back where you saved them ({count})": "Remettre les fenêtres où vous les avez enregistrées ({count})",
+  "Remember how the windows are arranged now": "Mémoriser la disposition actuelle des fenêtres",
+  "Remember this arrangement": "Mémoriser cette disposition",
+  "Save this arrangement again": "Enregistrer à nouveau cette disposition",
+  "Forget the saved arrangement": "Oublier la disposition enregistrée",
+  "arrangement forgotten": "disposition oubliée",
+  "layout remembered": "disposition mémorisée",
+  "layout replaced": "disposition remplacée",
+  "layout restored": "disposition rétablie"
  }
 }

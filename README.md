@@ -270,6 +270,11 @@ services.</sub>
 - **Shared edges behave as splitters**: widen one column and the next gives up precisely
   what the first one took.
 - Tile as a grid, columns or rows when you want to start over.
+- **Keep the arrangement you made**, and one button to come back to it. Grid, Columns and
+  Rows are arrangements the machine picks and every one of them throws yours away; **Keep**
+  remembers how the desk looks now, and **Mine** puts it back — same windows, same places,
+  same one in front. It restores the desk rather than only the geometry, so a window closed
+  since comes back and a window opened since goes away, with six seconds to undo it.
 - **A narrow window folds its own title bar**: below about 340px the buttons move into a
   ⋯, which reads them off the bar itself, so nothing runs past the edge on a phone. It is
   asked of the window, not the screen — a 300px window on a wide monitor has the same

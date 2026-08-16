@@ -97,6 +97,7 @@ const DEFAULTS = {
   split: false,      // two file panes side by side
   path2: '',         // where the second pane is
   winGeom: {},       // session name -> free-window geometry
+  wsLayout: {},      // desk id -> the one arrangement of it you asked to keep
   colors: {},        // session name -> palette index, when you override the default
   fontSize: 13,
   wrap: true,
@@ -517,6 +518,18 @@ function toast(message, bad = false, onTap = null, lasts = null) {
   document.body.append(t);
   // A message you are meant to act on has to outlast the glance that notices it.
   setTimeout(() => t.remove(), lasts ?? (bad ? 5000 : onTap ? 6000 : 2200));
+  return t;
+}
+
+/** Something happened that you might not have meant. Six seconds, one tap to undo — the
+ *  same bargain the prompt list makes, rather than a dialog asked every time in advance.
+ *
+ *  Only ever one of these on screen. Two arrangements restored in quick succession left
+ *  two identical offers stacked up, and the one you reached for was the older — which
+ *  would have put back a desk from two steps ago. */
+function undoToast(message, back) {
+  for (const old of document.querySelectorAll('.toast.undo')) old.remove();
+  toast(`${message} · ${t('Undo')}`, false, back, 6000).classList.add('undo');
 }
 
 /* ------------------------------------------------------------------- icons */
@@ -5245,6 +5258,27 @@ async function screenWall() {
         el('button', { className: 'ghost', textContent: t('Close'), onclick: () => which.close() }),
       ]);
     });
+    // Saving lives here rather than on the toolbar button, which restores: one press that
+    // sometimes overwrites what you saved and sometimes goes back to it would be a press
+    // nobody dares make.
+    const kept = savedLayout(ws);
+    item('save', kept ? t('Save this arrangement again') : t('Remember this arrangement'),
+      () => keepLayout(ws));
+    if (kept) {
+      item('trash', t('Forget the saved arrangement'), () => {
+        const before = kept;
+        const rest = { ...(prefs.wsLayout || {}) };
+        delete rest[ws.id];
+        prefs.wsLayout = rest;
+        savePrefs();
+        paintLayoutButton();
+        undoToast(t('arrangement forgotten'), () => {
+          prefs.wsLayout = { ...(prefs.wsLayout || {}), [ws.id]: before };
+          savePrefs();
+          paintLayoutButton();
+        });
+      });
+    }
     item('copy', t('Copy a link to this desk'), async () => {
       const link = `${location.origin}/#/wall?ws=${ws.id}`;
       if (await copyText(link)) toast(t('link copied'));
@@ -5345,6 +5379,7 @@ async function screenWall() {
     // desk, and left alone they went on showing the last one's numbers.
     deck.paintChain();
     paintTally();
+    paintLayoutButton();
     drawTabs();
     requestAnimationFrame(() => deck.open.forEach((o) => o.handle.relayout()));
   }
@@ -5392,6 +5427,13 @@ async function screenWall() {
         decks.get(ws.id)?.open.forEach((o) => o.handle.dispose());
         decks.get(ws.id)?.node.remove();
         decks.delete(ws.id);
+        // Desk ids are handed out by a counter that never goes back, but the arrangement
+        // of a desk that no longer exists is dead weight in the preferences either way.
+        if (prefs.wsLayout?.[ws.id]) {
+          const rest = { ...prefs.wsLayout };
+          delete rest[ws.id];
+          prefs.wsLayout = rest;
+        }
         spaces.splice(spaces.indexOf(ws), 1);
         activate(spaces[0].id);
       };
@@ -5444,6 +5486,94 @@ async function screenWall() {
       b.classList.toggle('on', b.dataset.mode === mode);
     }
   };
+
+  /* ------------------------------------------------ the arrangement you keep */
+
+  /** Grid, Columns and Rows are arrangements the machine picks, and every one of them
+   *  throws away the one you made by hand. This is the way back: a desk remembers one
+   *  arrangement of its own — which windows were open, where each sat, which was in
+   *  front — and a button puts it back.
+   *
+   *  It is the whole desk and not merely the geometry, because "where I had them" means
+   *  nothing if half of them are closed and three others have appeared since. */
+  const savedLayout = (ws) => prefs.wsLayout?.[ws.id] || null;
+  // Set once the toolbar exists, further down; the saved arrangement belongs to a desk, so
+  // this button says something different on each one.
+  let paintLayoutButton = () => {};
+
+  function takeLayout(ws) {
+    const deck = deckFor(ws);
+    const geom = {};
+    // Read the windows on screen rather than the stored geometry: what you are looking at
+    // is what gets remembered, including a drag that has not settled anywhere yet.
+    for (const o of deck.open) {
+      if (!o.win.style.width) continue;
+      const { left, top: y, width, height } = o.win.style;
+      geom[o.name] = o.win.dataset.full ? { ...FULL_GEOM, full: 1 } : { left, top: y, width, height };
+    }
+    return {
+      desktop: ws.desktop.map((s) => ({ ...s })),
+      geom,
+      // Back to front, so the window you were working in comes back on top of the others.
+      order: [...deck.open]
+        .sort((a, b) => (Number(a.win.style.zIndex) || 0) - (Number(b.win.style.zIndex) || 0))
+        .map((o) => o.name),
+    };
+  }
+
+  function wearLayout(ws, snap) {
+    ws.desktop = snap.desktop.map((s) => ({ ...s }));
+    const geom = { ...(prefs.winGeom || {}) };
+    for (const [id, g] of Object.entries(snap.geom)) geom[geomKey(ws, id)] = g;
+    prefs.winGeom = geom;
+    savePrefs();
+
+    const deck = deckFor(ws);
+    // Windows already on screen are placed first, so that the fitting syncDeck does at the
+    // end — which pulls anything wider than the wall back inside it — measures the sizes
+    // being restored rather than the ones being replaced.
+    for (const o of deck.open) {
+      const g = snap.geom[o.name];
+      if (g) applyGeom(o.win, g);
+    }
+    // Adds back what was closed, drops what has been opened since.
+    syncDeck(deck);
+    for (const id of snap.order) {
+      const o = deck.open.find((w) => w.name === id);
+      if (o) o.win.style.zIndex = ++top;
+    }
+    for (const o of deck.open) o.handle.relayout();
+    // The desk is not in a grid any more, whatever the toolbar was still claiming.
+    for (const b of tools.querySelectorAll('button[data-mode]')) b.classList.remove('on');
+    paintTally();
+  }
+
+  /** Remembering is one press, and so is coming back — but pressing the wrong one closes
+   *  windows, so both are undoable for as long as the message is on screen. */
+  function keepLayout(ws) {
+    const before = savedLayout(ws);
+    prefs.wsLayout = { ...(prefs.wsLayout || {}), [ws.id]: takeLayout(ws) };
+    savePrefs();
+    paintLayoutButton();
+    undoToast(
+      before ? t('layout replaced') : t('layout remembered'),
+      () => {
+        const back = { ...(prefs.wsLayout || {}) };
+        if (before) back[ws.id] = before; else delete back[ws.id];
+        prefs.wsLayout = back;
+        savePrefs();
+        paintLayoutButton();
+      },
+    );
+  }
+
+  function restoreLayout(ws) {
+    const snap = savedLayout(ws);
+    if (!snap) return keepLayout(ws);
+    const before = takeLayout(ws);
+    wearLayout(ws, snap);
+    undoToast(t('layout restored'), () => wearLayout(ws, before));
+  }
 
   const sayWhereBrowsersOpen = () => {
     browserBtn.title = t('Open a file browser at {path}', { path: deskFolder() });
@@ -5712,6 +5842,26 @@ async function screenWall() {
     b.dataset.mode = mode;
     tools.append(b);
   }
+
+  // Fourth in the row of arrangements, and the only one that is yours. Before anything is
+  // stored it offers to store what is on screen, which is the whole of the instructions.
+  const mineLabel = el('span');
+  const mineBtn = el('button', {
+    className: 'winbtn wide',
+    onclick: () => restoreLayout(activeSpace()),
+  }, [icon('save'), mineLabel]);
+  mineBtn.dataset.mine = '1';
+  tools.append(mineBtn);
+  paintLayoutButton = () => {
+    const kept = savedLayout(activeSpace());
+    mineLabel.textContent = kept ? t('Mine') : t('Keep');
+    mineBtn.title = kept
+      ? t('Put the windows back where you saved them ({count})', { count: kept.order.length })
+      : t('Remember how the windows are arranged now');
+    // Deliberately not marked "on" the way Grid and Columns are: there it means "this is
+    // the arrangement you are in", and it would be a different claim on the same row.
+  };
+  paintLayoutButton();
 
   // A brand new desktop starts as one window per session.
   const first = activeSpace();
