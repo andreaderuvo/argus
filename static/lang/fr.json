@@ -492,6 +492,7 @@
   "Insist on that size": "Imposer cette taille",
   "ask for the document afresh every time, for a viewer that prefers its own zoom — it is fetched again rather than reused": "redemander le document à chaque fois, pour une visionneuse qui préfère son propre zoom — il est retéléchargé au lieu d’être réutilisé",
   "click to type a path": "cliquez pour saisir un chemin",
-  "Copy this path": "Copier ce chemin"
+  "Copy this path": "Copier ce chemin",
+  "this browser cannot play {name}": "ce navigateur ne sait pas lire {name}"
  }
 }
