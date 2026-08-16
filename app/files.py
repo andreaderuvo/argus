@@ -199,6 +199,18 @@ async def read_file(request: Request, path: str) -> Response:
             return Response(content=document_text(target), media_type="text/plain; charset=utf-8")
         raise ApiError(415, "this document could not be rendered — download it instead")
 
+    # A recording is bigger than any preview cap worth having, and reading one into memory
+    # to hand it over would be absurd: the browser asks for the few seconds it is about to
+    # play and asks again when you drag the scrubber. So this is streamed from disk and
+    # answers a range request, which is the whole of what makes seeking work — without it
+    # a player can only start at the beginning and only stop at the end.
+    if guessed.startswith(("video/", "audio/")):
+        return FileResponse(
+            target,
+            media_type=guessed,
+            headers={"content-disposition": content_disposition(target.name, inline=True)},
+        )
+
     if size > limit:
         # A log is precisely the file that outgrows the cap, and refusing to show it is
         # the wrong answer: send the tail, which is the part anyone actually wants.

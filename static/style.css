@@ -2037,3 +2037,20 @@ input.traysearch:focus { border-color: var(--accent); outline: none; }
 }
 /* A path that is not there says so where you typed it, rather than emptying the listing. */
 .crumbedit input.crumbbox.bad { border-color: var(--st-critical, #e06c75); }
+
+/* A recording in a window. Black behind it, because letterboxing onto the panel colour
+   looks like a rendering fault rather than a shape. */
+video.preview {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: #000;
+  object-fit: contain;
+}
+/* Sound has no picture to fill: it sits on its own line and takes the width. */
+audio.preview.sound {
+  display: block;
+  width: 100%;
+  margin: 1.2rem auto;
+  max-width: 34rem;
+}

@@ -214,6 +214,8 @@ services.</sub>
 - **Paste a screenshot straight into a folder.** Ctrl+V in a listing writes the clipboard
   image where you are looking, named `screenshot-1.png`, `screenshot-2.png` — the number
   is the server's, so nothing is ever overwritten and two devices cannot collide.
+- **Video and audio play in the window**, streamed with range requests so the scrubber
+  works from the first second, and they keep your place across a reload.
 - **Type a path where the path is shown.** Click the address and write in it, `~` included,
   with folders offered as you type. A path that is not there says so in the box; the
   listing under it stays put.

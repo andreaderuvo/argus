@@ -1895,6 +1895,27 @@ async function screenFiles(path) {
 // Which page a document was last sent to, so reopening it or reloading it lands there
 // rather than at the beginning. Only pages we navigated to ourselves: see below.
 const pdfPage = new Map();
+/* How far into a recording you had got.
+ *
+ *  In the preferences and not merely in memory, because the reload is exactly when it is
+ *  wanted: a window watching a recording that is still being written reloads on its own,
+ *  and F5 is a thing people do. Kept to the last forty, oldest dropped — this is a
+ *  convenience, not an archive. */
+const PLACES = 40;
+const playedTo = new Map(Object.entries(prefs.playedTo || {}));
+let placeWritten = 0;
+function keepMyPlace(path, at, force = false) {
+  playedTo.delete(path);
+  playedTo.set(path, at);                       // moved to the end: the least recent leaves first
+  while (playedTo.size > PLACES) playedTo.delete(playedTo.keys().next().value);
+  const now = Date.now();
+  // timeupdate fires four times a second; the preferences are not written four times a
+  // second. Every five seconds, and whenever it stops.
+  if (!force && now - placeWritten < 5000) return;
+  placeWritten = now;
+  prefs.playedTo = Object.fromEntries(playedTo);
+  savePrefs();
+}
 
 async function mountPreview(host, path, ctl) {
   host.textContent = '';
@@ -1948,6 +1969,59 @@ async function mountPreview(host, path, ctl) {
   if (type.startsWith('image/')) {
     ctl.fill?.(false);
     host.append(el('img', { className: 'preview', src: versioned }));
+    return;
+  }
+
+  /* A recording, played where it sits.
+   *
+   *  These used to be refused as "binary — download it instead", which for the one output
+   *  a pipeline produces that you cannot read as text was the least useful answer
+   *  available. The server streams it and answers a range request, so the scrubber works
+   *  rather than the file having to arrive whole before anything can be seen.
+   */
+  if (type.startsWith('video/') || type.startsWith('audio/')) {
+    const moving = type.startsWith('video/');
+    ctl.fill?.(moving);
+    const player = el(moving ? 'video' : 'audio', {
+      className: `preview player${moving ? '' : ' sound'}`,
+      src: versioned, controls: true, preload: 'metadata',
+    });
+    // Or a phone takes the whole screen the moment it starts, which is not what a window
+    // next to a running job is for.
+    player.playsInline = true;
+
+    /* Keeping your place. A window watching a file reloads when the file changes, and a
+     *  recording still being written changes constantly: landing back at zero every time
+     *  makes the window useless for the thing it is best at. Unlike the browser's PDF
+     *  viewer, a media element says where it is, so this is remembered rather than
+     *  guessed at. */
+    const was = playedTo.get(path);
+    player.addEventListener('loadedmetadata', () => {
+      // Not the last half second: coming back to the end is coming back to nothing.
+      if (was && was < player.duration - 0.5) player.currentTime = was;
+    });
+    let noted = 0;
+    player.addEventListener('timeupdate', () => {
+      if (Math.abs(player.currentTime - noted) < 1) return;
+      noted = player.currentTime;
+      keepMyPlace(path, noted);
+    });
+    // Leaving is the moment that matters most, and the moment the throttle would lose.
+    for (const stop of ['pause', 'ended', 'emptied']) {
+      player.addEventListener(stop, () => keepMyPlace(path, player.currentTime, true));
+    }
+    window.addEventListener('pagehide', () => keepMyPlace(path, player.currentTime, true), { once: true });
+
+    // A container the browser will not decode — mkv and mov usually — fails silently
+    // otherwise: a black rectangle and no way to guess why.
+    player.addEventListener('error', () => {
+      host.textContent = '';
+      host.append(el('div', { className: 'pad' }, [
+        el('p', { className: 'error', textContent: t('this browser cannot play {name}', { name: path.split('/').pop() }) }),
+        el('button', { className: 'ghost', textContent: t('Download'), onclick: download }),
+      ]));
+    });
+    host.append(player);
     return;
   }
 
