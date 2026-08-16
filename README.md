@@ -214,6 +214,9 @@ services.</sub>
 - **Paste a screenshot straight into a folder.** Ctrl+V in a listing writes the clipboard
   image where you are looking, named `screenshot-1.png`, `screenshot-2.png` — the number
   is the server's, so nothing is ever overwritten and two devices cannot collide.
+- **Type a path where the path is shown.** Click the address and write in it, `~` included,
+  with folders offered as you type. A path that is not there says so in the box; the
+  listing under it stays put.
 - **List or tree**, hidden files on or off, favourites — kept on the server, so both
   devices see the same ones.
 - **Two panes** side by side; either one can be a window in a workspace.

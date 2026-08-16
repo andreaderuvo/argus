@@ -1386,6 +1386,8 @@ async function screenSessions() {
 /** One file browser. Used three times over: the two panes of the split view and the
  *  sidebar. Each instance owns its path, its search box and its listing, and knows how
  *  to reach the *other* one — which is what makes copy and move between panes useful. */
+let crumbSeq = 0;
+
 function fileBrowser({
   path, setPath, other, roots, compact = false,
   // A window keeps its own answer; the panes and the sidebar keep using the shared one,
@@ -1472,10 +1474,104 @@ function fileBrowser({
     jump.addEventListener(done, () => clearTimeout(held));
   }
 
+  /* The path, and a way to type one.
+   *
+   *  Clicking it used to copy it, which is a thing you want rarely and cannot guess, while
+   *  the thing you want often — going somewhere by name, three folders away, without
+   *  walking there a click at a time — had no way in at all. So the address behaves the way
+   *  an address bar behaves: click it and write in it. Copying moves inside, where it is
+   *  now a button that says so.
+   */
   const crumb = el('button', { className: 'crumb', type: 'button' }, bidi(path));
-  crumb.title = `${path}\n(click to copy)`;
-  crumb.onclick = () => copyPath(path);
-  node.append(el('div', { className: 'sidehead' }, [up, jump, crumb, again, nest, pin]));
+  crumb.title = `${path}\n${t('click to type a path')}`;
+  const head = el('div', { className: 'sidehead' }, [up, jump, crumb, again, nest, pin]);
+
+  crumb.onclick = () => {
+    const box = el('input', {
+      className: 'crumbbox', type: 'text', value: path, spellcheck: false,
+      autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off',
+    });
+    // A datalist rather than a row of chips: the header is one line and a window can be
+    // 300px wide, so the suggestions have to come from the browser's own layer.
+    const options = el('datalist');
+    options.id = `crumbfolders${crumbSeq += 1}`;
+    box.setAttribute('list', options.id);
+    const copy = el('button', { className: 'winbtn', type: 'button', title: t('Copy this path') }, icon('copy'));
+    copy.onmousedown = (e) => e.preventDefault();      // keep the box focused
+    copy.onclick = () => copyPath(box.value.trim() || path);
+    const row = el('div', { className: 'crumbedit' }, [box, copy, options]);
+
+    const home = homePath(roots);
+    const expand = (raw) => {
+      const p = raw.trim();
+      if (p === '~') return home;
+      if (p.startsWith('~/')) return `${home.replace(/\/$/, '')}${p.slice(1)}`;
+      return p;
+    };
+    // One request per parent folder, kept: holding a key down must not fire one apiece.
+    const cache = new Map();
+    const foldersIn = (dir) => {
+      if (!cache.has(dir)) {
+        cache.set(dir, getJSON(`/api/files?path=${encodeURIComponent(dir)}`)
+          .then((rows) => rows.filter((r) => r.type === 'directory').map((r) => r.name))
+          .catch(() => []));
+      }
+      return cache.get(dir);
+    };
+    const suggest = async () => {
+      const raw = expand(box.value);
+      if (!raw.startsWith('/')) return options.replaceChildren();
+      const cut = raw.lastIndexOf('/');
+      const dir = cut === 0 ? '/' : raw.slice(0, cut);
+      const names = await foldersIn(dir);
+      if (expand(box.value) !== raw) return;           // typed on while we were asking
+      options.replaceChildren(...names.slice(0, 200).map((n) =>
+        el('option', { value: `${dir === '/' ? '' : dir}/${n}` })));
+    };
+
+    let restored = false;
+    const restore = () => {
+      if (restored) return;
+      restored = true;
+      row.replaceWith(crumb);
+    };
+    const go = async () => {
+      const wanted = expand(box.value);
+      if (!wanted || wanted === path) return restore();
+      box.classList.remove('bad');
+      try {
+        // Asked for rather than assumed: a typo must say so here, not empty the listing.
+        await getJSON(`/api/files?path=${encodeURIComponent(wanted)}`);
+      } catch (e) {
+        box.classList.add('bad');
+        box.title = e.message;
+        return;
+      }
+      restore();
+      setPath(wanted);
+    };
+
+    let asking;
+    box.addEventListener('input', () => {
+      box.classList.remove('bad');
+      clearTimeout(asking);
+      asking = setTimeout(suggest, 160);
+    });
+    box.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); go(); }
+      if (e.key === 'Escape') { e.preventDefault(); restore(); }
+    });
+    // Clicking away is cancelling, not committing: the listing under it is still the folder
+    // you were in, and swapping it for wherever the half-typed text points would be a
+    // surprise. Enter commits.
+    box.addEventListener('blur', () => setTimeout(restore, 120));
+
+    crumb.replaceWith(row);
+    box.focus();
+    box.select();
+    suggest();
+  };
+  node.append(head);
 
   // Rebuilt on every refresh, not once at construction: pinning from inside a window
   // used to redraw the listing and leave this strip showing the old set.

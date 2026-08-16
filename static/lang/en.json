@@ -490,6 +490,8 @@
   "layout restored": "layout restored",
   "Save this arrangement over the one you kept ({count})": "Save this arrangement over the one you kept ({count})",
   "Insist on that size": "Insist on that size",
-  "ask for the document afresh every time, for a viewer that prefers its own zoom — it is fetched again rather than reused": "ask for the document afresh every time, for a viewer that prefers its own zoom — it is fetched again rather than reused"
+  "ask for the document afresh every time, for a viewer that prefers its own zoom — it is fetched again rather than reused": "ask for the document afresh every time, for a viewer that prefers its own zoom — it is fetched again rather than reused",
+  "click to type a path": "click to type a path",
+  "Copy this path": "Copy this path"
  }
 }

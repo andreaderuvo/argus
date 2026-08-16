@@ -490,6 +490,8 @@
   "layout restored": "disposición restaurada",
   "Save this arrangement over the one you kept ({count})": "Guardar esta disposición en lugar de la guardada ({count})",
   "Insist on that size": "Imponer ese tamaño",
-  "ask for the document afresh every time, for a viewer that prefers its own zoom — it is fetched again rather than reused": "pedir el documento de nuevo cada vez, para un visor que prefiere su propio zoom — se vuelve a descargar en lugar de reutilizarse"
+  "ask for the document afresh every time, for a viewer that prefers its own zoom — it is fetched again rather than reused": "pedir el documento de nuevo cada vez, para un visor que prefiere su propio zoom — se vuelve a descargar en lugar de reutilizarse",
+  "click to type a path": "haz clic para escribir una ruta",
+  "Copy this path": "Copiar esta ruta"
  }
 }
