@@ -2014,3 +2014,26 @@ input.traysearch:focus { border-color: var(--accent); outline: none; }
 /* On the desk you are looking at the tab itself turns to the panel colour, which the pill
    would otherwise sink into. */
 .wstab.on .tabcount { background: var(--bg); color: var(--text); }
+
+/* Typing a path where the path is shown. The box takes the room the address had, and the
+   copy that used to be the click lives inside it now. */
+.crumbedit {
+  display: flex;
+  align-items: center;
+  gap: .2rem;
+  flex: 1;
+  min-width: 0;
+}
+.crumbedit input.crumbbox {
+  flex: 1;
+  min-width: 0;
+  height: 26px;
+  padding: 0 .4rem;
+  background: var(--bg);
+  border: 1px solid var(--accent);
+  border-radius: .3rem;
+  color: var(--text);
+  font: 12px/1.4 ui-monospace, "SF Mono", Menlo, monospace;
+}
+/* A path that is not there says so where you typed it, rather than emptying the listing. */
+.crumbedit input.crumbbox.bad { border-color: var(--st-critical, #e06c75); }
