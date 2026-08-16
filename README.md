@@ -4,12 +4,12 @@
 
 # Argus
 
-**The cockpit for work you no longer type yourself.**
+**Your agents run in tmux. Argus is the window onto them — from a desk or from a phone.**
 
-*Your agents run in tmux. Argus is where you watch them, answer them, and look at what
-they produced — the log, the plot, the report — from a desk or from a phone.*
+![An agent prints the path of the report it has written; one click opens it beside the session](docs/img/paths.gif)
 
-**[argus, in one page →](https://andreaderuvo.github.io/argus/)**
+*The agent finished and printed where it wrote. One click, and the report is open next to
+the session that made it. No copying the path, no second tool, no `scp`.*
 
 [![tests](https://github.com/andreaderuvo/argus/actions/workflows/tests.yml/badge.svg)](https://github.com/andreaderuvo/argus/actions/workflows/tests.yml)
 [![python](https://img.shields.io/badge/python-3.11%2B-3776ab?logo=python&logoColor=white)](https://www.python.org/)
@@ -17,9 +17,34 @@ they produced — the log, the plot, the report — from a desk or from a phone.
 [![no build step](https://img.shields.io/badge/build%20step-none-8fd6a0)](#running-it)
 [![tmux](https://img.shields.io/badge/tmux-real%20PTY-1bb91f)](#sessions-and-the-terminal)
 
-*Named for the herdsman of a hundred eyes, who was set to watch and never slept.*
+**[argus, in one page →](https://andreaderuvo.github.io/argus/)**
 
 </div>
+
+## What it is for
+
+You set an agent going in a tmux session and it runs for two hours. Then one of these
+happens, and none of them is a thing a terminal is good at:
+
+- **It asks you something** at twenty to eight, and you are not at the desk.
+- **It finishes**, and what you need next is not the terminal at all — it is the thing it
+  wrote: the log, the table, the figure, the report.
+- **You want to answer it from the train**, without an SSH client, a keyboard that eats a
+  third of the screen, and a terminal that turns to confetti when you rotate the phone.
+
+Argus is a small web app the machine serves and a browser you already have. It **attaches
+to the session that was already running** — not a new one — and puts the filesystem in the
+same room as it: a path printed in the session is clickable, a file the agent writes turns
+up on its own, and what it wrote is readable in place.
+
+```bash
+pip install -r requirements.txt
+python3 -m app.main --allow-write        # prints a URL with a token in it
+```
+
+Open the URL, or scan the QR code it can print, and the phone is in. That is the whole
+setup: no build step, no database, no agent to install anywhere, and **nothing changes
+about how you use tmux** — kill Argus and every session carries on.
 
 > [!WARNING]
 > **Early days.** It is used daily on the machine it was written for, and it changes most
@@ -30,17 +55,8 @@ they produced — the log, the plot, the report — from a desk or from a phone.
 
 ![Two agents working in tmux, the folder they are writing into, and the report they produced, all in one workspace](docs/img/agents.png)
 
-## In a minute
-
-```bash
-pip install -r requirements.txt
-python3 -m app.main --allow-write        # prints a URL with a token in it
-```
-
-Open that URL, or scan the QR code it can print, and the phone is in. That is the whole
-setup: no build step, no database, no agent to install anywhere, and **nothing changes
-about how you use tmux** — Argus attaches to the sessions you already have, the same way
-another terminal window would, and leaves them running when you close the tab.
+<div align="center"><sub><i>Named for the herdsman of a hundred eyes, who was set to watch
+and never slept.</i></sub></div>
 
 ## Why this exists
 
