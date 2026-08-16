@@ -494,6 +494,10 @@
   "click to type a path": "clicca per scrivere un percorso",
   "Copy this path": "Copia questo percorso",
   "this browser cannot play {name}": "questo browser non sa riprodurre {name}",
-  "Every window in this desk, including the ones buried behind another": "Ogni finestra di questa scrivania, comprese quelle sepolte dietro un’altra"
+  "Every window in this desk, including the ones buried behind another": "Ogni finestra di questa scrivania, comprese quelle sepolte dietro un’altra",
+  "How it fits": "Come si adatta",
+  "{n} of {total}": "{n} di {total}",
+  "shown by the browser: {why}": "mostrato dal browser: {why}",
+  "a document you have not read before — after that it opens where you left it": "un documento che non hai ancora letto — poi si riapre dove l’avevi lasciato"
  }
 }

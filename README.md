@@ -248,15 +248,15 @@ services.</sub>
 
 - **Markdown** rendered, with a source toggle, and the figures beside it on disk shown
   where they belong — `![](results/plot.png)` resolves against the document's own folder.
-- **PDF** opens fitted to the page rather than at whatever zoom the browser last used —
-  page width or as-it-comes if you prefer, in Settings. A document rebuilt while you are
-  reading it (latexmk, a report an agent regenerates) is **not** reloaded under you: you
-  get an offer, because the browser's own viewer does not tell anyone which page you are
-  on, so a reload cannot put you back. Argus does remember the page when it was the one
-  that moved you there — a search hit — and returns to it.
-- **PDF** in the browser's own viewer, with a search box that Argus answers itself:
-  inside an iframe Ctrl+F searches the page around the document, and a phone has no
-  Ctrl+F at all, so the text is extracted here and each hit jumps the viewer to its page.
+- **PDFs are drawn by Argus**, with pdf.js, and **open where you left them** — the page,
+  the scroll position to the pixel, the zoom you chose, across reloads and across days. The
+  browser's own viewer cannot do this and never could: measured, it says nothing at all
+  while you scroll, so there is nothing to record. It also drops `view=FitH` in silence,
+  which is why *page width* never survived a reload. Now it is computed here instead of
+  asked for. The text stays selectable, and only the pages on screen are drawn.
+- **A search box for a PDF that Argus answers itself**: the browser's Ctrl+F searches the
+  page *around* a document, and a phone has no Ctrl+F at all, so the text is extracted here
+  and each hit scrolls to its page.
 - **Word/ODT/RTF** rendered through pandoc when the machine has it, with figures inlined
   — and the plain-text extraction as a fallback when it does not.
 - **Logs**: a file too big to send whole arrives as its tail, which is the part anyone
