@@ -270,7 +270,11 @@ services.</sub>
 - **Shared edges behave as splitters**: widen one column and the next gives up precisely
   what the first one took — and a **column gives way as a column**, every row of it, not
   only the one whose edge you happen to be touching.
-- Tile as a grid, columns or rows when you want to start over.
+- Tile as a grid, columns or rows when you want to start over. The desk toolbar is ruled
+  into two: flat on the left, what is *on* the desk; after a divider, gathered into
+  controls, *how it is arranged*.
+- **Every desk tab carries how many windows it holds**, including desks you have not opened
+  this visit.
 - **Keep the arrangement you made.** Grid, Columns and Rows are arrangements the machine
   picks and every one of them throws yours away. **Keep** writes down how the desk looks
   now — every time, over whatever was there before — and **Mine** puts it back: same
