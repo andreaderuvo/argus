@@ -5973,9 +5973,12 @@ async function screenWall() {
   const listCount = el('span', { className: 'tally', hidden: true });
   tools.append(el('button', {
     className: 'winbtn wide',
-    title: t('List the windows in this workspace'),
+    // Named for what it gives you, like Links and Prompts beside it. "List" described the
+    // shape of the thing rather than its contents, and was the one label in the row that
+    // said nothing about what was behind it.
+    title: t('Every window in this desk, including the ones buried behind another'),
     onclick: windowSheet,
-  }, [icon('layers'), el('span', { textContent: t('List') }), listCount]));
+  }, [icon('layers'), el('span', { textContent: t('Windows') }), listCount]));
 
   // Chained terminals are the one thing in here that can do damage you did not intend,
   // so the count sits in the toolbar and unhooks everything in one click.
