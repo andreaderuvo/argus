@@ -5843,21 +5843,38 @@ async function screenWall() {
     tools.append(b);
   }
 
-  // Fourth in the row of arrangements, and the only one that is yours. Before anything is
-  // stored it offers to store what is on screen, which is the whole of the instructions.
-  const mineLabel = el('span');
+  /* The arrangement that is yours, at the end of the row of the ones the machine picks.
+   *
+   *  Two buttons and not one. A single button that saved the first time and restored ever
+   *  after left no way to save again short of a menu, which is a menu nobody finds when
+   *  their hand is already on the toolbar. Two named actions, side by side, each doing one
+   *  thing every time: Keep writes down what is on screen, Mine puts it back.
+   */
+  const keepBtn = el('button', {
+    className: 'winbtn wide',
+    onclick: () => keepLayout(activeSpace()),
+  }, [icon('save'), el('span', { textContent: t('Keep') })]);
+  keepBtn.dataset.keep = '1';
+  tools.append(keepBtn);
+
   const mineBtn = el('button', {
     className: 'winbtn wide',
     onclick: () => restoreLayout(activeSpace()),
-  }, [icon('save'), mineLabel]);
+  }, [icon('layers'), el('span', { textContent: t('Mine') })]);
   mineBtn.dataset.mine = '1';
   tools.append(mineBtn);
+
   paintLayoutButton = () => {
     const kept = savedLayout(activeSpace());
-    mineLabel.textContent = kept ? t('Mine') : t('Keep');
+    keepBtn.title = kept
+      ? t('Save this arrangement over the one you kept ({count})', { count: kept.order.length })
+      : t('Remember how the windows are arranged now');
+    // Nothing to go back to yet, so nothing to offer: the button appears the moment there
+    // is something behind it.
+    mineBtn.hidden = !kept;
     mineBtn.title = kept
       ? t('Put the windows back where you saved them ({count})', { count: kept.order.length })
-      : t('Remember how the windows are arranged now');
+      : '';
     // Deliberately not marked "on" the way Grid and Columns are: there it means "this is
     // the arrangement you are in", and it would be a different claim on the same row.
   };
