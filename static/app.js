@@ -1957,7 +1957,17 @@ const PAGE_GAP = 10;
 
 async function mountPdf(host, path, address, download) {
   const scroller = el('div', { className: 'pdfscroll' });
+  /* Going to a page you have in mind.
+   *
+   *  A number on its own is a label; on a fifty-page paper what you want is to put 31 in
+   *  and be there. So the number is the box you type in, with a step either side of it —
+   *  and the arrows earn their room, because "the next page" is the commonest jump there
+   *  is and a scroll is a poor way to ask for it.
+   */
+  const back = el('button', { className: 'winbtn', title: t('Previous page') }, icon('up'));
+  const on = el('input', { className: 'pdfat', type: 'text', inputMode: 'numeric', spellcheck: false });
   const count = el('span', { className: 'pdfcount' });
+  const next = el('button', { className: 'winbtn', title: t('Next page') }, icon('down'));
   const zoomOut = el('button', { className: 'winbtn', title: t('Smaller') }, icon('compress'));
   const zoomIn = el('button', { className: 'winbtn', title: t('Bigger') }, icon('expand'));
   const zoomSays = el('span', { className: 'pdfzoom' });
@@ -1967,9 +1977,13 @@ async function mountPdf(host, path, address, download) {
   const bar = el('div', { className: 'pdfsearch', hidden: true }, [box, results]);
   // A search box costs a row of the document for as long as it is open, and most of the
   // time nobody is searching. It folds into the button that opens it, over the page.
-  const finder = el('button', { className: 'pdffind', title: t('Find in this document') }, icon('search'));
-  const head = el('div', { className: 'pdfbar' }, [count, el('span', { className: 'grow' }), zoomOut, zoomSays, zoomIn, fitBtn]);
-  const wrap = el('div', { className: 'pdfwrap' }, [head, scroller, finder, bar]);
+  // In the bar, not floating over the page. It floated because there was no bar to put it
+  // in; now there is one, and a button hovering over the top corner of a document is a
+  // button covering the top corner of a document.
+  const finder = el('button', { className: 'winbtn pdffind', title: t('Find in this document') }, icon('search'));
+  const head = el('div', { className: 'pdfbar' },
+    [back, on, count, next, el('span', { className: 'grow' }), zoomOut, zoomSays, zoomIn, fitBtn, finder]);
+  const wrap = el('div', { className: 'pdfwrap' }, [head, scroller, bar]);
   host.textContent = '';
   host.append(wrap);
 
@@ -2094,14 +2108,30 @@ async function mountPdf(host, path, address, download) {
     }
     return at + 1;
   };
-  const sayPage = () => { count.textContent = t('{n} of {total}', { n: showing(), total: doc.numPages }); };
+  const sayPage = () => {
+    const n = showing();
+    count.textContent = t('of {total}', { total: doc.numPages });
+    // Not while you are typing in it: scrolling must not rewrite the number under your
+    // fingers before you have finished asking for one.
+    if (document.activeElement !== on) on.value = String(n);
+    back.disabled = n <= 1;
+    next.disabled = n >= doc.numPages;
+  };
 
   const remember = (force = false) => {
     keepThePlace(path, { mode, scale, top: Math.round(scroller.scrollTop), page: showing() }, force);
   };
 
+  // A desk that is not the one on screen is display:none, and everything inside it
+  // measures zero. Nothing here may act on those measurements.
+  const onScreen = () => scroller.clientWidth > 0 && scroller.clientHeight > 0;
+
   const rescale = (next, keepMiddle = true) => {
-    const before = scroller.scrollTop / Math.max(1, scroller.scrollHeight - scroller.clientHeight);
+    // Clamped to a fraction. Unclamped, a hidden desk gives scrollHeight and clientHeight
+    // of nothing, the divisor falls back to 1, and "the fraction you were scrolled to"
+    // comes out as four thousand — which lands, every time, at the end of the document.
+    const span = Math.max(1, scroller.scrollHeight - scroller.clientHeight);
+    const before = Math.min(1, Math.max(0, scroller.scrollTop / span));
     scale = next;
     layout();
     drawn.clear();
@@ -2124,13 +2154,27 @@ async function mountPdf(host, path, address, download) {
   zoomIn.onclick = () => { mode = 'free'; rescale(Math.min(scale * 1.25, 8)); };
   zoomOut.onclick = () => { mode = 'free'; rescale(Math.max(scale / 1.25, 0.1)); };
 
-  scroller.addEventListener('scroll', () => { sayPage(); remember(); }, { passive: true });
+  scroller.addEventListener('scroll', () => {
+    if (!onScreen()) return;   // a hidden desk scrolling to zero is not you moving
+    sayPage();
+    remember();
+  }, { passive: true });
   window.addEventListener('pagehide', () => remember(true), { once: true });
 
   // A window being resized changes what "page width" means, and only while a fit is what
   // you asked for: a zoom you set by hand is yours to keep.
-  let last = scroller.clientWidth;
+  let last = 0;
   const watchRoom = new ResizeObserver(() => {
+    if (!onScreen()) { last = 0; return; }
+    // Coming back from a desk you had switched away from: display:none threw the scroll
+    // position away, so it is put back rather than re-measured.
+    if (last === 0) {
+      last = scroller.clientWidth;
+      const place = pdfPlace.get(path);
+      if (place?.top) scroller.scrollTop = place.top;
+      sayPage();
+      return;
+    }
     if (mode === 'free' || Math.abs(scroller.clientWidth - last) < 2) return;
     last = scroller.clientWidth;
     rescale(scaleFor());
@@ -2149,6 +2193,16 @@ async function mountPdf(host, path, address, download) {
     const slot = slots[Math.max(0, Math.min(doc.numPages, n) - 1)];
     if (slot) scroller.scrollTop = slot.offsetTop - PAGE_GAP;
   };
+  back.onclick = () => goToPage(showing() - 1);
+  next.onclick = () => goToPage(showing() + 1);
+  on.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); goToPage(Number(on.value) || 1); on.blur(); }
+    if (e.key === 'Escape') { on.blur(); sayPage(); }
+  });
+  // Leaving the box without asking for anything puts the real number back, rather than
+  // leaving a half-typed one sitting there looking like where you are.
+  on.addEventListener('blur', sayPage);
+  on.addEventListener('focus', () => on.select());
 
   finder.onclick = () => {
     bar.hidden = !bar.hidden;

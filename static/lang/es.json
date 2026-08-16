@@ -498,6 +498,9 @@
   "How it fits": "Cómo encaja",
   "{n} of {total}": "{n} de {total}",
   "shown by the browser: {why}": "mostrado por el navegador: {why}",
-  "a document you have not read before — after that it opens where you left it": "un documento que aún no has leído — después se abre donde lo dejaste"
+  "a document you have not read before — after that it opens where you left it": "un documento que aún no has leído — después se abre donde lo dejaste",
+  "Previous page": "Página anterior",
+  "Next page": "Página siguiente",
+  "of {total}": "de {total}"
  }
 }
