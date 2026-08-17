@@ -8632,6 +8632,19 @@ function fillBaton(text, known) {
     .replace(/\{([\w.-]+)\}/g, swap);
 }
 
+/** Every placeholder a piece of text takes, in the order it first asks for them.
+ *
+ *  All three written forms, like `fillBaton` — what a prompt *takes* cannot depend on which
+ *  shape you happen to have picked in Settings, since in a saved prompt all three work.
+ */
+const varsIn = (text) => {
+  const names = [];
+  for (const m of [...text.matchAll(/\{\{?([\w.-]+)\}?\}/g), ...text.matchAll(markRe())]) {
+    if (!names.includes(m[1])) names.push(m[1]);
+  }
+  return names;
+};
+
 const unknownVars = (text, known) => {
   const names = [...text.matchAll(/\{\{?([\w.-]+)\}?\}/g)].map((m) => m[1])
     .concat([...text.matchAll(markRe())].map((m) => m[1]));
@@ -8737,7 +8750,9 @@ function attachMessages(host, wsId, extras, deliver) {
       aimBar.append(el('button', {
         className: `ghost dup${term === now ? ' on' : ''}`,
         textContent: term.name.slice(5),
-        onclick: () => { deliver.setAim(term); drawAim(); },
+        // A full redraw: the aim is what {from} and {to} become, and every line saying so
+        // is now wrong.
+        onclick: () => { deliver.setAim(term); draw(); },
       }));
     }
   };
@@ -8771,6 +8786,40 @@ function attachMessages(host, wsId, extras, deliver) {
           gaps.length ? el('span', { className: 'gapmark', textContent: '{ }' }) : null,
           kind.run ? el('span', { className: 'verb', textContent: '↵' }) : null,
         ].filter(Boolean));
+        /* What this one takes, and what it would be *here*.
+         *
+         *  The hover preview shows the finished sentence, which is the right thing when you
+         *  are about to send one and the wrong thing when you are looking down a list of
+         *  fifteen deciding which. This is the miniature: the names in order, each with the
+         *  value this desk would give it, and the ones with nothing behind them in amber.
+         *  A prompt that takes no placeholders gets no line — most of them do not.
+         */
+        const takes = varsIn(kind.text);
+        if (takes.length) {
+          const here = {
+            folder: deliver.folder(), from: '?', to: '?', plan: planPath(deliver.folder()),
+            ...allVars(wsId),
+          };
+          const aimed = deliver.aim();
+          if (aimed) {
+            here.to = aimed.name.slice(5);
+            here.from = senderFor(aimed)?.name.slice(5) || here.to;
+          }
+          const line = el('span', { className: 'usesline' });
+          const said = [];
+          for (const name of takes) {
+            const value = valueFor(name, here);
+            const gone = value === undefined;
+            said.push(`{${name}} ${gone ? '—' : value}`);
+            line.append(
+              el('code', { className: gone ? 'gone' : '', textContent: `{${name}}` }),
+              el('span', { className: gone ? 'gone' : 'was', textContent: gone ? t('nothing here') : value }),
+            );
+          }
+          line.title = said.join(' · ');
+          row.append(line);
+        }
+
         dragLink(row, { text: kind.name, message: kind }, deliver.find, (item, target) => send(item.message, target));
         row.onclick = () => {
           if (row.dataset.dragged) return;
