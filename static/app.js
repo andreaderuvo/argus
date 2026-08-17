@@ -111,6 +111,8 @@ const DEFAULTS = {
   fontSize: 13,
   wrap: true,
   openInDesk: true,  // a file opened from a window in a desk stays in the desk
+  pdfFit: 'page',    // 'page' | 'width' | 'actual' — a document you have not read before
+  pdfNative: false,  // hand PDFs to the browser's own viewer instead of drawing them here
 };
 
 const THEMES = ['dark', 'light', 'auto'];
@@ -1974,7 +1976,44 @@ function keepThePlace(path, place, force = false) {
 
 const PAGE_GAP = 10;
 
+/* What the browser's own viewer will accept.
+ *
+ *  Measured, because the specification and the implementation disagree: Chrome honours
+ *  `view=Fit` and `view=FitBH`, and silently drops `view=FitH` — which is the whole reason
+ *  page width never survived a reload back when the viewer was the browser's. `page=` is
+ *  honoured, so the page you had reached can be handed over even though the scroll position
+ *  within it cannot.
+ */
+const NATIVE_FITS = {
+  page: 'view=Fit&zoom=page-fit',
+  width: 'view=FitBH&zoom=page-width',
+  actual: '',
+};
+
+/** The browser's viewer, for a reader who asked for it.
+ *
+ *  It is faster on a long document and some people simply prefer it. What is given up is
+ *  everything that comes from owning the viewer: the scroll position within a page, the fit
+ *  surviving a reload, and finding text from a phone. The page number is handed over because
+ *  that much it will take.
+ */
+function mountNativePdf(host, path, address) {
+  const place = pdfPlace.get(path);
+  const asks = [NATIVE_FITS[prefs.pdfFit || 'page'], place?.page > 1 ? `page=${place.page}` : '']
+    .filter(Boolean).join('&');
+  host.textContent = '';
+  host.append(el('iframe', {
+    className: 'preview pdfnative',
+    src: asks ? `${address}#${asks}` : address,
+    title: path.split('/').pop() || 'PDF',
+  }));
+}
+
 async function mountPdf(host, path, address, download) {
+  // Asked for, rather than fallen back to. The fallback further down is a different thing:
+  // that one happens when pdf.js cannot open the file at all.
+  if (prefs.pdfNative) return mountNativePdf(host, path, address);
+
   const scroller = el('div', { className: 'pdfscroll' });
   /* Going to a page you have in mind.
    *
@@ -2984,7 +3023,20 @@ function languageSheet(list) {
 
 async function screenSettings() {
   setTitle(t('Settings'));
-  const wrap = el('div');
+  // Its own class, because this screen is a page to read rather than a list to scan: it
+  // wants a gutter and a measure. Full-bleed rows against the icon rail on a 1280px screen
+  // put a two-word label at one end of a 1200px line and a switch at the other.
+  const wrap = el('div', { className: 'settings' });
+
+  /* A heading over each group.
+   *
+   *  The list had grown past twenty rows of unrelated things — a theme beside a tmux resize
+   *  policy beside whether an agent may ring — and a flat list that long is one you scan
+   *  rather than read. The groups are the questions someone actually arrives with: how it
+   *  looks, how the terminal behaves, what happens to files, what a document does, when it
+   *  is allowed to interrupt me.
+   */
+  const group = (title) => el('h2', { className: 'settinggroup', textContent: title });
 
   const toggle = (label, hint, get, set) => {
     const state = el('span', { className: 'sw', textContent: get() ? 'ON' : 'OFF' });
@@ -3107,7 +3159,6 @@ async function screenSettings() {
     icon('terminal'),
   ]);
   conf.onclick = () => go('#/tmuxconf');
-  wrap.append(conf);
 
   const keys = el('div', { className: 'row setting' }, [
     el('span', { className: 'grow' }, [
@@ -3117,7 +3168,6 @@ async function screenSettings() {
     el('kbd', { textContent: keyFor('help') }),
   ]);
   keys.onclick = () => keyHelp();
-  wrap.append(keys);
 
   const messages = el('div', { className: 'row setting' }, [
     el('span', { className: 'grow' }, [
@@ -3127,7 +3177,6 @@ async function screenSettings() {
     icon('relay'),
   ]);
   messages.onclick = () => go('#/prompts');
-  wrap.append(messages);
 
   const handoff = el('div', { className: 'row setting' }, [
     el('span', { className: 'grow' }, [
@@ -3137,11 +3186,17 @@ async function screenSettings() {
     icon('phone'),
   ]);
   handoff.onclick = handoffSheet;
-  wrap.append(handoff);
 
   // Language first: everything below it is easier to read once it is right.
   const langRow = el('div', { className: 'row setting' });
-  wrap.append(langRow);
+
+  /* Four doors and a language, before any preference.
+   *
+   *  These are not settings — they take you somewhere else, and three of them (the keyboard
+   *  list, the tmux configuration, the QR code) are the reason people open this screen at
+   *  all. Making them read past a theme to find one was the worst part of the flat list.
+   */
+  wrap.append(group(t('Go to')), keys, conf, messages, handoff, langRow);
   (async () => {
     let list = [];
     try { list = await getJSON('/api/languages'); } catch { /* English then */ }
@@ -3162,8 +3217,13 @@ async function screenSettings() {
   })();
 
   wrap.append(
+    group(t('Look')),
     choice(t('Theme'), t('auto follows the system setting'), THEMES,
       () => prefs.theme, (v) => { prefs.theme = v; applyTheme(); }),
+  );
+
+  wrap.append(
+    group(t('Files')),
     toggle(t('Show hidden files'), t('dotfiles and dot-directories, in both panes'),
       () => prefs.hidden, (v) => { prefs.hidden = v; renderSidebar(); }),
     toggle(t('File sidebar'), t('a persistent file pane on the left — wide screens only'),
@@ -3172,19 +3232,46 @@ async function screenSettings() {
       () => prefs.split, (v) => { prefs.split = v; }),
     toggle(t('Tree view'), t('expand folders in place instead of navigating into them'),
       () => prefs.tree, (v) => { prefs.tree = v; renderSidebar(); }),
-    toggle(t('Wrap long lines'), t('the default when previewing a text file'),
-      () => prefs.wrap, (v) => { prefs.wrap = v; }),
     toggle(t('Open files inside the desk'), t('a file opened from a window becomes a window, instead of taking the screen'),
       () => prefs.openInDesk !== false, (v) => { prefs.openInDesk = v; }),
-    toggle(t('Sound when something rings'), t('two short tones when an agent finishes or asks for you'),
-      () => prefs.bellSound !== false, (v) => { prefs.bellSound = v; }),
-    versionRow(),
+  );
+
+  wrap.append(
+    group(t('Documents')),
+    toggle(t('Wrap long lines'), t('the default when previewing a text file'),
+      () => prefs.wrap, (v) => { prefs.wrap = v; }),
+    /* Whose PDF viewer.
+     *
+     *  Argus ships pdf.js so the answer does not depend on which browser you have, and it is
+     *  what makes the page you left off at come back, the fit stay put across a reload, and
+     *  the finder work at all. None of that is free: it draws every page itself, and on a
+     *  slow phone with a 400-page document the browser's own viewer is simply faster.
+     *
+     *  So it is a choice rather than a conviction. The browser's viewer gets the file inline
+     *  with `#page=` and `#zoom=`, which is as much as it will honour.
+     */
+    choice(t('PDF viewer'),
+      t('the built-in one remembers your page and finds text; your browser’s is faster'),
+      [t('built in'), t('the browser’s')],
+      () => (prefs.pdfNative ? t('the browser’s') : t('built in')),
+      (v) => { prefs.pdfNative = v === t('the browser’s'); }),
     choice(t('How a PDF opens'), t('a document you have not read before — after that it opens where you left it'),
       [t('whole page'), t('page width'), t('as it comes')],
       () => ({ page: t('whole page'), width: t('page width'), actual: t('as it comes') })[prefs.pdfFit || 'page'],
       (v) => {
         prefs.pdfFit = v === t('page width') ? 'width' : v === t('as it comes') ? 'actual' : 'page';
       }),
+  );
+
+  wrap.append(
+    group(t('Interruptions')),
+    toggle(t('Sound when something rings'), t('two short tones when an agent finishes or asks for you'),
+      () => prefs.bellSound !== false, (v) => { prefs.bellSound = v; }),
+    wiringRows(), bellRow(),
+  );
+
+  wrap.append(
+    group(t('Placeholders')),
     choice(t('How a placeholder is written'),
       t('in a session — a saved prompt takes any of them'),
       Object.keys(MARKS).map((k) => MARKS[k].show),
@@ -3197,7 +3284,8 @@ async function screenSettings() {
       t('write {genpat_paper.paper} in a prompt to take a value from that set, whatever set the desk is on'),
       () => prefs.crossSet !== false, (v) => { prefs.crossSet = v; }),
   );
-  wrap.append(wiringRows(), bellRow());
+
+  wrap.append(group(t('This copy')), versionRow());
 
   // Font size: a stepper rather than a toggle, applied the next time a session opens.
   const size = el('span', { className: 'sw', textContent: `${prefs.fontSize} px` });

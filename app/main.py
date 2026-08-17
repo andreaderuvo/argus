@@ -7,6 +7,8 @@ import asyncio
 import contextlib
 import os
 import mimetypes
+import shutil
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -617,13 +619,40 @@ def print_qr(url: str) -> bool:
     return True
 
 
+def tmux_version() -> str | None:
+    """What `tmux -V` says, or None if there is no tmux here.
+
+    Worth asking once, at startup, rather than finding out one failed request at a time. The
+    banner used to print happily on a machine with no tmux at all, and then every session
+    screen was empty with an error nobody reads — the same shape of bug as a missing
+    `python-multipart`, which also only showed up on a clean machine.
+    """
+    where = shutil.which("tmux")
+    if not where:
+        return None
+    try:
+        done = subprocess.run([where, "-V"], capture_output=True, text=True, timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    said = (done.stdout or done.stderr or "").strip()
+    return said or "tmux"
+
+
 def banner(config_path: Path, created: bool, host: str, port: int, cfg: Config, sock: tmux.Socket) -> None:
     print(f"argus {VERSION}")
     print(f"  created {config_path} with a fresh token" if created else f"  config  {config_path}")
     shown = [str(r) for r in cfg.roots]
     print(f"  roots   {', '.join(shown[:4])}{f' (+{len(shown) - 4} more)' if len(shown) > 4 else ''}")
     print(f"  resize  {cfg.resize_policy}")
-    print(f"  tmux    socket {sock.label()}")
+    # Not fatal: files, documents and the machine page work without it, and refusing to
+    # start would take those away over something half the screens do not need. But it is
+    # said plainly, because the half that does need it is the reason most people are here.
+    version = tmux_version()
+    if version:
+        print(f"  tmux    {version}, socket {sock.label()}")
+    else:
+        print(f"  tmux    NOT FOUND — no sessions and no terminals until it is installed")
+        print(f"          (files, documents and the machine page work regardless)")
     print(f"  files   {'read-write (mkdir/rename/move/copy/delete)' if cfg.allow_write else 'read-only'}")
     print(f"  ports   {'proxy allowed, one port at a time' if cfg.allow_proxy else 'no proxying'}")
     print()

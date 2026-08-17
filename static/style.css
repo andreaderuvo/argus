@@ -434,6 +434,27 @@ button.ghost {
 
 /* ---------- settings ---------- */
 
+/* The browser's own viewer fills the window it is given, the same as the built-in one. */
+iframe.preview.pdfnative { width: 100%; height: 100%; border: 0; display: block; }
+
+/* A gutter, and a measure.
+ *
+ *  The rows used to run from the icon rail to the far edge, so on a 1280px screen a two-word
+ *  label sat at one end of a 1200px line with its switch at the other and nothing between
+ *  them. A settings row is a short sentence and should be read like one.
+ */
+.settings { padding: 0 1rem 1rem; max-width: 56rem; }
+.settings > .row { padding-left: 0; padding-right: 0; }
+
+/* A heading over a group of settings. Quiet: it is a signpost, not a title, and there are
+   seven of them on one screen. */
+.settings h2.settinggroup {
+  margin: 1.5rem 0 .3rem;
+  font-size: .74rem; font-weight: 600; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--dim);
+}
+.settings h2.settinggroup:first-of-type { margin-top: .8rem; }
+
 .row.setting { cursor: pointer; }
 .row.setting .name { color: var(--bright); }
 

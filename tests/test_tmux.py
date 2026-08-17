@@ -257,3 +257,36 @@ class _ok:
     returncode = 0
     stdout = ""
     stderr = ""
+
+
+def test_a_machine_with_no_tmux_is_noticed_at_startup(monkeypatch):
+    """It used to be found out one failed request at a time: the banner printed happily and
+    every session screen was empty with an error nobody reads. Files and documents work
+    without tmux, so this warns rather than refusing to start — but it warns."""
+    from app import main as entry
+
+    monkeypatch.setattr(entry.shutil, "which", lambda _name: None)
+    assert entry.tmux_version() is None
+
+
+def test_the_version_is_reported_when_there_is_one(monkeypatch):
+    """Which version matters here: `capture-pane -p` aborts the server on some 3.3a builds,
+    and a bug report that says which tmux is a bug report you can act on."""
+    from app import main as entry
+
+    monkeypatch.setattr(entry.shutil, "which", lambda _name: "/usr/bin/tmux")
+    monkeypatch.setattr(entry.subprocess, "run",
+                        lambda *a, **k: type("D", (), {"stdout": "tmux 3.4\n", "stderr": ""})())
+    assert entry.tmux_version() == "tmux 3.4"
+
+
+def test_a_tmux_that_will_not_answer_is_the_same_as_none(monkeypatch):
+    from app import main as entry
+
+    monkeypatch.setattr(entry.shutil, "which", lambda _name: "/usr/bin/tmux")
+
+    def explode(*_a, **_k):
+        raise OSError("no")
+
+    monkeypatch.setattr(entry.subprocess, "run", explode)
+    assert entry.tmux_version() is None
