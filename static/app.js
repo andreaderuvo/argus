@@ -4201,21 +4201,35 @@ async function screenMessages(open = null) {
        */
       const situ = el('div', { className: 'situ' });
       const drawSitu = () => {
+        /* What each one is, and — where it is knowable from here — what it is *right now*.
+         *
+         *  A description alone was not enough: "how often they look at it, in seconds" does
+         *  not tell you that it currently says 60, nor who decided that. Three of these
+         *  resolve against this desk and can simply be shown; {from} and {to} depend on which
+         *  terminal a prompt is aimed at, so they stay described. */
+        const here = deskHome(ws);
         const four = [
-          ['folder', t('the working directory of the session handing over')],
-          ['from', t('the session it is coming from')],
-          ['to', t('the session it is going to')],
-          ['plan', t('the file two agents share when they work on one thing')],
-          ['bridge', t('the file two agents talk through, turn by turn')],
-          ['every', t('how often they look at it, in seconds')],
+          ['folder', t('the working directory of the session handing over'), here],
+          ['from', t('the session it is coming from'), null],
+          ['to', t('the session it is going to'), null],
+          ['plan', t('the file two agents share when they work on one thing'), planPath(here)],
+          ['bridge', t('the file two agents talk through, turn by turn'), bridgePath(here)],
+          ['every', t('how often they look at the bridge — set when you start a pair, and remembered'), `${pairEvery()}`],
         ];
         situ.replaceChildren(el('p', { className: 'hint', textContent: t('Always there, filled from the situation itself — every prompt Argus comes with is written around these and nothing else.') }));
         const table = el('div', { className: 'situgrid' });
-        for (const [name, says] of four) {
+        for (const [name, says, now] of four) {
           const mine = name in set.vars;
           table.append(
             el('code', { className: 'situname', textContent: `{${name}}` }),
-            el('span', { className: 'situsays', textContent: mine ? t('this set says {value}', { value: set.vars[name] || '—' }) : says }),
+            el('span', { className: 'situsays', title: says }, mine
+              ? [el('span', { textContent: t('this set says {value}', { value: set.vars[name] || '—' }) })]
+              // The value first where there is one, because that is what you came to read;
+              // the description after it, quieter, for the first time you see the name.
+              : [
+                now ? el('code', { className: 'situnow', textContent: now }) : null,
+                el('span', { textContent: now ? ` — ${says}` : says }),
+              ].filter(Boolean)),
             el('button', {
               className: 'ghost dup', textContent: mine ? t('In the grid above') : t('Set one anyway'),
               disabled: mine,

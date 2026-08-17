@@ -425,7 +425,7 @@
   "home button: {path}": "home button: {path}",
   "home is now {path}": "home is now {path}",
   "home reset": "home reset",
-  "how often they look at it, in seconds": "cada cuánto lo miran, en segundos",
+  "how often they look at the bridge — set when you start a pair, and remembered": "cada cuánto miran el puente — se elige al iniciar una pareja, y se recuerda",
   "in": "en",
   "in a session — a saved prompt takes any of them": "en una sesión — un prompt guardado las acepta todas",
   "instead of {value}": "en lugar de {value}",
