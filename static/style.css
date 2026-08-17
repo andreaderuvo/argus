@@ -2053,18 +2053,25 @@ button.keyrow { min-height: 2.4rem; }
 button.keyrow kbd { flex: none; }
 
 /* A look at what a prompt will say, without sending it. */
+/* Wide enough for the text as it was written.
+   A prompt is written to about eighty columns and has its own line breaks; in a 480px panel
+   every one of those lines wrapped again, which is the ragged look. So the box takes the
+   width its content asks for, up to what the screen can give. */
 .promptpeek {
   position: fixed;
   z-index: 9998;
-  max-width: min(30rem, 70vw);
-  max-height: 60vh;
+  width: max-content;
+  max-width: min(92vw, 60rem);
+  max-height: 70vh;
   overflow: auto;
   padding: .6rem .75rem;
   border: 1px solid var(--accent);
   border-radius: .5rem;
   background: var(--panel);
   box-shadow: 0 8px 26px rgb(0 0 0 / .5);
-  pointer-events: none;
+  /* It used to ignore the pointer, which meant a panel taller than the screen could be
+     looked at and never scrolled. */
+  overscroll-behavior: contain;
 }
 .promptpeek .peekname {
   margin-bottom: .35rem;
@@ -2076,9 +2083,13 @@ button.keyrow kbd { flex: none; }
 .promptpeek pre {
   margin: 0;
   white-space: pre-wrap;
-  word-break: break-word;
+  /* Only where there is no choice: breaking mid-word to save four pixels is what made the
+     right-hand edge look chewed. */
+  overflow-wrap: anywhere;
+  word-break: normal;
+  max-width: 88ch;
   color: var(--bright);
-  font: 11.5px/1.55 ui-monospace, "SF Mono", Menlo, monospace;
+  font: 12.5px/1.6 ui-monospace, "SF Mono", Menlo, monospace;
 }
 
 /* A window's title bar, when the window is narrow.
