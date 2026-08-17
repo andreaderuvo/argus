@@ -14,7 +14,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 
-from . import bells, favourites, files, fsops, languages, mounts, paths, ports, proxy, system, term, tmux
+from . import bells, favourites, files, fsops, languages, mounts, paths, ports, proxy, release, system, term, tmux
 import httpx
 
 from .auth import PROXY_COOKIE, TokenAuthMiddleware
@@ -22,7 +22,7 @@ from .config import Config, ConfigError, default_path
 from .errors import ApiError
 from .safepath import Jail, PathError
 
-VERSION = "0.1.0"
+VERSION = "0.0.1"
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 BUILTIN_LANG = STATIC_DIR / "lang"
 
@@ -382,6 +382,16 @@ def create_app(cfg: Config) -> FastAPI:
     async def bad_request(_request: Request, exc: RequestValidationError) -> JSONResponse:
         missing = ", ".join(str(e["loc"][-1]) for e in exc.errors())
         return JSONResponse({"error": f"bad or missing query parameter: {missing}"}, status_code=400)
+
+    @app.get("/api/version", tags=["Setup"], summary="What is running here, and whether anything newer exists")
+    async def version(request: Request) -> dict:
+        """Answers immediately from a day-old cache; the question is only asked of GitHub
+        when that cache is stale. Switched off, it answers about this machine and stops
+        there, which is also what it does when there is no way out to the network."""
+        cfg = request.app.state.cfg
+        if not cfg.check_releases:
+            return {"running": VERSION, "latest": None, "url": None, "newer": False, "checked": 0}
+        return await release.look(request.app.state, VERSION)
 
     @app.get("/api/overview", tags=["The machine"],
              summary="What is happening on this machine, in one cheap call")

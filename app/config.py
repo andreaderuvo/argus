@@ -73,6 +73,9 @@ class Config:
     # writes, no proxy. A board watching several machines holds one of these per machine,
     # so losing the board loses a list of session names rather than every box it can see.
     watchers: list[dict] = field(default_factory=list)
+    # Ask github.com once a day whether a newer tag exists. It sends nothing — not even
+    # which version is running — and it never updates anything. Off is a supported answer.
+    check_releases: bool = True
     tls_cert: Path | None = None
     tls_key: Path | None = None
 
@@ -132,6 +135,7 @@ class Config:
             include_mounts=bool(raw.get("include_mounts", False)),
             allow_proxy=bool(raw.get("allow_proxy", False)),
             max_upload_bytes=int(raw.get("max_upload_bytes", 2 * 1024 * 1024 * 1024)),
+            check_releases=bool(raw.get("check_releases", True)),
             watchers=[
                 {"name": str(w.get("name") or "watcher"), "token": str(w.get("token") or "")}
                 for w in (raw.get("watchers") or [])
@@ -149,6 +153,7 @@ class Config:
             "resize_policy": self.resize_policy,
             "max_preview_bytes": self.max_preview_bytes,
             "tmux_socket": self.tmux_socket,
+            "check_releases": self.check_releases,
             "allow_write": self.allow_write,
             "include_mounts": self.include_mounts,
             "allow_proxy": self.allow_proxy,

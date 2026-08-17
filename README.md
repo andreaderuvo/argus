@@ -439,6 +439,19 @@ services.</sub>
 - **No build step.** The frontend is plain ES modules; xterm.js, marked and the QR
   library are vendored. `pip install -r requirements.txt` and run it.
 
+### Knowing there is a newer one
+
+Once a day Argus asks github.com whether a later tag exists, and says so once if there is.
+It sends **nothing** — not an identifier, not your configuration, not even which version
+is running — and it never updates anything: this is somebody's shell, and a program that
+can rewrite itself on a schedule can be made to rewrite itself into something else.
+
+```yaml
+check_releases: false     # and it never asks
+```
+
+With no route out to the network it stays quiet rather than complaining.
+
 ### Watching several machines
 
 A machine can hand out a token that opens exactly one door, `GET /api/overview`: hostname,

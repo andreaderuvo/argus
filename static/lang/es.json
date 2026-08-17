@@ -505,6 +505,10 @@
   "Open in a browser tab": "Abrir en una pestaña del navegador",
   "Wider": "Más ancha",
   "Narrower": "Más estrecha",
-  "full screen was refused; filling the desk instead": "pantalla completa rechazada; lleno el escritorio"
+  "full screen was refused; filling the desk instead": "pantalla completa rechazada; lleno el escritorio",
+  "Version": "Versión",
+  "nothing about you or this machine is ever sent": "nunca se envía nada sobre ti ni sobre esta máquina",
+  "Argus {version} is out — you are on {running}": "Ha salido Argus {version} — estás en {running}",
+  "{running} — {version} is out": "{running} — ha salido {version}"
  }
 }
