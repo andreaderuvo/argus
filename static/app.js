@@ -17,6 +17,7 @@ const keep = document.getElementById('keep');
 const side = document.getElementById('side');
 const nav = document.getElementById('nav');
 const railToggle = document.getElementById('railtoggle');
+const railWins = document.getElementById('railwins');
 railToggle.onclick = () => {
   prefs.railWide = !prefs.railWide;
   savePrefs();
@@ -1196,6 +1197,7 @@ async function render() {
 
   const { path, q } = route;
   nav.hidden = false;
+  paintRailWindows();
   sideToggle.hidden = false;
   bar.settings.hidden = false;
   bar.full.hidden = !CAN_FULLSCREEN;
@@ -3923,6 +3925,49 @@ async function screenTmuxConf() {
   host.querySelector('.editbar')?.prepend(apply);
 }
 
+/* The desk's windows, in the rail.
+ *
+ *  A window you cannot see is a window you have lost: buried under three others, dragged
+ *  off the edge, or on a desk you are not looking at. The List button answers that in two
+ *  taps; this answers it without any, and it is the same list the tabs already show counts
+ *  for. Clicking one goes to the wall and raises it, which openWindow already does.
+ */
+const RAIL_GLYPH = {
+  term: 'terminal', browser: 'folder', file: 'file', web: 'link',
+  links: 'link', messages: 'relay',
+};
+
+function railLabel(spec) {
+  if (spec.kind === 'links') return t('Links');
+  if (spec.kind === 'messages') return t('Prompts');
+  if (spec.kind === 'term') return spec.name;
+  if (spec.kind === 'web') return spec.label || spec.url;
+  return (spec.path || '').split('/').filter(Boolean).pop() || spec.path || '?';
+}
+
+function paintRailWindows() {
+  if (!railWins) return;
+  const desk = (prefs.workspaces || []).find((w) => w.id === prefs.ws);
+  const open = (desk && desk.desktop) || [];
+  railWins.replaceChildren();
+  railWins.hidden = !open.length || !token;
+  for (const spec of open) {
+    const id = specId(spec);
+    const name = railLabel(spec);
+    const dot = el('span', { className: 'raildot' });
+    dot.style.background = colorFor(id);
+    // The same mark the desk tabs carry: if a session is asking for you, its window says
+    // so here rather than making you go and look.
+    const bell = spec.kind === 'term' ? rung.get(spec.name)?.why : null;
+    const button = el('button', {
+      className: `railwin${bell ? ` bell-${bell}` : ''}`,
+      title: name,
+      onclick: () => openWindow(spec),
+    }, [dot, icon(RAIL_GLYPH[spec.kind] || 'file'), el('span', { className: 'railname', textContent: name })]);
+    railWins.append(button);
+  }
+}
+
 /** Wide rail or narrow. Remembered, because it is a preference about your screen rather
  *  than about what you are doing, and re-choosing it every visit would be a tax. */
 function applyRail() {
@@ -6345,6 +6390,7 @@ async function screenWall() {
 
   function paintTally() {
     paintTabCounts();
+    paintRailWindows();
     const links = deskLinks(activeSpace().id).length;
     trayCount.textContent = String(links);
     trayCount.hidden = !links;
