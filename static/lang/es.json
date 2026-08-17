@@ -295,6 +295,7 @@
   "There is no folder at {path}": "No hay ninguna carpeta en {path}",
   "There is no folder at {path}.": "No hay ninguna carpeta en {path}.",
   "There it is. Reloading…": "Ahí está. Recargando…",
+  "These come from the {set} set — the one this desk is on. Change it in the desk’s ⋮ menu.": "Vienen del conjunto {set} — el de este escritorio. Se cambia en el menú ⋮ del escritorio.",
   "These work when you are not typing: a terminal, or any box you are writing in, keeps the keyboard to itself.": "Funcionan cuando no estás escribiendo: una terminal, o cualquier caja de texto, se queda el teclado.",
   "They belong to this desk, so one message serves every project.": "Son de este escritorio, así un mensaje sirve para cada proyecto.",
   "They have {when} left of the time you gave them.": "Les quedan {when} del tiempo que les diste.",

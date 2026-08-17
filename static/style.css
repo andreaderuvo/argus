@@ -551,6 +551,11 @@ input.sheetfind { width: 100%; margin: .2rem 0 .5rem; }
 /* Twenty minutes of silence: both terminals still look busy and the pair has stopped. */
 .winbtn.pairnote.stale, .winbtn.pairnote.stale .ico { color: var(--st-warning); }
 
+/* Which set of values the prompts in this window are filled from. At the far end of the
+   row that says where a tap goes, because it is the other half of the same question. */
+.aimbar .setnote { margin-left: auto; display: inline-flex; align-items: center; gap: .3rem; }
+.aimbar .setnote .ico { width: 13px; height: 13px; }
+
 /* The last few turns of the bridge, in the sheet behind the pair note. */
 .bridgeturn { margin: 0 0 .5rem; font-size: .9rem; }
 .bridgeturn code { color: var(--accent); font-size: .8rem; }
