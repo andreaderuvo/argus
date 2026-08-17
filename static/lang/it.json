@@ -509,6 +509,8 @@
   "Version": "Versione",
   "nothing about you or this machine is ever sent": "non viene mai inviato niente su di te o su questa macchina",
   "Argus {version} is out — you are on {running}": "È uscito Argus {version} — tu sei su {running}",
-  "{running} — {version} is out": "{running} — è uscita la {version}"
+  "{running} — {version} is out": "{running} — è uscita la {version}",
+  "up {age}": "da {age}",
+  "started {when}": "avviata il {when}"
  }
 }

@@ -1361,14 +1361,21 @@ async function screenSessions() {
   }
 
   for (const s of sessions) {
-    const meta = [`${s.windows} window${s.windows === 1 ? '' : 's'}`, s.attached ? 'attached' : null, when(s.created)]
+    /* How long it has been up, rather than the day it started.
+     *
+     *  "Aug 03" answers a question nobody asks. What you want to know about a session is
+     *  whether it has been going for ten minutes or for two months, and that is the
+     *  difference between something you started this morning and something you have
+     *  forgotten about. The exact moment is still there, on hover. */
+    const age = s.created ? t('up {age}', { age: duration(Date.now() / 1000 - s.created) }) : null;
+    const meta = [`${s.windows} window${s.windows === 1 ? '' : 's'}`, s.attached ? 'attached' : null, age]
       .filter(Boolean).join(' · ');
     const dot = el('span', { className: 'dot' });
     dot.style.background = colorFor(s.name);
     const running = live?.key === `term:${s.name}`;
     const row = el('a', { className: `row dir${running ? ' running' : ''}`, href: `#/term?s=${encodeURIComponent(s.name)}` }, [
       dot,
-      el('span', { className: 'grow' }, [
+      el('span', { className: 'grow', title: s.created ? t('started {when}', { when: new Date(s.created * 1000).toLocaleString() }) : '' }, [
         el('span', { className: 'name', textContent: s.name }),
         el('span', { className: 'meta', textContent: running ? `${meta} · open here` : meta }),
       ]),
