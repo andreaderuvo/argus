@@ -1407,7 +1407,33 @@ async function screenSessions() {
     ]));
   }
 
-  for (const s of sessions) {
+  /* A box, once there are enough of them to hunt through.
+   *
+   *  Not shown for four sessions: a filter over a list you can take in at a glance is a
+   *  control that only costs a line. The count beside it appears only while it is doing
+   *  something, for the same reason.
+   */
+  const list = el('div');
+  const count = el('span', { className: 'dim findcount' });
+  let needle = '';
+  if (sessions.length > 5) {
+    view.append(el('div', { className: 'jbar sessfind' }, [
+      el('input', {
+        type: 'search', className: 'jfind', placeholder: t('filter by name'), spellcheck: false,
+        oninput: (e) => { needle = e.target.value.trim().toLowerCase(); paint(); },
+      }),
+      count,
+    ]));
+  }
+  view.append(list);
+  paint();
+
+  function paint() {
+  list.replaceChildren();
+  const showing = sessions.filter((one) => !needle || one.name.toLowerCase().includes(needle));
+  count.textContent = needle ? t('{n} of {total}', { n: showing.length, total: sessions.length }) : '';
+  if (!showing.length) list.append(el('p', { className: 'empty', textContent: t('nothing matches {needle}', { needle }) }));
+  for (const s of showing) {
     /* How long it has been up, rather than the day it started.
      *
      *  "Aug 03" answers a question nobody asks. What you want to know about a session is
@@ -1445,7 +1471,8 @@ async function screenSessions() {
     const menu = el('button', { className: 'more', title: t('Rename or kill') }, icon('more'));
     menu.onclick = (ev) => { ev.preventDefault(); ev.stopPropagation(); sessionActions(s); };
 
-    view.append(el('div', { className: 'rowwrap' }, [row, toWall, menu]));
+    list.append(el('div', { className: 'rowwrap' }, [row, toWall, menu]));
+  }
   }
 }
 
@@ -6822,6 +6849,10 @@ async function screenWall() {
     // Ticked rather than opened one at a time: a desk is usually made of two or three
     // sessions, and closing the sheet after each one meant opening it three times.
     const chosen = new Set();
+    // A tick survives filtering: narrow the list, tick one, clear the box, tick another.
+    // Losing the first would make the filter something you cannot use for what it is for.
+    const rows = el('div');
+    let needle = '';
     const take = el('button', { className: 'primary inline', disabled: true });
     const sayTake = () => {
       take.disabled = !chosen.size;
@@ -6830,13 +6861,17 @@ async function screenWall() {
         : t('Add');
     };
 
-    for (const session of sessions) {
+    const paintRows = () => {
+    rows.replaceChildren();
+    const showing = sessions.filter((one) => !needle || one.name.toLowerCase().includes(needle));
+    if (!showing.length) rows.append(el('p', { className: 'empty', textContent: t('nothing matches {needle}', { needle }) }));
+    for (const session of showing) {
       const here = ws.desktop.some((x) => specId(x) === `term:${session.name}`);
       const dot = el('span', { className: 'tabdot' });
       dot.style.background = colorFor(`term:${session.name}`);
       const tick = el('span', { className: 'tick' });
       const row = el('button', {
-        className: 'ghost block',
+        className: `ghost block${chosen.has(session.name) ? ' on' : ''}`,
         disabled: here,
         title: here ? t('already in this workspace') : t('Add {name} to {desk}', { name: session.name, desk: ws.name }),
       }, [
@@ -6845,6 +6880,7 @@ async function screenWall() {
         el('span', { className: 'verb', textContent: here ? t('open') : `${session.windows}w` }),
         tick,
       ]);
+      tick.textContent = chosen.has(session.name) ? '✓' : '';
       if (!here) {
         row.onclick = () => {
           if (chosen.has(session.name)) chosen.delete(session.name);
@@ -6854,8 +6890,21 @@ async function screenWall() {
           sayTake();
         };
       }
-      body.append(row);
+      rows.append(row);
     }
+    };
+
+    // Sixteen sessions on an ordinary afternoon, and the one you want is the one you were
+    // just working in. Only worth a box when there is a list to get lost in.
+    if (sessions.length > 5) {
+      body.append(el('input', {
+        type: 'search', className: 'jfind sheetfind', placeholder: t('filter by name'), spellcheck: false,
+        oninput: (e) => { needle = e.target.value.trim().toLowerCase(); paintRows(); },
+      }));
+    }
+    paintRows();
+    body.append(rows);
+
     take.onclick = () => {
       sheet.close();
       // In the order they are listed, so what you see is what you get.
@@ -6875,7 +6924,7 @@ async function screenWall() {
     className: 'winbtn wide',
     title: t('Put a tmux session in this workspace'),
     onclick: sessionSheet,
-  }, [icon('terminal'), el('span', { textContent: t('Session') })]));
+  }, [icon('terminal'), el('span', { textContent: t('Sessions') })]));
 
   /* Two agents, one job, started in one action.
    *
