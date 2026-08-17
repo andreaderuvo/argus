@@ -4784,7 +4784,7 @@ function linkPaths(term, container, session, open, following = () => {}) {
   }
 }
 
-function attachTerminal(container, name, { transform, onGone, onPath, onLinks, mirror } = {}) {
+function attachTerminal(container, name, { transform, onGone, onPath, onLinks, onVerdict, mirror } = {}) {
   const term = new Terminal({
     fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace',
     fontSize: prefs.fontSize,
@@ -4911,6 +4911,7 @@ function attachTerminal(container, name, { transform, onGone, onPath, onLinks, m
 
   // Everything worth clicking that goes past in here, offered to the desk's tray.
   const harvest = onLinks ? linkHarvester(term, name, onLinks) : null;
+  const verdicts = onVerdict ? verdictWatcher(term, onVerdict) : null;
 
   let ws = null;
   let ready = false;
@@ -4960,6 +4961,7 @@ function attachTerminal(container, name, { transform, onGone, onPath, onLinks, m
       pending = [];
       term.write(merged);
       harvest?.();
+      verdicts?.();
     };
 
     ws.onmessage = (ev) => {
@@ -5685,6 +5687,67 @@ async function screenWall() {
       saveGeom(geomKey(ws, o.name), node);
     }
 
+    /** The review loop, closed — the one thing here that acts without you.
+     *
+     *  The reviewer is asked to finish on `VERDICT: OK` or `VERDICT: REDO`, and that line is
+     *  as readable by a machine as by a person. Reading it is the whole integration: nothing
+     *  is asked of the agent that was not already asked of it, so this works with anything
+     *  that can be told to end on a sentence — which is all of them.
+     *
+     *  Off unless you turn it on, per desk, and it counts down. Two agents bouncing a change
+     *  between them for six hours while nobody watches is not a feature, it is a novel way to
+     *  spend money, and the cap is what makes the difference between the two. When the rounds
+     *  run out it stops and says so rather than quietly carrying on.
+     *
+     *  A verdict is ignored for the first few seconds after each hand-back: the prompt itself
+     *  quotes both verdict lines, and a terminal echoes what is typed into it. Without that
+     *  pause the loop reads its own instructions and answers them, which it did, immediately,
+     *  the first time it ran.
+     */
+    const VERDICT_SETTLE = 20000;
+    function verdictHeard(from, said) {
+      const loop = (prefs.pairLoop || {})[ws.id];
+      // Only the reviewer's word counts. The builder quotes the review back at itself all the
+      // time, and a quotation is not a verdict.
+      if (!loop || from !== loop.reviews) return;
+      if (Date.now() - (loop.at || 0) < VERDICT_SETTLE) return;
+
+      const stop = (why) => {
+        delete prefs.pairLoop[ws.id];
+        savePrefs();
+        repaintPair();
+        if (why) toast(why);
+      };
+
+      if (said.verdict === 'OK') {
+        // Rung rather than toasted: this is the end of the job, and the end of the job is
+        // exactly what bells are for — you are somewhere else by now.
+        ring({ session: from, why: 'finished', text: t('review passed — {why}', { why: said.why || 'VERDICT: OK' }) });
+        stop(null);
+        return;
+      }
+      if (loop.left <= 0) {
+        ring({ session: from, why: 'asking', text: t('sent back again, and the rounds are used up — read it yourself') });
+        stop(null);
+        return;
+      }
+
+      const builder = open.find((o) => o.name === `term:${loop.builds}`);
+      if (!builder) return stop(t('{who} is not open any more — the review loop is off', { who: loop.builds }));
+      const folder = deskHome(ws);
+      const text = batonTemplates().find((k) => k.name === 'Answer the review')?.text;
+      if (!text) return stop(t('the "Answer the review" template is gone — the review loop is off'));
+
+      loop.left -= 1;
+      loop.at = Date.now();
+      savePrefs();
+      builder.handle.send?.(`${fillBaton(text, {
+        folder, plan: planPath(folder), from: loop.reviews, to: loop.builds, ...allVars(ws.id),
+      })}\r`);
+      repaintPair();
+      toast(t('sent back to {who} — {n} more rounds', { who: loop.builds, n: loop.left }));
+    }
+
     /** What was typed in one chained terminal, handed to the others. */
     function echoToChain(from, data) {
       if (!chained(ws.id, from)) return;
@@ -5844,6 +5907,9 @@ async function screenWall() {
             onPath: (hit) => openLocated('wall', hit, win),
             // A session that is not there any more has to say so, not sit blank.
             onLinks: (found) => noteLinks(ws.id, found),
+            // Only meaningful while a review loop is armed on this desk, and it checks that
+            // itself — wiring it unconditionally keeps the window code free of the pattern.
+            onVerdict: (said) => verdictHeard(spec.name, said),
             mirror: (data) => echoToChain(spec.name, data),
             onGone: () => {
               win.classList.add('gone');
@@ -6731,7 +6797,7 @@ async function screenWall() {
     const paintModes = () => {
       modes.replaceChildren(...PAIR_MODES.map((one) => el('button', {
         className: `ghost block${one === mode ? ' on' : ''}`, type: 'button',
-        onclick: () => { mode = one; paintModes(); paintRoles(); },
+        onclick: () => { mode = one; paintModes(); paintRoles(); paintAuto(); },
       }, [el('span', { className: 'grow', textContent: t(one.name) })])));
       say.textContent = t(mode.hint);
     };
@@ -6747,9 +6813,26 @@ async function screenWall() {
       placeholder: t('What are they trying to do? This goes into the plan file — leave it empty and they will ask you.'),
     });
 
+    /* The only thing in Argus that acts on its own, so it is a switch you turn on rather
+     *  than a default you discover. The number beside it is the point of the switch: what
+     *  makes an unattended loop safe is not that it is careful, it is that it ends. */
+    const loopOn = el('input', { type: 'checkbox' });
+    const rounds = el('input', { type: 'number', className: 'pairrounds', min: '1', max: '20', value: '3' });
+    const auto = el('div', { className: 'pairauto' }, [
+      el('label', { className: 'pairrow' }, [
+        loopOn, el('span', { className: 'grow', textContent: t('Hand back automatically on REDO') }),
+      ]),
+      el('label', { className: 'pairrow' }, [
+        el('span', { textContent: t('at most') }), rounds, el('span', { textContent: t('rounds') }),
+      ]),
+      el('p', { className: 'hint', textContent: t('On VERDICT: REDO the review goes back to the builder without you. On OK it rings instead. It stops when the rounds run out.') }),
+    ]);
+    const paintAuto = () => { auto.hidden = !mode.roles; };
+
     paintModes();
     paintRoles();
-    body.append(modes, say, roles,
+    paintAuto();
+    body.append(modes, say, roles, auto,
       el('p', { className: 'hint', textContent: t('The plan goes in {path}', { path: planPath(deskFolder()) }) }),
       goal);
 
@@ -6788,6 +6871,18 @@ async function screenWall() {
         windowFor(second)?.handle.send?.(
           `${fillBaton(textOf(mode.roles.b), { ...known, from: first, to: second })}\r`);
       }
+
+      // Armed only for the mode that has a verdict to read, only if asked, and with the
+      // count fixed here rather than somewhere in the code: it is your money.
+      prefs.pairLoop = prefs.pairLoop || {};
+      if (mode.roles && loopOn.checked) {
+        prefs.pairLoop[activeSpace().id] = {
+          builds: first, reviews: second, left: Number(rounds.value) || 3, at: Date.now(),
+        };
+      } else {
+        delete prefs.pairLoop[activeSpace().id];
+      }
+      savePrefs();
 
       sheet.close();
       watchPair();
@@ -6832,22 +6927,58 @@ async function screenWall() {
       pairNote.hidden = false;
       pairNote.classList.toggle('stale', quiet > 20 * 60);
       pairNote.title = t('The plan is {path} — last written {when}', { path, when: duration(quiet) });
+      // A loop that hands work back on its own has to be visible while it is doing it, and
+      // visible means the rounds it has left — "on" tells you nothing about when it stops.
+      const loop = (prefs.pairLoop || {})[activeSpace().id];
+      pairNote.classList.toggle('looping', !!loop);
       pairNote.replaceChildren(
         icon('relay'),
         el('span', {}, [
           el('span', { textContent: `${mode}${who.length === 2 ? ` · ${who.join(' → ')}` : ''}` }),
-          el('span', { className: 'count', textContent: ` ${duration(quiet)}` }),
+          el('span', {
+            className: 'count',
+            textContent: loop ? ` ${t('auto ×{n}', { n: loop.left })}` : ` ${duration(quiet)}`,
+          }),
         ]),
       );
-      pairNote.onclick = () => openLocated('wall', { path, type: 'file' }, null);
+      pairNote.onclick = () => (loop ? loopSheet(loop) : openLocated('wall', { path, type: 'file' }, null));
     } catch {
       // No plan, no pair. Not an error: it is the ordinary state of a desk.
       pairNote.hidden = true;
     }
   }
+  /** What the loop is doing, and the way out of it.
+   *
+   *  Turning it off has to be reachable from the thing that shows it is on. Sending you back
+   *  through "start a pair" to stop one already running would be a menu that only goes one
+   *  way, and this is the feature where you might be in a hurry.
+   */
+  function loopSheet(loop) {
+    const body = el('div', { className: 'sheetbody' });
+    body.append(
+      el('p', { textContent: t('{a} builds, {b} reviews. A REDO goes back on its own, {n} more times.', { a: loop.builds, b: loop.reviews, n: loop.left }) }),
+      el('p', { className: 'hint', textContent: t('An OK rings and stops it. So does running out of rounds.') }),
+    );
+    let sheet;
+    sheet = modal(t('Handing back automatically'), body, [
+      el('button', { className: 'ghost', textContent: t('Open the plan'), onclick: () => { sheet.close(); openLocated('wall', { path: planPath(deskFolder()), type: 'file' }, null); } }),
+      el('button', {
+        className: 'danger inline', textContent: t('Stop'),
+        onclick: () => {
+          delete prefs.pairLoop[activeSpace().id];
+          savePrefs();
+          sheet.close();
+          readPair();
+          toast(t('they will not hand back on their own any more'));
+        },
+      }),
+    ]);
+  }
+
   // A declaration, not a const: `activate` calls this and is defined four hundred lines above,
   // so a `let` would be unreachable from it until the module had run this far.
   function watchPair() {
+    repaintPair = readPair;
     clearTimeout(pairClock);
     readPair();
     // Slow on purpose. This answers "are they still going", which changes on the scale of
@@ -8025,6 +8156,11 @@ const LOOSE = 'General';
  *  These are stock templates like the others: open them, read them, change them. They are the
  *  starting point of your own, not a mechanism hidden behind a button.
  */
+/* The pair note is painted by the desk chrome, and the loop that changes it runs in the
+ *  deck — two scopes that do not see each other. One hook, reassigned by whichever desk is
+ *  active, beats either a global search of the DOM or a poll. */
+let repaintPair = () => {};
+
 const TOGETHER = 'Two agents · together';
 const ADVERSARIAL = 'Two agents · one reviews';
 
@@ -8083,9 +8219,12 @@ const PAIR_BATONS = [
       + 'You do not edit anything. Your job is to find what is wrong: cite exact files and\n'
       + 'line numbers, run the tests yourself, and try the failure case rather than reasoning\n'
       + 'about it. Read ## Goal in {plan} and say whether the change actually serves it.\n\n'
-      + 'Finish with one line, exactly:\n'
-      + '  VERDICT: OK — and what convinced you\n'
-      + '  VERDICT: REDO — and the single most important thing to fix first',
+      + 'Finish with one line of your own, starting at the left margin, exactly one of:\n'
+      // Quoted here on purpose. A terminal echoes the prompt it is given, and Argus can be
+      // told to read that line and hand the work back on it — so an instruction written as a
+      // bare verdict is a verdict, and the loop answers its own orders.
+      + '  "VERDICT: OK" followed by what convinced you\n'
+      + '  "VERDICT: REDO" followed by the single most important thing to fix first',
   },
   {
     group: ADVERSARIAL,
@@ -8176,6 +8315,21 @@ function batonTemplates() {
     savePrefs();
   }
   for (const kind of prefs.templates) if (!kind.group) kind.group = LOOSE;
+
+  // Editing a template clears its `stock` flag, so anything still carrying one is word for
+  // word what it shipped as — and can be brought up to date without ever overwriting a
+  // sentence somebody wrote. It matters more here than for most libraries: the review prompt
+  // is read by the loop as well as by the agent, so a stale copy is a broken feature rather
+  // than an old wording.
+  let freshened = false;
+  for (const kind of prefs.templates) {
+    if (!kind.stock) continue;
+    const shipped = [...BATONS, ...PAIR_BATONS].find(
+      (b) => b.name === kind.name && (b.group || LOOSE) === kind.group);
+    if (shipped && shipped.text !== kind.text) { kind.text = shipped.text; freshened = true; }
+  }
+  if (freshened) savePrefs();
+
   return prefs.templates;
 }
 
@@ -8629,6 +8783,78 @@ function noteLinks(id, found) {
  *  strip, and a path the terminal wrapped over two rows is already joined. Only what is
  *  unambiguous later goes in — an absolute path or a URL — because a relative one means
  *  nothing once the pane it was printed in has moved on. */
+/** Watch for the one line a reviewing agent is asked to end on.
+ *
+ *  `VERDICT: OK` / `VERDICT: REDO` is in the stock review prompt because it is readable by a
+ *  machine as well as by a person — and this is the machine reading it. It is the whole of the
+ *  integration: no agent has to speak a protocol, implement anything, or know Argus exists. It
+ *  only has to end with a line it was asked to end with.
+ *
+ *  Rows are read once, in the order they appear, like the link harvester beside it. A verdict
+ *  in a round already handed back must not be found again on the next sweep, or the two agents
+ *  ping-pong on one sentence.
+ */
+function verdictWatcher(term, hand) {
+  const SAYS = /^\s*VERDICT:\s*(OK|REDO)\b[ \t:—-]*(.*)$/i;
+  let read = 0;
+  let due = null;
+  let acted = -1;                     // the highest row already handed on
+  let last = null;                    // and what it said
+  // Attaching to a session replays its scrollback, and the verdict that ended the last round
+  // is in there. Acting on it would hand the work back the moment you reload the page — which
+  // it did, spending a round on a sentence from ten minutes ago. So the first sweep reads
+  // where the session has got to and hands on nothing: this watches what happens next.
+  let warm = false;
+
+  const sweep = () => {
+    due = null;
+    const buf = term.buffer.active;
+    // A full-screen program repaints rather than scrolls, so there are no new rows to count;
+    // reading the visible screen and letting the row counter absorb the rest is enough here,
+    // because a verdict is one line and it is the last thing written.
+    const alt = buf.type === 'alternate';
+    const to = alt ? buf.viewportY + term.rows : buf.baseY + buf.cursorY;
+    const from = alt ? buf.viewportY : Math.max(read, to - HARVEST_ROWS);
+    if (to <= from) return;
+    if (!alt) read = to;
+    const first = !warm;
+
+    // The last one in the sweep, not every one: a verdict is the final word on a round, and if
+    // two are on screen the older is history.
+    let found = null;
+    for (let y = from; y < to; y++) {
+      const line = buf.getLine(y);
+      if (!line) continue;
+      const text = line.translateToString(true);
+      const said = SAYS.exec(text);
+      if (said) found = { y, text, verdict: said[1].toUpperCase(), why: (said[2] || '').trim() };
+    }
+    warm = true;
+    if (!found) return;
+    if (first) { acted = found.y; last = found.text; return; }
+
+    // Never twice on the same sentence — and the row number is not what says so.
+    //
+    // Argus attaches a real tmux client, and a tmux client is a full-screen program: this is
+    // the alternate screen essentially always, where rows are repainted in place rather than
+    // scrolled. A row number there means "third line from the top of the screen", not "the
+    // third thing this session ever printed", so once the screen is full the newest verdict
+    // sits at the same row as the one before it. Guarding on the row read a verdict twice
+    // while the screen was still filling and then stopped reading them at all — both halves
+    // of that were measured, on a real session, and both were wrong.
+    //
+    // What does not move is the sentence. Two verdicts word for word identical, one after the
+    // other, count as one; the price of that is a missed round, and for something that spends
+    // money while nobody is watching, missing one is the right way to be wrong.
+    if (found.text === last || (!alt && found.y <= acted)) return;
+    acted = found.y;
+    last = found.text;
+    hand(found);
+  };
+
+  return () => { if (!due) due = setTimeout(sweep, 400); };
+}
+
 function linkHarvester(term, session, hand) {
   const seen = new Set();
   let read = 0;                       // absolute row we have looked at up to
