@@ -3946,6 +3946,9 @@ function railLabel(spec) {
 }
 
 function paintRailWindows() {
+  // How many desks there are, on the tab that holds them: Sessions has carried its count
+  // for a while and Windows was the one place still making you go and look.
+  showCount('wall', (prefs.workspaces || []).length > 1 ? (prefs.workspaces || []).length : 0);
   if (!railWins) return;
   const desk = (prefs.workspaces || []).find((w) => w.id === prefs.ws);
   const open = (desk && desk.desktop) || [];
@@ -3954,16 +3957,19 @@ function paintRailWindows() {
   for (const spec of open) {
     const id = specId(spec);
     const name = railLabel(spec);
-    const dot = el('span', { className: 'raildot' });
-    dot.style.background = colorFor(id);
     // The same mark the desk tabs carry: if a session is asking for you, its window says
     // so here rather than making you go and look.
     const bell = spec.kind === 'term' ? rung.get(spec.name)?.why : null;
+    const glyph = icon(RAIL_GLYPH[spec.kind] || 'file');
+    // The window's own colour, on the glyph rather than on a dot beside it. A dot would be
+    // a second thing to draw saying what the first one could say by itself — and narrow,
+    // where the glyph is all there is, a dot beside it does not fit at all.
+    glyph.style.color = colorFor(id);
     const button = el('button', {
       className: `railwin${bell ? ` bell-${bell}` : ''}`,
       title: name,
       onclick: () => openWindow(spec),
-    }, [dot, icon(RAIL_GLYPH[spec.kind] || 'file'), el('span', { className: 'railname', textContent: name })]);
+    }, [glyph, el('span', { className: 'railname', textContent: name })]);
     railWins.append(button);
   }
 }
