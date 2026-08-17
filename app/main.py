@@ -388,6 +388,18 @@ def create_app(cfg: Config) -> FastAPI:
     async def static_handler(requested: str) -> Response:
         return serve_static(requested)
 
+    @app.middleware("http")
+    async def say_nothing_outward(request: Request, call_next):
+        """Follow a link out of here and the other end learns nothing about this machine.
+
+        The token is already stripped from the address bar on load, so it was never in a
+        Referer; what remains is the address itself, and a private one is still worth not
+        handing to github.com because somebody clicked the link in the header.
+        """
+        answer = await call_next(request)
+        answer.headers.setdefault("referrer-policy", "no-referrer")
+        return answer
+
     app.add_middleware(TokenAuthMiddleware, token=cfg.token)
     return app
 
