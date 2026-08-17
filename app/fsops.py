@@ -243,7 +243,26 @@ async def write(request: Request, body: WriteBody) -> dict:
     preview was only its tail.
     """
     _writable(request)
-    target = _resolve(request, body.path)
+    # A file that is not there yet is written, as long as the folder holding it is. The jail
+    # cannot resolve a path that does not exist, so the *parent* is what gets checked — which
+    # is the right check anyway: it is the directory that has to be inside the roots.
+    try:
+        target = _resolve(request, body.path)
+    except ApiError as missing:
+        if missing.status != 404:
+            raise
+        asked = Path(body.path)
+        parent = _directory(_resolve(request, str(asked.parent)))
+        target = parent / safe_name(asked.name)
+        if target.exists():
+            raise                       # it resolved to nothing but exists: a symlink out
+        data = body.content.encode("utf-8")
+        if len(data) > request.app.state.cfg.max_preview_bytes:
+            raise ApiError(413, "too large to write in one go") from None
+        target.write_bytes(data)
+        return {"ok": True, "path": str(target), "size": len(data),
+                "mtime": int(target.stat().st_mtime), "created": True}
+
     if target.is_dir():
         raise ApiError(400, "that is a directory")
 

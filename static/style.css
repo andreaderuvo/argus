@@ -461,6 +461,17 @@ iframe.preview.pdfnative { width: 100%; height: 100%; border: 0; display: block;
 }
 .settings h2.settinggroup:first-of-type { margin-top: .8rem; }
 
+/* Two agents: pick a mode, pick who is who, say the goal. */
+.pairmodes { display: grid; gap: .4rem; margin-bottom: .5rem; }
+.pairmodes .ghost.block.on { border-color: var(--accent); color: var(--bright); }
+.pairrow { display: flex; align-items: center; gap: .6rem; padding: .25rem 0; font-size: .88rem; }
+.pairrow > span { min-width: 6rem; color: var(--dim); }
+select.pairpick {
+  flex: 1; min-width: 0; height: 32px; padding: 0 .5rem;
+  border: 1px solid var(--line); border-radius: .4rem;
+  background: var(--bg); color: var(--text); font: inherit; font-size: .88rem;
+}
+
 /* The journal. A wide screen gets the address and the time; a phone drops both rather than
    wrapping every row into three lines. */
 /* Full width: a log is columns, and a measure meant for prose leaves a third of a monitor

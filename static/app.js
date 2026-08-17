@@ -6671,6 +6671,117 @@ async function screenWall() {
     onclick: sessionSheet,
   }, [icon('terminal'), el('span', { textContent: t('Session') })]));
 
+  /* Two agents, one job, started in one action.
+   *
+   *  The templates and the placeholder do the thinking; this only saves you from doing four
+   *  things by hand in the right order — write the plan file, chain, send, unchain — and
+   *  getting the last one wrong, which is the mistake that matters: leaving them chained means
+   *  everything either of them types goes to both.
+   */
+  async function pairSheet() {
+    const deck = deckFor(activeSpace());
+    const terms = deck.open.filter((o) => o.name.startsWith('term:'));
+    const body = el('div', { className: 'sheetbody' });
+    let sheet;
+
+    if (terms.length < 2) {
+      body.append(el('p', { className: 'hint', textContent: t('This desk needs two terminals open — put a second session in it first.') }));
+      sheet = modal(t('Two agents'), body, [
+        el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),
+      ]);
+      return;
+    }
+
+    let mode = PAIR_MODES[0];
+    const names = terms.map((o) => o.name.slice(5));
+    const pick = (label, value, onChange) => {
+      const sel = el('select', { className: 'pairpick' });
+      for (const one of names) sel.append(el('option', { value: one, textContent: one, selected: one === value }));
+      sel.onchange = () => onChange(sel.value);
+      return el('label', { className: 'pairrow' }, [el('span', { textContent: label }), sel]);
+    };
+    let first = names[0];
+    let second = names[1];
+
+    const modes = el('div', { className: 'pairmodes' });
+    const say = el('p', { className: 'hint' });
+    const paintModes = () => {
+      modes.replaceChildren(...PAIR_MODES.map((one) => el('button', {
+        className: `ghost block${one === mode ? ' on' : ''}`, type: 'button',
+        onclick: () => { mode = one; paintModes(); paintRoles(); },
+      }, [el('span', { className: 'grow', textContent: t(one.name) })])));
+      say.textContent = t(mode.hint);
+    };
+    const roles = el('div');
+    const paintRoles = () => {
+      roles.replaceChildren(
+        pick(mode.roles ? t('builds') : t('one'), first, (v) => { first = v; }),
+        pick(mode.roles ? t('reviews') : t('the other'), second, (v) => { second = v; }),
+      );
+    };
+    const goal = el('textarea', {
+      className: 'notebox', rows: 3, spellcheck: true,
+      placeholder: t('What are they trying to do? This goes into the plan file — leave it empty and they will ask you.'),
+    });
+
+    paintModes();
+    paintRoles();
+    body.append(modes, say, roles,
+      el('p', { className: 'hint', textContent: t('The plan goes in {path}', { path: planPath(deskFolder()) }) }),
+      goal);
+
+    const start = el('button', { className: 'primary inline', textContent: t('Start') });
+    start.onclick = async () => {
+      if (first === second) return toast(t('pick two different sessions'), true);
+      start.disabled = true;
+      const folder = deskFolder();
+      const path = planPath(folder);
+      try {
+        await postJSON('/api/fs/write', { path, content: mode.plan(goal.value.trim(), first, second) });
+      } catch (e) {
+        start.disabled = false;
+        return toast(t('could not write the plan: {why}', { why: e.message }), true);
+      }
+
+      const windowFor = (name) => terms.find((o) => o.name === `term:${name}`);
+      const known = { folder, plan: path, from: first, to: second, ...allVars(activeSpace().id) };
+      const textOf = (templateName) => batonTemplates().find((k) => k.name === templateName)?.text || '';
+
+      if (mode.same) {
+        // Through the chain: one prompt, both sessions, and the plan tells each which half is
+        // theirs. Chained on for the send and off immediately — leaving it on is the one way
+        // this could quietly ruin an afternoon.
+        const was = deskChain(activeSpace().id).slice();
+        prefs.chain[activeSpace().id] = [first, second];
+        savePrefs();
+        deck.paintChain();
+        const body = fillBaton(textOf(mode.same), known);
+        for (const name of [first, second]) windowFor(name)?.handle.send?.(`${body}\r`);
+        prefs.chain[activeSpace().id] = was;
+        savePrefs();
+        deck.paintChain();
+      } else {
+        windowFor(first)?.handle.send?.(`${fillBaton(textOf(mode.roles.a), known)}\r`);
+        windowFor(second)?.handle.send?.(
+          `${fillBaton(textOf(mode.roles.b), { ...known, from: first, to: second })}\r`);
+      }
+
+      sheet.close();
+      toast(t('{a} and {b} are on it — the plan is in {path}', { a: first, b: second, path }));
+    };
+
+    sheet = modal(t('Two agents'), body, [
+      el('button', { className: 'ghost', textContent: t('Cancel'), onclick: () => sheet.close() }),
+      start,
+    ]);
+  }
+
+  tools.append(el('button', {
+    className: 'winbtn wide',
+    title: t('Set two sessions working on one goal'),
+    onclick: pairSheet,
+  }, [icon('relay'), el('span', { textContent: t('Two agents') })]));
+
   /** Where this desk starts. A workspace is usually *about* something — one project, one
    *  run — so a browser opened in it should land there, not in the same home directory
    *  every other desk lands in. */
@@ -7906,6 +8017,45 @@ const PAIR_BATONS = [
   },
 ];
 
+/* The two modes, as data: what the plan file starts as, and which prompt goes to whom.
+ *
+ *  The templates above are the words; this is the wiring. Kept apart because the words are
+ *  yours to change — they are stock templates like any other — while the wiring is what makes
+ *  one click start two agents.
+ */
+const PAIR_MODES = [
+  {
+    id: 'together',
+    group: TOGETHER,
+    name: 'Together, without stepping on each other',
+    hint: 'Both work towards one goal. The plan file says who owns which file, and neither '
+      + 'may touch the other\u2019s.',
+    // One prompt to both, through the chain: the two agents differ only by which name the plan
+    // assigns work to, so there is nothing to word differently.
+    same: 'Start (send to both)',
+    plan: (goal, a, b) => `# Plan\n\n`
+      + `## Goal\n${goal || '(write the goal here, then tell them to read it)'}\n\n`
+      + `## Files\nEvery file that will be touched, one owner each. Nobody edits a file that is\n`
+      + `not theirs.\n\n- (path) — ${a}\n- (path) — ${b}\n\n`
+      + `## Doing\n- ${a}: \n- ${b}: \n\n`
+      + `## Done\n\n`
+      + `## Blocked\nA request for a file you do not own goes here, and then you stop.\n`,
+  },
+  {
+    id: 'review',
+    group: ADVERSARIAL,
+    name: 'One builds, the other reviews',
+    hint: 'One writes and never marks its own work correct. The other reads the diff, never '
+      + 'edits, and ends on VERDICT: OK or REDO.',
+    // Two different jobs, so two different prompts.
+    roles: { a: 'You build (send to the worker)', b: 'You review (send to the reviewer)' },
+    plan: (goal, a, b) => `# Plan\n\n`
+      + `## Goal\n${goal || '(what is being attempted, in a paragraph)'}\n\n`
+      + `## Who\n- builds: ${a}\n- reviews: ${b}\n\n`
+      + `## Rounds\nOne line per pass: what changed, and the verdict it got.\n`,
+  },
+];
+
 const BATONS = [
   {
     group: 'Code review',
@@ -8089,8 +8239,13 @@ function fromNamedSet(name) {
  *  Not a protocol. MCP connects an agent to tools, A2A wants both sides to implement it, and a
  *  `codex` in a terminal speaks neither. A file in a shared folder is what Grok, Gemini, Claude
  *  Code and Codex all support today with nothing configured, which is the whole requirement.
+ *
+ *  In the folder itself, not in a `.argus/` under it. Three reasons, all found by trying the
+ *  other way: creating the directory needs a `mkdir` that deliberately never overwrites — so a
+ *  second run would have made `.argus 2` — a dot-directory is hidden in the file browser by
+ *  default, and an agent doing `ls` would not see the one file it is supposed to read.
  */
-const planPath = (folder) => `${(folder || '.').replace(/\/+$/, '')}/.argus/plan.md`;
+const planPath = (folder) => `${(folder || '.').replace(/\/+$/, '')}/PLAN.argus.md`;
 
 const valueFor = (name, known) => (name in known ? known[name] : fromNamedSet(name));
 
