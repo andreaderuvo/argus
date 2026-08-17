@@ -1287,6 +1287,87 @@
     ]
    }
   },
+  "/api/runnable": {
+   "get": {
+    "description": "The names, and whether each is up right now. Not the commands.\n\nA board needs to know what it may ask for and what is already happening; it has no\nuse for the shell line, and every extra thing on the wire is one more thing a leaked\nboard leaks.",
+    "operationId": "getApiRunnable",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "additionalProperties": true,
+          "type": "object"
+         },
+         "title": "Response Runnable Api Runnable Get",
+         "type": "array"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "What this machine offers to start and stop",
+    "tags": [
+     "The machine"
+    ]
+   }
+  },
+  "/api/runnable/{name}/{action}": {
+   "post": {
+    "description": "`action` is start or stop, and `name` must be something this machine published.\n\nNo command arrives in this request and none ever will. That is what keeps a watcher\ntoken nearly worthless: the worst anything holding it can do is start or stop what is\nwritten in this machine's own config.",
+    "operationId": "postApiRunnableNameAction",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "name",
+      "required": true,
+      "schema": {
+       "title": "Name",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "action",
+      "required": true,
+      "schema": {
+       "title": "Action",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Run One Api Runnable  Name   Action  Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Start or stop one of them",
+    "tags": [
+     "The machine"
+    ]
+   }
+  },
   "/api/search": {
    "get": {
     "operationId": "getApiSearch",
@@ -1340,6 +1421,30 @@
     "summary": "Find files by name under a folder",
     "tags": [
      "Files"
+    ]
+   }
+  },
+  "/api/shutdown": {
+   "post": {
+    "description": "Stops the server. Nothing here can start it again.\n\nThat asymmetry is the whole character of this endpoint: every tmux session carries on\nuntouched \u2014 Argus is a client, not their parent \u2014 but the only way back to this page\nis a shell on this machine, or a supervisor that restarts it. Which is why it takes\n`may_stop_argus` on top of `may_run`, and why the answer says so.",
+    "operationId": "postApiShutdown",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Shutdown Api Shutdown Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Stop this Argus",
+    "tags": [
+     "The machine"
     ]
    }
   },
