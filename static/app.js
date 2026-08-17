@@ -302,7 +302,18 @@ const svg = (tag, attrs = {}, kids = []) => {
 
 async function api(path, init) {
   const headers = { Authorization: `Bearer ${token}`, ...(init?.headers || {}) };
-  const r = await fetch(path, { ...init, headers });
+  let r;
+  try {
+    r = await fetch(path, { ...init, headers });
+  } catch (e) {
+    // No answer at all — not a refusal, an absence. The machine is off, the service has
+    // stopped, the wifi has gone, the laptop has been shut. Every one of those looks like
+    // an app that has quietly stopped working, so it says so instead.
+    if (e.name !== 'AbortError') lostTheServer();
+    throw e;
+  }
+  // Anything that came back means it is there, whatever it said.
+  if (waiting) foundTheServer();
   if (r.status === 401) { signOut(); throw new Error('unauthorized'); }
   if (!r.ok) {
     let msg = `HTTP ${r.status}`;
@@ -310,6 +321,100 @@ async function api(path, init) {
     const e = new Error(msg); e.status = r.status; throw e;
   }
   return r;
+}
+
+/* ------------------------------------------------------- when it stops answering
+
+   An app that has lost its server looks exactly like an app that is broken: buttons that do
+   nothing, a list that will not refresh, a spinner that never ends. It is worth saying which
+   of the two it is, because the answer changes what you do — nothing, usually, since a tmux
+   session outlives all of this and the work carries on without a browser attached.
+
+   So it says so, and then it does the thing you would do: try again. Spaced out rather than
+   hammering — a machine that is rebooting is not helped by sixty requests a minute, and the
+   gaps are how long a reboot actually takes. A handful of tries, then it stops and waits for
+   you, because something that retries for ever is something you stop believing.
+
+   The probe is an ordinary authenticated request. Anything that comes back at all means the
+   server is there, and then the page reloads: whatever went stale while it was away — a
+   listing, a session that has gone, a token that was rotated — is settled by starting again
+   rather than by guessing which parts survived.
+*/
+const RETRY_AFTER = [3, 5, 8, 13, 21, 34];
+let waiting = null;
+
+function foundTheServer() {
+  if (!waiting) return;
+  clearTimeout(waiting.clock);
+  waiting.said.textContent = t('There it is. Reloading…');
+  waiting = { ...waiting, done: true };
+  location.reload();
+}
+
+function lostTheServer() {
+  if (waiting || !token) return;
+
+  const said = el('p', { className: 'lostsaid' });
+  const now = el('button', { className: 'primary inline', textContent: t('Try now') });
+  // The button you would want anyway. The countdown is doing the same thing on its own, but
+  // waiting for a machine you have just watched come back is its own small annoyance — and
+  // this one does not care what the probe thinks.
+  const again = el('button', {
+    className: 'ghost', textContent: t('Reload the page'), onclick: () => location.reload(),
+  });
+  const box = el('div', { className: 'lostbox' }, [
+    el('h2', { textContent: t('Argus is not answering') }),
+    el('p', { className: 'hint', textContent: t('The machine, the service or the network — from here they look the same. Your tmux sessions are not affected: they run on the machine, not in this page.') }),
+    said,
+    el('div', { className: 'lostrow' }, [again, now]),
+  ]);
+  const veil = el('div', { className: 'lostveil' }, [box]);
+  document.body.append(veil);
+  waiting = { veil, said, clock: null, tries: 0 };
+
+  const probe = async () => {
+    said.textContent = t('Trying…');
+    const stop = new AbortController();
+    const giveUp = setTimeout(() => stop.abort(), 5000);
+    try {
+      await fetch('/api/config', { headers: { Authorization: `Bearer ${token}` }, signal: stop.signal });
+      foundTheServer();                     // anything at all, even an error status
+    } catch {
+      wait();
+    } finally {
+      clearTimeout(giveUp);
+    }
+  };
+
+  const wait = () => {
+    if (!waiting || waiting.done) return;
+    // Whatever was counting down before this, stop it. One clock, or two of them read the
+    // same counter and the sentence stops matching the wait.
+    clearTimeout(waiting.clock);
+    const attempt = waiting.tries + 1;
+    const gap = RETRY_AFTER[attempt - 1];
+    if (gap === undefined) {
+      said.textContent = t('Still nothing, after {n} tries.', { n: RETRY_AFTER.length });
+      now.textContent = t('Try again');
+      now.onclick = () => { waiting.tries = 0; now.textContent = t('Try now'); probe(); };
+      return;
+    }
+    waiting.tries = attempt;
+    let left = gap;
+    const tick = () => {
+      if (!waiting || waiting.done) return;
+      // `attempt`, not `waiting.tries`: the number in the sentence and the number of seconds
+      // being counted have to be the same round.
+      said.textContent = t('Trying again in {n}s — attempt {i} of {all}', { n: left, i: attempt, all: RETRY_AFTER.length });
+      if (left <= 0) return probe();
+      left -= 1;
+      waiting.clock = setTimeout(tick, 1000);
+    };
+    tick();
+  };
+
+  now.onclick = () => { clearTimeout(waiting.clock); probe(); };
+  wait();
 }
 
 const getJSON = (p) => api(p).then((r) => r.json());
