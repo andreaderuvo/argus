@@ -4,7 +4,12 @@
 
 # Argus
 
-**Your agents run in tmux. Argus is the window onto them — from a desk or from a phone.**
+**Watch your AI agents work. From anywhere.**
+
+They already run in tmux — Claude Code, Codex, Gemini, a script that takes two hours.
+Argus puts those sessions, the files they are writing and the report they just produced in
+one browser tab, and the same thing on your phone. Nothing to install inside the agent: if
+it runs in a terminal, it works.
 
 ![An agent prints the path of the report it has written; one click opens it beside the session](docs/img/paths.gif)
 
