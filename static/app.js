@@ -207,16 +207,45 @@ const termThemeWatch = new Set();
 
 /* ---------------------------------------------------------------- plumbing */
 
-// The banner URL carries the token. Take it, then scrub it out of the address bar so it
-// does not sit in history or get shared by accident.
-{
-  const q = new URLSearchParams(location.search);
-  if (q.get('token')) {
-    token = q.get('token');
-    localStorage.setItem(KEY, token);
-    history.replaceState(null, '', location.pathname + location.hash);
-  }
+/* The banner URL carries the token. Take it, then scrub it out of the address bar.
+ *
+ *  Two forms, and the difference matters more than it looks. `#token=` is a **fragment**:
+ *  the browser never sends it to the server, so it cannot appear in an access log, in the
+ *  log of any proxy along the way, or in a `Referer`. `?token=` is in the request line and
+ *  therefore in all three. The banner prints the hash form now; the query form is still
+ *  accepted, because links and QR codes already in people's phones must keep working.
+ *
+ *  Neither form saves it from the browser's own history, which is why it is scrubbed out
+ *  of the bar either way.
+ */
+function takeTokenFromAddress() {
+  const hash = location.hash.replace(/^#/, '');
+  const fromHash = new URLSearchParams(hash).get('token');
+  const given = fromHash || new URLSearchParams(location.search).get('token');
+  if (!given) return false;
+  token = given;
+  localStorage.setItem(KEY, token);
+  // A hash that carried nothing but the token leaves no route behind; one that carried a
+  // route keeps it, so `#token=…&/wall` lands on the desk it names.
+  const rest = fromHash
+    ? hash.split('&').filter((bit) => !bit.startsWith('token=')).join('&')
+    : hash;
+  history.replaceState(null, '', location.pathname + (rest ? `#${rest}` : ''));
+  return true;
 }
+
+takeTokenFromAddress();
+
+/* And again if one arrives later.
+ *
+ *  Changing only the fragment is a same-document navigation: the browser does not reload, so
+ *  a `#token=` link pasted into a tab that is already open would do nothing at all — where
+ *  `?token=` forces a reload and works. Found by a test that navigated between the two forms
+ *  and was quietly measuring the first one twice.
+ */
+window.addEventListener('hashchange', () => {
+  if (takeTokenFromAddress()) location.reload();
+});
 
 /* ------------------------------------------------------------------- words */
 
@@ -317,10 +346,18 @@ async function toggleFavourite(path, group) {
   } catch (e) { toast(e.message, true); }
 }
 
+// Declared here rather than beside the bell code below: `signOut` closes it, and a `let` is
+// not readable before its own line has run.
+let bellStream = null;
+
 function signOut() {
   token = '';
   server = null;
   localStorage.removeItem(KEY);
+  // The bell stream outlived a sign-out before this, because an EventSource was never closed
+  // — it sat there reconnecting with a token that had just been thrown away.
+  bellStream?.abort?.();
+  bellStream = null;
   side.innerHTML = '';
   render();
 }
@@ -1287,7 +1324,11 @@ async function scanForToken(onToken) {
         const value = found.rawValue;
         // Either a whole URL with the token in it, or the bare token.
         let tok = value.trim();
-        try { tok = new URL(value).searchParams.get('token') || tok; } catch { /* not a URL */ }
+        try {
+          const seen = new URL(value);
+          tok = new URLSearchParams(seen.hash.replace(/^#/, '')).get('token')
+            || seen.searchParams.get('token') || tok;
+        } catch { /* not a URL, so it is the bare token */ }
         sheet.close();
         return onToken(tok);
       }
@@ -7403,7 +7444,6 @@ function bellSound(why) {
  *  A message arriving on an open connection is not throttled. Polling stays as the
  *  fallback for the case where something in between will not pass a stream through.
  */
-let bellStream = null;
 
 function listenForBells() {
   if (!token || bellStream) return;
@@ -7418,27 +7458,67 @@ function listenForBells() {
   openStream();
 }
 
+/** The bells, over one connection that stays open — read with `fetch`, not `EventSource`.
+ *
+ *  `EventSource` cannot carry a header, so its URL had the token in the query. That is the
+ *  one request of Argus's own that undid the point of handing the token over in the fragment:
+ *  a long-lived URL, reconnected by the browser for as long as the tab is open, with the
+ *  credential in the request line where every proxy on the way writes it down.
+ *
+ *  `fetch` can set the header, and the body is a stream. What is given up is the automatic
+ *  reconnect, so that is done here — and the polling fallback that already existed for
+ *  awkward proxies now also covers a browser too old for streaming bodies.
+ */
 function openStream() {
-  if (bellStream || !window.EventSource) return pollForBells();
-  // EventSource cannot carry a header, so the token rides in the query, the way the
-  // websockets already do.
-  const source = new EventSource(`/api/bells/stream?since=${heardUpTo ?? 0}&token=${encodeURIComponent(token)}`);
-  bellStream = source;
-  source.onmessage = (e) => {
+  if (bellStream || !window.ReadableStream) return pollForBells();
+
+  const stop = new AbortController();
+  bellStream = stop;
+
+  (async () => {
     try {
-      const bell = JSON.parse(e.data);
-      heardUpTo = Math.max(heardUpTo ?? 0, bell.seq);
-      ring(bell);
-    } catch { /* not a bell */ }
-  };
-  source.onerror = () => {
-    // The browser reconnects a stream by itself, but not if the server refused it
-    // outright; falling back to polling means one awkward proxy cannot make the app deaf.
-    if (source.readyState === EventSource.CLOSED) {
+      const r = await fetch(`/api/bells/stream?since=${heardUpTo ?? 0}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: stop.signal,
+      });
+      if (!r.ok || !r.body) throw new Error(`stream ${r.status}`);
+
+      const reader = r.body.getReader();
+      const decode = new TextDecoder();
+      let buffered = '';
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffered += decode.decode(value, { stream: true });
+        // Server-sent events are separated by a blank line. A frame beginning with `:` is a
+        // comment — the heartbeat that keeps an idle connection from being culled.
+        let cut = buffered.indexOf('\n\n');
+        while (cut !== -1) {
+          const frame = buffered.slice(0, cut);
+          buffered = buffered.slice(cut + 2);
+          for (const line of frame.split('\n')) {
+            if (!line.startsWith('data:')) continue;
+            try {
+              const bell = JSON.parse(line.slice(5).trim());
+              heardUpTo = Math.max(heardUpTo ?? 0, bell.seq);
+              ring(bell);
+            } catch { /* not a bell */ }
+          }
+          cut = buffered.indexOf('\n\n');
+        }
+      }
+      // The server closed it. Come back, unless we are the ones who hung up.
+      if (bellStream === stop) {
+        bellStream = null;
+        setTimeout(() => { if (token) openStream(); }, 2000);
+      }
+    } catch (e) {
+      if (stop.signal.aborted) return;      // signed out, or a new stream took over
       bellStream = null;
+      // One awkward proxy, or a browser that will not stream, must not make the app deaf.
       pollForBells();
     }
-  };
+  })();
 }
 
 async function pollForBells() {

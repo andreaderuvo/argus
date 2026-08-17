@@ -668,11 +668,20 @@ def parse_listen(listen: str) -> tuple[str, int]:
 
 
 def url_for(host: str, port: int, cfg: Config) -> str:
+    """The link to open, with the token in the fragment rather than the query.
+
+    `#token=` is never sent to the server. Not in the request line, so not in an access log,
+    not in the log of any proxy on the way, and not in a `Referer` — where `?token=` is in all
+    three. The page reads it from `location.hash` and scrubs it out of the bar.
+
+    The query form is still accepted, because links and QR codes already saved on people's
+    phones have to keep working; it is simply no longer the one printed.
+    """
     scheme = "https" if cfg.tls() else "http"
     # 0.0.0.0 is not a usable destination — show a loopback URL and let the banner
     # mention that it is reachable from the network too.
     shown = "127.0.0.1" if host in ("0.0.0.0", "::", "") else host
-    return f"{scheme}://{shown}:{port}/?token={cfg.token}"
+    return f"{scheme}://{shown}:{port}/#token={cfg.token}"
 
 
 def print_qr(url: str) -> bool:
@@ -810,7 +819,7 @@ def main(argv: list[str] | None = None) -> int:
         # One per address: which of them a phone can dial depends on where the phone is.
         for address in reachable_addresses() or [host]:
             scheme = "https" if cfg.tls() else "http"
-            url = f"{scheme}://{address}:{port}/?token={cfg.token}"
+            url = f"{scheme}://{address}:{port}/#token={cfg.token}"
             print(f"\n  {url}\n")
             print_qr(url)
         return 0
