@@ -19,8 +19,6 @@ ROOT = Path(__file__).resolve().parent.parent
 APP = ROOT / "static" / "app.js"
 LANG = ROOT / "static" / "lang"
 
-LITERAL = re.compile(r"'((?:[^'\\]|\\.)*)'|\"((?:[^\"\\]|\\.)*)\"")
-
 # Literals that reach `t()` but are not text: `kind` values compared inside a ternary, as in
 #   t(kind === 'term' ? 'session' : kind === 'browser' ? 'files' : 'document')
 # The words that get shown are the other branches, and those are checked like everything
@@ -42,16 +40,34 @@ def unescape(js: str) -> str:
 def keys_in_source() -> set[str]:
     """Every literal in the first argument of a `t()` call.
 
-    Parentheses are counted rather than matched with a regex, because the first argument is
-    not always one literal — a plural is a ternary with two of them, and a pattern that only
-    caught a bare string would skip both.
+    Walked rather than matched with a regex, because the first argument is not always one
+    literal — a plural is a ternary with two of them, and a pattern that only caught a bare
+    string would skip both.
+
+    The walk has to know where strings begin and end. A version of this counted parentheses
+    and stopped at the first comma at depth one, which cuts straight through any key that has
+    a comma in it — and then reports the catalogue as having entries nothing asks for, when
+    the truth is the opposite.
     """
     body = APP.read_text(encoding="utf-8")
     found: set[str] = set()
     for call in re.finditer(r"\bt\(", body):
         i, depth = call.end(), 1
+        literals: list[str] = []
         while i < len(body) and depth:
             char = body[i]
+            if char in "'\"":
+                quote, i, buf = char, i + 1, []
+                while i < len(body) and body[i] != quote:
+                    if body[i] == "\\":
+                        buf.append(body[i:i + 2])
+                        i += 2
+                        continue
+                    buf.append(body[i])
+                    i += 1
+                literals.append("".join(buf))
+                i += 1
+                continue
             if char == "(":
                 depth += 1
             elif char == ")":
@@ -59,10 +75,7 @@ def keys_in_source() -> set[str]:
             elif char == "," and depth == 1:
                 break
             i += 1
-        for single, double in LITERAL.findall(body[call.end():i]):
-            raw = single or double
-            if raw:
-                found.add(unescape(raw))
+        found.update(unescape(one) for one in literals if one)
     return found - NOT_TEXT
 
 

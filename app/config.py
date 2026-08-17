@@ -95,6 +95,18 @@ class Config:
     # {url, token, name, reach, every}. Empty means it announces itself nowhere, which is
     # the default: a machine that phones a board you did not set up is a surprise.
     report_to: dict = field(default_factory=dict)
+    # Whether the board this machine announces itself to may also ask it to start and stop
+    # things, in the reply to that announcement. Off by default and deliberately separate
+    # from `report_to`: telling a board what you are doing is not agreeing to take orders
+    # from it, and the two decisions belong to different people often enough to matter.
+    #
+    # Even on, the answer is bounded by `runnable`: a reply can name one of those and nothing
+    # else. There is no path by which a command reaches this machine.
+    obey_board: bool = False
+    # Whether the board may also stop this Argus, over that same reply. Separate again, and
+    # for the sharpest reason on this page: it is the only instruction that cannot be
+    # reversed from the board, because afterwards there is nothing there to ask.
+    board_may_stop_argus: bool = False
     tls_cert: Path | None = None
     tls_key: Path | None = None
 
@@ -133,6 +145,11 @@ class Config:
         for r in self.runnable:
             if not r["run"]:
                 raise ConfigError(f"the runnable {r['name']!r} has nothing to run")
+            if r["name"] == "argus":
+                raise ConfigError(
+                    "`argus` is reserved: a board uses that name for the server itself, so a "
+                    "runnable called it could never be reached"
+                )
             if r["name"] in seen_runnable:
                 raise ConfigError(f"two runnables are both called {r['name']!r}")
             seen_runnable.add(r["name"])
@@ -142,6 +159,17 @@ class Config:
                     f"the runnable name {r['name']!r} may only hold letters, digits, "
                     "dots, dashes and underscores"
                 )
+        if self.obey_board and not self.runnable:
+            raise ConfigError(
+                "`obey_board` is on but `runnable` is empty — the board would have nothing "
+                "it could ask for"
+            )
+        if self.board_may_stop_argus and not self.obey_board:
+            raise ConfigError(
+                "`board_may_stop_argus` is on but `obey_board` is not — it would never be read"
+            )
+        if self.obey_board and not self.report_to:
+            raise ConfigError("`obey_board` is on but this machine announces itself nowhere")
         for w in self.watchers:
             if w.get("may_stop_argus") and not w.get("may_run"):
                 raise ConfigError(
@@ -186,6 +214,8 @@ class Config:
             max_upload_bytes=int(raw.get("max_upload_bytes", 2 * 1024 * 1024 * 1024)),
             check_releases=bool(raw.get("check_releases", True)),
             report_to=dict(raw.get("report_to") or {}),
+            obey_board=bool(raw.get("obey_board", False)),
+            board_may_stop_argus=bool(raw.get("board_may_stop_argus", False)),
             watchers=[
                 {"name": str(w.get("name") or "watcher"), "token": str(w.get("token") or ""),
                  # Off unless asked for: a watcher that could restart things without anyone
