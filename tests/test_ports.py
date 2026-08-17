@@ -45,7 +45,7 @@ def test_loopback_is_what_a_phone_cannot_reach():
     assert is_loopback("127.0.1.1")
     assert is_loopback("::1")
     assert not is_loopback("0.0.0.0")
-    assert not is_loopback("10.0.0.5")
+    assert not is_loopback("192.0.2.10")
 
 
 def test_a_garbled_line_is_skipped():
