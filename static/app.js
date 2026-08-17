@@ -6411,7 +6411,13 @@ async function screenWall() {
       const ws = activeSpace();
       const deck = deckFor(ws);
       const id = specId(spec);
-      if (deck.open.some((o) => o.name === id)) return;
+      // Already open, and quite possibly behind three other windows. Returning silently
+      // made clicking a path look broken: the file *was* open, you just could not see it.
+      const already = deck.open.find((o) => o.name === id);
+      if (already) {
+        raiseWindow(already);
+        return;
+      }
       const entry = deck.addWindow(spec);
       applyGeom(entry.win, prefs.winGeom?.[geomKey(ws, id)] || geom || DEFAULT_GEOM);
       entry.win.style.zIndex = ++top;
