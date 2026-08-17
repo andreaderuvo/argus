@@ -2203,3 +2203,17 @@ input.pdfat:focus { border-color: var(--accent); outline: none; }
     position: absolute; top: .3rem; left: 50%; margin-left: .3rem;
   }
 }
+
+/* One window taking the whole screen.
+   The geometry lives in inline styles, which beat a stylesheet, so this is the one place
+   !important earns its keep: the browser has already made the element fill the screen and
+   the inline left/top/width/height would put it back in its corner. */
+.win:fullscreen {
+  left: 0 !important;
+  top: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 0;
+  border: 0;
+}
+.win:fullscreen .winbar { border-radius: 0; }
