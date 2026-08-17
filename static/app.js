@@ -485,6 +485,63 @@ const when = (secs) => {
     : d.toLocaleDateString([], { day: '2-digit', month: 'short' });
 };
 
+/** A session has been renamed: move everything that was filed under the old name.
+ *
+ *  The name is the identifier here — of a window in a desk, of a geometry, of a colour, of a
+ *  chain, of a silence, of one half of a pair — which is the price of a scheme where you can
+ *  read every key. So a rename is not one write, it is this list, and the list is in one
+ *  place so the next thing keyed by name has somewhere obvious to be added.
+ */
+function renamedSession(from, to) {
+  const wasId = `term:${from}`;
+  const nowId = `term:${to}`;
+
+  for (const ws of prefs.workspaces || []) {
+    for (const spec of ws.desktop || []) {
+      if (spec.kind === 'term' && spec.name === from) spec.name = to;
+      // A Links window pinned to a desk keys on the desk, not the session: nothing to do.
+    }
+  }
+
+  const geom = prefs.winGeom || {};
+  for (const key of Object.keys(geom)) {
+    const [wsId, ...rest] = key.split(':');
+    if (rest.join(':') === wasId) {
+      geom[`${wsId}:${nowId}`] = geom[key];
+      delete geom[key];
+    }
+  }
+
+  // Two spellings, because the wall keys a colour by `term:name` and the session list keys
+  // it by the bare name. Both move, rather than picking one and losing the other.
+  for (const colours of [prefs.colors]) {
+    if (!colours) continue;
+    if (wasId in colours) { colours[nowId] = colours[wasId]; delete colours[wasId]; }
+    if (from in colours) { colours[to] = colours[from]; delete colours[from]; }
+  }
+
+  for (const [wsId, chained] of Object.entries(prefs.chain || {})) {
+    if (Array.isArray(chained) && chained.includes(from)) {
+      prefs.chain[wsId] = chained.map((one) => (one === from ? to : one));
+    }
+  }
+
+  if (Array.isArray(prefs.mute) && prefs.mute.includes(from)) {
+    prefs.mute = prefs.mute.map((one) => (one === from ? to : one));
+  }
+
+  for (const loop of Object.values(prefs.pairLoop || {})) {
+    if (loop.builds === from) loop.builds = to;
+    if (loop.reviews === from) loop.reviews = to;
+  }
+
+  // The bell that is ringing right now belongs to the same session it belonged to a second
+  // ago; losing it would leave a mark nothing can clear.
+  if (rung.has(from)) { rung.set(to, rung.get(from)); rung.delete(from); }
+
+  savePrefs();
+}
+
 /** A session's colour. Derived from the name by default, so it is stable across reloads
  *  and identical on every device without anyone configuring anything — and overridable
  *  when two sessions happen to collide or you just want a different one. */
@@ -2010,6 +2067,10 @@ function sessionActions(session) {
     if (!to || to === session.name) return;
     try {
       await postJSON('/api/tmux/rename', { name: session.name, to });
+      // The same tidying as the pencil on a window: a rename from here used to leave every
+      // desk holding the old name, which is how you end up with a window that says "gone"
+      // beside a session that is running perfectly well under its new name.
+      renamedSession(session.name, to);
       toast(t('now called {name}', { name: to }));
       render();
     } catch (e) { toast(e.message, true); }
@@ -6181,6 +6242,42 @@ async function screenWall() {
         };
       }
 
+      /* Rename the window, which means rename the session.
+       *
+       *  A terminal window has no name of its own: what is written in its bar *is* the tmux
+       *  session, so a rename that only changed the label would be a lie the next reload
+       *  would correct. It renames the session, and tmux keeps the client attached through
+       *  it — the terminal under your hands does not blink, only the labels change.
+       */
+      const relabel = spec.kind === 'term'
+        ? el('button', { className: 'winbtn', title: t('Rename this session') }, icon('rename'))
+        : null;
+      if (relabel) {
+        relabel.onclick = async () => {
+          const to = await ask(t('Rename session'), spec.name, t('Rename'));
+          if (!to || to === spec.name) return;
+          const from = spec.name;
+          try {
+            await postJSON('/api/tmux/rename', { name: from, to });
+          } catch (e) {
+            return toast(e.message, true);
+          }
+          // Everything that was filed under the old name, moved: the desk it sits in, where
+          // the window was on screen, its colour, whether it is chained or silent, and which
+          // half of a pair it is. A rename that leaves those behind reopens the desk with a
+          // window pointing at a session that no longer exists — and Argus, being helpful,
+          // would make one.
+          renamedSession(from, to);
+          spec.name = to;
+          entry.name = specId(spec);
+          setLabel(to, to);
+          savePrefs();
+          paintChain();
+          paintRailWindows();
+          toast(t('now called {name}', { name: to }));
+        };
+      }
+
       const chain = spec.kind === 'term'
         ? el('button', { className: 'winbtn chainbtn' }, icon('link'))
         : null;
@@ -6193,8 +6290,8 @@ async function screenWall() {
           else if (on) toast(t('chain one more session for this to do anything'));
         };
       }
-      if (spec.kind === 'term') extras.append(copyButton(handle, 'winbtn'), quiet, dress, chain, ...sizeButtons(handle, 'winbtn'));
       const entry = { win, handle, name: id, chainBtn: chain };
+      if (spec.kind === 'term') extras.append(copyButton(handle, 'winbtn'), relabel, quiet, dress, chain, ...sizeButtons(handle, 'winbtn'));
       open.push(entry);
       if (chain) paintChain();
       paintTally();
