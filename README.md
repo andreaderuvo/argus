@@ -893,12 +893,20 @@ What does not:
 ## Development
 
 ```bash
-python3 -m pytest -q          # 221 tests, no network, no tmux server of their own
+python3 -m pytest -q          # 342 tests, no network, no tmux server of their own
 ```
 
 The tests never touch tmux's default socket. Neither should anything else you run
 against this code: a tmux server that dies takes every session on it with it, which is
 how this repository learned the rule the hard way.
+
+Three scripts, since a folder of unexplained tooling is worse than no folder:
+
+| | |
+|---|---|
+| `scripts/openapi.py` | rewrites `docs/openapi.json` from the code. The test suite runs it with `--check` and fails if the published description has drifted, so this one is not optional. |
+| `scripts/demo.py` | builds the instance every screenshot and clip is made from — fabricated sessions, fabricated files, on its own tmux socket. It exists so the pictures can be remade when the interface moves, and so that "none of this is a real machine" is something you can verify rather than take on trust. |
+| `scripts/record.mjs` | drives a Chromium over the debugging protocol to record those clips, from the demo instance. |
 
 ## Third-party code
 
