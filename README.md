@@ -550,6 +550,28 @@ included, so a single rule guards the lot.
 
 The page is generated from the routes themselves, and a test fails when it drifts.
 
+### A token per device
+
+One token means losing a phone costs you every device: the only remedy is rotating the one
+secret they all share. So each device can have its own.
+
+*Settings* → *Devices* → **Add a device**, give it a name, and you get a link and a QR code
+**once**. Only a hash is kept — the same bargain GitHub makes for a personal access token, and
+for the same reason: losing the file must not hand anyone a working key.
+
+- **Revoking one leaves the others alone**, and takes effect on that device's next request.
+  Nothing to restart: the list is re-read every time a token is presented, which is the only
+  reason revocation is a feature rather than a paragraph.
+- **A device may do the work and may not manage devices.** Only the token in the config can
+  add or revoke. A phone that is lost cannot mint itself a second key, and cannot lock you out
+  of your own machine.
+- The list says when each was last used, written at most once a minute — the useful answer is
+  "yesterday or today", not which second.
+
+There is deliberately no bcrypt or argon2 on those hashes. Slow hashes exist to make
+*guessable* secrets expensive to attack; these are 256 bits of randomness, and a slow hash
+would only make every request slower.
+
 ## Translating it
 
 The bar for this is deliberately as low as it goes. A catalogue is **one flat JSON file

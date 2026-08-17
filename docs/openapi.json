@@ -445,6 +445,122 @@
     ]
    }
   },
+  "/api/devices": {
+   "get": {
+    "description": "Names, when each was added and when each was last used. Never the tokens: only a\nhash of those is kept, and the plain form existed once, when it was created.",
+    "operationId": "getApiDevices",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "additionalProperties": true,
+          "type": "object"
+         },
+         "title": "Response List Devices Api Devices Get",
+         "type": "array"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "The devices that may get in",
+    "tags": [
+     "Setup"
+    ]
+   },
+   "post": {
+    "description": "Mints one and returns it **once**. There is no way to see it again \u2014 the file holds\nonly a hash \u2014 which is the same bargain GitHub makes for a personal access token, and\nfor the same reason.\n\nOnly the token in the config may do this. A device cannot mint another, so a phone\nthat is lost cannot be used to grow its own foothold.",
+    "operationId": "postApiDevices",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Add Device Api Devices Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Give a device its own token",
+    "tags": [
+     "Setup"
+    ]
+   }
+  },
+  "/api/devices/{device_id}": {
+   "delete": {
+    "description": "Takes effect on the next request that device makes: the file is re-read every time\na token is presented, precisely so that revoking is not something you have to restart\nfor.",
+    "operationId": "deleteApiDevicesDeviceId",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "device_id",
+      "required": true,
+      "schema": {
+       "title": "Device Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Drop Device Api Devices  Device Id  Delete",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Take a device's token back",
+    "tags": [
+     "Setup"
+    ]
+   }
+  },
   "/api/download": {
    "get": {
     "operationId": "getApiDownload",

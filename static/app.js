@@ -320,6 +320,8 @@ const postJSON = (p, body) => api(p, {
   body: JSON.stringify(body),
 }).then((r) => r.json());
 
+const delJSON = (p) => api(p, { method: 'DELETE' }).then((r) => r.json());
+
 const withToken = (p) => p + (p.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token);
 
 async function serverInfo() {
@@ -3064,6 +3066,108 @@ function languageSheet(list) {
   ]);
 }
 
+/** Draw a code you can photograph, into a box. */
+async function drawQr(holder, url) {
+  holder.textContent = t('drawing…');
+  try {
+    const { default: qrcode } = await import('/vendor/qrcode-2.0.4/qrcode.mjs');
+    const code = qrcode(0, 'M');
+    code.addData(url);
+    code.make();
+    holder.innerHTML = code.createSvgTag({ cellSize: 5, margin: 2, scalable: true });
+  } catch {
+    holder.textContent = '';
+    holder.append(el('p', { className: 'error', textContent: t('could not draw the code') }));
+  }
+}
+
+/** The one and only time a device's token exists in readable form.
+ *
+ *  Said plainly, because the alternative — quietly hoping the reader photographs it now — ends
+ *  with somebody minting five devices called "phone" looking for the one that works.
+ */
+function showNewDevice(name, link) {
+  const holder = el('div', { className: 'qr' });
+  const box = el('textarea', { className: 'copybox', value: link, readOnly: true, spellcheck: false });
+  const body = el('div', { className: 'sheetbody' }, [
+    el('p', { className: 'hint', textContent: t('Open this on {name}, once. It is not shown again — only a hash of it is kept here.', { name }) }),
+    holder,
+    box,
+  ]);
+  const sheet = modal(t('{name} is ready', { name }), body, [
+    el('button', { className: 'ghost', textContent: t('Copy'), onclick: () => copyPath(link) }),
+    el('button', { className: 'primary inline', textContent: t('Done'), onclick: () => sheet.close() }),
+  ]);
+  drawQr(holder, link);
+  box.focus();
+  box.select();
+}
+
+function deviceRows() {
+  const box = el('div');
+
+  const draw = async () => {
+    box.replaceChildren();
+    let listed;
+    try {
+      listed = await getJSON('/api/devices');
+    } catch (e) {
+      if (e.status && e.status !== 403) {
+        box.append(el('p', { className: 'hint', textContent: e.message }));
+        return;
+      }
+      // A device token asking: the server says 403 and the honest thing is to say why.
+      box.append(el('p', { className: 'hint', textContent: t('Only the token from the config can manage devices — this browser is holding a device token.') }));
+      return;
+    }
+    for (const one of listed) {
+      const row = el('div', { className: 'row setting' }, [
+        el('span', { className: 'grow' }, [
+          el('span', { className: 'name', textContent: one.name }),
+          el('span', {
+            className: 'meta',
+            textContent: one.last_seen
+              ? t('last used {when}', { when: duration(Date.now() / 1000 - one.last_seen) + ' ' + t('ago') })
+              : t('never used'),
+          }),
+        ]),
+        el('button', {
+          className: 'ghost inline danger', textContent: t('Revoke'),
+          onclick: async () => {
+            if (!await confirmBox(t('Revoke {name}?', { name: one.name }),
+              t('That device will be signed out on its next request. Nothing else is affected.'),
+              t('Revoke'))) return;
+            try {
+              await delJSON(`/api/devices/${encodeURIComponent(one.id)}`);
+              toast(t('{name} revoked', { name: one.name }));
+            } catch (e) { toast(e.message, true); }
+            draw();
+          },
+        }),
+      ]);
+      box.append(row);
+    }
+    if (!listed.length) {
+      box.append(el('p', { className: 'hint', textContent: t('No devices yet. The token in the config still works everywhere; a device gets its own, so one can be taken back on its own.') }));
+    }
+    box.append(el('button', {
+      className: 'ghost inline', textContent: t('Add a device'),
+      onclick: async () => {
+        const name = await ask(t('What is this device called?'), '', t('Add'));
+        if (!name) return;
+        try {
+          const made = await postJSON('/api/devices', { name });
+          showNewDevice(made.device.name, made.link);
+        } catch (e) { toast(e.message, true); }
+        draw();
+      },
+    }));
+  };
+
+  draw();
+  return box;
+}
+
 async function screenSettings() {
   setTitle(t('Settings'));
   // Its own class, because this screen is a page to read rather than a list to scan: it
@@ -3327,6 +3431,14 @@ async function screenSettings() {
       t('write {genpat_paper.paper} in a prompt to take a value from that set, whatever set the desk is on'),
       () => prefs.crossSet !== false, (v) => { prefs.crossSet = v; }),
   );
+
+  /* A token per device, and taking one back.
+   *
+   *  Only shown when the token in your browser is the one from the config: a device cannot
+   *  add or revoke devices, and a section it can look at but never use is worse than no
+   *  section at all. The server enforces that regardless of what is drawn here.
+   */
+  wrap.append(group(t('Devices')), deviceRows());
 
   wrap.append(group(t('This copy')), versionRow());
 
