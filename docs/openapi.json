@@ -1148,7 +1148,7 @@
   },
   "/api/overview": {
    "get": {
-    "description": "Everything a board watching several machines needs, and nothing it does not.\n\nDeliberately cheap: no CPU sampling window, no `nvidia-smi`, no process list. Load\naverage says as much about a busy machine as a 120ms CPU sample does and costs\nnothing to read, which matters when several boards ask several machines every few\nseconds. Everything here is a read of /proc plus one `tmux list-sessions`.\n\nThis is the one door a watcher token opens.",
+    "description": "Everything a board watching several machines needs, and nothing it does not.\n\nThis is the one door a watcher token opens, and the same answer a machine\nannounces to a board that cannot reach it.",
     "operationId": "getApiOverview",
     "responses": {
      "200": {
