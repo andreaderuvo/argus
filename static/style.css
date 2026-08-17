@@ -490,6 +490,24 @@ iframe.preview.pdfnative { width: 100%; height: 100%; border: 0; display: block;
 .wantrow .meta { margin-right: .2rem; }
 .wantrow .chip { font-family: ui-monospace, monospace; }
 
+/* The page has lost its server. Over everything, because everything under it is stale —
+   and not dismissable, because dismissing it would leave you with an app whose buttons all
+   do nothing and no explanation on screen. */
+.lostveil {
+  position: fixed; inset: 0; z-index: 120;
+  display: flex; align-items: center; justify-content: center; padding: 1.2rem;
+  background: rgb(6 8 12 / .82);
+}
+.lostbox {
+  width: min(30rem, 100%); padding: 1.4rem 1.5rem 1.2rem;
+  background: var(--panel); border: 1px solid var(--line); border-radius: .8rem;
+  box-shadow: 0 20px 60px rgb(0 0 0 / .5);
+}
+.lostbox h2 { margin: 0 0 .5rem; font-size: 1.1rem; color: var(--bright); }
+.lostbox .hint { margin: 0 0 .9rem; }
+.lostsaid { margin: 0 0 1rem; color: var(--st-warning); font-variant-numeric: tabular-nums; }
+.lostrow { display: flex; gap: .6rem; justify-content: flex-end; flex-wrap: wrap; }
+
 /* The filter over a long list of sessions, and the one in the sheet inside a desk. The
    journal's bar and its box already look right; this borrows both rather than inventing a
    second search field two pixels different from the first. */
