@@ -4162,7 +4162,7 @@ async function screenMessages(open = null) {
        */
       const wanted = el('div', { className: 'wantrow' });
       const drawWanted = () => {
-        const stub = { folder: '.', from: '?', to: '?', plan: '?', bridge: '?', every: '?' };
+        const stub = SITUATIONAL;
         const asked = new Set();
         for (const kind of batonTemplates()) {
           for (const name of unknownVars(kind.text, { ...stub, ...groundVars(), ...(ground ? {} : set.vars) })) {
@@ -9311,6 +9311,12 @@ function fillBaton(text, known) {
  *  All three written forms, like `fillBaton` — what a prompt *takes* cannot depend on which
  *  shape you happen to have picked in Settings, since in a saved prompt all three work.
  */
+/** The names the situation always fills in. Stubbed rather than resolved, for the places
+ *  that only need to know *whether* a name will be filled — never whether the value is any
+ *  good. One list, because it has now been written out three times and one of the copies
+ *  was two names short. */
+const SITUATIONAL = { folder: '.', from: '?', to: '?', plan: '?', bridge: '?', every: '?' };
+
 const varsIn = (text) => {
   const names = [];
   for (const m of [...text.matchAll(/\{\{?([\w.-]+)\}?\}/g), ...text.matchAll(markRe())]) {
@@ -9426,18 +9432,26 @@ function attachMessages(host, wsId, extras, deliver) {
     aimBar.replaceChildren(el('span', { className: 'to', textContent: t('to') }));
     if (!terms.length) {
       aimBar.append(el('span', { className: 'hint', textContent: t('no session here') }));
-      return;
+    } else {
+      const now = deliver.aim();
+      for (const term of terms) {
+        aimBar.append(el('button', {
+          className: `ghost dup${term === now ? ' on' : ''}`,
+          textContent: term.name.slice(5),
+          // A full redraw: the aim is what {from} and {to} become, and every line saying so
+          // is now wrong.
+          onclick: () => { deliver.setAim(term); draw(); },
+        }));
+      }
     }
-    const now = deliver.aim();
-    for (const term of terms) {
-      aimBar.append(el('button', {
-        className: `ghost dup${term === now ? ' on' : ''}`,
-        textContent: term.name.slice(5),
-        // A full redraw: the aim is what {from} and {to} become, and every line saying so
-        // is now wrong.
-        onclick: () => { deliver.setAim(term); draw(); },
-      }));
-    }
+    // Which values these prompts are being filled from. The window says where a tap *goes*
+    // and said nothing about what it *says* — and the answer is a desk-wide setting three
+    // menus away, so the one place it matters was the one place it was invisible.
+    aimBar.append(el('button', {
+      className: 'ghost dup setnote',
+      title: t('These come from the {set} set — the one this desk is on. Change it in the desk\u2019s ⋮ menu.', { set: deskSetName(wsId) }),
+      onclick: () => go('#/placeholders'),
+    }, [icon('rename'), el('span', { textContent: deskSetName(wsId) })]));
   };
 
   const draw = () => {
@@ -9455,9 +9469,11 @@ function attachMessages(host, wsId, extras, deliver) {
         // it has gone. The four situational names are stubbed here because at send time
         // they are always known — what is worth flagging is a `{paper}` this desk has not
         // got, not the fact that nothing is aimed at anything yet.
-        const gaps = gapsIn(kind.text, {
-          folder: deliver.folder(), from: '?', to: '?', plan: '?', ...allVars(wsId),
-        });
+        // Every name the situation fills in, stubbed — this asks "what would this desk fail
+        // to fill", and the six situational ones are never the answer. Two of them were
+        // missing here when they were added, so every pair prompt wore a warning saying it
+        // could not fill {bridge}: the list of situational names belongs in one place.
+        const gaps = gapsIn(kind.text, { ...SITUATIONAL, folder: deliver.folder(), ...allVars(wsId) });
         const row = el('button', {
           className: `trayrow${gaps.length ? ' hasgap' : ''}`,
           title: (kind.run ? t('sends it') + ' — ' : '')
