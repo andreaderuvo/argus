@@ -505,8 +505,11 @@ watchers:
   - name: panoptes
     token: <at least 16 characters>
     may_run: true              # otherwise the token stays read-only
-    may_stop_argus: false      # the one thing a board cannot undo
+    may_stop_argus: false      # the one thing a board cannot undo — its own permission
 ```
+
+`may_stop_argus` stands on its own: a machine with nothing worth publishing as `runnable`
+can still be one you want to be able to switch off.
 
 `start` creates that session, `stop` kills it by exact name, and only a name on the list can
 be killed — a board cannot touch the work you did not list. Asking twice is not an error.
@@ -522,6 +525,9 @@ announcement, which is the only channel there is:
 obey_board: true               # off by default: announcing is not agreeing to take orders
 board_may_stop_argus: false
 ```
+
+Either one is enough to make `obey_board` mean something — a box you want to be able to
+switch off from the board is not thereby a box with work to publish.
 
 Even then the answer is bounded by `runnable`: a reply can name one of those and nothing
 else. There is no path by which a command reaches this machine.
