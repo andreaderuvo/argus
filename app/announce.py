@@ -135,7 +135,12 @@ async def keep_announcing(cfg: Any, overview: Callable[[], Any], socket: Any = N
                 # kept beside it. Overwriting one with the other lost the hostname, and a
                 # board counting distinct machines then counted three Argus instances on one
                 # box as three boxes.
-                body = {**body, "hostname": body.get("name"), "name": name, "reach": reach}
+                # How often this machine intends to call in, so the board can decide when
+                # silence has become meaningful instead of guessing with a flat number. A box
+                # that speaks every 5s and has said nothing for 20 is already worth doubting;
+                # one that speaks every 60s is not.
+                body = {**body, "hostname": body.get("name"), "name": name, "reach": reach,
+                        "every": every}
                 asked = await announce_once(client, report_to, body)
                 # The reply is the only channel to this machine when the network only goes one
                 # way, so whatever the board asked for while it could not reach us arrives here.
