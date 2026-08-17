@@ -3849,6 +3849,7 @@ async function screenMessages(open = null) {
     to: 'codex',
     plan: planPath(deskHome(ws)),
     bridge: bridgePath(deskHome(ws)),
+    every: pairEvery(),
     ...groundVars(),
     ...(previewSet === GROUND ? {} : varSetNamed(previewSet)?.vars || {}),
   });
@@ -4161,7 +4162,7 @@ async function screenMessages(open = null) {
        */
       const wanted = el('div', { className: 'wantrow' });
       const drawWanted = () => {
-        const stub = { folder: '.', from: '?', to: '?', plan: '?', bridge: '?' };
+        const stub = { folder: '.', from: '?', to: '?', plan: '?', bridge: '?', every: '?' };
         const asked = new Set();
         for (const kind of batonTemplates()) {
           for (const name of unknownVars(kind.text, { ...stub, ...groundVars(), ...(ground ? {} : set.vars) })) {
@@ -4206,6 +4207,7 @@ async function screenMessages(open = null) {
           ['to', t('the session it is going to')],
           ['plan', t('the file two agents share when they work on one thing')],
           ['bridge', t('the file two agents talk through, turn by turn')],
+          ['every', t('how often they look at it, in seconds')],
         ];
         situ.replaceChildren(el('p', { className: 'hint', textContent: t('Always there, filled from the situation itself — every prompt Argus comes with is written around these and nothing else.') }));
         const table = el('div', { className: 'situgrid' });
@@ -7264,6 +7266,10 @@ async function screenWall() {
     // how long they may take about it, which is the one an agent stuck in a slow loop hits
     // first. Both are written into the file, so they hold with the browser shut.
     const minutes = el('input', { type: 'number', className: 'pairrounds', min: '5', max: '480', value: '30' });
+    // How often they look. Sixty seconds suits two agents taking five-minute passes and is
+    // silly for two taking thirty-second ones, so it is yours — and it is remembered, since
+    // whatever suits your agents this week will suit them next week too.
+    const every = el('input', { type: 'number', className: 'pairrounds', min: '10', max: '900', value: String(pairEvery()) });
     const auto = el('div', { className: 'pairauto' }, [
       el('label', { className: 'pairrow' }, [
         loopOn, el('span', { className: 'grow', textContent: t('Let them keep going on their own') }),
@@ -7273,6 +7279,9 @@ async function screenWall() {
       ]),
       el('label', { className: 'pairrow' }, [
         el('span', { textContent: t('and no longer than') }), minutes, el('span', { textContent: t('minutes') }),
+      ]),
+      el('label', { className: 'pairrow' }, [
+        el('span', { textContent: t('checking every') }), every, el('span', { textContent: t('seconds') }),
       ]),
       el('p', { className: 'hint', textContent: t('Both start at once and pass the work through BRIDGE.argus.md, checking it every 60 seconds — no browser needed. Argus reads the same file: it rings when the reviewer says OK, and writes ARGUS: STOP into it when the rounds run out.') }),
     ]);
@@ -7291,6 +7300,10 @@ async function screenWall() {
       start.disabled = true;
       const folder = deskFolder();
       const path = planPath(folder);
+      // Chosen before the prompts are filled in, since {every} is one of the things they
+      // are filled in *with*.
+      prefs.pairEvery = Math.max(10, Math.min(900, Number(every.value) || 60));
+      savePrefs();
       try {
         await postJSON('/api/fs/write', { path, content: mode.plan(goal.value.trim(), first, second) });
         // The bridge is written fresh with every pair: it is the record of *this* run, and a
@@ -7298,7 +7311,7 @@ async function screenWall() {
         if (mode.roles) {
           await postJSON('/api/fs/write', {
             path: bridgePath(folder),
-            content: bridgeHeader(goal.value.trim(), first, second, Number(minutes.value) || 30),
+            content: bridgeHeader(goal.value.trim(), first, second, Number(minutes.value) || 30, pairEvery()),
           });
         }
       } catch (e) {
@@ -7308,7 +7321,7 @@ async function screenWall() {
 
       const windowFor = (name) => terms.find((o) => o.name === `term:${name}`);
       const known = {
-        folder, plan: path, bridge: bridgePath(folder), from: first, to: second,
+        folder, plan: path, bridge: bridgePath(folder), every: pairEvery(), from: first, to: second,
         ...allVars(activeSpace().id),
       };
       const textOf = (templateName) => batonTemplates().find((k) => k.name === templateName)?.text || '';
@@ -8797,7 +8810,7 @@ const PAIR_BATONS = [
       + 'small passes. At the end of each pass, run the tests and add a turn to the bridge —\n'
       + 'status DONE, and a line or two on what changed. Append it; the file itself says how,\n'
       + 'under "Add a turn with one command", and it must never be rewritten.\n\n'
-      + 'Then wait for the REVIEWER. Read {bridge} again every 60 seconds. Act only on a\n'
+      + 'Then wait for the REVIEWER. Read {bridge} again every {every} seconds. Act only on a\n'
       + 'turn that is *finished* — one with the end line under it; without it the other one\n'
       + 'is still typing, so wait and read again. Then act on the last heading:\n'
       + '  REVIEWER: REDO      read what it says, fix what it got right, and take another\n'
@@ -8818,7 +8831,7 @@ const PAIR_BATONS = [
       + 'read it. You edit nothing.\n\n'
       + 'You two talk through one file — {bridge} — and nowhere else. Neither of you can see\n'
       + 'the other\u2019s terminal. Read it now: the rules are at the top of it.\n\n'
-      + 'Wait for the WORKER. Read {bridge} every 60 seconds until its last turn is a\n'
+      + 'Wait for the WORKER. Read {bridge} every {every} seconds until its last turn is a\n'
       + '*finished* WORKER: DONE — finished meaning the end line is under it; without that it\n'
       + 'is still being written, so wait and read again. Then review what it did since the\n'
       + 'turn before that one:\n'
@@ -8842,7 +8855,7 @@ const PAIR_BATONS = [
     name: 'Nudge (if one of them has gone quiet)',
     text: 'Read {bridge}. The last turn in it is not yours and you have not answered it.\n'
       + 'Do what it asks, add your turn to the file the way the rules at the top of it say,\n'
-      + 'and carry on with the 60-second loop.',
+      + 'and carry on reading it every {every} seconds.',
   },
 ];
 
@@ -8928,6 +8941,24 @@ function batonTemplates() {
     savePrefs();
   }
   for (const kind of prefs.templates) if (!kind.group) kind.group = LOOSE;
+
+  /* Prompts that shipped once and do not any more.
+   *
+   *  "Answer the review" was how the builder was told a review had come back, when Argus was
+   *  the one carrying it. With the bridge there is nothing to carry: the builder is already
+   *  reading the file every {every} seconds and sees the REDO itself. The prompt is not
+   *  wrong so much as pointless, and a library that only ever grows is a library nobody can
+   *  find anything in.
+   *
+   *  Only the untouched copy goes. If you edited it, it is your writing and it stays — with
+   *  its group, where you can delete it yourself if you agree.
+   */
+  const RETIRED = ['Answer the review'];
+  const kept = prefs.templates.filter((k) => !(k.stock && RETIRED.includes(k.name)));
+  if (kept.length !== prefs.templates.length) {
+    prefs.templates = kept;
+    savePrefs();
+  }
 
   // Editing a template clears its `stock` flag, so anything still carrying one is word for
   // word what it shipped as — and can be brought up to date without ever overwriting a
@@ -9120,6 +9151,15 @@ const planPath = (folder) => `${(folder || '.').replace(/\/+$/, '')}/PLAN.argus.
  */
 const bridgePath = (folder) => `${(folder || '.').replace(/\/+$/, '')}/BRIDGE.argus.md`;
 
+/** How often the two of them look at the bridge, in seconds.
+ *
+ *  A number in a prompt is a number you cannot change without editing the prompt, and this
+ *  one is worth changing: sixty seconds suits two agents doing five-minute passes and is
+ *  ridiculous for two doing thirty-second ones. So it is a placeholder like the rest, with
+ *  the last value you chose as the default — the prompts read `{every}` and the sheet sets
+ *  it. */
+const pairEvery = () => Number(prefs.pairEvery) || 60;
+
 const BRIDGE_TURN = /^##\s+(\S+)\s+(WORKER|REVIEWER|ARGUS):\s*([A-Z]+)\b[ \t]*(.*)$/;
 
 /** The line that says a turn is finished.
@@ -9157,7 +9197,7 @@ function bridgeTurns(text) {
 /** What the file starts as. The rules are in it rather than only in the prompts, because the
  *  agent that reads it in three days' time will not have the prompt any more — and neither
  *  will you. */
-function bridgeHeader(goal, worker, reviewer, minutes) {
+function bridgeHeader(goal, worker, reviewer, minutes, every) {
   return `# Bridge\n\n`
     + `${worker} and ${reviewer} pass work through this file. **Append only** — never edit or\n`
     + `delete a turn that is already here, including your own.\n\n`
@@ -9167,7 +9207,7 @@ function bridgeHeader(goal, worker, reviewer, minutes) {
     + `    ${BRIDGE_END}\n\n`
     + `**A turn without that last line is still being written.** If the last turn in the file\n`
     + `is not yours and has no \`${BRIDGE_END}\` under it, the other one is still typing: wait\n`
-    + `and read again. Acting on half a review is worse than waiting a minute.\n\n`
+    + `${every} seconds and read again. Acting on half a review is worse than waiting.\n\n`
     + `The **last heading** says what happens next, and nothing else needs to be tracked:\n\n`
     + `| status | written by | means |\n`
     + `|---|---|---|\n`
@@ -9346,7 +9386,7 @@ function attachMessages(host, wsId, extras, deliver) {
     // the sender happened to be in would be worse than useless.
     const known = {
       folder: here, from: fromName, to: toName,
-      plan: planPath(deliver.folder()), bridge: bridgePath(deliver.folder()),
+      plan: planPath(deliver.folder()), bridge: bridgePath(deliver.folder()), every: pairEvery(),
       ...allVars(wsId),
     };
     // Everything the desk cannot fill in, before it goes rather than after.
@@ -9427,7 +9467,7 @@ function attachMessages(host, wsId, extras, deliver) {
         if (takes.length) {
           const here = {
             folder: deliver.folder(), from: '?', to: '?',
-            plan: planPath(deliver.folder()), bridge: bridgePath(deliver.folder()),
+            plan: planPath(deliver.folder()), bridge: bridgePath(deliver.folder()), every: pairEvery(),
             ...allVars(wsId),
           };
           const aimed = deliver.aim();
@@ -9513,7 +9553,7 @@ function attachMessages(host, wsId, extras, deliver) {
           const from = senderFor(target);
           const known = {
             folder: deliver.folder(), from: from?.name.slice(5) || '', to: target.name.slice(5),
-            plan: planPath(deliver.folder()), bridge: bridgePath(deliver.folder()), ...allVars(wsId),
+            plan: planPath(deliver.folder()), bridge: bridgePath(deliver.folder()), every: pairEvery(), ...allVars(wsId),
           };
           const note = el('textarea', { className: 'baton', spellcheck: false, rows: 7, value: kind.text });
           const shown = el('pre', { className: 'batonpreview' });
