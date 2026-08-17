@@ -6449,21 +6449,61 @@ async function screenWall() {
       suggest();
     };
 
+    /* What you are actually choosing, in full, and whether it is there.
+     *
+     *  The field holds what you typed — `~/work`, `{paper}`, `stuff` — and none of those is
+     *  the folder. The line under it is the folder: the absolute path the server resolved,
+     *  which is the thing a session will start in and a browser will open at. It also says
+     *  whether it exists yet, because the alternative is finding out from a refusal after
+     *  pressing the button.
+     */
     const resolved = el('p', { className: 'hint' });
-    const sayResolved = () => {
+    let missing = null;                 // the absolute path that is not there yet, if any
+    let asking = 0;                     // the last question asked, so a slow answer cannot win
+    // `probe` off while you are still typing: the line updates on every keystroke, and
+    // asking the server whether a half-typed path exists would be a request per character
+    // to answer a question that is about to change.
+    const sayResolved = async (probe = true) => {
       const written = field.value.trim();
-      if (!written.includes('{')) { resolved.textContent = ''; resolved.hidden = true; return; }
-      const filled = fillBaton(expand(written), allVars(ws.id));
+      const mine = ++asking;
+      missing = null;
+      if (!written) {
+        resolved.hidden = false;
+        resolved.className = 'hint';
+        resolved.textContent = t('No folder of its own — it follows the usual home, {path}', { path: home });
+        return;
+      }
       const gaps = unknownVars(written, allVars(ws.id));
       resolved.hidden = false;
-      resolved.className = gaps.length ? 'hint warn' : 'hint';
-      resolved.textContent = gaps.length
-        ? t('nothing to put in {list}', { list: gaps.map((g) => `{${g}}`).join(' ') })
-        : `→ ${filled}`;
+      if (gaps.length) {
+        resolved.className = 'hint warn';
+        resolved.textContent = t('nothing to put in {list}', { list: gaps.map((g) => `{${g}}`).join(' ') });
+        return;
+      }
+      const wanted = fillBaton(expand(written), allVars(ws.id));
+      resolved.className = 'hint';
+      resolved.textContent = `→ ${wanted}`;
+      if (!probe) return;
+      try {
+        const found = await getJSON(`/api/stat?path=${encodeURIComponent(wanted)}`);
+        if (mine !== asking) return;
+        resolved.className = 'hint';
+        resolved.textContent = `→ ${found.path}`;
+      } catch (e) {
+        if (mine !== asking) return;
+        if (e.status !== 404) return;               // outside the roots, or unreadable: the button will say
+        missing = wanted;
+        resolved.className = 'hint warn';
+        resolved.textContent = t('→ {path} · not there yet', { path: wanted });
+      }
     };
 
     let timer;
-    field.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(suggest, 160); sayResolved(); });
+    field.addEventListener('input', () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => { suggest(); sayResolved(); }, 160);
+      sayResolved(false);
+    });
     field.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { e.preventDefault(); confirm(); return; }
       if (e.key !== 'Tab' || e.shiftKey) return;
@@ -6480,6 +6520,53 @@ async function screenWall() {
         field.value = `${dir === '/' ? '' : dir}/${common}`;
         suggest();
       }
+    });
+
+    /** Make a folder that is not there, one level at a time.
+     *
+     *  `/api/fs/mkdir` makes exactly one, under a parent that exists — which is the right
+     *  shape for an API and the wrong shape for `work/2026/run-3` typed in one go. So the
+     *  deepest ancestor that *is* there is found first and the rest are made in order.
+     *  Each one goes through the same jail check as any other write, and each returns the
+     *  path it really made: the server may tidy a name, and then the folder you get is not
+     *  quite the one you typed and you had better be told which it is.
+     */
+    const makeFolders = async (abs) => {
+      const parts = abs.replace(/\/+$/, '').split('/').filter(Boolean);
+      let at = parts.length;
+      let base = '';
+      for (; at > 0; at--) {
+        const upto = `/${parts.slice(0, at).join('/')}`;
+        try {
+          await getJSON(`/api/stat?path=${encodeURIComponent(upto)}`);
+          base = upto;
+          break;
+        } catch { /* not this one either */ }
+      }
+      if (!base) throw new Error(t('none of that path exists, not even its start'));
+      for (let i = at; i < parts.length; i++) {
+        base = (await postJSON('/api/fs/mkdir', { path: base, name: parts[i] })).path;
+      }
+      return base;
+    };
+
+    /** Ask, then make it. A folder appearing on disk because you typed a name into a box
+     *  and pressed a button called "Use it" would be a surprise, and this is the one action
+     *  in this sheet that changes anything outside the browser. */
+    const offerToMake = (abs) => new Promise((settle) => {
+      const body = el('div', { className: 'sheetbody' });
+      body.append(
+        el('p', { textContent: t('There is no folder at {path}.', { path: abs }) }),
+        el('p', { className: 'hint', textContent: t('It can be made now, and then this desk will start there.') }),
+      );
+      let sheet;
+      sheet = modal(t('Create it?'), body, [
+        el('button', { className: 'ghost', textContent: t('Cancel'), onclick: () => { sheet.close(); settle(false); } }),
+        el('button', {
+          className: 'primary inline', textContent: t('Create it'),
+          onclick: () => { sheet.close(); settle(true); },
+        }),
+      ]);
     });
 
     const confirm = async () => {
@@ -6501,9 +6588,24 @@ async function screenWall() {
         // browser back to the home directory with no explanation.
         await getJSON(`/api/files?path=${encodeURIComponent(path)}`);
         apply(written);
-      } catch {
-        toast(t('There is no folder at {path}', { path }), true);
-        field.focus();
+      } catch (e) {
+        if (e.status !== 404) {
+          toast(e.message, true);
+          field.focus();
+          return;
+        }
+        if (!await offerToMake(path)) { field.focus(); return; }
+        try {
+          const made = await makeFolders(path);
+          // Stored as typed when the server made exactly what was asked for, so a path
+          // written with a placeholder stays a template. Otherwise the real one, because
+          // a desk pointed at a folder that does not exist is the bug this just fixed.
+          apply(made === path ? written : made);
+          toast(t('made {path}', { path: made }));
+        } catch (why) {
+          toast(why.message, true);
+          field.focus();
+        }
       } finally {
         use.disabled = false;
       }
@@ -6945,7 +7047,10 @@ async function screenWall() {
       onclick: async () => {
         sheet.close();
         // In the desk's folder, for the same reason the browser opens there.
-        const name = await createSession({ path: activeSpace().home ? deskHome(activeSpace()) : undefined });
+        // Always the desk's folder — `deskHome` already falls back to the usual home for a
+        // desk that has not chosen one, and "started somewhere else entirely" is not a
+        // useful third possibility.
+        const name = await createSession({ path: deskHome(activeSpace()) });
         if (name) openWindow({ kind: 'term', name });
       },
     }, [icon('folderPlus'), el('span', { textContent: t('Start a new session…') })]));
@@ -7024,6 +7129,22 @@ async function screenWall() {
       take,
     ]);
   }
+
+  /* Starting one, without the sheet in between.
+   *
+   *  The sheet is for picking from what is already running, and starting a new one is a
+   *  line inside it — right at the top now, but still two presses and a list you did not
+   *  want. This is the same action on the toolbar, because "give me a fresh terminal here"
+   *  is the most common thing anybody does to an empty desk.
+   */
+  tools.append(el('button', {
+    className: 'winbtn wide',
+    title: t('Start a new session, in this desk\u2019s folder'),
+    onclick: async () => {
+      const name = await createSession({ path: deskHome(activeSpace()) });
+      if (name) openWindow({ kind: 'term', name });
+    },
+  }, [icon('folderPlus'), el('span', { textContent: t('New session') })]));
 
   tools.append(el('button', {
     className: 'winbtn wide',
