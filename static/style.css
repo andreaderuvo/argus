@@ -576,6 +576,11 @@ input.sheetfind { width: 100%; margin: .2rem 0 .5rem; }
 .aimbar .setnote { margin-left: auto; display: inline-flex; align-items: center; gap: .3rem; }
 .aimbar .setnote .ico { width: 13px; height: 13px; }
 
+/* A pane that is about to receive something. Its own pane never lights up: dropping a file
+   where it already is would be a no-op that looked like it worked. */
+.pane.dropping { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: .5rem; }
+.row.dragging { opacity: .45; }
+
 /* Rename and delete, on the row itself. Out of the way until the pointer is on the row —
    a listing is something you read, and a column of buttons down the side of every line
    turns it into a control panel. Never on a touch screen: three targets in a row is a
