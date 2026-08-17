@@ -3626,10 +3626,17 @@ let sideBrowser = null;   // the sidebar's own listing, so it can be pointed at 
 async function screenMessages(open = null) {
   // Two things that are not the same thing: what you send, and what fills the gaps in it.
   // They share a screen because they are edited together, and each has its own way in.
-  if (open) prefs.msgTab = open;
-  setTitle(t(prefs.msgTab === 'vars' ? 'Placeholders' : 'Prompts'));
-  bar.back.hidden = false;
-  bar.back.onclick = () => go('#/settings');
+  /* Which of the two, from the address alone.
+   *
+   *  They were tabs inside one screen *and* two entries in the rail, which is one idea too
+   *  many: the rail already says where you are, and a tab strip underneath saying it again
+   *  left two things to keep in step — and a remembered `msgTab` that could disagree with the
+   *  address you arrived at. The address decides now, and nothing is remembered.
+   */
+  const showing = open || (parseRoute().path === '/placeholders' ? 'vars' : 'messages');
+  setTitle(t(showing === 'vars' ? 'Placeholders' : 'Prompts'));
+  // No back arrow: both of these are destinations in the rail, not somewhere you descended
+  // into. An arrow here offered to take you "back" to a screen you may never have been on.
 
   const wrap = el('div', { className: 'msgwrap' });
   view.append(wrap);
@@ -3648,32 +3655,12 @@ async function screenMessages(open = null) {
     ...(previewSet === GROUND ? {} : varSetNamed(previewSet)?.vars || {}),
   });
 
-  const tabs = el('div', { className: 'msgtabs' });
   const body = el('div');
-  wrap.append(tabs, body);
+  wrap.append(body);
 
-  const drawTabs = () => {
-    tabs.replaceChildren();
-    for (const [key, label] of [['messages', t('Prompts')], ['vars', t('Placeholders')]]) {
-      tabs.append(el('button', {
-        className: `ghost dup${(prefs.msgTab || 'messages') === key ? ' on' : ''}`,
-        textContent: label,
-        onclick: () => {
-          prefs.msgTab = key;
-          savePrefs();
-          // The address follows, so the tab lights up and a reload comes back here.
-          history.replaceState(null, '', key === 'vars' ? '#/placeholders' : '#/prompts');
-          setTitle(t(key === 'vars' ? 'Placeholders' : 'Prompts'));
-          for (const a of nav.querySelectorAll('a')) a.classList.toggle('on', a.dataset.tab === (key === 'vars' ? 'placeholders' : 'prompts'));
-          drawTabs();
-          draw();
-        },
-      }));
-    }
-  };
   const draw = () => {
     messagesChanged();          // any Messages window on a desk follows what you write here
-    return (prefs.msgTab || 'messages') === 'vars' ? drawVarsPane() : drawMessagePane();
+    return showing === 'vars' ? drawVarsPane() : drawMessagePane();
   };
 
   /* ================================================================ messages */
@@ -4088,7 +4075,6 @@ async function screenMessages(open = null) {
     drawSet();
   }
 
-  drawTabs();
   draw();
 }
 
