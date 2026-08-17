@@ -3651,6 +3651,7 @@ async function screenMessages(open = null) {
     folder: deskHome(ws),
     from: 'claude',
     to: 'codex',
+    plan: planPath(deskHome(ws)),
     ...groundVars(),
     ...(previewSet === GROUND ? {} : varSetNamed(previewSet)?.vars || {}),
   });
@@ -3749,7 +3750,10 @@ async function screenMessages(open = null) {
 
     const stock = el('button', { className: 'ghost block wide', textContent: t('Put back the ones it came with') });
     stock.onclick = () => {
-      for (const kind of BATONS) {
+      // Every stock template, not only the first batch. The pair recipes were added later and
+      // were missing from this list, which made them the one thing here you could lose for
+      // good — the opposite of what a restore button is for.
+      for (const kind of [...BATONS, ...PAIR_BATONS]) {
         if (!all.some((x) => x.name === kind.name)) all.push({ ...kind, stock: true });
       }
       savePrefs();
@@ -3780,7 +3784,12 @@ async function screenMessages(open = null) {
       const back = el('button', { className: 'ghost dup', textContent: t('Undo') });
       const strip = el('div', { className: 'undoline' }, [
         icon('trash'),
-        el('span', { className: 'grow', textContent: t('{name} deleted', { name: kind.name }) }),
+        el('span', { className: 'grow', textContent: kind.stock
+          // Nothing here is armoured, and nothing needs to be: the ones it came with can always
+          // be fetched again. Saying so is what makes deleting one feel like tidying rather
+          // than like breaking something.
+          ? t('{name} deleted — “Put back the ones it came with” brings it back', { name: kind.name })
+          : t('{name} deleted', { name: kind.name }) }),
         back,
       ]);
       card.replaceWith(strip);
@@ -3896,7 +3905,7 @@ async function screenMessages(open = null) {
       el('p', { className: 'hint', textContent: t('A desk picks which set it uses, from its own ⋮ menu. {desk} is on {set}.', { desk: ws.name, set: deskSetName(ws.id) }) }),
       chips,
       held,
-      el('p', { className: 'hint', textContent: t('Always there, from the situation itself: {folder} is the working directory of the session handing over, {from} and {to} are the two sessions.') }),
+      el('p', { className: 'hint', textContent: t('Always there, from the situation itself: {folder} is the working directory of the session handing over, {from} and {to} are the two sessions, and {plan} is the file two agents share when they work on one thing together.') }),
       el('p', {
         className: 'hint',
         textContent: prefs.crossSet === false
@@ -7804,6 +7813,99 @@ document.addEventListener('visibilitychange', () => {
  *  return sentence differ, a relay's do not, and everything else is yours to write. */
 const LOOSE = 'General';
 
+/* Two agents on one job.
+ *
+ *  Three patterns already existed and they are genuinely different things: the **chain**
+ *  (the same keystrokes to several sessions at once), the **baton** (one finishes, its
+ *  context goes to the next), and now this one — two agents working towards the same goal
+ *  over time, with roles.
+ *
+ *  What makes the third one work is not messaging, it is arbitration, and the only thing you
+ *  can arbitrate with is a file both can read. `{plan}` is that file. The rules below are
+ *  written into the prompts because there is nothing else to write them into: you cannot
+ *  enforce anything on an agent you do not control, you can only give it an instruction
+ *  simple enough that it cannot be misread.
+ *
+ *  Two rules do the work. **Ownership is by file, not by task** — two agents can agree on who
+ *  does what and still both edit the same module. And **if you need something that is not
+ *  yours, write it down and stop** — which turns a collision into a line in a file instead of
+ *  a lost afternoon.
+ *
+ *  These are stock templates like the others: open them, read them, change them. They are the
+ *  starting point of your own, not a mechanism hidden behind a button.
+ */
+const TOGETHER = 'Two agents · together';
+const ADVERSARIAL = 'Two agents · one reviews';
+
+const PAIR_BATONS = [
+  {
+    group: TOGETHER,
+    name: 'Start (send to both)',
+    text: 'You and one other agent are working on the same goal in {folder}.\n'
+      + 'Your identity is the name of the tmux session you are running in — run `echo $TMUX_PANE`\n'
+      + 'and `tmux display-message -p "#S"` if you do not know it.\n\n'
+      + 'The plan is {plan}. If it does not exist yet, create it with these sections:\n'
+      + '  ## Goal        one paragraph, agreed\n'
+      + '  ## Files       every file that will be touched, each with one owner\n'
+      + '  ## Doing       what each of you is on right now\n'
+      + '  ## Done        finished, with what changed\n'
+      + '  ## Blocked     what you need from the other, and why\n\n'
+      + 'Rules, and they matter more than speed:\n'
+      + '  1. Edit only files listed under your own name in ## Files.\n'
+      + '  2. If you need a file that is not yours, add a line under ## Blocked and STOP.\n'
+      + '     Do not edit it and do not wait in a loop.\n'
+      + '  3. Update the plan before you start something and after you finish it, so the\n'
+      + '     other one can read what you are doing rather than guess.\n'
+      + '  4. If ## Files is empty, propose a split and write it, then wait for the other to\n'
+      + '     accept or amend it before touching anything.\n\n'
+      + 'Start by reading the plan. Say in one line what you are taking, then work.',
+  },
+  {
+    group: TOGETHER,
+    name: 'Your turn',
+    text: 'Read {plan}. {from} has just written to it.\n'
+      + 'Take the next thing under your name, do it, and update ## Doing and ## Done.\n'
+      + 'If ## Blocked has a request from {from} for a file you own, deal with that first.',
+  },
+  {
+    group: TOGETHER,
+    name: 'Converge',
+    text: 'The work in {folder} is meant to be finished. Read {plan} and the diff against HEAD.\n'
+      + 'Say plainly: is the goal met, what is left, and is anything the two of you did in\n'
+      + 'conflict? Do not start new work — this is the reckoning, not another pass.',
+  },
+  {
+    group: ADVERSARIAL,
+    name: 'You build (send to the worker)',
+    text: 'You are building, in {folder}. {to} will review everything you do, and will not\n'
+      + 'edit anything — so leave your work in a state somebody else can judge.\n\n'
+      + 'Write what you are attempting to {plan} under ## Goal before you start.\n'
+      + 'Work in small passes. At the end of each one: run the tests, then say in one line\n'
+      + 'what changed and hand over. Do not mark your own work correct — that is not your job\n'
+      + 'in this arrangement.',
+  },
+  {
+    group: ADVERSARIAL,
+    name: 'You review (send to the reviewer)',
+    text: 'Review the change {from} has just made in {folder}. Read the diff against HEAD —\n'
+      + 'the diff, not the description of it.\n\n'
+      + 'You do not edit anything. Your job is to find what is wrong: cite exact files and\n'
+      + 'line numbers, run the tests yourself, and try the failure case rather than reasoning\n'
+      + 'about it. Read ## Goal in {plan} and say whether the change actually serves it.\n\n'
+      + 'Finish with one line, exactly:\n'
+      + '  VERDICT: OK — and what convinced you\n'
+      + '  VERDICT: REDO — and the single most important thing to fix first',
+  },
+  {
+    group: ADVERSARIAL,
+    name: 'Answer the review',
+    text: 'The review of your change in {folder} is above, from {from}.\n'
+      + 'Fix what it got right. Say plainly what you disagree with and why — a review is not\n'
+      + 'an order, and a reviewer who is wrong should be told so with a reason.\n'
+      + 'Run the tests before you say you are done, and hand back.',
+  },
+];
+
 const BATONS = [
   {
     group: 'Code review',
@@ -7835,7 +7937,14 @@ const BATONS = [
  *  Each belongs to a group — "Paper review", "Migration", whatever you are doing — because
  *  a flat list of fifteen sentences is a list nobody reads. */
 function batonTemplates() {
-  if (!prefs.templates) prefs.templates = BATONS.map((b) => ({ ...b, stock: true }));
+  if (!prefs.templates) prefs.templates = [...BATONS, ...PAIR_BATONS].map((b) => ({ ...b, stock: true }));
+  // Added to a library that already existed, once. Somebody who has been using Argus for weeks
+  // has their own templates and would otherwise never see these — and a feature nobody is shown
+  // is a feature nobody has.
+  if (!prefs.templates.some((k) => k.group === TOGETHER || k.group === ADVERSARIAL)) {
+    prefs.templates.push(...PAIR_BATONS.map((b) => ({ ...b, stock: true })));
+    savePrefs();
+  }
   for (const kind of prefs.templates) if (!kind.group) kind.group = LOOSE;
   return prefs.templates;
 }
@@ -7970,6 +8079,19 @@ function fromNamedSet(name) {
   return key in vars ? vars[key] : undefined;
 }
 
+/** Where two agents working on one thing keep their agreement.
+ *
+ *  A prompt has no memory: at the second turn neither agent knows what the other has already
+ *  done. A file does. This is the path to it, offered as `{plan}` so a template can point at it
+ *  without anybody typing a path — and it is inside the folder they share, because the working
+ *  directory is the one thing two tmux sessions certainly have in common.
+ *
+ *  Not a protocol. MCP connects an agent to tools, A2A wants both sides to implement it, and a
+ *  `codex` in a terminal speaks neither. A file in a shared folder is what Grok, Gemini, Claude
+ *  Code and Codex all support today with nothing configured, which is the whole requirement.
+ */
+const planPath = (folder) => `${(folder || '.').replace(/\/+$/, '')}/.argus/plan.md`;
+
 const valueFor = (name, known) => (name in known ? known[name] : fromNamedSet(name));
 
 /** Why this one came out empty, in words. A placeholder that silently stays written is
@@ -8036,7 +8158,10 @@ function attachMessages(host, wsId, extras, deliver) {
     try { folder = (await getJSON(`/api/tmux/cwd?session=${encodeURIComponent(fromName)}`)).cwd || ''; } catch { /* the desk's then */ }
     // Worked out first, yours second: three names are filled in from the situation, and
     // a set that defines one of them anyway means it on purpose.
-    const known = { folder: folder || deliver.folder(), from: fromName, to: toName, ...allVars(wsId) };
+    const here = folder || deliver.folder();
+    // Worked out first, yours second: four names are filled in from the situation, and a set
+    // that defines one of them anyway means it on purpose.
+    const known = { folder: here, from: fromName, to: toName, plan: planPath(here), ...allVars(wsId) };
     // Whether it runs is the prompt's own business: "run the tests" wants to go, while
     // "here is the file, now tell me what you think" wants a look before Enter.
     target.handle.send(fillBaton(kind.text, known) + (kind.run ? '\r' : ''));
@@ -8148,7 +8273,10 @@ function attachMessages(host, wsId, extras, deliver) {
           const target = deliver.aim();
           if (!target) return toast(t('no session in this desk to send it to'), true);
           const from = senderFor(target);
-          const known = { folder: deliver.folder(), from: from?.name.slice(5) || '', to: target.name.slice(5), ...allVars(wsId) };
+          const known = {
+            folder: deliver.folder(), from: from?.name.slice(5) || '', to: target.name.slice(5),
+            plan: planPath(deliver.folder()), ...allVars(wsId),
+          };
           const note = el('textarea', { className: 'baton', spellcheck: false, rows: 7, value: kind.text });
           const shown = el('pre', { className: 'batonpreview' });
           const see = () => { shown.textContent = fillBaton(note.value, known); };
