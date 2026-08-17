@@ -29,7 +29,6 @@
   <button id="back" class="icon" hidden aria-label="Back" data-icon="back"></button>
   <h1 id="title">Argus</h1>
   <button id="alt" class="icon" hidden></button>
-  <button id="sidetoggle" class="icon" aria-label="Toggle the file sidebar" title="File sidebar" data-icon="sidebar"></button>
   <button id="fullscreen" class="icon" hidden aria-label="Full screen" title="Full screen" data-icon="expand"></button>
   <button id="keys" class="icon" aria-label="Keyboard shortcuts" title="Keyboard shortcuts" data-icon="keyboard"></button>
   <button id="about" class="icon" aria-label="Argus on GitHub" title="Argus on GitHub" data-icon="github"></button>
@@ -53,6 +52,10 @@
   <!-- What is open in the desk you are on. Filled in by the script; empty on a phone,
        where the rail does not exist and the bottom bar is the navigation. -->
   <div id="railwins"></div>
+  <!-- The file panel is a layout switch, not a destination, so it sits at the far end of
+       the rail rather than among the places you can go. It was in the header, which had
+       eight buttons in it and no room for opinions. -->
+  <button id="sidetoggle" class="icon" aria-label="Toggle the file sidebar" title="File sidebar" data-icon="sidebar"></button>
 </nav>
 
 <!-- Where a terminal waits while you are looking at another screen. -->

@@ -242,3 +242,22 @@ def test_a_session_reports_the_directory_it_is_really_in(client, monkeypatch):
     monkeypatch.setattr(paths, "pane_cwd", lambda _s, name: f"/somewhere/{name}")
     assert get(client, "/api/tmux/cwd?session=work").json() == {"session": "work", "cwd": "/somewhere/work"}
     assert get(client, "/api/tmux/cwd?session=missing").status_code == 404
+
+
+def test_asking_about_versions_can_be_switched_off(tmp_path):
+    """It is the one thing here that reaches the internet, so it has to be refusable —
+    and switched off it must not reach out at all, not merely hide the answer."""
+    from fastapi.testclient import TestClient
+
+    from app.config import Config
+    from app.main import create_app
+
+    token = "testtoken-0123456789abcdef"
+    cfg = Config(token=token, roots=[tmp_path], check_releases=False)
+    client = TestClient(create_app(cfg))
+    answer = client.get("/api/version", headers={"Authorization": f"Bearer {token}"})
+    assert answer.status_code == 200
+    body = answer.json()
+    assert body["running"] and body["latest"] is None and body["newer"] is False
+    # Nothing was asked of anybody: no cache was written.
+    assert not hasattr(client.app.state, "release")

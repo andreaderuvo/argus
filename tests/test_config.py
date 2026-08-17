@@ -83,3 +83,18 @@ def test_first_run_creates_a_private_file_with_a_fresh_token(tmp_path):
     again, created_again = Config.load_or_create(path)
     assert not created_again
     assert again.token == cfg.token, "a restart must not invalidate the phone's bookmark"
+
+
+def test_a_version_is_only_newer_when_it_is():
+    """Nobody should be told they are out of date because a tag was unreadable."""
+    from app.release import newer, parts
+
+    assert newer("0.0.1", "v0.0.2")
+    assert newer("0.1.0", "1.0.0")
+    assert newer("v0.0.9", "0.0.10")          # not a string comparison
+    assert not newer("0.0.2", "v0.0.1")
+    assert not newer("0.0.1", "0.0.1")
+    assert not newer("0.0.1", "nightly")      # unreadable: say nothing
+    assert not newer("", "0.9.9")
+    assert parts("v1.2.3") == (1, 2, 3)
+    assert parts("banana") is None

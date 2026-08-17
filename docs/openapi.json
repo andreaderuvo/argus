@@ -216,7 +216,7 @@
   },
   "summary": "Watch your agents run in tmux, and read what they produced.",
   "title": "Argus",
-  "version": "0.1.0"
+  "version": "0.0.1"
  },
  "openapi": "3.1.0",
  "paths": {
@@ -1820,6 +1820,30 @@
     "summary": "Dress one session, without touching the config",
     "tags": [
      "Sessions"
+    ]
+   }
+  },
+  "/api/version": {
+   "get": {
+    "description": "Answers immediately from a day-old cache; the question is only asked of GitHub\nwhen that cache is stale. Switched off, it answers about this machine and stops\nthere, which is also what it does when there is no way out to the network.",
+    "operationId": "getApiVersion",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Version Api Version Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "What is running here, and whether anything newer exists",
+    "tags": [
+     "Setup"
     ]
    }
   },

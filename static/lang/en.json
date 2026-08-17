@@ -505,6 +505,10 @@
   "Open in a browser tab": "Open in a browser tab",
   "Wider": "Wider",
   "Narrower": "Narrower",
-  "full screen was refused; filling the desk instead": "full screen was refused; filling the desk instead"
+  "full screen was refused; filling the desk instead": "full screen was refused; filling the desk instead",
+  "Version": "Version",
+  "nothing about you or this machine is ever sent": "nothing about you or this machine is ever sent",
+  "Argus {version} is out — you are on {running}": "Argus {version} is out — you are on {running}",
+  "{running} — {version} is out": "{running} — {version} is out"
  }
 }

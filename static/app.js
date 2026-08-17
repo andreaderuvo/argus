@@ -3171,6 +3171,7 @@ async function screenSettings() {
       () => prefs.openInDesk !== false, (v) => { prefs.openInDesk = v; }),
     toggle(t('Sound when something rings'), t('two short tones when an agent finishes or asks for you'),
       () => prefs.bellSound !== false, (v) => { prefs.bellSound = v; }),
+    versionRow(),
     choice(t('How a PDF opens'), t('a document you have not read before — after that it opens where you left it'),
       [t('whole page'), t('page width'), t('as it comes')],
       () => ({ page: t('whole page'), width: t('page width'), actual: t('as it comes') })[prefs.pdfFit || 'page'],
@@ -3923,6 +3924,50 @@ async function screenTmuxConf() {
   // The editor owns its own bar; the apply button joins it, because saving and applying
   // are two halves of the same errand.
   host.querySelector('.editbar')?.prepend(apply);
+}
+
+/** What is running here, and whether anything newer exists.
+ *
+ *  Told once per version and then left alone: a banner that comes back every morning is a
+ *  banner people learn to look past, and this is not urgent — nothing here updates itself,
+ *  and nothing should.
+ */
+async function sayIfNewer() {
+  if (!token) return;
+  let news;
+  try { news = await getJSON('/api/version'); } catch { return; }
+  if (!news?.newer || !news.latest) return;
+  if (prefs.sawVersion === news.latest) return;
+  prefs.sawVersion = news.latest;
+  savePrefs();
+  toast(t('Argus {version} is out — you are on {running}', { version: news.latest, running: news.running }),
+    false,
+    () => window.open(news.url || 'https://github.com/andreaderuvo/argus/releases', '_blank', 'noopener'),
+    9000);
+}
+
+/** The version, at the bottom of the settings, where you go to look for it. */
+function versionRow() {
+  const row = el('div', { className: 'row setting' }, [
+    el('span', { className: 'grow' }, [
+      el('span', { className: 'name', textContent: t('Version') }),
+      el('span', { className: 'meta', textContent: t('nothing about you or this machine is ever sent') }),
+    ]),
+    el('span', { className: 'sw', textContent: '…' }),
+  ]);
+  const said = row.querySelector('.sw');
+  getJSON('/api/version').then((news) => {
+    if (!news) return;
+    said.textContent = news.running;
+    if (!news.newer || !news.latest) return;
+    said.className = 'sw on';
+    said.replaceChildren(el('a', {
+      href: news.url || 'https://github.com/andreaderuvo/argus/releases',
+      target: '_blank', rel: 'noopener noreferrer',
+      textContent: t('{running} — {version} is out', { running: news.running, version: news.latest }),
+    }));
+  }).catch(() => { said.textContent = '—'; });
+  return row;
 }
 
 /* The desk's windows, in the rail.
@@ -7189,6 +7234,7 @@ function quieten(name) {
 /** The marks: on the window that rang, and on the tab of the desk holding it. */
 function paintBells() {
   countSessions();
+  sayIfNewer();
   const desks = new Set();
   for (const win of document.querySelectorAll('.win[data-kind="term"]')) {
     const name = win.querySelector('.wintitle')?.textContent;

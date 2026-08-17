@@ -505,6 +505,10 @@
   "Open in a browser tab": "Apri in una scheda del browser",
   "Wider": "Più larga",
   "Narrower": "Più stretta",
-  "full screen was refused; filling the desk instead": "schermo intero rifiutato; riempio la scrivania"
+  "full screen was refused; filling the desk instead": "schermo intero rifiutato; riempio la scrivania",
+  "Version": "Versione",
+  "nothing about you or this machine is ever sent": "non viene mai inviato niente su di te o su questa macchina",
+  "Argus {version} is out — you are on {running}": "È uscito Argus {version} — tu sei su {running}",
+  "{running} — {version} is out": "{running} — è uscita la {version}"
  }
 }

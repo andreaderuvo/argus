@@ -143,7 +143,19 @@ button.icon:active { background: var(--line); }
 #sidetoggle { display: none; }
 
 @media (min-width: 900px) {
-  #sidetoggle { display: block; color: var(--dim); }
+  #sidetoggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: auto;                 /* the far end, away from the destinations */
+    min-height: var(--tap);
+    border: 0;
+    border-top: 1px solid var(--line);
+    background: none;
+    color: var(--dim);
+    cursor: pointer;
+  }
+  #sidetoggle:hover { color: var(--bright); }
   body.side #sidetoggle { color: var(--accent); }
 
   body.side #shell { grid-template-columns: var(--side-w, 320px) 1fr; }
