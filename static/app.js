@@ -6008,11 +6008,50 @@ async function screenWall() {
      *  the first time it ran.
      */
     const VERDICT_SETTLE = 20000;
+
+    /** Hand a template to one of the pair, and note whose turn it now is. */
+    function passTo(loop, who, templateName, from) {
+      const target = open.find((o) => o.name === `term:${who}`);
+      if (!target) return t('{who} is not open any more — the review loop is off', { who });
+      const text = batonTemplates().find((k) => k.name === templateName)?.text;
+      if (!text) return t('the "{name}" template is gone — the review loop is off', { name: templateName });
+      const folder = deskHome(ws);
+      target.handle.send?.(`${fillBaton(text, {
+        folder,
+        plan: planPath(folder),
+        review: reviewPath(folder),
+        from,
+        to: who,
+        ...allVars(ws.id),
+      })}\r`);
+      loop.turn = who === loop.builds ? 'builds' : 'reviews';
+      loop.at = Date.now();
+      savePrefs();
+      repaintPair();
+      return null;
+    }
+
+    /* Whose move it is, and what ends a move.
+     *
+     *  The loop used to close on one sentence only — the reviewer's verdict — which is half a
+     *  cycle: a REDO went back to the builder and then everything stopped until a person
+     *  noticed the fix was done and pressed something. So the builder ends its turn the same
+     *  way the reviewer does, with a line: `HANDOVER: READY` and what changed.
+     *
+     *  Two rules keep it honest. **Only the agent whose turn it is can end the turn** — the
+     *  builder quotes the review back at itself constantly, and a quotation is not a verdict.
+     *  And **every pass costs a round**, so a pair that has settled into agreeing with each
+     *  other still runs out.
+     */
     function verdictHeard(from, said) {
       const loop = (prefs.pairLoop || {})[ws.id];
-      // Only the reviewer's word counts. The builder quotes the review back at itself all the
-      // time, and a quotation is not a verdict.
-      if (!loop || from !== loop.reviews) return;
+      if (!loop) return;
+      const turn = loop.turn || 'reviews';
+      const mine = turn === 'reviews' ? loop.reviews : loop.builds;
+      if (from !== mine) return;
+      // The right sentence from the right session: a builder saying VERDICT is quoting, and
+      // a reviewer saying HANDOVER has misread its instructions.
+      if (said.kind !== (turn === 'reviews' ? 'VERDICT' : 'HANDOVER')) return;
       if (Date.now() - (loop.at || 0) < VERDICT_SETTLE) return;
 
       const stop = (why) => {
@@ -6021,6 +6060,18 @@ async function screenWall() {
         repaintPair();
         if (why) toast(why);
       };
+
+      // The builder has finished a pass: over to the reviewer.
+      if (turn === 'builds') {
+        if (loop.left <= 0) {
+          ring({ session: from, why: 'asking', text: t('done, and the rounds are used up — look at it yourself') });
+          return stop(null);
+        }
+        const trouble = passTo(loop, loop.reviews, 'You review (send to the reviewer)', loop.builds);
+        if (trouble) return stop(trouble);
+        toast(t('over to {who} to review it', { who: loop.reviews }));
+        return;
+      }
 
       if (said.verdict === 'OK') {
         // Rung rather than toasted: this is the end of the job, and the end of the job is
@@ -6035,24 +6086,9 @@ async function screenWall() {
         return;
       }
 
-      const builder = open.find((o) => o.name === `term:${loop.builds}`);
-      if (!builder) return stop(t('{who} is not open any more — the review loop is off', { who: loop.builds }));
-      const folder = deskHome(ws);
-      const text = batonTemplates().find((k) => k.name === 'Answer the review')?.text;
-      if (!text) return stop(t('the "Answer the review" template is gone — the review loop is off'));
-
       loop.left -= 1;
-      loop.at = Date.now();
-      savePrefs();
-      builder.handle.send?.(`${fillBaton(text, {
-        folder,
-        plan: planPath(folder),
-        review: reviewPath(folder),
-        from: loop.reviews,
-        to: loop.builds,
-        ...allVars(ws.id),
-      })}\r`);
-      repaintPair();
+      const trouble = passTo(loop, loop.builds, 'Answer the review', loop.reviews);
+      if (trouble) return stop(trouble);
       toast(t('sent back to {who} — {n} more rounds', { who: loop.builds, n: loop.left }));
     }
 
@@ -7321,7 +7357,7 @@ async function screenWall() {
       el('label', { className: 'pairrow' }, [
         el('span', { textContent: t('at most') }), rounds, el('span', { textContent: t('rounds') }),
       ]),
-      el('p', { className: 'hint', textContent: t('On VERDICT: REDO the review goes back to the builder without you. On OK it rings instead. It stops when the rounds run out.') }),
+      el('p', { className: 'hint', textContent: t('They pass it back and forth without you: HANDOVER: READY sends it to the reviewer, VERDICT: REDO sends it back, VERDICT: OK rings and stops. The builder goes first, and it stops when the rounds run out.') }),
     ]);
     const paintAuto = () => { auto.hidden = !mode.roles; };
 
@@ -7365,6 +7401,11 @@ async function screenWall() {
         prefs.chain[activeSpace().id] = was;
         savePrefs();
         deck.paintChain();
+      } else if (mode.roles && loopOn.checked) {
+        // With the loop armed the turns are Argus's business, and the first turn is the
+        // builder's. Sending the reviewer its prompt now would have it review a change
+        // nobody has made yet. It gets its prompt when there is something to look at.
+        windowFor(first)?.handle.send?.(`${fillBaton(textOf(mode.roles.a), known)}\r`);
       } else {
         windowFor(first)?.handle.send?.(`${fillBaton(textOf(mode.roles.a), known)}\r`);
         windowFor(second)?.handle.send?.(
@@ -7376,7 +7417,8 @@ async function screenWall() {
       prefs.pairLoop = prefs.pairLoop || {};
       if (mode.roles && loopOn.checked) {
         prefs.pairLoop[activeSpace().id] = {
-          builds: first, reviews: second, left: Number(rounds.value) || 3, at: Date.now(),
+          builds: first, reviews: second, left: Number(rounds.value) || 3,
+          at: Date.now(), turn: 'builds',
         };
       } else {
         delete prefs.pairLoop[activeSpace().id];
@@ -7436,7 +7478,9 @@ async function screenWall() {
           el('span', { textContent: `${mode}${who.length === 2 ? ` · ${who.join(' → ')}` : ''}` }),
           el('span', {
             className: 'count',
-            textContent: loop ? ` ${t('auto ×{n}', { n: loop.left })}` : ` ${duration(quiet)}`,
+            textContent: loop
+              ? ` ${t('auto ×{n} · {who}', { n: loop.left, who: loop.turn === 'builds' ? loop.builds : loop.reviews })}`
+              : ` ${duration(quiet)}`,
           }),
         ]),
       );
@@ -7455,7 +7499,11 @@ async function screenWall() {
   function loopSheet(loop) {
     const body = el('div', { className: 'sheetbody' });
     body.append(
-      el('p', { textContent: t('{a} builds, {b} reviews. A REDO goes back on its own, {n} more times.', { a: loop.builds, b: loop.reviews, n: loop.left }) }),
+      el('p', { textContent: t('{a} builds, {b} reviews. It passes back and forth on its own, {n} more times.', { a: loop.builds, b: loop.reviews, n: loop.left }) }),
+      el('p', { textContent: t('Waiting on {who} — for {what}.', {
+        who: loop.turn === 'builds' ? loop.builds : loop.reviews,
+        what: loop.turn === 'builds' ? 'HANDOVER: READY' : 'VERDICT: OK / REDO',
+      }) }),
       el('p', { className: 'hint', textContent: t('An OK rings and stops it. So does running out of rounds.') }),
     );
     let sheet;
@@ -8710,7 +8758,12 @@ const PAIR_BATONS = [
       + 'what changed and hand over. Do not mark your own work correct — that is not your job\n'
       + 'in this arrangement.\n\n'
       + 'The review comes back as a file, {review}. You do not write to it; you read it.\n'
-      + 'Nothing the reviewer says will appear in this terminal — it works in its own.',
+      + 'Nothing the reviewer says will appear in this terminal — it works in its own.\n\n'
+      + 'End every pass with one line of your own, at the left margin, exactly:\n'
+      // Quoted for the same reason the verdict lines are: the terminal echoes this prompt,
+      // and Argus may be reading these lines to pass the work along.
+      + '  "HANDOVER: READY" followed by one line on what changed\n'
+      + 'That line is how {to} is told there is something to look at.',
   },
   {
     group: ADVERSARIAL,
@@ -8740,7 +8793,9 @@ const PAIR_BATONS = [
       + 'Fix what it got right. Say plainly what you disagree with and why — a review is not\n'
       + 'an order, and a reviewer who is wrong should be told so with a reason. Do not edit\n'
       + '{review}: reply in your own words, here, and let the next review answer you.\n'
-      + 'Run the tests before you say you are done, and hand back.',
+      + 'Run the tests before you say you are done. Then hand back with one line, at the\n'
+      + 'left margin, exactly:\n'
+      + '  "HANDOVER: READY" followed by one line on what you changed and what you refused',
   },
 ];
 
@@ -9447,7 +9502,10 @@ function noteLinks(id, found) {
  *  ping-pong on one sentence.
  */
 function verdictWatcher(term, hand) {
-  const SAYS = /^\s*VERDICT:\s*(OK|REDO)\b[ \t:—-]*(.*)$/i;
+  // Two sentences, one shape. `VERDICT:` ends the reviewer's turn; `HANDOVER:` ends the
+  // builder's. A loop needs both — reading only the verdict gives you half a cycle and a
+  // person sitting there to start the other half.
+  const SAYS = /^\s*(VERDICT|HANDOVER):\s*(OK|REDO|READY)\b[ \t:—-]*(.*)$/i;
   let read = 0;
   let due = null;
   let acted = -1;                     // the highest row already handed on
@@ -9479,7 +9537,12 @@ function verdictWatcher(term, hand) {
       if (!line) continue;
       const text = line.translateToString(true);
       const said = SAYS.exec(text);
-      if (said) found = { y, text, verdict: said[1].toUpperCase(), why: (said[2] || '').trim() };
+      if (said) {
+        found = {
+          y, text, kind: said[1].toUpperCase(), verdict: said[2].toUpperCase(),
+          why: (said[3] || '').trim(),
+        };
+      }
     }
     warm = true;
     if (!found) return;
