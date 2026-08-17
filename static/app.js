@@ -6797,7 +6797,27 @@ async function screenWall() {
     const body = el('div', { className: 'sheetbody actions' });
     let sheet;
 
+    /* Starting one, first.
+     *
+     *  It was under the list, which reads as "and if none of these will do…". But the list
+     *  is every session on the machine and it grows without limit — sixteen of them here on
+     *  an ordinary afternoon — so the one action that is not "pick an existing one" ended up
+     *  below the fold, in the place a footnote goes. It is a first-class choice: put it
+     *  where a first-class choice goes.
+     */
+    // With nothing to pick from, the note goes first: it is the explanation for why the
+    // only thing here is a button.
     if (!sessions.length) body.append(el('p', { className: 'empty', textContent: t('No tmux sessions on this server.') }));
+    body.append(el('button', {
+      className: 'ghost block',
+      onclick: async () => {
+        sheet.close();
+        // In the desk's folder, for the same reason the browser opens there.
+        const name = await createSession({ path: activeSpace().home ? deskHome(activeSpace()) : undefined });
+        if (name) openWindow({ kind: 'term', name });
+      },
+    }, [icon('folderPlus'), el('span', { textContent: t('Start a new session…') })]));
+    if (sessions.length) body.append(el('div', { className: 'sheetsep' }));
 
     // Ticked rather than opened one at a time: a desk is usually made of two or three
     // sessions, and closing the sheet after each one meant opening it three times.
@@ -6844,17 +6864,6 @@ async function screenWall() {
       }
     };
     sayTake();
-
-    body.append(el('div', { className: 'sheetsep' }));
-    body.append(el('button', {
-      className: 'ghost block',
-      onclick: async () => {
-        sheet.close();
-        // In the desk's folder, for the same reason the browser opens there.
-        const name = await createSession({ path: activeSpace().home ? deskHome(activeSpace()) : undefined });
-        if (name) openWindow({ kind: 'term', name });
-      },
-    }, [icon('folderPlus'), el('span', { textContent: t('Start a new session…') })]));
 
     sheet = modal(t('Add sessions to {desk}', { desk: ws.name }), body, [
       el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),
