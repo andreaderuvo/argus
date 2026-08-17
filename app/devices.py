@@ -127,6 +127,22 @@ def add(store: Path, name: str) -> tuple[dict, str]:
     return entry, token
 
 
+def rename(store: Path, device_id: str, name: str) -> dict:
+    """A name is a label for a person, and the person changes their mind: "phone" becomes "old
+    phone" the day a new one arrives, and a list you cannot correct is a list you stop trusting
+    when it matters."""
+    label = tidy_name(name)
+    kept = load(store)
+    found = next((d for d in kept if d["id"] == device_id), None)
+    if not found:
+        raise DeviceError("no device with that id")
+    if any(d["name"].lower() == label.lower() and d["id"] != device_id for d in kept):
+        raise DeviceError(f"there is already a device called {label!r}")
+    found["name"] = label
+    save(store, kept)
+    return found
+
+
 def revoke(store: Path, device_id: str) -> dict:
     devices = load(store)
     keeping = [d for d in devices if d["id"] != device_id]

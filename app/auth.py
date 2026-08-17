@@ -78,7 +78,7 @@ def is_protected(path: str) -> bool:
 
 
 # Managing devices is the one thing the master token keeps to itself.
-MASTER_PATHS = ("/api/devices",)
+MASTER_PATHS = ("/api/devices", "/api/journal")
 MASTER_PREFIX = "/api/devices/"
 
 

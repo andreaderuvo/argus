@@ -19,7 +19,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 
-from . import announce, bells, devices, favourites, files, fsops, languages, mounts, paths, ports, proxy, release, runner, system, term, tmux
+from . import announce, bells, devices, favourites, files, fsops, journal, languages, mounts, paths, ports, proxy, release, runner, system, term, tmux
 import httpx
 
 from .auth import PROXY_COOKIE, TokenAuthMiddleware
@@ -75,6 +75,49 @@ TAGS = [
     {"name": "Ports", "description": "Standing in front of a service that only listens on loopback, one port at a time."},
     {"name": "Setup", "description": "What this server allows, which languages it has, and the tmux configuration it reads."},
 ]
+
+
+class JournalMiddleware:
+    """Record everything that changes something. Raw ASGI, to see the status without buffering
+    the body."""
+
+    # Reads are the overwhelming majority of the traffic and none of the interesting part.
+    CHANGES = ("POST", "PUT", "PATCH", "DELETE")
+    # …but the method is a poor proxy for "changed something". Searching is a POST because a
+    # query goes in a body, and search-as-you-type filled the journal with a dozen identical
+    # lines a second — which is precisely the file nobody opens that this was meant not to be.
+    READS = ("/api/fs/locate", "/api/fs/usage")
+
+    def __init__(self, app, store_of):
+        self.app = app
+        self.store_of = store_of
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or not scope.get("path", "").startswith("/api"):
+            return await self.app(scope, receive, send)
+
+        started = time.monotonic()
+        status = 0
+
+        async def watched(message):
+            nonlocal status
+            if message["type"] == "http.response.start":
+                status = message["status"]
+            await send(message)
+
+        try:
+            await self.app(scope, receive, watched)
+        finally:
+            # Two things go in the journal, and the second is the reason it is worth having:
+            # anything that changed something, and anything that was refused — whatever method
+            # it used. A break-in looks like a run of 401s from an address you do not know, and
+            # a GET is what a scanner sends.
+            worth_it = journal.refused(status) or (
+                scope.get("method") in self.CHANGES and scope.get("path") not in self.READS
+            )
+            store = self.store_of()
+            if worth_it and store:
+                journal.record(store, scope, status, int((time.monotonic() - started) * 1000))
 
 
 async def overview_of(app: FastAPI, watcher: dict | None = None) -> dict:
@@ -168,10 +211,27 @@ async def overview_of(app: FastAPI, watcher: dict | None = None) -> dict:
     }
 
 
+async def sweeping_the_journal(store) -> None:
+    """Write out swallowed refusals even when nothing else happens.
+
+    `record` flushes them on the way past, which covers a machine somebody is using. A machine
+    nobody is using is exactly where a run of refusals matters most, and there is no next
+    request to ride on.
+    """
+    while True:
+        await asyncio.sleep(journal.QUIET_FOR)
+        try:
+            if store:
+                journal.flush_swallowed(store)
+        except Exception:
+            pass
+
+
 @contextlib.asynccontextmanager
 async def announcing(app: FastAPI):
     """Announce this machine to a board, if it has been told about one."""
     cfg = app.state.cfg
+    sweeper = asyncio.create_task(sweeping_the_journal(app.state.journal))
     task = None
     if getattr(cfg, "report_to", None):
         async def mine() -> dict:
@@ -180,6 +240,9 @@ async def announcing(app: FastAPI):
     try:
         yield
     finally:
+        sweeper.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await sweeper
         if task:
             task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -211,6 +274,7 @@ def create_app(cfg: Config) -> FastAPI:
     app.state.socket = tmux.Socket.new(cfg.tmux_socket)
     app.state.favourites = getattr(cfg, "favourites_store", None) or Path("/nonexistent")
     app.state.devices = cfg.devices_store or Path("/nonexistent")
+    app.state.journal = cfg.journal_store
     app.state.lang = Path("/nonexistent")
     app.state.addresses = []
 
@@ -550,6 +614,17 @@ def create_app(cfg: Config) -> FastAPI:
                 cfg.token, plain),
         }
 
+    @app.post("/api/devices/{device_id}", tags=["Setup"], summary="Rename a device")
+    async def rename_device(request: Request, device_id: str, body: dict) -> dict:
+        """The token is untouched: this is the label, not the key. Renaming does not sign
+        anything out, which is the whole reason it is a separate action from revoking."""
+        try:
+            now = devices.rename(request.app.state.devices, device_id, str(body.get("name") or ""))
+        except devices.DeviceError as e:
+            raise ApiError(400 if "already" in str(e) or "needs a name" in str(e) else 404,
+                           str(e)) from e
+        return {"device": devices.public([now])[0]}
+
     @app.delete("/api/devices/{device_id}", tags=["Setup"], summary="Take a device's token back")
     async def drop_device(request: Request, device_id: str) -> dict:
         """Takes effect on the next request that device makes: the file is re-read every time
@@ -560,6 +635,20 @@ def create_app(cfg: Config) -> FastAPI:
         except devices.DeviceError as e:
             raise ApiError(404, str(e)) from e
         return {"revoked": gone["name"]}
+
+    @app.get("/api/journal", tags=["Setup"], summary="What has been done here, and what was refused")
+    async def read_journal(request: Request, limit: int = 200) -> dict:
+        """Most recent first. Only the token from the config may read it: a record that a
+        possibly-stolen device can read is a record that tells whoever took it what you can see.
+        """
+        kept = journal.read(request.app.state.journal, max(1, min(int(limit), 500)))
+        return {
+            "entries": kept,
+            # Attempts, not lines: a collapsed burst is one line and many knocks, and the
+            # number a person reads at the top has to be the number of knocks.
+            "refused": sum(e.get("times", 1) for e in kept if e.get("refused")),
+            "since": kept[-1]["at"] if kept else None,
+        }
 
     @app.get("/api/runnable", tags=["The machine"],
              summary="What this machine offers to start and stop")
@@ -632,6 +721,11 @@ def create_app(cfg: Config) -> FastAPI:
 
     app.add_middleware(TokenAuthMiddleware, token=cfg.token, watchers=cfg.watchers,
                        devices_store=cfg.devices_store)
+    # Added *after* the auth middleware, so it runs *outside* it — Starlette wraps in reverse
+    # order — and therefore sees the `argus_master` / `argus_device` / `argus_watcher` that auth
+    # put on the scope. Written here rather than in twenty handlers so a route added next month
+    # is recorded without anybody remembering to.
+    app.add_middleware(JournalMiddleware, store_of=lambda: app.state.journal)
     return app
 
 
@@ -867,6 +961,7 @@ def main(argv: list[str] | None = None) -> int:
     # Before the app is built: the auth middleware takes this path at construction, because
     # it re-reads the file on every attempt so that revoking a device takes effect at once.
     cfg.devices_store = devices.default_store(config_path)
+    cfg.journal_store = journal.default_store(config_path)
 
     try:
         app = create_app(cfg)
