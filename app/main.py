@@ -8,6 +8,7 @@ import contextlib
 import os
 import mimetypes
 import sys
+import time
 from pathlib import Path
 
 import uvicorn
@@ -95,6 +96,9 @@ async def overview_of(app: FastAPI) -> dict:
         up = float(Path("/proc/uptime").read_text().split()[0])
     except (OSError, ValueError, IndexError):
         up = 0.0
+    # Two different questions, and on a board of several Argus instances on one box the
+    # machine's answer is the same for all of them while this one is not.
+    serving = max(0.0, time.time() - getattr(app.state, "started", time.time()))
 
     # Only the disk in the most trouble: a board wants to know there is a problem, not to
     # inventory the filesystems.
@@ -123,6 +127,7 @@ async def overview_of(app: FastAPI) -> dict:
         "name": os.uname().nodename,
         "version": VERSION,
         "uptime": up,
+        "serving": serving,
         "cores": cores,
         "load": [round(load1, 2), round(load5, 2), round(load15, 2)],
         "load_pct": round(100 * load1 / cores, 1),
@@ -176,6 +181,10 @@ def create_app(cfg: Config) -> FastAPI:
         lifespan=announcing,
     )
     app.state.cfg = cfg
+    # When this process started, so a board can tell "the machine has been up for months"
+    # apart from "this Argus came up ten minutes ago". Set here rather than in the lifespan
+    # so it is right in tests too, which build the app without ever starting it.
+    app.state.started = time.time()
     app.state.jail = Jail(cfg.roots)
     app.state.socket = tmux.Socket.new(cfg.tmux_socket)
     app.state.favourites = getattr(cfg, "favourites_store", None) or Path("/nonexistent")
