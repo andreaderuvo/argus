@@ -466,6 +466,24 @@ iframe.preview.pdfnative { width: 100%; height: 100%; border: 0; display: block;
 .settings h2.settinggroup:first-of-type { margin-top: .8rem; }
 
 /* Two agents: pick a mode, pick who is who, say the goal. */
+/* The four names that come from the situation. A list of names, laid out as one — the
+   middle column says what fills each, since what fills them is not a string you typed. */
+.situ { margin-top: 1rem; }
+.situgrid {
+  display: grid; grid-template-columns: auto 1fr auto; gap: .45rem .9rem; align-items: center;
+  margin-top: .5rem; max-width: 46rem;
+}
+.situname { color: var(--accent); font-size: .85rem; }
+.situsays { color: var(--dim); font-size: .85rem; }
+/* Small: this is the escape hatch beside a description, not one of the four things the
+   screen is for. Four full-sized buttons down the right made it look like a form. */
+.situgrid button { font-size: .76rem; padding: .28rem .6rem; justify-self: end; }
+.situgrid button[disabled] { opacity: .45; cursor: default; }
+@media (max-width: 34rem) {
+  .situgrid { grid-template-columns: auto 1fr; }
+  .situgrid button { grid-column: 2; justify-self: start; }
+}
+
 /* What the library is asking for and this set has not got. Chips rather than a list: each
    one is a thing to press, and pressing it is the whole action. */
 .wantrow { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin: .6rem 0 0; }

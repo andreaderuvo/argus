@@ -3908,7 +3908,6 @@ async function screenMessages(open = null) {
       el('p', { className: 'hint', textContent: t('A desk picks which set it uses, from its own ⋮ menu. {desk} is on {set}.', { desk: ws.name, set: deskSetName(ws.id) }) }),
       chips,
       held,
-      el('p', { className: 'hint', textContent: t('Always there, from the situation itself: {folder} is the working directory of the session handing over, {from} and {to} are the two sessions, and {plan} is the file two agents share when they work on one thing together.') }),
       el('p', {
         className: 'hint',
         textContent: prefs.crossSet === false
@@ -3992,6 +3991,44 @@ async function screenMessages(open = null) {
         }
       };
 
+      /* The four that are always there.
+       *
+       *  They were described in a paragraph under the grid, and a paragraph is not where
+       *  anybody looks for a list of names: the reasonable expectation is to open this
+       *  screen and *see* what the prompts you were given are written around. So they are
+       *  rows — the value column says what fills each one, because what fills them is the
+       *  situation and not a string you typed.
+       *
+       *  Overriding one is allowed and always was: you may well want every prompt pointed
+       *  at one folder. It takes a press, it lands in the grid above like any other name,
+       *  and the row there says what it is covering — which is the point. A name that
+       *  quietly stops meaning "where the session is" is worth one deliberate act.
+       */
+      const situ = el('div', { className: 'situ' });
+      const drawSitu = () => {
+        const four = [
+          ['folder', t('the working directory of the session handing over')],
+          ['from', t('the session it is coming from')],
+          ['to', t('the session it is going to')],
+          ['plan', t('the file two agents share when they work on one thing')],
+        ];
+        situ.replaceChildren(el('p', { className: 'hint', textContent: t('Always there, filled from the situation itself — every prompt Argus comes with is written around these four and nothing else.') }));
+        const table = el('div', { className: 'situgrid' });
+        for (const [name, says] of four) {
+          const mine = name in set.vars;
+          table.append(
+            el('code', { className: 'situname', textContent: `{${name}}` }),
+            el('span', { className: 'situsays', textContent: mine ? t('this set says {value}', { value: set.vars[name] || '—' }) : says }),
+            el('button', {
+              className: 'ghost dup', textContent: mine ? t('In the grid above') : t('Set one anyway'),
+              disabled: mine,
+              onclick: () => { grid.want(name); drawSitu(); },
+            }),
+          );
+        }
+        situ.append(table);
+      };
+
       const tools = el('div', { className: 'setrow' });
       if (!ground) {
         tools.append(
@@ -4057,7 +4094,8 @@ async function screenMessages(open = null) {
       }
       around();
       drawWanted();
-      held.replaceChildren(tools, grid, wanted, inherited, usedBy);
+      drawSitu();
+      held.replaceChildren(tools, grid, wanted, situ, inherited, usedBy);
     }
 
     /** A grid of name-and-value, editable in place.
