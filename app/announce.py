@@ -78,7 +78,11 @@ async def keep_announcing(cfg: Any, overview: Callable[[], Any]) -> None:
         while True:
             try:
                 body = await overview()
-                body = {**body, "name": name, "reach": reach}
+                # The name you gave this machine goes in `name`; what it calls itself is
+                # kept beside it. Overwriting one with the other lost the hostname, and a
+                # board counting distinct machines then counted three Argus instances on one
+                # box as three boxes.
+                body = {**body, "hostname": body.get("name"), "name": name, "reach": reach}
                 await announce_once(client, report_to, body)
             except Exception:
                 # Whatever went wrong here, the answer is the same: try again shortly.
