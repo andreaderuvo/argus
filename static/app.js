@@ -3560,6 +3560,9 @@ async function screenSettings() {
     toggle(t('Placeholders from another set'),
       t('write {genpat_paper.paper} in a prompt to take a value from that set, whatever set the desk is on'),
       () => prefs.crossSet !== false, (v) => { prefs.crossSet = v; }),
+    toggle(t('Ask before sending one with a hole in it'),
+      t('a prompt whose placeholders this desk cannot fill is marked in the list either way'),
+      () => prefs.warnGaps !== false, (v) => { prefs.warnGaps = v; }),
   );
 
   /* A token per device, and taking one back.
@@ -8546,6 +8549,43 @@ function attachMessages(host, wsId, extras, deliver) {
     return terms.find((o) => o !== target) || target;
   };
 
+  /** What this prompt is missing, for this desk, right now.
+   *
+   *  Four names are filled in from the situation and are never gaps — where the sender is,
+   *  who is sending, who is receiving, where the plan lives. What can be missing is one of
+   *  yours: a template written around `{paper}` sent from a desk whose set has no paper.
+   */
+  const gapsIn = (text, known) => unknownVars(text, known);
+
+  /** Ask before sending one with a hole in it.
+   *
+   *  Passing an unfilled placeholder through as written is the old behaviour and it stays,
+   *  because sometimes it is what you want — the agent reads `{paper}` and asks which one.
+   *  What was wrong is that it happened *silently*: one tap, and a prompt went across with
+   *  a brace in it, and you found out from the agent's reply. So it asks, and going ahead
+   *  is one button — this warns, it does not forbid.
+   */
+  const askAboutGaps = (kind, target, gaps) => new Promise((settle) => {
+    if (prefs.warnGaps === false || !gaps.length) return settle(true);
+    const body = el('div', { className: 'sheetbody' });
+    body.append(
+      el('p', { textContent: t('This desk has nothing to put in {list}.', { list: gaps.map((g) => `{${g}}`).join(' ') }) }),
+      el('p', { className: 'hint', textContent: t('Sent as it is, {name} goes across with the braces still in it — which the agent may well ask you about.', { name: kind.name }) }),
+    );
+    let sheet;
+    sheet = modal(t('Something is missing'), body, [
+      el('button', { className: 'ghost', textContent: t('Cancel'), onclick: () => { sheet.close(); settle(false); } }),
+      el('button', {
+        className: 'ghost', textContent: t('Fill them in'),
+        onclick: () => { sheet.close(); settle(false); go('#/placeholders'); },
+      }),
+      el('button', {
+        className: 'primary inline', textContent: t('Send anyway'),
+        onclick: () => { sheet.close(); settle(true); },
+      }),
+    ]);
+  });
+
   const send = async (kind, target) => {
     if (!target) return;
     const from = senderFor(target);
@@ -8559,6 +8599,8 @@ function attachMessages(host, wsId, extras, deliver) {
     // Worked out first, yours second: four names are filled in from the situation, and a set
     // that defines one of them anyway means it on purpose.
     const known = { folder: here, from: fromName, to: toName, plan: planPath(here), ...allVars(wsId) };
+    // Everything the desk cannot fill in, before it goes rather than after.
+    if (!await askAboutGaps(kind, target, gapsIn(kind.text, known))) return;
     // Whether it runs is the prompt's own business: "run the tests" wants to go, while
     // "here is the file, now tell me what you think" wants a look before Enter.
     target.handle.send(fillBaton(kind.text, known) + (kind.run ? '\r' : ''));
@@ -8603,12 +8645,22 @@ function attachMessages(host, wsId, extras, deliver) {
       const folder = el('details', { className: 'msgfolder', open: true });
       folder.append(el('summary', {}, [icon('folder'), el('span', { textContent: group })]));
       for (const kind of mine) {
+        // Whether this one has everything it needs, said before you tap rather than after
+        // it has gone. The four situational names are stubbed here because at send time
+        // they are always known — what is worth flagging is a `{paper}` this desk has not
+        // got, not the fact that nothing is aimed at anything yet.
+        const gaps = gapsIn(kind.text, {
+          folder: deliver.folder(), from: '?', to: '?', plan: '?', ...allVars(wsId),
+        });
         const row = el('button', {
-          className: 'trayrow',
-          title: (kind.run ? t('sends it') + ' — ' : '') + kind.text.split('\n')[0],
+          className: `trayrow${gaps.length ? ' hasgap' : ''}`,
+          title: (kind.run ? t('sends it') + ' — ' : '')
+            + (gaps.length ? `${t('nothing to put in {list}', { list: gaps.map((g) => `{${g}}`).join(' ') })} — ` : '')
+            + kind.text.split('\n')[0],
         }, [
           icon('relay'),
           el('span', { className: 'trayleaf', textContent: kind.name }),
+          gaps.length ? el('span', { className: 'gapmark', textContent: '{ }' }) : null,
           kind.run ? el('span', { className: 'verb', textContent: '↵' }) : null,
         ].filter(Boolean));
         dragLink(row, { text: kind.name, message: kind }, deliver.find, (item, target) => send(item.message, target));
@@ -8632,10 +8684,12 @@ function attachMessages(host, wsId, extras, deliver) {
             to: target?.name.slice(5) || '',
             ...allVars(wsId),
           };
+          const short = gapsIn(kind.text, known);
           peek = el('div', { className: 'promptpeek' }, [
             el('div', { className: 'peekname', textContent: kind.name }),
             el('pre', { textContent: fillBaton(kind.text, known) }),
-          ]);
+            short.length ? el('p', { className: 'peekgap', textContent: t('nothing to put in {list}', { list: short.map((g) => `{${g}}`).join(' ') }) }) : null,
+          ].filter(Boolean));
           document.body.append(peek);
           const box = row.getBoundingClientRect();
           const wide = peek.getBoundingClientRect();
@@ -8676,7 +8730,16 @@ function attachMessages(host, wsId, extras, deliver) {
           };
           const note = el('textarea', { className: 'baton', spellcheck: false, rows: 7, value: kind.text });
           const shown = el('pre', { className: 'batonpreview' });
-          const see = () => { shown.textContent = fillBaton(note.value, known); };
+          // Edited here, so the gaps move as you type: filling one in by hand is half of
+          // what this dialog is for.
+          const short = el('p', { className: 'hint warn' });
+          const see = () => {
+            shown.textContent = fillBaton(note.value, known);
+            const gaps = gapsIn(note.value, known);
+            short.hidden = !gaps.length;
+            short.textContent = gaps.length
+              ? t('nothing to put in {list}', { list: gaps.map((g) => `{${g}}`).join(' ') }) : '';
+          };
           note.addEventListener('input', see);
           see();
           let sheet;
@@ -8684,6 +8747,7 @@ function attachMessages(host, wsId, extras, deliver) {
             note,
             el('p', { className: 'hint', textContent: t('what will be typed over there:') }),
             shown,
+            short,
           ]), [
             el('button', { className: 'ghost', textContent: t('Cancel'), onclick: () => sheet.close() }),
             el('button', {
