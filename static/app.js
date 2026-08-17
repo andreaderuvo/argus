@@ -16,6 +16,14 @@ const view = document.getElementById('view');
 const keep = document.getElementById('keep');
 const side = document.getElementById('side');
 const nav = document.getElementById('nav');
+const railToggle = document.getElementById('railtoggle');
+railToggle.onclick = () => {
+  prefs.railWide = !prefs.railWide;
+  savePrefs();
+  applyRail();
+  // Every terminal and every PDF measures its own box; the rail just changed all of them.
+  window.dispatchEvent(new Event('resize'));
+};
 const sideToggle = document.getElementById('sidetoggle');
 const bar = {
   back: document.getElementById('back'),
@@ -3914,6 +3922,15 @@ async function screenTmuxConf() {
   host.querySelector('.editbar')?.prepend(apply);
 }
 
+/** Wide rail or narrow. Remembered, because it is a preference about your screen rather
+ *  than about what you are doing, and re-choosing it every visit would be a tax. */
+function applyRail() {
+  document.body.classList.toggle('railwide', !!prefs.railWide);
+  const wide = !!prefs.railWide;
+  railToggle.title = wide ? t('Narrower') : t('Wider');
+  railToggle.setAttribute('aria-expanded', String(wide));
+}
+
 function applySidebar() {
   document.body.classList.toggle('side', prefs.sidebar && !!token);
   if (prefs.sidebar && token) renderSidebar();
@@ -4878,8 +4895,9 @@ const CTRL_CODES = [
  *  Back leaves the session running; the ✕ is how you actually let go of it. */
 function decorateTerm(name) {
   setTitle(name);
-  bar.back.hidden = false;
-  bar.back.onclick = () => go('#/sessions');
+  // No back arrow: the navigation is always there, and an arrow that only goes where a
+  // permanent button already goes is a second door to the same room.
+  bar.back.hidden = true;
   bar.action.hidden = false;
   bar.action.title = t('Detach and close this terminal');
   bar.action.replaceChildren(icon('close'));
@@ -5093,8 +5111,9 @@ function arrange(open, wall, mode, key = (id) => id) {
 
 function decorateWall() {
   setTitle(t('Windows'));
-  bar.back.hidden = false;
-  bar.back.onclick = () => go('#/sessions');
+  // No back arrow: the navigation is always there, and an arrow that only goes where a
+  // permanent button already goes is a second door to the same room.
+  bar.back.hidden = true;
   bar.action.hidden = false;
   bar.action.title = t('Close every window');
   bar.action.replaceChildren(icon('close'));
@@ -8704,6 +8723,7 @@ function translateMarkup() {
     await loadFavourites();
   }
   await render();
+  applyRail();
   applySidebar();
   countSessions();
   // Only after the first paint: the first answer sets the mark for "now" and rings

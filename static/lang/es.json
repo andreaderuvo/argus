@@ -502,6 +502,8 @@
   "Previous page": "Página anterior",
   "Next page": "Página siguiente",
   "of {total}": "de {total}",
-  "Open in a browser tab": "Abrir en una pestaña del navegador"
+  "Open in a browser tab": "Abrir en una pestaña del navegador",
+  "Wider": "Más ancha",
+  "Narrower": "Más estrecha"
  }
 }
