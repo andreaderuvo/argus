@@ -439,6 +439,22 @@ services.</sub>
 - **No build step.** The frontend is plain ES modules; xterm.js, marked and the QR
   library are vendored. `pip install -r requirements.txt` and run it.
 
+### Watching several machines
+
+A machine can hand out a token that opens exactly one door, `GET /api/overview`: hostname,
+uptime, load, memory, the disk in the most trouble, and which tmux sessions are ringing.
+No shell, no files, no writes.
+
+```yaml
+watchers:
+  - name: panoptes
+    token: <at least 16 characters, and not your real one>
+```
+
+That is what a board across several machines should hold: losing it loses a list of
+session names, not every box on it. **Panoptes**, the board itself, is a separate project
+— Argus never depends on it, and if it goes away every Argus carries on alone.
+
 ## The API
 
 Everything Argus does, it does through its API — the browser is one client of it, not a

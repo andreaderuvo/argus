@@ -13,6 +13,11 @@ PROTECTED_PREFIXES = ("/api", "/ws", "/proxy")
 # carry the token; it is set deliberately, when a port is opened.
 PROXY_COOKIE = "argus_proxy" 
 
+# Everything a token may reach when all it is allowed to do is watch. One door, on
+# purpose: a board across several machines holds one of these per machine, and the value
+# of that arrangement is entirely in how little each key is worth.
+WATCHER_PATHS = ("/api/overview",)
+
 
 def presented_token(scope: dict) -> str | None:
     """Accepts the token from the ``Authorization`` header or from ``?token=``.
@@ -61,9 +66,19 @@ class TokenAuthMiddleware:
     """Raw ASGI rather than Starlette's BaseHTTPMiddleware, because that one never sees
     WebSocket connections — and the terminal is a WebSocket."""
 
-    def __init__(self, app, token: str):
+    def __init__(self, app, token: str, watchers: list[dict] | None = None):
         self.app = app
         self.token = token
+        self.watchers = list(watchers or [])
+
+    def watching(self, presented: str) -> dict | None:
+        """The watcher this token belongs to, if any. Every candidate is compared even
+        after a match, so the time taken says nothing about which one it was."""
+        found = None
+        for w in self.watchers:
+            if matches(presented, w["token"]):
+                found = w
+        return found
 
     async def __call__(self, scope, receive, send):
         if scope["type"] not in ("http", "websocket") or not is_protected(scope["path"]):
@@ -72,6 +87,18 @@ class TokenAuthMiddleware:
         token = presented_token(scope)
         if token is not None and matches(token, self.token):
             return await self.app(scope, receive, send)
+
+        if token is not None and self.watching(token):
+            if scope["path"] in WATCHER_PATHS and scope["type"] == "http":
+                return await self.app(scope, receive, send)
+            # A real token asking for the wrong thing: say so plainly, rather than
+            # pretending it was never valid.
+            if scope["type"] == "http":
+                response = PlainTextResponse(
+                    "this token may only ask what is happening here",
+                    status_code=403,
+                )
+                return await response(scope, receive, send)
 
         if scope["type"] == "websocket":
             # Closing before accepting makes the server answer the handshake with an
