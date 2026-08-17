@@ -47,6 +47,11 @@ class WriteBody(BaseModel):
     # What the editor believed the file was when it loaded it. A job writing to the same
     # file while someone reads it on a phone is the normal case here, not a rare one.
     mtime: int | None = None
+    # Add to the end instead of replacing. For a file two writers share — the bridge two
+    # agents pass work through — read-modify-write is not good enough: the window between
+    # the read and the write is exactly where the other one's turn gets lost. An append is
+    # one `write(2)` on a file opened `O_APPEND`, which the kernel does not interleave.
+    append: bool = False
 
 
 def _writable(request: Request) -> None:
@@ -265,6 +270,19 @@ async def write(request: Request, body: WriteBody) -> dict:
 
     if target.is_dir():
         raise ApiError(400, "that is a directory")
+
+    if body.append:
+        data = body.content.encode("utf-8")
+        if len(data) > request.app.state.cfg.max_preview_bytes:
+            raise ApiError(413, "too large to add in one go")
+        try:
+            with target.open("ab") as f:
+                f.write(data)
+        except OSError as e:
+            raise ApiError(500, f"could not add to it: {e.strerror}") from e
+        st = target.stat()
+        return {"ok": True, "path": str(target), "size": st.st_size, "mtime": int(st.st_mtime),
+                "appended": len(data)}
 
     limit = request.app.state.cfg.max_preview_bytes
     st = target.stat()

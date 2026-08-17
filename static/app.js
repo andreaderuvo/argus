@@ -3848,7 +3848,7 @@ async function screenMessages(open = null) {
     from: 'claude',
     to: 'codex',
     plan: planPath(deskHome(ws)),
-    review: reviewPath(deskHome(ws)),
+    bridge: bridgePath(deskHome(ws)),
     ...groundVars(),
     ...(previewSet === GROUND ? {} : varSetNamed(previewSet)?.vars || {}),
   });
@@ -4161,7 +4161,7 @@ async function screenMessages(open = null) {
        */
       const wanted = el('div', { className: 'wantrow' });
       const drawWanted = () => {
-        const stub = { folder: '.', from: '?', to: '?', plan: '?', review: '?' };
+        const stub = { folder: '.', from: '?', to: '?', plan: '?', bridge: '?' };
         const asked = new Set();
         for (const kind of batonTemplates()) {
           for (const name of unknownVars(kind.text, { ...stub, ...groundVars(), ...(ground ? {} : set.vars) })) {
@@ -4205,7 +4205,7 @@ async function screenMessages(open = null) {
           ['from', t('the session it is coming from')],
           ['to', t('the session it is going to')],
           ['plan', t('the file two agents share when they work on one thing')],
-          ['review', t('where a reviewing agent writes, and the other one reads')],
+          ['bridge', t('the file two agents talk through, turn by turn')],
         ];
         situ.replaceChildren(el('p', { className: 'hint', textContent: t('Always there, filled from the situation itself — every prompt Argus comes with is written around these and nothing else.') }));
         const table = el('div', { className: 'situgrid' });
@@ -5087,7 +5087,7 @@ function linkPaths(term, container, session, open, following = () => {}) {
   }
 }
 
-function attachTerminal(container, name, { transform, onGone, onPath, onLinks, onVerdict, mirror } = {}) {
+function attachTerminal(container, name, { transform, onGone, onPath, onLinks, mirror } = {}) {
   const term = new Terminal({
     fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace',
     fontSize: prefs.fontSize,
@@ -5214,7 +5214,6 @@ function attachTerminal(container, name, { transform, onGone, onPath, onLinks, o
 
   // Everything worth clicking that goes past in here, offered to the desk's tray.
   const harvest = onLinks ? linkHarvester(term, name, onLinks) : null;
-  const verdicts = onVerdict ? verdictWatcher(term, onVerdict) : null;
 
   let ws = null;
   let ready = false;
@@ -5264,7 +5263,6 @@ function attachTerminal(container, name, { transform, onGone, onPath, onLinks, o
       pending = [];
       term.write(merged);
       harvest?.();
-      verdicts?.();
     };
 
     ws.onmessage = (ev) => {
@@ -6007,91 +6005,6 @@ async function screenWall() {
      *  pause the loop reads its own instructions and answers them, which it did, immediately,
      *  the first time it ran.
      */
-    const VERDICT_SETTLE = 20000;
-
-    /** Hand a template to one of the pair, and note whose turn it now is. */
-    function passTo(loop, who, templateName, from) {
-      const target = open.find((o) => o.name === `term:${who}`);
-      if (!target) return t('{who} is not open any more — the review loop is off', { who });
-      const text = batonTemplates().find((k) => k.name === templateName)?.text;
-      if (!text) return t('the "{name}" template is gone — the review loop is off', { name: templateName });
-      const folder = deskHome(ws);
-      target.handle.send?.(`${fillBaton(text, {
-        folder,
-        plan: planPath(folder),
-        review: reviewPath(folder),
-        from,
-        to: who,
-        ...allVars(ws.id),
-      })}\r`);
-      loop.turn = who === loop.builds ? 'builds' : 'reviews';
-      loop.at = Date.now();
-      savePrefs();
-      repaintPair();
-      return null;
-    }
-
-    /* Whose move it is, and what ends a move.
-     *
-     *  The loop used to close on one sentence only — the reviewer's verdict — which is half a
-     *  cycle: a REDO went back to the builder and then everything stopped until a person
-     *  noticed the fix was done and pressed something. So the builder ends its turn the same
-     *  way the reviewer does, with a line: `HANDOVER: READY` and what changed.
-     *
-     *  Two rules keep it honest. **Only the agent whose turn it is can end the turn** — the
-     *  builder quotes the review back at itself constantly, and a quotation is not a verdict.
-     *  And **every pass costs a round**, so a pair that has settled into agreeing with each
-     *  other still runs out.
-     */
-    function verdictHeard(from, said) {
-      const loop = (prefs.pairLoop || {})[ws.id];
-      if (!loop) return;
-      const turn = loop.turn || 'reviews';
-      const mine = turn === 'reviews' ? loop.reviews : loop.builds;
-      if (from !== mine) return;
-      // The right sentence from the right session: a builder saying VERDICT is quoting, and
-      // a reviewer saying HANDOVER has misread its instructions.
-      if (said.kind !== (turn === 'reviews' ? 'VERDICT' : 'HANDOVER')) return;
-      if (Date.now() - (loop.at || 0) < VERDICT_SETTLE) return;
-
-      const stop = (why) => {
-        delete prefs.pairLoop[ws.id];
-        savePrefs();
-        repaintPair();
-        if (why) toast(why);
-      };
-
-      // The builder has finished a pass: over to the reviewer.
-      if (turn === 'builds') {
-        if (loop.left <= 0) {
-          ring({ session: from, why: 'asking', text: t('done, and the rounds are used up — look at it yourself') });
-          return stop(null);
-        }
-        const trouble = passTo(loop, loop.reviews, 'You review (send to the reviewer)', loop.builds);
-        if (trouble) return stop(trouble);
-        toast(t('over to {who} to review it', { who: loop.reviews }));
-        return;
-      }
-
-      if (said.verdict === 'OK') {
-        // Rung rather than toasted: this is the end of the job, and the end of the job is
-        // exactly what bells are for — you are somewhere else by now.
-        ring({ session: from, why: 'finished', text: t('review passed — {why}', { why: said.why || 'VERDICT: OK' }) });
-        stop(null);
-        return;
-      }
-      if (loop.left <= 0) {
-        ring({ session: from, why: 'asking', text: t('sent back again, and the rounds are used up — read it yourself') });
-        stop(null);
-        return;
-      }
-
-      loop.left -= 1;
-      const trouble = passTo(loop, loop.builds, 'Answer the review', loop.reviews);
-      if (trouble) return stop(trouble);
-      toast(t('sent back to {who} — {n} more rounds', { who: loop.builds, n: loop.left }));
-    }
-
     /** What was typed in one chained terminal, handed to the others. */
     function echoToChain(from, data) {
       if (!chained(ws.id, from)) return;
@@ -6251,9 +6164,6 @@ async function screenWall() {
             onPath: (hit) => openLocated('wall', hit, win),
             // A session that is not there any more has to say so, not sit blank.
             onLinks: (found) => noteLinks(ws.id, found),
-            // Only meaningful while a review loop is armed on this desk, and it checks that
-            // itself — wiring it unconditionally keeps the window code free of the pattern.
-            onVerdict: (said) => verdictHeard(spec.name, said),
             mirror: (data) => echoToChain(spec.name, data),
             onGone: () => {
               win.classList.add('gone');
@@ -7350,14 +7260,21 @@ async function screenWall() {
      *  makes an unattended loop safe is not that it is careful, it is that it ends. */
     const loopOn = el('input', { type: 'checkbox' });
     const rounds = el('input', { type: 'number', className: 'pairrounds', min: '1', max: '20', value: '3' });
+    // The other end of the leash. Rounds bound how many times they may disagree; this bounds
+    // how long they may take about it, which is the one an agent stuck in a slow loop hits
+    // first. Both are written into the file, so they hold with the browser shut.
+    const minutes = el('input', { type: 'number', className: 'pairrounds', min: '5', max: '480', value: '30' });
     const auto = el('div', { className: 'pairauto' }, [
       el('label', { className: 'pairrow' }, [
-        loopOn, el('span', { className: 'grow', textContent: t('Hand back automatically on REDO') }),
+        loopOn, el('span', { className: 'grow', textContent: t('Let them keep going on their own') }),
       ]),
       el('label', { className: 'pairrow' }, [
         el('span', { textContent: t('at most') }), rounds, el('span', { textContent: t('rounds') }),
       ]),
-      el('p', { className: 'hint', textContent: t('They pass it back and forth without you: HANDOVER: READY sends it to the reviewer, VERDICT: REDO sends it back, VERDICT: OK rings and stops. The builder goes first, and it stops when the rounds run out.') }),
+      el('label', { className: 'pairrow' }, [
+        el('span', { textContent: t('and no longer than') }), minutes, el('span', { textContent: t('minutes') }),
+      ]),
+      el('p', { className: 'hint', textContent: t('Both start at once and pass the work through BRIDGE.argus.md, checking it every 60 seconds — no browser needed. Argus reads the same file: it rings when the reviewer says OK, and writes ARGUS: STOP into it when the rounds run out.') }),
     ]);
     const paintAuto = () => { auto.hidden = !mode.roles; };
 
@@ -7376,6 +7293,14 @@ async function screenWall() {
       const path = planPath(folder);
       try {
         await postJSON('/api/fs/write', { path, content: mode.plan(goal.value.trim(), first, second) });
+        // The bridge is written fresh with every pair: it is the record of *this* run, and a
+        // new pair reading the last one's argument would be worse than starting empty.
+        if (mode.roles) {
+          await postJSON('/api/fs/write', {
+            path: bridgePath(folder),
+            content: bridgeHeader(goal.value.trim(), first, second, Number(minutes.value) || 30),
+          });
+        }
       } catch (e) {
         start.disabled = false;
         return toast(t('could not write the plan: {why}', { why: e.message }), true);
@@ -7383,7 +7308,7 @@ async function screenWall() {
 
       const windowFor = (name) => terms.find((o) => o.name === `term:${name}`);
       const known = {
-        folder, plan: path, review: reviewPath(folder), from: first, to: second,
+        folder, plan: path, bridge: bridgePath(folder), from: first, to: second,
         ...allVars(activeSpace().id),
       };
       const textOf = (templateName) => batonTemplates().find((k) => k.name === templateName)?.text || '';
@@ -7401,24 +7326,19 @@ async function screenWall() {
         prefs.chain[activeSpace().id] = was;
         savePrefs();
         deck.paintChain();
-      } else if (mode.roles && loopOn.checked) {
-        // With the loop armed the turns are Argus's business, and the first turn is the
-        // builder's. Sending the reviewer its prompt now would have it review a change
-        // nobody has made yet. It gets its prompt when there is something to look at.
-        windowFor(first)?.handle.send?.(`${fillBaton(textOf(mode.roles.a), known)}\r`);
       } else {
         windowFor(first)?.handle.send?.(`${fillBaton(textOf(mode.roles.a), known)}\r`);
         windowFor(second)?.handle.send?.(
           `${fillBaton(textOf(mode.roles.b), { ...known, from: first, to: second })}\r`);
       }
 
-      // Armed only for the mode that has a verdict to read, only if asked, and with the
-      // count fixed here rather than somewhere in the code: it is your money.
+      // What Argus keeps is small now: who is who, how many passes they were given, and what
+      // it has already rung about. Whose turn it is lives in the file, where it belongs —
+      // the two of them keep it accurate whether or not this tab is open.
       prefs.pairLoop = prefs.pairLoop || {};
       if (mode.roles && loopOn.checked) {
         prefs.pairLoop[activeSpace().id] = {
-          builds: first, reviews: second, left: Number(rounds.value) || 3,
-          at: Date.now(), turn: 'builds',
+          builds: first, reviews: second, left: Number(rounds.value) || 3, at: Date.now(),
         };
       } else {
         delete prefs.pairLoop[activeSpace().id];
@@ -7454,41 +7374,185 @@ async function screenWall() {
   tools.append(pairNote);
 
   let pairClock = null;
+  /** What the bridge says, if there is one. Read rather than remembered: the two agents
+   *  keep this file accurate whether or not a browser is open, so it is the only honest
+   *  answer to "where have they got to". */
+  let lastRung = null;
+  async function readBridge(folder) {
+    try {
+      const r = await api(`/api/file?path=${encodeURIComponent(bridgePath(folder))}`);
+      const turns = bridgeTurns(await r.text());
+      return { turns, last: turns[turns.length - 1] || null, wrote: Number(r.headers.get('x-mtime') || 0) };
+    } catch {
+      return null;                    // no bridge: an older pair, or the together mode
+    }
+  }
+
   async function readPair() {
-    const path = planPath(deskFolder());
+    const folder = deskFolder();
+    const path = planPath(folder);
+    let text;
+    let wrote = 0;
     try {
       const r = await api(`/api/file?path=${encodeURIComponent(path)}`);
-      const text = await r.text();
-      const wrote = Number(r.headers.get('x-mtime') || 0);
-      // Which mode, from the shape of the file itself. The two templates differ in one
-      // heading, and reading that is more honest than remembering what was clicked.
-      const mode = /^##\s*Who\b/m.test(text) ? t('one reviews') : t('together');
-      const who = [...text.matchAll(/^-\s*(?:builds|reviews):\s*(\S+)/gm)].map((m) => m[1]);
-      const quiet = wrote ? (Date.now() / 1000) - wrote : 0;
-      pairNote.hidden = false;
-      pairNote.classList.toggle('stale', quiet > 20 * 60);
-      pairNote.title = t('The plan is {path} — last written {when}', { path, when: duration(quiet) });
-      // A loop that hands work back on its own has to be visible while it is doing it, and
-      // visible means the rounds it has left — "on" tells you nothing about when it stops.
-      const loop = (prefs.pairLoop || {})[activeSpace().id];
-      pairNote.classList.toggle('looping', !!loop);
-      pairNote.replaceChildren(
-        icon('relay'),
-        el('span', {}, [
-          el('span', { textContent: `${mode}${who.length === 2 ? ` · ${who.join(' → ')}` : ''}` }),
-          el('span', {
-            className: 'count',
-            textContent: loop
-              ? ` ${t('auto ×{n} · {who}', { n: loop.left, who: loop.turn === 'builds' ? loop.builds : loop.reviews })}`
-              : ` ${duration(quiet)}`,
-          }),
-        ]),
-      );
-      pairNote.onclick = () => (loop ? loopSheet(loop) : openLocated('wall', { path, type: 'file' }, null));
+      text = await r.text();
+      wrote = Number(r.headers.get('x-mtime') || 0);
     } catch {
       // No plan, no pair. Not an error: it is the ordinary state of a desk.
       pairNote.hidden = true;
+      return;
     }
+
+    // Which mode, from the shape of the file itself. The two templates differ in one
+    // heading, and reading that is more honest than remembering what was clicked.
+    const mode = /^##\s*Who\b/m.test(text) ? t('one reviews') : t('together');
+    const who = [...text.matchAll(/^-\s*(?:builds|reviews):\s*(\S+)/gm)].map((m) => m[1]);
+    const loop = (prefs.pairLoop || {})[activeSpace().id];
+    const bridge = mode === t('one reviews') ? await readBridge(folder) : null;
+    const last = bridge?.last || null;
+    // The bridge is the live thing; the plan is written once and then mostly sits there.
+    const quiet = bridge?.wrote ? (Date.now() / 1000) - bridge.wrote : (wrote ? (Date.now() / 1000) - wrote : 0);
+
+    // A turn still being written is not a turn to act on — not for the agents, and not here
+    // either: ringing on half an OK would be the same mistake in a different colour.
+    if (last?.done) await mindTheBridge(folder, loop, bridge);
+
+    pairNote.hidden = false;
+    pairNote.classList.toggle('stale', quiet > 20 * 60);
+    pairNote.classList.toggle('looping', !!loop);
+    pairNote.title = last
+      ? t('{who} said {status} — {when} ago. The whole exchange is in {path}', {
+        who: last.who.toLowerCase(), status: last.status, when: duration(quiet), path: bridgePath(folder),
+      })
+      : t('The plan is {path} — last written {when}', { path, when: duration(quiet) });
+    pairNote.replaceChildren(
+      icon('relay'),
+      el('span', {}, [
+        el('span', { textContent: `${mode}${who.length === 2 ? ` · ${who.join(' → ')}` : ''}` }),
+        el('span', {
+          className: 'count',
+          // Who owes the next turn, which is what the last heading says: after WORKER: DONE
+          // the reviewer owes one, after REVIEWER: REDO the worker does.
+          textContent: last
+            ? ` ${last.done
+              ? t('{status} · {when}', { status: last.status.toLowerCase(), when: duration(quiet) })
+              : t('{who} is writing…', { who: last.who.toLowerCase() })}`
+            : ` ${duration(quiet)}`,
+        }),
+      ]),
+    );
+    pairNote.onclick = () => (bridge
+      ? bridgeSheet(folder, bridge, loop)
+      : openLocated('wall', { path, type: 'file' }, null));
+  }
+
+  /** Where they have got to, and the way out.
+   *
+   *  The last few turns rather than the file: the file is one click away and is the right
+   *  place to actually read, but the question you have when you glance at the note is
+   *  "who owes what", and three lines answer it.
+   *
+   *  Stopping is a turn in the bridge like any other, because that is the only instruction
+   *  the two of them are listening for. Nothing here reaches into a terminal.
+   */
+  function bridgeSheet(folder, bridge, loop) {
+    const body = el('div', { className: 'sheetbody' });
+    const recent = bridge.turns.slice(-3);
+    for (const one of recent) {
+      body.append(el('p', { className: 'bridgeturn' }, [
+        el('code', { textContent: `${one.who}: ${one.status}` }),
+        el('span', { textContent: ` ${(one.body[0] || one.said || '').slice(0, 120)}` }),
+      ]));
+    }
+    const by = bridgeDeadline(bridge.turns);
+    if (by) {
+      body.append(el('p', {
+        className: 'hint',
+        textContent: Date.now() > by
+          ? t('The time they were given ran out {when} ago.', { when: duration((Date.now() - by) / 1000) })
+          : t('They have {when} left of the time you gave them.', { when: duration((by - Date.now()) / 1000) }),
+      }));
+    }
+
+    let sheet;
+    const stop = el('button', { className: 'danger inline', textContent: t('Tell them to stop') });
+    stop.onclick = async () => {
+      stop.disabled = true;
+      try {
+        await addTurn(bridgePath(folder), 'ARGUS', 'STOP',
+          t('Asked to stop from the board. Stop here and say where you got to.'));
+        if (loop) { delete prefs.pairLoop[activeSpace().id]; savePrefs(); }
+        sheet.close();
+        readPair();
+        toast(t('written into the bridge — they stop at their next read'));
+      } catch (e) {
+        stop.disabled = false;
+        toast(e.message, true);
+      }
+    };
+    sheet = modal(t('Two agents, on their own'), body, [
+      el('button', {
+        className: 'ghost', textContent: t('Open the plan'),
+        onclick: () => { sheet.close(); openLocated('wall', { path: planPath(folder), type: 'file' }, null); },
+      }),
+      el('button', {
+        className: 'ghost', textContent: t('Open the bridge'),
+        onclick: () => { sheet.close(); openLocated('wall', { path: bridgePath(folder), type: 'file' }, null); },
+      }),
+      stop,
+    ]);
+  }
+
+  /** Argus's whole part in the loop: ring at the end of it, and stop it when the rounds it
+   *  was given are used up.
+   *
+   *  It does not pass the work along any more — the two of them do that themselves, out of
+   *  the file, on their own clock. Which means this keeps working with the tab shut, and
+   *  what is left for a browser is the part a browser is good at: telling you.
+   */
+  async function mindTheBridge(folder, loop, bridge) {
+    const last = bridge.last;
+    const key = `${folder}|${last.at}|${last.who}|${last.status}`;
+    if (lastRung === key) return;                 // already dealt with this turn
+
+    if (last.status === 'OK' || last.status === 'BLOCKED') {
+      lastRung = key;
+      ring({
+        session: last.who === 'REVIEWER' ? loop?.reviews : loop?.builds,
+        why: last.status === 'OK' ? 'finished' : 'asking',
+        text: last.status === 'OK'
+          ? t('the reviewer says OK — {why}', { why: last.body[0] || t('it is right') })
+          : t('stuck: {why}', { why: last.body[0] || last.said || '—' }),
+      });
+      if (loop) { delete prefs.pairLoop[activeSpace().id]; savePrefs(); }
+      return;
+    }
+
+    if (!loop) return;
+
+    // One pass is one WORKER: DONE. The cap is on those, so a reviewer that keeps saying
+    // REDO cannot spend more than you allowed.
+    const passes = bridge.turns.filter((one) => one.who === 'WORKER' && one.status === 'DONE').length;
+    const by = bridgeDeadline(bridge.turns);
+    const late = by !== null && Date.now() > by;
+    if (passes <= loop.left && !late) return;
+
+    // Both ends of the leash end the same way: a turn in the file saying stop, so the two of
+    // them find out from the same place they find out everything else, and a bell here.
+    lastRung = key;
+    const why = late
+      ? t('the time you were given ran out. Stop here and say where you got to.')
+      : t('{n} passes were allowed and {made} have been made. Stop here and say where you got to.', { n: loop.left, made: passes });
+    try {
+      await addTurn(bridgePath(folder), 'ARGUS', 'STOP', why);
+    } catch { /* the file may have moved; the ring below is the part that matters */ }
+    ring({
+      session: loop.builds,
+      why: 'asking',
+      text: late ? t('out of time — told them to stop') : t('the rounds are used up — told them to stop'),
+    });
+    delete prefs.pairLoop[activeSpace().id];
+    savePrefs();
   }
   /** What the loop is doing, and the way out of it.
    *
@@ -7496,32 +7560,6 @@ async function screenWall() {
    *  through "start a pair" to stop one already running would be a menu that only goes one
    *  way, and this is the feature where you might be in a hurry.
    */
-  function loopSheet(loop) {
-    const body = el('div', { className: 'sheetbody' });
-    body.append(
-      el('p', { textContent: t('{a} builds, {b} reviews. It passes back and forth on its own, {n} more times.', { a: loop.builds, b: loop.reviews, n: loop.left }) }),
-      el('p', { textContent: t('Waiting on {who} — for {what}.', {
-        who: loop.turn === 'builds' ? loop.builds : loop.reviews,
-        what: loop.turn === 'builds' ? 'HANDOVER: READY' : 'VERDICT: OK / REDO',
-      }) }),
-      el('p', { className: 'hint', textContent: t('An OK rings and stops it. So does running out of rounds.') }),
-    );
-    let sheet;
-    sheet = modal(t('Handing back automatically'), body, [
-      el('button', { className: 'ghost', textContent: t('Open the plan'), onclick: () => { sheet.close(); openLocated('wall', { path: planPath(deskFolder()), type: 'file' }, null); } }),
-      el('button', {
-        className: 'danger inline', textContent: t('Stop'),
-        onclick: () => {
-          delete prefs.pairLoop[activeSpace().id];
-          savePrefs();
-          sheet.close();
-          readPair();
-          toast(t('they will not hand back on their own any more'));
-        },
-      }),
-    ]);
-  }
-
   // A declaration, not a const: `activate` calls this and is defined four hundred lines above,
   // so a `let` would be unreachable from it until the module had run this far.
   function watchPair() {
@@ -8751,51 +8789,60 @@ const PAIR_BATONS = [
   {
     group: ADVERSARIAL,
     name: 'You build (send to the worker)',
-    text: 'You are building, in {folder}. {to} will review everything you do, and will not\n'
-      + 'edit anything — so leave your work in a state somebody else can judge.\n\n'
-      + 'Write what you are attempting to {plan} under ## Goal before you start.\n'
-      + 'Work in small passes. At the end of each one: run the tests, then say in one line\n'
-      + 'what changed and hand over. Do not mark your own work correct — that is not your job\n'
-      + 'in this arrangement.\n\n'
-      + 'The review comes back as a file, {review}. You do not write to it; you read it.\n'
-      + 'Nothing the reviewer says will appear in this terminal — it works in its own.\n\n'
-      + 'End every pass with one line of your own, at the left margin, exactly:\n'
-      // Quoted for the same reason the verdict lines are: the terminal echoes this prompt,
-      // and Argus may be reading these lines to pass the work along.
-      + '  "HANDOVER: READY" followed by one line on what changed\n'
-      + 'That line is how {to} is told there is something to look at.',
+    text: 'You are the WORKER, in {folder}. {to} is the REVIEWER: it reads everything you do,\n'
+      + 'edits nothing, and you never mark your own work correct.\n\n'
+      + 'You two talk through one file — {bridge} — and nowhere else. Neither of you can see\n'
+      + 'the other\u2019s terminal. Read it now: the rules are at the top of it.\n\n'
+      + 'Write what you are attempting to {plan} under ## Goal before you start, then work in\n'
+      + 'small passes. At the end of each pass, run the tests and add a turn to the bridge —\n'
+      + 'status DONE, and a line or two on what changed. Append it; the file itself says how,\n'
+      + 'under "Add a turn with one command", and it must never be rewritten.\n\n'
+      + 'Then wait for the REVIEWER. Read {bridge} again every 60 seconds. Act only on a\n'
+      + 'turn that is *finished* — one with the end line under it; without it the other one\n'
+      + 'is still typing, so wait and read again. Then act on the last heading:\n'
+      + '  REVIEWER: REDO      read what it says, fix what it got right, and take another\n'
+      + '                      pass. Say plainly in your next turn what you disagree with\n'
+      + '                      and why — a review is not an order.\n'
+      + '  REVIEWER: OK        you are finished. Say so and stop.\n'
+      + '  ARGUS: STOP         the rounds are used up. Stop and say so.\n'
+      + 'If you are stuck or need a person, add a turn with status BLOCKED and stop.\n\n'
+      + 'There is a Deadline in the first turn of {bridge}. Check it each time you read the\n'
+      + 'file: once the clock is past it, add a BLOCKED turn saying you ran out of time, say\n'
+      + 'in your terminal where you got to, and stop. Do not keep going.\n'
+      + 'Never edit or delete a turn — the file is append-only, including your own turns.',
   },
   {
     group: ADVERSARIAL,
     name: 'You review (send to the reviewer)',
-    text: 'Review the change {from} has just made in {folder}. Read the diff against HEAD —\n'
-      + 'the diff, not the description of it.\n\n'
-      + 'You do not edit the work. Your job is to find what is wrong with it: cite exact files\n'
-      + 'and line numbers, run the tests yourself, and try the failure case rather than\n'
-      + 'reasoning about it. Read ## Goal in {plan} and say whether the change serves it.\n\n'
-      + 'Write the review to {review} — replace whatever is in there, it is this round that\n'
-      + 'matters. {from} cannot see your terminal, so a review that stays here is a review\n'
-      + 'nobody reads. Two files are yours and no others: {review}, and ## Rounds in {plan},\n'
-      + 'where you add one line — what changed, and the verdict it got.\n\n'
-      + 'Then finish in this terminal with one line of your own, at the left margin,\n'
-      + 'exactly one of:\n'
-      // Quoted here on purpose. A terminal echoes the prompt it is given, and Argus can be
-      // told to read that line and hand the work back on it — so an instruction written as a
-      // bare verdict is a verdict, and the loop answers its own orders.
-      + '  "VERDICT: OK" followed by what convinced you\n'
-      + '  "VERDICT: REDO" followed by the single most important thing to fix first',
+    text: 'You are the REVIEWER, in {folder}. {from} is the WORKER: it writes the code, you\n'
+      + 'read it. You edit nothing.\n\n'
+      + 'You two talk through one file — {bridge} — and nowhere else. Neither of you can see\n'
+      + 'the other\u2019s terminal. Read it now: the rules are at the top of it.\n\n'
+      + 'Wait for the WORKER. Read {bridge} every 60 seconds until its last turn is a\n'
+      + '*finished* WORKER: DONE — finished meaning the end line is under it; without that it\n'
+      + 'is still being written, so wait and read again. Then review what it did since the\n'
+      + 'turn before that one:\n'
+      + '  - read the diff against HEAD, not the description of it\n'
+      + '  - cite exact files and line numbers\n'
+      + '  - run the tests yourself, and try the failure case rather than reasoning about it\n'
+      + '  - read ## Goal in {plan} and say whether the change serves it\n\n'
+      + 'Then add your turn to the bridge — status REDO or OK, and the review itself as the\n'
+      + 'text under it. It goes there, not in your terminal, where nobody can read it. Append\n'
+      + 'it the way the file says, under "Add a turn with one command"; never rewrite it.\n\n'
+      + 'Use REDO while it is not right, and OK the moment it is — OK ends the job for both\n'
+      + 'of you, so do not spend it on something you have not checked. BLOCKED if you are\n'
+      + 'stuck or a person is needed. Then wait for the next WORKER: DONE.\n\n'
+      + 'There is a Deadline in the first turn of {bridge}. Check it each time you read the\n'
+      + 'file: once the clock is past it, add a BLOCKED turn saying you ran out of time, say\n'
+      + 'in your terminal where you got to, and stop. Do not keep going.\n'
+      + 'Never edit or delete a turn — the file is append-only, including your own turns.',
   },
   {
     group: ADVERSARIAL,
-    name: 'Answer the review',
-    text: '{from} has reviewed your change in {folder}. The review is in {review} — read it\n'
-      + 'there; it is not in this terminal and never was.\n\n'
-      + 'Fix what it got right. Say plainly what you disagree with and why — a review is not\n'
-      + 'an order, and a reviewer who is wrong should be told so with a reason. Do not edit\n'
-      + '{review}: reply in your own words, here, and let the next review answer you.\n'
-      + 'Run the tests before you say you are done. Then hand back with one line, at the\n'
-      + 'left margin, exactly:\n'
-      + '  "HANDOVER: READY" followed by one line on what you changed and what you refused',
+    name: 'Nudge (if one of them has gone quiet)',
+    text: 'Read {bridge}. The last turn in it is not yours and you have not answered it.\n'
+      + 'Do what it asks, add your turn to the file the way the rules at the top of it say,\n'
+      + 'and carry on with the 60-second loop.',
   },
 ];
 
@@ -9047,15 +9094,120 @@ function fromNamedSet(name) {
  */
 const planPath = (folder) => `${(folder || '.').replace(/\/+$/, '')}/PLAN.argus.md`;
 
-/** Where a review is written, which is the question the review pattern was missing an answer
- *  to. The reviewer used to print its findings into its own terminal and end on a verdict;
- *  the builder was then told the review was "above", which it was — in the *other* pane, in
- *  a scrollback it cannot read. So the review is a file: one writer, one reader, and a thing
- *  that is still there tomorrow.
+/** The bridge: one file the two agents talk through, append-only.
  *
- *  Beside the plan rather than inside it, because the plan is written by both of them and
- *  this is written by one. Ownership by file is the rule these patterns already run on. */
-const reviewPath = (folder) => `${(folder || '.').replace(/\/+$/, '')}/REVIEW.argus.md`;
+ *  This started as Argus watching both terminals for a sentence and sending the next prompt
+ *  itself. That works, and it is the wrong shape: it only works while the tab is open, it
+ *  guesses at the state of a conversation from what happens to be on screen, and there is
+ *  nowhere to read afterwards what the two of them actually said to each other.
+ *
+ *  So the conversation is a file, and the agents drive it themselves — they poll it, they
+ *  append to it, and Argus is a reader like anybody else. Close the browser and they carry
+ *  on; open it tomorrow and the whole exchange is there, in order, in markdown.
+ *
+ *  Not invented here, and worth saying so: OpenMOSS's claude-codex-handoff is the same idea
+ *  in JSONL with two directional streams, and llm-handoff does it with markdown state files.
+ *  The field set — when, who, what, and where that leaves things — is FIPA-ACL's and A2A's
+ *  too. What is different here is that one file holds both directions and a person can read
+ *  it: this is the log you scroll through on a phone at eight in the evening, so it is
+ *  markdown with the status in the heading rather than a line of JSON.
+ *
+ *      ## 2026-08-18T09:14:02Z WORKER: DONE
+ *      Added the cache and a test for the empty case. 48 tests pass.
+ *
+ *  Timestamp, actor, status, text. The last heading says whose turn it is and nothing else
+ *  has to be tracked anywhere.
+ */
+const bridgePath = (folder) => `${(folder || '.').replace(/\/+$/, '')}/BRIDGE.argus.md`;
+
+const BRIDGE_TURN = /^##\s+(\S+)\s+(WORKER|REVIEWER|ARGUS):\s*([A-Z]+)\b[ \t]*(.*)$/;
+
+/** The line that says a turn is finished.
+ *
+ *  Without it a reader cannot tell "they have said their piece" from "they are halfway
+ *  through typing it" — and the answer matters, because the whole protocol is *act when the
+ *  last turn is theirs*. Acting on half a review is worse than waiting a minute.
+ *
+ *  An HTML comment because markdown renders it as nothing: the file stays a document you
+ *  read, and the marker is only there for whoever is parsing. A turn without it is still
+ *  being written, and the ordinary way to add one — a single append that carries the whole
+ *  turn, marker included — means the two states are never confused in the first place. */
+const BRIDGE_END = '<!-- /turn -->';
+
+/** Every turn in the file, oldest first. Anything that is not a heading belongs to the turn
+ *  above it — which is what makes the format writable with one `printf`. */
+function bridgeTurns(text) {
+  const turns = [];
+  for (const line of (text || '').split('\n')) {
+    const said = BRIDGE_TURN.exec(line);
+    if (said) {
+      turns.push({ at: said[1], who: said[2], status: said[3], said: said[4].trim(), body: [], done: false });
+    } else if (turns.length && line.trim()) {
+      const one = turns[turns.length - 1];
+      if (line.trim() === BRIDGE_END) one.done = true;
+      else one.body.push(line);
+    }
+  }
+  // A turn with another turn under it was finished whether or not it said so: the writer has
+  // moved on. Only the last one can still be in progress.
+  for (let i = 0; i < turns.length - 1; i++) turns[i].done = true;
+  return turns;
+}
+
+/** What the file starts as. The rules are in it rather than only in the prompts, because the
+ *  agent that reads it in three days' time will not have the prompt any more — and neither
+ *  will you. */
+function bridgeHeader(goal, worker, reviewer, minutes) {
+  return `# Bridge\n\n`
+    + `${worker} and ${reviewer} pass work through this file. **Append only** — never edit or\n`
+    + `delete a turn that is already here, including your own.\n\n`
+    + `A turn is one heading, the text under it, and a line saying it is finished:\n\n`
+    + `    ## <UTC timestamp> <WORKER|REVIEWER>: <STATUS>\n`
+    + `    what you did, or what is wrong with what they did, in your own words\n`
+    + `    ${BRIDGE_END}\n\n`
+    + `**A turn without that last line is still being written.** If the last turn in the file\n`
+    + `is not yours and has no \`${BRIDGE_END}\` under it, the other one is still typing: wait\n`
+    + `and read again. Acting on half a review is worse than waiting a minute.\n\n`
+    + `The **last heading** says what happens next, and nothing else needs to be tracked:\n\n`
+    + `| status | written by | means |\n`
+    + `|---|---|---|\n`
+    + `| \`DONE\` | ${worker} | a pass is finished — ${reviewer}'s turn |\n`
+    + `| \`REDO\` | ${reviewer} | it is not right yet, and why — ${worker}'s turn |\n`
+    + `| \`OK\` | ${reviewer} | it is right. Both stop. |\n`
+    + `| \`BLOCKED\` | either | stuck, or needs a person. Both stop and say so. |\n`
+    + `| \`STOP\` | argus | out of rounds or out of time. Stop and say so. |\n\n`
+    + `There is a **deadline** in the first turn below. Two agents who cannot agree will not\n`
+    + `start agreeing at three in the morning: when the clock passes it, whoever notices adds\n`
+    + `a BLOCKED turn saying so, and both stop.\n\n`
+    + `Add a turn with one command, so the file is never rewritten and nothing is lost when\n`
+    + `you both write at once — substitute your own role, status and text:\n\n`
+    + '```sh\n'
+    + `printf '\\n## %s WORKER: DONE\\n%s\\n${BRIDGE_END}\\n' "$(date -u +%FT%TZ)" "one line on what changed" >> BRIDGE.argus.md\n`
+    + '```\n\n'
+    + `One command, so the heading, the text and the end line arrive together and nobody ever\n`
+    + `reads half of your turn. If your text is long, write it to a scratch file and \`cat\` it\n`
+    + `in the same way — heading, body and end line in one append.\n\n`
+    + `## ${new Date().toISOString().replace(/\.\d+Z$/, 'Z')} ARGUS: START\n`
+    + `Deadline: ${new Date(Date.now() + minutes * 60000).toISOString().replace(/\.\d+Z$/, 'Z')}\n`
+    + `${goal || '(the goal is in PLAN.argus.md, under ## Goal)'}\n`
+    + `${BRIDGE_END}\n`;
+}
+
+/** When this run is meant to be over, from the file rather than from anything remembered. */
+function bridgeDeadline(turns) {
+  const start = turns.find((one) => one.who === 'ARGUS' && one.status === 'START');
+  const said = (start?.body || []).map((line) => /^Deadline:\s*(\S+)/.exec(line)).find(Boolean);
+  const when = said ? Date.parse(said[1]) : NaN;
+  return Number.isNaN(when) ? null : when;
+}
+
+/** One turn, added. An append rather than a rewrite: two agents and a board all writing to
+ *  the same file is exactly where read-modify-write loses somebody's work. */
+const addTurn = (path, who, status, said) => postJSON('/api/fs/write', {
+  path,
+  append: true,
+  content: `\n## ${new Date().toISOString().replace(/\.\d+Z$/, 'Z')} ${who}: ${status}\n${said}\n${BRIDGE_END}\n`,
+});
 
 /** What to put in, or nothing at all.
  *
@@ -9194,7 +9346,7 @@ function attachMessages(host, wsId, extras, deliver) {
     // the sender happened to be in would be worse than useless.
     const known = {
       folder: here, from: fromName, to: toName,
-      plan: planPath(deliver.folder()), review: reviewPath(deliver.folder()),
+      plan: planPath(deliver.folder()), bridge: bridgePath(deliver.folder()),
       ...allVars(wsId),
     };
     // Everything the desk cannot fill in, before it goes rather than after.
@@ -9275,7 +9427,7 @@ function attachMessages(host, wsId, extras, deliver) {
         if (takes.length) {
           const here = {
             folder: deliver.folder(), from: '?', to: '?',
-            plan: planPath(deliver.folder()), review: reviewPath(deliver.folder()),
+            plan: planPath(deliver.folder()), bridge: bridgePath(deliver.folder()),
             ...allVars(wsId),
           };
           const aimed = deliver.aim();
@@ -9361,7 +9513,7 @@ function attachMessages(host, wsId, extras, deliver) {
           const from = senderFor(target);
           const known = {
             folder: deliver.folder(), from: from?.name.slice(5) || '', to: target.name.slice(5),
-            plan: planPath(deliver.folder()), review: reviewPath(deliver.folder()), ...allVars(wsId),
+            plan: planPath(deliver.folder()), bridge: bridgePath(deliver.folder()), ...allVars(wsId),
           };
           const note = el('textarea', { className: 'baton', spellcheck: false, rows: 7, value: kind.text });
           const shown = el('pre', { className: 'batonpreview' });
@@ -9490,86 +9642,6 @@ function noteLinks(id, found) {
  *  strip, and a path the terminal wrapped over two rows is already joined. Only what is
  *  unambiguous later goes in — an absolute path or a URL — because a relative one means
  *  nothing once the pane it was printed in has moved on. */
-/** Watch for the one line a reviewing agent is asked to end on.
- *
- *  `VERDICT: OK` / `VERDICT: REDO` is in the stock review prompt because it is readable by a
- *  machine as well as by a person — and this is the machine reading it. It is the whole of the
- *  integration: no agent has to speak a protocol, implement anything, or know Argus exists. It
- *  only has to end with a line it was asked to end with.
- *
- *  Rows are read once, in the order they appear, like the link harvester beside it. A verdict
- *  in a round already handed back must not be found again on the next sweep, or the two agents
- *  ping-pong on one sentence.
- */
-function verdictWatcher(term, hand) {
-  // Two sentences, one shape. `VERDICT:` ends the reviewer's turn; `HANDOVER:` ends the
-  // builder's. A loop needs both — reading only the verdict gives you half a cycle and a
-  // person sitting there to start the other half.
-  const SAYS = /^\s*(VERDICT|HANDOVER):\s*(OK|REDO|READY)\b[ \t:—-]*(.*)$/i;
-  let read = 0;
-  let due = null;
-  let acted = -1;                     // the highest row already handed on
-  let last = null;                    // and what it said
-  // Attaching to a session replays its scrollback, and the verdict that ended the last round
-  // is in there. Acting on it would hand the work back the moment you reload the page — which
-  // it did, spending a round on a sentence from ten minutes ago. So the first sweep reads
-  // where the session has got to and hands on nothing: this watches what happens next.
-  let warm = false;
-
-  const sweep = () => {
-    due = null;
-    const buf = term.buffer.active;
-    // A full-screen program repaints rather than scrolls, so there are no new rows to count;
-    // reading the visible screen and letting the row counter absorb the rest is enough here,
-    // because a verdict is one line and it is the last thing written.
-    const alt = buf.type === 'alternate';
-    const to = alt ? buf.viewportY + term.rows : buf.baseY + buf.cursorY;
-    const from = alt ? buf.viewportY : Math.max(read, to - HARVEST_ROWS);
-    if (to <= from) return;
-    if (!alt) read = to;
-    const first = !warm;
-
-    // The last one in the sweep, not every one: a verdict is the final word on a round, and if
-    // two are on screen the older is history.
-    let found = null;
-    for (let y = from; y < to; y++) {
-      const line = buf.getLine(y);
-      if (!line) continue;
-      const text = line.translateToString(true);
-      const said = SAYS.exec(text);
-      if (said) {
-        found = {
-          y, text, kind: said[1].toUpperCase(), verdict: said[2].toUpperCase(),
-          why: (said[3] || '').trim(),
-        };
-      }
-    }
-    warm = true;
-    if (!found) return;
-    if (first) { acted = found.y; last = found.text; return; }
-
-    // Never twice on the same sentence — and the row number is not what says so.
-    //
-    // Argus attaches a real tmux client, and a tmux client is a full-screen program: this is
-    // the alternate screen essentially always, where rows are repainted in place rather than
-    // scrolled. A row number there means "third line from the top of the screen", not "the
-    // third thing this session ever printed", so once the screen is full the newest verdict
-    // sits at the same row as the one before it. Guarding on the row read a verdict twice
-    // while the screen was still filling and then stopped reading them at all — both halves
-    // of that were measured, on a real session, and both were wrong.
-    //
-    // What does not move is the sentence. Two verdicts word for word identical, one after the
-    // other, count as one; the price of that is a missed round, and for something that spends
-    // money while nobody is watching, missing one is the right way to be wrong.
-    if (found.text === last || (!alt && found.y <= acted)) return;
-    acted = found.y;
-    last = found.text;
-    hand(found);
-  };
-
-  return () => { if (!due) due = setTimeout(sweep, 400); };
-}
-
 function linkHarvester(term, session, hand) {
   const seen = new Set();
   let read = 0;                       // absolute row we have looked at up to
