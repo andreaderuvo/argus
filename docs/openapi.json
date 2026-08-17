@@ -1146,6 +1146,30 @@
     ]
    }
   },
+  "/api/overview": {
+   "get": {
+    "description": "Everything a board watching several machines needs, and nothing it does not.\n\nDeliberately cheap: no CPU sampling window, no `nvidia-smi`, no process list. Load\naverage says as much about a busy machine as a 120ms CPU sample does and costs\nnothing to read, which matters when several boards ask several machines every few\nseconds. Everything here is a read of /proc plus one `tmux list-sessions`.\n\nThis is the one door a watcher token opens.",
+    "operationId": "getApiOverview",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Overview Api Overview Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "What is happening on this machine, in one cheap call",
+    "tags": [
+     "The machine"
+    ]
+   }
+  },
   "/api/pdf/search": {
    "get": {
     "description": "Find a string in a PDF and say which pages it is on.\n\nThe browser's own viewer has a search box on a desktop and nothing at all on a phone,\nand inside an iframe Ctrl+F searches the page around it rather than the document. So\nthe text is extracted here and the viewer is sent to the page.",

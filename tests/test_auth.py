@@ -1,3 +1,5 @@
+import pytest
+
 from app.auth import is_protected, matches, presented_token
 
 
@@ -45,3 +47,70 @@ def test_only_the_api_and_ws_trees_are_gated():
     assert not is_protected("/")
     assert not is_protected("/index.html")
     assert not is_protected("/apixyz"), "prefix matching must respect path boundaries"
+
+
+def watched(tmp_path, extra=None):
+    """An app with one full token and one that may only watch."""
+    from fastapi.testclient import TestClient
+
+    from app.config import Config
+    from app.main import create_app
+
+    cfg = Config(
+        token="full-0123456789abcdef0123456789abcdef",
+        roots=[tmp_path],
+        watchers=[{"name": "panoptes", "token": "watch-0123456789abcdef0123456789ab"}],
+        **(extra or {}),
+    )
+    return TestClient(create_app(cfg)), cfg
+
+
+def test_a_watcher_token_opens_exactly_one_door(tmp_path):
+    """The whole value of a board across several machines is that each key it holds is
+    worth almost nothing. A watcher may ask what is happening and nothing else."""
+    client, cfg = watched(tmp_path)
+    weak = {"Authorization": f"Bearer {cfg.watchers[0]['token']}"}
+
+    assert client.get("/api/overview", headers=weak).status_code == 200
+
+    # Everything else is a real token asking for the wrong thing: 403, not 401.
+    for shut in (
+        "/api/files?path=/",
+        "/api/tmux/sessions",
+        "/api/system",
+        f"/api/file?path={tmp_path}",
+        "/api/bells",
+    ):
+        assert client.get(shut, headers=weak).status_code == 403, shut
+
+
+def test_a_watcher_token_cannot_open_a_terminal(tmp_path):
+    """The one that would matter most if it slipped through."""
+    client, cfg = watched(tmp_path)
+    with pytest.raises(Exception):
+        with client.websocket_connect(f"/ws/term?token={cfg.watchers[0]['token']}"):
+            pass
+
+
+def test_the_full_token_still_reaches_everything(tmp_path):
+    client, cfg = watched(tmp_path)
+    strong = {"Authorization": f"Bearer {cfg.token}"}
+    assert client.get("/api/overview", headers=strong).status_code == 200
+    assert client.get("/api/files?path=" + str(tmp_path), headers=strong).status_code == 200
+
+
+def test_no_token_is_still_no_token(tmp_path):
+    client, _ = watched(tmp_path)
+    assert client.get("/api/overview").status_code == 401
+    assert client.get("/api/overview?token=nonsense").status_code == 401
+
+
+def test_a_watcher_token_must_be_worth_less_than_the_real_one(tmp_path):
+    from app.config import Config, ConfigError
+
+    same = "full-0123456789abcdef0123456789abcdef"
+    with pytest.raises(ConfigError, match="same as the main token"):
+        Config(token=same, roots=[tmp_path], watchers=[{"name": "x", "token": same}]).validate()
+
+    with pytest.raises(ConfigError, match="shorter than 16"):
+        Config(token=same, roots=[tmp_path], watchers=[{"name": "x", "token": "short"}]).validate()

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import secrets
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
@@ -69,6 +69,10 @@ class Config:
     # Cap on a single uploaded file. 0 means no cap; the default keeps a stray drag of
     # something enormous from filling a disk that is already at 94%.
     max_upload_bytes: int = 2 * 1024 * 1024 * 1024
+    # Tokens that may ask what is happening here and nothing else: no shell, no files, no
+    # writes, no proxy. A board watching several machines holds one of these per machine,
+    # so losing the board loses a list of session names rather than every box it can see.
+    watchers: list[dict] = field(default_factory=list)
     tls_cert: Path | None = None
     tls_key: Path | None = None
 
@@ -87,6 +91,16 @@ class Config:
             raise ConfigError("`token` is empty — refusing to start without authentication")
         if len(self.token) < 16:
             raise ConfigError("`token` is shorter than 16 characters — pick something unguessable")
+        for w in self.watchers:
+            if len(w["token"]) < 16:
+                raise ConfigError(
+                    f"the watcher token for {w['name']!r} is shorter than 16 characters"
+                )
+            if w["token"] == self.token:
+                # Otherwise the weak key is the strong one and the whole point is lost.
+                raise ConfigError(
+                    f"the watcher token for {w['name']!r} is the same as the main token"
+                )
         if not self.roots:
             raise ConfigError("`roots` is empty — nothing would be browsable")
         if self.resize_policy not in RESIZE_POLICIES:
@@ -118,6 +132,11 @@ class Config:
             include_mounts=bool(raw.get("include_mounts", False)),
             allow_proxy=bool(raw.get("allow_proxy", False)),
             max_upload_bytes=int(raw.get("max_upload_bytes", 2 * 1024 * 1024 * 1024)),
+            watchers=[
+                {"name": str(w.get("name") or "watcher"), "token": str(w.get("token") or "")}
+                for w in (raw.get("watchers") or [])
+                if isinstance(w, dict) and str(w.get("token") or "").strip()
+            ],
             tls_cert=Path(cert) if cert else None,
             tls_key=Path(key) if key else None,
         )

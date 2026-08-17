@@ -383,6 +383,77 @@ def create_app(cfg: Config) -> FastAPI:
         missing = ", ".join(str(e["loc"][-1]) for e in exc.errors())
         return JSONResponse({"error": f"bad or missing query parameter: {missing}"}, status_code=400)
 
+    @app.get("/api/overview", tags=["The machine"],
+             summary="What is happening on this machine, in one cheap call")
+    async def overview(request: Request) -> dict:
+        """Everything a board watching several machines needs, and nothing it does not.
+
+        Deliberately cheap: no CPU sampling window, no `nvidia-smi`, no process list. Load
+        average says as much about a busy machine as a 120ms CPU sample does and costs
+        nothing to read, which matters when several boards ask several machines every few
+        seconds. Everything here is a read of /proc plus one `tmux list-sessions`.
+
+        This is the one door a watcher token opens.
+        """
+        cfg = request.app.state.cfg
+        cores = os.cpu_count() or 1
+        try:
+            load1, load5, load15 = os.getloadavg()
+        except OSError:
+            load1 = load5 = load15 = 0.0
+        try:
+            mem = system.memory(Path("/proc/meminfo").read_text())
+        except OSError:
+            mem = {"pct": 0.0, "swap_pct": 0.0}
+        try:
+            up = float(Path("/proc/uptime").read_text().split()[0])
+        except (OSError, ValueError, IndexError):
+            up = 0.0
+
+        # Only the disk in the most trouble: a board wants to know there is a problem, not
+        # to inventory the filesystems.
+        worst = None
+        for root in cfg.roots:
+            d = system.disk(root)
+            if d and (worst is None or d["pct"] > worst["pct"]):
+                worst = d
+
+        try:
+            sessions = await asyncio.to_thread(tmux.list_sessions, request.app.state.socket)
+        except Exception:
+            # A board asking about a machine whose tmux server is not running should see
+            # the machine, with no sessions, rather than an error.
+            sessions = []
+
+        # What has rung and not been collected: the reason to look at this machine rather
+        # than another one.
+        kept = getattr(request.app.state, "bells", None)
+        ringing = {}
+        for bell in list(kept["list"]) if kept else []:
+            if bell.get("session"):
+                ringing[bell["session"]] = bell.get("why")
+
+        return {
+            "name": os.uname().nodename,
+            "version": VERSION,
+            "uptime": up,
+            "cores": cores,
+            "load": [round(load1, 2), round(load5, 2), round(load15, 2)],
+            "load_pct": round(100 * load1 / cores, 1),
+            "memory_pct": round(mem.get("pct", 0.0), 1),
+            "swap_pct": round(mem.get("swap_pct", 0.0), 1),
+            "disk": worst and {"path": worst["path"], "pct": worst["pct"], "level": worst["level"]},
+            "sessions": [
+                {
+                    "name": s["name"],
+                    "windows": s.get("windows", 1),
+                    "attached": bool(s.get("attached")),
+                    "bell": ringing.get(s["name"]),
+                }
+                for s in sessions
+            ],
+        }
+
     # Registered last so it never shadows the API: unknown paths are the frontend's.
     @app.get("/{requested:path}", include_in_schema=False)
     async def static_handler(requested: str) -> Response:
@@ -400,7 +471,7 @@ def create_app(cfg: Config) -> FastAPI:
         answer.headers.setdefault("referrer-policy", "no-referrer")
         return answer
 
-    app.add_middleware(TokenAuthMiddleware, token=cfg.token)
+    app.add_middleware(TokenAuthMiddleware, token=cfg.token, watchers=cfg.watchers)
     return app
 
 
