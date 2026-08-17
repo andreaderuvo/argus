@@ -183,7 +183,7 @@
   "Some of it could not be read": "Una parte non si è potuta leggere",
   "Open files inside the desk": "Apri i file dentro il desk",
   "a file opened from a window becomes a window, instead of taking the screen": "un file aperto da una finestra diventa una finestra, invece di prendersi lo schermo",
-  "Leave full screen": "Esci da tutto schermo",
+  "Leave full screen": "Esci da schermo intero",
   "the browser would not go full screen": "il browser non è andato a tutto schermo",
   "Copy the selection": "Copia la selezione",
   "selection": "selezione",
@@ -504,6 +504,7 @@
   "of {total}": "di {total}",
   "Open in a browser tab": "Apri in una scheda del browser",
   "Wider": "Più larga",
-  "Narrower": "Più stretta"
+  "Narrower": "Più stretta",
+  "full screen was refused; filling the desk instead": "schermo intero rifiutato; riempio la scrivania"
  }
 }

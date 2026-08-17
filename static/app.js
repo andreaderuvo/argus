@@ -595,6 +595,7 @@ const ICONS = {
   bell: 'M12 3.5a5.5 5.5 0 0 0-5.5 5.5c0 4-1.5 5.2-1.5 6.2 0 .5.4.8 1 .8h12c.6 0 1-.3 1-.8 0-1-1.5-2.2-1.5-6.2A5.5 5.5 0 0 0 12 3.5zM10 19a2 2 0 0 0 4 0',
   bellOff: 'M12 3.5a5.5 5.5 0 0 0-5.5 5.5c0 4-1.5 5.2-1.5 6.2 0 .5.4.8 1 .8h12c.6 0 1-.3 1-.8 0-1-1.5-2.2-1.5-6.2A5.5 5.5 0 0 0 12 3.5zM10 19a2 2 0 0 0 4 0M4 4l16 16',
   github: 'M12 1.3a10.7 10.7 0 0 0-3.4 20.9c.54.1.73-.24.73-.52v-1.83c-2.98.65-3.6-1.44-3.6-1.44-.49-1.24-1.19-1.57-1.19-1.57-.97-.66.08-.65.08-.65 1.07.07 1.64 1.1 1.64 1.1.95 1.64 2.5 1.17 3.11.89.1-.69.37-1.16.68-1.43-2.38-.27-4.88-1.19-4.88-5.29 0-1.17.42-2.13 1.1-2.88-.11-.27-.48-1.36.1-2.83 0 0 .9-.29 2.94 1.1a10.2 10.2 0 0 1 5.36 0c2.04-1.39 2.94-1.1 2.94-1.1.58 1.47.21 2.56.1 2.83.69.75 1.1 1.71 1.1 2.88 0 4.11-2.5 5.02-4.89 5.28.38.33.72.98.72 1.98v2.93c0 .28.19.62.74.52A10.7 10.7 0 0 0 12 1.3z',
+  menu: 'M4 7.5h16M4 12h16M4 16.5h16',
   newtab: 'M14 4.5h5.5V10M19.5 4.5 12 12M16.5 13v5.5a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1v-11a1 1 0 0 1 1-1H10',
   link: 'M10.5 13.5a3.6 3.6 0 0 0 5.2 0l2.6-2.6a3.6 3.6 0 0 0-5.1-5.1l-1.3 1.3M13.5 10.5a3.6 3.6 0 0 0-5.2 0l-2.6 2.6a3.6 3.6 0 0 0 5.1 5.1l1.3-1.3',
   star: 'M12 3.8l2.6 5.3 5.8.85-4.2 4.1 1 5.75L12 17.1l-5.2 2.7 1-5.75-4.2-4.1 5.8-.85z',
@@ -5263,7 +5264,29 @@ async function screenWall() {
       const extras = el('span', { className: 'winextras' });
       const send = el('button', { className: 'winbtn sendbtn', title: t('Move or duplicate to another workspace') }, icon('move'));
       const close = el('button', { className: 'winbtn closebtn', title: t('Close') }, icon('close'));
-      const solo = el('button', { className: 'winbtn solobtn', title: t('Full screen') }, icon('maximise'));
+      /* Two different things, and they were sharing a button that told the truth about
+       *  neither. Filling the desk leaves the header, the rail and the desk tabs around
+       *  the window; full screen means the screen shows this and nothing else. The button
+       *  now does what its label says, and filling the desk is the double-click on the
+       *  title bar, which is where a desktop puts it anyway. */
+      const solo = el('button', { className: 'winbtn solobtn', title: t('Full screen') }, icon('expand'));
+      const fill = () => {
+        if (win.dataset.full) {
+          // The size it had before, or a sensible one: `prev` lives in the DOM, so a
+          // window maximised yesterday has none to go back to.
+          Object.assign(win.style, win.dataset.prev ? JSON.parse(win.dataset.prev) : DEFAULT_GEOM);
+          delete win.dataset.prev;
+          delete win.dataset.full;
+        } else {
+          const { left, top: t2, width, height } = win.style;
+          win.dataset.prev = JSON.stringify({ left, top: t2, width, height });
+          win.dataset.full = '1';
+          Object.assign(win.style, FULL_GEOM);
+        }
+        win.style.zIndex = ++top;
+        saveGeom(geomKey(ws, id), win);
+        handle.relayout();
+      };
 
       /** A narrow window has no room for nine buttons, and on a phone every window is
        *  narrow. Below a certain width the title bar keeps the name, this and Close, and
@@ -5391,23 +5414,32 @@ async function screenWall() {
         // by hand every time a window was closed.
       };
 
-      solo.onclick = () => {
-        if (win.dataset.full) {
-          // The size it had before, or a sensible one: `prev` lives in the DOM, so a
-          // window maximised yesterday has none to go back to.
-          Object.assign(win.style, win.dataset.prev ? JSON.parse(win.dataset.prev) : DEFAULT_GEOM);
-          delete win.dataset.prev;
-          delete win.dataset.full;
-        } else {
-          const { left, top: t, width, height } = win.style;
-          win.dataset.prev = JSON.stringify({ left, top: t, width, height });
-          win.dataset.full = '1';
-          Object.assign(win.style, FULL_GEOM);
+      /* The screen shows this window and nothing else.
+       *
+       *  Not the same as filling the desk: a terminal you are actually reading wants the
+       *  header, the rail and the tabs gone too. Escape leaves, as it does everywhere in a
+       *  browser, and the window is told to re-measure both ways round — a terminal that
+       *  does not re-fit on the way in shows the old grid inside the new box. */
+      solo.onclick = async () => {
+        try {
+          if (document.fullscreenElement === win) await document.exitFullscreen();
+          else await win.requestFullscreen({ navigationUI: 'hide' });
+        } catch (e) {
+          // Refused — an iframe without permission, or a browser that will not. Fall back
+          // to the thing that always works rather than doing nothing at all.
+          toast(t('full screen was refused; filling the desk instead'));
+          fill();
         }
-        win.style.zIndex = ++top;
-        saveGeom(geomKey(ws, id), win);
-        handle.relayout();
       };
+      win.addEventListener('fullscreenchange', () => {
+        const on = document.fullscreenElement === win;
+        win.classList.toggle('solo', on);
+        solo.title = on ? t('Leave full screen') : t('Full screen');
+        // Twice: once for the layout that has just happened, once for the one the browser
+        // finishes a frame later.
+        handle.relayout();
+        requestAnimationFrame(() => handle.relayout());
+      });
 
       // Moving or resizing a maximised window is how you un-maximise it: keeping the flag
       // would snap it back to full screen the next time the desk is rebuilt.
@@ -5418,7 +5450,7 @@ async function screenWall() {
       // Anywhere on the bar except a button: aiming for the two spots that used to work
       // is not something anyone should have to do.
       head.addEventListener('dblclick', (e) => {
-        if (!e.target?.closest?.('button')) solo.onclick();
+        if (!e.target?.closest?.('button')) fill();
       });
 
       send.onclick = () => sendSheet(spec, ws, entry);
