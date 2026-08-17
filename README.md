@@ -490,6 +490,42 @@ report_to:
 It sends what `/api/overview` returns and nothing else — no file, no path, no token, no
 command — and it is off unless you configure it.
 
+### Letting a board start and stop things
+
+Off unless you write it down, and no command ever arrives in a request. This machine
+publishes a list of names; a board may ask for one of them and nothing else:
+
+```yaml
+runnable:
+  - name: nightly
+    run: python3 nightly.py
+    cwd: /srv/work
+
+watchers:
+  - name: panoptes
+    token: <at least 16 characters>
+    may_run: true              # otherwise the token stays read-only
+    may_stop_argus: false      # the one thing a board cannot undo
+```
+
+`start` creates that session, `stop` kills it by exact name, and only a name on the list can
+be killed — a board cannot touch the work you did not list. Asking twice is not an error.
+
+`may_stop_argus` allows one more thing: stopping this server. Every tmux session carries on
+untouched, because Argus is a client and not their parent — but nothing on the board can
+start it again, and the reply says so. That takes a shell here.
+
+For a machine a board **cannot reach**, the same two actions arrive in the reply to its own
+announcement, which is the only channel there is:
+
+```yaml
+obey_board: true               # off by default: announcing is not agreeing to take orders
+board_may_stop_argus: false
+```
+
+Even then the answer is bounded by `runnable`: a reply can name one of those and nothing
+else. There is no path by which a command reaches this machine.
+
 ## The API
 
 Everything Argus does, it does through its API — the browser is one client of it, not a

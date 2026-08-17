@@ -23,13 +23,22 @@ file, no path, no token, no command. Off unless configured.
 from __future__ import annotations
 
 import asyncio
+import os
+import signal
 import socket
 from typing import Any, Callable
 
 import httpx
 
+from . import runner
+
 # Long enough that a slow board does not make a machine give up, short enough that the
 # announcing loop cannot pile up behind an unresponsive one.
+# The name a board uses for this server itself, which is never a session name: `runnable`
+# refuses anything with a character tmux dislikes, and this one is claimed here so a machine
+# cannot publish a session called `argus` and have it shadow the server.
+ARGUS = "argus"
+
 TIMEOUT = 8.0
 FLOOR = 3.0
 
@@ -48,9 +57,17 @@ def reachable_at(report_to: dict, listen: str) -> str:
     return f"http://{socket.getfqdn()}:{port}"
 
 
-async def announce_once(client: httpx.AsyncClient, report_to: dict, body: dict) -> bool:
-    """One announcement. Never raises: a board being down is not this machine's problem,
-    and an exception here would take the loop with it."""
+async def announce_once(client: httpx.AsyncClient, report_to: dict, body: dict) -> list[dict]:
+    """One announcement, and whatever the board asks for in its reply.
+
+    Never raises: a board being down is not this machine's problem, and an exception here
+    would take the loop with it.
+
+    The reply is the only channel there is. When the network only goes one way, a board can
+    never open a connection to this machine, so anything it wants doing has to travel back
+    along the request this machine made. What comes back is a list of names and actions —
+    never a command, because this machine only ever runs what its own config lists.
+    """
     try:
         answer = await client.post(
             f"{str(report_to['url']).rstrip('/')}/api/report",
@@ -58,12 +75,48 @@ async def announce_once(client: httpx.AsyncClient, report_to: dict, body: dict) 
             headers={"Authorization": f"Bearer {report_to['token']}"},
             timeout=TIMEOUT,
         )
-        return answer.status_code < 300
+        if answer.status_code >= 300:
+            return []
+        said = answer.json()
+        asked = said.get("do") if isinstance(said, dict) else None
+        return [a for a in asked if isinstance(a, dict)] if isinstance(asked, list) else []
     except Exception:
-        return False
+        return []
 
 
-async def keep_announcing(cfg: Any, overview: Callable[[], Any]) -> None:
+async def obey(cfg: Any, socket: Any, asked: list[dict]) -> None:
+    """Do what the board asked, as far as this machine is willing.
+
+    "As far as it is willing" is the whole of it: `runner.act` refuses any name that is not
+    in this machine's own `runnable`, so a board — or anything that has taken a board's
+    registration key — can only ever start or stop what was written down here. A reply that
+    asks for something else is dropped, silently: it is not this machine's job to explain
+    itself to whoever is on the other end.
+
+    Requires `may_run` in the config the same way the endpoint does; a machine that phones a
+    board is not thereby agreeing to take instructions from it.
+    """
+    if not getattr(cfg, "obey_board", False):
+        return
+    for one in asked[:8]:                       # a reply is not a work queue
+        name = str(one.get("name") or "")
+        action = str(one.get("action") or "")
+        # The one reserved name. `argus` is this server, not a session, and stopping it is
+        # the only thing on this channel that cannot be taken back from the other end.
+        if name == ARGUS and action == "stop":
+            if getattr(cfg, "board_may_stop_argus", False):
+                os.kill(os.getpid(), signal.SIGTERM)
+            continue
+        if not getattr(cfg, "runnable", None):
+            continue
+        try:
+            await asyncio.to_thread(runner.act, cfg.runnable, socket, name, action)
+        except Exception:
+            # Refused, or tmux would not. Either way the person presses the button again.
+            pass
+
+
+async def keep_announcing(cfg: Any, overview: Callable[[], Any], socket: Any = None) -> None:
     """Say what this machine is doing, for as long as it is running.
 
     `overview` is awaited each time rather than captured once: the whole value of this is
@@ -83,7 +136,11 @@ async def keep_announcing(cfg: Any, overview: Callable[[], Any]) -> None:
                 # board counting distinct machines then counted three Argus instances on one
                 # box as three boxes.
                 body = {**body, "hostname": body.get("name"), "name": name, "reach": reach}
-                await announce_once(client, report_to, body)
+                asked = await announce_once(client, report_to, body)
+                # The reply is the only channel to this machine when the network only goes one
+                # way, so whatever the board asked for while it could not reach us arrives here.
+                if asked:
+                    await obey(cfg, socket, asked)
             except Exception:
                 # Whatever went wrong here, the answer is the same: try again shortly.
                 pass

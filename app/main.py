@@ -77,7 +77,7 @@ TAGS = [
 ]
 
 
-async def overview_of(app: FastAPI) -> dict:
+async def overview_of(app: FastAPI, watcher: dict | None = None) -> dict:
     """What a board needs, and nothing else.
 
     Deliberately cheap: no CPU sampling window, no `nvidia-smi`, no process list. Load
@@ -126,9 +126,23 @@ async def overview_of(app: FastAPI) -> dict:
         if bell.get("session"):
             ringing[bell["session"]] = bell.get("why")
 
+    # What this machine offers to start and stop, with the overview rather than as a second
+    # request: a board sweeping ten machines every five seconds should ask each of them once.
+    # It also means a machine announcing itself carries the list, which is the only way a
+    # board on the far side of a one-way network could ever know what it may ask for.
+    try:
+        offers = await asyncio.to_thread(runner.offered, cfg.runnable, app.state.socket)
+    except Exception:
+        offers = []
+
     return {
         "name": os.uname().nodename,
         "version": VERSION,
+        "runnable": offers,
+        # About the key that asked, not about the config: two boards can hold two watcher
+        # tokens with different permissions. `None` means the main token or this machine
+        # announcing itself, and neither is a board being offered a button.
+        "can_stop_argus": bool(watcher and watcher.get("may_run") and watcher.get("may_stop_argus")),
         "uptime": up,
         "serving": serving,
         "cores": cores,
@@ -157,7 +171,7 @@ async def announcing(app: FastAPI):
     if getattr(cfg, "report_to", None):
         async def mine() -> dict:
             return await overview_of(app)
-        task = asyncio.create_task(announce.keep_announcing(cfg, mine))
+        task = asyncio.create_task(announce.keep_announcing(cfg, mine, app.state.socket))
     try:
         yield
     finally:
@@ -501,7 +515,7 @@ def create_app(cfg: Config) -> FastAPI:
         This is the one door a watcher token opens, and the same answer a machine
         announces to a board that cannot reach it.
         """
-        return await overview_of(request.app)
+        return await overview_of(request.app, request.scope.get("argus_watcher"))
 
     @app.get("/api/runnable", tags=["The machine"],
              summary="What this machine offers to start and stop")

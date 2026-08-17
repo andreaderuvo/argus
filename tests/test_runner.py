@@ -12,6 +12,8 @@ tests are really checking is that there is no way through that list.
 
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -183,3 +185,117 @@ def test_stopping_kills_that_session_exactly(tmp_path):
     session because two names share a beginning is not a risk worth carrying."""
     sock = tmux.Socket.new("test-only")
     assert f"={OFFERED[0]['name']}" in tmux.kill_argv(sock, OFFERED[0]["name"])
+
+
+# ------------------------------------------------- the one-way case: told in a reply
+
+def test_a_machine_does_what_the_reply_asks_for(tmp_path):
+    """The only channel to a machine on the far side of a one-way network is the reply to the
+    request it made. This is that path, and it is bounded by the same list as the endpoint."""
+    from app import announce
+
+    done = []
+    cfg = Config(token=FULL, roots=[tmp_path], runnable=list(OFFERED),
+                 report_to={"url": "http://board", "token": "x" * 20}, obey_board=True)
+
+    def pretend(runnable, sock, name, action):
+        done.append((name, action))
+        return {"name": name, "did": "started"}
+
+    announce.runner.act = pretend                              # type: ignore[assignment]
+    try:
+        asyncio.run(announce.obey(cfg, None, [{"name": "nightly", "action": "start"}]))
+    finally:
+        import importlib
+        importlib.reload(runner)
+        announce.runner = runner                               # type: ignore[assignment]
+    assert done == [("nightly", "start")]
+
+
+def test_announcing_is_not_agreeing_to_take_orders(tmp_path):
+    """Off unless said. Telling a board what you are doing and letting it act are different
+    decisions, and often enough different people's."""
+    from app import announce
+
+    done = []
+    cfg = Config(token=FULL, roots=[tmp_path], runnable=list(OFFERED),
+                 report_to={"url": "http://board", "token": "x" * 20})    # obey_board unset
+    announce.runner.act = lambda *a: done.append(a)            # type: ignore[assignment]
+    try:
+        asyncio.run(announce.obey(cfg, None, [{"name": "nightly", "action": "start"}]))
+    finally:
+        import importlib
+        importlib.reload(runner)
+        announce.runner = runner                               # type: ignore[assignment]
+    assert done == []
+
+
+def test_a_reply_asking_for_something_not_offered_changes_nothing(tmp_path):
+    """`runner.act` is the boundary in both directions. Worth a test of its own because the
+    reply comes from whoever holds the registration key, which is the weakest key there is."""
+    with pytest.raises(runner.NotAllowed):
+        runner.act(OFFERED, None, "bash", "start")
+    with pytest.raises(runner.NotAllowed):
+        runner.act(OFFERED, None, "nightly", "exec")
+
+
+def test_obeying_with_nothing_to_obey_is_refused_at_startup(tmp_path):
+    for wrong in (
+        {"runnable": [], "report_to": {"url": "http://b", "token": "x" * 20}},
+        {"runnable": list(OFFERED), "report_to": {}},
+    ):
+        cfg = Config(token=FULL, roots=[tmp_path], obey_board=True, **wrong)
+        with pytest.raises(ConfigError):
+            cfg.validate()
+
+
+def test_argus_is_not_a_name_a_machine_can_claim(tmp_path):
+    """A board says `argus` when it means the server. A session allowed to wear that name
+    would shadow it, and which one answered would depend on the order of two checks."""
+    cfg = Config(token=FULL, roots=[tmp_path],
+                 runnable=[{"name": "argus", "run": "sleep 1", "cwd": ""}])
+    with pytest.raises(ConfigError):
+        cfg.validate()
+
+
+def test_the_board_can_be_told_it_may_stop_this_argus_and_by_default_may_not(tmp_path):
+    from app import announce
+
+    base = dict(token=FULL, roots=[tmp_path], runnable=list(OFFERED),
+                report_to={"url": "http://b", "token": "x" * 20}, obey_board=True)
+    killed = []
+    announce.os.kill = lambda pid, sig: killed.append(sig)     # type: ignore[assignment]
+    try:
+        asyncio.run(announce.obey(Config(**base), None, [{"name": "argus", "action": "stop"}]))
+        assert killed == [], "stopped the server without being allowed to"
+
+        asyncio.run(announce.obey(Config(**base, board_may_stop_argus=True), None,
+                                  [{"name": "argus", "action": "stop"}]))
+        assert killed == [announce.signal.SIGTERM]
+    finally:
+        import importlib
+        importlib.reload(announce)
+
+
+def test_being_allowed_to_stop_without_obeying_is_refused(tmp_path):
+    """It would never be read, and a config that says something it does not do is worse than
+    one that says nothing."""
+    cfg = Config(token=FULL, roots=[tmp_path], runnable=list(OFFERED),
+                 report_to={"url": "http://b", "token": "x" * 20},
+                 board_may_stop_argus=True)
+    with pytest.raises(ConfigError):
+        cfg.validate()
+
+
+def test_the_overview_says_whether_the_asking_key_may_stop_it(tmp_path):
+    """Per key, not per config: two boards can hold two watchers with different permissions,
+    and a board without it should not be shown a button that only gives it a 403."""
+    plain, cfg = wired(tmp_path, may_run=True, may_stop=False)
+    assert plain.get("/api/overview", headers=WEAK).json()["can_stop_argus"] is False
+
+    allowed, _ = wired(tmp_path, may_run=True, may_stop=True)
+    assert allowed.get("/api/overview", headers=WEAK).json()["can_stop_argus"] is True
+
+    # The main token is not a board and is offered nothing.
+    assert allowed.get("/api/overview", headers={"Authorization": f"Bearer {FULL}"}
+                       ).json()["can_stop_argus"] is False

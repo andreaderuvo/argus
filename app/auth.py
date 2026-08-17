@@ -110,6 +110,11 @@ class TokenAuthMiddleware:
             if watcher.get("may_run") and watcher.get("may_stop_argus") and path == STOP_PATH:
                 allowed = True
             if allowed and scope["type"] == "http":
+                # Which watcher this is, for a handler that wants to answer about the caller
+                # rather than about the config in general — `can_stop_argus` on the overview
+                # is per-key, so a board without that permission is not shown a button that
+                # would only give it a 403.
+                scope["argus_watcher"] = watcher
                 return await self.app(scope, receive, send)
             # A real token asking for the wrong thing: say so plainly, rather than
             # pretending it was never valid.
