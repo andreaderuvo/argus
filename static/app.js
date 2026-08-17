@@ -3848,6 +3848,7 @@ async function screenMessages(open = null) {
     from: 'claude',
     to: 'codex',
     plan: planPath(deskHome(ws)),
+    review: reviewPath(deskHome(ws)),
     ...groundVars(),
     ...(previewSet === GROUND ? {} : varSetNamed(previewSet)?.vars || {}),
   });
@@ -4160,7 +4161,7 @@ async function screenMessages(open = null) {
        */
       const wanted = el('div', { className: 'wantrow' });
       const drawWanted = () => {
-        const stub = { folder: '.', from: '?', to: '?', plan: '?' };
+        const stub = { folder: '.', from: '?', to: '?', plan: '?', review: '?' };
         const asked = new Set();
         for (const kind of batonTemplates()) {
           for (const name of unknownVars(kind.text, { ...stub, ...groundVars(), ...(ground ? {} : set.vars) })) {
@@ -4204,8 +4205,9 @@ async function screenMessages(open = null) {
           ['from', t('the session it is coming from')],
           ['to', t('the session it is going to')],
           ['plan', t('the file two agents share when they work on one thing')],
+          ['review', t('where a reviewing agent writes, and the other one reads')],
         ];
-        situ.replaceChildren(el('p', { className: 'hint', textContent: t('Always there, filled from the situation itself — every prompt Argus comes with is written around these four and nothing else.') }));
+        situ.replaceChildren(el('p', { className: 'hint', textContent: t('Always there, filled from the situation itself — every prompt Argus comes with is written around these and nothing else.') }));
         const table = el('div', { className: 'situgrid' });
         for (const [name, says] of four) {
           const mine = name in set.vars;
@@ -6043,7 +6045,12 @@ async function screenWall() {
       loop.at = Date.now();
       savePrefs();
       builder.handle.send?.(`${fillBaton(text, {
-        folder, plan: planPath(folder), from: loop.reviews, to: loop.builds, ...allVars(ws.id),
+        folder,
+        plan: planPath(folder),
+        review: reviewPath(folder),
+        from: loop.reviews,
+        to: loop.builds,
+        ...allVars(ws.id),
       })}\r`);
       repaintPair();
       toast(t('sent back to {who} — {n} more rounds', { who: loop.builds, n: loop.left }));
@@ -7339,7 +7346,10 @@ async function screenWall() {
       }
 
       const windowFor = (name) => terms.find((o) => o.name === `term:${name}`);
-      const known = { folder, plan: path, from: first, to: second, ...allVars(activeSpace().id) };
+      const known = {
+        folder, plan: path, review: reviewPath(folder), from: first, to: second,
+        ...allVars(activeSpace().id),
+      };
       const textOf = (templateName) => batonTemplates().find((k) => k.name === templateName)?.text || '';
 
       if (mode.same) {
@@ -8698,17 +8708,24 @@ const PAIR_BATONS = [
       + 'Write what you are attempting to {plan} under ## Goal before you start.\n'
       + 'Work in small passes. At the end of each one: run the tests, then say in one line\n'
       + 'what changed and hand over. Do not mark your own work correct — that is not your job\n'
-      + 'in this arrangement.',
+      + 'in this arrangement.\n\n'
+      + 'The review comes back as a file, {review}. You do not write to it; you read it.\n'
+      + 'Nothing the reviewer says will appear in this terminal — it works in its own.',
   },
   {
     group: ADVERSARIAL,
     name: 'You review (send to the reviewer)',
     text: 'Review the change {from} has just made in {folder}. Read the diff against HEAD —\n'
       + 'the diff, not the description of it.\n\n'
-      + 'You do not edit anything. Your job is to find what is wrong: cite exact files and\n'
-      + 'line numbers, run the tests yourself, and try the failure case rather than reasoning\n'
-      + 'about it. Read ## Goal in {plan} and say whether the change actually serves it.\n\n'
-      + 'Finish with one line of your own, starting at the left margin, exactly one of:\n'
+      + 'You do not edit the work. Your job is to find what is wrong with it: cite exact files\n'
+      + 'and line numbers, run the tests yourself, and try the failure case rather than\n'
+      + 'reasoning about it. Read ## Goal in {plan} and say whether the change serves it.\n\n'
+      + 'Write the review to {review} — replace whatever is in there, it is this round that\n'
+      + 'matters. {from} cannot see your terminal, so a review that stays here is a review\n'
+      + 'nobody reads. Two files are yours and no others: {review}, and ## Rounds in {plan},\n'
+      + 'where you add one line — what changed, and the verdict it got.\n\n'
+      + 'Then finish in this terminal with one line of your own, at the left margin,\n'
+      + 'exactly one of:\n'
       // Quoted here on purpose. A terminal echoes the prompt it is given, and Argus can be
       // told to read that line and hand the work back on it — so an instruction written as a
       // bare verdict is a verdict, and the loop answers its own orders.
@@ -8718,9 +8735,11 @@ const PAIR_BATONS = [
   {
     group: ADVERSARIAL,
     name: 'Answer the review',
-    text: 'The review of your change in {folder} is above, from {from}.\n'
+    text: '{from} has reviewed your change in {folder}. The review is in {review} — read it\n'
+      + 'there; it is not in this terminal and never was.\n\n'
       + 'Fix what it got right. Say plainly what you disagree with and why — a review is not\n'
-      + 'an order, and a reviewer who is wrong should be told so with a reason.\n'
+      + 'an order, and a reviewer who is wrong should be told so with a reason. Do not edit\n'
+      + '{review}: reply in your own words, here, and let the next review answer you.\n'
       + 'Run the tests before you say you are done, and hand back.',
   },
 ];
@@ -8753,14 +8772,17 @@ const PAIR_MODES = [
     id: 'review',
     group: ADVERSARIAL,
     name: 'One builds, the other reviews',
-    hint: 'One writes and never marks its own work correct. The other reads the diff, never '
-      + 'edits, and ends on VERDICT: OK or REDO.',
+    hint: 'One writes and never marks its own work correct. The other reads the diff, writes '
+      + 'the review to REVIEW.argus.md, and ends on VERDICT: OK or REDO.',
     // Two different jobs, so two different prompts.
     roles: { a: 'You build (send to the worker)', b: 'You review (send to the reviewer)' },
     plan: (goal, a, b) => `# Plan\n\n`
       + `## Goal\n${goal || '(what is being attempted, in a paragraph)'}\n\n`
       + `## Who\n- builds: ${a}\n- reviews: ${b}\n\n`
-      + `## Rounds\nOne line per pass: what changed, and the verdict it got.\n`,
+      + `## Where the review goes\n${b} writes it to REVIEW.argus.md, beside this file, and\n`
+      + `replaces it each round. ${a} reads it there — neither of them can see the other's\n`
+      + `terminal.\n\n`
+      + `## Rounds\nOne line per pass, written by ${b}: what changed, and the verdict it got.\n`,
   },
 ];
 
@@ -8970,6 +8992,16 @@ function fromNamedSet(name) {
  */
 const planPath = (folder) => `${(folder || '.').replace(/\/+$/, '')}/PLAN.argus.md`;
 
+/** Where a review is written, which is the question the review pattern was missing an answer
+ *  to. The reviewer used to print its findings into its own terminal and end on a verdict;
+ *  the builder was then told the review was "above", which it was — in the *other* pane, in
+ *  a scrollback it cannot read. So the review is a file: one writer, one reader, and a thing
+ *  that is still there tomorrow.
+ *
+ *  Beside the plan rather than inside it, because the plan is written by both of them and
+ *  this is written by one. Ownership by file is the rule these patterns already run on. */
+const reviewPath = (folder) => `${(folder || '.').replace(/\/+$/, '')}/REVIEW.argus.md`;
+
 /** What to put in, or nothing at all.
  *
  *  A blank is *not* a value. A row you have made and not filled in yet is exactly the state
@@ -9100,7 +9132,16 @@ function attachMessages(host, wsId, extras, deliver) {
     const here = folder || deliver.folder();
     // Worked out first, yours second: four names are filled in from the situation, and a set
     // that defines one of them anyway means it on purpose.
-    const known = { folder: here, from: fromName, to: toName, plan: planPath(here), ...allVars(wsId) };
+    // `{folder}` is the sending session's own working directory — a desk's folder says
+    // nothing about where tmux put the agent. But `{plan}` and `{review}` are the *desk's*:
+    // that is where the pair sheet wrote them and where the pair note reads them from, and
+    // a prompt sent by hand that pointed at a second, empty plan beside whatever directory
+    // the sender happened to be in would be worse than useless.
+    const known = {
+      folder: here, from: fromName, to: toName,
+      plan: planPath(deliver.folder()), review: reviewPath(deliver.folder()),
+      ...allVars(wsId),
+    };
     // Everything the desk cannot fill in, before it goes rather than after.
     if (!await askAboutGaps(kind, target, gapsIn(kind.text, known))) return;
     // Whether it runs is the prompt's own business: "run the tests" wants to go, while
@@ -9178,7 +9219,8 @@ function attachMessages(host, wsId, extras, deliver) {
         const takes = varsIn(kind.text);
         if (takes.length) {
           const here = {
-            folder: deliver.folder(), from: '?', to: '?', plan: planPath(deliver.folder()),
+            folder: deliver.folder(), from: '?', to: '?',
+            plan: planPath(deliver.folder()), review: reviewPath(deliver.folder()),
             ...allVars(wsId),
           };
           const aimed = deliver.aim();
@@ -9264,7 +9306,7 @@ function attachMessages(host, wsId, extras, deliver) {
           const from = senderFor(target);
           const known = {
             folder: deliver.folder(), from: from?.name.slice(5) || '', to: target.name.slice(5),
-            plan: planPath(deliver.folder()), ...allVars(wsId),
+            plan: planPath(deliver.folder()), review: reviewPath(deliver.folder()), ...allVars(wsId),
           };
           const note = el('textarea', { className: 'baton', spellcheck: false, rows: 7, value: kind.text });
           const shown = el('pre', { className: 'batonpreview' });
