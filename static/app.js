@@ -612,6 +612,7 @@ const ICONS = {
   folder: 'M3.5 6.8A1.8 1.8 0 0 1 5.3 5h3.4l1.8 2h8.2a1.8 1.8 0 0 1 1.8 1.8v8.4a1.8 1.8 0 0 1-1.8 1.8H5.3a1.8 1.8 0 0 1-1.8-1.8z',
   terminal: 'M3.5 5.5h17v13h-17zM7 10l2.6 2L7 14M12.8 14.3H17',
   activity: 'M3 12.5h3.8L9.4 5l4.4 14 2.4-6.5H21',
+  journal: 'M5.5 4.5h13v15h-13zM8.5 8.5h7M8.5 12h7M8.5 15.5h4',
   settings: 'M4 7.5h6M14.5 7.5H20M4 16.5h3.5M12 16.5h8M12 5.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4zM9.5 14.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4z',
   keyboard: 'M3.5 6.5h17v11h-17zM7 10v.01M10.5 10v.01M14 10v.01M17 10v.01M7.5 14h9',
   sidebar: 'M4 4.5h16v15H4zM9.5 4.5v15',
@@ -1264,6 +1265,7 @@ async function render() {
     if (path === '/files') return await screenFiles(q.get('path'));
     if (path === '/preview') return await screenPreview(q.get('path'));
     if (path === '/system') return await screenSystem();
+    if (path === '/journal') return await screenJournal();
     if (path === '/settings') return await screenSettings();
     if (path === '/tmuxconf') return await screenTmuxConf();
     if (path === '/placeholders') return await screenMessages('vars');
@@ -3132,6 +3134,17 @@ function deviceRows() {
           }),
         ]),
         el('button', {
+          className: 'ghost inline', textContent: t('Rename'),
+          onclick: async () => {
+            const now = await ask(t('What is this device called?'), one.name, t('Rename'));
+            if (!now || now === one.name) return;
+            try {
+              await postJSON(`/api/devices/${encodeURIComponent(one.id)}`, { name: now });
+            } catch (e) { toast(e.message, true); }
+            draw();
+          },
+        }),
+        el('button', {
           className: 'ghost inline danger', textContent: t('Revoke'),
           onclick: async () => {
             if (!await confirmBox(t('Revoke {name}?', { name: one.name }),
@@ -3166,6 +3179,123 @@ function deviceRows() {
 
   draw();
   return box;
+}
+
+/* What has been done here, and what was refused.
+ *
+ *  The point of this screen is one question — *has somebody been in here* — so it is built
+ *  around the answer to that rather than around a table. Refusals are counted at the top and
+ *  marked in the list, and the address is given as much room as the action, because an address
+ *  you do not recognise is the whole signal.
+ *
+ *  Only the token from the config can read it. A record that a stolen device could read is a
+ *  record that tells whoever took it exactly what you can see.
+ */
+async function screenJournal() {
+  setTitle(t('Journal'));
+  const wrap = el('div', { className: 'settings journal' });
+  view.replaceChildren(wrap);
+
+  let said;
+  try {
+    said = await getJSON('/api/journal?limit=300');
+  } catch (e) {
+    wrap.append(el('p', { className: 'hint', textContent: e.status === 403
+      ? t('Only the token from the config can read the journal — this browser is holding a device token.')
+      : e.message }));
+    return;
+  }
+
+  const entries = said.entries || [];
+  const when = (at) => new Date(at * 1000).toLocaleString();
+
+  /* Filters over what is already here.
+   *
+   *  A few hundred lines, so narrowing them in the browser is instant and asking the server
+   *  again would be slower and no truer. Three buttons for the question people actually have
+   *  — was anything refused — and a box for the rest, matching the address, the key and the
+   *  action at once, because which of the three you are looking for changes every time.
+   */
+  let only = 'all';
+  let needle = '';
+  const rows = el('div');
+
+  const shows = (one) => {
+    if (only === 'refused' && !one.refused) return false;
+    if (only === 'changes' && one.refused) return false;
+    if (!needle) return true;
+    const hay = [one.who, one.did, one.what, one.from, one.via, one.status].join(' ').toLowerCase();
+    return hay.includes(needle);
+  };
+
+  wrap.append(el('p', { className: 'hint', textContent: entries.length
+    ? t('{n} entries, oldest {when}. Everything that changed something, and everything that was refused.',
+      { n: entries.length, when: when(said.since) })
+    : t('Nothing recorded yet. Reads are not kept — only changes, and anything that was refused.') }));
+
+  if (said.refused) {
+    wrap.append(el('p', {
+      className: 'notice warn',
+      textContent: t('{n} refused attempts below. A run of them from an address you do not recognise is the thing to look at.', { n: said.refused }),
+    }));
+  }
+
+  const paint = () => {
+    const showing = entries.filter(shows);
+    rows.replaceChildren();
+    for (const one of showing) {
+      rows.append(el('div', { className: `row setting${one.refused ? ' refused' : ''}` }, [
+        el('span', { className: 'grow' }, [
+          el('span', { className: 'name', textContent: one.did || '?' }),
+          el('span', {
+            className: 'meta',
+            textContent: [
+              one.who,
+              one.what,
+              one.times > 1 ? t('{n} times', { n: one.times }) : '',
+              one.summary ? t('(more of the same, collapsed)') : '',
+            ].filter(Boolean).join(' · '),
+          }),
+        ]),
+        el('span', { className: 'jfrom', textContent: one.via ? `${one.from} → ${one.via}` : (one.from || '') }),
+        el('span', { className: `state${one.refused ? ' bad' : ''}`, textContent: String(one.status) }),
+        el('span', { className: 'jwhen', textContent: when(one.at) }),
+      ]));
+    }
+    if (!showing.length) {
+      rows.append(el('p', { className: 'hint', textContent: t('Nothing matches that.') }));
+    }
+    count.textContent = showing.length === entries.length
+      ? t('{n} entries', { n: entries.length })
+      : t('{n} of {total}', { n: showing.length, total: entries.length });
+  };
+
+  const count = el('span', { className: 'dim' });
+  const box = el('input', {
+    type: 'search', className: 'jfind', placeholder: t('an address, a key, an action…'),
+    spellcheck: false,
+    oninput: (e) => { needle = e.target.value.trim().toLowerCase(); paint(); },
+  });
+  const pick = (id, label) => {
+    const b = el('button', {
+      className: `chip${only === id ? ' on' : ''}`, type: 'button', textContent: label,
+      onclick: () => {
+        only = id;
+        for (const other of bar.querySelectorAll('.chip')) other.classList.toggle('on', other === b);
+        paint();
+      },
+    });
+    return b;
+  };
+  const bar = el('div', { className: 'jbar' }, [
+    pick('all', t('Everything')),
+    pick('refused', t('Refused')),
+    pick('changes', t('Changes')),
+    box,
+    count,
+  ]);
+  wrap.append(bar, rows);
+  paint();
 }
 
 async function screenSettings() {

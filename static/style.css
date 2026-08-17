@@ -443,7 +443,13 @@ iframe.preview.pdfnative { width: 100%; height: 100%; border: 0; display: block;
  *  label sat at one end of a 1200px line with its switch at the other and nothing between
  *  them. A settings row is a short sentence and should be read like one.
  */
-.settings { padding: 0 1rem 1rem; max-width: 56rem; }
+/* A gutter, and no measure.
+ *
+ *  It had a 56rem measure, which is right for prose and wrong here: a settings row is a label
+ *  at one end and a control at the other, so on a wide screen the column stopped two thirds of
+ *  the way across and the rest of the desk sat empty. The rows read like a phone on a monitor.
+ */
+.settings { padding: 0 1rem 1rem; }
 .settings > .row { padding-left: 0; padding-right: 0; }
 
 /* A heading over a group of settings. Quiet: it is a signpost, not a title, and there are
@@ -454,6 +460,44 @@ iframe.preview.pdfnative { width: 100%; height: 100%; border: 0; display: block;
   color: var(--dim);
 }
 .settings h2.settinggroup:first-of-type { margin-top: .8rem; }
+
+/* The journal. A wide screen gets the address and the time; a phone drops both rather than
+   wrapping every row into three lines. */
+/* Full width: a log is columns, and a measure meant for prose leaves a third of a monitor
+   empty beside it. */
+.journal { max-width: none; }
+.journal .row.setting { cursor: default; align-items: baseline; }
+
+/* The filters. One row, and it stays put while the list under it changes. */
+.jbar {
+  display: flex; align-items: center; gap: .5rem; flex-wrap: wrap;
+  padding: .3rem 0 .7rem;
+}
+.jbar .chip {
+  padding: .25rem .7rem; border: 1px solid var(--line); border-radius: .4rem;
+  background: none; color: var(--text); font: inherit; font-size: .84rem; cursor: pointer;
+}
+.jbar .chip:hover { border-color: var(--accent); color: var(--bright); }
+.jbar .chip.on { border-color: var(--accent); color: var(--accent); }
+input.jfind {
+  flex: 1; min-width: 10rem; height: 32px; padding: 0 .6rem;
+  border: 1px solid var(--line); border-radius: .4rem;
+  background: var(--bg); color: var(--text); font: inherit; font-size: .85rem;
+}
+input.jfind:focus { border-color: var(--accent); outline: none; }
+.journal .name { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .82rem; }
+.journal .jfrom {
+  flex: none; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .74rem; color: var(--dim); min-width: 9rem; text-align: right;
+}
+.journal .jwhen { flex: none; font-size: .74rem; color: var(--dim); min-width: 10.5rem; text-align: right; }
+/* Refused: the whole row, because it is the row you are scanning for. */
+.journal .row.refused { background: color-mix(in srgb, var(--danger) 8%, transparent); }
+.journal .row.refused .name { color: var(--danger); }
+@media (max-width: 46rem) {
+  .journal .jfrom { min-width: 0; }
+  .journal .jwhen { display: none; }
+}
 
 .row.setting { cursor: pointer; }
 .row.setting .name { color: var(--bright); }

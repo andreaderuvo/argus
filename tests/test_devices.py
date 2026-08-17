@@ -183,3 +183,32 @@ def test_no_devices_at_all_changes_nothing(tmp_path):
     client, _ = running(tmp_path)
     assert as_master(client, "GET", "/api/config").status_code == 200
     assert client.get("/api/config", headers={"Authorization": "Bearer nope"}).status_code == 401
+
+
+def test_a_device_can_be_renamed_without_being_signed_out(tmp_path):
+    """A name is a label for a person, and people change their minds — "phone" becomes "old
+    phone" the day a new one arrives. Renaming must not touch the token, or nobody will do it
+    when it matters."""
+    client, _ = running(tmp_path)
+    token, ident = mint(client, "phone")
+    mine = {"Authorization": f"Bearer {token}"}
+
+    said = as_master(client, "POST", f"/api/devices/{ident}", json={"name": "old phone"})
+    assert said.status_code == 200 and said.json()["device"]["name"] == "old phone"
+    assert client.get("/api/config", headers=mine).status_code == 200
+
+
+def test_renaming_cannot_create_a_duplicate(tmp_path):
+    client, _ = running(tmp_path)
+    mint(client, "phone")
+    _, laptop = mint(client, "laptop")
+    assert as_master(client, "POST", f"/api/devices/{laptop}", json={"name": "Phone"}).status_code == 400
+    # …but a device may keep its own name, which is what happens when you edit and change nothing.
+    assert as_master(client, "POST", f"/api/devices/{laptop}", json={"name": "laptop"}).status_code == 200
+
+
+def test_a_device_may_not_rename_anything(tmp_path):
+    client, _ = running(tmp_path)
+    token, ident = mint(client)
+    assert client.post(f"/api/devices/{ident}", json={"name": "mine now"},
+                       headers={"Authorization": f"Bearer {token}"}).status_code == 403

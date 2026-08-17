@@ -559,6 +559,61 @@
     "tags": [
      "Setup"
     ]
+   },
+   "post": {
+    "description": "The token is untouched: this is the label, not the key. Renaming does not sign\nanything out, which is the whole reason it is a separate action from revoking.",
+    "operationId": "postApiDevicesDeviceId",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "device_id",
+      "required": true,
+      "schema": {
+       "title": "Device Id",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Rename Device Api Devices  Device Id  Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Rename a device",
+    "tags": [
+     "Setup"
+    ]
    }
   },
   "/api/download": {
@@ -1143,6 +1198,52 @@
     "summary": "Write",
     "tags": [
      "Writing"
+    ]
+   }
+  },
+  "/api/journal": {
+   "get": {
+    "description": "Most recent first. Only the token from the config may read it: a record that a\npossibly-stolen device can read is a record that tells whoever took it what you can see.",
+    "operationId": "getApiJournal",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 200,
+       "title": "Limit",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Read Journal Api Journal Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "What has been done here, and what was refused",
+    "tags": [
+     "Setup"
     ]
    }
   },

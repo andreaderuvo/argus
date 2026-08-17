@@ -565,12 +565,42 @@ for the same reason: losing the file must not hand anyone a working key.
 - **A device may do the work and may not manage devices.** Only the token in the config can
   add or revoke. A phone that is lost cannot mint itself a second key, and cannot lock you out
   of your own machine.
+- **Renaming does not sign anything out.** "phone" becomes "old phone" the day a new one
+  arrives, and a list you cannot correct is one you stop trusting when it matters.
 - The list says when each was last used, written at most once a minute — the useful answer is
   "yesterday or today", not which second.
 
 There is deliberately no bcrypt or argon2 on those hashes. Slow hashes exist to make
 *guessable* secrets expensive to attack; these are 256 bits of randomness, and a slow hash
 would only make every request slower.
+
+### The journal
+
+*Journal*, in the sidebar. It answers one question — **has somebody been in here** — and it is
+built around that rather than around a table.
+
+What goes in: everything that **changed** something, and everything that was **refused**,
+whatever method it used. What does not: successful reads. Listing a folder every four seconds
+while you scroll is most of the traffic and none of the interesting part, and a file full of it
+is a file nobody opens.
+
+Each line has the action, which key did it (`the config token`, a device by name, or a board),
+the address it came from, the status and the time. Behind a reverse proxy the peer is always
+loopback and the real client is in a header, so both are kept and shown apart: a header is
+whatever the sender wrote, and reading a log without knowing which of the two you are looking
+at is worse than seeing one.
+
+Refusals from one address are collapsed — a scanner can produce thousands a minute, and a
+journal that rotates its own history away while being flooded is worse than none — but the
+count is kept, so twelve knocks read as twelve.
+
+Filters at the top: *Everything*, *Refused*, *Changes*, and a box that matches the address, the
+key and the action at once. Only the token from the config can read it: a record a stolen
+device could read is a record that tells whoever took it what you can see.
+
+It is not tamper-proof, and does not pretend to be. Anything holding the master token can
+delete the file, and a shell on the machine certainly can. It answers "what happened" for a
+person looking back, which is the question that actually comes up.
 
 ## Translating it
 
