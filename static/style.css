@@ -539,7 +539,14 @@ input.sheetfind { width: 100%; margin: .2rem 0 .5rem; }
   background: none; color: inherit; font: inherit; text-align: left; cursor: text;
   max-width: 100%;
 }
-.msgpane .usesline button.fillbtn:hover { border-color: var(--line); background: var(--bg); }
+/* Visible before you touch it: the dotted line is the difference between a value you can
+   change and one the situation decides. */
+.msgpane .usesline button.fillbtn { border-bottom-color: color-mix(in srgb, var(--accent) 45%, transparent); border-bottom-style: dashed; }
+.msgpane .usesline button.fillbtn:hover { border-color: var(--line); border-bottom-color: var(--accent); background: var(--bg); }
+.msgpane .usesline button.fixedval {
+  border: 0; padding: 0; background: none; color: inherit; font: inherit; text-align: left;
+  cursor: default; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .msgpane .usesline input.fillbox {
   width: min(22rem, 70%); height: 22px; padding: 0 .3rem;
   border: 1px solid var(--accent); border-radius: .3rem;
@@ -568,6 +575,24 @@ input.sheetfind { width: 100%; margin: .2rem 0 .5rem; }
    row that says where a tap goes, because it is the other half of the same question. */
 .aimbar .setnote { margin-left: auto; display: inline-flex; align-items: center; gap: .3rem; }
 .aimbar .setnote .ico { width: 13px; height: 13px; }
+
+/* The set, opened inside the Prompts window. Deliberately plain: it sits above the list it
+   changes, and every keystroke in it shows up down there. */
+.setpanel {
+  margin: .2rem 0 .5rem; padding: .5rem .6rem;
+  border: 1px solid var(--line); border-radius: .5rem; background: var(--bg);
+}
+.setpanelhead { display: flex; align-items: center; gap: .5rem; margin-bottom: .4rem; }
+.setpanelhead .meta { flex: none; }
+.setpanelhead .setpick { flex: 1; min-width: 0; }
+.setgrid { display: grid; grid-template-columns: minmax(6rem, 1fr) minmax(8rem, 2fr) auto; gap: .3rem; }
+.setgrid input {
+  min-width: 0; height: 26px; padding: 0 .4rem;
+  border: 1px solid var(--line); border-radius: .35rem;
+  background: var(--panel); color: var(--text); font: inherit; font-size: .78rem;
+}
+.setgrid input.varname { font-family: ui-monospace, monospace; }
+.setgrid .winbtn { width: 26px; height: 26px; }
 
 /* The last few turns of the bridge, in the sheet behind the pair note. */
 .bridgeturn { margin: 0 0 .5rem; font-size: .9rem; }

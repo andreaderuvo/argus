@@ -3850,6 +3850,7 @@ async function screenMessages(open = null) {
     plan: planPath(deskHome(ws)),
     bridge: bridgePath(deskHome(ws)),
     every: pairEvery(),
+    limit: pairLimit(),
     ...groundVars(),
     ...(previewSet === GROUND ? {} : varSetNamed(previewSet)?.vars || {}),
   });
@@ -4215,6 +4216,7 @@ async function screenMessages(open = null) {
           ['plan', t('the file two agents share when they work on one thing'), planPath(here)],
           ['bridge', t('the file two agents talk through, turn by turn'), bridgePath(here)],
           ['every', t('how often they look at the bridge — set when you start a pair, and remembered'), `${pairEvery()}`],
+          ['limit', t('the whole run\u2019s budget in minutes, from the same place'), `${pairLimit()}`],
         ];
         situ.replaceChildren(el('p', { className: 'hint', textContent: t('Always there, filled from the situation itself — every prompt Argus comes with is written around these and nothing else.') }));
         const table = el('div', { className: 'situgrid' });
@@ -7279,7 +7281,7 @@ async function screenWall() {
     // The other end of the leash. Rounds bound how many times they may disagree; this bounds
     // how long they may take about it, which is the one an agent stuck in a slow loop hits
     // first. Both are written into the file, so they hold with the browser shut.
-    const minutes = el('input', { type: 'number', className: 'pairrounds', min: '5', max: '480', value: '30' });
+    const minutes = el('input', { type: 'number', className: 'pairrounds', min: '5', max: '480', value: String(pairLimit()) });
     // How often they look. Sixty seconds suits two agents taking five-minute passes and is
     // silly for two taking thirty-second ones, so it is yours — and it is remembered, since
     // whatever suits your agents this week will suit them next week too.
@@ -7317,6 +7319,7 @@ async function screenWall() {
       // Chosen before the prompts are filled in, since {every} is one of the things they
       // are filled in *with*.
       prefs.pairEvery = Math.max(10, Math.min(900, Number(every.value) || 60));
+      prefs.pairMinutes = Math.max(5, Math.min(480, Number(minutes.value) || 30));
       savePrefs();
       try {
         await postJSON('/api/fs/write', { path, content: mode.plan(goal.value.trim(), first, second) });
@@ -7325,7 +7328,7 @@ async function screenWall() {
         if (mode.roles) {
           await postJSON('/api/fs/write', {
             path: bridgePath(folder),
-            content: bridgeHeader(goal.value.trim(), first, second, Number(minutes.value) || 30, pairEvery()),
+            content: bridgeHeader(goal.value.trim(), first, second, pairLimit(), pairEvery()),
           });
         }
       } catch (e) {
@@ -7335,7 +7338,8 @@ async function screenWall() {
 
       const windowFor = (name) => terms.find((o) => o.name === `term:${name}`);
       const known = {
-        folder, plan: path, bridge: bridgePath(folder), every: pairEvery(), from: first, to: second,
+        folder, plan: path, bridge: bridgePath(folder), every: pairEvery(), limit: pairLimit(),
+        from: first, to: second,
         ...allVars(activeSpace().id),
       };
       const textOf = (templateName) => batonTemplates().find((k) => k.name === templateName)?.text || '';
@@ -8780,8 +8784,8 @@ const PAIR_BATONS = [
   {
     group: TOGETHER,
     name: 'Start (send to both)',
-    text: 'You and one other agent are working on the same goal in {folder}.\n'
-      + 'Your identity is the name of the tmux session you are running in — run `echo $TMUX_PANE`\n'
+    text: 'You and one other agent are working on the same goal in {folder}. '
+      + 'Your identity is the name of the tmux session you are running in — run `echo $TMUX_PANE` '
       + 'and `tmux display-message -p "#S"` if you do not know it.\n\n'
       + 'The plan is {plan}. If it does not exist yet, create it with these sections:\n'
       + '  ## Goal        one paragraph, agreed\n'
@@ -8802,40 +8806,40 @@ const PAIR_BATONS = [
   {
     group: TOGETHER,
     name: 'Your turn',
-    text: 'Read {plan}. {from} has just written to it.\n'
-      + 'Take the next thing under your name, do it, and update ## Doing and ## Done.\n'
+    text: 'Read {plan}. {from} has just written to it. '
+      + 'Take the next thing under your name, do it, and update ## Doing and ## Done. '
       + 'If ## Blocked has a request from {from} for a file you own, deal with that first.',
   },
   {
     group: TOGETHER,
     name: 'Converge',
-    text: 'The work in {folder} is meant to be finished. Read {plan} and the diff against HEAD.\n'
-      + 'Say plainly: is the goal met, what is left, and is anything the two of you did in\n'
+    text: 'The work in {folder} is meant to be finished. Read {plan} and the diff against HEAD. '
+      + 'Say plainly: is the goal met, what is left, and is anything the two of you did in '
       + 'conflict? Do not start new work — this is the reckoning, not another pass.',
   },
   {
     group: ADVERSARIAL,
     name: 'You build (send to the worker)',
-    text: 'You are the WORKER, in {folder}. {to} is the REVIEWER: it reads everything you do,\n'
+    text: 'You are the WORKER, in {folder}. {to} is the REVIEWER: it reads everything you do, '
       + 'edits nothing, and you never mark your own work correct.\n\n'
-      + 'You two talk through one file — {bridge} — and nowhere else. Neither of you can see\n'
+      + 'You two talk through one file — {bridge} — and nowhere else. Neither of you can see '
       + 'the other\u2019s terminal. Read it now: the rules are at the top of it.\n\n'
-      + 'If that file does not exist yet, **you make it** — the REVIEWER is waiting for it and\n'
-      + 'will not start until it is there. Write a "# Bridge" heading, the rules in your own\n'
-      + 'words (append only; a turn is the block between its two markers), and then your first\n'
+      + 'If that file does not exist yet, **you make it** — the REVIEWER is waiting for it and '
+      + 'will not start until it is there. Write a "# Bridge" heading, the rules in your own '
+      + 'words (append only; a turn is the block between its two markers), and then your first '
       + 'turn. A turn looks like this, and every field a machine reads is in the first marker:\n\n'
       + '  @TURN who=WORKER at=<UTC, from: date -u +%FT%TZ> status=DONE\n'
       + '  what you did, in your own words\n'
       + '  @END at=<UTC>\n\n'
-      + 'On the first one add deadline=<UTC thirty minutes from now> to the @TURN line, so you\n'
-      + 'both know when to stop. Extra fields are fine and are ignored: round=2, tests=16/0.\n\n'
-      + 'Write what you are attempting to {plan} under ## Goal before you start, then work in\n'
-      + 'small passes. At the end of each pass, run the tests and add a turn with status=DONE\n'
-      + 'and a line or two on what changed. Append the whole turn — both markers and the text\n'
-      + '— in one go; the file shows the command under "Add a turn with one command". Never\n'
+      + 'On the first one add deadline=<UTC, {limit} minutes from now> to the @TURN line, so '
+      + 'you both know when to stop. Extra fields are fine and ignored: round=2, tests=16/0.\n\n'
+      + 'Write what you are attempting to {plan} under ## Goal before you start, then work in '
+      + 'small passes. At the end of each pass, run the tests and add a turn with status=DONE '
+      + 'and a line or two on what changed. Append the whole turn — both markers and the text '
+      + '— in one go; the file shows the command under "Add a turn with one command". Never '
       + 'rewrite the file.\n\n'
-      + 'Then wait for the REVIEWER. Read {bridge} again every {every} seconds. Act only on a\n'
-      + 'turn that is *finished* — one with its @END; without it the other one is still\n'
+      + 'Then wait for the REVIEWER. Read {bridge} again every {every} seconds. Act only on a '
+      + 'turn that is *finished* — one with its @END; without it the other one is still '
       + 'typing, so wait and read again. Then act on the last turn:\n'
       + '  REVIEWER: REDO      read what it says, fix what it got right, and take another\n'
       + '                      pass. Say plainly in your next turn what you disagree with\n'
@@ -8843,63 +8847,64 @@ const PAIR_BATONS = [
       + '  REVIEWER: ASK       a question for you. Answer it in a turn before carrying on.\n'
       + '  REVIEWER: OK        you are finished. Say so and stop.\n'
       + '  ARGUS: STOP         the rounds are used up. Stop and say so.\n'
-      + 'If the review says something you do not understand — a file you cannot find, a\n'
-      + 'judgement that seems to come from nowhere, a word used in two senses — do not guess.\n'
-      + 'Add a turn with status=ASK and the question in it, and wait for the answer the same\n'
-      + 'way you wait for anything else. A question costs one round; a wrong guess costs the\n'
+      + 'If the review says something you do not understand — a file you cannot find, a '
+      + 'judgement that seems to come from nowhere, a word used in two senses — do not guess. '
+      + 'Add a turn with status=ASK and the question in it, and wait for the answer the same '
+      + 'way you wait for anything else. A question costs one round; a wrong guess costs the '
       + 'afternoon.\n\n'
-      + 'If you are stuck or need a person rather than the reviewer, add a turn with status\n'
+      + 'If you are stuck or need a person rather than the reviewer, add a turn with status '
       + 'BLOCKED and stop.\n\n'
-      + 'There is a Deadline in the first turn of {bridge} — put one there yourself if you are\n'
-      + 'the one creating the file. Check it each time you read: once the clock is past it,\n'
-      + 'add a BLOCKED turn saying you ran out of time, say in your terminal where you got to,\n'
-      + 'and stop. Do not keep going.\n'
+      + 'The whole run has {limit} minutes. The deadline is in the first turn of {bridge} — '
+      + 'put one there yourself if you are the one creating the file. Check it each time you '
+      + 'read: once the clock is past it, '
+      + 'add a BLOCKED turn saying you ran out of time, say in your terminal where you got to, '
+      + 'and stop. Do not keep going. '
       + 'Never edit or delete a turn — the file is append-only, including your own turns.',
   },
   {
     group: ADVERSARIAL,
     name: 'You review (send to the reviewer)',
-    text: 'You are the REVIEWER, in {folder}. {from} is the WORKER: it writes the code, you\n'
+    text: 'You are the REVIEWER, in {folder}. {from} is the WORKER: it writes the code, you '
       + 'read it. You edit nothing.\n\n'
-      + 'You two talk through one file — {bridge} — and nowhere else. Neither of you can see\n'
+      + 'You two talk through one file — {bridge} — and nowhere else. Neither of you can see '
       + 'the other\u2019s terminal. Read it now: the rules are at the top of it.\n\n'
-      + 'If that file does not exist yet, the WORKER has not started. Do not create it and do\n'
-      + 'not review anything — there is nothing to review. Read again every {every} seconds\n'
-      + 'until it appears, and if it still is not there after ten reads, stop: say in your\n'
-      + 'terminal that the bridge never appeared and that you are not waiting any longer.\n'
-      + 'Something did not start, and a reviewer looping on an empty folder all night helps\n'
+      + 'If that file does not exist yet, the WORKER has not started. Do not create it and do '
+      + 'not review anything — there is nothing to review. Read again every {every} seconds '
+      + 'until it appears, and if it still is not there after ten reads, stop: say in your '
+      + 'terminal that the bridge never appeared and that you are not waiting any longer. '
+      + 'Something did not start, and a reviewer looping on an empty folder all night helps '
       + 'nobody.\n\n'
-      + 'Wait for the WORKER. Read {bridge} every {every} seconds until its last turn is a\n'
-      + 'finished one with who=WORKER status=DONE — finished meaning it has its @END; without\n'
-      + 'that it is still being written, so wait and read again. Then review what it did since\n'
+      + 'Wait for the WORKER. Read {bridge} every {every} seconds until its last turn is a '
+      + 'finished one with who=WORKER status=DONE — finished meaning it has its @END; without '
+      + 'that it is still being written, so wait and read again. Then review what it did since '
       + 'the turn before that one:\n'
       + '  - read the diff against HEAD, not the description of it\n'
       + '  - cite exact files and line numbers\n'
       + '  - run the tests yourself, and try the failure case rather than reasoning about it\n'
       + '  - read ## Goal in {plan} and say whether the change serves it\n\n'
-      + 'Then add your turn — who=REVIEWER, status=REDO or status=OK, and the review itself as\n'
-      + 'the text between the markers. It goes there, not in your terminal, where nobody can\n'
-      + 'read it. Append the whole turn in one go, the way the file shows under "Add a turn\n'
+      + 'Then add your turn — who=REVIEWER, status=REDO or status=OK, and the review itself as '
+      + 'the text between the markers. It goes there, not in your terminal, where nobody can '
+      + 'read it. Append the whole turn in one go, the way the file shows under "Add a turn '
       + 'with one command"; never rewrite the file.\n\n'
-      + 'Use REDO while it is not right, and OK the moment it is — OK ends the job for both\n'
-      + 'of you, so do not spend it on something you have not checked. BLOCKED if you are\n'
+      + 'Use REDO while it is not right, and OK the moment it is — OK ends the job for both '
+      + 'of you, so do not spend it on something you have not checked. BLOCKED if you are '
       + 'stuck or a person is needed.\n\n'
-      + 'And if you cannot review it because you do not understand something — what a change\n'
-      + 'was for, where a file went, what an answer of theirs meant — use status=ASK with the\n'
-      + 'question instead of guessing and marking it REDO. A REDO for something you misread\n'
+      + 'And if you cannot review it because you do not understand something — what a change '
+      + 'was for, where a file went, what an answer of theirs meant — use status=ASK with the '
+      + 'question instead of guessing and marking it REDO. A REDO for something you misread '
       + 'sends them off to fix a thing that is not broken.\n\n'
-      + 'An ASK from the WORKER is your turn: answer it in a turn of your own before anything\n'
+      + 'An ASK from the WORKER is your turn: answer it in a turn of your own before anything '
       + 'else. Then wait for the next finished WORKER turn.\n\n'
-      + 'There is a Deadline in the first turn of {bridge}. Check it each time you read the\n'
-      + 'file: once the clock is past it, add a BLOCKED turn saying you ran out of time, say\n'
-      + 'in your terminal where you got to, and stop. Do not keep going.\n'
+      + 'The whole run has {limit} minutes, and the deadline is in the first turn of {bridge}. '
+      + 'Check it each time you read the file: once the clock is past it, add a BLOCKED turn '
+      + 'saying you ran out of time, say in your terminal where you got to, and stop. '
       + 'Never edit or delete a turn — the file is append-only, including your own turns.',
   },
   {
     group: ADVERSARIAL,
     name: 'Nudge (if one of them has gone quiet)',
-    text: 'Read {bridge}. The last turn in it is not yours and you have not answered it.\n'
-      + 'Do what it asks, add your turn to the file the way the rules at the top of it say,\n'
+    text: 'Read {bridge}. The last turn in it is not yours and you have not answered it. '
+      + 'Do what it asks, add your turn to the file the way the rules at the top of it say, '
       + 'and carry on reading it every {every} seconds.',
   },
 ];
@@ -9205,6 +9210,11 @@ const bridgePath = (folder) => `${(folder || '.').replace(/\/+$/, '')}/BRIDGE.ar
  *  it. */
 const pairEvery = () => Number(prefs.pairEvery) || 60;
 
+/** The whole run's budget, in minutes — the other number the sheet asks for, and the one an
+ *  agent needs in its own prompt: "you have thirty minutes" is a different instruction from
+ *  "check back every sixty seconds", and a prompt written by hand had no way to say it. */
+const pairLimit = () => Number(prefs.pairMinutes) || 30;
+
 /* A turn is a block between two sentinels, and every field is *in* the opening one.
  *
  *      @TURN who=WORKER at=2026-08-18T09:14:02Z status=DONE
@@ -9407,7 +9417,7 @@ function fillBaton(text, known) {
  *  that only need to know *whether* a name will be filled — never whether the value is any
  *  good. One list, because it has now been written out three times and one of the copies
  *  was two names short. */
-const SITUATIONAL = { folder: '.', from: '?', to: '?', plan: '?', bridge: '?', every: '?' };
+const SITUATIONAL = { folder: '.', from: '?', to: '?', plan: '?', bridge: '?', every: '?', limit: '?' };
 
 const varsIn = (text) => {
   const names = [];
@@ -9434,6 +9444,9 @@ const unknownVars = (text, known) => {
 function attachMessages(host, wsId, extras, deliver) {
   const list = el('div', { className: 'traylist msgpane' });
   host.append(list);
+  // Whether the set editor is showing. Per window, and not remembered: it is a thing you
+  // open to fix a word, not a mode the window sits in.
+  let openSet = false;
 
   /** Everything the situation fills in, for this desk and this aim.
    *
@@ -9454,6 +9467,7 @@ function attachMessages(host, wsId, extras, deliver) {
       plan: planPath(deliver.folder()),
       bridge: bridgePath(deliver.folder()),
       every: pairEvery(),
+      limit: pairLimit(),
     };
   };
 
@@ -9560,17 +9574,106 @@ function attachMessages(host, wsId, extras, deliver) {
     // and said nothing about what it *says* — and the answer is a desk-wide setting three
     // menus away, so the one place it matters was the one place it was invisible.
     aimBar.append(el('button', {
-      className: 'ghost dup setnote',
-      title: t('These come from the {set} set — the one this desk is on. Change it in the desk\u2019s ⋮ menu.', { set: deskSetName(wsId) }),
-      onclick: () => go('#/placeholders'),
+      className: `ghost dup setnote${openSet ? ' on' : ''}`,
+      title: t('The values these are filled from. Open it to change them here.'),
+      onclick: () => { openSet = !openSet; draw(); },
     }, [icon('rename'), el('span', { textContent: deskSetName(wsId) })]));
   };
+
+  /** The whole set, edited here.
+   *
+   *  A value that no prompt in view happens to use was still two screens away, and adding a
+   *  new name meant leaving altogether — which for a window whose entire job is "send this
+   *  sentence, with these words in it" is the wrong way round. So the chip opens the set
+   *  under the bar: every pair in it, editable, an empty row at the bottom that grows when
+   *  you type in it, and the desk's choice of set on the same row.
+   *
+   *  Nothing here is a dialog. You are looking at the prompts while you fix the word that
+   *  was wrong in them, which is the only reason to have it in the window at all.
+   */
+  function setPanel() {
+    const box = el('div', { className: 'setpanel' });
+    const set = varSetNamed(deskSetName(wsId)) || varSetNamed(GROUND);
+
+    const pick = el('select', { className: 'setpick' });
+    for (const one of varSets()) {
+      pick.append(el('option', { value: one.name, textContent: one.name, selected: one.name === set.name }));
+    }
+    pick.onchange = () => {
+      prefs.deskSet = prefs.deskSet || {};
+      prefs.deskSet[wsId] = pick.value;
+      savePrefs();
+      messagesChanged();
+      draw();
+    };
+    box.append(el('div', { className: 'setpanelhead' }, [
+      el('span', { className: 'meta', textContent: t('filled from') }),
+      pick,
+      el('button', {
+        className: 'ghost dup', textContent: t('All of them…'), onclick: () => go('#/placeholders'),
+      }),
+    ]));
+
+    const grid = el('div', { className: 'setgrid' });
+    const rows = () => Object.entries(set.vars);
+    const line = (name, value) => {
+      const key = el('input', { type: 'text', className: 'varname', value: name, spellcheck: false, placeholder: t('name') });
+      const val = el('input', { type: 'text', className: 'varvalue', value, spellcheck: false, placeholder: t('value') });
+      const drop = el('button', { className: 'winbtn', title: t('Remove') }, icon('close'));
+      const keep = () => {
+        const named = key.value.trim().replace(/^\{|\}$/g, '');
+        if (name && named !== name) delete set.vars[name];
+        if (/^[\w.-]+$/.test(named)) set.vars[named] = val.value.trim();
+        savePrefs();
+        messagesChanged();
+        name = named;
+        // The prompt lines above are now wrong; the panel itself is not redrawn, or the
+        // caret would jump out of the box you are typing in.
+        paintList();
+      };
+      key.onchange = keep;
+      val.onchange = keep;
+      // A fresh row becomes real as soon as it has a name, and grows another under it.
+      const fresh = !name;
+      const grew = () => {
+        if (!fresh || !key.value.trim()) return;
+        drop.hidden = false;
+        grid.append(...line('', ''));
+        key.removeEventListener('input', grew);
+      };
+      if (fresh) { drop.hidden = true; key.addEventListener('input', grew); }
+      drop.onclick = () => {
+        delete set.vars[name];
+        savePrefs();
+        messagesChanged();
+        draw();
+      };
+      return [key, val, drop];
+    };
+    for (const [name, value] of rows()) grid.append(...line(name, value));
+    grid.append(...line('', ''));
+    box.append(grid);
+    return box;
+  }
+
+  /* Two halves, redrawn separately.
+   *
+   *  The prompts have to be repainted whenever a value changes — their lines say what each
+   *  one would be — but repainting the set editor while you are typing in it takes the caret
+   *  with it. So the list is its own box and `paintList` only touches that. */
+  const rowsBox = el('div');
 
   const draw = () => {
     list.replaceChildren();
     list.append(aimBar);
     drawAim();
-    list.append(el('p', { className: 'hint', textContent: t('tap one to send it there, or drag it onto another terminal') }));
+    if (openSet) list.append(setPanel());
+    list.append(el('p', { className: 'hint', textContent: t('tap one to send it there, or drag it onto another terminal') }), rowsBox);
+    paintList();
+  };
+
+  const paintList = () => {
+    rowsBox.replaceChildren();
     for (const group of batonGroups()) {
       const mine = batonTemplates().filter((x) => x.group === group);
       if (!mine.length) continue;
@@ -9662,8 +9765,21 @@ function attachMessages(host, wsId, extras, deliver) {
               // is, and typing something else into it would not make it so. Yours are a
               // value in a set, and a value in a set is a thing you can just change — from
               // the window where you noticed it was wrong, rather than two screens away.
+              // A situational name is not editable and has to *say* so when you try, or the
+              // click that does nothing reads as a broken feature — which is exactly how it
+              // was reported. The ones you can change wear a dotted line so you can tell
+              // before clicking, rather than by hovering everything to find out.
               name in SITUATIONAL
-                ? el('span', { className: gone ? 'gone' : 'was', textContent: gone ? t('nothing here') : String(value) })
+                ? el('button', {
+                  className: `was fixedval${gone ? ' gone' : ''}`,
+                  type: 'button',
+                  title: t('{name} comes from the situation — it cannot be typed over', { name: `{${name}}` }),
+                  textContent: gone ? t('nothing here') : String(value),
+                  onclick: (ev) => {
+                    ev.stopPropagation();
+                    toast(t('{name} comes from the situation — it cannot be typed over', { name: `{${name}}` }));
+                  },
+                })
                 : fillable(name, value, gone),
             );
           }
@@ -9781,7 +9897,7 @@ function attachMessages(host, wsId, extras, deliver) {
           uses,
         ].filter(Boolean)));
       }
-      list.append(folder);
+      rowsBox.append(folder);
     }
   };
 
