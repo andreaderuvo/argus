@@ -18,6 +18,17 @@ PROXY_COOKIE = "argus_proxy"
 # of that arrangement is entirely in how little each key is worth.
 WATCHER_PATHS = ("/api/overview",)
 
+# Two more doors, and only for a watcher whose entry says `may_run: true`.
+#
+# The key stays nearly worthless even so, because no command ever arrives in a request:
+# `/api/runnable/<name>/<action>` may only name something this machine already published in
+# its own config, and `/api/shutdown` stops this Argus and nothing else. The worst anything
+# holding the key can do is start or stop what you wrote down, or turn the server off — and
+# turning it off needs `may_stop_argus` on top, because only a person at a shell can undo it.
+RUN_LIST = "/api/runnable"
+RUN_PREFIX = "/api/runnable/"
+STOP_PATH = "/api/shutdown"
+
 
 def presented_token(scope: dict) -> str | None:
     """Accepts the token from the ``Authorization`` header or from ``?token=``.
@@ -88,8 +99,17 @@ class TokenAuthMiddleware:
         if token is not None and matches(token, self.token):
             return await self.app(scope, receive, send)
 
-        if token is not None and self.watching(token):
-            if scope["path"] in WATCHER_PATHS and scope["type"] == "http":
+        watcher = self.watching(token) if token is not None else None
+        if watcher:
+            path = scope["path"]
+            allowed = path in WATCHER_PATHS
+            # The list itself is behind the same flag. A board that may not start anything
+            # has no use for it, and it is one more thing a read-only key would reveal.
+            if watcher.get("may_run") and (path == RUN_LIST or path.startswith(RUN_PREFIX)):
+                allowed = True
+            if watcher.get("may_run") and watcher.get("may_stop_argus") and path == STOP_PATH:
+                allowed = True
+            if allowed and scope["type"] == "http":
                 return await self.app(scope, receive, send)
             # A real token asking for the wrong thing: say so plainly, rather than
             # pretending it was never valid.

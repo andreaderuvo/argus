@@ -8,6 +8,7 @@ import contextlib
 import os
 import mimetypes
 import shutil
+import signal
 import subprocess
 import sys
 import time
@@ -18,7 +19,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 
-from . import announce, bells, favourites, files, fsops, languages, mounts, paths, ports, proxy, release, system, term, tmux
+from . import announce, bells, favourites, files, fsops, languages, mounts, paths, ports, proxy, release, runner, system, term, tmux
 import httpx
 
 from .auth import PROXY_COOKIE, TokenAuthMiddleware
@@ -501,6 +502,58 @@ def create_app(cfg: Config) -> FastAPI:
         announces to a board that cannot reach it.
         """
         return await overview_of(request.app)
+
+    @app.get("/api/runnable", tags=["The machine"],
+             summary="What this machine offers to start and stop")
+    async def runnable(request: Request) -> list[dict]:
+        """The names, and whether each is up right now. Not the commands.
+
+        A board needs to know what it may ask for and what is already happening; it has no
+        use for the shell line, and every extra thing on the wire is one more thing a leaked
+        board leaks.
+        """
+        return runner.offered(cfg.runnable, request.app.state.socket)
+
+    @app.post("/api/runnable/{name}/{action}", tags=["The machine"],
+              summary="Start or stop one of them")
+    async def run_one(request: Request, name: str, action: str) -> dict:
+        """`action` is start or stop, and `name` must be something this machine published.
+
+        No command arrives in this request and none ever will. That is what keeps a watcher
+        token nearly worthless: the worst anything holding it can do is start or stop what is
+        written in this machine's own config.
+        """
+        try:
+            return await asyncio.to_thread(
+                runner.act, cfg.runnable, request.app.state.socket, name, action)
+        except runner.NotAllowed as e:
+            raise ApiError(404, str(e)) from e
+        except tmux.TmuxError as e:
+            raise ApiError(502, str(e)) from e
+
+    @app.post("/api/shutdown", tags=["The machine"], summary="Stop this Argus")
+    async def shutdown(request: Request) -> dict:
+        """Stops the server. Nothing here can start it again.
+
+        That asymmetry is the whole character of this endpoint: every tmux session carries on
+        untouched — Argus is a client, not their parent — but the only way back to this page
+        is a shell on this machine, or a supervisor that restarts it. Which is why it takes
+        `may_stop_argus` on top of `may_run`, and why the answer says so.
+        """
+        # Answered first, then stopped: a caller that gets a dropped connection cannot tell
+        # "it worked" from "it was never reachable", and this is not a thing to be unsure of.
+        async def bye() -> None:
+            await asyncio.sleep(0.35)
+            # SIGTERM rather than os._exit: uvicorn runs its shutdown, the lifespan closes
+            # the http client and stops announcing, and open websockets are closed properly.
+            os.kill(os.getpid(), signal.SIGTERM)
+
+        asyncio.create_task(bye())
+        return {
+            "stopping": True,
+            "sessions_keep_running": True,
+            "how_to_start_it_again": "a shell on this machine, or the service that supervises it",
+        }
 
     # Registered last so it never shadows the API: unknown paths are the frontend's.
     @app.get("/{requested:path}", include_in_schema=False)

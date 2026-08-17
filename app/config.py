@@ -142,6 +142,12 @@ class Config:
                     f"the runnable name {r['name']!r} may only hold letters, digits, "
                     "dots, dashes and underscores"
                 )
+        for w in self.watchers:
+            if w.get("may_stop_argus") and not w.get("may_run"):
+                raise ConfigError(
+                    f"the watcher {w['name']!r} may stop Argus but not run anything — "
+                    "`may_stop_argus` needs `may_run` as well"
+                )
         if any(w.get("may_run") for w in self.watchers) and not self.runnable:
             raise ConfigError(
                 "a watcher is allowed to run things but `runnable` is empty — it would have "
@@ -185,7 +191,11 @@ class Config:
                  # Off unless asked for: a watcher that could restart things without anyone
                  # saying so would make every existing board more powerful than its owner
                  # agreed to when they set it up.
-                 "may_run": bool(w.get("may_run", False))}
+                 "may_run": bool(w.get("may_run", False)),
+                 # Stopping the server is the one thing a board cannot undo: nothing is
+                 # listening afterwards, so it takes an SSH session to bring back. Its own
+                 # flag, and it means nothing without `may_run`.
+                 "may_stop_argus": bool(w.get("may_stop_argus", False))}
                 for w in (raw.get("watchers") or [])
                 if isinstance(w, dict) and str(w.get("token") or "").strip()
             ],
