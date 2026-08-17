@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import secrets
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -12,6 +13,9 @@ import yaml
 DEFAULT_LISTEN = "127.0.0.1:8080"
 DEFAULT_MAX_PREVIEW = 2 * 1024 * 1024
 RESIZE_POLICIES = ("adapt", "preserve", "auto")
+# A runnable's name becomes a tmux session name and appears in a URL path, so it is kept to
+# the characters that are unambiguous in both.
+RUNNABLE_NAME = re.compile(r"[A-Za-z0-9._-]{1,64}")
 
 
 class ConfigError(Exception):
@@ -73,6 +77,17 @@ class Config:
     # writes, no proxy. A board watching several machines holds one of these per machine,
     # so losing the board loses a list of session names rather than every box it can see.
     watchers: list[dict] = field(default_factory=list)
+    # Things a board is allowed to start and stop here, listed by hand.
+    #
+    # A watcher token is meant to be worth almost nothing: a board holds one per machine in
+    # a file, and the board's own token is in the storage of every browser that has opened
+    # it. So no command ever arrives in a request. Instead each entry names a session and
+    # says what to run in it, and a board may only ask for one of these names — the worst
+    # anything holding that key can do is start or stop something you wrote down.
+    #
+    # {name, run, cwd}. Stopping means killing that session, and only a session named here
+    # can be killed, so a board can never touch the work you did not list.
+    runnable: list[dict] = field(default_factory=list)
     # Ask github.com once a day whether a newer tag exists. It sends nothing — not even
     # which version is running — and it never updates anything. Off is a supported answer.
     check_releases: bool = True
@@ -114,6 +129,24 @@ class Config:
                 raise ConfigError(
                     f"the watcher token for {w['name']!r} is the same as the main token"
                 )
+        seen_runnable = set()
+        for r in self.runnable:
+            if not r["run"]:
+                raise ConfigError(f"the runnable {r['name']!r} has nothing to run")
+            if r["name"] in seen_runnable:
+                raise ConfigError(f"two runnables are both called {r['name']!r}")
+            seen_runnable.add(r["name"])
+            # The name becomes a tmux session name, and tmux is particular about those.
+            if not RUNNABLE_NAME.fullmatch(r["name"]):
+                raise ConfigError(
+                    f"the runnable name {r['name']!r} may only hold letters, digits, "
+                    "dots, dashes and underscores"
+                )
+        if any(w.get("may_run") for w in self.watchers) and not self.runnable:
+            raise ConfigError(
+                "a watcher is allowed to run things but `runnable` is empty — it would have "
+                "nothing it could ask for"
+            )
         if not self.roots:
             raise ConfigError("`roots` is empty — nothing would be browsable")
         if self.resize_policy not in RESIZE_POLICIES:
@@ -148,9 +181,20 @@ class Config:
             check_releases=bool(raw.get("check_releases", True)),
             report_to=dict(raw.get("report_to") or {}),
             watchers=[
-                {"name": str(w.get("name") or "watcher"), "token": str(w.get("token") or "")}
+                {"name": str(w.get("name") or "watcher"), "token": str(w.get("token") or ""),
+                 # Off unless asked for: a watcher that could restart things without anyone
+                 # saying so would make every existing board more powerful than its owner
+                 # agreed to when they set it up.
+                 "may_run": bool(w.get("may_run", False))}
                 for w in (raw.get("watchers") or [])
                 if isinstance(w, dict) and str(w.get("token") or "").strip()
+            ],
+            runnable=[
+                {"name": str(r.get("name") or "").strip(),
+                 "run": str(r.get("run") or "").strip(),
+                 "cwd": str(r.get("cwd") or "").strip()}
+                for r in (raw.get("runnable") or [])
+                if isinstance(r, dict) and str(r.get("name") or "").strip()
             ],
             tls_cert=Path(cert) if cert else None,
             tls_key=Path(key) if key else None,
