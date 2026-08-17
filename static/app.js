@@ -909,6 +909,107 @@ function weighButton(entry, meta) {
   return btn;
 }
 
+/** Drag a file onto the other pane.
+ *
+ *  Two panes exist so you can move things between them, and until now that meant the ⋮, then
+ *  "Move to…", then typing or confirming a path you can see on screen. The gesture everybody
+ *  already knows was the one thing missing.
+ *
+ *  Pointer events rather than HTML5 drag-and-drop: the same machinery the link tray uses, so
+ *  it works with a finger — hold, then drag — and does not need a second code path for touch.
+ *  Dropping asks move or copy rather than guessing from a modifier key nobody can hold on a
+ *  phone; it is one tap, and it says where the thing is going.
+ */
+function dragEntry(row, entry) {
+  row.addEventListener('pointerdown', (down) => {
+    if (down.button) return;
+    if (down.target.closest('button') !== row && row.tagName !== 'A') return;
+    const touch = down.pointerType === 'touch';
+    const from = { x: down.clientX, y: down.clientY };
+    let chip = null;
+    let hold = null;
+    let over = null;
+
+    const start = () => {
+      chip = el('div', { className: 'traydrag' }, [
+        el('span', { className: 'what', textContent: entry.name }),
+        el('span', { className: 'verb', textContent: t('drop it on the other pane') }),
+      ]);
+      document.body.append(chip);
+      row.classList.add('dragging');
+    };
+    const clear = () => {
+      over?.classList.remove('dropping');
+      over = null;
+    };
+
+    const move = (ev) => {
+      if (!chip) {
+        if (touch || Math.hypot(ev.clientX - from.x, ev.clientY - from.y) < 8) return;
+        clearTimeout(hold);
+        start();
+      }
+      chip.style.left = `${ev.clientX + 12}px`;
+      chip.style.top = `${ev.clientY + 14}px`;
+      chip.hidden = true;
+      const under = document.elementFromPoint(ev.clientX, ev.clientY);
+      chip.hidden = false;
+      const pane = under?.closest?.('.pane');
+      // Its own pane is not a destination, and neither is the folder it already lives in.
+      const here = pane?.dataset.at;
+      const ok = pane && here && here !== parentOf(entry.path) && here !== entry.path;
+      if (pane !== over) clear();
+      if (ok) { over = pane; pane.classList.add('dropping'); }
+    };
+
+    const done = async (ev) => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', done);
+      window.removeEventListener('pointercancel', done);
+      clearTimeout(hold);
+      chip?.remove();
+      row.classList.remove('dragging');
+      const landed = over?.dataset.at;
+      clear();
+      if (!chip || !landed) return;
+      ev.preventDefault();
+      dropSheet(entry, landed);
+    };
+
+    hold = touch ? setTimeout(start, 350) : null;
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', done);
+    window.addEventListener('pointercancel', done);
+  });
+}
+
+/** Move or copy — asked, not guessed. A modifier key decides this on a desktop and cannot be
+ *  held on a phone, and getting it wrong moves somebody's work somewhere they did not mean. */
+function dropSheet(entry, dest) {
+  const body = el('div', { className: 'sheetbody actions' });
+  let sheet;
+  const run = async (what, fn) => {
+    sheet.close();
+    try {
+      await fn();
+      toast(t('{name} {what} to {dest}', { name: entry.name, what, dest }));
+      refreshAllBrowsers();
+    } catch (e) { toast(e.message, true); }
+  };
+  body.append(el('p', { className: 'hint' }, bidi(dest)));
+  body.append(el('button', {
+    className: 'ghost block',
+    onclick: () => run(t('moved'), () => postJSON('/api/fs/move', { path: entry.path, dest })),
+  }, [icon('move'), el('span', { textContent: t('Move here') })]));
+  body.append(el('button', {
+    className: 'ghost block',
+    onclick: () => run(t('copied'), () => postJSON('/api/fs/copy', { path: entry.path, dest })),
+  }, [icon('copy'), el('span', { textContent: t('Copy here') })]));
+  sheet = modal(entry.name, body, [
+    el('button', { className: 'ghost', textContent: t('Cancel'), onclick: () => sheet.close() }),
+  ]);
+}
+
 function entryRow(e, { href, onClick, refresh, dest, favGroup = 'main' }) {
   const dir = e.type === 'directory';
   const meta = el('span', {
@@ -927,6 +1028,7 @@ function entryRow(e, { href, onClick, refresh, dest, favGroup = 'main' }) {
     ? el('a', { className: cls, href }, kids)
     : el('button', { className: cls, type: 'button', onclick: onClick }, kids);
   row.dataset.path = e.path;      // so a listing can be pointed at one of its entries
+  if (server?.allow_write) dragEntry(row, e);
 
   // Both of these live outside the row link, or tapping one would navigate.
   const side = dir ? [weighButton(e, meta)] : [];
@@ -1961,6 +2063,9 @@ function fileBrowser({
 
   async function paint() {
     const mine = ++painting;
+    // Where this pane is, on the pane itself: something dropped on it has to know where it
+    // landed, and the alternative is a registry of live panes to keep in step with reality.
+    node.dataset.at = path;
     renderFavs();
     if (getTree()) await drawTree(list, path, openFile, reload, other, favGroup);
     else {
