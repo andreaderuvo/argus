@@ -502,6 +502,8 @@
   "Previous page": "Page précédente",
   "Next page": "Page suivante",
   "of {total}": "sur {total}",
-  "Open in a browser tab": "Ouvrir dans un onglet du navigateur"
+  "Open in a browser tab": "Ouvrir dans un onglet du navigateur",
+  "Wider": "Plus large",
+  "Narrower": "Plus étroite"
  }
 }

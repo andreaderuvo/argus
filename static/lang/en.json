@@ -502,6 +502,8 @@
   "Previous page": "Previous page",
   "Next page": "Next page",
   "of {total}": "of {total}",
-  "Open in a browser tab": "Open in a browser tab"
+  "Open in a browser tab": "Open in a browser tab",
+  "Wider": "Wider",
+  "Narrower": "Narrower"
  }
 }

@@ -2138,3 +2138,68 @@ input.pdfat:focus { border-color: var(--accent); outline: none; }
 /* The bar has two ends: where you are on the left, how big it is on the right. Without
    this the spacer does nothing — .grow is only defined inside other containers. */
 .pdfbar .grow { flex: 1; min-width: 0; }
+
+/* On a wide screen the bottom bar moves to the left and becomes a rail.
+ *
+ *  Height is the scarce dimension on a desk and width is not: measured, the bar and the
+ *  header together were taking 14% of the height of a 1280x720 laptop. The rail gives back
+ *  47px of that and spends 52 of width, which nobody on 1280 will miss.
+ *
+ *  Below this width nothing changes at all. A phone wants its navigation under the thumb,
+ *  and a column down the side would take the dimension that is scarce *there*. */
+@media (min-width: 900px) {
+  body, body.term, body.wall {
+    grid-template-columns: auto 1fr;
+    grid-template-rows: var(--bar) 1fr;
+    grid-template-areas: "rail bar" "rail shell";
+  }
+  #bar { grid-area: bar; }
+  #shell { grid-area: shell; }
+
+  #nav {
+    grid-area: rail;
+    flex-direction: column;
+    align-items: stretch;
+    width: var(--rail, 52px);
+    border-top: 0;
+    border-right: 1px solid var(--line);
+    padding-bottom: var(--safe-b);
+    overflow: hidden;
+  }
+  body.railwide { --rail: 178px; }
+
+  #railtoggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--bar);
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    background: none;
+    color: var(--dim);
+    cursor: pointer;
+  }
+  #railtoggle:hover { color: var(--bright); }
+
+  #nav a {
+    flex: none;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: .65rem;
+    padding: 0 .95rem;
+    font-size: .72rem;
+    white-space: nowrap;
+  }
+  /* Narrow: the words stay in the markup, for a screen reader and for the moment the rail
+     is widened, but they must not push the icon off centre. There is no element around
+     them to hide — they are bare text — so the size is taken off the anchor and given
+     back to the icon. */
+  body:not(.railwide) #nav a { justify-content: center; padding: 0; gap: 0; font-size: 0; }
+  body:not(.railwide) #nav a span[data-icon] { font-size: 1.15rem; }
+
+  /* The counts sit at the end of the row when there is a row to sit in. */
+  #nav a .tally { position: static; margin: 0 0 0 auto; }
+  body:not(.railwide) #nav a .tally {
+    position: absolute; top: .3rem; left: 50%; margin-left: .3rem;
+  }
+}
