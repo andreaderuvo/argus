@@ -4005,7 +4005,10 @@ function paintRailWindows() {
   const desk = (prefs.workspaces || []).find((w) => w.id === prefs.ws);
   const open = (desk && desk.desktop) || [];
   railWins.replaceChildren();
-  railWins.hidden = !open.length || !token;
+  // Only while you are on the desk. Reading a file has nothing to do with which windows
+  // are open behind it, and a list of them beside the folder you are in is furniture.
+  const onTheDesk = parseRoute().path === '/wall';
+  railWins.hidden = !onTheDesk || !open.length || !token;
   for (const spec of open) {
     const id = specId(spec);
     const name = railLabel(spec);
