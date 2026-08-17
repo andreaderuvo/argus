@@ -3,15 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Argus — the cockpit for work you no longer type yourself</title>
-<meta name="description" content="Watch your agents run in tmux, answer them, and read what they produced. From a desk or from a phone. Self-hosted, MIT.">
+<title>Argus — watch your AI agents work in tmux, from a browser or a phone</title>
+<meta name="description" content="Your agents run in tmux. Argus turns those sessions into a browser tab: the terminal, the files it is writing and the report it produced, side by side — and the same thing on your phone. Self-hosted, MIT, no build step.">
 <link rel="icon" href="img/mark-192.png">
 <!-- This page is reachable with and without the trailing slash, and through the repository
      link as well. One address is the address. -->
 <link rel="canonical" href="https://andreaderuvo.github.io/argus/">
 
-<meta property="og:title" content="Argus">
-<meta property="og:description" content="Your agents run in tmux. Argus is where you watch them, answer them, and look at what they produced.">
+<meta property="og:title" content="Argus — watch your AI agents work">
+<meta property="og:description" content="They run in tmux. Argus is the window into them: the session, the files it is writing and the report it produced, in one browser tab. And on your phone.">
 <meta property="og:image" content="https://andreaderuvo.github.io/argus/img/agents.png">
 <meta property="og:url" content="https://andreaderuvo.github.io/argus/">
 <meta name="twitter:card" content="summary_large_image">
@@ -26,7 +26,7 @@
   "name": "Argus",
   "applicationCategory": "DeveloperApplication",
   "operatingSystem": "Linux, macOS",
-  "description": "Watch your agents run in tmux, answer them, and read what they produced — from a desk or from a phone. Self-hosted, no build step, no database.",
+  "description": "Watch your AI agents run in tmux, answer them, and read what they produced — from a desk or from a phone. Self-hosted, no build step, no database.",
   "url": "https://andreaderuvo.github.io/argus/",
   "codeRepository": "https://github.com/andreaderuvo/argus",
   "license": "https://opensource.org/licenses/MIT",
@@ -60,12 +60,22 @@
   a { color: var(--accent); }
 
   /* ---------- hero ---------- */
-  header { padding: 4.5rem 0 2.5rem; text-align: center; }
-  header img.mark { width: 92px; height: 92px; }
-  h1 { font-size: clamp(2.4rem, 7vw, 3.6rem); margin: .6rem 0 .2rem; color: var(--bright); letter-spacing: -.02em; }
-  .tagline { font-size: clamp(1.05rem, 2.6vw, 1.3rem); color: var(--bright); margin: 0 auto .4rem; max-width: 34rem; }
-  .sub { color: var(--dim); max-width: 38rem; margin: 0 auto; }
-  .cta { display: flex; gap: .7rem; justify-content: center; flex-wrap: wrap; margin: 1.8rem 0 .8rem; }
+  header { padding: 4rem 0 2rem; text-align: center; }
+  header img.mark { width: 82px; height: 82px; }
+  h1 {
+    font-size: clamp(2.1rem, 6.4vw, 3.2rem); margin: .5rem 0 .1rem;
+    color: var(--bright); letter-spacing: -.02em;
+  }
+  /* The one line that has to land. Said as a job rather than as a category, because
+     "a web terminal" is a category the reader already has a mental slot for and this
+     does not go in it. */
+  .tagline {
+    font-size: clamp(1.5rem, 4.2vw, 2.1rem); line-height: 1.25; font-weight: 650;
+    color: var(--bright); margin: .8rem auto .6rem; max-width: 28rem; letter-spacing: -.02em;
+  }
+  .sub { color: var(--text); max-width: 40rem; margin: 0 auto; font-size: 1.05rem; }
+  .sub strong { color: var(--bright); font-weight: 600; }
+  .cta { display: flex; gap: .7rem; justify-content: center; flex-wrap: wrap; margin: 1.7rem 0 .9rem; }
   .btn {
     display: inline-block; padding: .7rem 1.3rem; border-radius: .6rem; text-decoration: none;
     font-weight: 600; border: 1px solid var(--line);
@@ -75,13 +85,50 @@
   .btn:hover { filter: brightness(1.08); }
   .badges { color: var(--dim); font-size: .85rem; }
 
-  /* ---------- the picture ---------- */
+  /* The whole installation, in the hero, because a developer deciding whether to care reads
+     this before reading anything else. */
+  .oneliner {
+    display: block; max-width: 44rem; margin: 1.4rem auto .6rem; text-align: left;
+    background: var(--panel); border: 1px solid var(--line); border-radius: .6rem;
+    padding: .8rem 1rem; overflow-x: auto; white-space: pre;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .86rem; color: var(--bright);
+  }
+  .oneliner .said { color: var(--dim); }
+
+  /* ---------- the picture, with its parts named ---------- */
   figure { margin: 2rem 0 0; }
   figure img { width: 100%; border: 1px solid var(--line); border-radius: .8rem; display: block; }
   figcaption { color: var(--dim); font-size: .85rem; text-align: center; margin-top: .7rem; }
 
+  /* A screenshot of an interface is only obvious to whoever built it. The pins say which
+     part is which, and the list under them says it in words for anybody whose reader does
+     not do absolute positioning. */
+  .pinshot { position: relative; margin: 2.2rem 0 0; }
+  /* The width rule lives on `figure img` and this is a div, which is the sort of thing that
+     ends with a 3200-pixel screenshot hanging off the side of the page. */
+  .pinshot img { width: 100%; display: block; border: 1px solid var(--line); border-radius: .8rem; }
+  .pin {
+    position: absolute; width: 26px; height: 26px; border-radius: 50%;
+    background: var(--accent); color: var(--on-accent);
+    font: 700 .82rem/26px ui-sans-serif, system-ui, sans-serif; text-align: center;
+    box-shadow: 0 0 0 4px rgb(11 14 20 / .75), 0 2px 10px rgb(0 0 0 / .5);
+    transform: translate(-50%, -50%); pointer-events: none;
+  }
+  .legend {
+    list-style: none; padding: 0; margin: 1.1rem auto 0; max-width: 52rem;
+    display: grid; gap: .6rem 1.8rem; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+    color: var(--dim); font-size: .9rem; text-align: left;
+  }
+  .legend li { display: flex; gap: .55rem; align-items: baseline; }
+  .legend b {
+    flex: none; width: 20px; height: 20px; border-radius: 50%;
+    background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent);
+    font: 700 .75rem/20px ui-sans-serif, system-ui, sans-serif; text-align: center;
+  }
+  @media (max-width: 40rem) { .pin { display: none; } }
+
   /* ---------- sections ---------- */
-  section { padding: 3.5rem 0; border-top: 1px solid var(--line); }
+  section { padding: 3.2rem 0; border-top: 1px solid var(--line); }
   h2 { color: var(--bright); font-size: 1.5rem; margin: 0 0 1rem; letter-spacing: -.01em; }
   h3 { color: var(--bright); font-size: 1.02rem; margin: 0 0 .3rem; }
   p { margin: 0 0 1rem; }
@@ -90,7 +137,18 @@
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: .7rem; padding: 1.1rem 1.2rem; }
   .card p { margin: 0; color: var(--dim); font-size: .95rem; }
 
-  .shots { display: grid; gap: 1.1rem; grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr)); }
+  /* Before and after, side by side, because the gap between them is the whole argument. */
+  .cols { display: grid; gap: 1.2rem; grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr)); }
+  .cols .card h3 { font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); margin-bottom: .7rem; }
+  .cols .card.after { border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+  .cols .card.after h3 { color: var(--accent); }
+  .cols ul { margin: 0; padding-left: 1.1rem; color: var(--dim); font-size: .96rem; }
+  .cols li { margin: .35rem 0; }
+  .cols .card.after li { color: var(--text); }
+
+  /* Two across rather than three: four pictures in a three-wide grid leaves one on its own
+     on the second row, and each of them is a screenshot that wants the width. */
+  .shots { display: grid; gap: 1.4rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr)); }
   .shots img { width: 100%; border: 1px solid var(--line); border-radius: .6rem; display: block; }
   .shots p { color: var(--dim); font-size: .85rem; margin: .5rem 0 0; }
   .phones { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
@@ -109,6 +167,17 @@
   .warn { border-left-color: #d6b98f; background: color-mix(in srgb, #d6b98f 8%, transparent); }
   footer { padding: 2.5rem 0 4rem; color: var(--dim); font-size: .9rem; text-align: center; border-top: 1px solid var(--line); }
 
+  /* The questions somebody asks before trying it. Folded, because a reader who already
+     knows the answer should not have to scroll past it. */
+  details.ask { border-top: 1px solid var(--line); padding: .9rem 0; }
+  details.ask:last-of-type { border-bottom: 1px solid var(--line); }
+  details.ask summary { cursor: pointer; color: var(--bright); font-weight: 600; }
+  details.ask summary::marker { color: var(--dim); }
+  details.ask p { margin: .7rem 0 0; color: var(--dim); font-size: .96rem; max-width: 44rem; }
+  details.more { margin-top: 1.4rem; }
+  details.more summary { cursor: pointer; color: var(--accent); font-weight: 600; }
+  details.more .grid { margin-top: 1.2rem; }
+
   /* The clips. Video rather than animated GIF: a fifth of the weight for the same six
      seconds, and it does not stutter on a phone. */
   .clips { display: grid; gap: 1.6rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); }
@@ -116,7 +185,8 @@
   .clips video {
     width: 100%; display: block; border: 1px solid var(--line); border-radius: .5rem; background: #000;
   }
-  .clips figcaption { margin-top: .5rem; color: var(--dim); font-size: .92rem; line-height: 1.5; }
+  .clips figcaption { margin-top: .5rem; color: var(--dim); font-size: .92rem; line-height: 1.5; text-align: left; }
+  .clips h3 { margin-bottom: .2rem; }
 
   /* Look at a screenshot properly.
      A picture of a terminal shrunk into a column is a picture of nothing: the thing it is
@@ -156,62 +226,110 @@
   <header>
     <img class="mark" src="img/mark.png" alt="">
     <h1>Argus</h1>
-    <p class="tagline">The cockpit for work you no longer type yourself.</p>
-    <p class="sub">Your agents run in tmux. Argus is where you watch them, answer them, and
-      look at what they produced — from a desk or from a phone.</p>
+    <p class="tagline">Watch your AI agents work. From anywhere.</p>
+    <p class="sub">They already run in <strong>tmux</strong> — Claude Code, Codex, Gemini,
+      a script that takes two hours. Argus puts those sessions, the files they are writing
+      and the report they just produced <strong>in one browser tab</strong>, and the same
+      thing on your phone. Nothing to install inside the agent: if it runs in a terminal,
+      it works.</p>
     <div class="cta">
       <a class="btn primary" href="https://github.com/andreaderuvo/argus">Get it on GitHub</a>
       <a class="btn ghost" href="#start">Run it in a minute</a>
       <a class="btn ghost" href="api.html">The API</a>
     </div>
-    <p class="badges">MIT · Python + vanilla JS · no build step · self-hosted</p>
 
-    <figure>
-      <img class="shot" src="img/agents.png" alt="A workspace with two agents running in tmux, the folder they are writing into, and the report they produced.">
-      <figcaption>Two agents at work, the folder they are filling, and the report one of them
-        just wrote. One workspace, one browser tab.</figcaption>
-    </figure>
+    <code class="oneliner">git clone https://github.com/andreaderuvo/argus &amp;&amp; cd argus
+pip install -r requirements.txt
+python3 -m app.main --allow-write   <span class="said"># prints a URL with a token in it</span></code>
+    <p class="badges">MIT · Python + vanilla JS · no build step · no database · self-hosted</p>
+
+    <div class="pinshot">
+      <img class="shot" src="img/agents.png" alt="One workspace: two agents running in tmux on the left, the folder they are writing into and the report one of them produced on the right.">
+      <span class="pin" style="left:2.2%;  top:17.3%">1</span>
+      <span class="pin" style="left:2.2%;  top:71%">2</span>
+      <span class="pin" style="left:57.8%; top:17.3%">3</span>
+      <span class="pin" style="left:57.8%; top:41%">4</span>
+    </div>
+    <ol class="legend">
+      <li><b>1</b><span>An agent, mid-run, asking you something. It rang while you were in another tab.</span></li>
+      <li><b>2</b><span>The other one prints where it wrote. Those paths are links.</span></li>
+      <li><b>3</b><span>The folder it is filling, updating on its own.</span></li>
+      <li><b>4</b><span>The report, rendered beside the session that made it.</span></li>
+    </ol>
+    <figcaption>One desk, one browser tab. Nothing here was downloaded to look at.</figcaption>
   </header>
 
   <section>
-    <h2>Four things it does</h2>
+    <h2>The half-hour you spend checking on it</h2>
+    <div class="cols">
+      <div class="card">
+        <h3>Without</h3>
+        <ul>
+          <li>ssh in, <code>tmux attach</code>, squint at a pane.</li>
+          <li>Scroll back to find the path it printed.</li>
+          <li><code>scp</code> the report out, or <code>cat</code> it and read markdown as markdown.</li>
+          <li>It asked you a question forty minutes ago and you did not know.</li>
+          <li>From the phone: nothing. You wait until you are back.</li>
+        </ul>
+      </div>
+      <div class="card after">
+        <h3>With Argus</h3>
+        <ul>
+          <li>The session is a tab, still running, exactly as you left it.</li>
+          <li>The path it printed is a link — one click, open beside it.</li>
+          <li>Markdown, PDF, images and logs render in place, next to the terminal.</li>
+          <li>It rings — <em>finished</em> and <em>waiting for you</em> look different.</li>
+          <li>From the phone: the same desk, the same sessions, and a keyboard bar that works.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Six seconds each</h2>
     <p class="lead">Recorded from a demo instance: fabricated sessions, fabricated files,
       real interface.</p>
     <div class="clips">
       <figure>
         <video src="img/paths.mp4" autoplay muted loop playsinline preload="metadata"></video>
-        <figcaption>An agent prints where it wrote. One click and the report is open beside
-          the session that made it.</figcaption>
+        <h3>Click what it printed</h3>
+        <figcaption>An agent says where it wrote. One click and the report is open beside the
+          session that made it — no download, no second window.</figcaption>
       </figure>
       <figure>
         <video src="img/handover.mp4" autoplay muted loop playsinline preload="metadata"></video>
-        <figcaption>A saved prompt, its placeholders already filled from the desk, typed
-          into the other agent's session — without the Enter.</figcaption>
+        <h3>Hand the work to the other agent</h3>
+        <figcaption>A saved prompt, its placeholders already filled in from the desk, typed
+          into the other agent's session — and left without the Enter, so you decide.</figcaption>
       </figure>
       <figure>
         <video src="img/keep.mp4" autoplay muted loop playsinline preload="metadata"></video>
-        <figcaption>Keep the arrangement you made. Any tiling throws it away; one button
-          brings it back, windows and all.</figcaption>
+        <h3>Keep the arrangement</h3>
+        <figcaption>Terminals, folders and documents where you put them. Any tiling throws
+          that away; one button brings it back, windows and all.</figcaption>
       </figure>
       <figure>
         <video src="img/phone.mp4" autoplay muted loop playsinline preload="metadata"></video>
-        <figcaption>The same session on the phone. The one that was already running, not a
-          new one.</figcaption>
+        <h3>The same session, on the phone</h3>
+        <figcaption>The one that was already running — not a new one, not a copy. Answer it
+          from the train and close the tab; it carries on.</figcaption>
       </figure>
     </div>
   </section>
 
   <section>
-    <h2>Why</h2>
-    <div class="lead">
-      <p>An editor is built for the hours you spend writing code. More and more of that is
-        done by an agent that runs for two hours in a tmux session, and what is left for you
-        is a different job: keeping an eye on it, unblocking it when it asks, and judging
-        what came out.</p>
-      <p>That job needs almost nothing an editor is good at, and one thing it is bad at:
-        being somewhere else. The work carries on when you close the laptop, so the useful
-        question is what you can do from the train.</p>
-    </div>
+    <h2>Two agents on one job, without a protocol</h2>
+    <p class="lead">Two agents on one machine share a filesystem, so what has to travel
+      between them is not the work — it is a short sentence and a pointer to where the work
+      is. Argus ships the patterns ready-made: <strong>together</strong>, where a plan file
+      says who owns which file and neither may touch the other's, and
+      <strong>one builds, the other reviews</strong>, where the reviewer never edits and
+      finishes on <code>VERDICT: OK</code> or <code>VERDICT: REDO</code>.</p>
+    <p class="lead">That last line is readable by a machine as well as by a person, so Argus
+      can read it and hand a REDO back on its own — off unless you turn it on, and counting
+      down, because two agents bouncing a change between them for six hours unattended is
+      not a feature. It works with any agent that can be told to end on a sentence, which is
+      all of them.</p>
   </section>
 
   <section>
@@ -227,9 +345,10 @@
           directory.</p>
       </div>
       <div class="card">
-        <h3>Files appear on their own</h3>
-        <p>A folder you are watching notices what a job writes into it, without you
-          refreshing anything.</p>
+        <h3>Everything it printed, in one tray</h3>
+        <p>Every absolute path and URL that goes past in a desk's terminals collects in a
+          list you click, checked against the filesystem first. Drag a line onto a terminal
+          and it is typed there: that is how you tell an agent which file to look at.</p>
       </div>
       <div class="card">
         <h3>Read it in place</h3>
@@ -237,74 +356,76 @@
           and a log that starts at the end.</p>
       </div>
       <div class="card">
-        <h3>Paste a screenshot</h3>
-        <p>Ctrl+V in a listing writes it into that folder, numbered, and hands back its
-          path — ready to paste into the session as the next instruction.</p>
-      </div>
-      <div class="card">
-        <h3>Everything it printed, in one tray</h3>
-        <p>Every absolute path and URL that goes past in a desk's terminals collects in a
-          list you click, checked against the filesystem first. Drag a line onto a
-          terminal and it is typed there: that is how you tell an agent which file to
-          look at.</p>
+        <h3>It tells you when it is done</h3>
+        <p>An agent hook says whether it <em>finished</em> or is <em>waiting for you</em>,
+          and the two look different on screen — in another tab too, on the title and the
+          icon, no certificate needed. Guessing from the output is what makes notifications
+          noise.</p>
       </div>
       <div class="card">
         <h3>Windows, not tabs</h3>
         <p>Terminals, folders and documents side by side, snapping to each other. Shared
-          edges behave as splitters. Keep the arrangement you made and one button brings it
-          back — the same windows, the same places. Each desk has its own link and its own
-          starting folder, typed with completion.</p>
-      </div>
-      <div class="card">
-        <h3>Hand the work to the other agent</h3>
-        <p>Two agents share a filesystem, so what travels between them is a short prompt
-          and a pointer. Drag one onto a terminal, or tap it. Your prompts live in named
-          folders, written with placeholders a desk fills in.</p>
-      </div>
-      <div class="card">
-        <h3>Type into two sessions at once</h3>
-        <p>Chain the terminals and what you type reaches all of them, Enter included.
-          The chained windows are outlined and counted, so a broadcast is never something
-          you have forgotten about.</p>
-      </div>
-      <div class="card">
-        <h3>It tells you when it is done</h3>
-        <p>An agent hook says whether it <em>finished</em> or is <em>waiting for you</em>,
-          and the two look different on screen — in another tab too, on the title and the
-          icon, no certificate needed. Guessing from the output is what makes
-          notifications noise.</p>
+          edges behave as splitters, and each desk has its own link and its own starting
+          folder.</p>
       </div>
       <div class="card">
         <h3>Prompts you keep, not retype</h3>
         <p>Folders of prompts written with placeholders, and named sets that fill them —
-          one wording serves every project. Each says whether it runs or waits for your
-          Enter. Hover to see exactly what it will say before it says it, and drag one onto
-          a terminal to hand it over.</p>
-      </div>
-      <div class="card">
-        <h3>Keys, if you want them</h3>
-        <p><code>?</code> lists every shortcut and any of them can be rebound. They stay
-          out of a terminal's way: what you type into a session belongs to the
-          session.</p>
-      </div>
-      <div class="card">
-        <h3>Dress it, safely</h3>
-        <p>Ready-made looks for tmux, from a button on the terminal: one session or all of
-          them. Colours only, from a fixed list, checked on a throwaway server first — a
-          theme that could take a session down would not be worth having.</p>
-      </div>
-      <div class="card">
-        <h3>The machine itself</h3>
-        <p>CPU, memory, swap, GPUs, disks and listening ports, with a plain reading of
-          whether anything is about to go wrong.</p>
-      </div>
-      <div class="card">
-        <h3>Reach a port it cannot see</h3>
-        <p>Type a number to stand in front of a port nothing found yet. Or paste the
-          login callback that died on <code>localhost</code> because you did the logging
-          in on a different machine: it is forwarded to the port it was meant for.</p>
+          one wording serves every project. Hover to see exactly what it will say before it
+          says it, and drag one onto a terminal to hand it over.</p>
       </div>
     </div>
+
+    <details class="more">
+      <summary>Everything else it does</summary>
+      <div class="grid">
+        <div class="card">
+          <h3>Files appear on their own</h3>
+          <p>A folder you are watching notices what a job writes into it, without you
+            refreshing anything.</p>
+        </div>
+        <div class="card">
+          <h3>Paste a screenshot</h3>
+          <p>Ctrl+V in a listing writes it into that folder, numbered, and hands back its
+            path — ready to paste into the session as the next instruction.</p>
+        </div>
+        <div class="card">
+          <h3>Type into two sessions at once</h3>
+          <p>Chain the terminals and what you type reaches all of them, Enter included. The
+            chained windows are outlined and counted, so a broadcast is never something you
+            have forgotten about.</p>
+        </div>
+        <div class="card">
+          <h3>Keys, if you want them</h3>
+          <p><code>?</code> lists every shortcut and any of them can be rebound. They stay
+            out of a terminal's way: what you type into a session belongs to the
+            session.</p>
+        </div>
+        <div class="card">
+          <h3>Dress it, safely</h3>
+          <p>Ready-made looks for tmux, from a button on the terminal: one session or all of
+            them. Colours only, from a fixed list, checked on a throwaway server first — a
+            theme that could take a session down would not be worth having.</p>
+        </div>
+        <div class="card">
+          <h3>The machine itself</h3>
+          <p>CPU, memory, swap, GPUs, disks and listening ports, with a plain reading of
+            whether anything is about to go wrong.</p>
+        </div>
+        <div class="card">
+          <h3>Reach a port it cannot see</h3>
+          <p>Type a number to stand in front of a port nothing found yet. Or paste the login
+            callback that died on <code>localhost</code> because you did the logging in on a
+            different machine: it is forwarded to the port it was meant for.</p>
+        </div>
+        <div class="card">
+          <h3>A board over several machines</h3>
+          <p><a href="https://github.com/andreaderuvo/panoptes">Panoptes</a> is one page over
+            every Argus you run: which machines are up, what is running on each, and a way in
+            — one tile per machine.</p>
+        </div>
+      </div>
+    </details>
   </section>
 
   <section>
@@ -313,10 +434,10 @@
       phone has not got, drag-to-scroll that keeps up with your thumb, a long press to open
       a path, windows you can resize with a finger, and a full-screen button because F11 is
       not on a phone.</p>
-    <p class="lead">And a box to write a line in — because typing into a terminal on
-      Android can duplicate words, which is a browser bug no app can fix from the outside.
-      In an ordinary text field the keyboard behaves, and the finished line goes to the
-      session in one go.</p>
+    <p class="lead">And a box to write a line in — because typing into a terminal on Android
+      can duplicate words, which is a browser bug no app can fix from the outside. In an
+      ordinary text field the keyboard behaves, and the finished line goes to the session in
+      one go.</p>
     <div class="phones">
       <img class="shot" src="img/phone-terminal.png" alt="A tmux session attached on a phone.">
       <img class="shot" src="img/phone-files.png" alt="The file browser on a phone.">
@@ -325,7 +446,7 @@
   </section>
 
   <section>
-    <h2>Everything else it does</h2>
+    <h2>More of it</h2>
     <div class="shots">
       <div>
         <img class="shot" src="img/desk.png" alt="A workspace with a terminal, a file browser and a log.">
@@ -374,16 +495,57 @@ python3 -m app.main --allow-write        # prints a URL with a token in it</pre>
       <a href="https://github.com/andreaderuvo/argus#security">security section</a> says
       plainly what protects it and what does not.
     </div>
+  </section>
 
-    <div class="note">
-      <strong>A token per device, and a record of what was done.</strong> Each device can have
-      its own key, revocable on its own — losing a phone should not sign out the laptop. And
-      the <em>Journal</em> keeps what changed and what was refused, with the address it came
-      from, so <em>has somebody been in here</em> has an answer. Reads are not kept: a log full
-      of folder listings is a log nobody opens. See
-      <a href="https://github.com/andreaderuvo/argus#a-token-per-device">devices</a> and
-      <a href="https://github.com/andreaderuvo/argus#the-journal">the journal</a>.
-    </div>
+  <section>
+    <h2>Before you try it</h2>
+
+    <details class="ask">
+      <summary>Does it change anything about my tmux?</summary>
+      <p>No. Argus attaches as a client to the sessions you already have, so what you see in
+        the browser is the same pane you would see over ssh — and closing the tab leaves
+        everything running, because a client is not a parent. Your config, your keys, your
+        windows.</p>
+    </details>
+
+    <details class="ask">
+      <summary>Does the agent need a plugin?</summary>
+      <p>No. Argus reads what the session prints and types into it, which is all any agent
+        does anyway. The one optional part is a hook that says <em>finished</em> or
+        <em>waiting for you</em> — one line in your agent's config, and without it you get
+        everything except the bell.</p>
+    </details>
+
+    <details class="ask">
+      <summary>Is it just a web terminal?</summary>
+      <p>The terminal is the part that already existed — ttyd and gotty do that well. What
+        this is for is the other half of the job: the files the session is writing, the
+        report it produced, the paths it printed, the prompt you hand to the second agent,
+        and knowing from another room that it is waiting for you.</p>
+    </details>
+
+    <details class="ask">
+      <summary>Can I put it on the internet?</summary>
+      <p>You can, and you should think about it first. It is shell access behind a token, so
+        the sensible shapes are a LAN, a VPN, or Tailscale — the last of which also gives you
+        a certificate for free. Each device can hold its own token, revocable on its own, and
+        the <em>Journal</em> records what changed and what was refused, with the address it
+        came from, so <em>has somebody been in here</em> has an answer.</p>
+    </details>
+
+    <details class="ask">
+      <summary>Several machines?</summary>
+      <p>That is <a href="https://github.com/andreaderuvo/panoptes">Panoptes</a>: one page
+        over every Argus you run, a tile per machine, which are up and what is running on
+        each. Same idea, one level out.</p>
+    </details>
+
+    <details class="ask">
+      <summary>What is it written in?</summary>
+      <p>Python on the server, vanilla JavaScript in the browser. No build step, no
+        bundler, no database — a file for the config and one for the journal. Clone it and
+        run it; the whole front end is a folder of static files you can read.</p>
+    </details>
   </section>
 </div>
 
