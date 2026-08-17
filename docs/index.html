@@ -117,6 +117,37 @@
     width: 100%; display: block; border: 1px solid var(--line); border-radius: .5rem; background: #000;
   }
   .clips figcaption { margin-top: .5rem; color: var(--dim); font-size: .92rem; line-height: 1.5; }
+
+  /* Look at a screenshot properly.
+     A picture of a terminal shrunk into a column is a picture of nothing: the thing it is
+     meant to demonstrate is exactly the part that stops being legible. Clicking one opens it
+     at the size it was taken. */
+  img.shot { cursor: zoom-in; }
+  #lightbox[hidden] { display: none; }
+  #lightbox {
+    position: fixed; inset: 0; z-index: 90;
+    display: flex; align-items: center; justify-content: center;
+    background: rgb(0 0 0 / .88); padding: 2.5rem 1rem 4rem;
+  }
+  #lightbox img {
+    max-width: 100%; max-height: 100%; object-fit: contain;
+    border-radius: .4rem; box-shadow: 0 20px 60px rgb(0 0 0 / .6);
+  }
+  #lightbox .shut, #lightbox .step {
+    position: absolute; border: 0; background: rgb(255 255 255 / .08); color: #fff;
+    width: 44px; height: 44px; border-radius: 50%; font-size: 1.4rem; line-height: 1; cursor: pointer;
+  }
+  #lightbox .shut { top: 1rem; right: 1rem; }
+  #lightbox .step { top: 50%; transform: translateY(-50%); }
+  #lightbox .prev { left: 1rem; }
+  #lightbox .next { right: 1rem; }
+  #lightbox .shut:hover, #lightbox .step:hover { background: rgb(255 255 255 / .18); }
+  #lightbox .said {
+    position: absolute; left: 0; right: 0; bottom: 1rem; text-align: center;
+    color: rgb(255 255 255 / .75); font-size: .9rem; padding: 0 4rem;
+  }
+  /* A phone has no room for round buttons over the picture, and has swipe instead. */
+  @media (max-width: 34rem) { #lightbox .step { display: none; } #lightbox .said { padding: 0 1rem; } }
 </style>
 </head>
 <body>
@@ -136,7 +167,7 @@
     <p class="badges">MIT · Python + vanilla JS · no build step · self-hosted</p>
 
     <figure>
-      <img src="img/agents.png" alt="A workspace with two agents running in tmux, the folder they are writing into, and the report they produced.">
+      <img class="shot" src="img/agents.png" alt="A workspace with two agents running in tmux, the folder they are writing into, and the report they produced.">
       <figcaption>Two agents at work, the folder they are filling, and the report one of them
         just wrote. One workspace, one browser tab.</figcaption>
     </figure>
@@ -287,9 +318,9 @@
       In an ordinary text field the keyboard behaves, and the finished line goes to the
       session in one go.</p>
     <div class="phones">
-      <img src="img/phone-terminal.png" alt="A tmux session attached on a phone.">
-      <img src="img/phone-files.png" alt="The file browser on a phone.">
-      <img src="img/phone-sessions.png" alt="The session list on a phone.">
+      <img class="shot" src="img/phone-terminal.png" alt="A tmux session attached on a phone.">
+      <img class="shot" src="img/phone-files.png" alt="The file browser on a phone.">
+      <img class="shot" src="img/phone-sessions.png" alt="The session list on a phone.">
     </div>
   </section>
 
@@ -297,19 +328,19 @@
     <h2>Everything else it does</h2>
     <div class="shots">
       <div>
-        <img src="img/desk.png" alt="A workspace with a terminal, a file browser and a log.">
+        <img class="shot" src="img/desk.png" alt="A workspace with a terminal, a file browser and a log.">
         <p>Windows you arrange yourself, kept between visits.</p>
       </div>
       <div>
-        <img src="img/preview.png" alt="A markdown document rendered.">
+        <img class="shot" src="img/preview.png" alt="A markdown document rendered.">
         <p>Documents rendered, not downloaded.</p>
       </div>
       <div>
-        <img src="img/system.png" alt="The machine's CPU, memory, swap, GPU, disks and ports.">
+        <img class="shot" src="img/system.png" alt="The machine's CPU, memory, swap, GPU, disks and ports.">
         <p>Is the disk about to fill up again?</p>
       </div>
       <div>
-        <img src="img/files.png" alt="The file tree.">
+        <img class="shot" src="img/files.png" alt="The file tree.">
         <p>Files as a list or a tree, sizes on request.</p>
       </div>
     </div>
@@ -361,6 +392,85 @@ python3 -m app.main --allow-write        # prints a URL with a token in it</pre>
     built by <a href="https://github.com/andreaderuvo">Andrea de Ruvo</a></p>
   <p>Named for the herdsman of a hundred eyes, who was set to watch and never slept.</p>
 </footer>
+
+<div id="lightbox" hidden aria-modal="true" role="dialog">
+  <button class="shut" type="button" aria-label="Close">&times;</button>
+  <button class="step prev" type="button" aria-label="Previous">&lsaquo;</button>
+  <img alt="">
+  <button class="step next" type="button" aria-label="Next">&rsaquo;</button>
+  <p class="said"></p>
+</div>
+
+<script>
+/* Open a screenshot at the size it was taken.
+ *
+ *  Written out rather than pulled from a CDN: this page has no build step and no dependency,
+ *  and a lightbox is forty lines. It is also the only script on the page, which is worth
+ *  keeping true.
+ *
+ *  Every screenshot on the page is one gallery, so the arrows walk between them all rather
+ *  than only within a section — from the reader's side they are one sequence of pictures.
+ */
+(function () {
+  var box = document.getElementById('lightbox');
+  if (!box) return;
+  var view = box.querySelector('img');
+  var said = box.querySelector('.said');
+  var shots = [].slice.call(document.querySelectorAll('img.shot'));
+  var at = 0;
+
+  function show(i) {
+    at = (i + shots.length) % shots.length;
+    var one = shots[at];
+    view.src = one.currentSrc || one.src;
+    view.alt = one.alt || '';
+    // The caption if it has one, otherwise the alt text, which every image here has and which
+    // says what the picture is meant to show.
+    var fig = one.closest('figure');
+    said.textContent = (fig && fig.querySelector('figcaption') ? fig.querySelector('figcaption').textContent : one.alt) || '';
+    box.hidden = false;
+    document.body.style.overflow = 'hidden';
+    box.querySelector('.shut').focus();
+  }
+  function shut() {
+    box.hidden = true;
+    view.removeAttribute('src');      // stop a large picture sitting decoded in memory
+    document.body.style.overflow = '';
+    if (shots[at]) shots[at].focus();
+  }
+
+  shots.forEach(function (one, i) {
+    one.tabIndex = 0;
+    one.addEventListener('click', function () { show(i); });
+    one.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); show(i); }
+    });
+  });
+
+  box.querySelector('.shut').addEventListener('click', shut);
+  box.querySelector('.prev').addEventListener('click', function () { show(at - 1); });
+  box.querySelector('.next').addEventListener('click', function () { show(at + 1); });
+  // Clicking the backdrop closes; clicking the picture does not, or every attempt to look
+  // closely would shut it.
+  box.addEventListener('click', function (e) { if (e.target === box) shut(); });
+  document.addEventListener('keydown', function (e) {
+    if (box.hidden) return;
+    if (e.key === 'Escape') shut();
+    if (e.key === 'ArrowLeft') show(at - 1);
+    if (e.key === 'ArrowRight') show(at + 1);
+  });
+
+  // Swipe, for the phone where the arrows are hidden.
+  var from = null;
+  box.addEventListener('touchstart', function (e) { from = e.touches[0].clientX; }, { passive: true });
+  box.addEventListener('touchend', function (e) {
+    if (from === null) return;
+    var moved = e.changedTouches[0].clientX - from;
+    from = null;
+    if (Math.abs(moved) > 50) show(at + (moved < 0 ? 1 : -1));
+  });
+}());
+</script>
 
 </body>
 </html>
