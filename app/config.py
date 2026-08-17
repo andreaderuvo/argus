@@ -109,6 +109,10 @@ class Config:
     board_may_stop_argus: bool = False
     tls_cert: Path | None = None
     tls_key: Path | None = None
+    # Set from the config path before the app is built. Per-device tokens live beside the
+    # config in a file this program owns, rather than inside a file the reader hand-edits and
+    # fills with comments that a YAML round-trip would erase.
+    devices_store: Path | None = None
 
     def attach_flags(self) -> list[str]:
         """Extra arguments for ``tmux attach-session``. `auto` is decided per attach,

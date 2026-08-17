@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import hmac
+from pathlib import Path
 from urllib.parse import parse_qs
 
 from starlette.responses import PlainTextResponse
+
+from . import devices
 
 PROTECTED_PREFIXES = ("/api", "/ws", "/proxy")
 # A proxied page loads its own stylesheets and scripts, and cannot put an Authorization
@@ -74,14 +77,38 @@ def is_protected(path: str) -> bool:
     return any(path == p or path.startswith(p + "/") for p in PROTECTED_PREFIXES)
 
 
+# Managing devices is the one thing the master token keeps to itself.
+MASTER_PATHS = ("/api/devices",)
+MASTER_PREFIX = "/api/devices/"
+
+
 class TokenAuthMiddleware:
     """Raw ASGI rather than Starlette's BaseHTTPMiddleware, because that one never sees
     WebSocket connections — and the terminal is a WebSocket."""
 
-    def __init__(self, app, token: str, watchers: list[dict] | None = None):
+    def __init__(self, app, token: str, watchers: list[dict] | None = None,
+                 devices_store: Path | None = None):
         self.app = app
         self.token = token
         self.watchers = list(watchers or [])
+        # Where the per-device tokens live. Read on each attempt rather than cached: revoking
+        # a device has to take effect now, and a board or a phone retrying a second later must
+        # not still get in because the list was loaded at startup.
+        self.devices_store = devices_store
+
+    def device_for(self, presented: str) -> dict | None:
+        if not self.devices_store:
+            return None
+        return devices.matching(devices.load(self.devices_store), presented)
+
+    def remember(self, device: dict) -> None:
+        """Note that this device was used. Throttled inside `touch`, and never allowed to fail
+        a request: a read-only config directory is a reason to lose the timestamp, not the
+        session."""
+        try:
+            devices.touch(self.devices_store, device)
+        except Exception:
+            pass
 
     def watching(self, presented: str) -> dict | None:
         """The watcher this token belongs to, if any. Every candidate is compared even
@@ -98,6 +125,24 @@ class TokenAuthMiddleware:
 
         token = presented_token(scope)
         if token is not None and matches(token, self.token):
+            # The master key. Only this one may add and revoke devices.
+            scope["argus_master"] = True
+            return await self.app(scope, receive, send)
+
+        device = self.device_for(token) if token is not None else None
+        if device:
+            if scope["path"] in MASTER_PATHS or scope["path"].startswith(MASTER_PREFIX):
+                # A device may do everything except manage devices. That asymmetry is the
+                # point of the feature: a phone that is lost cannot be used to lock its owner
+                # out of their own machine.
+                if scope["type"] == "http":
+                    response = PlainTextResponse(
+                        "this device may not add or revoke devices — use the token from the config",
+                        status_code=403,
+                    )
+                    return await response(scope, receive, send)
+            scope["argus_device"] = device
+            self.remember(device)
             return await self.app(scope, receive, send)
 
         watcher = self.watching(token) if token is not None else None

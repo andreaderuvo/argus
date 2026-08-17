@@ -758,6 +758,28 @@ button.winbtn.wide { display: inline-flex; align-items: center; gap: .35rem; }
 button.primary.inline { width: auto; margin: 0; padding: 0 1.1rem; }
 button.danger { background: var(--danger); color: #fff; }
 
+/* A revoke, or any other one-way action sitting inside a row.
+ *
+ *  `.danger` alone is the filled red of a confirmation's final button — right at the end of a
+ *  sheet, wrong on a list, where it made the Revoke button the loudest thing on the screen
+ *  and twice the size of the switches beside it. In a row it is an outline that means it when
+ *  the pointer is on it. */
+button.ghost.inline {
+  width: auto; margin: 0; flex: none;
+  height: 30px; padding: 0 .75rem;
+  border: 1px solid var(--line); border-radius: .4rem;
+  background: none; color: var(--text); font: inherit; font-size: .85rem;
+}
+button.ghost.inline:hover { border-color: var(--accent); color: var(--bright); }
+button.ghost.inline.danger {
+  background: none; color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--line));
+}
+button.ghost.inline.danger:hover {
+  color: var(--danger); border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+}
+
 .toast {
   position: fixed;
   left: 50%;

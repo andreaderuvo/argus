@@ -19,7 +19,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 
-from . import announce, bells, favourites, files, fsops, languages, mounts, paths, ports, proxy, release, runner, system, term, tmux
+from . import announce, bells, devices, favourites, files, fsops, languages, mounts, paths, ports, proxy, release, runner, system, term, tmux
 import httpx
 
 from .auth import PROXY_COOKIE, TokenAuthMiddleware
@@ -210,12 +210,14 @@ def create_app(cfg: Config) -> FastAPI:
     app.state.jail = Jail(cfg.roots)
     app.state.socket = tmux.Socket.new(cfg.tmux_socket)
     app.state.favourites = getattr(cfg, "favourites_store", None) or Path("/nonexistent")
+    app.state.devices = cfg.devices_store or Path("/nonexistent")
     app.state.lang = Path("/nonexistent")
     app.state.addresses = []
 
     app.state.proxied = set()          # ports opened by hand, this run only
     app.state.http = httpx.AsyncClient(timeout=30.0, follow_redirects=False)
     app.state.port = None
+    app.state.host = None
 
     # Readable, stable names for the operations.
     #
@@ -522,6 +524,43 @@ def create_app(cfg: Config) -> FastAPI:
         """
         return await overview_of(request.app, request.scope.get("argus_watcher"))
 
+    @app.get("/api/devices", tags=["Setup"], summary="The devices that may get in")
+    async def list_devices(request: Request) -> list[dict]:
+        """Names, when each was added and when each was last used. Never the tokens: only a
+        hash of those is kept, and the plain form existed once, when it was created."""
+        return devices.public(devices.load(request.app.state.devices))
+
+    @app.post("/api/devices", tags=["Setup"], summary="Give a device its own token")
+    async def add_device(request: Request, body: dict) -> dict:
+        """Mints one and returns it **once**. There is no way to see it again — the file holds
+        only a hash — which is the same bargain GitHub makes for a personal access token, and
+        for the same reason.
+
+        Only the token in the config may do this. A device cannot mint another, so a phone
+        that is lost cannot be used to grow its own foothold.
+        """
+        try:
+            entry, plain = devices.add(request.app.state.devices, str(body.get("name") or ""))
+        except devices.DeviceError as e:
+            raise ApiError(400, str(e)) from e
+        return {
+            "device": devices.public([entry])[0],
+            "token": plain,
+            "link": url_for(app.state.host or "127.0.0.1", app.state.port or 0, cfg).replace(
+                cfg.token, plain),
+        }
+
+    @app.delete("/api/devices/{device_id}", tags=["Setup"], summary="Take a device's token back")
+    async def drop_device(request: Request, device_id: str) -> dict:
+        """Takes effect on the next request that device makes: the file is re-read every time
+        a token is presented, precisely so that revoking is not something you have to restart
+        for."""
+        try:
+            gone = devices.revoke(request.app.state.devices, device_id)
+        except devices.DeviceError as e:
+            raise ApiError(404, str(e)) from e
+        return {"revoked": gone["name"]}
+
     @app.get("/api/runnable", tags=["The machine"],
              summary="What this machine offers to start and stop")
     async def runnable(request: Request) -> list[dict]:
@@ -591,7 +630,8 @@ def create_app(cfg: Config) -> FastAPI:
         answer.headers.setdefault("referrer-policy", "no-referrer")
         return answer
 
-    app.add_middleware(TokenAuthMiddleware, token=cfg.token, watchers=cfg.watchers)
+    app.add_middleware(TokenAuthMiddleware, token=cfg.token, watchers=cfg.watchers,
+                       devices_store=cfg.devices_store)
     return app
 
 
@@ -824,6 +864,10 @@ def main(argv: list[str] | None = None) -> int:
             print_qr(url)
         return 0
 
+    # Before the app is built: the auth middleware takes this path at construction, because
+    # it re-reads the file on every attempt so that revoking a device takes effect at once.
+    cfg.devices_store = devices.default_store(config_path)
+
     try:
         app = create_app(cfg)
     except ValueError as e:
@@ -833,6 +877,7 @@ def main(argv: list[str] | None = None) -> int:
     app.state.favourites = favourites.default_store(config_path)
     app.state.lang = config_path.parent / "lang"
     app.state.port = port
+    app.state.host = host
     app.state.addresses = reachable_addresses()
     banner(config_path, created, host, port, cfg, app.state.socket)
     tls = cfg.tls()
