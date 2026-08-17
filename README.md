@@ -91,6 +91,10 @@ the filesystem are the same room here:
 None of this runs the agent or knows anything about it. Argus attaches to the tmux session
 it already lives in, the way another terminal window would.
 
+**Questions?** The [FAQ](https://github.com/andreaderuvo/argus/wiki/FAQ) answers the ones
+people actually ask: whether it can go on the internet (no), whether it changes tmux (no),
+why there is no Docker image, what happens when you log out, and what it sends anywhere.
+
 ## What it is not
 
 - **Not a tmux replacement.** It attaches as an ordinary client. Kill Argus and every
