@@ -1,6 +1,8 @@
 """Mutating operations. The jail applies to the destination as much as the source."""
 
 import pytest
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 from app.config import Config
@@ -329,3 +331,42 @@ def test_the_sequence_name_cannot_escape_the_folder(client, tree):
 def test_pasting_is_refused_on_a_read_only_server(tree):
     ro = make_client(tree, allow_write=False)
     assert upload_seq(ro, tree / "root", "image.png", b"x", "screenshot").status_code == 403
+
+
+def test_writing_a_file_that_is_not_there_yet_creates_it(client, tree):
+    """The plan two agents share does not exist until somebody starts them. Saving was only
+    ever "save an edited file", so creating one meant a multipart upload for two hundred bytes
+    of markdown."""
+    where = tree / "root" / "PLAN.argus.md"
+    made = post(client, "/api/fs/write", {"path": str(where), "content": "# Plan\n"})
+    assert made.status_code == 200, made.text
+    assert made.json()["created"] is True
+    assert where.read_text() == "# Plan\n"
+
+    # And saving over it afterwards is the ordinary path, not the creating one.
+    again = post(client, "/api/fs/write", {"path": str(where), "content": "# Plan 2\n"})
+    assert again.status_code == 200 and not again.json().get("created")
+    assert where.read_text() == "# Plan 2\n"
+
+
+def test_creating_still_obeys_the_jail(client, tree):
+    """The parent is what gets checked, because a path that does not exist cannot be resolved —
+    and the directory is the right thing to check anyway."""
+    for outside in (str(tree / "outside" / "nope.md"), "/etc/argus-should-not-exist.md"):
+        answer = post(client, "/api/fs/write", {"path": outside, "content": "x"})
+        assert answer.status_code in (403, 404), outside
+    assert not Path("/etc/argus-should-not-exist.md").exists()
+    assert not (tree / "outside" / "nope.md").exists()
+
+
+def test_creating_into_a_folder_that_is_not_there_is_refused(client, tree):
+    answer = post(client, "/api/fs/write",
+                  {"path": str(tree / "root" / "nowhere" / "plan.md"), "content": "x"})
+    assert answer.status_code in (400, 403, 404)
+
+
+def test_creating_is_refused_when_writing_is_off(tree):
+    ro = make_client(tree, allow_write=False)
+    answer = post(ro, "/api/fs/write", {"path": str(tree / "root" / "new.md"), "content": "x"})
+    assert answer.status_code == 403
+    assert not (tree / "root" / "new.md").exists()
