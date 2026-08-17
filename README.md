@@ -424,8 +424,8 @@ services.</sub>
   *runs* it, so the file is tried on a throwaway tmux server first and only applied if it
   survives — a bad line ends the server it is sourced into, and that server holds all
   your work.
-- **Four languages** (en, it, fr, es) and anyone can add a fifth: a catalogue is a flat
-  JSON file keyed by the English strings, importable from Settings.
+- **Four languages** (en, it, fr, es), and [adding a fifth is one JSON
+  file](#translating-it) — no build, no extraction step, nothing to register.
 - **A phone-shaped interface**: bottom navigation, thumb-sized targets, drag-to-scroll in
   the terminal, a full-screen button (F11 is not on a phone), light and dark themes.
   Windows resize with a finger — the handles straddle the frame and are 34px at the
@@ -469,8 +469,26 @@ watchers:
 ```
 
 That is what a board across several machines should hold: losing it loses a list of
-session names, not every box on it. **Panoptes**, the board itself, is a separate project
-— Argus never depends on it, and if it goes away every Argus carries on alone.
+session names, not every box on it.
+
+The board itself is **[Panoptes](https://github.com/andreaderuvo/panoptes)** — one page
+showing every machine, which sessions are on it and which one is waiting for you, with a
+click through to that machine's own Argus. It is a separate project on purpose: Argus never
+depends on it, and if it goes away every Argus carries on alone.
+
+A machine the board cannot reach can announce itself instead, which is the case for two
+boxes on one wire where only one direction is open:
+
+```yaml
+report_to:
+  url: http://board.internal:8070
+  token: <the board's registration token>
+  name: gpu2                        # what you want it called on the board
+  reach: http://gpu2.internal:8090  # where a browser should go
+```
+
+It sends what `/api/overview` returns and nothing else — no file, no path, no token, no
+command — and it is off unless you configure it.
 
 ## The API
 
@@ -489,6 +507,48 @@ Two rules hold throughout: **one token**, in an `Authorization: Bearer …` head
 included, so a single rule guards the lot.
 
 The page is generated from the routes themselves, and a test fails when it drifts.
+
+## Translating it
+
+The bar for this is deliberately as low as it goes. A catalogue is **one flat JSON file
+whose keys are the English strings** — no gettext, no `.po`, no extraction step, no build,
+and no knowledge of the code:
+
+```json
+{
+  "code": "de",
+  "name": "Deutsch",
+  "strings": {
+    "Sessions": "Sitzungen",
+    "A new workspace": "Ein neuer Arbeitsplatz",
+    "up {age}": "läuft seit {age}"
+  }
+}
+```
+
+Two ways in, and either is enough:
+
+- **Drop the file in** — `~/.config/argus/lang/de.json`. It is picked up on its own, with
+  nothing to restart on the browser's side.
+- **Import it from Settings** → *Language* → *Add a language*, which lands it in the same
+  place. Useful from a phone, where there is no shell.
+
+Three things worth knowing:
+
+- **A missing entry falls back to English**, so a half-finished translation is useful the
+  day it is started. There is no such thing as a broken half.
+- **`{age}`, `{n}`, `{path}` and friends must survive.** They are filled in at the point of
+  use; a translation that drops one produces a sentence with a hole in it.
+- **A file you drop in overrides one that ships**, which is how a wording you disagree with
+  gets fixed without a fork.
+
+To start from the current English, copy `static/lang/en.json` — it lists every key. To send
+one back, open a pull request with the file in `static/lang/`; a test checks that every
+catalogue covers every string and keeps its placeholders, so a stale one cannot pass CI
+unnoticed.
+
+The same arrangement, file for file, is in
+[Panoptes](https://github.com/andreaderuvo/panoptes#translating-it).
 
 ## Reaching it from outside
 
@@ -654,3 +714,13 @@ plainer.
 ## Licence
 
 MIT — see [LICENSE](LICENSE).
+
+---
+
+<div align="center">
+
+**Argus** is one machine. **[Panoptes](https://github.com/andreaderuvo/panoptes)** is the
+board you open when there are several: every machine on one page, and which of them is
+waiting for you.
+
+</div>

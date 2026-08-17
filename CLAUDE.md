@@ -27,7 +27,7 @@ socket is printed in the startup banner (`tmux    socket …`) — check it befo
 Also: `pgrep -f`/`pkill -f` with a pattern that appears in your own command line kills the
 shell running it. Write `pgrep -f 'app[.]main'`, never `pgrep -f 'app.main'`.
 
-## ⚠️ `tmux capture-pane -p` crashes tmux on this host
+## ⚠️ `tmux capture-pane -p` crashes tmux on some builds
 
 `tmux-3.3a-13.20230918gitb202a2f.el10` has heap corruption in `cmd_capture_pane_exec`:
 
@@ -36,11 +36,10 @@ free() → malloc_printerr → abort      #7 cmd_capture_pane_exec
 ```
 
 Reproducible on the **first** `capture-pane -p` against a freshly created server, no
-attach needed. It aborts the whole server, killing every session on that socket. Prior
-occurrences: 2026-07-17 (×2, during benchmarks), 2026-07-27 (×2).
+attach needed. It aborts the whole server, killing every session on that socket. Seen four times on the machine this was written on, twice during benchmarks.
 
-Do not run `capture-pane -p` anywhere on this host, even on a test socket, unless you mean
-to lose that server. The app never calls it — verify that stays true (`grep -rn capture
+Do not run `capture-pane -p` on a machine with that build, even on a test socket, unless
+you mean to lose that server. The app never calls it — verify that stays true (`grep -rn capture
 app/`). This is also why the product does a real PTY instead of capture-pane polling.
 
 ## Run & test
@@ -289,21 +288,21 @@ reloading is the whole loop — only Python changes need the server restarted.
 - **Service worker** only registers over HTTPS (secure context), so plain http on a LAN
   address works fine but cannot be installed as an offline PWA.
 
-## State (2026-07-28)
+## Where it stands
 
-Feature-complete against everything asked for so far; **188 tests green**. Running under
-systemd (`systemctl --user restart argus`) on `0.0.0.0:8090`, config in
-`~/.config/argus/config.yaml` (`resize_policy: adapt`, write and proxy on).
+`python -m pytest -q` is the truth; the count changes most days. Everything asked for so
+far is built, and the frontend has no tests of its own — every one is Python, so anything
+about the browser is checked by driving a real Chromium over CDP and reading a measurement
+back, not by asserting on a screenshot.
 
-Verified end to end against an isolated tmux socket: keystrokes, output, resize
-propagation (a 100×30 client gives tmux 100×29 — the status line takes a row), session
-survival on disconnect, a clean refusal for unknown sessions. The file operations were
-smoke-tested against the live server, and the frontend was loaded in headless chromium
-(`~/.cache/ms-playwright/chromium-1140/chrome-linux/chrome --headless --dump-dom`) to
-confirm it boots with zero console errors and that the wall renders one window per
-session. No git commits yet.
+Two long-standing gaps, both about the same thing: no TLS, which is what would unlock an
+installable PWA, real push notifications and an in-app QR scanner; and no per-device
+tokens, so revoking a phone means rotating for everybody.
 
-Still open: TLS (which would unlock an installable PWA, push notifications and an in-app
-QR scanner), per-device tokens, session-activity notifications, and any frontend tests —
-all 170 are Python. `sudo loginctl enable-linger $USER` is still needed, or Argus dies
-at the last logout.
+Kept in mind when touching anything here:
+
+- **`loginctl enable-linger` is not optional** for a `systemd --user` unit. Without it the
+  server dies at the last logout, and the report is always "it was working this morning".
+- **A board may be watching.** `GET /api/overview` is the one endpoint a watcher token
+  opens, so what goes in it is a published interface: adding a field is free, renaming one
+  is not.
