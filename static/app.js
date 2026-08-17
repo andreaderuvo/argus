@@ -3955,6 +3955,43 @@ async function screenMessages(open = null) {
         },
       );
 
+      /* What your prompts want and this set has not got.
+       *
+       *  The warning before sending says a prompt is short of something; this is the other
+       *  half of the same thought, in the place you would go to fix it. Adding one puts an
+       *  empty row in — a name waiting for a value, which is a reminder rather than a
+       *  filled-in blank, because an empty value counts as missing.
+       *
+       *  Nothing is added behind your back. A library of forty prompts would otherwise seed
+       *  forty names into a set you never asked it to, and a list of everything undefined is
+       *  not a set, it is noise.
+       */
+      const wanted = el('div', { className: 'wantrow' });
+      const drawWanted = () => {
+        const stub = { folder: '.', from: '?', to: '?', plan: '?' };
+        const asked = new Set();
+        for (const kind of batonTemplates()) {
+          for (const name of unknownVars(kind.text, { ...stub, ...groundVars(), ...(ground ? {} : set.vars) })) {
+            if (!name.includes('.')) asked.add(name);   // another set's business is its own
+          }
+        }
+        wanted.replaceChildren();
+        if (!asked.size) return;
+        wanted.append(el('span', { className: 'meta', textContent: t('your prompts ask for') }));
+        for (const name of [...asked].sort()) {
+          wanted.append(el('button', {
+            className: 'chip', textContent: `{${name}}`, title: t('add it here, empty'),
+            onclick: () => { grid.want(name); drawWanted(); },
+          }));
+        }
+        if (asked.size > 1) {
+          wanted.append(el('button', {
+            className: 'ghost dup', textContent: t('Add them all'),
+            onclick: () => { for (const name of [...asked].sort()) grid.want(name); drawWanted(); },
+          }));
+        }
+      };
+
       const tools = el('div', { className: 'setrow' });
       if (!ground) {
         tools.append(
@@ -4019,7 +4056,8 @@ async function screenMessages(open = null) {
           : t('no desk is using this one');
       }
       around();
-      held.replaceChildren(tools, grid, inherited, usedBy);
+      drawWanted();
+      held.replaceChildren(tools, grid, wanted, inherited, usedBy);
     }
 
     /** A grid of name-and-value, editable in place.
@@ -4037,7 +4075,10 @@ async function screenMessages(open = null) {
         const kept = {};
         for (const row of rows) {
           const name = row.name.trim().replace(/^\{|\}$/g, '');
-          if (/^[\w.-]+$/.test(name) && row.value.trim()) kept[name] = row.value.trim();
+          // A name with nothing in it yet is kept, not thrown away. It is a note to
+          // yourself that this set owes a value — which is worth something precisely
+          // because an empty one still counts as missing everywhere else.
+          if (/^[\w.-]+$/.test(name)) kept[name] = row.value.trim();
         }
         write(kept);
       };
@@ -4075,12 +4116,30 @@ async function screenMessages(open = null) {
         name.addEventListener('input', touched);
         value.addEventListener('input', touched);
         sayShadow();
+        // Kept on the row so a name can be put in from outside — see `want` below.
+        row.nameField = name;
+        row.valueField = value;
         grid.append(name, value, drop, under);
         return row;
       };
 
       for (const [name, value] of Object.entries(read())) addRow({ name, value });
       addRow();
+      /** Put a name in, as if you had typed it into the waiting row.
+       *
+       *  Through the waiting row rather than a new one at the end, so the empty row stays
+       *  where it belongs — at the bottom — and the caret lands in the value box, which is
+       *  the only thing left to do. Asking twice for the same name goes to the row that is
+       *  already there instead of making a second one.
+       */
+      grid.want = (name) => {
+        const already = rows.find((r) => r.name.trim() === name);
+        if (already) return already.valueField.focus();
+        const spare = rows.find((r) => r.fresh) || addRow();
+        spare.nameField.value = name;
+        spare.nameField.dispatchEvent(new Event('input'));
+        spare.valueField.focus();
+      };
       return grid;
     }
 
@@ -8492,7 +8551,18 @@ function fromNamedSet(name) {
  */
 const planPath = (folder) => `${(folder || '.').replace(/\/+$/, '')}/PLAN.argus.md`;
 
-const valueFor = (name, known) => (name in known ? known[name] : fromNamedSet(name));
+/** What to put in, or nothing at all.
+ *
+ *  A blank is *not* a value. A row you have made and not filled in yet is exactly the state
+ *  a warning exists for, and substituting it would take the word out of the sentence
+ *  silently — "read  and  in /srv/work" — where a `{paper}` left standing at least shows on
+ *  screen and can be asked about. So an empty one counts as missing everywhere: it keeps its
+ *  braces, it is flagged in the list, and it is what the sheet asks you about before sending.
+ */
+const valueFor = (name, known) => {
+  const found = name in known ? known[name] : fromNamedSet(name);
+  return typeof found === 'string' && !found.trim() ? undefined : found;
+};
 
 /** Why this one came out empty, in words. A placeholder that silently stays written is
  *  the kind of thing you stare at; the answer is nearly always one of three. */

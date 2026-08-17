@@ -466,6 +466,12 @@ iframe.preview.pdfnative { width: 100%; height: 100%; border: 0; display: block;
 .settings h2.settinggroup:first-of-type { margin-top: .8rem; }
 
 /* Two agents: pick a mode, pick who is who, say the goal. */
+/* What the library is asking for and this set has not got. Chips rather than a list: each
+   one is a thing to press, and pressing it is the whole action. */
+.wantrow { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin: .6rem 0 0; }
+.wantrow .meta { margin-right: .2rem; }
+.wantrow .chip { font-family: ui-monospace, monospace; }
+
 /* A prompt this desk cannot fill in completely.
    Said in the list, before you tap, because the tap is the thing that sends it — and said
    quietly: an unfilled placeholder is sometimes exactly what you meant to send. */
