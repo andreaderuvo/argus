@@ -372,9 +372,13 @@ flag somebody set — a flag says what was *started*, and what you want to know 
 the plan; after twenty minutes of silence it turns amber, because at that point both
 terminals still look busy and the pair has stopped. Clicking it opens the plan.
 
-**Closing the loop, if you ask for it.** `VERDICT: OK` / `VERDICT: REDO` is a line a
-machine can read as easily as a person, so Argus can read it: on **REDO** the review goes
-back to the builder on its own, on **OK** it rings. It is off unless you switch it on when
+**Closing the loop, if you ask for it.** Two sentences, one shape: the reviewer ends its
+turn on `VERDICT: OK` / `VERDICT: REDO`, the builder ends its turn on `HANDOVER: READY`.
+Both are lines a machine can read as easily as a person, so Argus reads them and passes the
+work along — builder to reviewer on a hand-over, reviewer to builder on a REDO, and on an OK
+it rings and stops. Only the agent whose turn it is can end the turn, and with the loop armed
+the builder goes first, since a reviewer sent in before anything exists reviews an empty
+repository. It is off unless you switch it on when
 you start the pair, it is **per desk**, and it **counts down** — the note shows the rounds
 it has left rather than "on", and clicking it stops the loop there and then. Two agents
 bouncing a change between them for six hours unattended is not a feature.
