@@ -114,3 +114,17 @@ def test_a_watcher_token_must_be_worth_less_than_the_real_one(tmp_path):
 
     with pytest.raises(ConfigError, match="shorter than 16"):
         Config(token=same, roots=[tmp_path], watchers=[{"name": "x", "token": "short"}]).validate()
+
+
+def test_the_overview_says_how_long_the_machine_and_this_argus_have_each_been_up(tmp_path):
+    """Two numbers, because they answer different questions. A board showing several Argus
+    instances on one box gets the same machine uptime from all of them, and the one that
+    tells them apart — did this one just restart? — is the process's own.
+    """
+    client, cfg = watched(tmp_path)
+    weak = {"Authorization": f"Bearer {cfg.watchers[0]['token']}"}
+    seen = client.get("/api/overview", headers=weak).json()
+
+    assert seen["uptime"] > 0                      # /proc/uptime; nothing here has just booted
+    assert 0 <= seen["serving"] < 60               # this app was built a moment ago
+    assert seen["serving"] < seen["uptime"]        # Argus cannot predate the machine
