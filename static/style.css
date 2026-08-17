@@ -474,7 +474,8 @@ iframe.preview.pdfnative { width: 100%; height: 100%; border: 0; display: block;
   margin-top: .5rem; max-width: 46rem;
 }
 .situname { color: var(--accent); font-size: .85rem; }
-.situsays { color: var(--dim); font-size: .85rem; }
+.situsays { color: var(--dim); font-size: .85rem; overflow: hidden; text-overflow: ellipsis; }
+.situnow { color: var(--text); font-size: .8rem; }
 /* Small: this is the escape hatch beside a description, not one of the four things the
    screen is for. Four full-sized buttons down the right made it look like a form. */
 .situgrid button { font-size: .76rem; padding: .28rem .6rem; justify-self: end; }
