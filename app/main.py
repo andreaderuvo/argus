@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import os
 import mimetypes
 import sys
@@ -14,7 +15,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 
-from . import bells, favourites, files, fsops, languages, mounts, paths, ports, proxy, release, system, term, tmux
+from . import announce, bells, favourites, files, fsops, languages, mounts, paths, ports, proxy, release, system, term, tmux
 import httpx
 
 from .auth import PROXY_COOKIE, TokenAuthMiddleware
@@ -72,6 +73,92 @@ TAGS = [
 ]
 
 
+async def overview_of(app: FastAPI) -> dict:
+    """What a board needs, and nothing else.
+
+    Deliberately cheap: no CPU sampling window, no `nvidia-smi`, no process list. Load
+    average says as much about a busy machine as a 120ms CPU sample does and costs nothing
+    to read, which matters when several boards ask several machines every few seconds.
+    Everything here is a read of /proc plus one `tmux list-sessions`.
+    """
+    cfg = app.state.cfg
+    cores = os.cpu_count() or 1
+    try:
+        load1, load5, load15 = os.getloadavg()
+    except OSError:
+        load1 = load5 = load15 = 0.0
+    try:
+        mem = system.memory(Path("/proc/meminfo").read_text())
+    except OSError:
+        mem = {"pct": 0.0, "swap_pct": 0.0}
+    try:
+        up = float(Path("/proc/uptime").read_text().split()[0])
+    except (OSError, ValueError, IndexError):
+        up = 0.0
+
+    # Only the disk in the most trouble: a board wants to know there is a problem, not to
+    # inventory the filesystems.
+    worst = None
+    for root in cfg.roots:
+        d = system.disk(root)
+        if d and (worst is None or d["pct"] > worst["pct"]):
+            worst = d
+
+    try:
+        sessions = await asyncio.to_thread(tmux.list_sessions, app.state.socket)
+    except Exception:
+        # A board asking about a machine whose tmux server is not running should see the
+        # machine, with no sessions, rather than an error.
+        sessions = []
+
+    # What has rung and not been collected: the reason to look at this machine rather than
+    # another one.
+    kept = getattr(app.state, "bells", None)
+    ringing = {}
+    for bell in list(kept["list"]) if kept else []:
+        if bell.get("session"):
+            ringing[bell["session"]] = bell.get("why")
+
+    return {
+        "name": os.uname().nodename,
+        "version": VERSION,
+        "uptime": up,
+        "cores": cores,
+        "load": [round(load1, 2), round(load5, 2), round(load15, 2)],
+        "load_pct": round(100 * load1 / cores, 1),
+        "memory_pct": round(mem.get("pct", 0.0), 1),
+        "swap_pct": round(mem.get("swap_pct", 0.0), 1),
+        "disk": worst and {"path": worst["path"], "pct": worst["pct"], "level": worst["level"]},
+        "sessions": [
+            {
+                "name": s["name"],
+                "windows": s.get("windows", 1),
+                "attached": bool(s.get("attached")),
+                "bell": ringing.get(s["name"]),
+            }
+            for s in sessions
+        ],
+    }
+
+
+@contextlib.asynccontextmanager
+async def announcing(app: FastAPI):
+    """Announce this machine to a board, if it has been told about one."""
+    cfg = app.state.cfg
+    task = None
+    if getattr(cfg, "report_to", None):
+        async def mine() -> dict:
+            return await overview_of(app)
+        task = asyncio.create_task(announce.keep_announcing(cfg, mine))
+    try:
+        yield
+    finally:
+        if task:
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+
+
 def create_app(cfg: Config) -> FastAPI:
     app = FastAPI(
         title="Argus",
@@ -86,6 +173,7 @@ def create_app(cfg: Config) -> FastAPI:
         redoc_url=None,
         license_info={"name": "MIT", "url": "https://github.com/andreaderuvo/argus/blob/master/LICENSE"},
         contact={"name": "Argus", "url": "https://github.com/andreaderuvo/argus"},
+        lifespan=announcing,
     )
     app.state.cfg = cfg
     app.state.jail = Jail(cfg.roots)
@@ -398,71 +486,10 @@ def create_app(cfg: Config) -> FastAPI:
     async def overview(request: Request) -> dict:
         """Everything a board watching several machines needs, and nothing it does not.
 
-        Deliberately cheap: no CPU sampling window, no `nvidia-smi`, no process list. Load
-        average says as much about a busy machine as a 120ms CPU sample does and costs
-        nothing to read, which matters when several boards ask several machines every few
-        seconds. Everything here is a read of /proc plus one `tmux list-sessions`.
-
-        This is the one door a watcher token opens.
+        This is the one door a watcher token opens, and the same answer a machine
+        announces to a board that cannot reach it.
         """
-        cfg = request.app.state.cfg
-        cores = os.cpu_count() or 1
-        try:
-            load1, load5, load15 = os.getloadavg()
-        except OSError:
-            load1 = load5 = load15 = 0.0
-        try:
-            mem = system.memory(Path("/proc/meminfo").read_text())
-        except OSError:
-            mem = {"pct": 0.0, "swap_pct": 0.0}
-        try:
-            up = float(Path("/proc/uptime").read_text().split()[0])
-        except (OSError, ValueError, IndexError):
-            up = 0.0
-
-        # Only the disk in the most trouble: a board wants to know there is a problem, not
-        # to inventory the filesystems.
-        worst = None
-        for root in cfg.roots:
-            d = system.disk(root)
-            if d and (worst is None or d["pct"] > worst["pct"]):
-                worst = d
-
-        try:
-            sessions = await asyncio.to_thread(tmux.list_sessions, request.app.state.socket)
-        except Exception:
-            # A board asking about a machine whose tmux server is not running should see
-            # the machine, with no sessions, rather than an error.
-            sessions = []
-
-        # What has rung and not been collected: the reason to look at this machine rather
-        # than another one.
-        kept = getattr(request.app.state, "bells", None)
-        ringing = {}
-        for bell in list(kept["list"]) if kept else []:
-            if bell.get("session"):
-                ringing[bell["session"]] = bell.get("why")
-
-        return {
-            "name": os.uname().nodename,
-            "version": VERSION,
-            "uptime": up,
-            "cores": cores,
-            "load": [round(load1, 2), round(load5, 2), round(load15, 2)],
-            "load_pct": round(100 * load1 / cores, 1),
-            "memory_pct": round(mem.get("pct", 0.0), 1),
-            "swap_pct": round(mem.get("swap_pct", 0.0), 1),
-            "disk": worst and {"path": worst["path"], "pct": worst["pct"], "level": worst["level"]},
-            "sessions": [
-                {
-                    "name": s["name"],
-                    "windows": s.get("windows", 1),
-                    "attached": bool(s.get("attached")),
-                    "bell": ringing.get(s["name"]),
-                }
-                for s in sessions
-            ],
-        }
+        return await overview_of(request.app)
 
     # Registered last so it never shadows the API: unknown paths are the frontend's.
     @app.get("/{requested:path}", include_in_schema=False)

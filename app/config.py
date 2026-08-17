@@ -76,6 +76,10 @@ class Config:
     # Ask github.com once a day whether a newer tag exists. It sends nothing — not even
     # which version is running — and it never updates anything. Off is a supported answer.
     check_releases: bool = True
+    # Where this machine announces itself, for a board it cannot be reached *from*.
+    # {url, token, name, reach, every}. Empty means it announces itself nowhere, which is
+    # the default: a machine that phones a board you did not set up is a surprise.
+    report_to: dict = field(default_factory=dict)
     tls_cert: Path | None = None
     tls_key: Path | None = None
 
@@ -94,6 +98,12 @@ class Config:
             raise ConfigError("`token` is empty — refusing to start without authentication")
         if len(self.token) < 16:
             raise ConfigError("`token` is shorter than 16 characters — pick something unguessable")
+        if self.report_to:
+            for needed in ("url", "token"):
+                if not str(self.report_to.get(needed) or "").strip():
+                    raise ConfigError(f"`report_to` needs a {needed}")
+            if not str(self.report_to["url"]).startswith(("http://", "https://")):
+                raise ConfigError("`report_to.url` must start with http:// or https://")
         for w in self.watchers:
             if len(w["token"]) < 16:
                 raise ConfigError(
@@ -136,6 +146,7 @@ class Config:
             allow_proxy=bool(raw.get("allow_proxy", False)),
             max_upload_bytes=int(raw.get("max_upload_bytes", 2 * 1024 * 1024 * 1024)),
             check_releases=bool(raw.get("check_releases", True)),
+            report_to=dict(raw.get("report_to") or {}),
             watchers=[
                 {"name": str(w.get("name") or "watcher"), "token": str(w.get("token") or "")}
                 for w in (raw.get("watchers") or [])
@@ -154,6 +165,7 @@ class Config:
             "max_preview_bytes": self.max_preview_bytes,
             "tmux_socket": self.tmux_socket,
             "check_releases": self.check_releases,
+            "report_to": self.report_to,
             "allow_write": self.allow_write,
             "include_mounts": self.include_mounts,
             "allow_proxy": self.allow_proxy,
