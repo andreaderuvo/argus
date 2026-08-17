@@ -395,26 +395,37 @@ Three things it does on purpose, each of which cost a round to learn:
   not move. The cost is a missed round, and for something that spends money while nobody
   is watching, missing one is the right way to be wrong.
 
-**The bridge.** One file, append-only, that both of them read every sixty seconds:
+**The bridge.** One file, append-only, that both of them read on a timer — and *both*
+patterns use it, the reviewing pair and the two peers:
 
 ```
-## 2026-08-18T09:14:02Z WORKER: DONE
+@TURN who=WORKER at=2026-08-18T09:14:02Z status=DONE
 Added the cache and a test for the empty case. 48 tests pass.
-<!-- /turn -->
+@END at=2026-08-18T09:15:30Z
 
-## 2026-08-18T09:21:40Z REVIEWER: REDO
+@TURN who=REVIEWER at=2026-08-18T09:21:40Z status=REDO round=2
 src/pipeline.py:88 — the cache key ignores the scheme version, so a stale entry
 survives an update. The test passes because it never updates the scheme.
-<!-- /turn -->
+@END at=2026-08-18T09:26:02Z
 ```
 
-Timestamp, actor, status, text — and the last heading says whose turn it is, so no state
-lives anywhere else. `DONE` hands to the reviewer, `REDO` hands back, `OK` ends it for both,
-`BLOCKED` stops and asks for a person, `ARGUS: STOP` is the board saying the rounds or the
-minutes you allowed are used up. A turn counts as finished only when its end line is there:
-otherwise the other one is still typing, and acting on half a review is worse than waiting a
-minute. The rules are written into the top of the file itself, so an agent that reads it cold
-needs nothing else, and `{bridge}` names it in a prompt the way `{plan}` names the plan.
+Timestamp, actor, status, text — all four inside the opening marker, named rather than
+positional, so a field left out is visible instead of shifting the others along. Extra ones
+are allowed and ignored (`round=2`, `tests=16/0`). The last turn says whose move it is, so no
+state lives anywhere else. `DONE` hands over, `REDO` hands back, `OK` ends it for both, `ASK`
+is a question the other one answers before doing anything else, `BLOCKED` stops and asks for a
+person, and `ARGUS: STOP` is the board saying the rounds or the minutes you allowed are used
+up. A turn counts as finished only when its `@END` is there: otherwise the other one is still
+typing, and acting on half a review is worse than waiting a minute.
+
+Both may write at once and nothing takes a lock: appending is safe, because the kernel will
+not let two appends land on top of each other. Writing a turn in *pieces* is not, so the rule —
+and the command the file gives you — is one append per turn.
+
+The rules are written into the top of the file itself, so an agent that reads it cold needs
+nothing else. Five placeholders carry the rest into the prompts: `{plan}`, `{bridge}`,
+`{every}` how often they read it, `{limit}` how long the whole run may take, and `{tries}` how
+many reads before giving up on something that is not coming.
 
 Nothing in this needs a browser. Close the tab and they carry on; what Argus does while it is
 open is read the same file — the pair note shows the last status, it rings on `OK` and on
@@ -426,9 +437,11 @@ two directional streams, [llm-handoff](https://github.com/choughton/llm-handoff)
 state files, and the field set is FIPA-ACL's and A2A's. This is the small readable end of that
 family: one file, both directions, markdown, so you can read it on a phone.
 
-**The prompts are ordinary templates.** They arrive in your library in two groups —
-*Two agents · together* and *Two agents · one reviews* — so you can open them, read exactly
-what your agents are being told, and change it. The set it ships with cannot be deleted;
+**The prompts are ordinary templates.** One per pattern, plus a nudge for when one of them
+stops reading the file. They arrive in your library in two groups — *Two agents · together*
+and *Two agents · one reviews* — so you can open them, read exactly what your agents are being
+told, and change it. One rule if you rewrite them: never start a line with a runnable command,
+because Argus types a prompt into a terminal and a shell will run it. The set it ships with cannot be deleted;
 editing one clears its *stock* mark, which is also how an unedited copy gets brought up to
 date when the wording improves without ever overwriting words you wrote.
 
