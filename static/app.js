@@ -8840,9 +8840,12 @@ const PAIR_BATONS = [
       + 'tmux session you are running in — `tmux display-message -p "#S"` if you do not know '
       + 'it. Sign everything with it.\n\n'
       + 'You talk to each other through one file, {bridge}, and nowhere else: neither of you '
-      + 'can see the other\u2019s terminal. Read it now — the rules are at the top of it — and '
-      + 'if it is not there yet, whichever of you gets there first writes it. A turn looks '
-      + 'like this, and every field a machine reads is in the opening marker:\n\n'
+      + 'can see the other\u2019s terminal. Read it now — the rules are at the top of it.\n\n'
+      + 'If it is not there yet, either of you may create it, but do it in a way that cannot '
+      + 'clobber the other one doing the same thing a second later: create it with the shell\u2019s '
+      + 'noclobber (`set -C` then a plain `>` redirect), and if that fails because it now '
+      + 'exists, read what the other one wrote instead. A turn looks like this, and every '
+      + 'field a machine reads is in the opening marker:\n\n'
       + '  @TURN who=<your session name> at=<UTC, from: date -u +%FT%TZ> status=DONE\n'
       + '  what you finished, in your own words\n'
       + '  @END at=<UTC>\n\n'
@@ -9426,6 +9429,12 @@ function bridgeHeader(goal, worker, reviewer, minutes, every, peers = false) {
     + `One command, so the two markers and the text arrive together and nobody ever reads half\n`
     + `of your turn. If what you have to say is long, write it to a scratch file and \`cat\` it\n`
     + `between the markers in the same single append.\n\n`
+    + `**Why one command matters.** You may both be writing at the same moment — nothing here\n`
+    + `takes a lock. Appending is safe: the operating system will not let two appends land on\n`
+    + `top of each other, so the worst that happens is that your turn follows theirs instead of\n`
+    + `preceding it, and the timestamps say which was which. What is *not* safe is writing your\n`
+    + `turn in pieces: the other one's turn can land in the middle of yours, and then the tail\n`
+    + `of yours belongs to nothing. Keep a turn to one append and this cannot happen.\n\n`
     + `@TURN who=ARGUS at=${new Date().toISOString().replace(/\.\d+Z$/, 'Z')} status=START`
     + ` deadline=${new Date(Date.now() + minutes * 60000).toISOString().replace(/\.\d+Z$/, 'Z')}`
     + ` every=${every}\n`
