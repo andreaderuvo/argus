@@ -983,6 +983,17 @@ def main(argv: list[str] | None = None) -> int:
         log_level="warning",
         ssl_certfile=str(tls[0]) if tls else None,
         ssl_keyfile=str(tls[1]) if tls else None,
+        # Stopping used to take a minute and a half — the service's kill timeout, every
+        # time. Not a hang: uvicorn's shutdown waits for open connections to end, and this
+        # app is *made* of connections that never end. A terminal's WebSocket stays open as
+        # long as the terminal is on screen, and the bell stream is by definition endless,
+        # so "wait for the clients to finish" waits for people to close browser tabs.
+        #
+        # Three seconds, then it closes them itself. Nothing is lost by cutting a terminal's
+        # socket: the tmux session it is attached to does not care, and the page reconnects
+        # on its own — which is now the difference between a restart you wait out and one
+        # you barely notice.
+        timeout_graceful_shutdown=3,
     )
     return 0
 

@@ -8821,23 +8821,35 @@ const PAIR_BATONS = [
       + 'You two talk through one file — {bridge} — and nowhere else. Neither of you can see\n'
       + 'the other\u2019s terminal. Read it now: the rules are at the top of it.\n\n'
       + 'If that file does not exist yet, **you make it** — the REVIEWER is waiting for it and\n'
-      + 'will not start until it is there. It needs a "# Bridge" heading, a line saying that\n'
-      + 'turns are append-only and that each one ends with a line reading <!-- /turn -->, and\n'
-      + 'then your first turn. Put a "Deadline:" line holding a UTC time thirty minutes from\n'
-      + 'now in that first turn, so you both know when to stop.\n\n'
+      + 'will not start until it is there. Write a "# Bridge" heading, the rules in your own\n'
+      + 'words (append only; a turn is the block between its two markers), and then your first\n'
+      + 'turn. A turn looks like this, and every field a machine reads is in the first marker:\n\n'
+      + '  @TURN who=WORKER at=<UTC, from: date -u +%FT%TZ> status=DONE\n'
+      + '  what you did, in your own words\n'
+      + '  @END at=<UTC>\n\n'
+      + 'On the first one add deadline=<UTC thirty minutes from now> to the @TURN line, so you\n'
+      + 'both know when to stop. Extra fields are fine and are ignored: round=2, tests=16/0.\n\n'
       + 'Write what you are attempting to {plan} under ## Goal before you start, then work in\n'
-      + 'small passes. At the end of each pass, run the tests and add a turn to the bridge —\n'
-      + 'status DONE, and a line or two on what changed. Append it; the file itself says how,\n'
-      + 'under "Add a turn with one command", and it must never be rewritten.\n\n'
+      + 'small passes. At the end of each pass, run the tests and add a turn with status=DONE\n'
+      + 'and a line or two on what changed. Append the whole turn — both markers and the text\n'
+      + '— in one go; the file shows the command under "Add a turn with one command". Never\n'
+      + 'rewrite the file.\n\n'
       + 'Then wait for the REVIEWER. Read {bridge} again every {every} seconds. Act only on a\n'
-      + 'turn that is *finished* — one with the end line under it; without it the other one\n'
-      + 'is still typing, so wait and read again. Then act on the last heading:\n'
+      + 'turn that is *finished* — one with its @END; without it the other one is still\n'
+      + 'typing, so wait and read again. Then act on the last turn:\n'
       + '  REVIEWER: REDO      read what it says, fix what it got right, and take another\n'
       + '                      pass. Say plainly in your next turn what you disagree with\n'
       + '                      and why — a review is not an order.\n'
+      + '  REVIEWER: ASK       a question for you. Answer it in a turn before carrying on.\n'
       + '  REVIEWER: OK        you are finished. Say so and stop.\n'
       + '  ARGUS: STOP         the rounds are used up. Stop and say so.\n'
-      + 'If you are stuck or need a person, add a turn with status BLOCKED and stop.\n\n'
+      + 'If the review says something you do not understand — a file you cannot find, a\n'
+      + 'judgement that seems to come from nowhere, a word used in two senses — do not guess.\n'
+      + 'Add a turn with status=ASK and the question in it, and wait for the answer the same\n'
+      + 'way you wait for anything else. A question costs one round; a wrong guess costs the\n'
+      + 'afternoon.\n\n'
+      + 'If you are stuck or need a person rather than the reviewer, add a turn with status\n'
+      + 'BLOCKED and stop.\n\n'
       + 'There is a Deadline in the first turn of {bridge} — put one there yourself if you are\n'
       + 'the one creating the file. Check it each time you read: once the clock is past it,\n'
       + 'add a BLOCKED turn saying you ran out of time, say in your terminal where you got to,\n'
@@ -8858,19 +8870,26 @@ const PAIR_BATONS = [
       + 'Something did not start, and a reviewer looping on an empty folder all night helps\n'
       + 'nobody.\n\n'
       + 'Wait for the WORKER. Read {bridge} every {every} seconds until its last turn is a\n'
-      + '*finished* WORKER: DONE — finished meaning the end line is under it; without that it\n'
-      + 'is still being written, so wait and read again. Then review what it did since the\n'
-      + 'turn before that one:\n'
+      + 'finished one with who=WORKER status=DONE — finished meaning it has its @END; without\n'
+      + 'that it is still being written, so wait and read again. Then review what it did since\n'
+      + 'the turn before that one:\n'
       + '  - read the diff against HEAD, not the description of it\n'
       + '  - cite exact files and line numbers\n'
       + '  - run the tests yourself, and try the failure case rather than reasoning about it\n'
       + '  - read ## Goal in {plan} and say whether the change serves it\n\n'
-      + 'Then add your turn to the bridge — status REDO or OK, and the review itself as the\n'
-      + 'text under it. It goes there, not in your terminal, where nobody can read it. Append\n'
-      + 'it the way the file says, under "Add a turn with one command"; never rewrite it.\n\n'
+      + 'Then add your turn — who=REVIEWER, status=REDO or status=OK, and the review itself as\n'
+      + 'the text between the markers. It goes there, not in your terminal, where nobody can\n'
+      + 'read it. Append the whole turn in one go, the way the file shows under "Add a turn\n'
+      + 'with one command"; never rewrite the file.\n\n'
       + 'Use REDO while it is not right, and OK the moment it is — OK ends the job for both\n'
       + 'of you, so do not spend it on something you have not checked. BLOCKED if you are\n'
-      + 'stuck or a person is needed. Then wait for the next WORKER: DONE.\n\n'
+      + 'stuck or a person is needed.\n\n'
+      + 'And if you cannot review it because you do not understand something — what a change\n'
+      + 'was for, where a file went, what an answer of theirs meant — use status=ASK with the\n'
+      + 'question instead of guessing and marking it REDO. A REDO for something you misread\n'
+      + 'sends them off to fix a thing that is not broken.\n\n'
+      + 'An ASK from the WORKER is your turn: answer it in a turn of your own before anything\n'
+      + 'else. Then wait for the next finished WORKER turn.\n\n'
       + 'There is a Deadline in the first turn of {bridge}. Check it each time you read the\n'
       + 'file: once the clock is past it, add a BLOCKED turn saying you ran out of time, say\n'
       + 'in your terminal where you got to, and stop. Do not keep going.\n'
@@ -9186,33 +9205,76 @@ const bridgePath = (folder) => `${(folder || '.').replace(/\/+$/, '')}/BRIDGE.ar
  *  it. */
 const pairEvery = () => Number(prefs.pairEvery) || 60;
 
+/* A turn is a block between two sentinels, and every field is *in* the opening one.
+ *
+ *      @TURN who=WORKER at=2026-08-18T09:14:02Z status=DONE
+ *      Added the cache and a test for the empty case. 48 tests pass.
+ *      @END at=2026-08-18T09:16:10Z
+ *
+ *  It began as a markdown heading — `## <timestamp> WORKER: DONE` — and the first real run
+ *  showed why that is not good enough: the agent wrote `## WORKER: DONE`, without the
+ *  timestamp, and a stray `TURN` line above it. A heading is prose that a parser is reading
+ *  over its shoulder, so every part of it is optional-looking. A sentinel is not: you either
+ *  wrote the line or you did not, and `who=`, `at=` and `status=` are named rather than
+ *  positional, so leaving one out is visible instead of shifting the others along.
+ *
+ *  The shape is FASTQ's, and for the same reason FASTQ has it: a record you can find the
+ *  start of without understanding the contents, and an end you can check for rather than
+ *  infer. `@` at the start of a line is plain text in markdown, so the file still reads as a
+ *  document — which `===` would not, since it would turn the line above into a heading.
+ *
+ *  Extra fields are allowed and ignored: `round=3`, `tests=16/0`, whatever a pair finds
+ *  worth carrying. Nothing here has to know about them for them to be useful to a person.
+ */
+const TURN_OPEN = /^@TURN\b[ \t]*(.*)$/;
+const TURN_SHUT = /^@END\b[ \t]*(.*)$/;
+// What it was before the sentinels, still read so a run that started this morning finishes.
 const BRIDGE_TURN = /^##\s+(\S+)\s+(WORKER|REVIEWER|ARGUS):\s*([A-Z]+)\b[ \t]*(.*)$/;
 
-/** The line that says a turn is finished.
+/** `who=WORKER at=… status=DONE` → an object. Values may be quoted when they have spaces in
+ *  them; most never do. */
+function turnFields(line) {
+  const out = {};
+  for (const bit of line.matchAll(/([\w.-]+)=("[^"]*"|\S+)/g)) {
+    out[bit[1].toLowerCase()] = bit[2].replace(/^"|"$/g, '');
+  }
+  return out;
+}
+
+/** The closing sentinel.
  *
- *  Without it a reader cannot tell "they have said their piece" from "they are halfway
+ *  Without one a reader cannot tell "they have said their piece" from "they are halfway
  *  through typing it" — and the answer matters, because the whole protocol is *act when the
- *  last turn is theirs*. Acting on half a review is worse than waiting a minute.
- *
- *  An HTML comment because markdown renders it as nothing: the file stays a document you
- *  read, and the marker is only there for whoever is parsing. A turn without it is still
- *  being written, and the ordinary way to add one — a single append that carries the whole
- *  turn, marker included — means the two states are never confused in the first place. */
-const BRIDGE_END = '<!-- /turn -->';
+ *  last turn is theirs*. Acting on half a review is worse than waiting a minute. */
+const BRIDGE_END = '@END';
+// Written by an earlier version; still recognised so a run in flight can finish.
+const BRIDGE_END_OLD = '<!-- /turn -->';
 
 /** Every turn in the file, oldest first. Anything that is not a heading belongs to the turn
  *  above it — which is what makes the format writable with one `printf`. */
 function bridgeTurns(text) {
   const turns = [];
   for (const line of (text || '').split('\n')) {
-    const said = BRIDGE_TURN.exec(line);
-    if (said) {
-      turns.push({ at: said[1], who: said[2], status: said[3], said: said[4].trim(), body: [], done: false });
-    } else if (turns.length && line.trim()) {
-      const one = turns[turns.length - 1];
-      if (line.trim() === BRIDGE_END) one.done = true;
-      else one.body.push(line);
+    const opened = TURN_OPEN.exec(line);
+    if (opened) {
+      const f = turnFields(opened[1]);
+      turns.push({
+        at: f.at || '?', who: (f.who || '?').toUpperCase(), status: (f.status || '?').toUpperCase(),
+        fields: f, said: '', body: [], done: false,
+      });
+      continue;
     }
+    const old = BRIDGE_TURN.exec(line);
+    if (old) {
+      turns.push({
+        at: old[1], who: old[2], status: old[3], fields: {}, said: old[4].trim(), body: [], done: false,
+      });
+      continue;
+    }
+    if (!turns.length || !line.trim()) continue;
+    const one = turns[turns.length - 1];
+    if (TURN_SHUT.test(line) || line.trim() === BRIDGE_END_OLD) one.done = true;
+    else if (!one.done) one.body.push(line);
   }
   // A turn with another turn under it was finished whether or not it said so: the writer has
   // moved on. Only the last one can still be in progress.
@@ -9227,53 +9289,71 @@ function bridgeHeader(goal, worker, reviewer, minutes, every) {
   return `# Bridge\n\n`
     + `${worker} and ${reviewer} pass work through this file. **Append only** — never edit or\n`
     + `delete a turn that is already here, including your own.\n\n`
-    + `A turn is one heading, the text under it, and a line saying it is finished:\n\n`
-    + `    ## <UTC timestamp> <WORKER|REVIEWER>: <STATUS>\n`
-    + `    what you did, or what is wrong with what they did, in your own words\n`
-    + `    ${BRIDGE_END}\n\n`
-    + `**A turn without that last line is still being written.** If the last turn in the file\n`
-    + `is not yours and has no \`${BRIDGE_END}\` under it, the other one is still typing: wait\n`
-    + `${every} seconds and read again. Acting on half a review is worse than waiting.\n\n`
+    + `A turn is a block between two markers. Everything a machine needs is in the first one,\n`
+    + `named rather than positional, so a missing field is visible instead of shifting the\n`
+    + `others along:\n\n`
+    + '```\n'
+    + `@TURN who=WORKER at=<UTC timestamp> status=DONE\n`
+    + `what you did, or what is wrong with what they did, in your own words\n`
+    + `@END at=<UTC timestamp>\n`
+    + '```\n\n'
+    + `\`who\` is WORKER or REVIEWER. \`at\` is UTC, \`date -u +%FT%TZ\`. \`status\` is one of the\n`
+    + `five below. Anything else you want to carry — \`round=3\`, \`tests=16/0\` — can go on the\n`
+    + `same line and will be ignored by everything except a person reading it.\n\n`
+    + `**A turn without its \`@END\` is still being written.** If the last turn in the file is\n`
+    + `not yours and has no \`@END\`, the other one is still typing: wait ${every} seconds and\n`
+    + `read again. Acting on half a review is worse than waiting.\n\n`
     + `The **last heading** says what happens next, and nothing else needs to be tracked:\n\n`
     + `| status | written by | means |\n`
     + `|---|---|---|\n`
     + `| \`DONE\` | ${worker} | a pass is finished — ${reviewer}'s turn |\n`
     + `| \`REDO\` | ${reviewer} | it is not right yet, and why — ${worker}'s turn |\n`
     + `| \`OK\` | ${reviewer} | it is right. Both stop. |\n`
+    + `| \`ASK\` | either | a question for the other one. It answers before doing anything else. |\n`
     + `| \`BLOCKED\` | either | stuck, or needs a person. Both stop and say so. |\n`
     + `| \`STOP\` | argus | out of rounds or out of time. Stop and say so. |\n\n`
+    + `\`ASK\` is worth using. Neither of you can see the other's screen, so a review you did\n`
+    + `not understand, a decision that seems to come from nowhere, a file you cannot find —\n`
+    + `ask, in a turn, and wait for the answer. Guessing what the other one meant is how two\n`
+    + `agents spend an afternoon solving different problems.\n\n`
     + `There is a **deadline** in the first turn below. Two agents who cannot agree will not\n`
     + `start agreeing at three in the morning: when the clock passes it, whoever notices adds\n`
     + `a BLOCKED turn saying so, and both stop.\n\n`
     + `Add a turn with one command, so the file is never rewritten and nothing is lost when\n`
     + `you both write at once — substitute your own role, status and text:\n\n`
     + '```sh\n'
-    + `printf '\\n## %s WORKER: DONE\\n%s\\n${BRIDGE_END}\\n' "$(date -u +%FT%TZ)" "one line on what changed" >> BRIDGE.argus.md\n`
+    + `now=$(date -u +%FT%TZ); printf '\\n@TURN who=WORKER at=%s status=DONE\\n%s\\n@END at=%s\\n' "$now" "what changed" "$now" >> BRIDGE.argus.md\n`
     + '```\n\n'
-    + `One command, so the heading, the text and the end line arrive together and nobody ever\n`
-    + `reads half of your turn. If your text is long, write it to a scratch file and \`cat\` it\n`
-    + `in the same way — heading, body and end line in one append.\n\n`
-    + `## ${new Date().toISOString().replace(/\.\d+Z$/, 'Z')} ARGUS: START\n`
-    + `Deadline: ${new Date(Date.now() + minutes * 60000).toISOString().replace(/\.\d+Z$/, 'Z')}\n`
+    + `One command, so the two markers and the text arrive together and nobody ever reads half\n`
+    + `of your turn. If what you have to say is long, write it to a scratch file and \`cat\` it\n`
+    + `between the markers in the same single append.\n\n`
+    + `@TURN who=ARGUS at=${new Date().toISOString().replace(/\.\d+Z$/, 'Z')} status=START`
+    + ` deadline=${new Date(Date.now() + minutes * 60000).toISOString().replace(/\.\d+Z$/, 'Z')}`
+    + ` every=${every}\n`
     + `${goal || '(the goal is in PLAN.argus.md, under ## Goal)'}\n`
-    + `${BRIDGE_END}\n`;
+    + `@END\n`;
 }
 
 /** When this run is meant to be over, from the file rather than from anything remembered. */
 function bridgeDeadline(turns) {
-  const start = turns.find((one) => one.who === 'ARGUS' && one.status === 'START');
-  const said = (start?.body || []).map((line) => /^Deadline:\s*(\S+)/.exec(line)).find(Boolean);
-  const when = said ? Date.parse(said[1]) : NaN;
+  const start = turns.find((one) => one.status === 'START') || turns[0];
+  if (!start) return null;
+  const inMarker = start.fields?.deadline;
+  const inBody = (start.body || []).map((line) => /^Deadline:\s*(\S+)/.exec(line)).find(Boolean);
+  const when = Date.parse(inMarker || inBody?.[1] || '');
   return Number.isNaN(when) ? null : when;
 }
 
 /** One turn, added. An append rather than a rewrite: two agents and a board all writing to
  *  the same file is exactly where read-modify-write loses somebody's work. */
-const addTurn = (path, who, status, said) => postJSON('/api/fs/write', {
-  path,
-  append: true,
-  content: `\n## ${new Date().toISOString().replace(/\.\d+Z$/, 'Z')} ${who}: ${status}\n${said}\n${BRIDGE_END}\n`,
-});
+const addTurn = (path, who, status, said) => {
+  const now = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
+  return postJSON('/api/fs/write', {
+    path,
+    append: true,
+    content: `\n@TURN who=${who} at=${now} status=${status}\n${said}\n@END at=${now}\n`,
+  });
+};
 
 /** What to put in, or nothing at all.
  *
@@ -9355,6 +9435,28 @@ function attachMessages(host, wsId, extras, deliver) {
   const list = el('div', { className: 'traylist msgpane' });
   host.append(list);
 
+  /** Everything the situation fills in, for this desk and this aim.
+   *
+   *  Written out by hand in four places, which is three too many: the preview was still
+   *  showing a literal `{bridge}` because it had never been told about it, and the gap check
+   *  had the same hole a day earlier. One function, four callers, and the next name added to
+   *  the list arrives everywhere at once.
+   */
+  const situationFor = (target, folder) => {
+    const here = folder || deliver.folder();
+    const from = target ? senderFor(target) : null;
+    return {
+      folder: here,
+      from: from?.name.slice(5) || '?',
+      to: target?.name.slice(5) || '?',
+      // The plan and the bridge belong to the desk, not to whichever pane is sending: that
+      // is where the pair sheet wrote them and where the note reads them from.
+      plan: planPath(deliver.folder()),
+      bridge: bridgePath(deliver.folder()),
+      every: pairEvery(),
+    };
+  };
+
   /** Who the message is coming *from*: the other terminal, since a message dropped on B
    *  is work being handed over by A. With one terminal it is that one. */
   const senderFor = (target) => {
@@ -9417,9 +9519,7 @@ function attachMessages(host, wsId, extras, deliver) {
     // a prompt sent by hand that pointed at a second, empty plan beside whatever directory
     // the sender happened to be in would be worse than useless.
     const known = {
-      folder: here, from: fromName, to: toName,
-      plan: planPath(deliver.folder()), bridge: bridgePath(deliver.folder()), every: pairEvery(),
-      ...allVars(wsId),
+      ...situationFor(target, here), from: fromName, to: toName, ...allVars(wsId),
     };
     // Everything the desk cannot fill in, before it goes rather than after.
     if (!await askAboutGaps(kind, target, gapsIn(kind.text, known))) return;
@@ -9549,16 +9649,7 @@ function attachMessages(host, wsId, extras, deliver) {
         let uses = null;
         const takes = varsIn(kind.text);
         if (takes.length) {
-          const here = {
-            folder: deliver.folder(), from: '?', to: '?',
-            plan: planPath(deliver.folder()), bridge: bridgePath(deliver.folder()), every: pairEvery(),
-            ...allVars(wsId),
-          };
-          const aimed = deliver.aim();
-          if (aimed) {
-            here.to = aimed.name.slice(5);
-            here.from = senderFor(aimed)?.name.slice(5) || here.to;
-          }
+          const here = { ...situationFor(deliver.aim()), ...allVars(wsId) };
           uses = el('div', { className: 'usesline' });
           const said = [];
           for (const name of takes) {
@@ -9593,19 +9684,17 @@ function attachMessages(host, wsId, extras, deliver) {
         let peeking = null;
         const showPeek = () => {
           const target = deliver.aim();
-          const from = target ? senderFor(target) : null;
-          const known = {
-            folder: deliver.folder(),
-            from: from?.name.slice(5) || '',
-            to: target?.name.slice(5) || '',
-            ...allVars(wsId),
-          };
+          const known = { ...situationFor(target), ...allVars(wsId) };
           const short = gapsIn(kind.text, known);
           peek = el('div', { className: 'promptpeek' }, [
             el('div', { className: 'peekname', textContent: kind.name }),
             el('pre', { textContent: fillBaton(kind.text, known) }),
             short.length ? el('p', { className: 'peekgap', textContent: t('nothing to put in {list}', { list: short.map((g) => `{${g}}`).join(' ') }) }) : null,
           ].filter(Boolean));
+          // Reaching the panel keeps it; leaving the panel closes it. Scrolling inside it is
+          // then just scrolling.
+          peek.addEventListener('pointerenter', () => clearTimeout(going));
+          peek.addEventListener('pointerleave', letGo);
           document.body.append(peek);
           const box = row.getBoundingClientRect();
           const wide = peek.getBoundingClientRect();
@@ -9615,11 +9704,25 @@ function attachMessages(host, wsId, extras, deliver) {
           peek.style.left = `${Math.max(8, left)}px`;
           peek.style.top = `${Math.max(8, Math.min(box.top, window.innerHeight - wide.height - 8))}px`;
         };
+        /* Closing it, but not the moment the pointer leaves the row.
+         *
+         *  A long prompt does not fit in the panel, and the panel scrolls — except the way
+         *  to it is across the gap between the row and the panel, and leaving the row shut
+         *  it instantly. So there is a beat before it goes, and reaching the panel cancels
+         *  it: the ordinary hover-card behaviour, which is only worth spelling out because
+         *  getting it wrong makes the panel look like it is running away from you. */
+        let going = null;
         const hidePeek = () => {
           clearTimeout(peeking);
+          clearTimeout(going);
           peeking = null;
+          going = null;
           peek?.remove();
           peek = null;
+        };
+        const letGo = () => {
+          clearTimeout(going);
+          going = setTimeout(hidePeek, 260);
         };
         // Pointer events rather than a media query: the event itself says whether a mouse
         // did this, which is the thing that matters and is right on the hybrids a query
@@ -9629,7 +9732,7 @@ function attachMessages(host, wsId, extras, deliver) {
           if (e.pointerType !== 'mouse') return;
           peeking = setTimeout(showPeek, 320);
         });
-        row.addEventListener('pointerleave', hidePeek);
+        row.addEventListener('pointerleave', letGo);
         row.addEventListener('pointerdown', hidePeek);
 
         // For the times a word needs changing before it goes. Not saved anywhere: this is
@@ -9639,11 +9742,7 @@ function attachMessages(host, wsId, extras, deliver) {
           e.stopPropagation();
           const target = deliver.aim();
           if (!target) return toast(t('no session in this desk to send it to'), true);
-          const from = senderFor(target);
-          const known = {
-            folder: deliver.folder(), from: from?.name.slice(5) || '', to: target.name.slice(5),
-            plan: planPath(deliver.folder()), bridge: bridgePath(deliver.folder()), every: pairEvery(), ...allVars(wsId),
-          };
+          const known = { ...situationFor(target), ...allVars(wsId) };
           const note = el('textarea', { className: 'baton', spellcheck: false, rows: 7, value: kind.text });
           const shown = el('pre', { className: 'batonpreview' });
           // Edited here, so the gaps move as you type: filling one in by hand is half of
