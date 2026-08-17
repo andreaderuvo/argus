@@ -3849,8 +3849,8 @@ async function screenMessages(open = null) {
     to: 'codex',
     plan: planPath(deskHome(ws)),
     bridge: bridgePath(deskHome(ws)),
-    every: pairEvery(),
-    limit: pairLimit(),
+    every: saidAs(pairEvery(), 'second'),
+    limit: saidAs(pairLimit(), 'minute'),
     tries: pairTries(),
     ...groundVars(),
     ...(previewSet === GROUND ? {} : varSetNamed(previewSet)?.vars || {}),
@@ -4216,8 +4216,8 @@ async function screenMessages(open = null) {
           ['to', t('the session it is going to'), null],
           ['plan', t('the file two agents share when they work on one thing'), planPath(here)],
           ['bridge', t('the file two agents talk through, turn by turn'), bridgePath(here)],
-          ['every', t('how often they look at the bridge — set when you start a pair, and remembered'), `${pairEvery()}`],
-          ['limit', t('the whole run\u2019s budget in minutes, from the same place'), `${pairLimit()}`],
+          ['every', t('how often they look at the bridge — set when you start a pair, and remembered'), saidAs(pairEvery(), 'second')],
+          ['limit', t('the whole run\u2019s budget, from the same place'), saidAs(pairLimit(), 'minute')],
           ['tries', t('how many times to look for something that may never come'), `${pairTries()}`],
         ];
         situ.replaceChildren(el('p', { className: 'hint', textContent: t('Always there, filled from the situation itself — every prompt Argus comes with is written around these and nothing else.') }));
@@ -7345,7 +7345,7 @@ async function screenWall() {
       const windowFor = (name) => terms.find((o) => o.name === `term:${name}`);
       const known = {
         folder, plan: path, bridge: bridgePath(folder),
-        every: pairEvery(), limit: pairLimit(), tries: pairTries(),
+        every: saidAs(pairEvery(), 'second'), limit: saidAs(pairLimit(), 'minute'), tries: pairTries(),
         from: first, to: second,
         ...allVars(activeSpace().id),
       };
@@ -8838,14 +8838,14 @@ const PAIR_BATONS = [
       + '  @TURN who=WORKER at=<UTC, from: date -u +%FT%TZ> status=DONE\n'
       + '  what you did, in your own words\n'
       + '  @END at=<UTC>\n\n'
-      + 'On the first one add deadline=<UTC, {limit} minutes from now> to the @TURN line, so '
+      + 'On the first one add deadline=<UTC, {limit} from now> to the @TURN line, so '
       + 'you both know when to stop. Extra fields are fine and ignored: round=2, tests=16/0.\n\n'
       + 'Write what you are attempting to {plan} under ## Goal before you start, then work in '
       + 'small passes. At the end of each pass, run the tests and add a turn with status=DONE '
       + 'and a line or two on what changed. Append the whole turn — both markers and the text '
       + '— in one go; the file shows the command under "Add a turn with one command". Never '
       + 'rewrite the file.\n\n'
-      + 'Then wait for the REVIEWER. Read {bridge} again every {every} seconds. Act only on a '
+      + 'Then wait for the REVIEWER. Read {bridge} again every {every}. Act only on a '
       + 'turn that is *finished* — one with its @END; without it the other one is still '
       + 'typing, so wait and read again. Then act on the last turn:\n'
       + '  REVIEWER: REDO      read what it says, fix what it got right, and take another\n'
@@ -8861,7 +8861,7 @@ const PAIR_BATONS = [
       + 'afternoon.\n\n'
       + 'If you are stuck or need a person rather than the reviewer, add a turn with status '
       + 'BLOCKED and stop.\n\n'
-      + 'The whole run has {limit} minutes. The deadline is in the first turn of {bridge} — '
+      + 'The whole run has {limit}. The deadline is in the first turn of {bridge} — '
       + 'put one there yourself if you are the one creating the file. Check it each time you '
       + 'read: once the clock is past it, '
       + 'add a BLOCKED turn saying you ran out of time, say in your terminal where you got to, '
@@ -8876,12 +8876,12 @@ const PAIR_BATONS = [
       + 'You two talk through one file — {bridge} — and nowhere else. Neither of you can see '
       + 'the other\u2019s terminal. Read it now: the rules are at the top of it.\n\n'
       + 'If that file does not exist yet, the WORKER has not started. Do not create it and do '
-      + 'not review anything — there is nothing to review. Read again every {every} seconds '
+      + 'not review anything — there is nothing to review. Read again every {every} '
       + 'until it appears, and if it still is not there after {tries} reads, stop: say in your '
       + 'terminal that the bridge never appeared and that you are not waiting any longer. '
       + 'Something did not start, and a reviewer looping on an empty folder all night helps '
       + 'nobody.\n\n'
-      + 'Wait for the WORKER. Read {bridge} every {every} seconds until its last turn is a '
+      + 'Wait for the WORKER. Read {bridge} every {every} until its last turn is a '
       + 'finished one with who=WORKER status=DONE — finished meaning it has its @END; without '
       + 'that it is still being written, so wait and read again. Then review what it did since '
       + 'the turn before that one:\n'
@@ -8902,7 +8902,7 @@ const PAIR_BATONS = [
       + 'sends them off to fix a thing that is not broken.\n\n'
       + 'An ASK from the WORKER is your turn: answer it in a turn of your own before anything '
       + 'else. Then wait for the next finished WORKER turn.\n\n'
-      + 'The whole run has {limit} minutes, and the deadline is in the first turn of {bridge}. '
+      + 'The whole run has {limit}, and the deadline is in the first turn of {bridge}. '
       + 'Check it each time you read the file: once the clock is past it, add a BLOCKED turn '
       + 'saying you ran out of time, say in your terminal where you got to, and stop. '
       + 'Never edit or delete a turn — the file is append-only, including your own turns.',
@@ -8912,7 +8912,7 @@ const PAIR_BATONS = [
     name: 'Nudge (if one of them has gone quiet)',
     text: 'Read {bridge}. The last turn in it is not yours and you have not answered it. '
       + 'Do what it asks, add your turn to the file the way the rules at the top of it say, '
-      + 'and carry on reading it every {every} seconds.',
+      + 'and carry on reading it every {every}.',
   },
 ];
 
@@ -9217,6 +9217,17 @@ const bridgePath = (folder) => `${(folder || '.').replace(/\/+$/, '')}/BRIDGE.ar
  *  it. */
 const pairEvery = () => Number(prefs.pairEvery) || 60;
 
+/** A duration as an agent should read it: the number *and* what it is counting.
+ *
+ *  These are substituted into a sentence somebody else has to act on, and "read it again
+ *  every 60" is an instruction with a hole in it — 60 what. The unit travels with the number
+ *  so no prompt can be written that loses it, and the value shown on the Placeholders screen
+ *  answers the same question without a legend.
+ *
+ *  English, not translated: what goes into a prompt is read by an agent, and the stock
+ *  prompts around it are English. The interface's own words are translated as ever. */
+const saidAs = (n, unit) => `${n} ${unit}${n === 1 ? '' : 's'}`;
+
 /** The whole run's budget, in minutes — the other number the sheet asks for, and the one an
  *  agent needs in its own prompt: "you have thirty minutes" is a different instruction from
  *  "check back every sixty seconds", and a prompt written by hand had no way to say it. */
@@ -9481,8 +9492,9 @@ function attachMessages(host, wsId, extras, deliver) {
       // is where the pair sheet wrote them and where the note reads them from.
       plan: planPath(deliver.folder()),
       bridge: bridgePath(deliver.folder()),
-      every: pairEvery(),
-      limit: pairLimit(),
+      every: saidAs(pairEvery(), 'second'),
+      limit: saidAs(pairLimit(), 'minute'),
+      // A count, not a duration: "after 10 reads" already says what it counts.
       tries: pairTries(),
     };
   };

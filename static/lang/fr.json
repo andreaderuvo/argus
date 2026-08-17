@@ -551,7 +551,7 @@
   "the time you were given ran out. Stop here and say where you got to.": "le temps accordé est écoulé. Arrêtez-vous ici et dites où vous en êtes.",
   "the tray": "le plateau",
   "the whole page, the width, or whatever zoom the browser had": "la page entière, la largeur, ou le zoom qu'avait le navigateur",
-  "the whole run’s budget in minutes, from the same place": "le budget total de la session en minutes, au même endroit",
+  "the whole run’s budget, from the same place": "le budget total de la session, au même endroit",
   "the working directory of the session handing over": "le répertoire de travail de la session qui passe le relais",
   "there is no other session in this desk to hand to": "il n'y a pas d'autre session dans ce bureau",
   "there is no set called {set} — there is {list}": "aucun ensemble nommé {set} — il y a {list}",
