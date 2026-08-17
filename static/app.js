@@ -4412,12 +4412,14 @@ function paintRailWindows() {
 function applyRail() {
   document.body.classList.toggle('railwide', !!prefs.railWide);
   const wide = !!prefs.railWide;
-  railToggle.title = wide ? t('Narrower') : t('Wider');
+  // "Collapse" rather than "Narrower". The width is what the button changes, but the reader
+  // of a label wants the idiom they already know from every other sidebar — the first person
+  // to see the word written out beside the icon asked what it meant, which settles it.
+  const does = wide ? t('Collapse') : t('Expand');
+  railToggle.title = does;
   railToggle.setAttribute('aria-expanded', String(wide));
-  // Named like everything else once there is room for a name. The word is the action, not
-  // the state: "Narrower" is what the button does, which is what a label on a button means.
   const said = railToggle.querySelector('.railname');
-  if (said) said.textContent = wide ? t('Narrower') : t('Wider');
+  if (said) said.textContent = does;
   const panel = sideToggle?.querySelector('.railname');
   if (panel) panel.textContent = t('File sidebar');
 }
