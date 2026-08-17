@@ -8838,9 +8838,10 @@ const PAIR_BATONS = [
       + '  REVIEWER: OK        you are finished. Say so and stop.\n'
       + '  ARGUS: STOP         the rounds are used up. Stop and say so.\n'
       + 'If you are stuck or need a person, add a turn with status BLOCKED and stop.\n\n'
-      + 'There is a Deadline in the first turn of {bridge}. Check it each time you read the\n'
-      + 'file: once the clock is past it, add a BLOCKED turn saying you ran out of time, say\n'
-      + 'in your terminal where you got to, and stop. Do not keep going.\n'
+      + 'There is a Deadline in the first turn of {bridge} — put one there yourself if you are\n'
+      + 'the one creating the file. Check it each time you read: once the clock is past it,\n'
+      + 'add a BLOCKED turn saying you ran out of time, say in your terminal where you got to,\n'
+      + 'and stop. Do not keep going.\n'
       + 'Never edit or delete a turn — the file is append-only, including your own turns.',
   },
   {
@@ -8852,7 +8853,10 @@ const PAIR_BATONS = [
       + 'the other\u2019s terminal. Read it now: the rules are at the top of it.\n\n'
       + 'If that file does not exist yet, the WORKER has not started. Do not create it and do\n'
       + 'not review anything — there is nothing to review. Read again every {every} seconds\n'
-      + 'until it appears.\n\n'
+      + 'until it appears, and if it still is not there after ten reads, stop: say in your\n'
+      + 'terminal that the bridge never appeared and that you are not waiting any longer.\n'
+      + 'Something did not start, and a reviewer looping on an empty folder all night helps\n'
+      + 'nobody.\n\n'
       + 'Wait for the WORKER. Read {bridge} every {every} seconds until its last turn is a\n'
       + '*finished* WORKER: DONE — finished meaning the end line is under it; without that it\n'
       + 'is still being written, so wait and read again. Then review what it did since the\n'
