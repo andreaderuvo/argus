@@ -2954,7 +2954,9 @@ async function handoffSheet() {
   const picker = el('div', { className: 'sheetbody actions' });
 
   const show = async (host) => {
-    const url = `${scheme}://${host}:${info.port}/?token=${encodeURIComponent(info.token)}`;
+    // The same fragment form the banner prints: this is a handoff link, and it is the one
+    // most likely to be photographed, saved and reopened.
+    const url = `${scheme}://${host}:${info.port}/#token=${encodeURIComponent(info.token)}`;
     label.textContent = url;
     holder.textContent = t('drawing…');
     try {
@@ -4017,7 +4019,13 @@ async function screenTmuxConf() {
   let text = '';
   let mtime = 0;
   try {
-    const r = await fetch(withToken(`/api/file?path=${encodeURIComponent(path)}`));
+    // A `fetch` can carry the header, so it does. `withToken` exists for `<img src>`, for a
+    // download the browser navigates to, and for a websocket — the three places where no
+    // header is possible — and using it anywhere else puts the token in a request line for
+    // nothing.
+    const r = await fetch(`/api/file?path=${encodeURIComponent(path)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
     if (r.ok) {
       text = await r.text();
       mtime = Number(r.headers.get('x-mtime') || 0);
@@ -7024,7 +7032,13 @@ async function wearLook(look) {
   let text = '';
   let mtime = 0;
   try {
-    const r = await fetch(withToken(`/api/file?path=${encodeURIComponent(path)}`));
+    // A `fetch` can carry the header, so it does. `withToken` exists for `<img src>`, for a
+    // download the browser navigates to, and for a websocket — the three places where no
+    // header is possible — and using it anywhere else puts the token in a request line for
+    // nothing.
+    const r = await fetch(`/api/file?path=${encodeURIComponent(path)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
     if (r.ok) {
       text = await r.text();
       mtime = Number(r.headers.get('x-mtime') || 0);
