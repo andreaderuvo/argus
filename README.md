@@ -353,18 +353,19 @@ because doing it by hand is four things in the right order and getting the last 
 is what ruins the afternoon.
 
 There is no protocol here and there is deliberately no attempt at one. Two agents on one
-machine share a filesystem, and what you can arbitrate with is a file both of them can
-read. So the button writes **`PLAN.argus.md`** in the desk's folder and sends each of them
-a prompt that points at it. Nothing is installed in the agent, and nothing is asked of it
-that it cannot already do — which is why it works the same with Claude Code, Codex, Gemini
-or a script that reads its own instructions.
+machine share a filesystem, and what you can arbitrate with is a file both of them can read.
+So the button writes two files in the desk's folder — **`PLAN.argus.md`**, what they are
+trying to do, and **`BRIDGE.argus.md`**, what they say to each other — and sends each of them
+a prompt that points at both. Nothing is installed in the agent, and nothing is asked of it
+that it cannot already do: read a file, append to a file, wait a minute. Which is why it
+works the same with Claude Code, Codex, Gemini or a script that reads its own instructions.
 
 **Two patterns, and they differ in behaviour rather than wording.**
 
 | | |
 |---|---|
 | **Together, without stepping on each other** | Both work towards one goal. The plan lists every file with **one owner**, and neither may touch the other's. Need something that is not yours? Write it under `## Blocked` and **stop** — that turns a collision into a line in a file instead of a lost afternoon. One prompt goes to both, through the chain, which is then unhooked. |
-| **One builds, the other reviews** | One writes and never marks its own work correct. The other reads the diff, never edits the work, and writes its review to **`REVIEW.argus.md`** beside the plan — the two cannot see each other's terminals, so a review printed into a pane is a review nobody reads. It then ends in its terminal on `VERDICT: OK` or `VERDICT: REDO`. |
+| **One builds, the other reviews** | One writes and never marks its own work correct. The other reads the diff and never edits the work. They pass it back and forth through the bridge — the two cannot see each other's terminals, so a review printed into a pane is a review nobody reads. |
 
 **The desk says a pair is on it.** A note in the toolbar reads the plan file rather than a
 flag somebody set — a flag says what was *started*, and what you want to know is what is
@@ -372,13 +373,11 @@ flag somebody set — a flag says what was *started*, and what you want to know 
 the plan; after twenty minutes of silence it turns amber, because at that point both
 terminals still look busy and the pair has stopped. Clicking it opens the plan.
 
-**Closing the loop, if you ask for it.** Two sentences, one shape: the reviewer ends its
-turn on `VERDICT: OK` / `VERDICT: REDO`, the builder ends its turn on `HANDOVER: READY`.
-Both are lines a machine can read as easily as a person, so Argus reads them and passes the
-work along — builder to reviewer on a hand-over, reviewer to builder on a REDO, and on an OK
-it rings and stops. Only the agent whose turn it is can end the turn, and with the loop armed
-the builder goes first, since a reviewer sent in before anything exists reviews an empty
-repository. It is off unless you switch it on when
+**Letting them run, if you ask for it.** The switch when you start a pair adds the polling
+loop to both prompts and gives them two limits: how many passes they may take, and how long
+they have. Both go into the bridge, so they hold whether or not a browser is watching — and
+two agents who cannot agree will not start agreeing at three in the morning, which is what the
+deadline is for. It is off unless you switch it on when
 you start the pair, it is **per desk**, and it **counts down** — the note shows the rounds
 it has left rather than "on", and clicking it stops the loop there and then. Two agents
 bouncing a change between them for six hours unattended is not a feature.
@@ -396,10 +395,36 @@ Three things it does on purpose, each of which cost a round to learn:
   not move. The cost is a missed round, and for something that spends money while nobody
   is watching, missing one is the right way to be wrong.
 
-**Who owns what.** The builder writes the code and `## Goal`; the reviewer writes
-`REVIEW.argus.md` and one line in `## Rounds`. Ownership by file is the rule the together
-pattern runs on, and it is the same rule here — which is why the review is a file rather
-than a message. `{review}` names it in a prompt, the way `{plan}` names the plan.
+**The bridge.** One file, append-only, that both of them read every sixty seconds:
+
+```
+## 2026-08-18T09:14:02Z WORKER: DONE
+Added the cache and a test for the empty case. 48 tests pass.
+<!-- /turn -->
+
+## 2026-08-18T09:21:40Z REVIEWER: REDO
+src/pipeline.py:88 — the cache key ignores the scheme version, so a stale entry
+survives an update. The test passes because it never updates the scheme.
+<!-- /turn -->
+```
+
+Timestamp, actor, status, text — and the last heading says whose turn it is, so no state
+lives anywhere else. `DONE` hands to the reviewer, `REDO` hands back, `OK` ends it for both,
+`BLOCKED` stops and asks for a person, `ARGUS: STOP` is the board saying the rounds or the
+minutes you allowed are used up. A turn counts as finished only when its end line is there:
+otherwise the other one is still typing, and acting on half a review is worse than waiting a
+minute. The rules are written into the top of the file itself, so an agent that reads it cold
+needs nothing else, and `{bridge}` names it in a prompt the way `{plan}` names the plan.
+
+Nothing in this needs a browser. Close the tab and they carry on; what Argus does while it is
+open is read the same file — the pair note shows the last status, it rings on `OK` and on
+`BLOCKED`, and it writes `ARGUS: STOP` when the rounds or the deadline run out.
+
+The idea is not new and the neighbours are worth knowing:
+[claude-codex-handoff](https://github.com/OpenMOSS/claude-codex-handoff) does it in JSONL with
+two directional streams, [llm-handoff](https://github.com/choughton/llm-handoff) with markdown
+state files, and the field set is FIPA-ACL's and A2A's. This is the small readable end of that
+family: one file, both directions, markdown, so you can read it on a phone.
 
 **The prompts are ordinary templates.** They arrive in your library in two groups —
 *Two agents · together* and *Two agents · one reviews* — so you can open them, read exactly
