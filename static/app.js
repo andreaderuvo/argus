@@ -4414,6 +4414,12 @@ function applyRail() {
   const wide = !!prefs.railWide;
   railToggle.title = wide ? t('Narrower') : t('Wider');
   railToggle.setAttribute('aria-expanded', String(wide));
+  // Named like everything else once there is room for a name. The word is the action, not
+  // the state: "Narrower" is what the button does, which is what a label on a button means.
+  const said = railToggle.querySelector('.railname');
+  if (said) said.textContent = wide ? t('Narrower') : t('Wider');
+  const panel = sideToggle?.querySelector('.railname');
+  if (panel) panel.textContent = t('File sidebar');
 }
 
 function applySidebar() {

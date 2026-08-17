@@ -156,6 +156,10 @@ button.icon:active { background: var(--line); }
     cursor: pointer;
   }
   #sidetoggle:hover { color: var(--bright); }
+  /* Wide: a row like every other row. The two buttons in the rail were the only things in
+     it identified by an icon alone, which is fine while the rail is a strip of icons and
+     odd the moment everything beside them is a word. */
+  body.railwide #sidetoggle { justify-content: flex-start; gap: .65rem; padding: 0 .95rem; }
   body.side #sidetoggle { color: var(--accent); }
 
   body.side #shell { grid-template-columns: var(--side-w, 320px) 1fr; }
@@ -2316,6 +2320,14 @@ input.pdfat:focus { border-color: var(--accent); outline: none; }
     cursor: pointer;
   }
   #railtoggle:hover { color: var(--bright); }
+  body.railwide #railtoggle { justify-content: flex-start; gap: .65rem; padding: 0 .95rem; }
+  /* The words are in the markup either way — hidden narrow rather than absent, so the rail
+     widens into them instead of building them. */
+  #nav button.icon .railname {
+    font-size: .72rem; white-space: nowrap;
+    letter-spacing: .03em; text-transform: uppercase;   /* the same voice as the destinations */
+  }
+  body:not(.railwide) #nav button.icon .railname { display: none; }
 
   #nav a {
     flex: none;
