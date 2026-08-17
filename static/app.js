@@ -931,6 +931,48 @@ function entryRow(e, { href, onClick, refresh, dest, favGroup = 'main' }) {
   // Both of these live outside the row link, or tapping one would navigate.
   const side = dir ? [weighButton(e, meta)] : [];
   if (server?.allow_write && refresh) {
+    /* The two you do all day, on the row.
+     *
+     *  Everything a file can have done to it is behind the ⋮, which is right for moving,
+     *  copying and downloading — you do those thinking about it. Renaming and deleting are
+     *  not those: they are what you do to the thing you are already looking at, and going
+     *  through a sheet to reach them is three taps for a two-tap thought.
+     *
+     *  Only where there is a pointer. On a phone three targets in a row is a lottery, and
+     *  the ⋮ is one honest target with everything behind it. */
+    const quick = (glyph, label, fn) => {
+      const b = el('button', { className: 'more quick', type: 'button', title: label }, icon(glyph));
+      b.onclick = (ev) => { ev.preventDefault(); ev.stopPropagation(); fn(); };
+      return b;
+    };
+    side.push(quick('rename', t('Rename…'), async () => {
+      const name = await ask(t('Rename'), e.name, t('Rename'));
+      if (!name || name === e.name) return;
+      try {
+        await postJSON('/api/fs/rename', { path: e.path, name });
+        toast(t('renamed to {name}', { name }));
+        refreshAllBrowsers();
+      } catch (err) { toast(err.message, true); }
+    }));
+    side.push(quick('trash', t('Delete'), async () => {
+      if (!await confirmBox(t('Delete'), t('Delete {name}?', { name: e.name }))) return;
+      try {
+        try {
+          await postJSON('/api/fs/delete', { path: e.path });
+        } catch (err) {
+          // 409 is the server refusing to empty a folder without being told to.
+          if (err.status !== 409) throw err;
+          if (!await confirmBox(
+            t('Delete everything inside?'),
+            t('{name} is not empty. Delete it and all its contents?', { name: e.name }),
+            t('Delete all'),
+          )) return;
+          await postJSON('/api/fs/delete', { path: e.path, recursive: true });
+        }
+        toast(t('{name} deleted', { name: e.name }));
+        refreshAllBrowsers();
+      } catch (err) { toast(err.message, true); }
+    }));
     const menu = el('button', { className: 'more', type: 'button', title: t('Actions') }, icon('more'));
     menu.onclick = (ev) => { ev.preventDefault(); ev.stopPropagation(); fileActions(e, refresh, dest, favGroup); };
     side.push(menu);
