@@ -4916,9 +4916,41 @@ async function screenTerm(name) {
   ctrlBtn.onclick = () => { sticky = !sticky; ctrlBtn.classList.toggle('on', sticky); handle.focus(); };
 
   keys.append(ctrlBtn);
+  /* Held down, an arrow repeats — a real keyboard does, and one tap per character to get
+   *  back along a line is the sort of thing that makes you stop using the bar at all.
+   *
+   *  Only the arrows. Esc and Tab repeating would be a nuisance, and ^C repeating is the
+   *  kind of help nobody wants. */
+  const REPEATS = new Set(['\x1b[A', '\x1b[B', '\x1b[C', '\x1b[D']);
   const key = ([label, seq, hint]) => {
-    const b = el('button', { textContent: label, onclick: () => { handle.send(seq); handle.focus(); } });
+    const b = el('button', { textContent: label });
     if (hint) b.title = t(hint);
+    if (!REPEATS.has(seq)) {
+      b.onclick = () => { handle.send(seq); handle.focus(); };
+      return b;
+    }
+    let first;
+    let again;
+    const stop = () => { clearTimeout(first); clearInterval(again); };
+    b.addEventListener('pointerdown', (e) => {
+      e.preventDefault();          // or a phone starts selecting the label instead
+      handle.send(seq);
+      handle.focus();
+      // The same two numbers a desktop uses: a pause before it starts, then briskly.
+      first = setTimeout(() => { again = setInterval(() => handle.send(seq), 40); }, 400);
+    });
+    for (const done of ['pointerup', 'pointerleave', 'pointercancel']) {
+      b.addEventListener(done, stop);
+    }
+    // Reaching a button with Tab and pressing it fires a click and no pointer event at
+    // all, so moving the arrows onto pointerdown quietly took them away from anyone not
+    // using a pointer. Held keys already repeat by themselves here — the browser sends
+    // the keydowns — so this only has to fire once.
+    b.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      handle.send(seq);
+    });
     return b;
   };
   // Copy sits between the arrows and the control codes: on a 420px screen that is the
