@@ -8820,6 +8820,11 @@ const PAIR_BATONS = [
       + 'edits nothing, and you never mark your own work correct.\n\n'
       + 'You two talk through one file — {bridge} — and nowhere else. Neither of you can see\n'
       + 'the other\u2019s terminal. Read it now: the rules are at the top of it.\n\n'
+      + 'If that file does not exist yet, **you make it** — the REVIEWER is waiting for it and\n'
+      + 'will not start until it is there. It needs a "# Bridge" heading, a line saying that\n'
+      + 'turns are append-only and that each one ends with a line reading <!-- /turn -->, and\n'
+      + 'then your first turn. Put a "Deadline:" line holding a UTC time thirty minutes from\n'
+      + 'now in that first turn, so you both know when to stop.\n\n'
       + 'Write what you are attempting to {plan} under ## Goal before you start, then work in\n'
       + 'small passes. At the end of each pass, run the tests and add a turn to the bridge —\n'
       + 'status DONE, and a line or two on what changed. Append it; the file itself says how,\n'
@@ -8845,6 +8850,9 @@ const PAIR_BATONS = [
       + 'read it. You edit nothing.\n\n'
       + 'You two talk through one file — {bridge} — and nowhere else. Neither of you can see\n'
       + 'the other\u2019s terminal. Read it now: the rules are at the top of it.\n\n'
+      + 'If that file does not exist yet, the WORKER has not started. Do not create it and do\n'
+      + 'not review anything — there is nothing to review. Read again every {every} seconds\n'
+      + 'until it appears.\n\n'
       + 'Wait for the WORKER. Read {bridge} every {every} seconds until its last turn is a\n'
       + '*finished* WORKER: DONE — finished meaning the end line is under it; without that it\n'
       + 'is still being written, so wait and read again. Then review what it did since the\n'
@@ -9493,6 +9501,48 @@ function attachMessages(host, wsId, extras, deliver) {
          *  value this desk would give it, and the ones with nothing behind them in amber.
          *  A prompt that takes no placeholders gets no line — most of them do not.
          */
+        /** One value, edited where you found it.
+         *
+         *  Click it, type, Enter. It is written into the set this desk is on — the one named
+         *  at the top of this window — which is what "this desk's values" means, and why the
+         *  chip up there is worth having next to it. Escape leaves it alone; emptying it
+         *  leaves the name with nothing in it, which counts as missing everywhere else and
+         *  is a perfectly good way to say "ask me again later".
+         */
+        const fillable = (name, value, gone) => {
+          const cell = el('button', {
+            className: `was fillbtn${gone ? ' gone' : ''}`,
+            type: 'button',
+            title: t('Change it, for this desk'),
+            textContent: gone ? t('nothing here') : String(value),
+          });
+          cell.onclick = (ev) => {
+            ev.stopPropagation();
+            const box = el('input', {
+              type: 'text', className: 'fillbox', value: gone ? '' : String(value), spellcheck: false,
+            });
+            const done = (save) => {
+              if (save) {
+                const set = varSetNamed(deskSetName(wsId)) || varSetNamed(GROUND);
+                set.vars[name] = box.value.trim();
+                savePrefs();
+                messagesChanged();          // every other Prompts window says the same thing
+              }
+              draw();
+            };
+            box.onkeydown = (e) => {
+              if (e.key === 'Enter') { e.preventDefault(); done(true); }
+              if (e.key === 'Escape') { e.preventDefault(); done(false); }
+            };
+            box.onblur = () => done(true);
+            cell.replaceWith(box);
+            box.focus();
+            box.select();
+          };
+          return cell;
+        };
+
+        let uses = null;
         const takes = varsIn(kind.text);
         if (takes.length) {
           const here = {
@@ -9505,19 +9555,24 @@ function attachMessages(host, wsId, extras, deliver) {
             here.to = aimed.name.slice(5);
             here.from = senderFor(aimed)?.name.slice(5) || here.to;
           }
-          const line = el('span', { className: 'usesline' });
+          uses = el('div', { className: 'usesline' });
           const said = [];
           for (const name of takes) {
             const value = valueFor(name, here);
             const gone = value === undefined;
             said.push(`{${name}} ${gone ? '—' : value}`);
-            line.append(
+            uses.append(
               el('code', { className: gone ? 'gone' : '', textContent: `{${name}}` }),
-              el('span', { className: gone ? 'gone' : 'was', textContent: gone ? t('nothing here') : value }),
+              // The situation's own names are read-only here: {folder} is where the session
+              // is, and typing something else into it would not make it so. Yours are a
+              // value in a set, and a value in a set is a thing you can just change — from
+              // the window where you noticed it was wrong, rather than two screens away.
+              name in SITUATIONAL
+                ? el('span', { className: gone ? 'gone' : 'was', textContent: gone ? t('nothing here') : String(value) })
+                : fillable(name, value, gone),
             );
           }
-          line.title = said.join(' · ');
-          row.append(line);
+          uses.title = said.join(' · ');
         }
 
         dragLink(row, { text: kind.name, message: kind }, deliver.find, (item, target) => send(item.message, target));
@@ -9615,7 +9670,13 @@ function attachMessages(host, wsId, extras, deliver) {
           ]);
         };
 
-        folder.append(el('div', { className: 'trayline' }, [row, more]));
+        // The row is a button — tap it and the prompt goes — so the values cannot live
+        // inside it: a text box nested in a button is both invalid and unusable, and every
+        // click in it would have sent the prompt.
+        folder.append(el('div', { className: 'msgentry' }, [
+          el('div', { className: 'trayline' }, [row, more]),
+          uses,
+        ].filter(Boolean)));
       }
       list.append(folder);
     }
