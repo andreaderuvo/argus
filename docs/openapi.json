@@ -175,6 +175,11 @@
    },
    "WriteBody": {
     "properties": {
+     "append": {
+      "default": false,
+      "title": "Append",
+      "type": "boolean"
+     },
      "content": {
       "title": "Content",
       "type": "string"

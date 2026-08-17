@@ -550,6 +550,10 @@ input.sheetfind { width: 100%; margin: .2rem 0 .5rem; }
 /* Twenty minutes of silence: both terminals still look busy and the pair has stopped. */
 .winbtn.pairnote.stale, .winbtn.pairnote.stale .ico { color: var(--st-warning); }
 
+/* The last few turns of the bridge, in the sheet behind the pair note. */
+.bridgeturn { margin: 0 0 .5rem; font-size: .9rem; }
+.bridgeturn code { color: var(--accent); font-size: .8rem; }
+
 /* Handing back on its own: the one thing here that runs unattended, so the note goes the
    colour of something in progress and carries the rounds it has left rather than "on". */
 .winbtn.pairnote.looping .count { color: var(--good, var(--accent)); font-variant-numeric: tabular-nums; }
