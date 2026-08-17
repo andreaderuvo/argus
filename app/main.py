@@ -142,7 +142,12 @@ async def overview_of(app: FastAPI, watcher: dict | None = None) -> dict:
         # About the key that asked, not about the config: two boards can hold two watcher
         # tokens with different permissions. `None` means the main token or this machine
         # announcing itself, and neither is a board being offered a button.
-        "can_stop_argus": bool(watcher and watcher.get("may_run") and watcher.get("may_stop_argus")),
+        # Two ways to be stoppable, and a machine only ever has one of them. A board that
+        # polls holds a watcher token, and the answer is about that key. A machine that
+        # announces itself has no watcher at all — its permission is `board_may_stop_argus`,
+        # and saying so here is the only way the board can know to offer the button.
+        "can_stop_argus": bool(watcher.get("may_stop_argus")) if watcher
+        else bool(cfg.obey_board and cfg.board_may_stop_argus),
         "uptime": up,
         "serving": serving,
         "cores": cores,

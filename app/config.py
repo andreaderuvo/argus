@@ -159,10 +159,10 @@ class Config:
                     f"the runnable name {r['name']!r} may only hold letters, digits, "
                     "dots, dashes and underscores"
                 )
-        if self.obey_board and not self.runnable:
+        if self.obey_board and not self.runnable and not self.board_may_stop_argus:
             raise ConfigError(
-                "`obey_board` is on but `runnable` is empty — the board would have nothing "
-                "it could ask for"
+                "`obey_board` is on but there is nothing to obey — add `runnable` entries, or "
+                "`board_may_stop_argus: true` if stopping the server is the whole point"
             )
         if self.board_may_stop_argus and not self.obey_board:
             raise ConfigError(
@@ -170,12 +170,10 @@ class Config:
             )
         if self.obey_board and not self.report_to:
             raise ConfigError("`obey_board` is on but this machine announces itself nowhere")
-        for w in self.watchers:
-            if w.get("may_stop_argus") and not w.get("may_run"):
-                raise ConfigError(
-                    f"the watcher {w['name']!r} may stop Argus but not run anything — "
-                    "`may_stop_argus` needs `may_run` as well"
-                )
+        # `may_stop_argus` used to require `may_run`, which read as a tidy hierarchy and was
+        # a dead end in practice: a machine with nothing worth publishing as `runnable` could
+        # not be granted "stop the server" at all, because `may_run` with an empty list is
+        # refused. Stopping the server is not running something. They are separate now.
         if any(w.get("may_run") for w in self.watchers) and not self.runnable:
             raise ConfigError(
                 "a watcher is allowed to run things but `runnable` is empty — it would have "

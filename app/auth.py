@@ -24,7 +24,8 @@ WATCHER_PATHS = ("/api/overview",)
 # `/api/runnable/<name>/<action>` may only name something this machine already published in
 # its own config, and `/api/shutdown` stops this Argus and nothing else. The worst anything
 # holding the key can do is start or stop what you wrote down, or turn the server off — and
-# turning it off needs `may_stop_argus` on top, because only a person at a shell can undo it.
+# turning it off needs `may_stop_argus`, which stands on its own — a machine with nothing
+# worth publishing as `runnable` can still be one you want to be able to switch off.
 RUN_LIST = "/api/runnable"
 RUN_PREFIX = "/api/runnable/"
 STOP_PATH = "/api/shutdown"
@@ -107,7 +108,9 @@ class TokenAuthMiddleware:
             # has no use for it, and it is one more thing a read-only key would reveal.
             if watcher.get("may_run") and (path == RUN_LIST or path.startswith(RUN_PREFIX)):
                 allowed = True
-            if watcher.get("may_run") and watcher.get("may_stop_argus") and path == STOP_PATH:
+            # Its own permission, not a step above `may_run`: a machine can be stoppable
+            # without publishing anything to run.
+            if watcher.get("may_stop_argus") and path == STOP_PATH:
                 allowed = True
             if allowed and scope["type"] == "http":
                 # Which watcher this is, for a handler that wants to answer about the caller

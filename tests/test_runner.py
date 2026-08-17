@@ -110,12 +110,20 @@ def test_stopping_argus_needs_its_own_permission(tmp_path):
     assert client.post("/api/shutdown", headers=WEAK).status_code == 403
 
 
-def test_a_permission_that_cannot_work_is_refused_at_startup(tmp_path):
-    """`may_stop_argus` without `may_run` reads as allowed and behaves as forbidden."""
-    cfg = Config(token=FULL, roots=[tmp_path], runnable=list(OFFERED),
+def test_stopping_the_server_stands_on_its_own(tmp_path):
+    """It used to require `may_run`, which looked like a tidy hierarchy and was a dead end: a
+    machine with nothing worth publishing as `runnable` could not be granted "stop the server"
+    at all, because `may_run` with an empty list is refused. Stopping is not running."""
+    cfg = Config(token=FULL, roots=[tmp_path],
                  watchers=[{"name": "p", "token": WATCH, "may_run": False, "may_stop_argus": True}])
-    with pytest.raises(ConfigError):
-        cfg.validate()
+    cfg.validate()          # no runnable, no may_run, and perfectly coherent
+
+    client = TestClient(create_app(cfg))
+    weak = {"Authorization": f"Bearer {WATCH}"}
+    assert client.get("/api/overview", headers=weak).json()["can_stop_argus"] is True
+    # And nothing else opened along with it.
+    assert client.get("/api/runnable", headers=weak).status_code == 403
+    assert client.get("/api/files?path=/tmp", headers=weak).status_code == 403
 
 
 def test_offering_nothing_while_allowing_running_is_refused(tmp_path):
@@ -299,3 +307,21 @@ def test_the_overview_says_whether_the_asking_key_may_stop_it(tmp_path):
     # The main token is not a board and is offered nothing.
     assert allowed.get("/api/overview", headers={"Authorization": f"Bearer {FULL}"}
                        ).json()["can_stop_argus"] is False
+
+
+def test_a_machine_can_be_stoppable_by_a_board_without_offering_anything(tmp_path):
+    """The announce direction had the same dead end for the same reason. A box you want to be
+    able to switch off from the board is not thereby a box with work to publish."""
+    cfg = Config(token=FULL, roots=[tmp_path],
+                 report_to={"url": "http://board", "token": "x" * 20},
+                 obey_board=True, board_may_stop_argus=True)
+    cfg.validate()          # no runnable, and nothing wrong with that
+
+
+def test_obeying_with_genuinely_nothing_to_obey_is_still_refused(tmp_path):
+    """The check is not gone, only corrected: `obey_board` alone, with no runnable and no
+    permission to be stopped, is a setting that does nothing."""
+    cfg = Config(token=FULL, roots=[tmp_path],
+                 report_to={"url": "http://board", "token": "x" * 20}, obey_board=True)
+    with pytest.raises(ConfigError):
+        cfg.validate()
