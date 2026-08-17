@@ -530,9 +530,10 @@ watchers:
 That is what a board across several machines should hold: losing it loses a list of
 session names, not every box on it.
 
-The board itself is **[Panoptes](https://github.com/andreaderuvo/panoptes)** — one page
-showing every machine, which sessions are on it and which one is waiting for you, with a
-click through to that machine's own Argus. It is a separate project on purpose: Argus never
+The board itself is **[Panoptes](https://github.com/andreaderuvo/panoptes)**
+([in one page](https://andreaderuvo.github.io/panoptes/)) — one page showing every machine,
+which sessions are on it and which one is waiting for you, with a click through to that
+machine's own Argus. It is a separate project on purpose: Argus never
 depends on it, and if it goes away every Argus carries on alone.
 
 A machine the board cannot reach can announce itself instead, which is the case for two
