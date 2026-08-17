@@ -4364,7 +4364,11 @@ const RAIL_GLYPH = {
 };
 
 function railLabel(spec) {
-  if (spec.kind === 'links') return t('Links');
+  if (spec.kind === 'links') {
+    if (!spec.from || spec.from === prefs.ws) return t('Links');
+    const whose = (prefs.workspaces || []).find((w) => w.id === spec.from);
+    return t('Links · {desk}', { desk: whose?.name || `#${spec.from}` });
+  }
   if (spec.kind === 'messages') return t('Prompts');
   if (spec.kind === 'term') return spec.name;
   if (spec.kind === 'web') return spec.label || spec.url;
@@ -5735,9 +5739,14 @@ async function screenWall() {
       const id = specId(spec);
       const isFile = spec.kind === 'file';
       const isBrowser = spec.kind === 'browser';
+      const whoseLinks = spec.kind === 'links' && spec.from && spec.from !== ws.id
+        ? (workspaces().find((w) => w.id === spec.from)?.name || `#${spec.from}`)
+        : null;
       const label = spec.kind === 'term' ? spec.name
         : spec.kind === 'messages' ? t('Prompts')
-          : spec.kind === 'links' ? t('Links')
+          // Whose, when it is not this desk's. A tray quietly showing another desk's catch is
+          // the one thing here you could stare at for a while without working out.
+          : spec.kind === 'links' ? (whoseLinks ? t('Links · {desk}', { desk: whoseLinks }) : t('Links'))
           : spec.kind === 'web' ? (spec.label || spec.url)
             : (spec.path.split('/').pop() || spec.path);
 
@@ -5820,7 +5829,7 @@ async function screenWall() {
         folder: () => deskFolder(),
         raise: raiseWindow,
       })
-        : isTray ? attachTray(body, ws.id, extras, {
+        : isTray ? attachTray(body, spec.from || ws.id, extras, {
           find: (node) => open.find((o) => o.win === node),
           drop: deliverLink,
         })
@@ -5977,11 +5986,22 @@ async function screenWall() {
    *  windows on one tmux session is just two clients, which tmux has always allowed. */
   function relocate(spec, fromWs, toWs, entry, duplicate) {
     if (!toWs || toWs === fromWs) return;
-    const id = specId(spec);
-    if (!toWs.desktop.some((x) => specId(x) === id)) toWs.desktop = [...toWs.desktop, { ...spec }];
+    /* A duplicated link tray keeps reading the desk it came from.
+     *
+     *  Without that, "duplicate" gives you a tray showing the destination's own links — which
+     *  is not a copy of anything, it is a new empty tray with the same name. And since every
+     *  tray used to be identified as plain `links`, a desk that already had one swallowed the
+     *  copy and the button appeared to do nothing at all.
+     */
+    const moving = duplicate && spec.kind === 'links' && !spec.from
+      ? { ...spec, from: fromWs.id }
+      : { ...spec };
+    const id = specId(moving);
+    if (!toWs.desktop.some((x) => specId(x) === id)) toWs.desktop = [...toWs.desktop, moving];
 
     if (!duplicate) {
-      fromWs.desktop = fromWs.desktop.filter((x) => specId(x) !== id);
+      const leaving = specId(spec);
+      fromWs.desktop = fromWs.desktop.filter((x) => specId(x) !== leaving);
       const deck = decks.get(fromWs.id);
       if (deck && entry) {
         entry.handle.dispose();
@@ -6375,9 +6395,12 @@ async function screenWall() {
     const deck = deckFor(activeSpace());
     syncDeck(deck);
     for (const d of decks.values()) d.node.classList.toggle('on', d === deck);
-    // The toolbar belongs to the desk on screen: both of these say something about *this*
-    // desk, and left alone they went on showing the last one's numbers.
+    // The toolbar belongs to the desk on screen: these say something about *this* desk, and
+    // left alone they went on showing the last one's — the pair note read the plan of whichever
+    // desk happened to be active when the toolbar was built, which is right once and wrong
+    // every time after.
     deck.paintChain();
+    watchPair();
     paintTally();
     paintLayoutButton();
     drawTabs();
@@ -6767,6 +6790,7 @@ async function screenWall() {
       }
 
       sheet.close();
+      watchPair();
       toast(t('{a} and {b} are on it — the plan is in {path}', { a: first, b: second, path }));
     };
 
@@ -6781,6 +6805,56 @@ async function screenWall() {
     title: t('Set two sessions working on one goal'),
     onclick: pairSheet,
   }, [icon('relay'), el('span', { textContent: t('Two agents') })]));
+
+  /* Whether this desk has a pair on it, and whether they are still moving.
+   *
+   *  Read from the plan file rather than from a flag somebody set: a flag says what was
+   *  started, and what you want to know is what is *happening*. If the file is gone, so is the
+   *  arrangement; if nobody has written to it for twenty minutes, the pair has stopped even
+   *  though both terminals look busy — and that is the thing worth putting on screen, because
+   *  it is the one you would otherwise find out an hour later.
+   */
+  const pairNote = el('button', { className: 'winbtn wide pairnote', hidden: true });
+  tools.append(pairNote);
+
+  let pairClock = null;
+  async function readPair() {
+    const path = planPath(deskFolder());
+    try {
+      const r = await api(`/api/file?path=${encodeURIComponent(path)}`);
+      const text = await r.text();
+      const wrote = Number(r.headers.get('x-mtime') || 0);
+      // Which mode, from the shape of the file itself. The two templates differ in one
+      // heading, and reading that is more honest than remembering what was clicked.
+      const mode = /^##\s*Who\b/m.test(text) ? t('one reviews') : t('together');
+      const who = [...text.matchAll(/^-\s*(?:builds|reviews):\s*(\S+)/gm)].map((m) => m[1]);
+      const quiet = wrote ? (Date.now() / 1000) - wrote : 0;
+      pairNote.hidden = false;
+      pairNote.classList.toggle('stale', quiet > 20 * 60);
+      pairNote.title = t('The plan is {path} — last written {when}', { path, when: duration(quiet) });
+      pairNote.replaceChildren(
+        icon('relay'),
+        el('span', {}, [
+          el('span', { textContent: `${mode}${who.length === 2 ? ` · ${who.join(' → ')}` : ''}` }),
+          el('span', { className: 'count', textContent: ` ${duration(quiet)}` }),
+        ]),
+      );
+      pairNote.onclick = () => openLocated('wall', { path, type: 'file' }, null);
+    } catch {
+      // No plan, no pair. Not an error: it is the ordinary state of a desk.
+      pairNote.hidden = true;
+    }
+  }
+  // A declaration, not a const: `activate` calls this and is defined four hundred lines above,
+  // so a `let` would be unreachable from it until the module had run this far.
+  function watchPair() {
+    clearTimeout(pairClock);
+    readPair();
+    // Slow on purpose. This answers "are they still going", which changes on the scale of
+    // minutes; asking every few seconds would be a request per desk per breath for nothing.
+    pairClock = setTimeout(watchPair, 30000);
+  }
+  watchPair();
 
   /** Where this desk starts. A workspace is usually *about* something — one project, one
    *  run — so a browser opened in it should land there, not in the same home directory
@@ -8853,7 +8927,14 @@ function attachTray(host, wsId, extras, deliver) {
  *  except a file browser, which shows a *different* folder every time you click something.
  *  Those carry an id of their own, so two of them can sit in one desk on the same folder
  *  and neither loses its place in the layout when you navigate. */
-const specId = (spec) => (spec.kind === 'links' ? 'links'
+/* What makes two windows the same window.
+ *
+ *  A link tray used to be `links` and nothing else — one per desk, deliberately, because two
+ *  views of one list is a second thing to keep in step. But that also made "duplicate this
+ *  tray into another desk" do nothing at all, silently, whenever the other desk already had
+ *  one. A tray reading somebody else's desk is a genuinely different window, so it says which.
+ */
+const specId = (spec) => (spec.kind === 'links' ? (spec.from ? `links:${spec.from}` : 'links')
   : spec.kind === 'messages' ? 'messages'
   : spec.kind === 'term' ? `term:${spec.name}`
   : spec.kind === 'web' ? `web:${spec.url}`
