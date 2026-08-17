@@ -522,15 +522,28 @@ input.sheetfind { width: 100%; margin: .2rem 0 .5rem; }
    placeholder per line, in two columns, so the names line up and can be read down rather
    than picked out of a sentence. Each value is elided on its own line; the whole lot is
    in the row's tooltip as well. */
-.msgpane .trayrow { flex-wrap: wrap; }
+.msgentry { display: block; }
 .msgpane .usesline {
-  flex-basis: 100%; min-width: 0; margin: .2rem 0 .15rem 1.5rem;
+  min-width: 0; margin: .1rem 0 .35rem 1.5rem;
   display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0 .5rem;
   font-size: .73rem; color: var(--dim); text-align: left;
 }
 .msgpane .usesline code { color: var(--accent); font-size: .73rem; }
 .msgpane .usesline .was, .msgpane .usesline .gone {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* A value you can change, and it says so only when you are near it: a row of boxes would
+   turn a list you read into a form you fill in. */
+.msgpane .usesline button.fillbtn {
+  border: 1px solid transparent; border-radius: .3rem; padding: 0 .25rem;
+  background: none; color: inherit; font: inherit; text-align: left; cursor: text;
+  max-width: 100%;
+}
+.msgpane .usesline button.fillbtn:hover { border-color: var(--line); background: var(--bg); }
+.msgpane .usesline input.fillbox {
+  width: min(22rem, 70%); height: 22px; padding: 0 .3rem;
+  border: 1px solid var(--accent); border-radius: .3rem;
+  background: var(--bg); color: var(--text); font: inherit; font-size: .73rem;
 }
 .msgpane .usesline code.gone, .msgpane .usesline .gone { color: var(--st-warning); }
 
