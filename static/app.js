@@ -3851,6 +3851,7 @@ async function screenMessages(open = null) {
     bridge: bridgePath(deskHome(ws)),
     every: pairEvery(),
     limit: pairLimit(),
+    tries: pairTries(),
     ...groundVars(),
     ...(previewSet === GROUND ? {} : varSetNamed(previewSet)?.vars || {}),
   });
@@ -4217,6 +4218,7 @@ async function screenMessages(open = null) {
           ['bridge', t('the file two agents talk through, turn by turn'), bridgePath(here)],
           ['every', t('how often they look at the bridge — set when you start a pair, and remembered'), `${pairEvery()}`],
           ['limit', t('the whole run\u2019s budget in minutes, from the same place'), `${pairLimit()}`],
+          ['tries', t('how many times to look for something that may never come'), `${pairTries()}`],
         ];
         situ.replaceChildren(el('p', { className: 'hint', textContent: t('Always there, filled from the situation itself — every prompt Argus comes with is written around these and nothing else.') }));
         const table = el('div', { className: 'situgrid' });
@@ -7286,6 +7288,7 @@ async function screenWall() {
     // silly for two taking thirty-second ones, so it is yours — and it is remembered, since
     // whatever suits your agents this week will suit them next week too.
     const every = el('input', { type: 'number', className: 'pairrounds', min: '10', max: '900', value: String(pairEvery()) });
+    const tries = el('input', { type: 'number', className: 'pairrounds', min: '2', max: '100', value: String(pairTries()) });
     const auto = el('div', { className: 'pairauto' }, [
       el('label', { className: 'pairrow' }, [
         loopOn, el('span', { className: 'grow', textContent: t('Let them keep going on their own') }),
@@ -7298,6 +7301,8 @@ async function screenWall() {
       ]),
       el('label', { className: 'pairrow' }, [
         el('span', { textContent: t('checking every') }), every, el('span', { textContent: t('seconds') }),
+        el('span', { textContent: t('and giving up after') }), tries,
+        el('span', { textContent: t('tries') }),
       ]),
       el('p', { className: 'hint', textContent: t('Both start at once and pass the work through BRIDGE.argus.md, checking it every 60 seconds — no browser needed. Argus reads the same file: it rings when the reviewer says OK, and writes ARGUS: STOP into it when the rounds run out.') }),
     ]);
@@ -7320,6 +7325,7 @@ async function screenWall() {
       // are filled in *with*.
       prefs.pairEvery = Math.max(10, Math.min(900, Number(every.value) || 60));
       prefs.pairMinutes = Math.max(5, Math.min(480, Number(minutes.value) || 30));
+      prefs.pairTries = Math.max(2, Math.min(100, Number(tries.value) || 10));
       savePrefs();
       try {
         await postJSON('/api/fs/write', { path, content: mode.plan(goal.value.trim(), first, second) });
@@ -7338,7 +7344,8 @@ async function screenWall() {
 
       const windowFor = (name) => terms.find((o) => o.name === `term:${name}`);
       const known = {
-        folder, plan: path, bridge: bridgePath(folder), every: pairEvery(), limit: pairLimit(),
+        folder, plan: path, bridge: bridgePath(folder),
+        every: pairEvery(), limit: pairLimit(), tries: pairTries(),
         from: first, to: second,
         ...allVars(activeSpace().id),
       };
@@ -8870,7 +8877,7 @@ const PAIR_BATONS = [
       + 'the other\u2019s terminal. Read it now: the rules are at the top of it.\n\n'
       + 'If that file does not exist yet, the WORKER has not started. Do not create it and do '
       + 'not review anything — there is nothing to review. Read again every {every} seconds '
-      + 'until it appears, and if it still is not there after ten reads, stop: say in your '
+      + 'until it appears, and if it still is not there after {tries} reads, stop: say in your '
       + 'terminal that the bridge never appeared and that you are not waiting any longer. '
       + 'Something did not start, and a reviewer looping on an empty folder all night helps '
       + 'nobody.\n\n'
@@ -9215,6 +9222,12 @@ const pairEvery = () => Number(prefs.pairEvery) || 60;
  *  "check back every sixty seconds", and a prompt written by hand had no way to say it. */
 const pairLimit = () => Number(prefs.pairMinutes) || 30;
 
+/** How many times to look for something that may never come. The reviewer waits for a bridge
+ *  the worker has not created yet, and "until it appears" with no end to the sentence is how
+ *  a reviewer ends up polling an empty folder all night. Counted in reads rather than minutes
+ *  because it then scales with `{every}` on its own. */
+const pairTries = () => Number(prefs.pairTries) || 10;
+
 /* A turn is a block between two sentinels, and every field is *in* the opening one.
  *
  *      @TURN who=WORKER at=2026-08-18T09:14:02Z status=DONE
@@ -9417,7 +9430,9 @@ function fillBaton(text, known) {
  *  that only need to know *whether* a name will be filled — never whether the value is any
  *  good. One list, because it has now been written out three times and one of the copies
  *  was two names short. */
-const SITUATIONAL = { folder: '.', from: '?', to: '?', plan: '?', bridge: '?', every: '?', limit: '?' };
+const SITUATIONAL = {
+  folder: '.', from: '?', to: '?', plan: '?', bridge: '?', every: '?', limit: '?', tries: '?',
+};
 
 const varsIn = (text) => {
   const names = [];
@@ -9468,6 +9483,7 @@ function attachMessages(host, wsId, extras, deliver) {
       bridge: bridgePath(deliver.folder()),
       every: pairEvery(),
       limit: pairLimit(),
+      tries: pairTries(),
     };
   };
 
