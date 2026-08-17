@@ -364,7 +364,7 @@ or a script that reads its own instructions.
 | | |
 |---|---|
 | **Together, without stepping on each other** | Both work towards one goal. The plan lists every file with **one owner**, and neither may touch the other's. Need something that is not yours? Write it under `## Blocked` and **stop** — that turns a collision into a line in a file instead of a lost afternoon. One prompt goes to both, through the chain, which is then unhooked. |
-| **One builds, the other reviews** | One writes and never marks its own work correct. The other reads the diff, never edits, and finishes on `VERDICT: OK` or `VERDICT: REDO`. Two different jobs, so two different prompts. |
+| **One builds, the other reviews** | One writes and never marks its own work correct. The other reads the diff, never edits the work, and writes its review to **`REVIEW.argus.md`** beside the plan — the two cannot see each other's terminals, so a review printed into a pane is a review nobody reads. It then ends in its terminal on `VERDICT: OK` or `VERDICT: REDO`. |
 
 **The desk says a pair is on it.** A note in the toolbar reads the plan file rather than a
 flag somebody set — a flag says what was *started*, and what you want to know is what is
@@ -391,6 +391,11 @@ Three things it does on purpose, each of which cost a round to learn:
   the screen rather than a place in the history — the sentence is the only thing that does
   not move. The cost is a missed round, and for something that spends money while nobody
   is watching, missing one is the right way to be wrong.
+
+**Who owns what.** The builder writes the code and `## Goal`; the reviewer writes
+`REVIEW.argus.md` and one line in `## Rounds`. Ownership by file is the rule the together
+pattern runs on, and it is the same rule here — which is why the review is a file rather
+than a message. `{review}` names it in a prompt, the way `{plan}` names the plan.
 
 **The prompts are ordinary templates.** They arrive in your library in two groups —
 *Two agents · together* and *Two agents · one reviews* — so you can open them, read exactly
