@@ -610,6 +610,19 @@ unlocks: an installable PWA, the clipboard API, the in-app QR scanner. Nothing i
 to the internet — only devices on your tailnet can reach it. (`tailscale funnel` *does*
 expose it publicly; don't, not with a shell behind it.)
 
+**Its own certificate**, if you have one — the two keys go in the config and the printed link
+becomes `https://`:
+
+```yaml
+tls_cert: /path/to/fullchain.pem
+tls_key:  /path/to/privkey.pem
+```
+
+Never required. On a LAN the address is a hostname or a private IP and no public CA signs
+either, so demanding HTTPS would turn a thirty-second setup into a certificate project.
+[Panoptes](https://github.com/andreaderuvo/panoptes#https-if-you-have-a-certificate) takes the
+same two keys.
+
 **An SSH tunnel** — nothing to install anywhere:
 
 ```bash
