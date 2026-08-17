@@ -4688,7 +4688,16 @@ function attachTerminal(container, name, { transform, onGone, onPath, onLinks, m
     // the word comes through again without a `compositionend` to mark it. Whole words
     // only, and only within a moment: two of the same letter are two keystrokes and go
     // through, a paste of the same text twice is far slower than this.
-    const twice = data.length > 1 && data === lastSent.text && Date.now() - lastSent.at < 120;
+    //
+    // Text only, and that word is doing work. A held-down arrow key sends `\x1b[D` — three
+    // bytes, so "longer than one character", identical every time, and repeating every
+    // 33ms on Linux and Windows alike, which is to say: indistinguishable from an Android
+    // composition artefact by every test above. This dropped every repeat after the first,
+    // so holding ← moved the cursor one position and then stopped. Home, End, PageUp, the
+    // function keys and every Ctrl-sequence are escape sequences too and were all lost the
+    // same way. A composition event cannot produce one: they carry printable text.
+    const isText = !/[\x00-\x1f\x7f]/.test(data);
+    const twice = isText && data.length > 1 && data === lastSent.text && Date.now() - lastSent.at < 120;
     lastSent = { text: data, at: Date.now() };
     return twice;
   };

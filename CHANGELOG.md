@@ -13,6 +13,18 @@ breaking changes go.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Holding a cursor key moved the cursor one position and stopped.** The filter that
+  fights Chrome-on-Android's duplicate-word bug asked "the same data twice, longer than one
+  character, within 120ms" — and an arrow key is `\x1b[D`, three bytes, identical every
+  time, repeating every 33ms on Linux and Windows alike. So every repeat after the first
+  was thrown away as an Android artefact. Home, End, PageUp, Delete and the function keys
+  went the same way. The filter now only ever looks at printable text; a composition event
+  cannot produce an escape sequence. Measured with Chrome driving real `autoRepeat`
+  keydowns: ten keydowns delivered one arrow to the pane before, ten after, and the Android
+  case is still caught.
+
 ## [0.0.1] — 2026-08-17
 
 The first tagged version. Argus has been in daily use for three weeks before this, so
