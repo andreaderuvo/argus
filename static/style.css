@@ -586,6 +586,9 @@ input.sheetfind { width: 100%; margin: .2rem 0 .5rem; }
   .rowwrap:focus-within .more.quick { display: inline-flex; }
   .rowwrap .more.quick:hover { color: var(--bright); }
   .rowwrap .more.quick[title="Delete"]:hover { color: var(--st-critical); }
+  /* Three of them is as many as a row can carry before the name has nowhere to go, so the
+     name is allowed to shorten rather than the buttons to wrap. */
+  .rowwrap:hover .row .name { min-width: 0; }
 }
 
 /* The set, opened inside the Prompts window. Deliberately plain: it sits above the list it

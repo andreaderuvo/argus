@@ -945,6 +945,9 @@ function entryRow(e, { href, onClick, refresh, dest, favGroup = 'main' }) {
       b.onclick = (ev) => { ev.preventDefault(); ev.stopPropagation(); fn(); };
       return b;
     };
+    // First of the three, because it is the one that changes nothing: a path you are about
+    // to paste into a session or a message, taken without opening anything.
+    side.push(quick('clipboard', t('Copy path'), () => copyPath(e.path)));
     side.push(quick('rename', t('Rename…'), async () => {
       const name = await ask(t('Rename'), e.name, t('Rename'));
       if (!name || name === e.name) return;
@@ -7371,14 +7374,14 @@ async function screenWall() {
       savePrefs();
       try {
         await postJSON('/api/fs/write', { path, content: mode.plan(goal.value.trim(), first, second) });
-        // The bridge is written fresh with every pair: it is the record of *this* run, and a
-        // new pair reading the last one's argument would be worse than starting empty.
-        if (mode.roles) {
-          await postJSON('/api/fs/write', {
-            path: bridgePath(folder),
-            content: bridgeHeader(goal.value.trim(), first, second, pairLimit(), pairEvery()),
-          });
-        }
+        // Fresh with every pair — it is the record of *this* run, and a new pair reading the
+        // last one's argument would be worse than starting empty — and for both patterns now:
+        // two peers working in parallel need somewhere to say "this is done" and "I need that
+        // from you" just as much as a reviewer needs somewhere to put a review.
+        await postJSON('/api/fs/write', {
+          path: bridgePath(folder),
+          content: bridgeHeader(goal.value.trim(), first, second, pairLimit(), pairEvery(), !mode.roles),
+        });
       } catch (e) {
         start.disabled = false;
         return toast(t('could not write the plan: {why}', { why: e.message }), true);
@@ -7488,7 +7491,7 @@ async function screenWall() {
     const mode = /^##\s*Who\b/m.test(text) ? t('one reviews') : t('together');
     const who = [...text.matchAll(/^-\s*(?:builds|reviews):\s*(\S+)/gm)].map((m) => m[1]);
     const loop = (prefs.pairLoop || {})[activeSpace().id];
-    const bridge = mode === t('one reviews') ? await readBridge(folder) : null;
+    const bridge = await readBridge(folder);
     const last = bridge?.last || null;
     // The bridge is the live thing; the plan is written once and then mostly sits there.
     const quiet = bridge?.wrote ? (Date.now() / 1000) - bridge.wrote : (wrote ? (Date.now() / 1000) - wrote : 0);
@@ -8833,10 +8836,22 @@ const PAIR_BATONS = [
   {
     group: TOGETHER,
     name: 'Start (send to both)',
-    text: 'You and one other agent are working on the same goal in {folder}. '
-      + 'Your identity is the name of the tmux session you are running in — run `echo $TMUX_PANE` '
-      + 'and `tmux display-message -p "#S"` if you do not know it.\n\n'
-      + 'The plan is {plan}. If it does not exist yet, create it with these sections:\n'
+    text: 'You and one other agent are working on the same goal in {folder}. Your name is the '
+      + 'tmux session you are running in — `tmux display-message -p "#S"` if you do not know '
+      + 'it. Sign everything with it.\n\n'
+      + 'You talk to each other through one file, {bridge}, and nowhere else: neither of you '
+      + 'can see the other\u2019s terminal. Read it now — the rules are at the top of it — and '
+      + 'if it is not there yet, whichever of you gets there first writes it. A turn looks '
+      + 'like this, and every field a machine reads is in the opening marker:\n\n'
+      + '  @TURN who=<your session name> at=<UTC, from: date -u +%FT%TZ> status=DONE\n'
+      + '  what you finished, in your own words\n'
+      + '  @END at=<UTC>\n\n'
+      + 'Statuses: DONE when you finish a piece, ASK when you need something from the other '
+      + 'one, BLOCKED when you are stuck or a person is needed, OK when you believe the whole '
+      + 'goal is met. Append a turn whole and never rewrite the file; a turn without its @END '
+      + 'is somebody still typing, so wait and read again.\n\n'
+      + 'The plan is {plan}, and it is about who owns what. If it does not exist yet, create '
+      + 'it with these sections:\n'
       + '  ## Goal        one paragraph, agreed\n'
       + '  ## Files       every file that will be touched, each with one owner\n'
       + '  ## Doing       what each of you is on right now\n'
@@ -8844,27 +8859,23 @@ const PAIR_BATONS = [
       + '  ## Blocked     what you need from the other, and why\n\n'
       + 'Rules, and they matter more than speed:\n'
       + '  1. Edit only files listed under your own name in ## Files.\n'
-      + '  2. If you need a file that is not yours, add a line under ## Blocked and STOP.\n'
-      + '     Do not edit it and do not wait in a loop.\n'
-      + '  3. Update the plan before you start something and after you finish it, so the\n'
-      + '     other one can read what you are doing rather than guess.\n'
-      + '  4. If ## Files is empty, propose a split and write it, then wait for the other to\n'
-      + '     accept or amend it before touching anything.\n\n'
-      + 'Start by reading the plan. Say in one line what you are taking, then work.',
-  },
-  {
-    group: TOGETHER,
-    name: 'Your turn',
-    text: 'Read {plan}. {from} has just written to it. '
-      + 'Take the next thing under your name, do it, and update ## Doing and ## Done. '
-      + 'If ## Blocked has a request from {from} for a file you own, deal with that first.',
-  },
-  {
-    group: TOGETHER,
-    name: 'Converge',
-    text: 'The work in {folder} is meant to be finished. Read {plan} and the diff against HEAD. '
-      + 'Say plainly: is the goal met, what is left, and is anything the two of you did in '
-      + 'conflict? Do not start new work — this is the reckoning, not another pass.',
+      + '  2. If you need a file that is not yours, ask for it in the bridge with status=ASK\n'
+      + '     and get on with something else. Do not edit it, and do not sit in a loop.\n'
+      + '  3. Announce each finished piece in the bridge with status=DONE, and keep ## Doing\n'
+      + '     current in the plan, so the other one can read what you are on rather than guess.\n'
+      + '  4. If ## Files is empty, propose a split in the bridge and wait for an answer before\n'
+      + '     touching anything.\n\n'
+      + 'Read {bridge} every {every}. Answer anything addressed to you first — an ASK is the '
+      + 'other one waiting on you — then get on with your own work. The whole run has {limit}, '
+      + 'and the deadline is in the first turn of the bridge: once the clock is past it, add a '
+      + 'BLOCKED turn saying so and stop. If the bridge is not there at all, the other one has '
+      + 'not started; read again and give up after {tries} reads rather than waiting all '
+      + 'night.\n\n'
+      + 'It ends when you both agree it is done: whoever is satisfied writes a turn with '
+      + 'status=OK, and the other answers with its own OK if it agrees, or with what is still '
+      + 'missing if it does not.\n\n'
+      + 'Start by reading the plan and the bridge. Say in one turn what you are taking, then '
+      + 'work.',
   },
   {
     group: ADVERSARIAL,
@@ -9043,16 +9054,20 @@ function batonTemplates() {
 
   /* Prompts that shipped once and do not any more.
    *
-   *  "Answer the review" was how the builder was told a review had come back, when Argus was
-   *  the one carrying it. With the bridge there is nothing to carry: the builder is already
-   *  reading the file every {every} seconds and sees the REDO itself. The prompt is not
-   *  wrong so much as pointless, and a library that only ever grows is a library nobody can
-   *  find anything in.
+   *  All three were ways of saying something the file now says. "Answer the review" told the
+   *  builder a review had come back, when Argus was the one carrying it. "Your turn" poked
+   *  the other one after you had noticed it was their move. "Converge" asked them to stop and
+   *  reckon up. With a bridge they are all reading, none of that needs sending: a REDO, a
+   *  DONE and an OK are turns in the file, and both of them are watching it.
+   *
+   *  So each pattern is one prompt now — send it to both, or one each — and the library is
+   *  three sentences shorter. A library that only ever grows is one nobody can find anything
+   *  in.
    *
    *  Only the untouched copy goes. If you edited it, it is your writing and it stays — with
    *  its group, where you can delete it yourself if you agree.
    */
-  const RETIRED = ['Answer the review'];
+  const RETIRED = ['Answer the review', 'Your turn', 'Converge'];
   const kept = prefs.templates.filter((k) => !(k.stock && RETIRED.includes(k.name)));
   if (kept.length !== prefs.templates.length) {
     prefs.templates = kept;
@@ -9361,30 +9376,38 @@ function bridgeTurns(text) {
 /** What the file starts as. The rules are in it rather than only in the prompts, because the
  *  agent that reads it in three days' time will not have the prompt any more — and neither
  *  will you. */
-function bridgeHeader(goal, worker, reviewer, minutes, every) {
+function bridgeHeader(goal, worker, reviewer, minutes, every, peers = false) {
   return `# Bridge\n\n`
-    + `${worker} and ${reviewer} pass work through this file. **Append only** — never edit or\n`
-    + `delete a turn that is already here, including your own.\n\n`
+    + `${worker} and ${reviewer} ${peers ? 'work side by side and talk' : 'pass work'} through\n`
+    + `this file. **Append only** — never edit or delete a turn that is already here,\n`
+    + `including your own.\n\n`
     + `A turn is a block between two markers. Everything a machine needs is in the first one,\n`
     + `named rather than positional, so a missing field is visible instead of shifting the\n`
     + `others along:\n\n`
     + '```\n'
-    + `@TURN who=WORKER at=<UTC timestamp> status=DONE\n`
-    + `what you did, or what is wrong with what they did, in your own words\n`
+    + `@TURN who=${peers ? worker : 'WORKER'} at=<UTC timestamp> status=DONE\n`
+    + `${peers ? 'what you finished' : 'what you did, or what is wrong with what they did'}, in your own words\n`
     + `@END at=<UTC timestamp>\n`
     + '```\n\n'
-    + `\`who\` is WORKER or REVIEWER. \`at\` is UTC, \`date -u +%FT%TZ\`. \`status\` is one of the\n`
-    + `five below. Anything else you want to carry — \`round=3\`, \`tests=16/0\` — can go on the\n`
-    + `same line and will be ignored by everything except a person reading it.\n\n`
+    + `\`who\` is ${peers ? `\`${worker}\` or \`${reviewer}\` — your own tmux session name` : 'WORKER or REVIEWER'}.`
+    + ` \`at\` is UTC, \`date -u +%FT%TZ\`. \`status\` is one of those below. Anything else you\n`
+    + `want to carry — \`round=3\`, \`tests=16/0\` — can go on the same line and will be ignored\n`
+    + `by everything except a person reading it.\n\n`
     + `**A turn without its \`@END\` is still being written.** If the last turn in the file is\n`
     + `not yours and has no \`@END\`, the other one is still typing: wait ${every} seconds and\n`
-    + `read again. Acting on half a review is worse than waiting.\n\n`
-    + `The **last heading** says what happens next, and nothing else needs to be tracked:\n\n`
+    + `read again. Acting on half a ${peers ? 'message' : 'review'} is worse than waiting.\n\n`
+    + (peers
+      ? `Nobody owns the turn here — you both work at once. What the file is for is saying\n`
+        + `what you have finished and asking for what you need:\n\n`
+      : `The **last turn** says what happens next, and nothing else needs to be tracked:\n\n`)
     + `| status | written by | means |\n`
     + `|---|---|---|\n`
-    + `| \`DONE\` | ${worker} | a pass is finished — ${reviewer}'s turn |\n`
-    + `| \`REDO\` | ${reviewer} | it is not right yet, and why — ${worker}'s turn |\n`
-    + `| \`OK\` | ${reviewer} | it is right. Both stop. |\n`
+    + (peers
+      ? `| \`DONE\` | either | a piece is finished |\n`
+        + `| \`OK\` | either | the whole goal looks met. The other one agrees, or says what is missing. |\n`
+      : `| \`DONE\` | ${worker} | a pass is finished — ${reviewer}'s turn |\n`
+        + `| \`REDO\` | ${reviewer} | it is not right yet, and why — ${worker}'s turn |\n`
+        + `| \`OK\` | ${reviewer} | it is right. Both stop. |\n`)
     + `| \`ASK\` | either | a question for the other one. It answers before doing anything else. |\n`
     + `| \`BLOCKED\` | either | stuck, or needs a person. Both stop and say so. |\n`
     + `| \`STOP\` | argus | out of rounds or out of time. Stop and say so. |\n\n`
