@@ -343,6 +343,16 @@ python3 -m app.main --allow-write        # prints a URL with a token in it</pre>
       <a href="https://github.com/andreaderuvo/argus#security">security section</a> says
       plainly what protects it and what does not.
     </div>
+
+    <div class="note">
+      <strong>A token per device, and a record of what was done.</strong> Each device can have
+      its own key, revocable on its own — losing a phone should not sign out the laptop. And
+      the <em>Journal</em> keeps what changed and what was refused, with the address it came
+      from, so <em>has somebody been in here</em> has an answer. Reads are not kept: a log full
+      of folder listings is a log nobody opens. See
+      <a href="https://github.com/andreaderuvo/argus#a-token-per-device">devices</a> and
+      <a href="https://github.com/andreaderuvo/argus#the-journal">the journal</a>.
+    </div>
   </section>
 </div>
 
