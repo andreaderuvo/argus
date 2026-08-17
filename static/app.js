@@ -6858,8 +6858,14 @@ async function screenWall() {
 
   /** Where this desk starts. A workspace is usually *about* something — one project, one
    *  run — so a browser opened in it should land there, not in the same home directory
-   *  every other desk lands in. */
-  const deskFolder = () => deskHome(activeSpace());
+   *  every other desk lands in.
+   *
+   *  A declaration rather than a `const`, for the same reason `watchPair` is one: `activate`
+   *  is defined five hundred lines above and reaches both, and a `const` is unreachable until
+   *  its own line has run. It threw on the first desk switch of every session — `Cannot
+   *  access 'deskFolder' before initialization` — which nothing in the interface showed,
+   *  because the failure was inside a call whose only job is to draw a small note. */
+  function deskFolder() { return deskHome(activeSpace()); }
 
   /** Every window in this desk, and which of them you cannot see.
    *
