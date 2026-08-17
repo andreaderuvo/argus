@@ -218,8 +218,9 @@ services.</sub>
   filled in, lets you edit it once and sends it. Not saved — the library is edited where
   the library lives, where deleting one needs no confirmation: the row becomes a red line
   with **Undo** in it for five seconds, which is a better bargain than a dialog every
-  time. Deliberately not a loop: automating the round trip is the part to add
-  last, once the sentence has proved itself.
+  time. Sending one is a deliberate act and stays one; the round trip *can* run on its
+  own, but only for the reviewing pattern, only once you switch it on, and only for as
+  many rounds as you give it — see [Two agents on one job](#two-agents-on-one-job).
 - **Placeholders as you type.** `{{genpat_paper.paper_tex}}` typed at a prompt *in the
   session* becomes the path, not only in a saved prompt — and it works **inside an agent's
   own input box**, which is the whole reason for having it. Typed, pasted, or half of
@@ -343,6 +344,59 @@ services.</sub>
   only earns a line if it is really there, so what collects is a short list of things
   that open, not everything that looked like a path. Empty it whenever it stops being
   useful.
+
+### Two agents on one job
+
+The baton above hands work from one session to the next. This is the other shape: two
+agents working towards **one goal** over time, with roles — a button in the desk toolbar,
+because doing it by hand is four things in the right order and getting the last one wrong
+is what ruins the afternoon.
+
+There is no protocol here and there is deliberately no attempt at one. Two agents on one
+machine share a filesystem, and what you can arbitrate with is a file both of them can
+read. So the button writes **`PLAN.argus.md`** in the desk's folder and sends each of them
+a prompt that points at it. Nothing is installed in the agent, and nothing is asked of it
+that it cannot already do — which is why it works the same with Claude Code, Codex, Gemini
+or a script that reads its own instructions.
+
+**Two patterns, and they differ in behaviour rather than wording.**
+
+| | |
+|---|---|
+| **Together, without stepping on each other** | Both work towards one goal. The plan lists every file with **one owner**, and neither may touch the other's. Need something that is not yours? Write it under `## Blocked` and **stop** — that turns a collision into a line in a file instead of a lost afternoon. One prompt goes to both, through the chain, which is then unhooked. |
+| **One builds, the other reviews** | One writes and never marks its own work correct. The other reads the diff, never edits, and finishes on `VERDICT: OK` or `VERDICT: REDO`. Two different jobs, so two different prompts. |
+
+**The desk says a pair is on it.** A note in the toolbar reads the plan file rather than a
+flag somebody set — a flag says what was *started*, and what you want to know is what is
+*happening*. It shows the pattern, who is who, and how long since either of them wrote to
+the plan; after twenty minutes of silence it turns amber, because at that point both
+terminals still look busy and the pair has stopped. Clicking it opens the plan.
+
+**Closing the loop, if you ask for it.** `VERDICT: OK` / `VERDICT: REDO` is a line a
+machine can read as easily as a person, so Argus can read it: on **REDO** the review goes
+back to the builder on its own, on **OK** it rings. It is off unless you switch it on when
+you start the pair, it is **per desk**, and it **counts down** — the note shows the rounds
+it has left rather than "on", and clicking it stops the loop there and then. Two agents
+bouncing a change between them for six hours unattended is not a feature.
+
+Three things it does on purpose, each of which cost a round to learn:
+
+- A verdict in the first twenty seconds after a hand-back is ignored. The prompt quotes
+  both verdict lines and a terminal echoes what is typed into it, so without that pause
+  the loop reads its own instructions and answers them.
+- Attaching replays the scrollback, and the first sweep of a session hands nothing on.
+  Otherwise reloading the page spends a round on a verdict from ten minutes ago.
+- Two verdicts word for word identical, one after the other, count as one. Argus attaches
+  a real tmux client, which is a full-screen program, so a row number means a position on
+  the screen rather than a place in the history — the sentence is the only thing that does
+  not move. The cost is a missed round, and for something that spends money while nobody
+  is watching, missing one is the right way to be wrong.
+
+**The prompts are ordinary templates.** They arrive in your library in two groups —
+*Two agents · together* and *Two agents · one reviews* — so you can open them, read exactly
+what your agents are being told, and change it. The set it ships with cannot be deleted;
+editing one clears its *stock* mark, which is also how an unedited copy gets brought up to
+date when the wording improves without ever overwriting words you wrote.
 
 ### The machine
 
