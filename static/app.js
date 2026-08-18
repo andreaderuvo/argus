@@ -3998,6 +3998,9 @@ async function screenSettings() {
     toggle(t('Placeholders from another set'),
       t('write {genpat_paper.paper} in a prompt to take a value from that set, whatever set the desk is on'),
       () => prefs.crossSet !== false, (v) => { prefs.crossSet = v; }),
+    toggle(t('Press Enter twice'),
+      t('a last resort for an input box that will not take the first one — off, because the second return also answers whatever the first one asked'),
+      () => !!prefs.enterTwice, (v) => { prefs.enterTwice = v; }),
     number(t('Pause before the Enter'),
       t('milliseconds between pasting a prompt and pressing return — some agents treat a keypress that arrives too soon as part of the paste'),
       () => pastePause(), (v) => { prefs.enterPause = Math.max(0, Math.min(3000, v)); }, 0, 3000, 50),
@@ -10064,36 +10067,34 @@ function whyEmpty(name) {
  *  Nothing is lost by waiting: the text is already in front of the agent, and the only cost of
  *  half a second is half a second. */
 const pastePause = () => (prefs.enterPause === undefined ? 500 : Number(prefs.enterPause) || 0);
-// How long a session may stay silent after the return before it is taken as "that did not
-// land". Long enough that a slow agent is not pressed twice, short enough that you do not sit
-// looking at an unsent prompt.
+// The gap between the two returns. Long enough that a box which took the first one has
+// finished with it, short enough not to be a wait.
 const LISTEN_FOR = 900;
 function typeInto(handle, text, run) {
-  if (!text.includes('\n')) {
-    handle.send?.(text + (run ? '\r' : ''));
-    return;
-  }
-  handle.send?.(`\x1b[200~${text}\x1b[201~`);
+  /* One line or twenty, the text goes on its own and the return follows it.
+   *
+   *  This used to have a shortcut: a prompt with no newline in it was written in one go,
+   *  text and return together, on the reasoning that there is nothing to assemble. There is.
+   *  An input box does not read lines, it reads *writes*, and a box that gathers a paste
+   *  takes everything in that one read as the paste — so `say ok\r` arrives as seven bytes
+   *  and lands in the box, complete and unsent. Claude Code submits it anyway; Codex does
+   *  not, which is exactly the difference of "on one it starts by itself and on the other I
+   *  have to press Enter", and why three attempts at the pause below never touched it: the
+   *  prompts that failed never reached this part of the function.
+   *
+   *  Measured, on a real Codex 0.147: pasted and then a return of its own, it starts at any
+   *  gap from 300ms up. In one write it never starts.
+   */
+  handle.send?.(text.includes('\n') ? `\x1b[200~${text}\x1b[201~` : text);
   if (!run) return;
 
-  /* The Enter goes in its own write, a moment later — and then Argus looks.
-   *
-   *  Sent together, the paste and the return arrive in one read, and a box that treats a
-   *  paste as a unit takes the return as part of it: the prompt lands beautifully and sits
-   *  there with a new line at the end. The pause fixes that for most boxes. It did not fix it
-   *  for all of them — of two agents on one desk, one starts by itself and the other waits —
-   *  and picking a bigger number would have been the fourth guess in a row.
-   *
-   *  So: press Enter, then *watch*. An agent that took the prompt starts printing within a
-   *  moment; one whose box swallowed the return stays silent, and silence is the signal to
-   *  press again. The cost of being wrong is a return on an empty box, which does nothing
-   *  anywhere.
-   */
   const press = () => handle.send?.('\r');
   setTimeout(() => {
     press();
-    if (!handle.quietFor) return;                 // not a terminal: nothing to watch
-    setTimeout(() => { if (handle.quietFor() > LISTEN_FOR) press(); }, LISTEN_FOR);
+    // A second one, for a box that still will not take it. Off by default now that the
+    // reason is known and fixed — and worth leaving off, because a return pressed a second
+    // time is also a return pressed on whatever dialog the first one opened.
+    if (prefs.enterTwice) setTimeout(press, LISTEN_FOR);
   }, pastePause());
 }
 
