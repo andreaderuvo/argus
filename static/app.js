@@ -11139,7 +11139,10 @@ function attachMessages(host, wsId, extras, deliver) {
    *  work, because the list redraws itself every time a value changes and collapsing your
    *  place each time would be its own small cruelty.
    */
-  const unfolded = new Set();
+  const unfolded = new Set(prefs.msgOpen || []);
+  // Remembered, because "what I had open" is a place in a library rather than a mood: shut
+  // everything on a reload and the third prompt down in the fourth group is a hunt again.
+  const rememberOpen = () => { prefs.msgOpen = [...unfolded]; savePrefs(); };
 
   /** Everything the situation fills in, for this desk and this aim.
    *
@@ -11396,6 +11399,7 @@ function attachMessages(host, wsId, extras, deliver) {
       folder.addEventListener('toggle', () => {
         if (folder.open) unfolded.add(key);
         else unfolded.delete(key);
+        rememberOpen();
       });
       /* No handle here, and none on the prompts inside it.
        *
@@ -11660,6 +11664,7 @@ function attachMessages(host, wsId, extras, deliver) {
             show.classList.toggle('on', !uses.hidden);
             if (uses.hidden) unfolded.delete(mineKey);
             else unfolded.add(mineKey);
+            rememberOpen();
           };
         }
         // The twist goes first. Every tree anybody has ever used puts the disclosure control

@@ -187,7 +187,7 @@ def _named_agent(row: dict) -> str | None:
     return None
 
 
-def agent_in(tty: str) -> str | None:
+def agent_in(tty: str, told: str = "") -> str | None:
     """Which known agent is running in this pane.
 
     The pane's own process is the wrong thing to ask: `pane_current_command` reports the
@@ -196,6 +196,10 @@ def agent_in(tty: str) -> str | None:
     first, because that is what you are looking at. Deepest first inside the group: a wrapper
     spawns the thing it wraps, and the thing it wraps is the answer.
     """
+    # What the agent said about itself, if anything did. Same road as the folder and the
+    # model: a hook that knows can write `@argus_agent`, and nothing has to be inferred.
+    if told:
+        return told.strip().lower()[:24] or None
     rows = _tty_rows(tty)
     if not rows:
         return None
@@ -268,14 +272,14 @@ def pane_where(sock: tmux.Socket, session: str) -> dict:
     """
     line = _say(sock, session, "\t".join([
         "#{pane_tty}", "#{pane_current_path}", "#{pane_current_command}",
-        "#{@argus_cwd}", "#{pane_start_path}", "#{@argus_model}",
+        "#{@argus_cwd}", "#{pane_start_path}", "#{@argus_model}", "#{@argus_agent}",
     ]))
-    bits = (line.split("\t") + [""] * 6)[:6]
-    tty, current, command, told, began, model = (b.strip() for b in bits)
+    bits = (line.split("\t") + [""] * 7)[:7]
+    tty, current, command, told, began, model, whom = (b.strip() for b in bits)
 
     answer = {"cwd": None, "source": None, "live": False, "command": command,
               # What is *really* in there, when it is something worth naming.
-              "agent": agent_in(tty) if tty else None,
+              "agent": agent_in(tty, whom) if (tty or whom) else None,
               "began": began if began.startswith("/") else None,
               # What the agent says it is running. Nothing outside it can know: the process
               # is called `claude` whatever model is behind it, and a model named in a config
