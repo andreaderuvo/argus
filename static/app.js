@@ -4172,6 +4172,7 @@ async function screenMessages(open = null) {
       if (!group || batonGroups().includes(group)) return;
       prefs.groups = [...batonGroups(), group];
       savePrefs();
+      messagesChanged();
       drawMessagePane();
     };
     const withSet = el('select', { className: 'setpick' });
@@ -4205,6 +4206,7 @@ async function screenMessages(open = null) {
             if (!name) return;
             all.push({ group, name, text: '' });
             savePrefs();
+            messagesChanged();
             drawMessagePane();
           },
         }),
@@ -4216,6 +4218,7 @@ async function screenMessages(open = null) {
             prefs.groups = batonGroups().map((x) => (x === group ? name : x));
             for (const kind of all) if (kind.group === group) kind.group = name;
             savePrefs();
+            messagesChanged();
             drawMessagePane();
           },
         }),
@@ -4230,6 +4233,7 @@ async function screenMessages(open = null) {
             prefs.groups = batonGroups().filter((x) => x !== group);
             if (mine.length && !prefs.groups.includes(LOOSE)) prefs.groups.unshift(LOOSE);
             savePrefs();
+            messagesChanged();
             drawMessagePane();
           },
         }),
@@ -4250,6 +4254,7 @@ async function screenMessages(open = null) {
         if (!all.some((x) => x.name === kind.name)) all.push({ ...kind, stock: true });
       }
       savePrefs();
+      messagesChanged();
       drawMessagePane();
     };
     body.append(stock);
@@ -4332,6 +4337,7 @@ async function screenMessages(open = null) {
       kind.group = where.value.trim() || LOOSE;
       delete kind.stock;
       savePrefs();
+      messagesChanged();
       drawMessagePane();
     });
 
@@ -4358,6 +4364,7 @@ async function screenMessages(open = null) {
     copy.onclick = () => {
       all.splice(all.indexOf(kind) + 1, 0, { group: kind.group, name: `${kind.name} 2`, text: kind.text });
       savePrefs();
+      messagesChanged();
       drawMessagePane();
     };
     // Everything below the summary lives in one padded box. Spacing the children with
@@ -4433,7 +4440,10 @@ async function screenMessages(open = null) {
 
       const grid = varsGrid(
         () => set.vars,
-        (kept) => { set.vars = kept; savePrefs(); around(); },
+        // A value changed here is a value every Prompts window on every desk is showing,
+        // filled into the line under each prompt. They were told when a *prompt* changed and
+        // not when a *value* did, which is the half you edit most.
+        (kept) => { set.vars = kept; savePrefs(); messagesChanged(); around(); },
         (name) => {
           // Three names are worked out from the situation. Defining one is allowed — you
           // may well want every prompt pointed at one folder — but it has to say so, or
