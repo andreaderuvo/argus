@@ -7858,7 +7858,8 @@ async function screenWall() {
       chip.classList.toggle('agrees', state === 'agrees');
       chip.classList.toggle('astray', state === 'astray');
       chip.classList.toggle('lost', state === 'lost');
-      chip.textContent = here ? (here.split('/').pop() || here) : '?';
+      // `≠` on the odd one out, so the state survives being read in grey.
+      chip.textContent = here ? `${state === 'astray' ? '! ' : ''}${here.split('/').pop() || here}` : '?';
       chip.title = state === 'lost'
         ? t('tmux was asked where this session is and did not answer')
         : state === 'agrees'

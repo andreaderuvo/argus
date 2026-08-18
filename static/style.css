@@ -2773,23 +2773,24 @@ dialog.sheet:has(.promptmake) { width: min(38rem, calc(100vw - 2rem)); }
    the desk — most of the time — and marked when it does not, which is the case worth a
    glance: a session dragged in from somewhere else keeps the folder it was made in, and a
    prompt full of {folder} would be pointing it somewhere it has never been. */
+/* All three are chips, and the frame is always there.
+   
+   The frame was on amber and red only — it was carrying the message for anyone who cannot
+   tell green from amber, which is the commonest colour blindness there is and exactly that
+   pair. But a shape that changes with the state reads as three different objects, so the
+   frame is constant now and the second channel moved into the text: the amber one is
+   prefixed `!`, meaning "not the desk's folder", and the red one says `?` because there is
+   no folder to name. Colour, and a word beside it. */
 .winbar .wherechip {
   flex: none; max-width: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   margin-left: .1rem; padding: .02rem .3rem;
   font-size: .66rem; line-height: 1.5;
-  border: 1px solid transparent; border-radius: .3rem;
+  border: 1px solid color-mix(in srgb, currentColor 35%, transparent); border-radius: .3rem;
   background: none; color: var(--dim); cursor: pointer;
 }
 .winbar .wherechip:hover { border-color: currentColor; filter: brightness(1.25); }
-/* The three everybody reads without being taught. Green is deliberately the quiet one: it is
-   true on nearly every window, and a row of shouting green chips would be wallpaper. */
+/* Green is deliberately the quiet one: it is true on nearly every window, and a row of
+   shouting green chips would be wallpaper. */
 .winbar .wherechip.agrees { color: color-mix(in srgb, var(--st-good) 78%, var(--dim)); }
-.winbar .wherechip.astray {
-  color: var(--st-warning);
-  border-color: color-mix(in srgb, var(--st-warning) 40%, transparent);
-}
-.winbar .wherechip.lost {
-  color: var(--st-critical);
-  border-color: color-mix(in srgb, var(--st-critical) 40%, transparent);
-  min-width: 1.2rem; text-align: center;
-}
+.winbar .wherechip.astray { color: var(--st-warning); }
+.winbar .wherechip.lost { color: var(--st-critical); min-width: 1.2rem; text-align: center; }
