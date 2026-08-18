@@ -2867,3 +2867,58 @@ dialog.sheet:has(.promptmake) { width: min(38rem, calc(100vw - 2rem)); }
    switches it off. Nested buttons are not allowed, so the row itself stopped being one. */
 .keylist .keyrow { display: flex; align-items: center; gap: .25rem; }
 .keylist .keyset { flex: 1 1 auto; min-width: 0; }
+
+/* Code, in this app's colours rather than a theme borrowed with the highlighter. Eight
+   groups is all a reader needs: what is a name, what is a string, what is a comment, what is
+   punctuation. A palette that gives every token type its own hue is a Christmas tree, and
+   the thing being read is the code. */
+pre.file.hl .hljs-keyword,
+pre.file.hl .hljs-selector-tag,
+pre.file.hl .hljs-literal,
+pre.file.hl .hljs-doctag { color: var(--accent); }
+pre.file.hl .hljs-string,
+pre.file.hl .hljs-regexp,
+pre.file.hl .hljs-addition { color: #c3e88d; }
+pre.file.hl .hljs-comment,
+pre.file.hl .hljs-quote { color: var(--dim); font-style: italic; }
+pre.file.hl .hljs-number,
+pre.file.hl .hljs-symbol,
+pre.file.hl .hljs-bullet { color: #f2a97e; }
+pre.file.hl .hljs-title,
+pre.file.hl .hljs-name,
+pre.file.hl .hljs-section,
+pre.file.hl .hljs-selector-id { color: #82aaff; }
+pre.file.hl .hljs-attr,
+pre.file.hl .hljs-attribute,
+pre.file.hl .hljs-variable,
+pre.file.hl .hljs-template-variable { color: #d7c3ff; }
+pre.file.hl .hljs-type,
+pre.file.hl .hljs-built_in,
+pre.file.hl .hljs-class .hljs-title { color: #7fdbca; }
+pre.file.hl .hljs-deletion { color: var(--st-critical); }
+pre.file.hl .hljs-meta { color: var(--dim); }
+pre.file.hl .hljs-emphasis { font-style: italic; }
+pre.file.hl .hljs-strong { font-weight: 700; }
+/* Light theme: the same eight, darkened enough to read on paper-coloured paper. */
+:root[data-theme="light"] pre.file.hl .hljs-string { color: #2e7d32; }
+:root[data-theme="light"] pre.file.hl .hljs-number { color: #b25000; }
+:root[data-theme="light"] pre.file.hl .hljs-title,
+:root[data-theme="light"] pre.file.hl .hljs-name,
+:root[data-theme="light"] pre.file.hl .hljs-section { color: #1a56b0; }
+:root[data-theme="light"] pre.file.hl .hljs-attr,
+:root[data-theme="light"] pre.file.hl .hljs-variable { color: #6a3bb5; }
+:root[data-theme="light"] pre.file.hl .hljs-type,
+:root[data-theme="light"] pre.file.hl .hljs-built_in { color: #0f766e; }
+
+/* The per-extension viewers: a name, a choice, and a way to drop the row. Same three-column
+   grid the placeholder sets use, because it is the same shape of thing. */
+.setviewers { display: block; }
+/* The name over its explanation, the way every other setting reads: laying the row out as a
+   block put the two spans side by side and ran them into one sentence. */
+.setviewers .name, .setviewers .meta { display: block; }
+.setviewers .setgrid { margin-top: .5rem; grid-template-columns: minmax(5rem, 1fr) minmax(7rem, 1fr) auto; }
+.setviewers input, .setviewers select {
+  width: 100%; padding: .25rem .4rem; font: inherit; font-size: .82rem;
+  color: var(--text); background: var(--bg);
+  border: 1px solid var(--line); border-radius: .3rem;
+}
