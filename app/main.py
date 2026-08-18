@@ -438,7 +438,13 @@ def create_app(cfg: Config) -> FastAPI:
         to look somewhere its counterpart never was is a whole round wasted.
         """
         name = await _known(request, session)
-        return {"session": name, "cwd": await asyncio.to_thread(paths.pane_cwd, request.app.state.socket, name)}
+        sock = request.app.state.socket
+        cwd = await asyncio.to_thread(paths.pane_cwd, sock, name)
+        # And whether that directory is one that moves. A shell's does; an agent's does not,
+        # because an agent never chdir()s — so a browser can say "started in" rather than
+        # "is in", which is the true sentence for it.
+        kind = await asyncio.to_thread(paths.pane_kind, sock, name)
+        return {"session": name, "cwd": cwd, **kind}
 
     @app.get("/api/tmux/copymode", tags=["Sessions"], summary="Is this session showing history rather than the live end")
     async def read_copy_mode(request: Request, session: str) -> dict:

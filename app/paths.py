@@ -115,6 +115,34 @@ def pane_cwd(sock: tmux.Socket, session: str) -> str | None:
     return asked("#{@argus_cwd}") or asked("#{pane_current_path}")
 
 
+# What a pane is running when it is running a shell. Anything else keeps its own idea of
+# where it is working, which is the difference between "is in" and "started in".
+SHELLS = {"bash", "zsh", "fish", "sh", "dash", "ksh", "tcsh", "csh", "nu", "elvish", "xonsh"}
+
+
+def pane_kind(sock: tmux.Socket, session: str) -> dict:
+    """Whether this pane's directory can be trusted to move, and why.
+
+    A shell chdir()s when you `cd`, so its directory is where it *is*. An agent runs your
+    commands in children and never moves its own process, so its directory is where it
+    *started* — a true statement and a different one, and saying the first when you mean
+    the second is how a mark ends up believed and wrong.
+    """
+    def asked(fmt: str) -> str:
+        try:
+            p = subprocess.run(
+                ["tmux", *sock.args(), "display-message", "-p", "-t", session, fmt],
+                capture_output=True, text=True, timeout=4,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return ""
+        return p.stdout.strip() if p.returncode == 0 else ""
+
+    told = asked("#{@argus_cwd}").startswith("/")
+    command = asked("#{pane_current_command}")
+    return {"command": command, "told": told, "moves": told or command in SHELLS}
+
+
 def expand(token: str, base: str | None) -> str | None:
     """A candidate as an absolute path, or None when it cannot be one.
 

@@ -6811,6 +6811,7 @@ async function screenWall() {
           .then((answer) => {
             if (!answer.cwd) return;
             where.dataset.cwd = answer.cwd;
+            where.dataset.moves = answer.moves ? '1' : '';
             paintStray();
           })
           .catch(() => {});
@@ -7831,6 +7832,7 @@ async function screenWall() {
       if (!name) continue;
       try {
         const answer = await getJSON(`/api/tmux/cwd?session=${encodeURIComponent(name)}`);
+        chip.dataset.moves = answer.moves ? '1' : '';
         if (!answer.cwd || answer.cwd === chip.dataset.cwd) continue;
         chip.dataset.cwd = answer.cwd;
       } catch { /* a session that has gone keeps the last thing it said */ }
@@ -7860,11 +7862,24 @@ async function screenWall() {
       chip.classList.toggle('lost', state === 'lost');
       // `≠` on the odd one out, so the state survives being read in grey.
       chip.textContent = here ? `${state === 'astray' ? '! ' : ''}${here.split('/').pop() || here}` : '?';
+      /* "is in" for a shell, "started in" for everything else.
+       *
+       *  A shell chdir()s when you `cd`, so its folder is where it is. An agent runs your
+       *  commands in children and never moves its own process, so its folder is where it
+       *  started — and it goes on saying that while the agent works somewhere else. Saying
+       *  "is in" there is a sentence that is not true, which is what was reported the moment
+       *  somebody changed folder inside an agent and watched the mark ignore it.
+       */
+      const moves = chip.dataset.moves === '1';
       chip.title = state === 'lost'
         ? t('tmux was asked where this session is and did not answer')
         : state === 'agrees'
-          ? t('This session is in {path} — the folder the desk opens in', { path: here })
-          : t('This session is in {path}, and the desk opens in {desk}. A session made here would start in the desk’s folder; this one was made somewhere else and kept it.', { path: here, desk: meant });
+          ? (moves
+            ? t('This session is in {path} — the folder the desk opens in', { path: here })
+            : t('This session started in {path}, which is the folder the desk opens in. What runs in it keeps its own idea of where it is working, and tmux cannot see that.', { path: here }))
+          : (moves
+            ? t('This session is in {path}, and the desk opens in {desk}.', { path: here, desk: meant })
+            : t('This session started in {path}, and the desk opens in {desk}. What runs in it keeps its own idea of where it is working, and tmux cannot see that.', { path: here, desk: meant }));
     }
   }
 
