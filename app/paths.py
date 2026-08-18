@@ -77,18 +77,42 @@ def trim(token: str) -> tuple[str, int | None]:
 def pane_cwd(sock: tmux.Socket, session: str) -> str | None:
     """The working directory of the pane you are looking at.
 
+    Two answers, and the first one wins.
+
+    **What something told us**, in the pane option `@argus_cwd`. This exists because
+    `#{pane_current_path}` is the *process's* directory and nothing more: tmux reads
+    `/proc/<pid>/cwd` of whatever is running in the pane. A shell moves when you `cd`,
+    because a shell really does `chdir()`. An agent does not — Claude Code and Codex run
+    your commands in children and keep their own idea of where they are, so their process
+    stays exactly where it was started and tmux has nothing to see. Measured: a `claude`
+    started in `/tmp/agente-qui` reports that path from both `pane_current_path` and
+    `/proc/<pid>/cwd` no matter what it is working on.
+
+    So whatever *does* know can write it down::
+
+        tmux set -p @argus_cwd /the/folder
+
+    which a Claude Code `statusLine` hook can do on every turn, since it is handed the live
+    directory and inherits `$TMUX_PANE`.
+
+    **Otherwise the pane's own directory**, which is right for a shell and honest for
+    everything else.
+
     Note the target has no `=` prefix: `display-message` answers nothing at all for the
     exact-match form, which reads as "no such session" and is not.
     """
-    try:
-        p = subprocess.run(
-            ["tmux", *sock.args(), "display-message", "-p", "-t", session, "#{pane_current_path}"],
-            capture_output=True, text=True, timeout=4,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return None
-    out = p.stdout.strip()
-    return out if p.returncode == 0 and out.startswith("/") else None
+    def asked(fmt: str) -> str | None:
+        try:
+            p = subprocess.run(
+                ["tmux", *sock.args(), "display-message", "-p", "-t", session, fmt],
+                capture_output=True, text=True, timeout=4,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+        out = p.stdout.strip()
+        return out if p.returncode == 0 and out.startswith("/") else None
+
+    return asked("#{@argus_cwd}") or asked("#{pane_current_path}")
 
 
 def expand(token: str, base: str | None) -> str | None:
