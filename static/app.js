@@ -4962,14 +4962,13 @@ function paintRailWindows() {
 function applyRail() {
   document.body.classList.toggle('railwide', !!prefs.railWide);
   const wide = !!prefs.railWide;
-  // "Collapse" rather than "Narrower". The width is what the button changes, but the reader
-  // of a label wants the idiom they already know from every other sidebar — the first person
-  // to see the word written out beside the icon asked what it meant, which settles it.
-  const does = wide ? t('Collapse') : t('Expand');
-  railToggle.title = does;
+  // The label names the thing, the tooltip names the action. "Collapse" as a label described
+  // what pressing it does to the rail, which is not what the rail is: it is the menu, and the
+  // hamburger above it says so in every other application ever written.
+  railToggle.title = wide ? t('Collapse') : t('Expand');
   railToggle.setAttribute('aria-expanded', String(wide));
   const said = railToggle.querySelector('.railname');
-  if (said) said.textContent = does;
+  if (said) said.textContent = t('Menu');
   const panel = sideToggle?.querySelector('.railname');
   if (panel) panel.textContent = t('File sidebar');
 }
@@ -9703,9 +9702,23 @@ function whyEmpty(name) {
  *  program that has never heard of bracketed paste would show the escape sequence — no reason
  *  to risk that where there is nothing to gain.
  */
+const PASTE_SETTLES = 150;
 function typeInto(handle, text, run) {
-  const pasted = text.includes('\n') ? `\x1b[200~${text}\x1b[201~` : text;
-  handle.send?.(pasted + (run ? '\r' : ''));
+  if (!text.includes('\n')) {
+    handle.send?.(text + (run ? '\r' : ''));
+    return;
+  }
+  handle.send?.(`\x1b[200~${text}\x1b[201~`);
+  if (!run) return;
+  /* The Enter goes in its own write, a moment later.
+   *
+   *  Sent together they arrive in one read, and an input box that handles a paste as a unit
+   *  takes the trailing carriage return as part of it — which is exactly what was reported: a
+   *  prompt that pastes beautifully and then sits there with a new line at the end instead of
+   *  being sent. A person cannot type that fast either; the gap is what makes it a keypress
+   *  rather than the last character of the paste.
+   */
+  setTimeout(() => handle.send?.('\r'), PASTE_SETTLES);
 }
 
 function fillBaton(text, known) {
@@ -10245,8 +10258,10 @@ function attachMessages(host, wsId, extras, deliver) {
             else unfolded.add(mineKey);
           };
         }
+        // The twist goes first. Every tree anybody has ever used puts the disclosure control
+        // to the left of the thing it discloses, and the eye looks for it there.
         folder.append(el('div', { className: 'msgentry' }, [
-          el('div', { className: 'trayline' }, [row, show, more].filter(Boolean)),
+          el('div', { className: 'trayline' }, [show, row, more].filter(Boolean)),
           uses,
         ].filter(Boolean)));
       }
