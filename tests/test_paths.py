@@ -139,45 +139,50 @@ def test_a_read_only_server_still_locates(tree):
     assert r.status_code == 200 and r.json()["found"]
 
 
-def test_pane_cwd_prefers_what_something_told_us(monkeypatch):
-    """A pane option beats the pane's process directory.
+def test_where_prefers_what_the_agent_said(monkeypatch):
+    """The pane option wins over everything, because it is the only source that knows what
+    the agent *considers* current — no amount of watching from outside derives that."""
+    monkeypatch.setattr(paths, "_say", lambda *_a: "/dev/pts/9\t/where/tmux/thinks\tclaude\t/what/the/agent/said\t/where/it/began")
+    monkeypatch.setattr(paths, "foreground_pid", lambda _tty: 4242)
+    monkeypatch.setattr(paths, "process_cwd", lambda _pid: "/where/the/process/is")
+    assert paths.pane_where(tmux.Socket(None), "one") == {
+        "cwd": "/what/the/agent/said", "source": "agent", "live": True,
+        "command": "claude", "began": "/where/it/began",
+    }
 
-    The reason it exists: an agent that changes folder inside itself never calls `chdir()`,
-    so `#{pane_current_path}` goes on naming where the process started. Anything that does
-    know — a Claude Code statusLine hook, a shell's PROMPT_COMMAND — writes it into
-    `@argus_cwd`, and that is what a browser is told.
-    """
-    asked = []
+
+def test_where_falls_to_the_process_that_holds_the_terminal(monkeypatch):
+    """With nothing declared, the process with the terminal — not the pane's first process,
+    which is the shell that launched the agent."""
+    monkeypatch.setattr(paths, "_say", lambda *_a: "/dev/pts/9\t/where/tmux/thinks\tbash\t\t/where/it/began")
+    monkeypatch.setattr(paths, "foreground_pid", lambda _tty: 4242)
+    monkeypatch.setattr(paths, "process_cwd", lambda _pid: "/where/the/process/is")
+    got = paths.pane_where(tmux.Socket(None), "one")
+    assert (got["cwd"], got["source"], got["live"]) == ("/where/the/process/is", "process", True)
+
+
+def test_where_falls_to_tmux_then_to_the_start(monkeypatch):
+    """macOS has no /proc, a process may not be ours, and either way there is still an
+    answer — a weaker one, which says so."""
+    monkeypatch.setattr(paths, "_say", lambda *_a: "/dev/pts/9\t/where/tmux/thinks\tvim\t\t/where/it/began")
+    monkeypatch.setattr(paths, "foreground_pid", lambda _tty: None)
+    monkeypatch.setattr(paths, "process_cwd", lambda _pid: None)
+    got = paths.pane_where(tmux.Socket(None), "one")
+    assert (got["cwd"], got["source"], got["live"]) == ("/where/tmux/thinks", "tmux", True)
+
+    monkeypatch.setattr(paths, "_say", lambda *_a: "/dev/pts/9\t\tvim\t\t/where/it/began")
+    lastly = paths.pane_where(tmux.Socket(None), "one")
+    assert (lastly["cwd"], lastly["source"], lastly["live"]) == ("/where/it/began", "start", False)
+
+
+def test_the_foreground_group_is_the_one_with_the_terminal(monkeypatch):
+    """`pgid == tpgid` picks the process holding the terminal. The rows are real ones, off a
+    pane running `cd /tmp && sleep 300`: the pane's own pid is the bash that is *not* in the
+    foreground group, and reading its directory would answer about the wrong process."""
 
     class Answer:
-        def __init__(self, out):
-            self.returncode = 0
-            self.stdout = out
-            self.stderr = ""
+        returncode = 0
+        stdout = "3882697 3882697 3882912\n3882912 3882912 3882912\n"
 
-    def fake_run(args, **kw):
-        fmt = args[-1]
-        asked.append(fmt)
-        if fmt == "#{@argus_cwd}":
-            return Answer("/told/you\n")
-        return Answer("/where/the/process/is\n")
-
-    monkeypatch.setattr(paths.subprocess, "run", fake_run)
-    assert paths.pane_cwd(tmux.Socket(None), "one") == "/told/you"
-    assert asked == ["#{@argus_cwd}"]
-
-
-def test_pane_cwd_falls_back_to_the_process(monkeypatch):
-    """With nothing set, the pane's own directory — right for a shell, honest for the rest."""
-
-    class Answer:
-        def __init__(self, out):
-            self.returncode = 0
-            self.stdout = out
-            self.stderr = ""
-
-    def fake_run(args, **kw):
-        return Answer("" if args[-1] == "#{@argus_cwd}" else "/where/the/process/is\n")
-
-    monkeypatch.setattr(paths.subprocess, "run", fake_run)
-    assert paths.pane_cwd(tmux.Socket(None), "one") == "/where/the/process/is"
+    monkeypatch.setattr(paths.subprocess, "run", lambda *_a, **_k: Answer())
+    assert paths.foreground_pid("/dev/pts/29") == 3882912

@@ -234,27 +234,30 @@ def test_a_server_that_has_not_rung_yet_still_delivers_the_first_one(client):
 
 
 def test_a_session_reports_the_directory_it_is_really_in(client, monkeypatch):
-    """The desk's folder is a UI convention; this is where tmux actually put the agent,
-    and it is what a hand-over sentence has to point at.
+    """The desk's folder is a UI convention; this is where the work is really happening, and
+    it is what a hand-over sentence has to point at.
 
-    It also says whether that directory is one that *moves*. A shell's does — `cd` is a
-    chdir() — and an agent's does not, because an agent runs your commands in children and
-    never moves its own process. A browser needs the difference to say "started in" instead
-    of "is in", which is the only true sentence for the second case.
+    It travels with where the answer came from. A directory the agent declared, one read off
+    the process holding the terminal, one tmux observed and the one the pane was made in are
+    four different degrees of true, and a browser told which can say the right sentence.
     """
     from app import paths
 
-    monkeypatch.setattr(tmux, "list_sessions", lambda _s: [{"name": "work"}, {"name": "agent"}])
-    monkeypatch.setattr(paths, "pane_cwd", lambda _s, name: f"/somewhere/{name}")
-    monkeypatch.setattr(paths, "pane_kind", lambda _s, name: {
-        "command": "bash" if name == "work" else "claude",
-        "told": False,
-        "moves": name == "work",
+    monkeypatch.setattr(tmux, "list_sessions", lambda _s: [{"name": "work"}, {"name": "old"}])
+    monkeypatch.setattr(paths, "pane_where", lambda _s, name: {
+        "cwd": f"/somewhere/{name}",
+        "source": "agent" if name == "work" else "start",
+        "live": name == "work",
+        "command": "claude",
+        "began": "/where/it/began",
     })
     assert get(client, "/api/tmux/cwd?session=work").json() == {
-        "session": "work", "cwd": "/somewhere/work", "command": "bash", "told": False, "moves": True,
+        "session": "work", "cwd": "/somewhere/work",
+        "cwd_source": "agent", "cwd_live": True,
+        "started_in": "/where/it/began", "command": "claude",
     }
-    assert get(client, "/api/tmux/cwd?session=agent").json()["moves"] is False
+    stale = get(client, "/api/tmux/cwd?session=old").json()
+    assert (stale["cwd_source"], stale["cwd_live"]) == ("start", False)
     assert get(client, "/api/tmux/cwd?session=missing").status_code == 404
 
 

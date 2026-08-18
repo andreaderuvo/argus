@@ -1903,7 +1903,7 @@
   },
   "/api/tmux/cwd": {
    "get": {
-    "description": "Where this session actually is.\n\nNot the same thing as the folder a desk was given: that one decides where a file\nbrowser lands and what a hand-over sentence says, while this is the directory the\nagent is really working in, set when the session was made. Telling the other agent\nto look somewhere its counterpart never was is a whole round wasted.",
+    "description": "Where this session actually is, and how well that is known.\n\nNot the same thing as the folder a desk was given: that one decides where a file\nbrowser lands and what a hand-over sentence says, while this is the directory the\nwork is really happening in. Telling the other agent to look somewhere its\ncounterpart never was is a whole round wasted.\n\n`cwd_source` says where the answer came from, best first \u2014 `agent` (the program said\nso, in the pane option `@argus_cwd`), `process` (read from the process that holds the\nterminal), `tmux` (tmux's own observation), `start` (the directory the pane was made\nin). `cwd_live` is false only for the last, which is history rather than news.",
     "operationId": "getApiTmuxCwd",
     "parameters": [
      {
