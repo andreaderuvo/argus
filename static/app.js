@@ -3664,12 +3664,51 @@ async function screenJournal() {
     });
     return b;
   };
+  /* Emptying it.
+   *
+   *  A journal nobody can empty fills with the noise of ordinary use — a hundred writes from
+   *  an afternoon of moving files — and stops being read, which is the only way it can fail.
+   *  One that empties itself on a schedule loses the week you needed. So it is a deliberate
+   *  act, with a cutoff, and it is itself written down: the record always says that it was
+   *  emptied, when, and from where.
+   */
+  const empty = el('button', { className: 'chip', type: 'button', textContent: t('Clear…') });
+  empty.onclick = () => {
+    const body = el('div', { className: 'sheetbody actions' });
+    let sheet;
+    const wipe = (older, label) => body.append(el('button', {
+      className: 'ghost block',
+      onclick: async () => {
+        sheet.close();
+        if (!await confirmBox(t('Clear the journal'), label, t('Clear'))) return;
+        try {
+          const gone = await delJSON(`/api/journal${older ? `?older_than=${older}` : ''}`);
+          toast(t('{n} entries removed', { n: gone.removed }));
+          render();
+        } catch (e) { toast(e.message, true); }
+      },
+    }, [icon('trash'), el('span', { textContent: label })]));
+
+    wipe(0, t('Everything'));
+    wipe(24 * 3600, t('Older than a day'));
+    wipe(2 * 24 * 3600, t('Older than two days'));
+    wipe(7 * 24 * 3600, t('Older than a week'));
+    body.append(el('p', {
+      className: 'hint',
+      textContent: t('The clearing itself is recorded — the journal will say it was emptied, when, and from where.'),
+    }));
+    sheet = modal(t('Clear the journal'), body, [
+      el('button', { className: 'ghost', textContent: t('Cancel'), onclick: () => sheet.close() }),
+    ]);
+  };
+
   const bar = el('div', { className: 'jbar' }, [
     pick('all', t('Everything')),
     pick('refused', t('Refused')),
     pick('changes', t('Changes')),
     box,
     count,
+    empty,
   ]);
   wrap.append(bar, rows);
   paint();
@@ -3788,6 +3827,22 @@ async function screenSettings() {
   };
 
   // A cycle rather than a switch: three states do not fit an ON/OFF.
+  /** A number you nudge, for the settings that are a quantity rather than a yes or a no. */
+  const number = (label, hint, get, set, low, high, step) => {
+    const box = el('input', {
+      type: 'number', className: 'pairrounds', min: String(low), max: String(high),
+      step: String(step), value: String(get()),
+    });
+    box.onchange = () => { set(Number(box.value)); savePrefs(); box.value = String(get()); };
+    return el('div', { className: 'row setting' }, [
+      el('span', { className: 'grow' }, [
+        el('span', { className: 'name', textContent: label }),
+        el('span', { className: 'meta', textContent: hint }),
+      ]),
+      box,
+    ]);
+  };
+
   const choice = (label, hint, values, get, set) => {
     const state = el('span', { className: 'sw on', textContent: get() });
     const row = el('button', { className: 'row setting', type: 'button' }, [
@@ -3937,6 +3992,9 @@ async function screenSettings() {
     toggle(t('Placeholders from another set'),
       t('write {genpat_paper.paper} in a prompt to take a value from that set, whatever set the desk is on'),
       () => prefs.crossSet !== false, (v) => { prefs.crossSet = v; }),
+    number(t('Pause before the Enter'),
+      t('milliseconds between pasting a prompt and pressing return — some agents treat a keypress that arrives too soon as part of the paste'),
+      () => pastePause(), (v) => { prefs.enterPause = Math.max(0, Math.min(3000, v)); }, 0, 3000, 50),
     toggle(t('Ask before sending one with a hole in it'),
       t('a prompt whose placeholders this desk cannot fill is marked in the list either way'),
       () => prefs.warnGaps !== false, (v) => { prefs.warnGaps = v; }),
@@ -8552,21 +8610,33 @@ function lookSheet(session = null) {
  *  when the focus is somewhere else, and the help says so rather than leaving you to
  *  wonder why nothing happened.
  */
+/* Every one of them holds Ctrl.
+ *
+ *  They were bare letters, guarded by "not while you are typing" — and that guard is exactly
+ *  as good as its idea of typing. Reading a page is not typing, and `w` opened the windows
+ *  screen from under somebody's hand often enough to be reported as a fault. A modifier is the
+ *  ordinary answer and costs nothing: nobody holds Ctrl by accident.
+ *
+ *  Three combinations are missing on purpose. Ctrl+N, Ctrl+T and Ctrl+W belong to the browser
+ *  and cannot be taken from it — a shortcut that closes your tab instead of opening a window
+ *  is worse than no shortcut — so windows is Ctrl+G and a new browser is Ctrl+E. `?` and F11
+ *  keep themselves: one already needs Shift, the other is not a letter.
+ */
 const KEYS = [
   { id: 'help', name: 'Keyboard shortcuts', key: '?' },
-  { id: 'files', name: 'Files', key: 'f' },
-  { id: 'sessions', name: 'Sessions', key: 's' },
-  { id: 'wall', name: 'Windows', key: 'w' },
-  { id: 'prompts', name: 'Prompts', key: 'p' },
-  { id: 'system', name: 'System', key: 'y' },
-  { id: 'settings', name: 'Settings', key: ',' },
-  { id: 'sidebar', name: 'Show or hide the file sidebar', key: 'b' },
+  { id: 'files', name: 'Files', key: 'ctrl+f' },
+  { id: 'sessions', name: 'Sessions', key: 'ctrl+s' },
+  { id: 'wall', name: 'Windows', key: 'ctrl+g' },
+  { id: 'prompts', name: 'Prompts', key: 'ctrl+p' },
+  { id: 'system', name: 'System', key: 'ctrl+y' },
+  { id: 'settings', name: 'Settings', key: 'ctrl+,' },
+  { id: 'sidebar', name: 'Show or hide the file sidebar', key: 'ctrl+b' },
   { id: 'full', name: 'Full screen', key: 'F11' },
-  { id: 'browser', name: 'New file browser in this desk', key: 'n' },
-  { id: 'links', name: 'The link tray', key: 'l' },
-  { id: 'messages', name: 'The prompts window', key: 'm' },
-  { id: 'nextDesk', name: 'Next desk', key: ']' },
-  { id: 'prevDesk', name: 'Previous desk', key: '[' },
+  { id: 'browser', name: 'New file browser in this desk', key: 'ctrl+e' },
+  { id: 'links', name: 'The link tray', key: 'ctrl+l' },
+  { id: 'messages', name: 'The prompts window', key: 'ctrl+m' },
+  { id: 'nextDesk', name: 'Next desk', key: 'ctrl+]' },
+  { id: 'prevDesk', name: 'Previous desk', key: 'ctrl+[' },
 ];
 
 /** What a key press is called, so it can be compared and shown. */
@@ -8644,7 +8714,10 @@ function keyHelp() {
   let sheet;
 
   const draw = () => {
-    body.replaceChildren(el('p', { className: 'hint', textContent: t('These work when you are not typing: a terminal, or any box you are writing in, keeps the keyboard to itself.') }));
+    body.replaceChildren(
+      el('p', { className: 'hint', textContent: t('These work when you are not typing: a terminal, or any box you are writing in, keeps the keyboard to itself.') }),
+      el('p', { className: 'hint', textContent: t('Press a row, then hold the combination you want — Backspace clears it, Escape leaves it alone.') }),
+    );
     for (const action of KEYS) {
       const shown = el('kbd', { textContent: keyFor(action.id) });
       const row = el('button', { className: 'ghost block keyrow' }, [
@@ -8652,11 +8725,15 @@ function keyHelp() {
         shown,
       ]);
       row.onclick = () => {
-        shown.textContent = t('press a key…');
+        shown.textContent = t('press the keys…');
         shown.classList.add('listening');
         const grab = (e) => {
           e.preventDefault();
           e.stopPropagation();
+          // A modifier on its own is the start of a combination, not a combination: holding
+          // Ctrl fires a keydown of its own, and taking it would record "ctrl+control" and
+          // stop listening before you had pressed the letter you meant.
+          if (['Control', 'Alt', 'Shift', 'Meta'].includes(e.key)) return;
           window.removeEventListener('keydown', grab, true);
           if (e.key === 'Escape') return draw();
           prefs.keys = prefs.keys || {};
@@ -9702,7 +9779,16 @@ function whyEmpty(name) {
  *  program that has never heard of bracketed paste would show the escape sequence — no reason
  *  to risk that where there is nothing to gain.
  */
-const PASTE_SETTLES = 150;
+/* How long to wait before pressing Enter, after pasting.
+ *
+ *  An input box that assembles a paste treats anything arriving in the same breath as more of
+ *  the paste, and every one of them draws that line somewhere different: 150 ms was enough
+ *  for a shell and not for Claude Code, which added the return to the box and sat there. So
+ *  it is a number you can raise, and it defaults high enough for the boxes seen so far.
+ *
+ *  Nothing is lost by waiting: the text is already in front of the agent, and the only cost of
+ *  half a second is half a second. */
+const pastePause = () => (prefs.enterPause === undefined ? 500 : Number(prefs.enterPause) || 0);
 function typeInto(handle, text, run) {
   if (!text.includes('\n')) {
     handle.send?.(text + (run ? '\r' : ''));
@@ -9718,7 +9804,7 @@ function typeInto(handle, text, run) {
    *  being sent. A person cannot type that fast either; the gap is what makes it a keypress
    *  rather than the last character of the paste.
    */
-  setTimeout(() => handle.send?.('\r'), PASTE_SETTLES);
+  setTimeout(() => handle.send?.('\r'), pastePause());
 }
 
 function fillBaton(text, known) {

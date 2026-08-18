@@ -636,6 +636,17 @@ def create_app(cfg: Config) -> FastAPI:
             raise ApiError(404, str(e)) from e
         return {"revoked": gone["name"]}
 
+    @app.delete("/api/journal", tags=["Setup"], summary="Empty the journal, or the old part of it")
+    async def clear_journal(request: Request, older_than: int | None = None) -> dict:
+        """Everything, or everything before a cutoff given in seconds.
+
+        The deletion is recorded like any other change — the middleware sees this request and
+        writes it down — so the journal always says that it was emptied, when, and from where.
+        """
+        gone = journal.clear(request.app.state.journal, older_than if older_than else None)
+        journal.note(request.scope, f"{gone} entries" + (f" older than {older_than}s" if older_than else ""))
+        return {"ok": True, "removed": gone}
+
     @app.get("/api/journal", tags=["Setup"], summary="What has been done here, and what was refused")
     async def read_journal(request: Request, limit: int = 200) -> dict:
         """Most recent first. Only the token from the config may read it: a record that a

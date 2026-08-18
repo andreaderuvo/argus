@@ -198,6 +198,50 @@ def trim(store: Path) -> None:
         pass
 
 
+def clear(store: Path, older_than: float | None = None) -> int:
+    """Throw away the whole thing, or everything before a cutoff. Returns how many lines went.
+
+    A journal you cannot empty fills with the noise of ordinary use and stops being read, and
+    one that empties itself on a schedule loses the week you needed. So it is an act: you say
+    when, and it happens.
+
+    Emptying it is itself recorded — by the middleware, which sees the request like any other
+    change, and by the count this returns. A record that can be wiped without trace is not
+    much of a record; a record that says "somebody cleared me, at this hour, from this
+    address" still answers the question it exists for.
+    """
+    try:
+        with store.open(encoding="utf-8") as f:
+            lines = f.readlines()
+    except OSError:
+        return 0
+
+    if older_than is None:
+        kept: list[str] = []
+    else:
+        cutoff = time.time() - older_than
+        kept = []
+        for line in lines:
+            try:
+                one = json.loads(line)
+            except ValueError:
+                continue                      # a line nothing can read is not worth keeping
+            if float(one.get("at") or 0) >= cutoff:
+                kept.append(line)
+
+    gone = len(lines) - len(kept)
+    if not gone:
+        return 0
+    try:
+        beside = store.with_suffix(".part")
+        beside.write_text("".join(kept), encoding="utf-8")
+        beside.chmod(0o600)
+        os.replace(beside, store)
+    except OSError:
+        return 0
+    return gone
+
+
 def read(store: Path, limit: int = 200) -> list[dict]:
     """The most recent first, which is the order anybody reads this in."""
     try:
