@@ -7354,6 +7354,7 @@ async function screenWall() {
     for (const b of tools.querySelectorAll('button[data-mode]')) {
       b.classList.toggle('on', b.dataset.mode === mode);
     }
+    paintLayoutButton?.();
   };
 
   /* ------------------------------------------------ the arrangement you keep */
@@ -7390,6 +7391,29 @@ async function screenWall() {
     };
   }
 
+  /** Are the windows sitting exactly where they were kept?
+   *
+   *  Grid, Columns and Rows light up to say "this is the arrangement you are in". Mine was the
+   *  odd one out: a button that restores, with no way to tell whether you were already there,
+   *  whether there was anything to go back to, or — after pressing Keep — that what you are
+   *  looking at *is* now the saved one. So it answers the same question they do, by comparison
+   *  rather than by a flag, because a flag would be wrong the moment you nudged a window.
+   */
+  function wearingKept(ws) {
+    const kept = savedLayout(ws);
+    if (!kept) return false;
+    const now = takeLayout(ws);
+    const ids = Object.keys(kept.geom);
+    if (ids.length !== Object.keys(now.geom).length) return false;
+    return ids.every((id) => {
+      const a = kept.geom[id];
+      const b = now.geom[id];
+      if (!b) return false;
+      if (a.full || b.full) return !!a.full === !!b.full;
+      return ['left', 'top', 'width', 'height'].every((k) => a[k] === b[k]);
+    });
+  }
+
   function wearLayout(ws, snap) {
     ws.desktop = snap.desktop.map((s) => ({ ...s }));
     const geom = { ...(prefs.winGeom || {}) };
@@ -7412,8 +7436,11 @@ async function screenWall() {
       if (o) o.win.style.zIndex = ++top;
     }
     for (const o of deck.open) o.handle.relayout();
-    // The desk is not in a grid any more, whatever the toolbar was still claiming.
+    // The desk is not in a grid any more, whatever the toolbar was still claiming — and it
+    // *is* now the arrangement you kept, which Mine has to say or restoring looks like it
+    // did nothing.
     for (const b of tools.querySelectorAll('button[data-mode]')) b.classList.remove('on');
+    paintLayoutButton?.();
     paintTally();
   }
 
@@ -8227,18 +8254,33 @@ async function screenWall() {
   tools.append(el('div', { className: 'btnset' }, [keepBtn, mineBtn]));
 
   paintLayoutButton = () => {
-    const kept = savedLayout(activeSpace());
+    const ws = activeSpace();
+    const kept = savedLayout(ws);
+    const wearing = kept && wearingKept(ws);
+
     keepBtn.title = kept
       ? t('Save this arrangement over the one you kept ({count})', { count: kept.order.length })
       : t('Remember how the windows are arranged now');
-    // Nothing to go back to yet, so nothing to offer: the button appears the moment there
-    // is something behind it.
-    mineBtn.hidden = !kept;
-    mineBtn.title = kept
-      ? t('Put the windows back where you saved them ({count})', { count: kept.order.length })
-      : '';
-    // Deliberately not marked "on" the way Grid and Columns are: there it means "this is
-    // the arrangement you are in", and it would be a different claim on the same row.
+
+    /* Mine is always there, and says which of three things is true.
+     *
+     *  Nothing kept: dimmed, and it says what to press. Kept but you have moved on: available,
+     *  with a mark that there is something behind it. Kept and you are in it: lit, the same
+     *  way Grid says "you are in a grid" — which is also what makes Keep visibly *do*
+     *  something, since the moment it saves, Mine lights and the tiling button goes out.
+     */
+    mineBtn.hidden = false;
+    mineBtn.disabled = !kept;
+    mineBtn.classList.toggle('on', !!wearing);
+    mineBtn.classList.toggle('kept', !!kept && !wearing);
+    mineBtn.title = !kept
+      ? t('Nothing kept on this desk yet — Keep writes down how the windows are arranged')
+      : wearing
+        ? t('These are the windows as you kept them ({count})', { count: kept.order.length })
+        : t('Put the windows back where you saved them ({count})', { count: kept.order.length });
+
+    // Two claims of "this is the arrangement you are in" would be one too many.
+    if (wearing) for (const b of tools.querySelectorAll('button[data-mode]')) b.classList.remove('on');
   };
   paintLayoutButton();
 

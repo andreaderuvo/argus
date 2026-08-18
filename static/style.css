@@ -2018,6 +2018,11 @@ textarea.baton {
 .folder > summary .dragrip:hover { color: var(--accent); background: var(--line); }
 /* Smaller in the window, where a row is 30 pixels tall and everything is tighter. */
 button.winbtn.done, button.winbtn.done:hover { color: var(--st-good); border-color: var(--st-good); }
+/* Mine, when there is something behind it but you are not in it: an outline rather than a
+   fill, so "there is a layout kept here" and "you are in it" are told apart at a glance. */
+button.winbtn.kept { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); color: var(--bright); }
+button.winbtn:disabled { opacity: .4; cursor: default; }
+button.winbtn:disabled:hover { background: none; color: var(--text); }
 .msgpane .dragrip { width: 20px; height: 20px; }
 .folder.folderdrag > summary .dragrip, .msgcard.folderdrag > summary .dragrip { cursor: grabbing; }
 /* Lifted: raised above the list, shadowed, and deaf to the pointer so the rows underneath
