@@ -140,7 +140,12 @@ button.icon:active { background: var(--line); }
 /* The sidebar is a desktop affordance: on a phone the bottom nav is the right answer,
    so neither the panel nor its toggle exist below this width. */
 #side { display: none; }
-#sidetoggle { display: none; }
+/* The two rail controls are desktop affordances and have to say so *here*, in the phone
+   rules, not only in the wide ones. Styled only inside the 900px media query, `#railtoggle`
+   stayed an ordinary button on a phone: a tenth item in a bottom bar sized for seven, with
+   its "MENU" label along for the ride — the nav measured 476px inside a 390px screen, which
+   is exactly the overlapping icons that were reported. */
+#sidetoggle, #railtoggle { display: none; }
 
 @media (min-width: 900px) {
   #sidetoggle {
@@ -248,6 +253,23 @@ button.icon:active { background: var(--line); }
 }
 
 #nav a span { font-size: 1.1rem; }
+
+/* Seven destinations do not fit a phone with their names on.
+ *
+ *  The bottom bar was built when there were five, and a label under each was the right
+ *  answer: it is the pattern every phone app uses, and it is honest about where a tap goes.
+ *  Then Placeholders and Journal arrived, and seven names in 390px stopped being labels and
+ *  became one word — `FILESSESSIONSWINDOWSPROMPTSPLACEHOLDERSSYSTEMJOURNAL`, measured, with
+ *  the letters of one running into the next.
+ *
+ *  So below 560px the icons stand alone. They are distinct, there are seven of them rather
+ *  than twenty, and a tap target that is 55px wide and unambiguous beats one that is 55px
+ *  wide with a word cut in half under it. The same trick the narrow rail uses: the anchor's
+ *  own font goes to nothing and the icon says what its own size is. */
+@media (max-width: 560px) {
+  #nav a { font-size: 0; gap: 0; min-width: 0; }
+  #nav a span[data-icon] { font-size: 1.3rem; }
+}
 #nav a { position: relative; }
 #nav a .tally {
   position: absolute;

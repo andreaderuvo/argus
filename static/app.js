@@ -6245,6 +6245,20 @@ function attachTerminal(container, name, { transform, onGone, onBack, onPath, on
             revive: () => {
               gone = false;
               attempts = 0;
+              /* Cleared, not merely reconnected.
+               *
+               *  A session with the same name is a *new* session: its scrollback is empty
+               *  and its shell has just started. Reattaching without clearing leaves the
+               *  dead one's last words above the new one's first, which reads as one
+               *  session that hiccupped — and the words above the join are from a machine
+               *  state that no longer exists. Emptying the buffer first is what makes this
+               *  the same thing as adding the session to the desk again, which is what it
+               *  is.
+               */
+              term.reset();
+              recent = '';
+              sentCols = 0;
+              sentRows = 0;
               note(t('back'), '38;5;108');
               onBack?.();
               connect();
