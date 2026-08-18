@@ -418,6 +418,7 @@
   "filled from {set}, the set {desk} uses — when you send it, {folder} is the folder of the session it comes from:": "rempli depuis {set}, l'ensemble utilisé par {desk} — à l'envoi, {folder} est le dossier de la session d'origine :",
   "filled from {set}, which {desk} does not use — it is on {other}": "rempli depuis {set}, que {desk} n'utilise pas — il est sur {other}",
   "filter by name": "filtrer par nom",
+  "filter the settings": "filtrer les réglages",
   "filter…": "filtrer…",
   "find in this document…": "chercher dans ce document…",
   "following your browser — pick one to fix it": "je suis votre navigateur — choisissez-en une",

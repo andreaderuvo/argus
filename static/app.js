@@ -3969,6 +3969,57 @@ async function screenSettings() {
     el('button', { className: 'stepper', textContent: '+', onclick: step(1) }),
   ]));
 
+  /* Getting to the part you came for.
+   *
+   *  This screen has grown to nine groups and forty-odd rows, and the way to a setting was to
+   *  scroll and read headings. Two things fix that and neither is a redesign: the headings
+   *  themselves, as chips at the top, and a box that hides everything that does not match.
+   *
+   *  Built from the finished page rather than from a list kept beside it — the chips are the
+   *  headings, whatever they turn out to be, so a group added next month appears up here
+   *  without anybody remembering to add it.
+   */
+  const heads = [...wrap.querySelectorAll('.settinggroup')];
+  if (heads.length > 2) {
+    const jump = el('div', { className: 'jbar setjump' });
+    for (const head of heads) {
+      const name = head.textContent;
+      jump.append(el('button', {
+        className: 'chip', type: 'button', textContent: name,
+        onclick: () => head.scrollIntoView({ block: 'start', behavior: 'smooth' }),
+      }));
+    }
+
+    // Hide a row that does not match, then any heading left with nothing under it.
+    const find = el('input', {
+      type: 'search', className: 'jfind', placeholder: t('filter the settings'), spellcheck: false,
+    });
+    find.oninput = () => {
+      const needle = find.value.trim().toLowerCase();
+      let head = null;
+      let shown = 0;
+      for (const node of [...wrap.children]) {
+        if (node === jump.parentElement || node === jump) continue;
+        if (node.classList.contains('settinggroup')) {
+          if (head) head.hidden = shown === 0;
+          head = node;
+          shown = 0;
+          continue;
+        }
+        const hit = !needle || node.textContent.toLowerCase().includes(needle);
+        node.hidden = !hit;
+        if (hit) shown += 1;
+      }
+      if (head) head.hidden = shown === 0;
+      for (const chip of jump.querySelectorAll('.chip')) {
+        const head2 = heads.find((h) => h.textContent === chip.textContent);
+        chip.hidden = !!head2?.hidden;
+      }
+    };
+    jump.append(find);
+    wrap.prepend(jump);
+  }
+
   view.append(wrap);
 
   const info = await serverInfo();
