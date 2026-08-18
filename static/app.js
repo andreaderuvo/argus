@@ -893,13 +893,22 @@ const ICONS = {
 const FILLED = new Set(['github']);
 
 /** An inline icon. Stroked unless it is a logo, so one colour rule covers every state. */
+/** A glyph made of nothing but zero-length segments — the ⋯ menu, the drag grip.
+ *
+ *  There is no line to draw: every dot is the round linecap and nothing else, so a dot is
+ *  exactly as wide as the stroke. At the 1.6 every other icon uses that is one pixel on a
+ *  15px button, which is why the ⋯ on a window title bar kept being reported as not there.
+ *  It was there. It was one pixel. Dots get a weight of their own. */
+const ONLY_DOTS = /^(?:M[\d.]+ [\d.]+[hv]\.01)+$/;
+
 function icon(name, extra = '') {
   const solid = FILLED.has(name);
+  const d = ICONS[name] || '';
   const path = svg('path', {
-    d: ICONS[name] || '',
+    d,
     fill: solid ? 'currentColor' : 'none',
     stroke: solid ? 'none' : 'currentColor',
-    'stroke-width': '1.6',
+    'stroke-width': ONLY_DOTS.test(d) ? '4' : '1.6',
     'stroke-linecap': 'round',
     'stroke-linejoin': 'round',
   });
