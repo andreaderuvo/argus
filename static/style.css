@@ -2961,3 +2961,49 @@ pre.file.hl .hljs-strong { font-weight: 700; }
   user-select: none;
 }
 .codewrap pre.file { margin: 0; overflow: visible; }
+
+/* The drawer: the destinations that do not fit across the bottom, on a phone only. Slides
+   from the left because that is where a thumb reaching for a menu expects it, and over the
+   page rather than pushing it — pushing costs a reflow of the whole app on a device that can
+   least afford one. */
+#drawer, #drawerveil { display: none; }
+#more { display: none; }
+
+@media (max-width: 560px) {
+  #more {
+    display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center;
+    gap: 0; min-height: var(--tap); font-size: 0; border: 0; background: none; color: var(--dim);
+  }
+  #more span[data-icon], #more .ico { font-size: 1.3rem; }
+  #more.on { color: var(--accent); }
+  /* The three that moved into the drawer leave the bar. */
+  #nav a[data-tab="placeholders"],
+  #nav a[data-tab="system"],
+  #nav a[data-tab="journal"] { display: none; }
+
+  #drawerveil {
+    display: block; position: fixed; inset: 0; z-index: 40;
+    background: rgba(0, 0, 0, .5); opacity: 0; pointer-events: none;
+    transition: opacity .18s ease;
+  }
+  #drawer {
+    display: flex; flex-direction: column; gap: .15rem;
+    position: fixed; z-index: 41; top: 0; bottom: 0; left: 0; width: min(15rem, 78vw);
+    padding: calc(.6rem + var(--safe-t, 0px)) .5rem calc(.6rem + var(--safe-b)) .5rem;
+    background: var(--panel); border-right: 1px solid var(--line);
+    transform: translateX(-102%); transition: transform .18s ease;
+    box-shadow: 0 0 40px rgb(0 0 0 / .5);
+  }
+  body.drawered #drawerveil { opacity: 1; pointer-events: auto; }
+  body.drawered #drawer { transform: none; }
+  #drawer a {
+    display: flex; align-items: center; gap: .7rem;
+    min-height: var(--tap); padding: 0 .7rem; border-radius: .4rem;
+    color: var(--text); text-decoration: none; font-size: .95rem;
+  }
+  #drawer a:active, #drawer a.on { background: var(--line); color: var(--bright); }
+  #drawer .ico { width: 20px; height: 20px; flex: none; color: var(--dim); }
+  @media (prefers-reduced-motion: reduce) {
+    #drawerveil, #drawer { transition: none; }
+  }
+}
