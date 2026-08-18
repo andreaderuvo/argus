@@ -7544,6 +7544,25 @@ async function screenWall() {
           delete rest[ws.id];
           prefs.wsLayout = rest;
         }
+        /* And the set it was given, if it never got anything in it.
+         *
+         *  A desk arrives with a set of its own, so closing desks would otherwise leave a
+         *  Placeholders screen full of empty names nobody wrote. One with values in it
+         *  stays — those are yours, and a desk you close by mistake is a desk you make
+         *  again — and one another desk is on is not this desk's to remove.
+         */
+        const on = deskSetName(ws.id);
+        const set = varSetNamed(on);
+        const alone = !(prefs.workspaces || [])
+          .some((other) => other.id !== ws.id && deskSetName(other.id) === on);
+        if (on !== GROUND && set && alone && !Object.keys(set.vars).length) {
+          prefs.varsets = varSets().filter((x) => x !== set);
+        }
+        if (prefs.deskSet?.[ws.id]) {
+          const rest = { ...prefs.deskSet };
+          delete rest[ws.id];
+          prefs.deskSet = rest;
+        }
         spaces.splice(spaces.indexOf(ws), 1);
         activate(spaces[0].id);
       };
@@ -10128,10 +10147,38 @@ function deskSetName(wsId) {
  */
 function ownSetFor(ws) {
   if (!ws) return GROUND;
-  const named = varSetNamed(ws.name);
-  if (!named) varSets().push({ name: ws.name, vars: {} });
-  chooseDeskSet(ws.id, ws.name);
-  return ws.name;
+  const taken = varSetNamed(ws.name);
+
+  /* Three cases, because a name can already be spoken for.
+   *
+   *  Nothing there — make it. That is nearly always what happens.
+   *
+   *  There and nobody on it — take it. Desk names repeat: close "Desk 2" and the next desk
+   *  is called "Desk 2" again, and finding your values where you left them is better than
+   *  finding a second set beside them. Nothing is being taken from anybody, since no desk
+   *  was using it.
+   *
+   *  There and another desk is on it — do not touch it. Two desks that share a set share it
+   *  because somebody said so, and a new desk quietly joining would hand it whatever the
+   *  other one has and hand the other one whatever it later writes. It gets a name of its
+   *  own instead, the way duplicating a set does.
+   */
+  if (!taken) {
+    varSets().push({ name: ws.name, vars: {} });
+    chooseDeskSet(ws.id, ws.name);
+    return ws.name;
+  }
+  const busy = (prefs.workspaces || [])
+    .some((other) => other.id !== ws.id && deskSetName(other.id) === ws.name);
+  if (!busy) {
+    chooseDeskSet(ws.id, ws.name);
+    return ws.name;
+  }
+  let name = `${ws.name} 2`;
+  for (let n = 3; varSetNamed(name); n += 1) name = `${ws.name} ${n}`;
+  varSets().push({ name, vars: {} });
+  chooseDeskSet(ws.id, name);
+  return name;
 }
 
 /** Write the desk's folder into the desk's own set, where you can see and change it.
@@ -10144,7 +10191,22 @@ function ownSetFor(ws) {
  */
 function noteDeskFolder(ws) {
   if (!ws) return;
-  const set = varSetNamed(deskSetName(ws.id) === GROUND ? ownSetFor(ws) : deskSetName(ws.id));
+  const on = deskSetName(ws.id);
+
+  /* Only into a set this desk has to itself.
+   *
+   *  Two desks can share one set — that is the point of naming them — and a folder is the
+   *  one placeholder that is never about both. Writing it into a shared set would mean the
+   *  last desk whose folder you touched decides where the other one thinks it is, silently,
+   *  from a sheet that never mentioned the other desk. So a shared set is left alone and
+   *  `{folder}` falls back to what the situation knows, which is right for each desk
+   *  separately.
+   */
+  const shared = (prefs.workspaces || [])
+    .some((other) => other.id !== ws.id && deskSetName(other.id) === on);
+  if (shared) return;
+
+  const set = varSetNamed(on === GROUND ? ownSetFor(ws) : on);
   if (!set) return;
   if (!ws.home) delete set.vars.folder;
   // The resolved path, never the raw setting: what is stored may itself be written with
