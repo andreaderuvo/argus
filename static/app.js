@@ -6849,29 +6849,53 @@ async function screenWall() {
        *  when it does not, the whole of both paths on hover, and a press opens a file
        *  browser there — because the next question after "it is somewhere else" is "where?".
        */
-      const where = spec.kind === 'term' ? el('button', { className: 'wherechip', type: 'button' }) : null;
-      if (where) {
-        win.dataset.session = spec.name;
-        where.dataset.ws = ws.id;
-        where.onclick = (ev) => {
+      /* What is true about this session, under the bar rather than on it.
+       *
+       *  There are five facts worth having and they do not fit on a title bar: what model
+       *  the agent says it is running, where tmux sees the session, where the agent itself
+       *  says it is working, the folder the desk opens in, and which set of placeholders
+       *  that desk fills from. Crammed into the bar they crowd the name and the buttons;
+       *  as a strip underneath they are a row of labelled facts you open when you are
+       *  asking, and close when you are working.
+       *
+       *  Labelled, because `nomenc/site` beside `test_argus` means nothing without the two
+       *  words saying which is which — and the second label is the agent's own name, since
+       *  `claude: …` and `codex: …` is the distinction that matters when a desk holds both.
+       */
+      const facts = spec.kind === 'term' ? el('div', { className: 'winfacts', hidden: !prefs.winFacts }) : null;
+      const factsBtn = spec.kind === 'term' ? el('button', {
+        className: `winbtn twist${prefs.winFacts ? ' on' : ''}`,
+        title: t('What is true about this session'),
+        'aria-label': t('What is true about this session'),
+        onclick: (ev) => {
           ev.stopPropagation();
-          const at = where.dataset.cwd;
-          if (at) openWindow({ kind: 'browser', id: nextWindowId(), path: at, fresh: true });
-        };
-        getJSON(`/api/tmux/cwd?session=${encodeURIComponent(spec.name)}`)
-          .then((answer) => {
-            if (!answer.cwd) return;
-            where.dataset.cwd = answer.cwd;
-            where.dataset.began = answer.started_in || '';
-            where.dataset.from = answer.cwd_source || '';
-            where.dataset.live = answer.cwd_live ? '1' : '';
-            paintStray();
-          })
-          .catch(() => {});
-      }
+          prefs.winFacts = !prefs.winFacts;
+          savePrefs();
+          // Every terminal at once: it is a way of reading a desk, not a property of one
+          // window, and half a desk showing its facts would be a puzzle rather than a view.
+          for (const strip of document.querySelectorAll('.winfacts')) strip.hidden = !prefs.winFacts;
+          for (const b of document.querySelectorAll('.winbar .twist')) b.classList.toggle('on', !!prefs.winFacts);
+          paintStray();
+        },
+      }, icon('down')) : null;
+      if (facts) facts.dataset.ws = ws.id;
+      if (facts) facts.dataset.session = spec.name;
 
-      const head = el('div', { className: 'winbar' }, [swatch, title, ...(where ? [where] : []), extras, send, solo, more, close]);
-      win.append(head, body);
+      const askWhere = () => getJSON(`/api/tmux/cwd?session=${encodeURIComponent(spec.name)}`)
+        .then((answer) => {
+          facts.dataset.cwd = answer.cwd || '';
+          facts.dataset.began = answer.started_in || '';
+          facts.dataset.from = answer.cwd_source || '';
+          facts.dataset.live = answer.cwd_live ? '1' : '';
+          facts.dataset.model = answer.model || '';
+          facts.dataset.agent = answer.command || '';
+          paintStray();
+        })
+        .catch(() => {});
+      if (facts) askWhere();
+
+      const head = el('div', { className: 'winbar' }, [swatch, title, ...(factsBtn ? [factsBtn] : []), extras, send, solo, more, close]);
+      win.append(head, ...(facts ? [facts] : []), body);
       node.append(win);
 
       const handle = spec.kind === 'messages' ? attachMessages(body, ws.id, extras, {
@@ -7876,72 +7900,82 @@ async function screenWall() {
    *  Only the desk you are looking at, only while the tab is in front of you, and one small
    *  request per terminal — the same shape as the session count that already ticks.
    */
+  /** Ask again for every terminal on the desk you are looking at.
+   *
+   *  A folder read once at the moment the window opened is a folder that was true once: `cd`
+   *  in a shell and the strip goes on naming where you were, and an agent that changes its
+   *  mind says so on its own pane whenever it feels like it. Ten seconds, only the visible
+   *  desk, only while the tab is in front of you.
+   */
   async function readWhere() {
     const here = activeSpace();
-    const chips = [...document.querySelectorAll(`.wherechip[data-ws="${here?.id}"]`)];
-    for (const chip of chips) {
-      const win = chip.closest('.win');
-      const name = win?.dataset.session;
+    for (const strip of document.querySelectorAll(`.winfacts[data-ws="${here?.id}"]`)) {
+      const name = strip.dataset.session;
       if (!name) continue;
       try {
         const answer = await getJSON(`/api/tmux/cwd?session=${encodeURIComponent(name)}`);
-        chip.dataset.began = answer.started_in || '';
-        chip.dataset.from = answer.cwd_source || '';
-        chip.dataset.live = answer.cwd_live ? '1' : '';
-        if (!answer.cwd || answer.cwd === chip.dataset.cwd) continue;
-        chip.dataset.cwd = answer.cwd;
+        strip.dataset.cwd = answer.cwd || '';
+        strip.dataset.began = answer.started_in || '';
+        strip.dataset.from = answer.cwd_source || '';
+        strip.dataset.live = answer.cwd_live ? '1' : '';
+        strip.dataset.model = answer.model || '';
+        strip.dataset.agent = answer.command || '';
       } catch { /* a session that has gone keeps the last thing it said */ }
     }
     paintStray();
   }
 
-  /** Re-read every terminal's folder against the desk it is on. Cheap, and called whenever
-   *  either side of the comparison can have moved: a folder set, a desk switched to. */
+  /** The five facts, written out.
+   *
+   *  Only the folders can disagree with anything, so only they can be amber: the one the
+   *  agent declares is the one a prompt full of {folder} will act on, so that is the one
+   *  compared with the desk. What tmux sees is shown beside it without judgement — when the
+   *  two differ, that difference *is* the information.
+   */
   function paintStray() {
-    /* Two facts, and neither has to stand for the other.
-     *
-     *  Where the session was *made* is what a desk cannot change about a session dragged onto
-     *  it, and it stays true for ever. Where the work is *now* is what a prompt full of
-     *  {folder} needs, and for a shell it moves with every `cd`. They are usually the same
-     *  and then one of them is enough; when they are not, the bar says `began › now`, which
-     *  is shorter than either sentence explaining it.
-     *
-     *  The colour is about the second one, because that is the one a prompt will act on.
-     *  Green agrees with the desk, amber does not, red is nobody knowing — and grey is an
-     *  answer that is not about now, which happens when neither the process nor tmux would
-     *  say and all that is left is where the pane was born.
-     */
-    const leaf = (path) => path.split('/').pop() || path;
-    const FROM = {
-      agent: t('as the agent itself reports it'),
-      process: t('read from the process holding the terminal'),
-      tmux: t('as tmux sees it'),
-      start: t('where the pane was made — nothing newer could be found'),
-    };
-    for (const chip of document.querySelectorAll('.wherechip')) {
-      const ws = spaces.find((w) => String(w.id) === chip.dataset.ws);
-      const here = chip.dataset.cwd;
-      const began = chip.dataset.began;
-      const live = chip.dataset.live === '1';
-      const meant = ws ? deskHome(ws) : null;
-      const state = !here ? 'lost' : !live ? 'old' : (!meant || here === meant) ? 'agrees' : 'astray';
-      for (const one of ['agrees', 'astray', 'lost', 'old']) chip.classList.toggle(one, state === one);
+    if (!prefs.winFacts) return;
+    const leaf = (path) => (path || '').split('/').pop() || path || '';
+    const chip = (label, value, tone, hint) => el('span', {
+      className: `fact${tone ? ` ${tone}` : ''}`, title: hint || '',
+    }, [
+      el('span', { className: 'factname', textContent: label }),
+      el('span', { className: 'factvalue', textContent: value }),
+    ]);
 
-      chip.textContent = !here ? '?'
-        : (began && began !== here ? `${leaf(began)} › ${leaf(here)}` : leaf(here));
+    for (const strip of document.querySelectorAll('.winfacts')) {
+      const ws = spaces.find((w) => String(w.id) === strip.dataset.ws);
+      const seen = strip.dataset.began || '';        // where tmux says it was made
+      const now = strip.dataset.cwd || '';           // the best answer there is
+      const from = strip.dataset.from || '';
+      const agent = strip.dataset.agent || 'session';
+      const model = strip.dataset.model || '';
+      const deskAt = ws ? deskHome(ws) : '';
+      const set = ws ? deskSetName(ws.id) : '';
 
-      const said = [];
-      if (began && began !== here) said.push(t('Started in {path}', { path: began }));
-      if (here) said.push(began && began !== here
-        ? t('now in {path} ({from})', { path: here, from: FROM[chip.dataset.from] || '?' })
-        : t('In {path} ({from})', { path: here, from: FROM[chip.dataset.from] || '?' }));
-      if (!here) said.push(t('tmux was asked where this session is and did not answer'));
-      else if (meant) {
-        said.push(here === meant
-          ? t('which is the folder the desk opens in')
-          : t('the desk opens in {desk}', { desk: meant }));
+      const out = [];
+      if (model) out.push(chip(t('model'), model, '', t('{model}, as the session itself reports it', { model })));
+      if (seen) out.push(chip('tmux', leaf(seen), '', t('Where tmux sees this session: {path}', { path: seen })));
+      if (now) {
+        // Only worth its own chip when it is not the same fact twice.
+        const same = now === seen;
+        const tone = deskAt && now !== deskAt ? 'astray' : 'agrees';
+        const label = from === 'agent' ? agent : from === 'process' ? t('process') : 'tmux';
+        if (!same || from === 'agent') {
+          out.push(chip(label, leaf(now), tone, t('{path} — {from}', {
+            path: now,
+            from: from === 'agent' ? t('as the agent itself reports it')
+              : from === 'process' ? t('read from the process holding the terminal')
+                : from === 'tmux' ? t('as tmux sees it')
+                  : t('where the pane was made — nothing newer could be found'),
+          })));
+        } else if (deskAt && now !== deskAt) {
+          out[out.length - 1].classList.add('astray');
+        }
       }
-      chip.title = said.join(' · ');
+      if (!now) out.push(chip('tmux', '?', 'lost', t('tmux was asked where this session is and did not answer')));
+      if (deskAt) out.push(chip(t('desk'), leaf(deskAt), '', t('The folder this desk opens in: {path}', { path: deskAt })));
+      if (set) out.push(chip(t('values'), set, '', t('The set of placeholders this desk fills from')));
+      strip.replaceChildren(...out);
     }
   }
 

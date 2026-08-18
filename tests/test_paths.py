@@ -142,12 +142,12 @@ def test_a_read_only_server_still_locates(tree):
 def test_where_prefers_what_the_agent_said(monkeypatch):
     """The pane option wins over everything, because it is the only source that knows what
     the agent *considers* current — no amount of watching from outside derives that."""
-    monkeypatch.setattr(paths, "_say", lambda *_a: "/dev/pts/9\t/where/tmux/thinks\tclaude\t/what/the/agent/said\t/where/it/began")
+    monkeypatch.setattr(paths, "_say", lambda *_a: "/dev/pts/9\t/where/tmux/thinks\tclaude\t/what/the/agent/said\t/where/it/began\tOpus 5")
     monkeypatch.setattr(paths, "foreground_pid", lambda _tty: 4242)
     monkeypatch.setattr(paths, "process_cwd", lambda _pid: "/where/the/process/is")
     assert paths.pane_where(tmux.Socket(None), "one") == {
         "cwd": "/what/the/agent/said", "source": "agent", "live": True,
-        "command": "claude", "began": "/where/it/began",
+        "command": "claude", "began": "/where/it/began", "model": "Opus 5",
     }
 
 

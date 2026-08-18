@@ -187,13 +187,17 @@ def pane_where(sock: tmux.Socket, session: str) -> dict:
     """
     line = _say(sock, session, "\t".join([
         "#{pane_tty}", "#{pane_current_path}", "#{pane_current_command}",
-        "#{@argus_cwd}", "#{pane_start_path}",
+        "#{@argus_cwd}", "#{pane_start_path}", "#{@argus_model}",
     ]))
-    bits = (line.split("\t") + [""] * 5)[:5]
-    tty, current, command, told, began = (b.strip() for b in bits)
+    bits = (line.split("\t") + [""] * 6)[:6]
+    tty, current, command, told, began, model = (b.strip() for b in bits)
 
     answer = {"cwd": None, "source": None, "live": False, "command": command,
-              "began": began if began.startswith("/") else None}
+              "began": began if began.startswith("/") else None,
+              # What the agent says it is running. Nothing outside it can know: the process
+              # is called `claude` whatever model is behind it, and a model named in a config
+              # file is the one it started with, not the one /model chose ten minutes ago.
+              "model": model or None}
     if told.startswith("/"):
         answer.update(cwd=told, source="agent")
     else:

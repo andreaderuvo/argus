@@ -27,8 +27,13 @@ where = said.get("workspace", {}).get("current_dir") or said.get("cwd") or "-"
 who = (said.get("model") or {}).get("display_name") or "-"
 print(where, who)' 2>/dev/null)
 
-[ -n "$dir" ] && [ "$dir" != "-" ] && [ -n "$TMUX_PANE" ] &&
-    tmux set -p -t "$TMUX_PANE" @argus_cwd "$dir" 2>/dev/null
+# Written where Argus looks. The model goes down with it: it is the other thing nothing
+# outside the agent can know — the process is called `claude` whatever it is running, and
+# the configured model in a file is what it was *started* with, not what /model chose since.
+if [ -n "$TMUX_PANE" ]; then
+    [ -n "$dir" ] && [ "$dir" != "-" ] && tmux set -p -t "$TMUX_PANE" @argus_cwd "$dir" 2>/dev/null
+    [ -n "$model" ] && [ "$model" != "-" ] && tmux set -p -t "$TMUX_PANE" @argus_model "$model" 2>/dev/null
+fi
 
 [ "$dir" = "-" ] && dir=""
 [ "$model" = "-" ] && model=""
