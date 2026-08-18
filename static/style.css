@@ -2095,6 +2095,12 @@ textarea.baton {
   flex: none; display: inline-flex; align-items: center; justify-content: center;
   width: 22px; height: 22px; border-radius: .3rem;
   cursor: grab; color: var(--text); user-select: none;
+  /* Without this a touch that starts here is the browser's: it takes the gesture for
+     scrolling, sends pointercancel, and the drag is over before it began — which is why
+     reordering worked with a mouse and did nothing at all on a phone. The same line is what
+     makes the desk tabs draggable. `preventDefault` on pointerdown does not do it: by then
+     the browser has already decided the gesture is a scroll. */
+  touch-action: none;
 }
 /* Six dots at thirteen pixels in the dim colour came out as a smudge you had to know was
    there. Bigger, thicker, and in the ordinary text colour: a handle nobody can see is a
