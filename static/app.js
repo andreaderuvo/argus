@@ -13295,14 +13295,32 @@ function showCount(tab, n) {
 setInterval(() => { if (!document.hidden) countSessions(); }, SESSION_COUNT_EVERY);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) countSessions(); });
 
+/** What each tab is called. Two of them are not their own name — `wall` is Windows, and
+ *  `placeholders` is Values on the bar, which is the word the markup uses and the word the
+ *  catalogues translate. Derived from the tab, this said "Placeholders" in every language
+ *  but English. */
+const TAB_WORD = {
+  files: 'Files', sessions: 'Sessions', wall: 'Windows', prompts: 'Prompts',
+  placeholders: 'Values', system: 'System', journal: 'Journal',
+};
+
 /** The nav labels and the title sit in the HTML, so they are translated in place. */
 function translateMarkup() {
   for (const a of nav.querySelectorAll('a')) {
-    const label = a.lastChild;
-    if (label?.nodeType === 3) label.textContent = t(a.dataset.tab === 'wall' ? 'Windows' : a.dataset.tab[0].toUpperCase() + a.dataset.tab.slice(1));
+    /* The label is a text node between the icon and the count, not the last child.
+     *
+     *  `lastChild` was right until a tab had a number on it: the badge is appended, so
+     *  Sessions and Windows — the two that always have one — silently stopped being
+     *  translated, and on a phone the drawer copies its words from here. */
+    const label = [...a.childNodes].find((n) => n.nodeType === 3 && n.textContent.trim());
+    const word = TAB_WORD[a.dataset.tab];
+    if (label && word) label.textContent = t(word);
   }
   bar.settings.title = t('Settings');
   bar.full.title = t(document.fullscreenElement ? 'Leave full screen' : 'Full screen');
+  // The drawer is a copy of the bar, made once. Made again, or a phone keeps yesterday's
+  // language until it is reloaded — and the counts go back into it.
+  applyBottomBar();
 }
 
 // The pins have to arrive before the first paint, or the sidebar draws without them.
