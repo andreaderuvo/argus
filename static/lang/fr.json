@@ -614,6 +614,7 @@
   "tmux buffer": "tampon tmux",
   "tmux configuration": "configuration de tmux",
   "tmux prefix": "préfixe tmux",
+  "tmux was asked where this session is and did not answer": "tmux a été interrogé sur l’emplacement de cette session et n’a pas répondu",
   "tmux was not holding the history — the program itself is scrolling, so use its own key": "l'historique n'était pas celui de tmux — c'est le programme qui défile, utilisez sa propre touche",
   "to": "vers",
   "together": "ensemble",

@@ -614,6 +614,7 @@
   "tmux buffer": "búfer de tmux",
   "tmux configuration": "configuración de tmux",
   "tmux prefix": "prefijo de tmux",
+  "tmux was asked where this session is and did not answer": "se preguntó a tmux dónde está esta sesión y no contestó",
   "tmux was not holding the history — the program itself is scrolling, so use its own key": "el historial no era de tmux — es el programa el que se desplaza, usa su propia tecla",
   "to": "a",
   "together": "juntos",

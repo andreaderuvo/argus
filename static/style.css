@@ -2780,8 +2780,16 @@ dialog.sheet:has(.promptmake) { width: min(38rem, calc(100vw - 2rem)); }
   border: 1px solid transparent; border-radius: .3rem;
   background: none; color: var(--dim); cursor: pointer;
 }
-.winbar .wherechip:hover { color: var(--bright); border-color: var(--line); }
+.winbar .wherechip:hover { border-color: currentColor; filter: brightness(1.25); }
+/* The three everybody reads without being taught. Green is deliberately the quiet one: it is
+   true on nearly every window, and a row of shouting green chips would be wallpaper. */
+.winbar .wherechip.agrees { color: color-mix(in srgb, var(--st-good) 78%, var(--dim)); }
 .winbar .wherechip.astray {
   color: var(--st-warning);
   border-color: color-mix(in srgb, var(--st-warning) 40%, transparent);
+}
+.winbar .wherechip.lost {
+  color: var(--st-critical);
+  border-color: color-mix(in srgb, var(--st-critical) 40%, transparent);
+  min-width: 1.2rem; text-align: center;
 }
