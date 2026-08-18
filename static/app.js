@@ -809,6 +809,8 @@ const ICONS = {
   back: 'M15 4.5 7.5 12 15 19.5',
   up: 'M12 19.5v-14M5.5 12 12 5.5 18.5 12',
   down: 'M12 4.5v14M18.5 12 12 18.5 5.5 12',
+  // A circle, a stem and a dot: three subpaths in one string, the way `grip` does it.
+  info: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0M12 11v5.5M12 7.6h.01',
   home: 'M3.5 11 12 4l8.5 7M6 9.6V20h12V9.6',
   folderPlus: 'M3.5 6.8A1.8 1.8 0 0 1 5.3 5h3.4l1.8 2h8.2a1.8 1.8 0 0 1 1.8 1.8v8.4a1.8 1.8 0 0 1-1.8 1.8H5.3a1.8 1.8 0 0 1-1.8-1.8zM12 10.8v4.8M9.6 13.2h4.8',
   upload: 'M12 16.5v-12M7 9.5 12 4.5l5 5M4.5 19.5h15',
@@ -5926,6 +5928,10 @@ function attachTerminal(container, name, { transform, onGone, onPath, onLinks, m
       pending = [];
       term.write(merged);
       spoke = Date.now();
+      // Written on the window as well, where the desk strip can read it without holding a
+      // reference to every terminal: "this session printed something just now" is the only
+      // thing anybody outside needs, and a dataset attribute is the cheapest place to say it.
+      container.closest('.win')?.setAttribute('data-spoke', String(spoke));
       harvest?.();
     };
 
@@ -6862,22 +6868,26 @@ async function screenWall() {
        *  words saying which is which — and the second label is the agent's own name, since
        *  `claude: …` and `codex: …` is the distinction that matters when a desk holds both.
        */
-      const facts = spec.kind === 'term' ? el('div', { className: 'winfacts', hidden: !prefs.winFacts }) : null;
+      // Named for what it is, not `open`: inside this function `open` is the deck's list of
+      // windows, and shadowing it broke `open.push` — reported, within the minute.
+      const factsShown = prefs.winFacts !== false;   // shown unless you closed it
+      const facts = spec.kind === 'term' ? el('div', { className: 'winfacts', hidden: !factsShown }) : null;
       const factsBtn = spec.kind === 'term' ? el('button', {
-        className: `winbtn twist${prefs.winFacts ? ' on' : ''}`,
+        className: `winbtn twist facts${factsShown ? ' on' : ''}`,
         title: t('What is true about this session'),
         'aria-label': t('What is true about this session'),
         onclick: (ev) => {
           ev.stopPropagation();
-          prefs.winFacts = !prefs.winFacts;
+          prefs.winFacts = prefs.winFacts === false;
           savePrefs();
           // Every terminal at once: it is a way of reading a desk, not a property of one
           // window, and half a desk showing its facts would be a puzzle rather than a view.
-          for (const strip of document.querySelectorAll('.winfacts')) strip.hidden = !prefs.winFacts;
-          for (const b of document.querySelectorAll('.winbar .twist')) b.classList.toggle('on', !!prefs.winFacts);
+          const showing = prefs.winFacts !== false;
+          for (const strip of document.querySelectorAll('.winfacts')) strip.hidden = !showing;
+          for (const b of document.querySelectorAll('.winbar .twist.facts')) b.classList.toggle('on', showing);
           paintStray();
         },
-      }, icon('down')) : null;
+      }, icon('info')) : null;
       if (facts) facts.dataset.ws = ws.id;
       if (facts) facts.dataset.session = spec.name;
 
@@ -6894,6 +6904,8 @@ async function screenWall() {
         .catch(() => {});
       if (facts) askWhere();
 
+      // The `i` sits with the name, not with the buttons: it is about *this session*, and the
+      // buttons at the other end are things you do to the window.
       const head = el('div', { className: 'winbar' }, [swatch, title, ...(factsBtn ? [factsBtn] : []), extras, send, solo, more, close]);
       win.append(head, ...(facts ? [facts] : []), body);
       node.append(win);
@@ -7933,14 +7945,35 @@ async function screenWall() {
    *  two differ, that difference *is* the information.
    */
   function paintStray() {
-    if (!prefs.winFacts) return;
-    const leaf = (path) => (path || '').split('/').pop() || path || '';
-    const chip = (label, value, tone, hint) => el('span', {
-      className: `fact${tone ? ` ${tone}` : ''}`, title: hint || '',
-    }, [
-      el('span', { className: 'factname', textContent: label }),
-      el('span', { className: 'factvalue', textContent: value }),
-    ]);
+    if (prefs.winFacts === false) return;
+    /* Whole paths, not leaves.
+     *
+     *  `desk-qui` beside `desk-qui` looks like agreement even when one of them is three
+     *  directories away from the other, and a leaf is exactly the part two folders are most
+     *  likely to share. Home is written `~` because that is how a person writes it and it
+     *  buys back the width; everything else is literal, and the tooltip has it in full.
+     */
+    const said = (path) => {
+      const home = homePath(server?.roots || ['/']);
+      return home && path.startsWith(home) ? `~${path.slice(home.length)}` : path;
+    };
+    /** A folder is a place you can go: pressing one opens a browser there, which is the
+     *  next thing you want the moment you notice a session is somewhere unexpected. */
+    const chip = (label, value, tone, hint, goTo) => {
+      const body = [
+        el('span', { className: 'factname', textContent: label }),
+        el('span', { className: 'factvalue', textContent: value }),
+      ];
+      if (!goTo) return el('span', { className: `fact${tone ? ` ${tone}` : ''}`, title: hint || '' }, body);
+      return el('button', {
+        className: `fact goes${tone ? ` ${tone}` : ''}`, type: 'button',
+        title: `${hint || ''}${hint ? ' · ' : ''}${t('press to open a file browser here')}`,
+        onclick: (ev) => {
+          ev.stopPropagation();
+          openWindow({ kind: 'browser', id: nextWindowId(), path: goTo, fresh: true });
+        },
+      }, body);
+    };
 
     for (const strip of document.querySelectorAll('.winfacts')) {
       const ws = spaces.find((w) => String(w.id) === strip.dataset.ws);
@@ -7954,27 +7987,40 @@ async function screenWall() {
 
       const out = [];
       if (model) out.push(chip(t('model'), model, '', t('{model}, as the session itself reports it', { model })));
-      if (seen) out.push(chip('tmux', leaf(seen), '', t('Where tmux sees this session: {path}', { path: seen })));
+      if (seen) out.push(chip('tmux', said(seen), '', t('Where tmux sees this session: {path}', { path: seen }), seen));
       if (now) {
         // Only worth its own chip when it is not the same fact twice.
         const same = now === seen;
         const tone = deskAt && now !== deskAt ? 'astray' : 'agrees';
         const label = from === 'agent' ? agent : from === 'process' ? t('process') : 'tmux';
         if (!same || from === 'agent') {
-          out.push(chip(label, leaf(now), tone, t('{path} — {from}', {
+          out.push(chip(label, said(now), tone, t('{path} — {from}', {
             path: now,
             from: from === 'agent' ? t('as the agent itself reports it')
               : from === 'process' ? t('read from the process holding the terminal')
                 : from === 'tmux' ? t('as tmux sees it')
                   : t('where the pane was made — nothing newer could be found'),
-          })));
+          }), now));
         } else if (deskAt && now !== deskAt) {
           out[out.length - 1].classList.add('astray');
         }
       }
       if (!now) out.push(chip('tmux', '?', 'lost', t('tmux was asked where this session is and did not answer')));
-      if (deskAt) out.push(chip(t('desk'), leaf(deskAt), '', t('The folder this desk opens in: {path}', { path: deskAt })));
-      if (set) out.push(chip(t('values'), set, '', t('The set of placeholders this desk fills from')));
+      if (deskAt) out.push(chip(t('desk'), said(deskAt), '', t('The folder this desk opens in: {path}', { path: deskAt }), deskAt));
+      if (set) {
+        // Pressing it goes to the set itself: the Placeholders screen opens on whichever set
+        // the desk you came from is using, so there is nothing to pass along — it is already
+        // the right one, and this is only the door.
+        const door = el('button', {
+          className: 'fact goes', type: 'button',
+          title: `${t('The set of placeholders this desk fills from')} · ${t('press to open it')}`,
+          onclick: (ev) => { ev.stopPropagation(); go('#/placeholders'); },
+        }, [
+          el('span', { className: 'factname', textContent: t('values') }),
+          el('span', { className: 'factvalue', textContent: set }),
+        ]);
+        out.push(door);
+      }
       strip.replaceChildren(...out);
     }
   }
@@ -9849,6 +9895,28 @@ function paintBells() {
     tab.classList.toggle('ringing', desks.has(tab.dataset.ws));
   }
 }
+
+/* Which desks have something moving in them.
+ *
+ *  A bell says "it has finished, or it wants you". This is the other half: an agent that is
+ *  *working*, which you cannot tell from a tab that looks exactly like the tab of a desk
+ *  where nothing has happened since lunch. Every terminal already knows when its session
+ *  last printed something — the paint path stamps it — so this asks, once a second, and
+ *  lights the tab of any desk whose sessions have printed in the last two.
+ *
+ *  Only desks whose windows have been built: one you have never opened this visit has no
+ *  connection to be quiet or loud, and inventing an answer for it would be worse than the
+ *  honest nothing.
+ */
+function paintWorking() {
+  for (const tab of document.querySelectorAll('.wstab[data-ws]')) {
+    const deck = document.querySelector(`.deck[data-ws="${tab.dataset.ws}"]`);
+    const busy = !!deck && [...deck.querySelectorAll('.win[data-kind="term"]')]
+      .some((win) => win.dataset.spoke && Date.now() - Number(win.dataset.spoke) < 2000);
+    tab.classList.toggle('working', busy);
+  }
+}
+setInterval(() => { if (!document.hidden) paintWorking(); }, 1000);
 
 /** Two short tones, made rather than fetched: one asset fewer, and it works offline.
  *

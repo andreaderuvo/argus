@@ -557,6 +557,8 @@
   "port {port} closed": "port {port} closed",
   "port {port} opened and served through Argus": "port {port} ouvert et servi par Argus",
   "press the keys…": "appuyez sur les touches…",
+  "press to open a file browser here": "appuyez pour ouvrir ici un navigateur de fichiers",
+  "press to open it": "appuyez pour l’ouvrir",
   "preview limit: {size}": "preview limit: {size}",
   "preview with": "aperçu avec",
   "process": "processus",
