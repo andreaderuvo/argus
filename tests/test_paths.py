@@ -8,6 +8,7 @@ punctuation real output wraps paths in does not stop them resolving.
 import pytest
 from fastapi.testclient import TestClient
 
+from app import paths, tmux
 from app.config import Config
 from app.main import create_app
 from app.paths import expand, trim
@@ -136,3 +137,47 @@ def test_a_read_only_server_still_locates(tree):
     ro = TestClient(create_app(Config(token=TOKEN, roots=[tree / "root"], allow_write=False)))
     r = locate(ro, [str(tree / "root" / "notes.md")])
     assert r.status_code == 200 and r.json()["found"]
+
+
+def test_pane_cwd_prefers_what_something_told_us(monkeypatch):
+    """A pane option beats the pane's process directory.
+
+    The reason it exists: an agent that changes folder inside itself never calls `chdir()`,
+    so `#{pane_current_path}` goes on naming where the process started. Anything that does
+    know — a Claude Code statusLine hook, a shell's PROMPT_COMMAND — writes it into
+    `@argus_cwd`, and that is what a browser is told.
+    """
+    asked = []
+
+    class Answer:
+        def __init__(self, out):
+            self.returncode = 0
+            self.stdout = out
+            self.stderr = ""
+
+    def fake_run(args, **kw):
+        fmt = args[-1]
+        asked.append(fmt)
+        if fmt == "#{@argus_cwd}":
+            return Answer("/told/you\n")
+        return Answer("/where/the/process/is\n")
+
+    monkeypatch.setattr(paths.subprocess, "run", fake_run)
+    assert paths.pane_cwd(tmux.Socket(None), "one") == "/told/you"
+    assert asked == ["#{@argus_cwd}"]
+
+
+def test_pane_cwd_falls_back_to_the_process(monkeypatch):
+    """With nothing set, the pane's own directory — right for a shell, honest for the rest."""
+
+    class Answer:
+        def __init__(self, out):
+            self.returncode = 0
+            self.stdout = out
+            self.stderr = ""
+
+    def fake_run(args, **kw):
+        return Answer("" if args[-1] == "#{@argus_cwd}" else "/where/the/process/is\n")
+
+    monkeypatch.setattr(paths.subprocess, "run", fake_run)
+    assert paths.pane_cwd(tmux.Socket(None), "one") == "/where/the/process/is"
