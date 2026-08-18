@@ -776,6 +776,12 @@ const ICONS = {
   maximise: 'M5 5h14v14H5z',
   folder: 'M3.5 6.8A1.8 1.8 0 0 1 5.3 5h3.4l1.8 2h8.2a1.8 1.8 0 0 1 1.8 1.8v8.4a1.8 1.8 0 0 1-1.8 1.8H5.3a1.8 1.8 0 0 1-1.8-1.8z',
   terminal: 'M3.5 5.5h17v13h-17zM7 10l2.6 2L7 14M12.8 14.3H17',
+  // Six dots, the handle everything draggable has had since the first list you could
+  // rearrange. Drawn rather than typed: ⠿ was there first and is a braille character, so on
+  // any machine whose fonts do not carry that block it is an eighteen-pixel box of nothing —
+  // which is precisely how it arrived, and how "I cannot work out how to reorder them" was
+  // the honest reaction.
+  grip: 'M9 6h.01M9 12h.01M9 18h.01M15 6h.01M15 12h.01M15 18h.01',
   // Just a plus. A terminal-with-a-plus was drawn first and it is a lot of lines for a
   // 15-pixel square: three glyphs fighting for the same corner. The word beside it already
   // says what is being made.
@@ -4192,7 +4198,10 @@ async function screenMessages(open = null) {
       const mine = all.filter((x) => x.group === group);
       const folder = el('details', { className: 'folder', open: !!mine.length });
       const summary = el('summary', {}, [
-        el('span', { className: 'grip', title: t('Drag to reorder') }, '⠿'),
+        // textContent, not a third argument: `el` takes nodes there, so the character was
+        // quietly dropped and the handle was a zero-pixel box nobody could grab. Which is
+        // exactly how it was reported: "I cannot work out how to reorder them."
+        el('span', { className: 'dragrip', title: t('Drag to reorder') }, icon('grip')),
         el('span', { className: 'twist' }, icon('down')),
         icon('folder'),
         el('span', { className: 'foldername', textContent: group }),
@@ -4243,7 +4252,19 @@ async function screenMessages(open = null) {
       folder.append(tools);
 
       if (!mine.length) folder.append(el('p', { className: 'empty tiny', textContent: t('Nothing in here yet.') }));
-      for (const kind of mine) folder.append(messageCard(kind, all));
+      for (const kind of mine) {
+        const card = messageCard(kind, all);
+        // The element carries the prompt it draws, so the order can be read back off the page
+        // rather than matched up by name — two prompts in different folders may share one.
+        card.kind = kind;
+        reorderFolder(card, folder, () => {
+          const seen = [...body.querySelectorAll('details.msgcard')].map((n) => n.kind);
+          prefs.templates = [...seen, ...all.filter((k) => !seen.includes(k))];
+          savePrefs();
+          messagesChanged();
+        });
+        folder.append(card);
+      }
       folder.dataset.group = group;
       reorderFolder(folder, body, () => {
         // Read the order back off the page rather than working it out: the page is what you
@@ -4314,6 +4335,7 @@ async function screenMessages(open = null) {
     // it points sideways and looks like a bullet — and what replaced it was nothing at all,
     // so the rows read as a list you cannot do anything with.
     card.append(el('summary', {}, [
+      el('span', { className: 'dragrip', title: t('Drag to reorder') }, icon('grip')),
       el('span', { className: 'twist' }, icon('down')),
       el('span', { className: 'name', textContent: kind.name }),
       el('span', { className: 'meta', textContent: first }),
@@ -8554,7 +8576,7 @@ function reorderTab(tab, strip, onDone) {
  *  nothing at all. One small target that only drags, and a summary that only opens.
  */
 function reorderFolder(folder, list, onDone) {
-  const handle = folder.querySelector('.grip');
+  const handle = folder.querySelector('.dragrip');
   if (!handle) return;
   handle.addEventListener('pointerdown', (down) => {
     if (down.button) return;

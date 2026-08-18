@@ -1993,14 +1993,21 @@ textarea.baton {
 .folder > summary::-webkit-details-marker { display: none; }
 .folder > summary .ico { color: var(--accent); }
 
-/* The grip: the only part of a folder that drags. Everything else about a summary keeps
-   meaning what it meant. */
-.folder > summary .grip {
-  flex: none; cursor: grab; color: var(--dim); font-size: .8rem; line-height: 1;
-  padding: 0 .1rem; user-select: none;
+/* The handle: the only part of a folder that drags — everything else about a summary keeps
+   meaning what it meant.
+
+   `.grip` was taken — it is the resize corner of a window, absolutely positioned at the
+   bottom right, which is exactly where this handle went and why nobody could find it. */
+.msgcard > summary .dragrip,
+.folder > summary .dragrip {
+  flex: none; display: inline-flex; align-items: center;
+  cursor: grab; color: var(--dim); padding: 0 .1rem; user-select: none;
 }
-.folder > summary .grip:hover { color: var(--accent); }
-.folder.folderdrag > summary .grip { cursor: grabbing; }
+.msgcard > summary .dragrip .ico,
+.folder > summary .dragrip .ico { width: 13px; height: 13px; }
+.msgcard > summary .dragrip:hover, .folder > summary .dragrip:hover { color: var(--accent); }
+.folder.folderdrag > summary .dragrip, .msgcard.folderdrag > summary .dragrip { cursor: grabbing; }
+.msgcard.folderdrag { opacity: .8; background: var(--panel); }
 .folder.folderdrag { opacity: .8; box-shadow: 0 10px 26px rgb(0 0 0 / .45); }
 .folder.folderdrag > summary { cursor: grabbing; }
 
