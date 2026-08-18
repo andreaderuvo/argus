@@ -781,7 +781,7 @@ const ICONS = {
   // any machine whose fonts do not carry that block it is an eighteen-pixel box of nothing —
   // which is precisely how it arrived, and how "I cannot work out how to reorder them" was
   // the honest reaction.
-  grip: 'M9 6h.01M9 12h.01M9 18h.01M15 6h.01M15 12h.01M15 18h.01',
+  grip: 'M8.5 5h.01M8.5 12h.01M8.5 19h.01M15.5 5h.01M15.5 12h.01M15.5 19h.01',
   // Just a plus. A terminal-with-a-plus was drawn first and it is a lot of lines for a
   // 15-pixel square: three glyphs fighting for the same corner. The word beside it already
   // says what is being made.
@@ -8610,11 +8610,9 @@ function reorderFolder(item, list, onDone) {
     const lift = () => {
       dragging = true;
       item.classList.add('folderdrag');
-      if (item.tagName === 'DETAILS') {
-        item.dataset.wasOpen = item.open ? '1' : '';
-        item.open = false;                       // it must not grow while it travels
-        from = down.clientY;                     // and closing it moved everything
-      }
+      // It used to close while you carried it, on the theory that a tall thing is awkward to
+      // drag. In the hand it reads as the interface taking your folder away and giving back
+      // something smaller — so it travels exactly as it was, open or shut.
     };
 
     const settle = (node, before) => {
@@ -8675,8 +8673,6 @@ function reorderFolder(item, list, onDone) {
       setTimeout(() => {
         item.style.transition = '';
         item.classList.remove('folderdrag');
-        if (item.tagName === 'DETAILS' && item.dataset.wasOpen === '1') item.open = true;
-        delete item.dataset.wasOpen;
       }, 170);
       if (moved) onDone();
     };
