@@ -9609,21 +9609,23 @@ const PHYSICAL = (code) => {
 };
 
 function keyName(e) {
-  const bits = [];
-  /* AltGr is its own modifier here, and it has to be.
+  /* No AltGr.
    *
-   *  It is not the same key twice: on Linux it is ISO_Level3_Shift and arrives as
-   *  `AltGraph`; on Windows it *is* Ctrl+Alt, and a browser reports all three. Named by
-   *  ctrl+alt it would collide with the sidebar group on one platform and not the other, so
-   *  when AltGraph is set it is called `altgr` and the ctrl and alt it may have synthesised
-   *  are dropped — one name for one physical key, wherever it is pressed.
+   *  It was here for an afternoon and is gone, for two reasons that both matter. It could
+   *  not be tested: `getModifierState('AltGraph')` cannot be faked from a synthetic event
+   *  and the protocol that drives a browser has no bit for it, so the only evidence
+   *  available was that it compiled. And it was not free — naming it meant *dropping* the
+   *  ctrl and alt a browser reports alongside it, so on a keyboard where right-Alt is AltGr,
+   *  a perfectly ordinary Ctrl+Alt+F could have come out as `altgr+f` and matched nothing,
+   *  with no way for anyone to work out why their sidebar shortcut had stopped.
+   *
+   *  Untested code that can quietly break a tested feature is not a feature.
    */
-  const graph = e.getModifierState?.('AltGraph');
-  if (graph) bits.push('altgr');
-  if (e.ctrlKey && !graph) bits.push('ctrl');
-  if (e.altKey && !graph) bits.push('alt');
+  const bits = [];
+  if (e.ctrlKey) bits.push('ctrl');
+  if (e.altKey) bits.push('alt');
   if (e.metaKey) bits.push('meta');
-  const held = e.ctrlKey || e.altKey || e.metaKey || graph;
+  const held = e.ctrlKey || e.altKey || e.metaKey;
   const physical = held ? PHYSICAL(e.code) : null;
   if (e.shiftKey && (physical || e.key.length > 1)) bits.push('shift');
   bits.push(physical || e.key);
@@ -9677,11 +9679,9 @@ function runKey(id) {
      *  which two modifiers no longer are, and it costs a wider hand once rather than a
      *  collision every day.
      *
-     *  AltGr was tried before this and put back. It really is the one modifier nobody has
-     *  claimed, and it is also not one key: Linux sends `AltGraph`, Windows sends Ctrl+Alt,
-     *  and some keyboards have none. Argus understands it — press it in the shortcut list
-     *  and it records `altgr+…` — so anyone whose keyboard sends it cleanly can have it in
-     *  five seconds. What ships is the chord that could be watched firing.
+     *  AltGr was tried between the two and taken out again: it could not be tested from
+     *  here, and reading it meant dropping the ctrl and alt reported beside it, which could
+     *  have broken an ordinary Ctrl+Alt shortcut on the keyboards where right-Alt is AltGr.
      *
      *  C for columns and R for rows are the obvious letters and both are spoken for in the
      *  two-modifier form, so J and K stay: where a vim hand already is.
