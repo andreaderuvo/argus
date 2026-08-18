@@ -8941,6 +8941,10 @@ const KEYS = [
   { group: 'This desk', id: 'browser', name: 'New file browser in this desk', key: 'ctrl+shift+e' },
   { group: 'This desk', id: 'links', name: 'The link tray', key: 'ctrl+shift+l' },
   { group: 'This desk', id: 'messages', name: 'The prompts window', key: 'ctrl+shift+y' },
+  { group: 'This desk', id: 'grid', name: 'Arrange as a grid', key: 'ctrl+shift+g' },
+  { group: 'This desk', id: 'cols', name: 'Arrange as columns', key: 'ctrl+shift+k' },
+  { group: 'This desk', id: 'rows', name: 'Arrange as rows', key: 'ctrl+shift+j' },
+  { group: 'This desk', id: 'mine', name: 'Back to your own arrangement', key: 'ctrl+shift+u' },
   { group: 'This desk', id: 'nextDesk', name: 'Next desk (or Ctrl+Shift+→)', key: 'ctrl+shift+]' },
   { group: 'This desk', id: 'prevDesk', name: 'Previous desk (or Ctrl+Shift+←)', key: 'ctrl+shift+[' },
 ];
@@ -8996,6 +9000,7 @@ function runKey(id) {
   const wall = () => document.getElementById('walltools');
   const press = (label) => [...(wall()?.querySelectorAll('button') || [])]
     .find((b) => new RegExp(label, 'i').test(b.textContent))?.click();
+  const tile = (mode) => { go('#/wall'); wall()?.querySelector(`button[data-mode="${mode}"]`)?.click(); };
   const desk = (step) => {
     const tabs = [...document.querySelectorAll('#walltabs .wstab[data-ws]')];
     if (tabs.length < 2) return;
@@ -9017,6 +9022,17 @@ function runKey(id) {
     messages: () => { go('#/wall'); press('prompt|messag'); },
     nextDesk: () => desk(1),
     prevDesk: () => desk(-1),
+    /* The arrangements, on the letters the browser has left.
+     *
+     *  C for columns and R for rows are the obvious ones and both are spoken for —
+     *  Ctrl+Shift+C is the element picker, Ctrl+Shift+R is a hard reload, and a shortcut
+     *  that reloads the page while you are arranging windows is worse than no shortcut.
+     *  So J and K, which is where a hand that has used vim already is.
+     */
+    grid: () => tile('grid'),
+    cols: () => tile('cols'),
+    rows: () => tile('rows'),
+    mine: () => { go('#/wall'); wall()?.querySelector('[data-mine]:not(:disabled)')?.click(); },
   };
   jobs[id]?.();
 }
