@@ -3336,7 +3336,10 @@ function undoEntities(s) {
 }
 
 async function drawDiagrams(container) {
-  const blocks = [...container.querySelectorAll('pre > code.language-mermaid')];
+  /* `[class*=]`, not the exact class: an info string is not always the bare word — ```mermaid
+   *  with anything after it becomes `language-mermaid-something`, and a fence written that
+   *  way is still a diagram. */
+  const blocks = [...container.querySelectorAll('pre > code[class*="language-mermaid"]')];
   // Colours are baked into the svg at draw time, so a theme switch has to redraw whatever is
   // already on the page — a diagram drawn at night is a black box on a white document.
   const again = [...container.querySelectorAll('.diagram')].filter((d) => d.source);
@@ -3344,7 +3347,16 @@ async function drawDiagrams(container) {
   try {
     if (!mmd.engine) ({ default: mmd.engine } = await import('/vendor/mermaid-11.16.1/mermaid.esm.min.mjs'));
   } catch (e) {
+    /* Say it on the page, not only in the console.
+     *
+     *  A library that will not load looks exactly like a feature that is not there — which
+     *  is the whole difficulty of "the diagrams are not drawn": nothing distinguishes a copy
+     *  of Argus too old to have this from one where the file is missing or is being served
+     *  with a MIME type a browser will not import. One line, under the block, does. */
     console.warn(`argus: no diagrams — ${e.message}`);
+    for (const code of blocks) {
+      code.parentElement.after(el('p', { className: 'meta', textContent: t('the diagram library did not load') }));
+    }
     return;
   }
   // Built from the palette rather than mermaid's own dark and light themes, so a diagram
