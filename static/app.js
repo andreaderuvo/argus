@@ -3073,6 +3073,21 @@ async function renderMarkdown(text, container, from = '') {
 
 /* ------------------------------------------------------------------ vitals */
 
+/** Write a string into a node without replacing it.
+ *
+ *  `textContent = x` throws the text node away and makes another one, even when the string
+ *  is identical — cheap on its own, and not cheap forty times every four seconds on a screen
+ *  somebody is reading. Setting `nodeValue` on the text node that is already there changes
+ *  the characters and nothing else. */
+function writeInto(node, text) {
+  const only = node.childNodes.length === 1 ? node.firstChild : null;
+  if (only && only.nodeType === 3) {
+    if (only.nodeValue !== text) only.nodeValue = text;
+    return;
+  }
+  if (node.textContent !== text) node.textContent = text;
+}
+
 const LEVEL_WORD = { good: 'ok', warning: 'high', critical: 'critical' };
 
 /** A labelled meter. The fill carries severity; the word beside it carries the same
@@ -3080,7 +3095,7 @@ const LEVEL_WORD = { good: 'ok', warning: 'high', critical: 'critical' };
 function meter(label, value, pct, lvl, note = '') {
   const fill = el('div', { className: `fill ${lvl}` });
   fill.style.width = `${Math.max(1.5, Math.min(100, pct))}%`;
-  return el('div', { className: 'tile' }, [
+  const tile = el('div', { className: 'tile' }, [
     el('div', { className: 'tilehead' }, [
       el('span', { className: 'tilelabel', textContent: label }),
       el('span', { className: `state ${lvl}`, textContent: LEVEL_WORD[lvl] }),
@@ -3089,6 +3104,26 @@ function meter(label, value, pct, lvl, note = '') {
     el('div', { className: 'track' }, fill),
     el('div', { className: 'tilenote', textContent: note }),
   ]);
+  /* Written into, rather than built again.
+   *
+   *  These numbers change every four seconds for as long as the screen is open. Replacing
+   *  the tile each time is a new element under the pointer, a new element under a tooltip,
+   *  and — with the whole screen doing it at once — a visible flash. So a tile knows how to
+   *  take a new reading, and each field is touched only when it has actually changed: an
+   *  assignment to `textContent` that writes the same string still invalidates the line. */
+  tile.take = (v, pct2, lvl2, note2 = '') => {
+    const state = tile.querySelector('.state');
+    const value2 = tile.querySelector('.tilevalue');
+    const noteNode = tile.querySelector('.tilenote');
+    const width = `${Math.max(1.5, Math.min(100, pct2))}%`;
+    if (fill.style.width !== width) fill.style.width = width;
+    if (fill.className !== `fill ${lvl2}`) fill.className = `fill ${lvl2}`;
+    if (state.className !== `state ${lvl2}`) state.className = `state ${lvl2}`;
+    writeInto(state, LEVEL_WORD[lvl2]);
+    writeInto(value2, v);
+    writeInto(noteNode, note2);
+  };
+  return tile;
 }
 
 const duration = (s) => {
@@ -3149,12 +3184,23 @@ function portsSection() {
     return el('div', { className: 'portpick' }, [field, go]);
   };
 
-  const paint = async () => {
+  // What the list was drawn from last time. Redrawing it costs you the box you are typing
+  // in and the row under your pointer, so it happens when something has actually changed.
+  let asDrawn = '';
+
+  const paint = async (quietly = false) => {
     let data;
     try { data = await getJSON('/api/ports'); } catch (e) {
+      if (quietly) return;
       list.textContent = '';
       return list.append(el('p', { className: 'error tiny', textContent: e.message }));
     }
+    const now = JSON.stringify(data);
+    if (quietly && now === asDrawn) return;
+    // Never mid-sentence: this box holds a URL somebody is pasting into it.
+    const field = list.querySelector('.portpick input');
+    if (quietly && field && (field.value.trim() || document.activeElement === field)) return;
+    asDrawn = now;
     list.textContent = '';
     head.textContent = data.open.length
       ? t('Listening ports · {n} reachable through Argus', { n: data.open.length })
@@ -3256,6 +3302,15 @@ function portsSection() {
     }
   };
   paint();
+  /* Its own beat, slower than the meters.
+   *
+   *  A port appearing is news; a port appearing four seconds sooner is not. This screen used
+   *  to rebuild the whole ports section on every reading of the CPU, which fetched again,
+   *  redrew rows nobody had asked it to redraw, and emptied the box mid-paste. Fifteen
+   *  seconds, and only when the answer is different from the one on screen.
+   */
+  const beat = setInterval(() => { if (!document.hidden) paint(true); }, 15000);
+  box.stop = () => clearInterval(beat);
   return box;
 }
 
@@ -3263,6 +3318,42 @@ async function screenSystem() {
   setTitle(t('System'));
   const body = el('div', { className: 'vitals' });
   view.append(body);
+
+  /* Built once, then written into.
+   *
+   *  This screen used to empty itself and build again on every reading, four seconds apart,
+   *  and that is what "the page blinks" was: the whole thing torn down and re-created while
+   *  you were reading it. It also took the ports section with it — which fetches when it is
+   *  constructed, so the polling was doubled, and which holds a text box you might be
+   *  halfway through typing in.
+   *
+   *  So the shape is made once and each reading updates what has changed. Tiles are kept by
+   *  name: a disk that appears gets a tile, one that goes away loses it, and the rest are
+   *  moved into place rather than replaced — appending an element that is already in the
+   *  document moves it, and moving does not flash.
+   */
+  const heroNum = el('div', { className: 'heronum' });
+  const heroState = el('span', { className: 'state' });
+  const heroWhat = el('span');
+  const heroNote = el('div', { className: 'tilenote' });
+  const hero = el('div', { className: 'hero' }, [
+    heroNum,
+    el('div', { className: 'herolabel' }, [heroState, heroWhat]),
+    heroNote,
+  ]);
+  const grid = el('div', { className: 'tiles' });
+  const procs = el('div', { className: 'proclist' });
+  const procHead = el('div', { className: 'tilelabel', textContent: t('Largest processes') });
+  procs.append(procHead);
+  const trouble = el('p', { className: 'error', hidden: true });
+
+  const ports = portsSection();
+  body.append(trouble, hero, grid, ports, procs);
+
+  const tiles = new Map();
+  const rows = [];
+
+  const write = writeInto;
 
   const paint = (s) => {
     // The single worst number on the box, so "is it dying" is answered before you read
@@ -3274,69 +3365,95 @@ async function screenSystem() {
       ...s.gpus.map((g) => ({ what: `gpu memory`, pct: g.mem_pct, level: g.level })),
     ].sort((a, b) => b.pct - a.pct)[0];
 
-    body.textContent = '';
-    body.append(el('div', { className: `hero ${worst.level}` }, [
-      el('div', { className: 'heronum', textContent: `${Math.round(worst.pct)}%` }),
-      el('div', { className: 'herolabel' }, [
-        el('span', { className: `state ${worst.level}`, textContent: LEVEL_WORD[worst.level] }),
-        el('span', { textContent: ` · ${t('busiest')}: ${worst.what}` }),
-      ]),
-      el('div', { className: 'tilenote', textContent: t('{host} · up {up} · {cores} cores', { host: s.hostname, up: duration(s.uptime), cores: s.cpu.cores }) }),
-    ]));
+    if (hero.className !== `hero ${worst.level}`) hero.className = `hero ${worst.level}`;
+    write(heroNum, `${Math.round(worst.pct)}%`);
+    if (heroState.className !== `state ${worst.level}`) heroState.className = `state ${worst.level}`;
+    write(heroState, LEVEL_WORD[worst.level]);
+    write(heroWhat, ` · ${t('busiest')}: ${worst.what}`);
+    write(heroNote, t('{host} · up {up} · {cores} cores',
+      { host: s.hostname, up: duration(s.uptime), cores: s.cpu.cores }));
 
-    const grid = el('div', { className: 'tiles' });
-    grid.append(meter(
-      'CPU', `${s.cpu.pct}%`, s.cpu.pct, s.cpu.level,
-      `load ${s.cpu.load.join('  ')} over ${s.cpu.cores} cores`,
-    ));
-    grid.append(meter(
-      'Memory', `${human(s.memory.used)} / ${human(s.memory.total)}`, s.memory.pct, s.memory.level,
-      `${human(s.memory.available)} available · ${human(s.memory.cached)} cached`,
-    ));
+    const want = [
+      { key: 'cpu', label: 'CPU', value: `${s.cpu.pct}%`, pct: s.cpu.pct, level: s.cpu.level,
+        note: `load ${s.cpu.load.join('  ')} over ${s.cpu.cores} cores` },
+      { key: 'memory', label: 'Memory', value: `${human(s.memory.used)} / ${human(s.memory.total)}`,
+        pct: s.memory.pct, level: s.memory.level,
+        note: `${human(s.memory.available)} available · ${human(s.memory.cached)} cached` },
+    ];
     if (s.memory.swap_total) {
-      grid.append(meter(
-        'Swap', `${human(s.memory.swap_used)} / ${human(s.memory.swap_total)}`,
-        s.memory.swap_pct, s.memory.swap_level, 'swapping under pressure is the warning sign',
-      ));
+      want.push({ key: 'swap', label: 'Swap',
+        value: `${human(s.memory.swap_used)} / ${human(s.memory.swap_total)}`,
+        pct: s.memory.swap_pct, level: s.memory.swap_level,
+        note: 'swapping under pressure is the warning sign' });
     }
     for (const g of s.gpus) {
-      grid.append(meter(
-        g.name, `${human(g.mem_used)} / ${human(g.mem_total)}`, g.mem_pct, g.level,
-        `${g.util}% busy · ${g.temp}°C`,
-      ));
+      want.push({ key: `gpu:${g.name}`, label: g.name,
+        value: `${human(g.mem_used)} / ${human(g.mem_total)}`, pct: g.mem_pct, level: g.level,
+        note: `${g.util}% busy · ${g.temp}°C` });
     }
     for (const d of s.disks) {
-      grid.append(meter(d.path, `${human(d.used)} / ${human(d.total)}`, d.pct, d.level, `${human(d.free)} free`));
+      want.push({ key: `disk:${d.path}`, label: d.path,
+        value: `${human(d.used)} / ${human(d.total)}`, pct: d.pct, level: d.level,
+        note: `${human(d.free)} free` });
     }
-    body.append(grid);
 
-    body.append(portsSection());
-
-    if (s.processes.length) {
-      const list = el('div', { className: 'proclist' });
-      list.append(el('div', { className: 'tilelabel', textContent: t('Largest processes') }));
-      for (const p of s.processes) {
-        list.append(el('div', { className: 'procrow' }, [
-          el('span', { className: 'procname', textContent: p.name }),
-          el('span', { className: 'procnum', textContent: human(p.rss) }),
-          el('span', { className: 'procnum dim', textContent: `${p.cpu}%` }),
-        ]));
+    const here = new Set();
+    let at = 0;
+    for (const one of want) {
+      here.add(one.key);
+      let tile = tiles.get(one.key);
+      if (!tile) {
+        tile = meter(one.label, one.value, one.pct, one.level, one.note);
+        tiles.set(one.key, tile);
+      } else {
+        tile.take(one.value, one.pct, one.level, one.note);
       }
-      body.append(list);
+      // Moved only when it is in the wrong place. Appending an element that is already
+      // where it belongs still counts as taking it out and putting it back — measured:
+      // twelve of those a tick, on a screen whose whole problem was churn.
+      if (grid.children[at] !== tile) grid.insertBefore(tile, grid.children[at] || null);
+      at += 1;
     }
+    for (const [key, tile] of [...tiles]) {
+      if (here.has(key)) continue;
+      tile.remove();
+      tiles.delete(key);
+    }
+
+    procs.hidden = !s.processes.length;
+    // Same rows, new numbers. The list is "the six biggest", so which process is on which
+    // row changes — the row is the shape, the text is the reading.
+    while (rows.length > s.processes.length) rows.pop().node.remove();
+    while (rows.length < s.processes.length) {
+      const name = el('span', { className: 'procname' });
+      const rss = el('span', { className: 'procnum' });
+      const cpu = el('span', { className: 'procnum dim' });
+      const node = el('div', { className: 'procrow' }, [name, rss, cpu]);
+      rows.push({ node, name, rss, cpu });
+      procs.append(node);
+    }
+    s.processes.forEach((p, i) => {
+      write(rows[i].name, p.name);
+      write(rows[i].rss, human(p.rss));
+      write(rows[i].cpu, `${p.cpu}%`);
+    });
   };
 
   const tick = async () => {
-    try { paint(await getJSON('/api/system')); } catch (e) {
-      body.textContent = '';
-      body.append(el('p', { className: 'error', textContent: e.message }));
+    try {
+      paint(await getJSON('/api/system'));
+      trouble.hidden = true;
+    } catch (e) {
+      // The reading that failed is not a reason to take away the last one that worked.
+      write(trouble, e.message);
+      trouble.hidden = false;
     }
   };
   await tick();
 
   // Poll only while the screen is actually in front of someone.
   const timer = setInterval(() => { if (!document.hidden) tick(); }, 4000);
-  leaving = () => clearInterval(timer);
+  leaving = () => { clearInterval(timer); ports.stop?.(); };
 }
 
 /** The token is 64 hex characters. Nobody should ever type that on a phone, and the
