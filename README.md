@@ -576,12 +576,14 @@ date when the wording improves without ever overwriting words you wrote.
   list — and a key icon in the header, on screens wide enough to have a keyboard. They fire
   only when you are *not* typing: a terminal, or any box you are writing in, keeps the
   keyboard to itself, because stealing one key from tmux would be worse than having no
-  shortcuts at all. **Every default takes Ctrl**, since that rule alone was not enough —
-  plenty of the app is neither a terminal nor a text box, and a bare letter pressed while
-  reading a listing or a document opened a screen you had not asked for. The combinations
-  a browser has already taken are left alone, which is why a new file browser is `Ctrl+E`.
-  Changing one is **click the row, then hold the combination**: it records what you press,
-  so there is nothing to spell and no way to write down a chord your keyboard cannot make.
+  shortcuts at all. **Two modifiers, and the modifier says where you are going**:
+  `Ctrl+Alt` reaches the screens down the side, `Ctrl+Shift` works on the desk you are on,
+  and `Ctrl+Shift+1…9` (or `Alt+1…9`) goes to a desk by its number. Bare letters were not
+  enough — plenty of the app is neither a terminal nor a text box — and a single Ctrl is
+  worse, because a browser owns nearly every Ctrl+letter at a level a page cannot argue
+  with. Changing one is **click the row, then hold the combination**: it records the
+  physical key you pressed, so there is nothing to spell and `Ctrl+Shift+E` does not come
+  back as `ctrl+E`. The list is grouped the way the scheme is, with a box to search it.
 - **A QR code** to pair a phone, and an installable PWA over HTTPS.
 - **The GitHub mark in the header** opens the repository, this wiki and the landing page,
   so the documentation is one tap from wherever you are rather than something you have to
