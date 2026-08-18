@@ -5977,10 +5977,51 @@ function linkPaths(term, container, session, open, following = () => {}) {
   }
 }
 
-function attachTerminal(container, name, { transform, onGone, onPath, onLinks, mirror } = {}) {
+/* Sessions that have died, and the one clock watching for them to come back.
+ *
+ *  A window whose session is gone stops reconnecting, and it has to: retrying forever
+ *  against a name that no longer exists is a spinner lying about a machine. But the name
+ *  coming back is the ordinary case, not a rare one — a `tmux kill-session` and a fresh one
+ *  a second later is how people restart an agent — and until now that meant the window sat
+ *  dead on the desk while the session it is named after was running again underneath it.
+ *
+ *  One poll for all of them, four seconds apart, and only while the tab is in front of
+ *  somebody: a desk with six dead windows should ask the same question once, not six times.
+ */
+const orphans = new Set();
+let vigil = null;
+
+function watchForReturn(entry) {
+  orphans.add(entry);
+  if (!vigil) vigil = setInterval(sweepOrphans, 4000);
+}
+
+function stopWatching(entry) {
+  orphans.delete(entry);
+  if (!orphans.size && vigil) { clearInterval(vigil); vigil = null; }
+}
+
+async function sweepOrphans() {
+  if (document.hidden || !orphans.size) return;
+  let names;
+  try {
+    names = new Set((await getJSON('/api/tmux/sessions')).map((one) => one.name));
+  } catch {
+    return;                       // the server is having a moment; ask again in four seconds
+  }
+  for (const one of [...orphans]) {
+    if (!names.has(one.name)) continue;
+    stopWatching(one);
+    one.revive();
+  }
+}
+
+function attachTerminal(container, name, { transform, onGone, onBack, onPath, onLinks, mirror } = {}) {
   // When this session last printed anything. Read by the prompt sender to tell "the agent
   // took it" from "the box ate the return".
   let spoke = Date.now();
+  // The entry in the vigil, while this window is waiting for its session to come back.
+  let waiting = null;
   const term = new Terminal({
     fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace',
     fontSize: prefs.fontSize,
@@ -6193,7 +6234,25 @@ function attachTerminal(container, name, { transform, onGone, onPath, onLinks, m
         }
       }
       if (msg.type === 'exit') {
-        if (/no tmux session/.test(msg.reason || '')) { gone = true; onGone?.(); }
+        if (/no tmux session/.test(msg.reason || '')) {
+          gone = true;
+          onGone?.();
+          /* And then wait for it. A session recreated with the same name is the same window
+           *  as far as anybody looking at the desk is concerned, and making them close the
+           *  dead one and add it again is asking them to do the bookkeeping. */
+          const back = {
+            name,
+            revive: () => {
+              gone = false;
+              attempts = 0;
+              note(t('back'), '38;5;108');
+              onBack?.();
+              connect();
+            },
+          };
+          waiting = back;
+          watchForReturn(back);
+        }
         note(msg.reason);
       }
     };
@@ -6576,6 +6635,7 @@ function attachTerminal(container, name, { transform, onGone, onPath, onLinks, m
       document.removeEventListener('visibilitychange', onFocus);
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('online', retryNow);
+      if (waiting) stopWatching(waiting);
       ro.disconnect();
       try { ws?.close(); } catch { /* already gone */ }
       term.dispose();
@@ -7173,7 +7233,14 @@ async function screenWall() {
             mirror: (data) => echoToChain(spec.name, data),
             onGone: () => {
               win.classList.add('gone');
-              extras.prepend(el('span', { className: 'state critical', textContent: t('gone') }));
+              extras.prepend(el('span', { className: 'state critical gonemark', textContent: t('gone') }));
+            },
+            // The same name, running again: the window picks it up rather than making you
+            // close a dead one and add it back.
+            onBack: () => {
+              win.classList.remove('gone');
+              extras.querySelector('.gonemark')?.remove();
+              toast(t('{name} is back', { name: spec.name }));
             },
           });
       if (handle.extra) extras.append(handle.extra);
