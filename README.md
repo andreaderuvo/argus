@@ -73,9 +73,9 @@ you could read it.
 
 ## Licence
 
-MIT — see [LICENSE](LICENSE). Vendored under `static/vendor/`, unmodified: xterm.js, marked
-and qrcode-generator (MIT), highlight.js (BSD-3-Clause), each keeping its own licence beside
-it.
+MIT — see [LICENSE](LICENSE). Vendored under `static/vendor/`, unmodified: xterm.js, marked,
+qrcode-generator and mermaid (MIT), highlight.js (BSD-3-Clause), pdf.js (Apache-2.0), each
+keeping its own licence beside it.
 
 ---
 

@@ -180,6 +180,9 @@ function applyTheme() {
   document.documentElement.dataset.theme = resolved;
   document.querySelector('meta[name=theme-color]')
     ?.setAttribute('content', resolved === 'light' ? '#ffffff' : '#0b0e14');
+  // Anything holding colours of its own rather than variables has to be told. So far that
+  // is one thing: a mermaid diagram, whose svg has the palette written into it.
+  repaintDiagrams();
 }
 
 matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
@@ -3269,6 +3272,7 @@ async function renderMarkdown(text, container, from = '') {
   }
   const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   container.innerHTML = marked.parse(escaped, { gfm: true });
+  drawDiagrams(container);
 
   for (const a of container.querySelectorAll('a[href]')) {
     if (/^https?:/i.test(a.getAttribute('href'))) {
@@ -3297,6 +3301,96 @@ async function renderMarkdown(text, container, from = '') {
     img.onerror = () => {
       img.replaceWith(el('span', { className: 'meta', textContent: t('missing figure: {src}', { src }) }));
     };
+  }
+}
+
+/** ```mermaid fences, drawn.
+ *
+ *  A fenced block whose language is `mermaid` is a diagram everywhere it is written —
+ *  GitHub, GitLab, the editor the document was written in — and here it was three lines of
+ *  arrows in a grey box, which is the one place the reader is worse off than reading the
+ *  file with `cat`.
+ *
+ *  Loaded only when a document actually has one: it is by far the largest thing vendored
+ *  here, and the overwhelming majority of documents opened are not diagrams.
+ */
+const mmd = { engine: null, drawn: 0 };
+
+/** The document was escaped once before marked ever saw it, so the text in the DOM is the
+ *  source with one layer of entities still on it — and `-->`, the commonest thing in a
+ *  mermaid diagram, arrives as `--&gt;` and parses as nothing. A textarea decodes exactly
+ *  one layer, and never as markup: its content is raw text to the parser. */
+function undoEntities(s) {
+  const box = document.createElement('textarea');
+  box.innerHTML = s;
+  return box.value;
+}
+
+async function drawDiagrams(container) {
+  const blocks = [...container.querySelectorAll('pre > code.language-mermaid')];
+  // Colours are baked into the svg at draw time, so a theme switch has to redraw whatever is
+  // already on the page — a diagram drawn at night is a black box on a white document.
+  const again = [...container.querySelectorAll('.diagram')].filter((d) => d.source);
+  if (!blocks.length && !again.length) return;
+  try {
+    if (!mmd.engine) ({ default: mmd.engine } = await import('/vendor/mermaid-11.16.1/mermaid.esm.min.mjs'));
+  } catch (e) {
+    console.warn(`argus: no diagrams — ${e.message}`);
+    return;
+  }
+  // Built from the palette rather than mermaid's own dark and light themes, so a diagram
+  // is the same two greens and the same greys as the page holding it — and follows a theme
+  // switch, because these are read at draw time and a document redraws when the theme does.
+  const paint = getComputedStyle(document.documentElement);
+  const hue = (name) => paint.getPropertyValue(name).trim();
+  mmd.engine.initialize({
+    startOnLoad: false,
+    securityLevel: 'strict',        // labels go through the sanitiser; no scripts, no click handlers
+    suppressErrorRendering: true,   // a bad diagram must not put mermaid's own red box on the page
+    fontFamily: paint.fontFamily,
+    theme: 'base',
+    themeVariables: {
+      background: hue('--panel'),
+      primaryColor: hue('--line'),
+      primaryTextColor: hue('--bright'),
+      primaryBorderColor: hue('--accent'),
+      secondaryColor: hue('--panel'),
+      tertiaryColor: hue('--bg'),
+      mainBkg: hue('--line'),
+      nodeBorder: hue('--accent'),
+      lineColor: hue('--dim'),
+      textColor: hue('--text'),
+      errorBkgColor: hue('--panel'),
+      errorTextColor: hue('--danger'),
+    },
+  });
+  for (const code of blocks) {
+    const source = undoEntities(code.textContent || '');
+    try {
+      const box = el('div', { className: 'diagram' });
+      box.innerHTML = (await mmd.engine.render(`mmd-${++mmd.drawn}`, source)).svg;
+      box.source = source;          // kept for the redraw a theme switch asks for
+      code.parentElement.replaceWith(box);
+    } catch (e) {
+      /* The source stays exactly where it was — a diagram that will not parse is still the
+       *  text somebody wrote, and hiding it would lose the thing they are trying to fix. */
+      code.parentElement.after(el('p', {
+        className: 'meta',
+        textContent: `${t('this diagram did not draw')} — ${String(e.message || e).split('\n')[0]}`,
+      }));
+    }
+  }
+  for (const box of again) {
+    try {
+      box.innerHTML = (await mmd.engine.render(`mmd-${++mmd.drawn}`, box.source)).svg;
+    } catch { /* it drew once; the one on screen is better than an empty box */ }
+  }
+}
+
+/** Redraw what is on screen after the palette changed under it. */
+function repaintDiagrams() {           // a declaration: applyTheme runs long before this line
+  for (const doc of document.querySelectorAll('.md')) {
+    if (doc.querySelector('.diagram')) drawDiagrams(doc);
   }
 }
 
