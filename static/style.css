@@ -539,10 +539,15 @@ input.sheetfind { width: 100%; margin: .2rem 0 .5rem; }
    when true makes "it will not send" indistinguishable from "you cannot tell". */
 .msgpane .runs {
   flex: none; display: inline-flex; align-items: center; justify-content: center;
-  width: 20px; font-size: .82rem; line-height: 1; color: var(--line-strong, #39414f);
-  cursor: default; user-select: none;
+  min-width: 3.1rem; padding: .05rem .3rem;
+  font-size: .68rem; line-height: 1.5; letter-spacing: .02em;
+  border: 1px solid var(--line); border-radius: .3rem;
+  color: var(--dim); cursor: default; user-select: none;
 }
-.msgpane .runs.on { color: var(--accent); font-weight: 700; }
+.msgpane .runs.on {
+  color: var(--accent); font-weight: 600;
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+}
 .msgpane .trayrow { flex: 0 1 auto; }
 /* The chevron that opens a prompt's values. Quiet, and turned when it is open — the same
    thing every disclosure control does, so nobody has to be told. */
@@ -2735,4 +2740,44 @@ input.pdfat:focus { border-color: var(--accent); outline: none; }
   /* A window whose session is asking for you says so here too. */
   .railwin.bell-asking, .railwin.bell-asking .ico { color: var(--accent) !important; }
   .railwin.bell-done, .railwin.bell-done .ico { color: var(--st-warning) !important; }
+}
+
+/* Naming a prompt and writing it, in one sheet. Wider than an ordinary ask: what goes in
+   here is paragraphs, and a box the width of a name would be a keyhole to write them
+   through. */
+dialog.sheet:has(.promptmake) { width: min(38rem, calc(100vw - 2rem)); }
+.promptmake { display: flex; flex-direction: column; gap: .6rem; }
+.promptmake textarea {
+  width: 100%; resize: vertical; min-height: 8rem;
+  font: inherit; line-height: 1.45;
+  color: var(--text); background: var(--bg);
+  border: 1px solid var(--line); border-radius: .35rem; padding: .5rem .6rem;
+}
+.promptmake textarea:focus-visible, .promptmake input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.promptmake .runline { display: flex; align-items: center; gap: .45rem; color: var(--dim); font-size: .82rem; }
+.promptmake .runline input { accent-color: var(--accent); }
+
+/* The group's own tools, on its line. Quiet until the pointer is on the group — a row of
+   three lit buttons per folder is furniture, and the list is the thing being read. */
+.folder > summary .winbtn { opacity: 0; transition: opacity .12s; }
+.folder > summary:hover .winbtn,
+.folder > summary:focus-within .winbtn { opacity: 1; }
+@media (pointer: coarse) { .folder > summary .winbtn { opacity: 1; } }
+.folder > summary .grow { flex: 1 1 auto; }
+
+/* Where a session really is, on its own title bar. Dim and unremarkable when it agrees with
+   the desk — most of the time — and marked when it does not, which is the case worth a
+   glance: a session dragged in from somewhere else keeps the folder it was made in, and a
+   prompt full of {folder} would be pointing it somewhere it has never been. */
+.winbar .wherechip {
+  flex: none; max-width: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  margin-left: .1rem; padding: .02rem .3rem;
+  font-size: .66rem; line-height: 1.5;
+  border: 1px solid transparent; border-radius: .3rem;
+  background: none; color: var(--dim); cursor: pointer;
+}
+.winbar .wherechip:hover { color: var(--bright); border-color: var(--line); }
+.winbar .wherechip.astray {
+  color: var(--st-warning);
+  border-color: color-mix(in srgb, var(--st-warning) 40%, transparent);
 }
