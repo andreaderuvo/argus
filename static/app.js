@@ -3121,7 +3121,16 @@ async function colour(pre, text, path) {
     // name says — the plain version is what stays.
     pre.innerHTML = hlCore.engine.highlight(text, { language: tongue, ignoreIllegals: true }).value;
     pre.classList.add('hl');
-  } catch { /* plain text is a perfectly good answer */ }
+  } catch (e) {
+    /* Plain text is a perfectly good answer, and silence is not.
+     *
+     *  Swallowing the reason meant a file that would not colour looked exactly like a file
+     *  with nothing to colour — reported from a machine where the vendored copy was in place
+     *  and something else was in the way. One line in the console says which: a 404, a MIME
+     *  type a browser will not import as a module, a language file that is not there.
+     */
+    console.warn(`argus: no highlighting for ${tongue} — ${e.message}`);
+  }
 }
 
 /** Turn a preview into something you can type in.
