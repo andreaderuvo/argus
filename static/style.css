@@ -2850,3 +2850,20 @@ dialog.sheet:has(.promptmake) { width: min(38rem, calc(100vw - 2rem)); }
 /* A shortcut somebody switched off. Still a row — you have to be able to give it a key again
    — but not pretending to be a key. */
 .keylist kbd.offkey { color: var(--dim); border-style: dashed; font-style: italic; }
+/* The row is two things now — the part you press to record a key, and the one that switches
+   it off — so the row itself stopped being a button: nesting one inside another is not
+   allowed, and a click would have had two meanings. */
+.keylist .keyrow { display: flex; align-items: center; gap: .25rem; }
+.keylist .keyset { flex: 1 1 auto; min-width: 0; }
+.keylist .keyoff { flex: none; opacity: 0; transition: opacity .12s; }
+.keylist .keyrow:hover .keyoff,
+.keylist .keyrow:focus-within .keyoff { opacity: 1; }
+@media (pointer: coarse) { .keylist .keyoff { opacity: 1; } }
+/* The row is a row of two things now: the part you press to record a key, and the one that
+   switches it off. Nested buttons are not allowed, so the row itself stopped being one. */
+.keylist .keyrow { display: flex; align-items: center; gap: .25rem; }
+.keylist .keyset { flex: 1 1 auto; min-width: 0; }
+.keylist .keyoff { flex: none; opacity: 0; transition: opacity .12s; }
+.keylist .keyrow:hover .keyoff,
+.keylist .keyrow:focus-within .keyoff { opacity: 1; }
+@media (pointer: coarse) { .keylist .keyoff { opacity: 1; } }
