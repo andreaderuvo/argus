@@ -1407,6 +1407,51 @@ function placePicker(roots, setPath, current) {
   ]);
 }
 
+/** "Let your agents say where they are" — the same bargain as the bell.
+ *
+ *  An agent never moves its own process, so nothing outside it can work out which folder it
+ *  considers current: tmux, /proc and everything built on them go on naming the folder the
+ *  session was started in. Claude Code will say, from its status line hook, and installing
+ *  that hook is mechanical work — which belongs to the program, not to a person following
+ *  instructions in a wiki.
+ *
+ *  Codex is listed and cannot: it has no equivalent, and a switch that does nothing is
+ *  worse than a line saying so.
+ */
+function whereWiringRow() {
+  const box = el('div');
+  const draw = (info) => {
+    box.replaceChildren();
+    if (!info?.agents?.length) return;
+    const can = info.agents.filter((a) => !a.cannot);
+    if (!can.length) return;
+    const all = can.every((a) => a.on);
+    const state = el('span', { className: `sw${all ? ' on' : ''}`, textContent: all ? 'ON' : 'OFF' });
+    const said = info.agents.map((a) => `${a.name}: ${a.cannot ? t('cannot say') : a.taken ? t('your own status line') : a.on ? t('wired') : t('not wired')}`);
+    const row = el('button', { className: 'row setting', type: 'button' }, [
+      el('span', { className: 'grow' }, [
+        el('span', { className: 'name', textContent: t('Let your agents say where they are') }),
+        el('span', { className: 'meta', textContent: said.join(' · ') }),
+      ]),
+      state,
+    ]);
+    row.onclick = async () => {
+      state.textContent = '…';
+      try {
+        const answer = await postJSON('/api/where/wiring', { on: !all });
+        draw(answer.state);
+        toast(answer.changed.length ? answer.changed.join(', ') : t('nothing to change'));
+      } catch (e) {
+        toast(e.message, true);
+        draw(info);
+      }
+    };
+    box.append(row);
+  };
+  getJSON('/api/where/wiring').then(draw).catch(() => {});
+  return box;
+}
+
 /** Debounced search box wired to a folder. The query is handed back too, because an
  *  empty one means "go back to how you were showing this folder". */
 function searchBox(path, onResults, placeholder = 'search in this folder…') {
@@ -4226,6 +4271,12 @@ async function screenSettings() {
     toggle(t('Sound when something rings'), t('two short tones when an agent finishes or asks for you'),
       () => prefs.bellSound !== false, (v) => { prefs.bellSound = v; }),
     wiringRows(), bellRow(),
+  );
+
+  wrap.append(
+    group(t('Sessions')),
+    // Not under Interruptions: this one is about what a window says, not about being told.
+    whereWiringRow(),
   );
 
   wrap.append(

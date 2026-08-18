@@ -2224,6 +2224,74 @@
     ]
    }
   },
+  "/api/where/wiring": {
+   "get": {
+    "description": "Which agents here can tell Argus the folder they consider current.\n\nOnly Claude Code can: it hands its status line hook `workspace.current_dir`. Nothing\noutside an agent can work that out \u2014 an agent never moves its own process \u2014 so this is\nthe difference between a mark that follows the work and one that names where the\nsession started.",
+    "operationId": "getApiWhereWiring",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Where Wired Api Where Wiring Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Which agents are set up to say which folder they are in",
+    "tags": [
+     "Sessions"
+    ]
+   },
+   "post": {
+    "description": "Do the setting up, or take it back out.\n\nThe same bargain as the bell: it writes into the agent's own configuration, keeps a copy\nof the file as it was before Argus first touched it, reports a status line you wrote\nyourself rather than replacing it, and removes only what carries our own marker.",
+    "operationId": "postApiWhereWiring",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Where Rewire Api Where Wiring Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Set the agents up to say where they are, or undo it",
+    "tags": [
+     "Sessions"
+    ]
+   }
+  },
   "/proxy/{port}/{path}": {
    "delete": {
     "operationId": "deleteProxyPortPath",
