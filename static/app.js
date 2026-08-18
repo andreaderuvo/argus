@@ -697,7 +697,10 @@ async function copyText(text) {
 
 async function copyPath(path) {
   const ok = await copyText(path);
-  toast(ok ? path : t('could not reach the clipboard'), !ok);
+  // Says so in words as well: the tick is on the button you just pressed, and by then you may
+  // be looking at the terminal you are about to paste into.
+  toast(ok ? t('copied: {path}', { path }) : t('could not reach the clipboard'), !ok);
+  return ok;
 }
 
 /** How much furniture is stacked at the bottom of the screen right now.
@@ -773,6 +776,13 @@ const ICONS = {
   maximise: 'M5 5h14v14H5z',
   folder: 'M3.5 6.8A1.8 1.8 0 0 1 5.3 5h3.4l1.8 2h8.2a1.8 1.8 0 0 1 1.8 1.8v8.4a1.8 1.8 0 0 1-1.8 1.8H5.3a1.8 1.8 0 0 1-1.8-1.8z',
   terminal: 'M3.5 5.5h17v13h-17zM7 10l2.6 2L7 14M12.8 14.3H17',
+  // Just a plus. A terminal-with-a-plus was drawn first and it is a lot of lines for a
+  // 15-pixel square: three glyphs fighting for the same corner. The word beside it already
+  // says what is being made.
+  plus: 'M12 5.5v13M5.5 12h13',
+  // Copied. Shown for a moment in place of whatever was there: an action with no visible
+  // result is an action you do twice.
+  tick: 'M5 12.8l4.4 4.2L19 7.5',
   activity: 'M3 12.5h3.8L9.4 5l4.4 14 2.4-6.5H21',
   journal: 'M5.5 4.5h13v15h-13zM8.5 8.5h7M8.5 12h7M8.5 15.5h4',
   settings: 'M4 7.5h6M14.5 7.5H20M4 16.5h3.5M12 16.5h8M12 5.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4zM9.5 14.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4z',
@@ -933,7 +943,7 @@ function dragEntry(row, entry) {
     const start = () => {
       chip = el('div', { className: 'traydrag' }, [
         el('span', { className: 'what', textContent: entry.name }),
-        el('span', { className: 'verb', textContent: t('drop it on the other pane') }),
+        el('span', { className: 'verb', textContent: t('drop it on a folder, or on the other pane') }),
       ]);
       document.body.append(chip);
       row.classList.add('dragging');
@@ -954,12 +964,25 @@ function dragEntry(row, entry) {
       chip.hidden = true;
       const under = document.elementFromPoint(ev.clientX, ev.clientY);
       chip.hidden = false;
+
+      /* A folder under the pointer wins over the pane behind it.
+       *
+       *  The pane's own path was the only target at first, which meant you could move things
+       *  between two panes and not into a folder you could see — the commonest move there is,
+       *  and the one every file manager has done since 1984. A folder row is a destination
+       *  like any other, in either pane, including the one you are dragging from.
+       */
+      const row = under?.closest?.('.row.dir[data-path]');
       const pane = under?.closest?.('.pane');
-      // Its own pane is not a destination, and neither is the folder it already lives in.
-      const here = pane?.dataset.at;
-      const ok = pane && here && here !== parentOf(entry.path) && here !== entry.path;
-      if (pane !== over) clear();
-      if (ok) { over = pane; pane.classList.add('dropping'); }
+      const into = row?.dataset.path && row.dataset.path !== entry.path
+        ? row
+        : (pane?.dataset.at && pane.dataset.at !== parentOf(entry.path) && pane.dataset.at !== entry.path
+          ? pane : null);
+      if (into !== over) clear();
+      if (into) {
+        over = into;
+        into.classList.add('dropping');
+      }
     };
 
     const done = async (ev) => {
@@ -969,7 +992,8 @@ function dragEntry(row, entry) {
       clearTimeout(hold);
       chip?.remove();
       row.classList.remove('dragging');
-      const landed = over?.dataset.at;
+      // A row carries the folder itself; a pane carries where it is looking.
+      const landed = over?.dataset.at || over?.dataset.path;
       clear();
       if (!chip || !landed) return;
       ev.preventDefault();
@@ -1049,7 +1073,17 @@ function entryRow(e, { href, onClick, refresh, dest, favGroup = 'main' }) {
     };
     // First of the three, because it is the one that changes nothing: a path you are about
     // to paste into a session or a message, taken without opening anything.
-    side.push(quick('clipboard', t('Copy path'), () => copyPath(e.path)));
+    side.push(quick('clipboard', t('Copy path'), async function copied() {
+      // The tick is the whole point: a button that copies and looks identical afterwards is
+      // a button you press again to be sure. Two seconds, then it is a clipboard again.
+      if (!await copyPath(e.path)) return;
+      this.replaceChildren(icon('tick'));
+      this.classList.add('done');
+      setTimeout(() => {
+        this.replaceChildren(icon('clipboard'));
+        this.classList.remove('done');
+      }, 1600);
+    }));
     side.push(quick('rename', t('Rename…'), async () => {
       const name = await ask(t('Rename'), e.name, t('Rename'));
       if (!name || name === e.name) return;
@@ -1698,7 +1732,7 @@ async function screenSessions() {
   bar.action.onclick = () => go('#/wall');
 
   bar.alt.hidden = false;
-  bar.alt.replaceChildren(icon('folderPlus'));
+  bar.alt.replaceChildren(icon('plus'));
   bar.alt.title = t('Start a new session');
   bar.alt.onclick = async () => { if (await createSession()) render(); };
 
@@ -5972,7 +6006,7 @@ async function screenTerm(name) {
   const deliver = (andRun) => {
     const text = line.value;
     if (!text.trim()) return;
-    handle.send(fillBaton(text, { ...allVars(currentSpace().id) }) + (andRun ? '\r' : ''));
+    typeInto(handle, fillBaton(text, { ...allVars(currentSpace().id) }), andRun);
     line.value = '';
     line.style.height = '';
     if (!andRun) handle.focus();
@@ -7273,7 +7307,7 @@ async function screenWall() {
         const name = await createSession({ path: deskHome(activeSpace()) });
         if (name) openWindow({ kind: 'term', name });
       },
-    }, [icon('folderPlus'), el('span', { textContent: t('Start a new session…') })]));
+    }, [icon('plus'), el('span', { textContent: t('Start a new session…') })]));
     if (sessions.length) body.append(el('div', { className: 'sheetsep' }));
 
     // Ticked rather than opened one at a time: a desk is usually made of two or three
@@ -7364,7 +7398,7 @@ async function screenWall() {
       const name = await createSession({ path: deskHome(activeSpace()) });
       if (name) openWindow({ kind: 'term', name });
     },
-  }, [icon('folderPlus'), el('span', { textContent: t('New session') })]));
+  }, [icon('plus'), el('span', { textContent: t('New session') })]));
 
   tools.append(el('button', {
     className: 'winbtn wide',
@@ -7510,14 +7544,18 @@ async function screenWall() {
         savePrefs();
         deck.paintChain();
         const body = fillBaton(textOf(mode.same), known);
-        for (const name of [first, second]) windowFor(name)?.handle.send?.(`${body}\r`);
+        for (const name of [first, second]) {
+          const win = windowFor(name);
+          if (win) typeInto(win.handle, body, true);
+        }
         prefs.chain[activeSpace().id] = was;
         savePrefs();
         deck.paintChain();
       } else {
-        windowFor(first)?.handle.send?.(`${fillBaton(textOf(mode.roles.a), known)}\r`);
-        windowFor(second)?.handle.send?.(
-          `${fillBaton(textOf(mode.roles.b), { ...known, from: first, to: second })}\r`);
+        const a = windowFor(first);
+        const b = windowFor(second);
+        if (a) typeInto(a.handle, fillBaton(textOf(mode.roles.a), known), true);
+        if (b) typeInto(b.handle, fillBaton(textOf(mode.roles.b), { ...known, from: first, to: second }), true);
       }
 
       // What Argus keeps is small now: who is who, how many passes they were given, and what
@@ -9597,6 +9635,28 @@ function whyEmpty(name) {
   return t('{set} has no {key} — it has {list}', { set: setName, key, list: has.join(', ') || '(nothing)' });
 }
 
+/** Type a prompt into a session, and only then press Enter.
+ *
+ *  A prompt is several paragraphs, and a newline typed into a terminal is a *submit*: an
+ *  agent's input box takes the first line, sends it, and every line after it arrives as its
+ *  own message — with the Enter we add at the end landing on an empty box, which is why a
+ *  "runs itself" prompt was sending a blank line and nothing else.
+ *
+ *  So it goes in the way a paste goes in. `ESC [200~ … ESC [201~` is bracketed paste: the
+ *  terminal application is told "this is pasted text, not typing", and every reader that
+ *  understands it — readline, and the input box of every agent worth using — puts the
+ *  newlines *in the box* instead of acting on them. The Enter after it is then the only one,
+ *  and it means what it says.
+ *
+ *  Only for text that has a newline in it. A one-line prompt needs none of this, and a
+ *  program that has never heard of bracketed paste would show the escape sequence — no reason
+ *  to risk that where there is nothing to gain.
+ */
+function typeInto(handle, text, run) {
+  const pasted = text.includes('\n') ? `\x1b[200~${text}\x1b[201~` : text;
+  handle.send?.(pasted + (run ? '\r' : ''));
+}
+
 function fillBaton(text, known) {
   // Both forms in a prompt: the text there is a template and nothing else, so `{paper}`
   // is unambiguous. `{{paper}}` is the form to use in a terminal — see below — and it
@@ -9652,6 +9712,15 @@ function attachMessages(host, wsId, extras, deliver) {
   // Whether the set editor is showing. Per window, and not remembered: it is a thing you
   // open to fix a word, not a mode the window sits in.
   let openSet = false;
+  /* What is unfolded, and nothing is to begin with.
+   *
+   *  A library of forty prompts across six folders, each showing the values it takes, is a
+   *  wall of text where a list of names would do. So everything arrives shut — groups, the
+   *  detail under a prompt, and the set editor — and what you open stays open while you
+   *  work, because the list redraws itself every time a value changes and collapsing your
+   *  place each time would be its own small cruelty.
+   */
+  const unfolded = new Set();
 
   /** Everything the situation fills in, for this desk and this aim.
    *
@@ -9746,7 +9815,7 @@ function attachMessages(host, wsId, extras, deliver) {
     if (!await askAboutGaps(kind, target, gapsIn(kind.text, known))) return;
     // Whether it runs is the prompt's own business: "run the tests" wants to go, while
     // "here is the file, now tell me what you think" wants a look before Enter.
-    target.handle.send(fillBaton(kind.text, known) + (kind.run ? '\r' : ''));
+    typeInto(target.handle, fillBaton(kind.text, known), kind.run);
     target.handle.focus();
     deliver.raise(target);
     // Sending one there is working there: the next tap should not go somewhere else.
@@ -9884,8 +9953,17 @@ function attachMessages(host, wsId, extras, deliver) {
     for (const group of batonGroups()) {
       const mine = batonTemplates().filter((x) => x.group === group);
       if (!mine.length) continue;
-      const folder = el('details', { className: 'msgfolder', open: true });
-      folder.append(el('summary', {}, [icon('folder'), el('span', { textContent: group })]));
+      const key = `g:${group}`;
+      const folder = el('details', { className: 'msgfolder', open: unfolded.has(key) });
+      folder.addEventListener('toggle', () => {
+        if (folder.open) unfolded.add(key);
+        else unfolded.delete(key);
+      });
+      folder.append(el('summary', {}, [
+        icon('folder'),
+        el('span', { textContent: group }),
+        el('span', { className: 'count', textContent: String(mine.length) }),
+      ]));
       for (const kind of mine) {
         // Whether this one has everything it needs, said before you tap rather than after
         // it has gone. The four situational names are stubbed here because at send time
@@ -10098,9 +10176,26 @@ function attachMessages(host, wsId, extras, deliver) {
 
         // The row is a button — tap it and the prompt goes — so the values cannot live
         // inside it: a text box nested in a button is both invalid and unusable, and every
-        // click in it would have sent the prompt.
+        // click in it would have sent the prompt. The chevron beside it is what opens them,
+        // for the same reason: tapping the name must keep meaning "send this".
+        let show = null;
+        if (uses) {
+          const mineKey = `p:${group}/${kind.name}`;
+          uses.hidden = !unfolded.has(mineKey);
+          show = el('button', {
+            className: `winbtn twist${uses.hidden ? '' : ' on'}`,
+            title: t('What it takes'),
+          }, icon('down'));
+          show.onclick = (ev) => {
+            ev.stopPropagation();
+            uses.hidden = !uses.hidden;
+            show.classList.toggle('on', !uses.hidden);
+            if (uses.hidden) unfolded.delete(mineKey);
+            else unfolded.add(mineKey);
+          };
+        }
         folder.append(el('div', { className: 'msgentry' }, [
-          el('div', { className: 'trayline' }, [row, more]),
+          el('div', { className: 'trayline' }, [row, show, more].filter(Boolean)),
           uses,
         ].filter(Boolean)));
       }
