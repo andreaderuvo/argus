@@ -2785,11 +2785,16 @@ dialog.sheet:has(.promptmake) { width: min(38rem, calc(100vw - 2rem)); }
 }
 .winfacts .fact {
   display: inline-flex; align-items: baseline; gap: .25rem;
-  max-width: 14rem; padding: .02rem .32rem;
+  max-width: 22rem; padding: .02rem .32rem;
+  background: none;
   border: 1px solid var(--line); border-radius: .3rem;
   font-size: .64rem; line-height: 1.6; color: var(--text);
 }
-.winfacts .factname { color: var(--dim); text-transform: lowercase; }
+.winfacts .factname { color: var(--dim); text-transform: lowercase; flex: none; }
+/* A folder is a place you can go, and says so when the pointer is on it. */
+.winfacts .fact.goes { cursor: pointer; }
+.winfacts .fact.goes:hover { border-color: var(--accent); }
+.winfacts .fact.goes:hover .factvalue { color: var(--accent); }
 .winfacts .factvalue { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Only a folder can disagree with the desk, so only a folder is ever coloured. */
 .winfacts .fact.agrees .factvalue { color: color-mix(in srgb, var(--st-good) 78%, var(--text)); }
@@ -2797,3 +2802,11 @@ dialog.sheet:has(.promptmake) { width: min(38rem, calc(100vw - 2rem)); }
 .winfacts .fact.astray .factvalue { color: var(--st-warning); }
 .winfacts .fact.lost { border-color: color-mix(in srgb, var(--st-critical) 45%, var(--line)); }
 .winfacts .fact.lost .factvalue { color: var(--st-critical); }
+
+/* A desk with something moving in it. Not the bell — that one means "finished, or wants
+   you", and it keeps the accent to itself. This is quieter and it breathes: a slow pulse on
+   the tab's own dot, so a desk where an agent is working looks different from one where
+   nothing has happened since lunch. */
+@keyframes atwork { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+.wstab.working .tabdot { animation: atwork 1.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .wstab.working .tabdot { animation: none; box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent); } }
