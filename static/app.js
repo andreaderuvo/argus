@@ -9519,12 +9519,12 @@ const KEYS = [
   { group: 'This desk', id: 'browser', name: 'New file browser in this desk', key: 'ctrl+shift+e' },
   { group: 'This desk', id: 'links', name: 'The link tray', key: 'ctrl+shift+l' },
   { group: 'This desk', id: 'messages', name: 'The prompts window', key: 'ctrl+shift+y' },
-  { group: 'This desk', id: 'grid', name: 'Arrange as a grid', key: 'altgr+g' },
-  { group: 'This desk', id: 'cols', name: 'Arrange as columns', key: 'altgr+k' },
-  { group: 'This desk', id: 'rows', name: 'Arrange as rows', key: 'altgr+j' },
-  { group: 'This desk', id: 'mine', name: 'Back to your own arrangement', key: 'altgr+u' },
   { group: 'This desk', id: 'nextDesk', name: 'Next desk (or Ctrl+Shift+→)', key: 'ctrl+shift+]' },
   { group: 'This desk', id: 'prevDesk', name: 'Previous desk (or Ctrl+Shift+←)', key: 'ctrl+shift+[' },
+  { group: 'Arrangements', id: 'grid', name: 'Arrange as a grid', key: 'ctrl+alt+shift+g' },
+  { group: 'Arrangements', id: 'cols', name: 'Arrange as columns', key: 'ctrl+alt+shift+k' },
+  { group: 'Arrangements', id: 'rows', name: 'Arrange as rows', key: 'ctrl+alt+shift+j' },
+  { group: 'Arrangements', id: 'mine', name: 'Back to your own arrangement', key: 'ctrl+alt+shift+u' },
 ];
 
 /** What a key press is called, so it can be compared and shown.
@@ -9610,15 +9610,22 @@ function runKey(id) {
     messages: () => { go('#/wall'); press('prompt|messag'); },
     nextDesk: () => desk(1),
     prevDesk: () => desk(-1),
-    /* The arrangements, on AltGr.
+    /* The arrangements, on three modifiers of their own.
      *
-     *  A group of their own, because they are a different kind of thing from "go to the
-     *  sidebar" and "act on this desk": they change the shape of what you are looking at.
-     *  AltGr is free of the browser entirely — no Ctrl+letter of any combination is — and on
-     *  an Italian keyboard it is a key the hand already knows, since it is how you type @.
+     *  They are a different kind of thing from the rest — they change the shape of what you
+     *  are looking at rather than taking you to it — so they are their own group in the list
+     *  and their own chord on the keyboard. Ctrl+Alt+Shift is free of every browser there is,
+     *  which two modifiers no longer are, and it costs a wider hand once rather than a
+     *  collision every day.
      *
-     *  C for columns and R for rows would be the obvious letters and both are spoken for by
-     *  a browser in the Ctrl+Shift form, so J and K stay: where a vim hand already is.
+     *  AltGr was tried before this and put back. It really is the one modifier nobody has
+     *  claimed, and it is also not one key: Linux sends `AltGraph`, Windows sends Ctrl+Alt,
+     *  and some keyboards have none. Argus understands it — press it in the shortcut list
+     *  and it records `altgr+…` — so anyone whose keyboard sends it cleanly can have it in
+     *  five seconds. What ships is the chord that could be watched firing.
+     *
+     *  C for columns and R for rows are the obvious letters and both are spoken for in the
+     *  two-modifier form, so J and K stay: where a vim hand already is.
      */
     grid: () => tile('grid'),
     cols: () => tile('cols'),
@@ -9684,7 +9691,7 @@ window.addEventListener('keydown', (e) => {
     return;
   }
 
-  const hit = KEYS.find((k) => keyFor(k.id) === pressed);
+  const hit = KEYS.find((k) => keyFor(k.id) && keyFor(k.id) === pressed);
   if (!hit) return;
   e.preventDefault();
   runKey(hit.id);
@@ -9707,7 +9714,7 @@ function keyHelp() {
     find.oninput = () => { needle = find.value.trim().toLowerCase(); paint(); };
     body.replaceChildren(
       el('p', { className: 'hint', textContent: t('These work when you are not typing: a terminal, or any box you are writing in, keeps the keyboard to itself.') }),
-      el('p', { className: 'hint', textContent: t('Press a row, then hold the combination you want — Backspace clears it, Escape leaves it alone.') }),
+      el('p', { className: 'hint', textContent: t('Press a row, then hold the combination you want — Backspace switches it off, Escape leaves it alone.') }),
       el('p', { className: 'hint', textContent: t('Ctrl+Alt reaches the sidebar — its arrows walk along it — and Ctrl+Shift works on the desk you are on, with Ctrl+Shift+1…9 (or Alt+1…9) for a desk by its number.') }),
       find,
     );
@@ -9732,12 +9739,13 @@ function keyHelp() {
         continue;
       }
       const action = one.action;
-      const shown = el('kbd', { textContent: keyFor(action.id) });
+      const key = keyFor(action.id);
+      const shown = el('kbd', { className: key ? '' : 'offkey', textContent: key || t('off') });
       const row = el('button', { className: 'ghost block keyrow' }, [
         el('span', { className: 'grow', textContent: t(action.name) }),
         shown,
       ]);
-      painted.push({ node: row, words: `${t(action.name)} ${keyFor(action.id)} ${t(action.group)}`.toLowerCase() });
+      painted.push({ node: row, words: `${t(action.name)} ${key || t('off')} ${t(action.group)}`.toLowerCase() });
       row.onclick = () => {
         shown.textContent = t('press the keys…');
         shown.classList.add('listening');
@@ -9751,7 +9759,15 @@ function keyHelp() {
           window.removeEventListener('keydown', grab, true);
           if (e.key === 'Escape') return draw();
           prefs.keys = prefs.keys || {};
-          if (e.key === 'Backspace') delete prefs.keys[action.id];
+          /* Backspace switches it off; it does not put the default back.
+           *
+           *  It used to delete the override, which restored the shipped key — so a row you
+           *  had just "cleared" went on firing, and the only way to be rid of a shortcut was
+           *  to bind it to something you would never press. An empty string is stored
+           *  instead: nothing matches it, the row says so, and *Put the original keys back*
+           *  is still there for undoing the lot.
+           */
+          if (e.key === 'Backspace') prefs.keys[action.id] = '';
           else prefs.keys[action.id] = keyName(e);
           savePrefs();
           draw();

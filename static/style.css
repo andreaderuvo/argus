@@ -2824,3 +2824,29 @@ dialog.sheet:has(.promptmake) { width: min(38rem, calc(100vw - 2rem)); }
 @keyframes atwork { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
 .wstab.working .tabdot { animation: atwork 1.4s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .wstab.working .tabdot { animation: none; box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent); } }
+
+/* Wide enough for two columns, so the list is a page you read rather than a well you scroll.
+   Fourteen rows in one column on a 1400px screen is a lot of vertical travel for a sheet
+   that exists to answer "what was the key for…". The headings span, so the groups stay
+   groups; the box and the reset span too, because they are about all of it. */
+/* Width alone decides, not the pointer: a headless browser reports `pointer: none`, and so
+   does more than one real setup — a condition that excludes them buys nothing, since a phone
+   is under 820px anyway. */
+@media (min-width: 820px) {
+  dialog.sheet:has(.keylist) { width: min(48rem, calc(100vw - 2rem)); }
+  .keylist {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 1.1rem;
+    align-content: start;
+  }
+  .keylist .hint,
+  .keylist .jfind,
+  .keylist .keygroup,
+  .keylist > button.block.wide { grid-column: 1 / -1; }
+  .keylist .keygroup { margin-top: .7rem; }
+}
+
+/* A shortcut somebody switched off. Still a row — you have to be able to give it a key again
+   — but not pretending to be a key. */
+.keylist kbd.offkey { color: var(--dim); border-style: dashed; font-style: italic; }
