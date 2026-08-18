@@ -911,6 +911,7 @@ textarea.editor {
 .md hr { border: 0; border-top: 1px solid var(--line); margin: 1.5em 0; }
 .md img { max-width: 100%; }
 
+
 /* ---------- terminal ---------- */
 
 body.term { grid-template-rows: var(--bar) 1fr auto; }
@@ -2088,7 +2089,20 @@ textarea.baton {
    render as two pixels each, which is a smudge you find by knowing it is there. */
 .msgpane .dragrip .ico,
 .msgcard > summary .dragrip .ico,
-.folder > summary .dragrip .ico { width: 17px; height: 17px; stroke-width: 4.6; }
+.folder > summary .dragrip .ico { width: 19px; height: 19px; stroke-width: 6; }
+/* And a chip under them, always.
+ *
+ *  Six dots on a dark panel are dust however bright the dots are: at 1x they came to two
+ *  pixels each with nothing around them, which is the fourth time this handle has been
+ *  reported as invisible. The dots say "grab me" only once something says there is a thing
+ *  here to grab, so the thing is drawn: a faint tile, the width of a thumb, that the dots
+ *  sit in. */
+.msgpane .dragrip,
+.msgcard > summary .dragrip,
+.folder > summary .dragrip {
+  background: color-mix(in srgb, var(--line) 70%, transparent);
+  border: 1px solid var(--line);
+}
 .msgpane .dragrip:hover,
 .msgcard > summary .dragrip:hover,
 .folder > summary .dragrip:hover { color: var(--accent); background: var(--line); }
