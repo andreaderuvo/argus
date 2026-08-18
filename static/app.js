@@ -10434,20 +10434,19 @@ function attachMessages(host, wsId, extras, deliver) {
         if (folder.open) unfolded.add(key);
         else unfolded.delete(key);
       });
+      /* No handle here, and none on the prompts inside it.
+       *
+       *  Ordering used to be draggable in both places, on the reasoning that the window is
+       *  where you live. But this window is where you *send from*, in a hurry, often on a
+       *  narrow pane a few hundred pixels wide — and a list whose rows can be picked up is a
+       *  list where a press that travels three pixels moves something instead of sending it.
+       *  The order is set once, on the Prompts screen, where that is the whole job.
+       */
       folder.append(el('summary', {}, [
-        el('span', { className: 'dragrip', title: t('Drag to reorder') }, icon('grip')),
         icon('folder'),
         el('span', { textContent: group }),
         el('span', { className: 'count', textContent: String(mine.length) }),
       ]));
-      // The same handle as the Prompts screen, because this is where you actually live: the
-      // screen is for writing them, the window is for using them, and the order that matters
-      // is the one in front of you while you work.
-      reorderFolder(folder, rowsBox, () => {
-        prefs.groups = [...rowsBox.querySelectorAll('details[data-group]')].map((n) => n.dataset.group);
-        savePrefs();
-        messagesChanged();
-      });
       folder.dataset.group = group;
       for (const kind of mine) {
         // Whether this one has everything it needs, said before you tap rather than after
@@ -10698,18 +10697,11 @@ function attachMessages(host, wsId, extras, deliver) {
         }
         // The twist goes first. Every tree anybody has ever used puts the disclosure control
         // to the left of the thing it discloses, and the eye looks for it there.
-        const hold = el('span', { className: 'dragrip', title: t('Drag to reorder') }, icon('grip'));
         const entry = el('div', { className: 'msgentry' }, [
-          el('div', { className: 'trayline' }, [hold, show, row, runs, more].filter(Boolean)),
+          el('div', { className: 'trayline' }, [show, row, runs, more].filter(Boolean)),
           uses,
         ].filter(Boolean));
         entry.kind = kind;
-        reorderFolder(entry, folder, () => {
-          const seen = [...rowsBox.querySelectorAll('.msgentry')].map((n) => n.kind);
-          prefs.templates = [...seen, ...batonTemplates().filter((k) => !seen.includes(k))];
-          savePrefs();
-          messagesChanged();
-        });
         folder.append(entry);
       }
       rowsBox.append(folder);
