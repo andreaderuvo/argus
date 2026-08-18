@@ -9478,7 +9478,6 @@ function dragBy(grabber, win, bounds, onDone, ignore = [], peers = () => [], onT
       showGuides(bounds, hx.line, hy.line);
     };
     const up = () => {
-      clearTimeout(hold);
       grabber.removeEventListener('pointermove', move);
       grabber.removeEventListener('pointerup', up);
       win.classList.remove('dragging');
@@ -9642,6 +9641,8 @@ function reorderTab(tab, strip, onDone) {
     };
 
     const up = () => {
+      // The hold that arms a reorder on a finger: gone the moment the finger is.
+      clearTimeout(hold);
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       window.removeEventListener('pointercancel', up);
