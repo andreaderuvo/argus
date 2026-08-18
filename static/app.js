@@ -9741,12 +9741,35 @@ function keyHelp() {
       const action = one.action;
       const key = keyFor(action.id);
       const shown = el('kbd', { className: key ? '' : 'offkey', textContent: key || t('off') });
-      const row = el('button', { className: 'ghost block keyrow' }, [
+
+      /* A button, not only a gesture.
+       *
+       *  Switching one off was Backspace-while-listening, which is a thing you can only do
+       *  if somebody told you — and the line at the top telling you is the line nobody reads
+       *  twice. So the row carries it: a cross while it has a key, and a way back once it
+       *  has none. The keystroke still works, for the hand that has learnt it.
+       */
+      const off = el('button', {
+        className: 'winbtn keyoff', type: 'button',
+        title: key ? t('Switch this shortcut off') : t('Put its usual key back'),
+        'aria-label': key ? t('Switch this shortcut off') : t('Put its usual key back'),
+        onclick: (ev) => {
+          ev.stopPropagation();
+          prefs.keys = prefs.keys || {};
+          if (key) prefs.keys[action.id] = '';
+          else delete prefs.keys[action.id];
+          savePrefs();
+          draw();
+        },
+      }, icon(key ? 'close' : 'refresh'));
+
+      const press = el('button', { className: 'ghost block keyset' }, [
         el('span', { className: 'grow', textContent: t(action.name) }),
         shown,
       ]);
+      const row = el('div', { className: 'keyrow' }, [press, off]);
       painted.push({ node: row, words: `${t(action.name)} ${key || t('off')} ${t(action.group)}`.toLowerCase() });
-      row.onclick = () => {
+      press.onclick = () => {
         shown.textContent = t('press the keys…');
         shown.classList.add('listening');
         const grab = (e) => {
