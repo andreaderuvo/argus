@@ -753,6 +753,7 @@
     "“{name}” holds {count} prompt(s); they move to {ground}.": "“{name}” holds {count} prompt(s); they move to {ground}.",
     "“{name}” is empty.": "“{name}” is empty.",
     "→ {path} · not there yet": "→ {path} · not there yet",
-    "this diagram did not draw": "this diagram did not draw"
+    "this diagram did not draw": "this diagram did not draw",
+    "the diagram library did not load": "the diagram library did not load"
   }
 }

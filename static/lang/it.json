@@ -753,6 +753,7 @@
     "“{name}” holds {count} prompt(s); they move to {ground}.": "«{name}» contiene {count} prompt; passano a {ground}.",
     "“{name}” is empty.": "«{name}» è vuoto.",
     "→ {path} · not there yet": "→ {path} · non c’è ancora",
-    "this diagram did not draw": "questo diagramma non si è disegnato"
+    "this diagram did not draw": "questo diagramma non si è disegnato",
+    "the diagram library did not load": "la libreria dei diagrammi non si è caricata"
   }
 }
