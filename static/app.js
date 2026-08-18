@@ -8607,6 +8607,20 @@ function reorderFolder(item, list, onDone) {
 
     const kin = () => [...list.children].filter((n) => n.tagName === item.tagName);
 
+    /* Everything is measured *at rest*.
+     *
+     *  A neighbour that is still sliding into place reports where it is this frame, not where
+     *  it is going to be — so the next swap was computed against a position that was about to
+     *  stop being true, and the whole list twitched. `flowTop` reads the element's own
+     *  translate back out and subtracts it, which gives where the element sits in the layout
+     *  whether or not it happens to be animating.
+     */
+    const shiftOf = (node) => {
+      const said = /translateY\((-?[\d.]+)px\)/.exec(node.style.transform || '');
+      return said ? parseFloat(said[1]) : 0;
+    };
+    const flowTop = (node) => node.getBoundingClientRect().top - shiftOf(node);
+
     const lift = () => {
       dragging = true;
       item.classList.add('folderdrag');
@@ -8616,8 +8630,8 @@ function reorderFolder(item, list, onDone) {
     };
 
     const settle = (node, before) => {
-      const shift = before - node.getBoundingClientRect().top;
-      if (!shift) return;
+      const shift = before - flowTop(node);
+      if (Math.abs(shift) < 1) return;
       node.style.transition = 'none';
       node.style.transform = `translateY(${shift}px)`;
       requestAnimationFrame(() => {
@@ -8626,6 +8640,13 @@ function reorderFolder(item, list, onDone) {
       });
     };
 
+    // A pointer resting on a boundary would otherwise swap back and forth every frame, which
+    // is the blink. One swap, then a moment's quiet, and the middles have to be properly
+    // crossed rather than merely touched.
+    let ready = 0;
+    const EDGE = 6;
+    const CALM = 90;
+
     const move = (ev) => {
       if (!dragging) {
         if (Math.abs(ev.clientY - from) < 6) return;
@@ -8633,30 +8654,35 @@ function reorderFolder(item, list, onDone) {
       }
       dy = ev.clientY - from;
       item.style.transform = `translateY(${dy}px)`;
+      if (performance.now() < ready) return;
 
-      const mine = item.getBoundingClientRect();
+      const mineTop = flowTop(item) + dy;
+      const middle = mineTop + item.offsetHeight / 2;
+
       for (const other of kin()) {
         if (other === item) continue;
-        const box = other.getBoundingClientRect();
-        const middle = box.top + box.height / 2;
-        const goingDown = mine.bottom > middle && item.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_FOLLOWING;
-        const goingUp = mine.top < middle && item.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_PRECEDING;
+        const top = flowTop(other);
+        const theirs = top + other.offsetHeight / 2;
+        const after = item.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_FOLLOWING;
+        const goingDown = after && middle > theirs + EDGE;
+        const goingUp = !after && middle < theirs - EDGE;
         if (!goingDown && !goingUp) continue;
 
-        // Where everybody is now, so they can be animated from here to wherever they land.
-        const was = new Map(kin().map((n) => [n, n.getBoundingClientRect().top]));
-        const before = mine.top - dy;            // the item's own place in the flow
+        const was = new Map(kin().map((n) => [n, flowTop(n)]));
+        const before = was.get(item);
         other[goingDown ? 'after' : 'before'](item);
         moved += 1;
+        ready = performance.now() + CALM;
 
-        // The item has a new place in the flow: keep it under the pointer by the difference.
-        item.style.transform = '';
-        const now = item.getBoundingClientRect().top;
+        // The item has a new place in the flow: keep it under the pointer by the difference,
+        // without ever clearing its transform — clearing it paints one frame in the wrong
+        // place, which is the other half of the flicker.
+        const now = flowTop(item);
         from += now - before;
         dy = ev.clientY - from;
         item.style.transform = `translateY(${dy}px)`;
 
-        for (const [node, top] of was) if (node !== item) settle(node, top);
+        for (const [node, top2] of was) if (node !== item) settle(node, top2);
         break;
       }
     };
@@ -8666,24 +8692,20 @@ function reorderFolder(item, list, onDone) {
       window.removeEventListener('pointerup', up);
       window.removeEventListener('pointercancel', up);
       if (!dragging) return;
-      // Down onto its place rather than snapping: the last thing you see should be the thing
-      // arriving where you put it.
-      item.style.transition = 'transform .16s ease';
-      item.style.transform = '';
-      setTimeout(() => {
-        item.style.transition = '';
-        item.classList.remove('folderdrag');
-      }, 170);
-      if (moved) onDone();
+      tab.classList.remove('tabdrag');
+      // The click that follows a drag is not a click on the tab: it must not switch desk.
+      tab.dataset.dragged = '1';
+      setTimeout(() => { delete tab.dataset.dragged; }, 0);
+      if (moves) onDone();
     };
 
+    // On window, not on the tab, and no setPointerCapture: reordering *removes* the tab
+    // from the document for an instant to reinsert it, and a captured element that leaves
+    // the document loses the capture — so the drag stopped dead after the first swap.
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
     window.addEventListener('pointercancel', up);
   });
-
-  // The handle is not part of the summary's job: pressing it must never open the folder.
-  handle.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); });
 }
 
 /** Put a look on, from wherever you are.
