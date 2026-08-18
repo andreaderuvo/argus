@@ -199,9 +199,9 @@ def test_the_agent_is_found_behind_its_wrapper(monkeypatch):
     class Answer:
         returncode = 0
         stdout = (
-            "node            node /home/me/.nvm/versions/node/v22.17.0/bin/codex resume\n"
-            "codex           /home/me/.nvm/.../@openai/codex-linux-x64/codex\n"
-            "bash            -bash\n"
+            "1110437 1110437 1110437 node    node /home/me/.nvm/versions/node/v22.17.0/bin/codex resume\n"
+            "1110448 1110437 1110437 codex   /home/me/.nvm/lib/@openai/codex-linux-x64/codex\n"
+            "3257082 3257082 1110437 bash    -bash\n"
         )
 
     monkeypatch.setattr(paths.subprocess, "run", lambda *_a, **_k: Answer())
@@ -213,7 +213,60 @@ def test_a_pane_with_no_agent_names_none(monkeypatch):
 
     class Answer:
         returncode = 0
-        stdout = "bash            -bash\nsleep           sleep 300\n"
+        stdout = "700 700 800 bash  -bash\n800 800 800 sleep  sleep 300\n"
 
     monkeypatch.setattr(paths.subprocess, "run", lambda *_a, **_k: Answer())
     assert paths.agent_in("/dev/pts/7") is None
+
+
+def _rows(text):
+    class Answer:
+        returncode = 0
+        stdout = text
+    return lambda *_a, **_k: Answer()
+
+
+def test_a_folder_named_after_an_agent_is_not_an_agent(monkeypatch):
+    """The loose version searched the whole of `ps` as one string, so a folder called
+    `codex-andrea` in a vim command line made the pane a Codex. Real folder names, off the
+    machine this was found on."""
+    monkeypatch.setattr(paths.subprocess, "run", _rows(
+        "3001 3001 3002 bash            -bash\n"
+        "3002 3002 3002 vim             vim /home/me/codex-andrea/notes.md\n"
+    ))
+    assert paths.agent_in("/dev/pts/4") is None
+
+    monkeypatch.setattr(paths.subprocess, "run", _rows(
+        "3001 3001 3002 bash            -bash\n"
+        "3002 3002 3002 git             git -C /home/me/claude-bmc-review status\n"
+    ))
+    assert paths.agent_in("/dev/pts/4") is None
+
+
+def test_the_foreground_group_decides(monkeypatch):
+    """Two agents on one terminal — one left in the background, one in front. The one you are
+    looking at is the one holding the terminal."""
+    monkeypatch.setattr(paths.subprocess, "run", _rows(
+        "4001 4001 4009 claude          claude --dangerously-skip-permissions\n"
+        "4009 4009 4009 node            node /home/me/.nvm/bin/codex resume\n"
+        "4010 4009 4009 codex           /home/me/.nvm/lib/@openai/codex-linux-x64/codex\n"
+    ))
+    assert paths.agent_in("/dev/pts/4") == "codex"
+
+
+def test_a_wrapper_is_read_through(monkeypatch):
+    """`node …/bin/codex resume`: the basename of an argument, not a substring of the line."""
+    monkeypatch.setattr(paths.subprocess, "run", _rows(
+        "5001 5001 5001 node            node /home/me/.nvm/versions/node/v22.17.0/bin/codex resume\n"
+    ))
+    assert paths.agent_in("/dev/pts/9") == "codex"
+
+
+def test_ps_that_says_nothing_names_nothing(monkeypatch):
+    """A machine where `ps -t` is refused, or a pane whose terminal has gone: no guess."""
+    class Refused:
+        returncode = 1
+        stdout = ""
+    monkeypatch.setattr(paths.subprocess, "run", lambda *_a, **_k: Refused())
+    assert paths.agent_in("/dev/pts/9") is None
+    assert paths.agent_in("") is None
