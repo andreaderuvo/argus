@@ -459,6 +459,7 @@ def create_app(cfg: Config) -> FastAPI:
             # other.
             "started_in": found["began"],
             "command": found["command"],
+            "model": found["model"],
         }
 
     @app.get("/api/tmux/copymode", tags=["Sessions"], summary="Is this session showing history rather than the live end")

@@ -2773,28 +2773,27 @@ dialog.sheet:has(.promptmake) { width: min(38rem, calc(100vw - 2rem)); }
    the desk — most of the time — and marked when it does not, which is the case worth a
    glance: a session dragged in from somewhere else keeps the folder it was made in, and a
    prompt full of {folder} would be pointing it somewhere it has never been. */
-/* All three are chips, and the frame is always there.
-   
-   The frame was on amber and red only — it was carrying the message for anyone who cannot
-   tell green from amber, which is the commonest colour blindness there is and exactly that
-   pair. But a shape that changes with the state reads as three different objects, so the
-   frame is constant now and the second channel moved into the text: the amber one is
-   prefixed `!`, meaning "not the desk's folder", and the red one says `?` because there is
-   no folder to name. Colour, and a word beside it. */
-.winbar .wherechip {
-  flex: none; max-width: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  margin-left: .1rem; padding: .02rem .3rem;
-  font-size: .66rem; line-height: 1.5;
-  border: 1px solid color-mix(in srgb, currentColor 35%, transparent); border-radius: .3rem;
-  background: none; color: var(--dim); cursor: pointer;
+
+
+/* The facts about a session, in a strip under its title bar. Shown when you ask and gone
+   when you do not: five labelled things is a sentence, and a sentence does not belong on a
+   bar with nine buttons on it. */
+.winfacts {
+  display: flex; flex-wrap: wrap; gap: .3rem;
+  padding: .25rem .45rem; border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel) 60%, transparent);
 }
-.winbar .wherechip:hover { border-color: currentColor; filter: brightness(1.25); }
-/* Green is deliberately the quiet one: it is true on nearly every window, and a row of
-   shouting green chips would be wallpaper. */
-.winbar .wherechip.agrees { color: color-mix(in srgb, var(--st-good) 78%, var(--dim)); }
-.winbar .wherechip.astray { color: var(--st-warning); }
-.winbar .wherechip.lost { color: var(--st-critical); min-width: 1.2rem; text-align: center; }
-/* An answer that is not about now — the pane's birthplace, when neither the process nor tmux
-   would say. Grey on purpose: it is not a warning, it is an absence of news. */
-.winbar .wherechip.old { color: var(--dim); font-style: italic; }
-.winbar .wherechip { max-width: 14rem; }
+.winfacts .fact {
+  display: inline-flex; align-items: baseline; gap: .25rem;
+  max-width: 14rem; padding: .02rem .32rem;
+  border: 1px solid var(--line); border-radius: .3rem;
+  font-size: .64rem; line-height: 1.6; color: var(--text);
+}
+.winfacts .factname { color: var(--dim); text-transform: lowercase; }
+.winfacts .factvalue { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Only a folder can disagree with the desk, so only a folder is ever coloured. */
+.winfacts .fact.agrees .factvalue { color: color-mix(in srgb, var(--st-good) 78%, var(--text)); }
+.winfacts .fact.astray { border-color: color-mix(in srgb, var(--st-warning) 45%, var(--line)); }
+.winfacts .fact.astray .factvalue { color: var(--st-warning); }
+.winfacts .fact.lost { border-color: color-mix(in srgb, var(--st-critical) 45%, var(--line)); }
+.winfacts .fact.lost .factvalue { color: var(--st-critical); }
