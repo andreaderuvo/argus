@@ -2922,3 +2922,20 @@ pre.file.hl .hljs-strong { font-weight: 700; }
   color: var(--text); background: var(--bg);
   border: 1px solid var(--line); border-radius: .3rem;
 }
+
+/* A file with its numbers: one scroller holding both, so they move together vertically, and
+   the column stuck to the left so the code slides under it rather than dragging it away. */
+.codewrap { display: flex; align-items: flex-start; overflow: auto; min-height: 0; }
+.codewrap .gutter {
+  position: sticky; left: 0; z-index: 1; flex: none;
+  /* The same metrics as the text, to the pixel, and the same top padding: a column of
+     numbers whose line-height is three pixels out is a column that is right at the top of
+     the file and a line and a half out at the bottom — measured, 22.5 against 19.5. */
+  padding: .8rem .55rem .8rem .8rem;
+  font: 13px/1.5 ui-monospace, "SF Mono", Menlo, monospace;
+  white-space: pre;
+  text-align: right; color: var(--dim);
+  background: var(--bg); border-right: 1px solid var(--line);
+  user-select: none;
+}
+.codewrap pre.file { margin: 0; overflow: visible; }
