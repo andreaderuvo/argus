@@ -911,6 +911,20 @@ textarea.editor {
 .md hr { border: 0; border-top: 1px solid var(--line); margin: 1.5em 0; }
 .md img { max-width: 100%; }
 
+/* A drawn ```mermaid fence.
+ *
+ *  Wider than the column it sits in more often than not, so it scrolls on its own rather
+ *  than pushing the prose sideways, and the svg is told its own size — mermaid writes a
+ *  width in pixels that a narrow phone would otherwise honour. */
+.md .diagram {
+  margin: 1.2em 0;
+  padding: .8rem;
+  overflow-x: auto;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: .5rem;
+}
+.md .diagram svg { max-width: 100%; height: auto; display: block; margin: 0 auto; }
 
 /* ---------- terminal ---------- */
 
