@@ -205,6 +205,19 @@ services.</sub>
   that follows the terminal you last touched, so the usual case is one tap and no question
   asked. Tap a name up there to aim it somewhere else and it stays put.
 
+  **Aim it at more than one session.** The names at the top are toggles, so the same
+  instruction reaches two agents, or three, in one press — the ordinary case with two
+  agents on one job, and something you notice you are doing by hand on the fourth round.
+
+  **It opens shut and says how much is in it.** Groups, prompts and their placeholder
+  lists all start collapsed, with a count beside each name, because a window three hundred
+  pixels wide holding forty open rows is a window you scroll rather than read. What you
+  open stays open. Values can be edited where you find them: a prompt lists what it takes
+  and what each one is worth on this desk, and each is a box you can type into. Ordering,
+  though, happens on the Prompts screen and nowhere else — this window is where you send
+  from, in a hurry, and a list whose rows can be picked up is a list where a press that
+  travels three pixels moves something instead of sending it.
+
   **Hovering a prompt shows what it will actually say**, filled in, without sending it —
   and on the Prompts screen you can preview with any set of placeholders, not only the one
   the desk is on, since reading is not choosing.
@@ -212,7 +225,14 @@ services.</sub>
   **A prompt says whether it runs.** "Run the tests" wants to go; "here is the file, now
   tell me what you think" wants a look before Enter. The switch is on the prompt itself,
   off by default, and a prompt that will run says so with a ↵ in the list — before you
-  tap, not after.
+  tap, not after. It is a mark and not a button: it says what pressing the row will do.
+
+  The return goes as a **separate write**, half a second after the text, and that detail is
+  the whole of whether it works. An input box does not read lines, it reads writes: one
+  that assembles a paste treats everything arriving in a single read as part of the paste,
+  so a return sent along with the text lands *in* the box and the prompt sits there,
+  complete and unsent. Claude Code submits it anyway; Codex does not. The pause is a
+  setting for an agent that wants longer.
 
   The ⋯ on a row is for the times a word needs changing before it goes: it shows the text
   filled in, lets you edit it once and sends it. Not saved — the library is edited where
@@ -251,7 +271,15 @@ services.</sub>
   listing under it stays put.
 - **List or tree**, hidden files on or off, favourites — kept on the server, so both
   devices see the same ones.
-- **Two panes** side by side; either one can be a window in a workspace.
+- **Two panes** side by side; either one can be a window in a workspace. **Drag a row onto
+  a folder or onto the other pane** to move it there — the folder under the pointer wins
+  over the pane behind it, in either pane, including the one you are dragging from.
+- **The three you do all day are on the row**: copy the path, rename, delete. Everything
+  else is behind the ⋮, which is right for moving, copying and downloading — you do those
+  thinking about it. Copying says that it copied, with a tick for a moment, because a
+  button that copies and then looks identical is a button you press again to be sure.
+  Pointer only: on a phone, three targets in a row is a lottery and the ⋮ is one honest
+  target with all of it behind it.
 - **What a folder weighs**, on request: a button per folder, because finding out means
   walking it. It stops at 400k entries or twenty seconds and says "at least" rather than
   presenting a partial sum as the total.
@@ -311,11 +339,14 @@ services.</sub>
 - **Every desk tab carries how many windows it holds**, including desks you have not opened
   this visit.
 - **Keep the arrangement you made.** Grid, Columns and Rows are arrangements the machine
-  picks and every one of them throws yours away. **Keep** writes down how the desk looks
-  now — every time, over whatever was there before — and **Mine** puts it back: same
-  windows, same places, same one in front. It restores the desk rather than only the
-  geometry, so a window closed since comes back and a window opened since goes away, with
-  six seconds to undo it.
+  picks and every one of them throws yours away. **Custom** is the fourth, and it behaves
+  like the other three: press it and you are in it, lit while you are. It restores the desk
+  rather than only the geometry, so a window closed since comes back and a window opened
+  since goes away, with six seconds to undo it. Saving is a smaller button held inside the
+  same control — saving is not a fourth way to arrange a desk, it is something you do *to*
+  this one — and it goes out when what is on screen is already what is saved. A dot on the
+  corner says there is something saved here at all, which is the question you ask from
+  across the room.
 - **A narrow window folds its own title bar**: below about 340px the buttons move into a
   ⋯, which reads them off the bar itself, so nothing runs past the edge on a phone. It is
   asked of the window, not the screen — a 300px window on a wide monitor has the same
@@ -516,6 +547,10 @@ date when the wording improves without ever overwriting words you wrote.
 
 ### Everything else
 
+- **Settings is nine groups, and you can get to one of them.** The headings are chips at
+  the top, built from the finished page rather than a list kept beside it, so a group added
+  next month appears there without anybody remembering; and a box hides every row that does
+  not match what you type, along with any heading left holding nothing.
 - **Ready-made looks for tmux**, from a button on the terminal itself — Argus, Paper,
   Amber, Slate, or Plain to undo them. **One session or all of them**: style options are
   session options, so a look can dress the window you are looking at and leave everybody
@@ -538,10 +573,15 @@ date when the wording improves without ever overwriting words you wrote.
   corners on a touch screen, rather than the 8px strip outside it that a mouse is happy
   with and a thumb cannot find.
 - **Keyboard shortcuts** for the places you go and the windows you open, with `?` for the
-  list — and a key icon in the header, on screens wide enough to have a keyboard. Any of them can be changed — click the row, press the key — and Backspace clears
-  one. They fire only when you are *not* typing: a terminal, or any box you are writing
-  in, keeps the keyboard to itself, because stealing one key from tmux would be worse than
-  having no shortcuts at all.
+  list — and a key icon in the header, on screens wide enough to have a keyboard. They fire
+  only when you are *not* typing: a terminal, or any box you are writing in, keeps the
+  keyboard to itself, because stealing one key from tmux would be worse than having no
+  shortcuts at all. **Every default takes Ctrl**, since that rule alone was not enough —
+  plenty of the app is neither a terminal nor a text box, and a bare letter pressed while
+  reading a listing or a document opened a screen you had not asked for. The combinations
+  a browser has already taken are left alone, which is why a new file browser is `Ctrl+E`.
+  Changing one is **click the row, then hold the combination**: it records what you press,
+  so there is nothing to spell and no way to write down a chord your keyboard cannot make.
 - **A QR code** to pair a phone, and an installable PWA over HTTPS.
 - **The GitHub mark in the header** opens the repository, this wiki and the landing page,
   so the documentation is one tap from wherever you are rather than something you have to
@@ -704,6 +744,10 @@ count is kept, so twelve knocks read as twelve.
 Filters at the top: *Everything*, *Refused*, *Changes*, and a box that matches the address, the
 key and the action at once. Only the token from the config can read it: a record a stolen
 device could read is a record that tells whoever took it what you can see.
+
+Emptying it is deliberate and says how much went: everything, or only what is older than a
+day, two days or a week. Nothing empties itself on a schedule — the whole value of the file
+is that it is still there when you finally think to look.
 
 It is not tamper-proof, and does not pretend to be. Anything holding the master token can
 delete the file, and a shell on the machine certainly can. It answers "what happened" for a
