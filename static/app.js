@@ -616,7 +616,20 @@ function modal(title, body, buttons) {
   const d = el('dialog', { className: 'sheet' });
   const foot = el('div', { className: 'sheetfoot' });
   for (const b of buttons) foot.append(b);
-  d.append(el('h2', { textContent: title }), body, foot);
+  /* A cross in the corner as well as a button at the foot.
+   *
+   *  Escape has always closed these and the foot has always had the word, but a sheet with
+   *  a long body puts that word below the fold, and the corner is where a hand goes because
+   *  it is where every window in this app — and every window anywhere — keeps it.
+   *
+   *  `cancel` and not `close`: a sheet that asks something resolves its promise on cancel,
+   *  the way Escape does, so the cross means "never mind" rather than a silent nothing.
+   */
+  const shut = el('button', {
+    className: 'sheetx', type: 'button', title: t('Close'), 'aria-label': t('Close'),
+    onclick: () => { d.dispatchEvent(new Event('cancel')); d.close(); },
+  }, icon('close'));
+  d.append(el('h2', {}, [el('span', { className: 'grow', textContent: title }), shut]), body, foot);
   document.body.append(d);
   d.addEventListener('close', () => d.remove());
   d.showModal();
@@ -9063,6 +9076,26 @@ window.addEventListener('keydown', (e) => {
     return;
   }
 
+  /* The sidebar, one along at a time.
+   *
+   *  Ctrl+Alt reaches a screen by its letter, which is right when you know which one you
+   *  want. The arrows are for when you do not: they walk the rail in the order it is drawn,
+   *  wrapping at both ends, so seven screens are reachable without seven letters.
+   */
+  if (pressed === 'ctrl+alt+ArrowRight' || pressed === 'ctrl+alt+ArrowLeft') {
+    const doors = [...document.querySelectorAll('#nav a[data-tab]')];
+    if (doors.length) {
+      e.preventDefault();
+      const at = doors.findIndex((a) => a.classList.contains('on'));
+      const step = pressed.endsWith('Right') ? 1 : -1;
+      // Nowhere in the rail (a desk opened by link, say) starts from the first one.
+      const next = at < 0 ? (step > 0 ? 0 : doors.length - 1)
+        : (at + step + doors.length) % doors.length;
+      doors[next].click();
+    }
+    return;
+  }
+
   // And along the row with the arrows, which is the gesture every tabbed thing has: the
   // brackets do the same and are what the list shows, because a list of fourteen rows is not
   // improved by saying the same thing twice.
@@ -9097,7 +9130,7 @@ function keyHelp() {
     body.replaceChildren(
       el('p', { className: 'hint', textContent: t('These work when you are not typing: a terminal, or any box you are writing in, keeps the keyboard to itself.') }),
       el('p', { className: 'hint', textContent: t('Press a row, then hold the combination you want — Backspace clears it, Escape leaves it alone.') }),
-      el('p', { className: 'hint', textContent: t('Ctrl+Alt reaches the sidebar, Ctrl+Shift works on the desk you are on, and Ctrl+Shift+1…9 (or Alt+1…9) goes to a desk by its number.') }),
+      el('p', { className: 'hint', textContent: t('Ctrl+Alt reaches the sidebar — its arrows walk along it — and Ctrl+Shift works on the desk you are on, with Ctrl+Shift+1…9 (or Alt+1…9) for a desk by its number.') }),
       find,
     );
     /* Grouped by what they act on, which is also what the modifier says: the screens down
