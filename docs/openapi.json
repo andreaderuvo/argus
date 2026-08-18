@@ -1207,6 +1207,56 @@
    }
   },
   "/api/journal": {
+   "delete": {
+    "description": "Everything, or everything before a cutoff given in seconds.\n\nThe deletion is recorded like any other change \u2014 the middleware sees this request and\nwrites it down \u2014 so the journal always says that it was emptied, when, and from where.",
+    "operationId": "deleteApiJournal",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "older_than",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Older Than"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Clear Journal Api Journal Delete",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Empty the journal, or the old part of it",
+    "tags": [
+     "Setup"
+    ]
+   },
    "get": {
     "description": "Most recent first. Only the token from the config may read it: a record that a\npossibly-stolen device can read is a record that tells whoever took it what you can see.",
     "operationId": "getApiJournal",

@@ -535,7 +535,17 @@ input.sheetfind { width: 100%; margin: .2rem 0 .5rem; }
 .msgentry { display: block; }
 /* The chevron that opens a prompt's values. Quiet, and turned when it is open — the same
    thing every disclosure control does, so nobody has to be told. */
+/* Visible without being loud, and visible *without hovering*: it was inheriting the window
+   button colour, which is nearly the background until the pointer is on it — fine for a bar
+   of icons at the top of a window, useless for the one control that says a row has more. */
+.msgpane .twist { color: var(--dim); opacity: 1; }
+.msgpane .twist:hover, .msgpane .twist.on { color: var(--accent); }
 .msgpane .twist .ico { width: 14px; height: 14px; transition: transform .12s ease; }
+/* A finger has no hover, so the target is a finger's size and always shown. */
+@media (hover: none) {
+  .msgpane .twist { width: 34px; height: 34px; }
+  .msgpane .twist .ico { width: 16px; height: 16px; }
+}
 .msgpane .twist.on .ico { transform: rotate(180deg); }
 .msgpane .msgfolder > summary .count {
   margin-left: auto; font-size: .72rem; color: var(--dim);
