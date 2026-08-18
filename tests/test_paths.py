@@ -145,7 +145,7 @@ def test_where_prefers_what_the_agent_said(monkeypatch):
     monkeypatch.setattr(paths, "_say", lambda *_a: "/dev/pts/9\t/where/tmux/thinks\tclaude\t/what/the/agent/said\t/where/it/began\tOpus 5")
     monkeypatch.setattr(paths, "foreground_pid", lambda _tty: 4242)
     monkeypatch.setattr(paths, "process_cwd", lambda _pid: "/where/the/process/is")
-    monkeypatch.setattr(paths, "agent_in", lambda _tty: "claude")
+    monkeypatch.setattr(paths, "agent_in", lambda _tty, _told="": "claude")
     assert paths.pane_where(tmux.Socket(None), "one") == {
         "cwd": "/what/the/agent/said", "source": "agent", "live": True,
         "command": "claude", "began": "/where/it/began", "model": "Opus 5", "agent": "claude",
@@ -158,7 +158,7 @@ def test_where_falls_to_the_process_that_holds_the_terminal(monkeypatch):
     monkeypatch.setattr(paths, "_say", lambda *_a: "/dev/pts/9\t/where/tmux/thinks\tbash\t\t/where/it/began")
     monkeypatch.setattr(paths, "foreground_pid", lambda _tty: 4242)
     monkeypatch.setattr(paths, "process_cwd", lambda _pid: "/where/the/process/is")
-    monkeypatch.setattr(paths, "agent_in", lambda _tty: None)
+    monkeypatch.setattr(paths, "agent_in", lambda _tty, _told="": None)
     got = paths.pane_where(tmux.Socket(None), "one")
     assert (got["cwd"], got["source"], got["live"]) == ("/where/the/process/is", "process", True)
 
@@ -169,7 +169,7 @@ def test_where_falls_to_tmux_then_to_the_start(monkeypatch):
     monkeypatch.setattr(paths, "_say", lambda *_a: "/dev/pts/9\t/where/tmux/thinks\tvim\t\t/where/it/began")
     monkeypatch.setattr(paths, "foreground_pid", lambda _tty: None)
     monkeypatch.setattr(paths, "process_cwd", lambda _pid: None)
-    monkeypatch.setattr(paths, "agent_in", lambda _tty: None)
+    monkeypatch.setattr(paths, "agent_in", lambda _tty, _told="": None)
     got = paths.pane_where(tmux.Socket(None), "one")
     assert (got["cwd"], got["source"], got["live"]) == ("/where/tmux/thinks", "tmux", True)
 
@@ -270,3 +270,10 @@ def test_ps_that_says_nothing_names_nothing(monkeypatch):
     monkeypatch.setattr(paths.subprocess, "run", lambda *_a, **_k: Refused())
     assert paths.agent_in("/dev/pts/9") is None
     assert paths.agent_in("") is None
+
+
+def test_an_agent_that_names_itself_is_believed(monkeypatch):
+    """`@argus_agent`, the same road as the folder and the model: a hook that knows says so,
+    and nothing has to be inferred from a process tree."""
+    monkeypatch.setattr(paths, "_tty_rows", lambda _tty: [])
+    assert paths.agent_in("/dev/pts/3", "Codex") == "codex"

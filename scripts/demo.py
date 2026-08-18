@@ -503,11 +503,27 @@ def build_sessions(root: Path) -> None:
         ("tests", shop, f"printf '%b\\n' \"$(cat {root}/.transcript-tests)\"; {waiting}"),
         ("db", shop / "db", f"cat {root}/.transcript-db; {shell}"),
     )
+    # What the agents would be telling Argus about themselves, if these were real ones: the
+    # same pane options a Claude Code status line hook writes. Fabricated like the rest of
+    # this world, and by exactly the mechanism the real thing uses — a demo that faked it
+    # another way would be showing something the app does not do.
+    says = {
+        "frontend": ("claude", "Opus 5", None),
+        "backend": ("codex", "gpt-5.6-sol medium", None),
+        "tests": ("claude", "Sonnet 5", None),
+        "claude": ("claude", "Opus 5", None),
+        "codex": ("codex", "gpt-5.6-sol medium", None),
+    }
     for name, cwd, command in plan:
         # The transcript is the session's own command, so nothing about producing it is
         # ever on screen: the pane opens with the text already there and a prompt under it.
         tmux("new-session", "-d", "-s", name, "-c", str(cwd), "-x", "110", "-y", "30", command)
     time.sleep(0.6)
+    for name, (who, model, where) in says.items():
+        tmux("set", "-p", "-t", name, "@argus_agent", who)
+        tmux("set", "-p", "-t", name, "@argus_model", model)
+        if where:
+            tmux("set", "-p", "-t", name, "@argus_cwd", where)
 
 
 # ---------------------------------------------------------------------------- the app
