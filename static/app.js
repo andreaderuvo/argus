@@ -636,6 +636,46 @@ function modal(title, body, buttons) {
   return d;
 }
 
+/** Name it and write it, in one sheet.
+ *
+ *  Adding a prompt used to ask for the name and stop there, leaving an empty one in the list
+ *  for you to find, open and fill in — three more presses to finish a thing you had already
+ *  decided on. A prompt is a name and some words; both are asked for at once, and the
+ *  ↵ that decides whether it sends itself is here too, since that is the third thing you
+ *  know at the moment you write it and the third trip you would otherwise make.
+ */
+function askPrompt(title, has = {}) {
+  return new Promise((resolve) => {
+    const name = el('input', { type: 'text', value: has.name || '', spellcheck: false, placeholder: t('a short name') });
+    const text = el('textarea', { rows: 7, spellcheck: false, placeholder: t('what it says — {placeholders} are filled in when you send it') });
+    text.value = has.text || '';
+    const run = el('input', { type: 'checkbox' });
+    run.checked = !!has.run;
+    const done = (v) => { resolve(v); d.close(); };
+    const save = el('button', {
+      className: 'primary inline',
+      textContent: has.name ? t('Save') : t('Create'),
+      onclick: () => {
+        if (!name.value.trim()) return name.focus();
+        done({ name: name.value.trim(), text: text.value, run: run.checked });
+      },
+    });
+    const d = modal(title, el('div', { className: 'sheetbody promptmake' }, [
+      name,
+      text,
+      el('label', { className: 'runline' }, [run, el('span', { textContent: t('sends itself — press Enter after it') })]),
+    ]), [
+      el('button', { className: 'ghost', textContent: t('Cancel'), onclick: () => done(null) }),
+      save,
+    ]);
+    d.addEventListener('cancel', () => resolve(null));
+    // Enter finishes the name and moves on; in the body it is a new line, which is what a
+    // prompt of several paragraphs needs.
+    name.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); text.focus(); } });
+    name.focus();
+  });
+}
+
 function ask(title, value = '', label = 'OK') {
   return new Promise((resolve) => {
     const input = el('input', { type: 'text', value, spellcheck: false });
@@ -4403,6 +4443,23 @@ async function screenMessages(open = null) {
     for (const group of batonGroups()) {
       const mine = all.filter((x) => x.group === group);
       const folder = el('details', { className: 'folder', open: !!mine.length });
+      /* Add, rename, delete — on the group's own line, as icons.
+       *
+       *  They were three worded buttons on a row of their own underneath, which is a row of
+       *  furniture between the folder and the first thing in it: with six groups open that
+       *  is six rows of buttons and a list you have to read past. They belong to the group,
+       *  so they sit on the group, where the pencil on a window and the ⋮ on a file row
+       *  already are.
+       *
+       *  Inside a `<summary>`, so each one has to say it is not the summary being clicked —
+       *  otherwise renaming a group also folds it.
+       */
+      const groupBtn = (glyph, label, fn) => {
+        const b = el('button', { className: 'winbtn', type: 'button', title: label, 'aria-label': label }, icon(glyph));
+        b.onclick = (ev) => { ev.preventDefault(); ev.stopPropagation(); fn(); };
+        return b;
+      };
+
       const summary = el('summary', {}, [
         // textContent, not a third argument: `el` takes nodes there, so the character was
         // quietly dropped and the handle was a zero-pixel box nobody could grab. Which is
@@ -4412,50 +4469,38 @@ async function screenMessages(open = null) {
         icon('folder'),
         el('span', { className: 'foldername', textContent: group }),
         el('span', { className: 'count', textContent: String(mine.length) }),
+        el('span', { className: 'grow' }),
+        groupBtn('plus', t('A new prompt in {group}', { group }), async () => {
+          const made = await askPrompt(t('A new prompt in {group}', { group }));
+          if (!made) return;
+          all.push({ group, name: made.name, text: made.text, ...(made.run ? { run: true } : {}) });
+          savePrefs();
+          messagesChanged();
+          drawMessagePane();
+        }),
+        groupBtn('rename', t('Rename this group'), async () => {
+          const name = await ask(t('Name for this group'), group, t('Rename'));
+          if (!name || name === group) return;
+          prefs.groups = batonGroups().map((x) => (x === group ? name : x));
+          for (const kind of all) if (kind.group === group) kind.group = name;
+          savePrefs();
+          messagesChanged();
+          drawMessagePane();
+        }),
+        groupBtn('trash', t('Delete this group'), async () => {
+          const say = mine.length
+            ? t('“{name}” holds {count} prompt(s); they move to {ground}.', { name: group, count: mine.length, ground: LOOSE })
+            : t('“{name}” is empty.', { name: group });
+          if (!await confirmBox(t('Delete this group'), say, t('Delete'))) return;
+          for (const kind of mine) kind.group = LOOSE;
+          prefs.groups = batonGroups().filter((x) => x !== group);
+          if (mine.length && !prefs.groups.includes(LOOSE)) prefs.groups.unshift(LOOSE);
+          savePrefs();
+          messagesChanged();
+          drawMessagePane();
+        }),
       ]);
       folder.append(summary);
-
-      const tools = el('div', { className: 'foldertools' }, [
-        el('button', {
-          className: 'ghost dup', textContent: t('Add here'),
-          onclick: async () => {
-            const name = await ask(t('Name for this prompt'), '', t('Create'));
-            if (!name) return;
-            all.push({ group, name, text: '' });
-            savePrefs();
-            messagesChanged();
-            drawMessagePane();
-          },
-        }),
-        el('button', {
-          className: 'ghost dup', textContent: t('Rename'),
-          onclick: async () => {
-            const name = await ask(t('Name for this group'), group, t('Rename'));
-            if (!name || name === group) return;
-            prefs.groups = batonGroups().map((x) => (x === group ? name : x));
-            for (const kind of all) if (kind.group === group) kind.group = name;
-            savePrefs();
-            messagesChanged();
-            drawMessagePane();
-          },
-        }),
-        el('button', {
-          className: 'ghost dup', textContent: t('Delete'),
-          onclick: async () => {
-            const say = mine.length
-              ? t('“{name}” holds {count} prompt(s); they move to {ground}.', { name: group, count: mine.length, ground: LOOSE })
-              : t('“{name}” is empty.', { name: group });
-            if (!await confirmBox(t('Delete this group'), say, t('Delete'))) return;
-            for (const kind of mine) kind.group = LOOSE;
-            prefs.groups = batonGroups().filter((x) => x !== group);
-            if (mine.length && !prefs.groups.includes(LOOSE)) prefs.groups.unshift(LOOSE);
-            savePrefs();
-            messagesChanged();
-            drawMessagePane();
-          },
-        }),
-      ]);
-      folder.append(tools);
 
       if (!mine.length) folder.append(el('p', { className: 'empty tiny', textContent: t('Nothing in here yet.') }));
       for (const kind of mine) {
@@ -6739,7 +6784,40 @@ async function screenWall() {
         textContent: label,
       });
       const setLabel = (text, full) => { title.textContent = text; title.title = full; };
-      const head = el('div', { className: 'winbar' }, [swatch, title, extras, send, solo, more, close]);
+
+      /* Where this session actually is, and whether that is where the desk says.
+       *
+       *  A desk's folder decides where a file browser lands, where a prompt's `{folder}`
+       *  points, and where a session *created here* starts. It cannot decide anything about
+       *  a session that already existed and was dragged in: that one is wherever it was
+       *  started, which may be somewhere else entirely — and nothing on screen said so, so
+       *  a prompt saying "read {folder}" could be pointing an agent at a folder it has never
+       *  been in.
+       *
+       *  So the terminal wears its own directory. Dim when it agrees with the desk, marked
+       *  when it does not, the whole of both paths on hover, and a press opens a file
+       *  browser there — because the next question after "it is somewhere else" is "where?".
+       */
+      const where = spec.kind === 'term' ? el('button', { className: 'wherechip', type: 'button' }) : null;
+      if (where) {
+        where.dataset.ws = ws.id;
+        where.hidden = true;
+        where.onclick = (ev) => {
+          ev.stopPropagation();
+          const at = where.dataset.cwd;
+          if (at) openWindow({ kind: 'browser', id: nextWindowId(), path: at, fresh: true });
+        };
+        getJSON(`/api/tmux/cwd?session=${encodeURIComponent(spec.name)}`)
+          .then((answer) => {
+            if (!answer.cwd) return;
+            where.dataset.cwd = answer.cwd;
+            where.hidden = false;
+            paintStray();
+          })
+          .catch(() => {});
+      }
+
+      const head = el('div', { className: 'winbar' }, [swatch, title, ...(where ? [where] : []), extras, send, solo, more, close]);
       win.append(head, body);
       node.append(win);
 
@@ -7047,6 +7125,7 @@ async function screenWall() {
       noteDeskFolder(ws);
       savePrefs();
       sayWhereBrowsersOpen();
+      paintStray();
       // Say the real folder, not the placeholder: "starts in {folder}" tells you nothing
       // about where it starts.
       const real = deskHome(ws);
@@ -7732,6 +7811,22 @@ async function screenWall() {
     const before = takeLayout(ws);
     wearLayout(ws, snap);
     undoToast(t('layout restored'), () => wearLayout(ws, before));
+  }
+
+  /** Re-read every terminal's folder against the desk it is on. Cheap, and called whenever
+   *  either side of the comparison can have moved: a folder set, a desk switched to. */
+  function paintStray() {
+    for (const chip of document.querySelectorAll('.wherechip[data-cwd]')) {
+      const ws = spaces.find((w) => String(w.id) === chip.dataset.ws);
+      const here = chip.dataset.cwd;
+      const meant = ws ? deskHome(ws) : null;
+      const same = !meant || here === meant;
+      chip.textContent = here.split('/').pop() || here;
+      chip.classList.toggle('astray', !same);
+      chip.title = same
+        ? t('This session is in {path} — the folder the desk opens in', { path: here })
+        : t('This session is in {path}, and the desk opens in {desk}. A session made here would start in the desk’s folder; this one was made somewhere else and kept it.', { path: here, desk: meant });
+    }
   }
 
   const sayWhereBrowsersOpen = () => {
@@ -10985,7 +11080,11 @@ function attachMessages(host, wsId, extras, deliver) {
          */
         const runs = el('span', {
           className: `runs${kind.run ? ' on' : ''}`,
-          textContent: '↵',
+          // A word, not a glyph. `↵` lit and `↵` dim are the same symbol twice, so the
+          // difference between them was a shade of grey — reported as "you cannot tell
+          // whether it will send". These two say what happens instead: one sends the
+          // prompt, the other only types it in and leaves the Enter to you.
+          textContent: kind.run ? t('sends') : t('types'),
           title: kind.run
             ? t('Sends it: this prompt presses Enter for you')
             : t('Puts it in without pressing Enter'),
