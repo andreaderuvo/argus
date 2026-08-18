@@ -8201,7 +8201,16 @@ async function screenWall() {
    */
   const keepBtn = el('button', {
     className: 'winbtn wide',
-    onclick: () => keepLayout(activeSpace()),
+    onclick: () => {
+      keepLayout(activeSpace());
+      // A tick for a moment, like the copied path. Saving an arrangement changes nothing on
+      // screen — that is the point of it — so without a mark the button looks broken, and
+      // was reported as broken.
+      const was = [...keepBtn.childNodes];
+      keepBtn.replaceChildren(icon('tick'), el('span', { textContent: t('Kept') }));
+      keepBtn.classList.add('done');
+      setTimeout(() => { keepBtn.replaceChildren(...was); keepBtn.classList.remove('done'); }, 1400);
+    },
   }, [icon('save'), el('span', { textContent: t('Keep') })]);
   keepBtn.dataset.keep = '1';
 
@@ -8564,47 +8573,93 @@ function reorderTab(tab, strip, onDone) {
   });
 }
 
-/** Drag a folder up or down the list, and keep the order.
+/** Drag something up or down a list, and keep the order.
  *
- *  The same idea as the desk tabs and deliberately not the same function: those move sideways
- *  in a strip, these move down a column, and the arithmetic for "past the middle of the one
- *  under the pointer" is the only part that matters.
+ *  The first version swapped elements as the pointer crossed them and left it at that: the
+ *  thing you were dragging never moved, its neighbours jumped, and the whole gesture felt
+ *  like the interface arguing with you. What makes a drag readable is that the thing you
+ *  grabbed *comes with you* and everything else makes room — so:
  *
- *  A grip of its own, on the left. Making the whole summary the handle was the first attempt
- *  and it was a mess: every click became a maybe-drag, opening a folder felt like it stuck,
- *  and a click that ended a drag had to be swallowed — so a plain click sometimes did
- *  nothing at all. One small target that only drags, and a summary that only opens.
+ *  **The item lifts.** It stays in the document but is translated to follow the pointer,
+ *  raised with a shadow, and stops taking pointer events so the elements underneath can be
+ *  measured.
+ *
+ *  **The others slide.** When the order changes, every neighbour that moved is first put back
+ *  where it was with a transform and then released, so the browser animates it into its new
+ *  place — the FLIP trick, which is the only way to animate a layout change that has already
+ *  happened.
+ *
+ *  **And the item keeps its place under the pointer.** Reinserting it changes where it sits
+ *  in the flow, so the offset it is translated by is corrected by exactly as much, or it
+ *  would leap out from under your hand at every swap.
  */
-function reorderFolder(folder, list, onDone) {
-  const handle = folder.querySelector('.dragrip');
+function reorderFolder(item, list, onDone) {
+  const handle = item.querySelector('.dragrip');
   if (!handle) return;
+
   handle.addEventListener('pointerdown', (down) => {
     if (down.button) return;
-    const from = down.clientY;
+    down.preventDefault();
     let dragging = false;
+    let from = down.clientY;
+    let dy = 0;
     let moved = 0;
+
+    const kin = () => [...list.children].filter((n) => n.tagName === item.tagName);
+
+    const lift = () => {
+      dragging = true;
+      item.classList.add('folderdrag');
+      if (item.tagName === 'DETAILS') {
+        item.dataset.wasOpen = item.open ? '1' : '';
+        item.open = false;                       // it must not grow while it travels
+        from = down.clientY;                     // and closing it moved everything
+      }
+    };
+
+    const settle = (node, before) => {
+      const shift = before - node.getBoundingClientRect().top;
+      if (!shift) return;
+      node.style.transition = 'none';
+      node.style.transform = `translateY(${shift}px)`;
+      requestAnimationFrame(() => {
+        node.style.transition = 'transform .16s ease';
+        node.style.transform = '';
+      });
+    };
 
     const move = (ev) => {
       if (!dragging) {
-        if (Math.abs(ev.clientY - from) < 10) return;
-        dragging = true;
-        folder.classList.add('folderdrag');
-        // A folder opening under your hand while you drag it is a lurch; not now.
-        folder.dataset.wasOpen = folder.open ? '1' : '';
-        folder.open = false;
+        if (Math.abs(ev.clientY - from) < 6) return;
+        lift();
       }
-      for (const other of [...list.children].filter((n) => n !== folder && n.tagName === 'DETAILS')) {
+      dy = ev.clientY - from;
+      item.style.transform = `translateY(${dy}px)`;
+
+      const mine = item.getBoundingClientRect();
+      for (const other of kin()) {
+        if (other === item) continue;
         const box = other.getBoundingClientRect();
         const middle = box.top + box.height / 2;
-        const above = other.compareDocumentPosition(folder) & Node.DOCUMENT_POSITION_PRECEDING;
-        const below = other.compareDocumentPosition(folder) & Node.DOCUMENT_POSITION_FOLLOWING;
-        const down2 = ev.clientY > middle && above;
-        const up2 = ev.clientY < middle && below;
-        if (ev.clientY >= box.top && ev.clientY <= box.bottom && (down2 || up2)) {
-          other[down2 ? 'after' : 'before'](folder);
-          moved += 1;
-          break;
-        }
+        const goingDown = mine.bottom > middle && item.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_FOLLOWING;
+        const goingUp = mine.top < middle && item.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_PRECEDING;
+        if (!goingDown && !goingUp) continue;
+
+        // Where everybody is now, so they can be animated from here to wherever they land.
+        const was = new Map(kin().map((n) => [n, n.getBoundingClientRect().top]));
+        const before = mine.top - dy;            // the item's own place in the flow
+        other[goingDown ? 'after' : 'before'](item);
+        moved += 1;
+
+        // The item has a new place in the flow: keep it under the pointer by the difference.
+        item.style.transform = '';
+        const now = item.getBoundingClientRect().top;
+        from += now - before;
+        dy = ev.clientY - from;
+        item.style.transform = `translateY(${dy}px)`;
+
+        for (const [node, top] of was) if (node !== item) settle(node, top);
+        break;
       }
     };
 
@@ -8613,9 +8668,16 @@ function reorderFolder(folder, list, onDone) {
       window.removeEventListener('pointerup', up);
       window.removeEventListener('pointercancel', up);
       if (!dragging) return;
-      folder.classList.remove('folderdrag');
-      folder.open = folder.dataset.wasOpen === '1';
-      delete folder.dataset.wasOpen;
+      // Down onto its place rather than snapping: the last thing you see should be the thing
+      // arriving where you put it.
+      item.style.transition = 'transform .16s ease';
+      item.style.transform = '';
+      setTimeout(() => {
+        item.style.transition = '';
+        item.classList.remove('folderdrag');
+        if (item.tagName === 'DETAILS' && item.dataset.wasOpen === '1') item.open = true;
+        delete item.dataset.wasOpen;
+      }, 170);
       if (moved) onDone();
     };
 
@@ -8623,7 +8685,8 @@ function reorderFolder(folder, list, onDone) {
     window.addEventListener('pointerup', up);
     window.addEventListener('pointercancel', up);
   });
-  // The grip is not part of the summary's job: pressing it must never open the folder.
+
+  // The handle is not part of the summary's job: pressing it must never open the folder.
   handle.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); });
 }
 
@@ -10265,10 +10328,20 @@ function attachMessages(host, wsId, extras, deliver) {
         else unfolded.delete(key);
       });
       folder.append(el('summary', {}, [
+        el('span', { className: 'dragrip', title: t('Drag to reorder') }, icon('grip')),
         icon('folder'),
         el('span', { textContent: group }),
         el('span', { className: 'count', textContent: String(mine.length) }),
       ]));
+      // The same handle as the Prompts screen, because this is where you actually live: the
+      // screen is for writing them, the window is for using them, and the order that matters
+      // is the one in front of you while you work.
+      reorderFolder(folder, rowsBox, () => {
+        prefs.groups = [...rowsBox.querySelectorAll('details[data-group]')].map((n) => n.dataset.group);
+        savePrefs();
+        messagesChanged();
+      });
+      folder.dataset.group = group;
       for (const kind of mine) {
         // Whether this one has everything it needs, said before you tap rather than after
         // it has gone. The four situational names are stubbed here because at send time
@@ -10518,10 +10591,19 @@ function attachMessages(host, wsId, extras, deliver) {
         }
         // The twist goes first. Every tree anybody has ever used puts the disclosure control
         // to the left of the thing it discloses, and the eye looks for it there.
-        folder.append(el('div', { className: 'msgentry' }, [
-          el('div', { className: 'trayline' }, [show, row, runs, more].filter(Boolean)),
+        const hold = el('span', { className: 'dragrip', title: t('Drag to reorder') }, icon('grip'));
+        const entry = el('div', { className: 'msgentry' }, [
+          el('div', { className: 'trayline' }, [hold, show, row, runs, more].filter(Boolean)),
           uses,
-        ].filter(Boolean)));
+        ].filter(Boolean));
+        entry.kind = kind;
+        reorderFolder(entry, folder, () => {
+          const seen = [...rowsBox.querySelectorAll('.msgentry')].map((n) => n.kind);
+          prefs.templates = [...seen, ...batonTemplates().filter((k) => !seen.includes(k))];
+          savePrefs();
+          messagesChanged();
+        });
+        folder.append(entry);
       }
       rowsBox.append(folder);
     }
