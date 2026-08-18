@@ -8910,33 +8910,72 @@ function lookSheet(session = null) {
  *  is worse than no shortcut — so windows is Ctrl+G and a new browser is Ctrl+E. `?` and F11
  *  keep themselves: one already needs Shift, the other is not a letter.
  */
+/* Two modifiers, and which one says where you are going.
+ *
+ *  Bare letters came first and were wrong: plenty of the app is neither a terminal nor a
+ *  text box — a listing, a document, the journal — and a letter pressed while reading one
+ *  opened a screen nobody asked for. Ctrl for everything came next and was also wrong in one
+ *  place: Ctrl+F is the browser's find, and a browser's own shortcut cannot be taken back
+ *  from a terminal that has the keyboard.
+ *
+ *  So the modifier says which question you are asking. **Ctrl+Alt is the sidebar** — the
+ *  screens down the side, which is a place you go. **Ctrl+Shift is the desk you are on** —
+ *  opening a window in it, or moving between desks. Nothing bare is left except `?`.
+ *
+ *  Both are two modifiers deep for the same reason: a browser has already taken nearly every
+ *  Ctrl+letter there is, and it takes them at a level a page cannot argue with. Ctrl+F is
+ *  find, Ctrl+L is the address bar, Ctrl+E is the search box. What is left is the pairs, and
+ *  even there a browser owns a few — remap anything yours swallows, or run it as an
+ *  installed app, where almost all of them arrive.
+ */
 const KEYS = [
-  { id: 'help', name: 'Keyboard shortcuts', key: '?' },
-  { id: 'files', name: 'Files', key: 'ctrl+f' },
-  { id: 'sessions', name: 'Sessions', key: 'ctrl+s' },
-  { id: 'wall', name: 'Windows', key: 'ctrl+g' },
-  { id: 'prompts', name: 'Prompts', key: 'ctrl+p' },
-  { id: 'system', name: 'System', key: 'ctrl+y' },
-  { id: 'settings', name: 'Settings', key: 'ctrl+,' },
-  { id: 'sidebar', name: 'Show or hide the file sidebar', key: 'ctrl+b' },
-  { id: 'full', name: 'Full screen', key: 'F11' },
-  { id: 'browser', name: 'New file browser in this desk', key: 'ctrl+e' },
-  { id: 'links', name: 'The link tray', key: 'ctrl+l' },
-  { id: 'messages', name: 'The prompts window', key: 'ctrl+m' },
-  { id: 'nextDesk', name: 'Next desk', key: 'ctrl+]' },
-  { id: 'prevDesk', name: 'Previous desk', key: 'ctrl+[' },
+  { group: 'Everywhere', id: 'help', name: 'Keyboard shortcuts', key: '?' },
+  { group: 'Everywhere', id: 'full', name: 'Full screen', key: 'F11' },
+  { group: 'The sidebar', id: 'files', name: 'Files', key: 'ctrl+alt+f' },
+  { group: 'The sidebar', id: 'sessions', name: 'Sessions', key: 'ctrl+alt+s' },
+  { group: 'The sidebar', id: 'wall', name: 'Windows', key: 'ctrl+alt+w' },
+  { group: 'The sidebar', id: 'prompts', name: 'Prompts', key: 'ctrl+alt+p' },
+  { group: 'The sidebar', id: 'system', name: 'System', key: 'ctrl+alt+y' },
+  { group: 'The sidebar', id: 'settings', name: 'Settings', key: 'ctrl+alt+,' },
+  { group: 'The sidebar', id: 'sidebar', name: 'Show or hide the file sidebar', key: 'ctrl+alt+b' },
+  { group: 'This desk', id: 'browser', name: 'New file browser in this desk', key: 'ctrl+shift+e' },
+  { group: 'This desk', id: 'links', name: 'The link tray', key: 'ctrl+shift+l' },
+  { group: 'This desk', id: 'messages', name: 'The prompts window', key: 'ctrl+shift+y' },
+  { group: 'This desk', id: 'nextDesk', name: 'Next desk (or Ctrl+Shift+→)', key: 'ctrl+shift+]' },
+  { group: 'This desk', id: 'prevDesk', name: 'Previous desk (or Ctrl+Shift+←)', key: 'ctrl+shift+[' },
 ];
 
-/** What a key press is called, so it can be compared and shown. */
+/** What a key press is called, so it can be compared and shown.
+ *
+ *  With a modifier held, the *physical* key is what counts. `e.key` is the character that
+ *  would have been typed, and with Shift down that is a different character: Ctrl+Shift+E
+ *  arrives as `E`, so the combination would be written `ctrl+E` — which is unreadable and,
+ *  worse, indistinguishable from Ctrl+E on a keyboard where the two produce the same letter.
+ *  Alt does the same on layouts where it composes. So when anything is held, the key is read
+ *  off `e.code`, the key you actually pressed, and Shift is named like any other modifier.
+ *
+ *  Without a modifier the character is right, and `?` is `?` rather than `shift+slash`.
+ */
+const PHYSICAL = (code) => {
+  const letter = /^Key([A-Z])$/.exec(code);
+  if (letter) return letter[1].toLowerCase();
+  const digit = /^Digit([0-9])$/.exec(code);
+  if (digit) return digit[1];
+  return {
+    BracketLeft: '[', BracketRight: ']', Comma: ',', Period: '.', Slash: '/',
+    Semicolon: ';', Quote: "'", Backslash: '\\', Minus: '-', Equal: '=', Backquote: '`',
+  }[code] || null;
+};
+
 function keyName(e) {
   const bits = [];
   if (e.ctrlKey) bits.push('ctrl');
   if (e.altKey) bits.push('alt');
   if (e.metaKey) bits.push('meta');
-  // Shift is part of the character on a printable key — "?" already says shift — and a
-  // modifier of its own on the named ones.
-  if (e.shiftKey && e.key.length > 1) bits.push('shift');
-  bits.push(e.key.length === 1 ? e.key : e.key);
+  const held = e.ctrlKey || e.altKey || e.metaKey;
+  const physical = held ? PHYSICAL(e.code) : null;
+  if (e.shiftKey && (physical || e.key.length > 1)) bits.push('shift');
+  bits.push(physical || e.key);
   return bits.join('+');
 }
 
@@ -8989,6 +9028,35 @@ window.addEventListener('keydown', (e) => {
     if (!document.querySelector('dialog.keyhelp[open]')) return;
   }
   const pressed = keyName(e);
+
+  /* A desk by its number, which is not in the list above and is not meant to be: nine rows
+   *  saying the same thing would bury the twelve that do not.
+   *
+   *  Ctrl+Shift+1…9, with Alt+1…9 answering as well and not out of indecision: Ctrl+1…9 alone
+   *  switches browser tabs and is not ours to cancel, and Alt+1…9 is free nearly everywhere.
+   *  Two ways in costs nothing and means at least one of them works in your browser. */
+  const numbered = /^(?:ctrl\+shift|alt)\+([1-9])$/.exec(pressed);
+  if (numbered) {
+    const tabs = [...document.querySelectorAll('#walltabs .wstab[data-ws]')];
+    const want = tabs[Number(numbered[1]) - 1];
+    if (want) {
+      e.preventDefault();
+      go('#/wall');
+      want.click();
+    }
+    return;
+  }
+
+  // And along the row with the arrows, which is the gesture every tabbed thing has: the
+  // brackets do the same and are what the list shows, because a list of fourteen rows is not
+  // improved by saying the same thing twice.
+  if (pressed === 'ctrl+shift+ArrowRight' || pressed === 'ctrl+shift+ArrowLeft') {
+    e.preventDefault();
+    go('#/wall');
+    runKey(pressed.endsWith('Right') ? 'nextDesk' : 'prevDesk');
+    return;
+  }
+
   const hit = KEYS.find((k) => keyFor(k.id) === pressed);
   if (!hit) return;
   e.preventDefault();
@@ -9001,17 +9069,48 @@ function keyHelp() {
   const body = el('div', { className: 'sheetbody keylist' });
   let sheet;
 
+  // Kept across a redraw, so recording a key does not empty the box you were filtering with.
+  let needle = '';
+
   const draw = () => {
+    const find = el('input', {
+      type: 'search', className: 'jfind', placeholder: t('filter the shortcuts'),
+      spellcheck: false, value: needle,
+    });
+    find.oninput = () => { needle = find.value.trim().toLowerCase(); paint(); };
     body.replaceChildren(
       el('p', { className: 'hint', textContent: t('These work when you are not typing: a terminal, or any box you are writing in, keeps the keyboard to itself.') }),
       el('p', { className: 'hint', textContent: t('Press a row, then hold the combination you want — Backspace clears it, Escape leaves it alone.') }),
+      el('p', { className: 'hint', textContent: t('Ctrl+Alt reaches the sidebar, Ctrl+Shift works on the desk you are on, and Ctrl+Shift+1…9 (or Alt+1…9) goes to a desk by its number.') }),
+      find,
     );
+    /* Grouped by what they act on, which is also what the modifier says: the screens down
+     *  the side, the desk you are on, and the two that work anywhere. Fourteen rows in one
+     *  column read as fourteen unrelated facts; three short lists read as a scheme, and a
+     *  scheme is the thing you can remember without opening this sheet again. */
+    const rows = [];
+    let last = null;
     for (const action of KEYS) {
+      if (action.group !== last) {
+        last = action.group;
+        rows.push({ head: action.group });
+      }
+      rows.push({ action });
+    }
+
+    const painted = [];
+    for (const one of rows) {
+      if (one.head) {
+        painted.push({ node: el('h4', { className: 'keygroup', textContent: t(one.head) }), head: true });
+        continue;
+      }
+      const action = one.action;
       const shown = el('kbd', { textContent: keyFor(action.id) });
       const row = el('button', { className: 'ghost block keyrow' }, [
         el('span', { className: 'grow', textContent: t(action.name) }),
         shown,
       ]);
+      painted.push({ node: row, words: `${t(action.name)} ${keyFor(action.id)} ${t(action.group)}`.toLowerCase() });
       row.onclick = () => {
         shown.textContent = t('press the keys…');
         shown.classList.add('listening');
@@ -9032,8 +9131,27 @@ function keyHelp() {
         };
         window.addEventListener('keydown', grab, true);
       };
-      body.append(row);
     }
+
+    // Hide what does not match, then any heading left with nothing under it.
+    const paint = () => {
+      let head = null;
+      let shown = 0;
+      for (const one of painted) {
+        if (one.head) {
+          if (head) head.hidden = shown === 0;
+          head = one.node;
+          shown = 0;
+          continue;
+        }
+        one.node.hidden = !!needle && !one.words.includes(needle);
+        if (!one.node.hidden) shown += 1;
+      }
+      if (head) head.hidden = shown === 0;
+    };
+    for (const one of painted) body.append(one.node);
+    paint();
+
     body.append(el('button', {
       className: 'ghost block wide',
       textContent: t('Put the original keys back'),
