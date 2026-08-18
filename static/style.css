@@ -538,7 +538,11 @@ input.sheetfind { width: 100%; margin: .2rem 0 .5rem; }
    Lit when it is true, dim when it is not, and always drawn, because a mark that appears only
    when true makes "it will not send" indistinguishable from "you cannot tell". */
 .msgpane .runs {
-  flex: none; display: inline-flex; align-items: center; justify-content: center;
+  /* At the end of the line, not against the name. As a single glyph it could sit anywhere;
+     as a word in a box it has to line up with the other rows' words, or five prompts of
+     different name lengths make a staircase down the window — which is exactly what they
+     did the moment the glyph became a word. */
+  flex: none; margin-left: auto; display: inline-flex; align-items: center; justify-content: center;
   min-width: 3.1rem; padding: .05rem .3rem;
   font-size: .68rem; line-height: 1.5; letter-spacing: .02em;
   border: 1px solid var(--line); border-radius: .3rem;
