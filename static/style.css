@@ -2008,16 +2008,17 @@ textarea.baton {
 /* Six dots at thirteen pixels in the dim colour came out as a smudge you had to know was
    there. Bigger, thicker, and in the ordinary text colour: a handle nobody can see is a
    handle nobody has, which is three attempts' worth of evidence by now. */
+/* Dots wide apart and thick enough to be dots rather than dust: at 3.4 in a 24-unit box they
+   render as two pixels each, which is a smudge you find by knowing it is there. */
 .msgpane .dragrip .ico,
 .msgcard > summary .dragrip .ico,
-.folder > summary .dragrip .ico { width: 15px; height: 15px; stroke-width: 3.4; }
+.folder > summary .dragrip .ico { width: 17px; height: 17px; stroke-width: 4.6; }
 .msgpane .dragrip:hover,
 .msgcard > summary .dragrip:hover,
 .folder > summary .dragrip:hover { color: var(--accent); background: var(--line); }
 /* Smaller in the window, where a row is 30 pixels tall and everything is tighter. */
 button.winbtn.done, button.winbtn.done:hover { color: var(--st-good); border-color: var(--st-good); }
-.msgpane .dragrip { width: 18px; height: 18px; }
-.msgpane .dragrip .ico { width: 13px; height: 13px; }
+.msgpane .dragrip { width: 20px; height: 20px; }
 .folder.folderdrag > summary .dragrip, .msgcard.folderdrag > summary .dragrip { cursor: grabbing; }
 /* Lifted: raised above the list, shadowed, and deaf to the pointer so the rows underneath
    can be measured while it travels over them. */
