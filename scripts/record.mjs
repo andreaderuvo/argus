@@ -81,6 +81,65 @@ const SCENES = {
     ],
   },
 
+  desks: {
+    title: 'Three agents, four windows, three desks',
+    size: WIDE,
+    // The hero clip. It has one job: somebody who has never seen this should know, in twenty
+    // seconds, that their agents and the files they are writing fit on one screen — and that
+    // there is more than one screen. Everything in it is fabricated by demo.py.
+    //
+    // Each desk carries its own `home`, which is what a file browser opened here lands on:
+    // that is the real behaviour and it is also what keeps `/tmp/lab` out of the frame.
+    prefs: {
+      sidebar: false,
+      railWide: false,
+      workspaces: [
+        { id: 1, name: 'Web Development', home: '/tmp/lab/shopfront', desktop: [
+          { kind: 'term', name: 'frontend' },
+          { kind: 'term', name: 'backend' },
+          { kind: 'term', name: 'tests' },
+        ] },
+        { id: 2, name: 'Database', home: '/tmp/lab/shopfront/db', desktop: [
+          { kind: 'term', name: 'db' },
+          { kind: 'browser', id: 21, path: '/tmp/lab/shopfront/db' },
+        ] },
+        { id: 3, name: 'Documentation', home: '/tmp/lab/shopfront/docs', desktop: [
+          { kind: 'file', path: '/tmp/lab/shopfront/docs/architecture.md' },
+          { kind: 'browser', id: 31, path: '/tmp/lab/shopfront/docs' },
+        ] },
+      ],
+      ws: 1, wsSeq: 3, winSeq: 40,
+      winGeom: {
+        '1:term:frontend': { left: '8px', top: '8px', width: '624px', height: '318px' },
+        '1:term:backend': { left: '640px', top: '8px', width: '624px', height: '318px' },
+        '1:term:tests': { left: '8px', top: '334px', width: '624px', height: '312px' },
+        '2:term:db': { left: '8px', top: '8px', width: '700px', height: '638px' },
+        '2:browser:21': { left: '716px', top: '8px', width: '548px', height: '638px' },
+        '3:file:/tmp/lab/shopfront/docs/architecture.md':
+          { left: '8px', top: '8px', width: '740px', height: '638px' },
+        '3:browser:31': { left: '756px', top: '8px', width: '508px', height: '638px' },
+      },
+    },
+    steps: [
+      { hold: 1500 },
+      { say: 'Three agents on one job — two Claudes and a Codex.', hold: 2600 },
+      { say: 'The tester found what the other two missed.', hold: 2400 },
+      { say: '', hold: 300 },
+      { run: `[...document.querySelectorAll('#walltools button')].find(b => /browser/i.test(b.textContent))?.click()`, hold: 2200 },
+      { say: 'A file browser, opening where this desk lives.', hold: 2200 },
+      { click: 'button[data-mode="grid"]', hold: 2400 },
+      { say: 'Four windows, arranged in one press.', hold: 2000 },
+      { click: '#railtoggle', hold: 2000 },
+      { say: 'Everything else is one press away.', hold: 1800 },
+      { click: '#walltabs .wstab[data-ws="2"]', hold: 2800 },
+      { say: 'Another desk, its own windows, still running.', hold: 2000 },
+      { click: '#walltabs .wstab[data-ws="3"]', hold: 2800 },
+      { say: 'And what it wrote, read where it was written.', hold: 2200 },
+      { click: '#walltabs .wstab[data-ws="1"]', hold: 2400 },
+      { say: '', hold: 900 },
+    ],
+  },
+
   keep: {
     title: 'Keep the arrangement you made',
     size: WIDE,
