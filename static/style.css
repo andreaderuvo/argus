@@ -1993,6 +1993,17 @@ textarea.baton {
 .folder > summary::-webkit-details-marker { display: none; }
 .folder > summary .ico { color: var(--accent); }
 
+/* The grip: the only part of a folder that drags. Everything else about a summary keeps
+   meaning what it meant. */
+.folder > summary .grip {
+  flex: none; cursor: grab; color: var(--dim); font-size: .8rem; line-height: 1;
+  padding: 0 .1rem; user-select: none;
+}
+.folder > summary .grip:hover { color: var(--accent); }
+.folder.folderdrag > summary .grip { cursor: grabbing; }
+.folder.folderdrag { opacity: .8; box-shadow: 0 10px 26px rgb(0 0 0 / .45); }
+.folder.folderdrag > summary { cursor: grabbing; }
+
 .foldertools { display: flex; flex-wrap: wrap; gap: .35rem; padding: 0 .8rem .6rem; }
 .foldertools .ghost.dup { font-size: .74rem; min-height: 1.9rem; padding: 0 .6rem; }
 .folder > .empty.tiny { padding: 0 .8rem .7rem; color: var(--dim); }
