@@ -2364,12 +2364,21 @@ button.keyrow kbd { flex: none; }
 /* Same specificity as the rule inside the query, or the base one loses to
    `button.winbtn` and the ⋯ never goes away again. */
 .winbar > .winmore { display: none; }
-@container (max-width: 340px) {
+/* 520px, not 340.
+   At 340 the menu never appeared on a phone — a window there is about 380 wide — so nine
+   buttons stayed on the bar and ate the session's name, which is the one thing on it that
+   cannot be guessed from a picture. The name, the `i`, the menu and Close; everything else
+   is one tap away. */
+@container (max-width: 520px) {
   .winbar > .winextras,
   .winbar > .sendbtn,
   .winbar > .solobtn { display: none; }
   .winbar > .winmore { display: inline-flex; }
 }
+/* And the name gets the room that leaves, rather than being squeezed by whatever is beside
+   it: it shrinks, the buttons do not. */
+.winbar > .wintitle { flex: 1 1 auto; min-width: 3rem; }
+.winbar > button, .winbar > .winextras { flex: none; }
 
 /* Sized for a thumb rather than a cursor. 30px is comfortable with a mouse and a miss
    with a finger; the audit found a dozen of them at exactly that. */

@@ -4374,8 +4374,8 @@ async function screenSettings() {
      *  being quietly dropped with the bar.
      */
     toggle(t('Bar along the bottom, on a phone'),
-      t('off, everything moves into the menu — the waiting mark moves with it'),
-      () => prefs.bottomBar !== false, (v) => { prefs.bottomBar = v; applyBottomBar(); }),
+      t('off by default: the menu holds everything, and the waiting mark sits on it'),
+      () => prefs.bottomBar === true, (v) => { prefs.bottomBar = v; applyBottomBar(); }),
     choice(t('Theme'), t('auto follows the system setting'), THEMES,
       () => prefs.theme, (v) => { prefs.theme = v; applyTheme(); }),
   );
@@ -5636,7 +5636,9 @@ function viewersRow() {
 const DRAWER = ['placeholders', 'system', 'journal'];
 // With the bottom bar off, the drawer *is* the navigation and carries all of them.
 const EVERYTHING = ['files', 'sessions', 'wall', 'prompts', 'placeholders', 'system', 'journal'];
-const noBar = () => prefs.bottomBar === false;
+// Drawer only, unless somebody asks for the bar back. Asked for plainly, and the bar was
+// left in place by mistake the first time.
+const noBar = () => prefs.bottomBar !== true;
 
 let drawerOpen = false;
 
@@ -9593,9 +9595,30 @@ function reorderTab(tab, strip, onDone) {
     const hold = byFinger ? setTimeout(() => { armed = true; }, 350) : null;
     let dragging = false;
     let moves = 0;
+    /* Before the hold, a finger is scrolling — and the strip is scrolled *here*, by hand.
+     *
+     *  Native panning is the browser's job and it was not doing it: reported twice from a
+     *  real phone, and not reproducible from this side, where a wheel scrolls the strip
+     *  perfectly and a synthesised gesture moves nothing. Guessing at the reason is how the
+     *  second report happened. So the gesture is no longer anybody else's to interpret: the
+     *  finger moves, the strip moves by the same amount, and whatever the browser does or
+     *  does not do underneath makes no difference.
+     */
+    let panFrom = e.clientX;
+    let panned = 0;
 
     const move = (ev) => {
-      if (!armed) return;
+      if (!armed) {
+        if (!byFinger) return;
+        const dx = ev.clientX - panFrom;
+        if (!dx) return;
+        strip.scrollLeft -= dx;
+        panFrom = ev.clientX;
+        panned += Math.abs(dx);
+        // Moving means scrolling, not waiting to pick the tab up.
+        if (panned > 8) clearTimeout(hold);
+        return;
+      }
       if (!dragging) {
         if (Math.abs(ev.clientX - startX) < 8) return;
         dragging = true;
