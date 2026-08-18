@@ -3020,7 +3020,8 @@ async function mountPreview(host, path, ctl) {
     }));
   }
 
-  if (/\.(md|markdown|mdown)$/i.test(path)) {
+  const wanted = viewerFor(path);
+  if (wanted === 'markdown') {
     const body = el('div', { className: 'md' });
     host.append(body);
     return ctl.source((rendered) => {
@@ -3033,6 +3034,7 @@ async function mountPreview(host, path, ctl) {
 
   const pre = el('pre', { className: `file ${prefs.wrap ? 'wrap' : 'nowrap'}`, textContent: text });
   host.append(pre);
+  if (wanted === 'code') colour(pre, text, path);
   ctl.wrapToggle?.(() => { pre.classList.toggle('wrap'); pre.classList.toggle('nowrap'); });
   if (truncated) ctl.toBottom?.();
 
@@ -3041,6 +3043,85 @@ async function mountPreview(host, path, ctl) {
   if (server?.allow_write && !truncated) {
     ctl.edit?.({ text, mtime: Number(r.headers.get('x-mtime') || 0), host, path });
   }
+}
+
+/* Colouring code, only when there is code to colour.
+ *
+ *  A file preview was a `<pre>` of plain text, which is right for a log and wrong for four
+ *  hundred lines of TypeScript. highlight.js is vendored — 24K of core and 27 languages of
+ *  8K each — and *loaded on the first code file you open*, never before: somebody who reads
+ *  logs and markdown all day pays nothing for it, and the first paint of the app is
+ *  unchanged.
+ *
+ *  The colours are ours, not a theme downloaded with it. A borrowed theme brings its own
+ *  idea of a background and its own greens, and two palettes in one window is how an
+ *  interface starts looking like a collage.
+ */
+const TONGUES = {
+  js: 'javascript', mjs: 'javascript', cjs: 'javascript', jsx: 'javascript',
+  ts: 'typescript', tsx: 'typescript', mts: 'typescript',
+  py: 'python', pyw: 'python', rs: 'rust', go: 'go', rb: 'ruby', php: 'php',
+  java: 'java', c: 'c', h: 'c', cpp: 'cpp', cc: 'cpp', cxx: 'cpp', hpp: 'cpp',
+  swift: 'swift', lua: 'lua', pl: 'perl', pm: 'perl', r: 'r',
+  sh: 'bash', bash: 'bash', zsh: 'bash', fish: 'bash',
+  json: 'json', jsonl: 'json', yml: 'yaml', yaml: 'yaml',
+  toml: 'ini', ini: 'ini', cfg: 'ini', conf: 'ini',
+  css: 'css', scss: 'scss', sass: 'scss',
+  html: 'xml', htm: 'xml', xml: 'xml', svg: 'xml', vue: 'xml',
+  sql: 'sql', md: 'markdown', markdown: 'markdown',
+  diff: 'diff', patch: 'diff',
+};
+// By name, for the files that carry no extension at all.
+const NAMED = { dockerfile: 'dockerfile', makefile: 'makefile', 'nginx.conf': 'nginx' };
+
+/* Which viewer a file gets, and who decides.
+ *
+ *  Argus guesses from the name — markdown is rendered, code is coloured, everything else is
+ *  plain — and the guess is right nearly always and wrong in the cases that matter to the
+ *  person it is wrong for: a `.log` full of JSON, a `.txt` that is really a config, a `.md`
+ *  you want to read as source because it is a template. So the guess is a default and the
+ *  answer is a setting, per extension, kept as `{ ext: viewer }`.
+ */
+const VIEWERS = ['auto', 'code', 'plain', 'markdown'];
+
+const viewerFor = (path) => {
+  const leaf = (path.split('/').pop() || '').toLowerCase();
+  const ext = leaf.includes('.') ? leaf.split('.').pop() : leaf;
+  const said = (prefs.viewers || {})[ext];
+  if (said && said !== 'auto' && VIEWERS.includes(said)) return said;
+  if (/\.(md|markdown|mdown)$/i.test(leaf)) return 'markdown';
+  return tongueOf(path) ? 'code' : 'plain';
+};
+
+const tongueOf = (path) => {
+  const leaf = (path.split('/').pop() || '').toLowerCase();
+  return NAMED[leaf] || TONGUES[leaf.split('.').pop()] || null;
+};
+
+// Loaded once each, kept for the rest of the visit.
+const hlCore = { engine: null, tongues: new Set() };
+
+async function colour(pre, text, path) {
+  const tongue = tongueOf(path);
+  // Above a quarter of a megabyte the highlighter takes longer than the reading does, and a
+  // frozen tab is worse than plain text.
+  if (!tongue || text.length > 260_000) return;
+  try {
+    if (!hlCore.engine) {
+      const mod = await import('/vendor/highlight-11.12.0/core.min.js');
+      hlCore.engine = mod.default || mod;
+    }
+    if (!hlCore.tongues.has(tongue)) {
+      const mod = await import(`/vendor/highlight-11.12.0/languages/${tongue}.min.js`);
+      hlCore.engine.registerLanguage(tongue, mod.default || mod);
+      hlCore.tongues.add(tongue);
+    }
+    // The text is already on the page as text; this replaces it with the same text in spans.
+    // If the highlighter throws — a language it cannot parse, a file that is not what its
+    // name says — the plain version is what stays.
+    pre.innerHTML = hlCore.engine.highlight(text, { language: tongue, ignoreIllegals: true }).value;
+    pre.classList.add('hl');
+  } catch { /* plain text is a perfectly good answer */ }
 }
 
 /** Turn a preview into something you can type in.
@@ -4272,6 +4353,7 @@ async function screenSettings() {
     group(t('Documents')),
     toggle(t('Wrap long lines'), t('the default when previewing a text file'),
       () => prefs.wrap, (v) => { prefs.wrap = v; }),
+    viewersRow(),
     /* Whose PDF viewer.
      *
      *  Argus ships pdf.js so the answer does not depend on which browser you have, and it is
@@ -5430,6 +5512,67 @@ function applyRail() {
 }
 
 /** The key bar's two overrides, as classes on the body: the media query does the rest. */
+/** Which viewer an extension gets, as rows you can add to.
+ *
+ *  The guess — markdown rendered, code coloured, the rest plain — is right nearly always,
+ *  and wrong exactly where it matters to the person it is wrong for: a `.log` that is really
+ *  JSON, a `.txt` that is a config, a `.md` you want to read as source because it is a
+ *  template. One row per extension you disagree about, and an empty one waiting at the
+ *  bottom: adding one is typing, not finding a button.
+ */
+function viewersRow() {
+  const box = el('div', { className: 'setting setviewers' });
+  const rows = el('div', { className: 'setgrid' });
+
+  const draw = () => {
+    rows.replaceChildren();
+    const said = { ...(prefs.viewers || {}) };
+    const write = (next) => {
+      prefs.viewers = next;
+      savePrefs();
+      draw();
+    };
+    const line = (ext, how) => {
+      const name = el('input', {
+        type: 'text', value: ext, spellcheck: false, placeholder: t('extension'),
+        onchange: () => {
+          const clean = name.value.trim().replace(/^\./, '').toLowerCase();
+          const next = { ...said };
+          delete next[ext];
+          if (clean) next[clean] = how || 'auto';
+          write(next);
+        },
+      });
+      const pick = el('select');
+      for (const one of VIEWERS) {
+        pick.append(el('option', { value: one, textContent: t(one), selected: one === (how || 'auto') }));
+      }
+      pick.onchange = () => {
+        const clean = (name.value.trim().replace(/^\./, '') || ext).toLowerCase();
+        if (!clean) return;
+        write({ ...said, [clean]: pick.value });
+      };
+      const drop = ext ? el('button', {
+        className: 'winbtn', title: t('Forget this one'),
+        onclick: () => { const next = { ...said }; delete next[ext]; write(next); },
+      }, icon('close')) : el('span');
+      rows.append(name, pick, drop);
+    };
+    for (const [ext, how] of Object.entries(said).sort()) line(ext, how);
+    line('', 'auto');            // the empty one at the bottom
+  };
+  draw();
+
+  box.append(
+    el('div', { className: 'grow' }, [
+      el('span', { className: 'name', textContent: t('Which viewer, by extension') }),
+      el('span', { className: 'meta', textContent: t('markdown is rendered, code is coloured, the rest is plain — unless you say otherwise') }),
+    ]),
+    rows,
+  );
+  return box;
+}
+
 function applyKeyBar() {
   document.body.classList.toggle('keysalways', prefs.keyBar === 'always');
   document.body.classList.toggle('keysnever', prefs.keyBar === 'never');
