@@ -515,6 +515,16 @@ iframe.preview.pdfnative { width: 100%; height: 100%; border: 0; display: block;
 /* The session list is full-bleed — its rows carry their own padding — so the bar over it
    has to bring its own, or the count sits half off the right edge. It did. */
 .jbar.sessfind { padding: .5rem .8rem .6rem; }
+/* The way into a long screen: its own headings, as chips, and a box that hides the rest.
+   Stuck to the top, because scrolling to the filter to stop scrolling is a poor joke. */
+.jbar.setjump {
+  position: sticky; top: 0; z-index: 3;
+  margin: 0 0 .6rem; padding: .6rem 0;
+  background: var(--bg); border-bottom: 1px solid var(--line);
+}
+/* The box is a filter, not the point of the screen: it sits at the end of the chips and
+   takes what is left, up to a sensible width. */
+.jbar.setjump .jfind { flex: 0 1 18rem; min-width: 8rem; margin-left: auto; }
 .findcount { font-size: .78rem; flex: none; }
 input.sheetfind { width: 100%; margin: .2rem 0 .5rem; }
 
