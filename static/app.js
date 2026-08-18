@@ -17,6 +17,7 @@ const keep = document.getElementById('keep');
 const side = document.getElementById('side');
 const nav = document.getElementById('nav');
 const railToggle = document.getElementById('railtoggle');
+const moreBtn = document.getElementById('more');
 const railWins = document.getElementById('railwins');
 railToggle.onclick = () => {
   prefs.railWide = !prefs.railWide;
@@ -819,6 +820,9 @@ const ICONS = {
   upload: 'M12 16.5v-12M7 9.5 12 4.5l5 5M4.5 19.5h15',
   download: 'M12 4.5v12M7 11.5l5 5 5-5M4.5 19.5h15',
   more: 'M12 6.2v.01M12 12v.01M12 17.8v.01',
+  // The three sliders of the settings icon in the header, so the drawer's last row wears
+  // the same mark as the place it goes to.
+  sliders: 'M4 7h9M17 7h3M4 17h3M11 17h9M15 4.6v4.8M8 14.6v4.8',
   rename: 'M4.5 19.5h4L18 10l-4-4-9.5 9.5zM13 7l4 4',
   move: 'M4.5 12h13M12.5 6.5 18 12l-5.5 5.5',
   layers: 'M12 3.6 3.4 8 12 12.4 20.6 8zM3.4 12.4 12 16.8l8.6-4.4M3.4 16.6 12 21l8.6-4.4',
@@ -5602,6 +5606,63 @@ function viewersRow() {
     rows,
   );
   return box;
+}
+
+/* The drawer, on a phone.
+ *
+ *  Four destinations fit across the bottom of a phone with room for a badge, and this app has
+ *  seven. The usual fix is to move them all behind a hamburger, and here that would cost the
+ *  one thing the phone is for: the Sessions tally goes amber when an agent is waiting for
+ *  you, and a badge inside a closed drawer is a badge nobody sees. The reason to glance at
+ *  the phone at all is "does something want me" — hiding the answer behind a tap is the
+ *  wrong trade.
+ *
+ *  So the four that carry state or get used every minute stay on the bar, and the other
+ *  three slide in from the left with their names on. Standard advice, arrived at from the
+ *  badge rather than from the advice.
+ */
+const DRAWER = ['placeholders', 'system', 'journal'];
+
+let drawerOpen = false;
+
+function paintDrawer() {
+  document.body.classList.toggle('drawered', drawerOpen);
+  moreBtn?.classList.toggle('on', drawerOpen);
+}
+
+function openDrawer(yes) {
+  drawerOpen = yes;
+  paintDrawer();
+}
+
+function buildDrawer() {
+  if (document.getElementById('drawer')) return;
+  const panel = el('nav', { id: 'drawer', 'aria-label': t('More') });
+  for (const tab of DRAWER) {
+    const link = document.querySelector(`#nav a[data-tab="${tab}"]`);
+    if (!link) continue;
+    const copy = el('a', { href: link.getAttribute('href'), 'data-goes': tab }, [
+      icon({ placeholders: 'rename', system: 'activity', journal: 'journal' }[tab] || 'folder'),
+      el('span', { textContent: link.textContent.trim() }),
+    ]);
+    copy.onclick = () => openDrawer(false);
+    panel.append(copy);
+  }
+  panel.append(el('div', { className: 'sheetsep' }));
+  panel.append(el('a', {
+    href: '#/settings', onclick: () => openDrawer(false),
+  }, [icon('sliders'), el('span', { textContent: t('Settings') })]));
+
+  const veil = el('div', { id: 'drawerveil', onclick: () => openDrawer(false) });
+  document.body.append(veil, panel);
+}
+
+if (moreBtn) {
+  buildDrawer();
+  moreBtn.onclick = () => openDrawer(!drawerOpen);
+  // Escape closes it, like every other layer in here; so does going somewhere.
+  window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && drawerOpen) openDrawer(false); });
+  window.addEventListener('hashchange', () => openDrawer(false));
 }
 
 function applyKeyBar() {
