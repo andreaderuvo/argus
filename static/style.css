@@ -1313,8 +1313,8 @@ button.ghost.dup:hover { color: var(--accent); border-color: var(--accent); }
   margin-left: .15rem;
 }
 .tabmore .ico { width: 16px; height: 16px; }
-/* Three dots drawn as zero-length strokes: at the icon set's usual 1.6 they are specks. */
-.tabmore .ico path { stroke-width: 2.6; }
+/* The 2.6 that used to be here is gone: a dots-only glyph now carries its own weight from
+   the icon builder, and this override was quietly making this one lighter than the rest. */
 .tabmore:hover { color: var(--accent); }
 
 #wall { flex: 1; min-height: 0; position: relative; }
