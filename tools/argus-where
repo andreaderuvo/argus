@@ -31,6 +31,10 @@ print(where, who)' 2>/dev/null)
 # outside the agent can know — the process is called `claude` whatever it is running, and
 # the configured model in a file is what it was *started* with, not what /model chose since.
 if [ -n "$TMUX_PANE" ]; then
+    # Who, as well as where and what. The name matters on a board, where a tile has no
+    # process tree to look at and no business running `ps` on another machine — so the pane
+    # carries all three and the answer costs a board one `list-panes`.
+    tmux set -p -t "$TMUX_PANE" @argus_agent claude 2>/dev/null
     [ -n "$dir" ] && [ "$dir" != "-" ] && tmux set -p -t "$TMUX_PANE" @argus_cwd "$dir" 2>/dev/null
     [ -n "$model" ] && [ "$model" != "-" ] && tmux set -p -t "$TMUX_PANE" @argus_model "$model" 2>/dev/null
 fi
