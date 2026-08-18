@@ -5664,7 +5664,9 @@ function buildDrawer() {
         files: 'folder', sessions: 'terminal', wall: 'grid', prompts: 'relay',
         placeholders: 'rename', system: 'activity', journal: 'journal',
       }[tab] || 'folder'),
-      el('span', { textContent: link.textContent.trim() }),
+      // The link's own words, not its badge: `textContent` on the anchor swept up the tally
+      // as well, so the drawer read "Windows4".
+      el('span', { textContent: [...link.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join('').trim() }),
       // The count travels with it, so a drawer-only phone still says how many sessions
       // there are — and the amber still means one of them has stopped and is waiting.
       el('span', { className: 'drawertally', 'data-for': tab }),
