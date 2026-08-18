@@ -4192,6 +4192,7 @@ async function screenMessages(open = null) {
       const mine = all.filter((x) => x.group === group);
       const folder = el('details', { className: 'folder', open: !!mine.length });
       const summary = el('summary', {}, [
+        el('span', { className: 'grip', title: t('Drag to reorder') }, '⠿'),
         el('span', { className: 'twist' }, icon('down')),
         icon('folder'),
         el('span', { className: 'foldername', textContent: group }),
@@ -4243,6 +4244,14 @@ async function screenMessages(open = null) {
 
       if (!mine.length) folder.append(el('p', { className: 'empty tiny', textContent: t('Nothing in here yet.') }));
       for (const kind of mine) folder.append(messageCard(kind, all));
+      folder.dataset.group = group;
+      reorderFolder(folder, body, () => {
+        // Read the order back off the page rather than working it out: the page is what you
+        // arranged, and anything else is a second source of truth to keep in step.
+        prefs.groups = [...body.querySelectorAll('details[data-group]')].map((n) => n.dataset.group);
+        savePrefs();
+        messagesChanged();
+      });
       body.append(folder);
     }
 
@@ -6293,13 +6302,34 @@ async function screenWall() {
      *  Asking "which session?" every time is the click worth removing, and guessing
      *  silently is worse than asking — so it is not a guess: it follows what you are
      *  working in, and it is shown before you send anything. */
-    let aimed = null;
+    /* Where a prompt goes — one session usually, several when you say so.
+     *
+     *  It began as a single terminal, because that is what a hand-over is. But a desk often
+     *  holds two agents doing the same job in different ways, and telling both the same thing
+     *  meant sending it twice and hoping you had not changed a value in between. So the aim
+     *  is a set: one by default, more when you add them, and what is sent is sent to each.
+     *
+     *  Kept as a set of *windows* rather than of names, so a session that closes drops out of
+     *  it by itself.
+     */
+    let aimed = new Set();
     const aiming = new Set();
     const terminals = () => open.filter((o) => o.name.startsWith('term:'));
-    const aim = () => (terminals().includes(aimed) ? aimed : terminals()[0] || null);
-    const setAim = (entry) => {
-      if (aimed === entry) return;
-      aimed = entry;
+    const aims = () => {
+      const here = terminals();
+      const kept = [...aimed].filter((one) => here.includes(one));
+      return kept.length ? kept : here.slice(0, 1);
+    };
+    const aim = () => aims()[0] || null;          // for everything that wants just one
+    const setAim = (entry, also = false) => {
+      const was = [...aimed];
+      // Touching a terminal aims at it — unless it is already one of the chosen, in which
+      // case you were working inside a selection you made on purpose and it stays.
+      if (!also) { if (!aimed.has(entry)) aimed = new Set(entry ? [entry] : []); }
+      else if (aimed.has(entry)) { if (aimed.size > 1) aimed.delete(entry); }
+      else aimed.add(entry);
+      const now = [...aimed];
+      if (was.length === now.length && was.every((x, i) => x === now[i])) return;
       for (const tell of aiming) tell();
     };
 
@@ -6471,6 +6501,7 @@ async function screenWall() {
         find: (node) => open.find((o) => o.win === node),
         terminals,
         aim,
+        aims,
         setAim,
         onAim: (tell) => { aiming.add(tell); return () => aiming.delete(tell); },
         folder: () => deskFolder(),
@@ -8511,6 +8542,69 @@ function reorderTab(tab, strip, onDone) {
   });
 }
 
+/** Drag a folder up or down the list, and keep the order.
+ *
+ *  The same idea as the desk tabs and deliberately not the same function: those move sideways
+ *  in a strip, these move down a column, and the arithmetic for "past the middle of the one
+ *  under the pointer" is the only part that matters.
+ *
+ *  A grip of its own, on the left. Making the whole summary the handle was the first attempt
+ *  and it was a mess: every click became a maybe-drag, opening a folder felt like it stuck,
+ *  and a click that ended a drag had to be swallowed — so a plain click sometimes did
+ *  nothing at all. One small target that only drags, and a summary that only opens.
+ */
+function reorderFolder(folder, list, onDone) {
+  const handle = folder.querySelector('.grip');
+  if (!handle) return;
+  handle.addEventListener('pointerdown', (down) => {
+    if (down.button) return;
+    const from = down.clientY;
+    let dragging = false;
+    let moved = 0;
+
+    const move = (ev) => {
+      if (!dragging) {
+        if (Math.abs(ev.clientY - from) < 10) return;
+        dragging = true;
+        folder.classList.add('folderdrag');
+        // A folder opening under your hand while you drag it is a lurch; not now.
+        folder.dataset.wasOpen = folder.open ? '1' : '';
+        folder.open = false;
+      }
+      for (const other of [...list.children].filter((n) => n !== folder && n.tagName === 'DETAILS')) {
+        const box = other.getBoundingClientRect();
+        const middle = box.top + box.height / 2;
+        const above = other.compareDocumentPosition(folder) & Node.DOCUMENT_POSITION_PRECEDING;
+        const below = other.compareDocumentPosition(folder) & Node.DOCUMENT_POSITION_FOLLOWING;
+        const down2 = ev.clientY > middle && above;
+        const up2 = ev.clientY < middle && below;
+        if (ev.clientY >= box.top && ev.clientY <= box.bottom && (down2 || up2)) {
+          other[down2 ? 'after' : 'before'](folder);
+          moved += 1;
+          break;
+        }
+      }
+    };
+
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+      if (!dragging) return;
+      folder.classList.remove('folderdrag');
+      folder.open = folder.dataset.wasOpen === '1';
+      delete folder.dataset.wasOpen;
+      if (moved) onDone();
+    };
+
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+  });
+  // The grip is not part of the summary's job: pressing it must never open the folder.
+  handle.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); });
+}
+
 /** Put a look on, from wherever you are.
  *
  *  The config screen can do this by hand, but changing how your terminals look is not a
@@ -9956,7 +10050,14 @@ function attachMessages(host, wsId, extras, deliver) {
     ]);
   });
 
-  const send = async (kind, target) => {
+  /** To every session that is aimed at, one after another. */
+  const sendAll = async (kind) => {
+    const targets = deliver.aims();
+    if (!targets.length) return toast(t('no session in this desk to send it to'), true);
+    for (const target of targets) await send(kind, target, targets.length);
+  };
+
+  const send = async (kind, target, ofMany = 1) => {
     if (!target) return;
     const from = senderFor(target);
     const fromName = from?.name.slice(5) || '';
@@ -9986,9 +10087,13 @@ function attachMessages(host, wsId, extras, deliver) {
     // Sending one there is working there: the next tap should not go somewhere else.
     deliver.setAim(target);
     drawAim();
+    // One line per session would be a stack of toasts; one line for the lot says the same
+    // thing and does not cover the desk.
+    if (ofMany > 1 && target !== deliver.aims()[deliver.aims().length - 1]) return;
+    const many = ofMany > 1 ? t('{n} sessions', { n: ofMany }) : toName;
     toast(kind.run
-      ? t('{name} sent to {session}', { name: kind.name, session: toName })
-      : t('{name} put into {session}', { name: kind.name, session: toName }));
+      ? t('{name} sent to {session}', { name: kind.name, session: many })
+      : t('{name} put into {session}', { name: kind.name, session: many }));
   };
 
   /** Who it is going to, at the top, as buttons: one is lit and that is where a tap
@@ -10000,14 +10105,27 @@ function attachMessages(host, wsId, extras, deliver) {
     if (!terms.length) {
       aimBar.append(el('span', { className: 'hint', textContent: t('no session here') }));
     } else {
-      const now = deliver.aim();
+      /* One click, one session on or off.
+       *
+       *  It was: click means "only this", hold a modifier to add — plus an "all" chip for
+       *  fingers. Three ways to do one thing, and the obvious gesture did the least obvious
+       *  thing. A chip is now simply on or off, the way a chip looks like it should be, and
+       *  what is sent goes to every one that is on.
+       *
+       *  You cannot turn the last one off: a window aimed at nothing is a window whose rows
+       *  do nothing when you tap them, and nobody wants to discover that by tapping.
+       */
+      const now = deliver.aims();
       for (const term of terms) {
+        const on = now.includes(term);
+        const last = on && now.length === 1;
         aimBar.append(el('button', {
-          className: `ghost dup${term === now ? ' on' : ''}`,
+          className: `ghost dup${on ? ' on' : ''}`,
           textContent: term.name.slice(5),
-          // A full redraw: the aim is what {from} and {to} become, and every line saying so
-          // is now wrong.
-          onclick: () => { deliver.setAim(term); draw(); },
+          title: last
+            ? t('It has to go somewhere — turn another one on first')
+            : on ? t('Sending here too — click to stop') : t('Click to send here as well'),
+          onclick: () => { deliver.setAim(term, true); draw(); },
         }));
       }
     }
@@ -10258,9 +10376,7 @@ function attachMessages(host, wsId, extras, deliver) {
         dragLink(row, { text: kind.name, message: kind }, deliver.find, (item, target) => send(item.message, target));
         row.onclick = () => {
           if (row.dataset.dragged) return;
-          const target = deliver.aim();
-          if (!target) return toast(t('no session in this desk to send it to'), true);
-          send(kind, target);
+          sendAll(kind);
         };
 
         // What it will actually say, without sending it. Hover on a mouse; on a touch
