@@ -1946,6 +1946,9 @@ let crumbSeq = 0;
 
 function fileBrowser({
   path, setPath, other, roots, compact = false,
+  // Only the Files screen's first pane carries the split switch. A window's browser and the
+  // sidebar are not the screen and have nothing to split.
+  splitToggle = false,
   // A window keeps its own answer; the panes and the sidebar keep using the shared one,
   // which is what the Settings switch writes.
   getTree = () => prefs.tree,
@@ -2042,7 +2045,7 @@ function fileBrowser({
   crumb.title = `${path}\n${t('click to type a path')}`;
   // Only on the first pane: it is one setting for the screen, and two of them would be two
   // switches for one thing.
-  const split = which === 0 ? el('button', {
+  const split = splitToggle ? el('button', {
     className: prefs.split ? 'on' : '',
     title: prefs.split ? t('One pane') : t('Split into two panes'),
     'aria-label': prefs.split ? t('One pane') : t('Split into two panes'),
@@ -2436,6 +2439,7 @@ async function screenFiles(path) {
   const secondPath = prefs.path2 || (sidePath !== path ? sidePath : '') || roots[0];
 
   const a = fileBrowser({
+    splitToggle: true,
     path,
     roots,
     setPath: (p) => go(`#/files?path=${encodeURIComponent(p)}`),
