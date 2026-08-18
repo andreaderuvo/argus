@@ -8062,10 +8062,18 @@ async function screenWall() {
 
       const out = [];
       if (model) out.push(chip(t('model'), model, '', t('{model}, as the session itself reports it', { model })));
-      if (seen) out.push(chip('tmux', said(seen), '', t('Where tmux sees this session: {path}', { path: seen }), seen));
+      /* Two folders or one, and the name is never the thing dropped.
+       *
+       *  When the session has not moved, `tmux` and the agent are the same path, and showing
+       *  it twice is noise — so one chip carries it, labelled with *who* it belongs to. It
+       *  used to be the other way round: the tmux chip stayed and the named one was skipped,
+       *  so a Codex that had not moved never said `codex` anywhere. The name is the part you
+       *  cannot work out by looking; the duplicate path is the part you can.
+       */
+      const sameFolder = now && now === seen;
+      if (seen && !sameFolder) out.push(chip('tmux', said(seen), '', t('Where tmux sees this session: {path}', { path: seen }), seen));
       if (now) {
-        // Only worth its own chip when it is not the same fact twice.
-        const same = now === seen;
+        const same = false;
         const tone = deskAt && now !== deskAt ? 'astray' : 'agrees';
         /* Whose folder it is, by name when we know the name.
          *
@@ -8074,7 +8082,7 @@ async function screenWall() {
          *  is *which*. The word is only for a pane running something nobody has a name for.
          */
         const label = agent || (from === 'process' ? t('process') : 'tmux');
-        if (!same || from === 'agent') {
+        if (!same) {
           out.push(chip(label, said(now), tone, t('{path} — {from}', {
             path: now,
             from: from === 'agent' ? t('as the agent itself reports it')
@@ -8082,8 +8090,6 @@ async function screenWall() {
                 : from === 'tmux' ? t('as tmux sees it')
                   : t('where the pane was made — nothing newer could be found'),
           }), now));
-        } else if (deskAt && now !== deskAt) {
-          out[out.length - 1].classList.add('astray');
         }
       }
       if (!now) out.push(chip('tmux', '?', 'lost', t('tmux was asked where this session is and did not answer')));
