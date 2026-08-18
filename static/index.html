@@ -26,11 +26,14 @@
 <body>
 
 <header id="bar">
+  <!-- First, before the title: a menu button belongs where a thumb goes looking for one and
+       where every app on a phone puts it. Among the icons at the other end it reads as one
+       more action rather than as the way out of this screen. -->
+  <button id="hamburger" class="icon" aria-label="Menu" title="Menu"><span data-icon="menu"></span></button>
   <button id="back" class="icon" hidden aria-label="Back" data-icon="back"></button>
   <h1 id="title">Argus</h1>
   <button id="alt" class="icon" hidden></button>
   <button id="fullscreen" class="icon" hidden aria-label="Full screen" title="Full screen" data-icon="expand"></button>
-  <button id="hamburger" class="icon" aria-label="Menu" title="Menu"><span data-icon="menu"></span></button>
   <button id="keys" class="icon" aria-label="Keyboard shortcuts" title="Keyboard shortcuts" data-icon="keyboard"></button>
   <button id="about" class="icon" aria-label="Argus on GitHub" title="Argus on GitHub" data-icon="github"></button>
   <button id="settings" class="icon" aria-label="Settings" title="Settings" data-icon="settings"></button>
