@@ -525,6 +525,9 @@ iframe.preview.pdfnative { width: 100%; height: 100%; border: 0; display: block;
 /* The box is a filter, not the point of the screen: it sits at the end of the chips and
    takes what is left, up to a sensible width. */
 .jbar.setjump .jfind { flex: 0 1 18rem; min-width: 8rem; margin-left: auto; }
+/* Where a jump stops. Without it the heading arrives under the sticky bar and the first
+   setting under it is gone too — reported as "it eats Interruptions and one line more". */
+.settinggroup { scroll-margin-top: var(--jump-h, 3.4rem); }
 .findcount { font-size: .78rem; flex: none; }
 input.sheetfind { width: 100%; margin: .2rem 0 .5rem; }
 
@@ -1849,11 +1852,12 @@ button.toend.fresh::after {
    *do* something. The two that say what a row *is* — whether it presses Enter, whether it
    has more under it — are state, and state hidden until you hover is state nobody has. This
    was the actual reason those two icons were invisible; their colour was never the problem. */
-.trayline .winbtn:not(.twist) { flex: none; opacity: 0; }
-.trayline .winbtn.twist { flex: none; opacity: 1; }
+/* Present, always — dim until the pointer is on the row. Invisible-until-hover was the
+   original complaint about these two and it came back for the shortcut list, so it is being
+   taken out everywhere rather than argued with one button at a time. */
+.trayline .winbtn { flex: none; opacity: .55; }
 .trayline:hover .winbtn, .trayline:focus-within .winbtn { opacity: 1; }
-/* No hover on a phone: a button that only appears on hover never appears at all. */
-@media (hover: none) { .trayline .winbtn { opacity: .85; } }
+.trayline .winbtn.twist { opacity: 1; }
 button.trayrow {
   flex: 1;
   min-width: 0;
@@ -2131,11 +2135,10 @@ details.msgcard > summary .meta {
 .undoline .ghost.dup:hover { color: var(--bright); background: var(--danger); border-color: var(--danger); }
 @keyframes undofade { 0%, 80% { opacity: 1; } 100% { opacity: .15; } }
 
-details.msgcard > summary .winbtn { flex: none; opacity: 0; }
+details.msgcard > summary .winbtn { flex: none; opacity: .55; }
 details.msgcard:hover > summary .winbtn,
-details.msgcard > summary:focus-within .winbtn { opacity: .8; }
+details.msgcard > summary:focus-within .winbtn { opacity: .9; }
 details.msgcard > summary .winbtn:hover { opacity: 1; color: var(--danger); }
-@media (hover: none) { details.msgcard > summary .winbtn { opacity: .7; } }
 details.msgcard[open] > summary { background: var(--bg); }
 details.msgcard[open] > summary .name { color: var(--accent); }
 .msgbody { padding: 0 .8rem .7rem; }
@@ -2777,10 +2780,10 @@ dialog.sheet:has(.promptmake) { width: min(38rem, calc(100vw - 2rem)); }
 
 /* The group's own tools, on its line. Quiet until the pointer is on the group — a row of
    three lit buttons per folder is furniture, and the list is the thing being read. */
-.folder > summary .winbtn { opacity: 0; transition: opacity .12s; }
-.folder > summary:hover .winbtn,
-.folder > summary:focus-within .winbtn { opacity: 1; }
-@media (pointer: coarse) { .folder > summary .winbtn { opacity: 1; } }
+/* Same rule, same reason: a group's add, rename and delete are dim until you are on them,
+   and never invisible. */
+.folder > summary .winbtn { color: var(--dim); }
+.folder > summary .winbtn:hover { color: var(--bright); background: var(--line); }
 .folder > summary .grow { flex: 1 1 auto; }
 
 /* Where a session really is, on its own title bar. Dim and unremarkable when it agrees with
@@ -2855,15 +2858,12 @@ dialog.sheet:has(.promptmake) { width: min(38rem, calc(100vw - 2rem)); }
    allowed, and a click would have had two meanings. */
 .keylist .keyrow { display: flex; align-items: center; gap: .25rem; }
 .keylist .keyset { flex: 1 1 auto; min-width: 0; }
-.keylist .keyoff { flex: none; opacity: 0; transition: opacity .12s; }
-.keylist .keyrow:hover .keyoff,
-.keylist .keyrow:focus-within .keyoff { opacity: 1; }
-@media (pointer: coarse) { .keylist .keyoff { opacity: 1; } }
+/* Visible, always. Hidden until hover is a control that does not exist for anyone who has
+   not already found it — and that is the third time it has been said here, about three
+   different buttons. Quiet is fine; absent is not. */
+.keylist .keyoff { flex: none; color: var(--dim); }
+.keylist .keyoff:hover { color: var(--bright); background: var(--line); }
 /* The row is a row of two things now: the part you press to record a key, and the one that
    switches it off. Nested buttons are not allowed, so the row itself stopped being one. */
 .keylist .keyrow { display: flex; align-items: center; gap: .25rem; }
 .keylist .keyset { flex: 1 1 auto; min-width: 0; }
-.keylist .keyoff { flex: none; opacity: 0; transition: opacity .12s; }
-.keylist .keyrow:hover .keyoff,
-.keylist .keyrow:focus-within .keyoff { opacity: 1; }
-@media (pointer: coarse) { .keylist .keyoff { opacity: 1; } }

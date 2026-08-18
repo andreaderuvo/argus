@@ -459,6 +459,9 @@ def create_app(cfg: Config) -> FastAPI:
             # other.
             "started_in": found["began"],
             "command": found["command"],
+            # `command` is what tmux sees — often the wrapper, `node`. `agent` is what is
+            # actually running in there, found by looking at the whole tty.
+            "agent": found["agent"],
             "model": found["model"],
         }
 

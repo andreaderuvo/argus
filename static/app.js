@@ -1835,11 +1835,6 @@ async function screenSessions() {
     return;
   }
 
-  bar.action.hidden = false;
-  bar.action.replaceChildren(icon('grid'));
-  bar.action.title = t('Open every session in its own window');
-  bar.action.onclick = () => go('#/wall');
-
   bar.alt.hidden = false;
   bar.alt.replaceChildren(icon('plus'));
   bar.alt.title = t('Start a new session');
@@ -1868,6 +1863,19 @@ async function screenSessions() {
   const list = el('div');
   const count = el('span', { className: 'dim findcount' });
   let needle = '';
+
+  /* "Open every session in its own window", where the sessions are.
+   *
+   *  It was an icon in the top right, after Settings, which is the corner where an icon
+   *  means whatever the last screen taught you it meant. Here it is a row with words on it,
+   *  under the list it acts on. */
+  const asWindows = el('button', { className: 'ghost block', onclick: () => go('#/wall') }, [
+    icon('grid'),
+    el('span', { className: 'grow' }, [
+      el('span', { className: 'name', textContent: t('Open every session in its own window') }),
+      el('span', { className: 'meta', textContent: t('one desk, one window each') }),
+    ]),
+  ]);
   if (sessions.length > 5) {
     view.append(el('div', { className: 'jbar sessfind' }, [
       el('input', {
@@ -1878,6 +1886,9 @@ async function screenSessions() {
     ]));
   }
   view.append(list);
+  // Under the list, because it is about the whole list: a row of words rather than a mark
+  // in a corner where marks change meaning from screen to screen.
+  view.append(el('div', { className: 'sheetsep' }), asWindows);
   paint();
 
   function paint() {
@@ -2029,7 +2040,16 @@ function fileBrowser({
    */
   const crumb = el('button', { className: 'crumb', type: 'button' }, bidi(path));
   crumb.title = `${path}\n${t('click to type a path')}`;
-  const head = el('div', { className: 'sidehead' }, [up, jump, crumb, again, nest, pin]);
+  // Only on the first pane: it is one setting for the screen, and two of them would be two
+  // switches for one thing.
+  const split = which === 0 ? el('button', {
+    className: prefs.split ? 'on' : '',
+    title: prefs.split ? t('One pane') : t('Split into two panes'),
+    'aria-label': prefs.split ? t('One pane') : t('Split into two panes'),
+    onclick: () => { prefs.split = !prefs.split; savePrefs(); render(); },
+  }, icon('split')) : null;
+
+  const head = el('div', { className: 'sidehead' }, [up, jump, ...(split ? [split] : []), crumb, again, nest, pin]);
 
   crumb.onclick = () => {
     const box = el('input', {
@@ -2399,13 +2419,13 @@ async function screenFiles(path) {
     bar.back.onclick = () => go(`#/files?path=${encodeURIComponent(parentOf(path))}`);
   }
 
-  // Two panes, each in its own folder: the point is copying and moving between them, so
-  // each one offers the other as the default destination.
-  bar.action.hidden = false;
-  bar.action.replaceChildren(icon('split'));
-  bar.action.title = prefs.split ? 'One pane' : 'Split into two panes';
-  bar.action.className = `icon${prefs.split ? ' on' : ''}`;
-  bar.action.onclick = () => { prefs.split = !prefs.split; savePrefs(); render(); };
+  /* Two panes, each in its own folder: the point is copying and moving between them, so
+   *  each one offers the other as the default destination.
+   *
+   *  The switch lives in the pane's own head, beside the home button, and not in the top
+   *  right of the page. Nothing belongs after Settings: that corner is the app's, and a
+   *  control that appears there on one screen and means something else on the next is a
+   *  button nobody can learn. */
 
   const panes = el('div', { id: 'panes', className: prefs.split ? 'split' : '' });
   view.style.overflow = 'hidden';
@@ -4363,9 +4383,19 @@ async function screenSettings() {
       const name = head.textContent;
       jump.append(el('button', {
         className: 'chip', type: 'button', textContent: name,
+        // `block: 'start'` puts the heading exactly at the top of the scroller — which is
+        // where the chip bar is stuck, so it lands *behind* it and takes the first row with
+        // it. `scroll-margin-top` moves the mark down by the height of whatever is stuck
+        // there, measured rather than guessed, because the chips wrap on a narrow window.
         onclick: () => head.scrollIntoView({ block: 'start', behavior: 'smooth' }),
       }));
     }
+
+    // How far down a jump has to stop: the bar is stuck to the top and would otherwise cover
+    // what you jumped to. Re-measured on resize, since the chips wrap.
+    const sayHeight = () => wrap.style.setProperty('--jump-h', `${jump.offsetHeight + 10}px`);
+    requestAnimationFrame(sayHeight);
+    window.addEventListener('resize', sayHeight);
 
     // Hide a row that does not match, then any heading left with nothing under it.
     const find = el('input', {
@@ -6623,16 +6653,15 @@ function decorateWall() {
   // No back arrow: the navigation is always there, and an arrow that only goes where a
   // permanent button already goes is a second door to the same room.
   bar.back.hidden = true;
-  bar.action.hidden = false;
-  bar.action.title = t('Close every window');
-  bar.action.replaceChildren(icon('close'));
-  bar.action.onclick = () => {
-    killLive();
-    const ws = currentSpace();
-    ws.desktop = [];
-    savePrefs();
-    go('#/sessions');
-  };
+  /* No ✕ up here.
+   *
+   *  It closed every window on the desk, and in the top right of a screen an ✕ does not say
+   *  that: it says "close this", where "this" is whatever the reader thinks they are looking
+   *  at — the app, the screen, the window they last touched. A destructive action wearing
+   *  the most ambiguous mark on the page, one press from a desk somebody spent the morning
+   *  arranging. It lives in the desk's own ⋮ menu now, spelled out in words.
+   */
+  bar.action.hidden = true;
 }
 
 async function screenWall() {
@@ -6926,7 +6955,7 @@ async function screenWall() {
           facts.dataset.from = answer.cwd_source || '';
           facts.dataset.live = answer.cwd_live ? '1' : '';
           facts.dataset.model = answer.model || '';
-          facts.dataset.agent = answer.command || '';
+          facts.dataset.agent = answer.agent || answer.command || '';
           paintStray();
         })
         .catch(() => {});
@@ -7559,6 +7588,20 @@ async function screenWall() {
         });
       });
     }
+    // Closing the lot: in the menu, in words, and only offered when there is something to
+    // close. Undo would be the better answer and there is nothing to undo it *to* — the
+    // windows are the desk — so it asks first instead.
+    if (ws.desktop.length) {
+      item('close', t('Close every window ({count})', { count: ws.desktop.length }), async () => {
+        if (!await confirmBox(t('Close every window'),
+          t('{count} window(s) on {desk}. The sessions carry on; only the windows go.',
+            { count: ws.desktop.length, desk: ws.name }), t('Close them'))) return;
+        killLive();
+        ws.desktop = [];
+        savePrefs();
+        go('#/sessions');
+      });
+    }
     item('copy', t('Copy a link to this desk'), async () => {
       const link = `${location.origin}/#/wall?ws=${ws.id}`;
       if (await copyText(link)) toast(t('link copied'));
@@ -7959,7 +8002,7 @@ async function screenWall() {
         strip.dataset.from = answer.cwd_source || '';
         strip.dataset.live = answer.cwd_live ? '1' : '';
         strip.dataset.model = answer.model || '';
-        strip.dataset.agent = answer.command || '';
+        strip.dataset.agent = answer.agent || answer.command || '';
       } catch { /* a session that has gone keeps the last thing it said */ }
     }
     paintStray();

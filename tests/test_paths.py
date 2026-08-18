@@ -145,9 +145,10 @@ def test_where_prefers_what_the_agent_said(monkeypatch):
     monkeypatch.setattr(paths, "_say", lambda *_a: "/dev/pts/9\t/where/tmux/thinks\tclaude\t/what/the/agent/said\t/where/it/began\tOpus 5")
     monkeypatch.setattr(paths, "foreground_pid", lambda _tty: 4242)
     monkeypatch.setattr(paths, "process_cwd", lambda _pid: "/where/the/process/is")
+    monkeypatch.setattr(paths, "agent_in", lambda _tty: "claude")
     assert paths.pane_where(tmux.Socket(None), "one") == {
         "cwd": "/what/the/agent/said", "source": "agent", "live": True,
-        "command": "claude", "began": "/where/it/began", "model": "Opus 5",
+        "command": "claude", "began": "/where/it/began", "model": "Opus 5", "agent": "claude",
     }
 
 
@@ -157,6 +158,7 @@ def test_where_falls_to_the_process_that_holds_the_terminal(monkeypatch):
     monkeypatch.setattr(paths, "_say", lambda *_a: "/dev/pts/9\t/where/tmux/thinks\tbash\t\t/where/it/began")
     monkeypatch.setattr(paths, "foreground_pid", lambda _tty: 4242)
     monkeypatch.setattr(paths, "process_cwd", lambda _pid: "/where/the/process/is")
+    monkeypatch.setattr(paths, "agent_in", lambda _tty: None)
     got = paths.pane_where(tmux.Socket(None), "one")
     assert (got["cwd"], got["source"], got["live"]) == ("/where/the/process/is", "process", True)
 
@@ -167,6 +169,7 @@ def test_where_falls_to_tmux_then_to_the_start(monkeypatch):
     monkeypatch.setattr(paths, "_say", lambda *_a: "/dev/pts/9\t/where/tmux/thinks\tvim\t\t/where/it/began")
     monkeypatch.setattr(paths, "foreground_pid", lambda _tty: None)
     monkeypatch.setattr(paths, "process_cwd", lambda _pid: None)
+    monkeypatch.setattr(paths, "agent_in", lambda _tty: None)
     got = paths.pane_where(tmux.Socket(None), "one")
     assert (got["cwd"], got["source"], got["live"]) == ("/where/tmux/thinks", "tmux", True)
 
@@ -186,3 +189,31 @@ def test_the_foreground_group_is_the_one_with_the_terminal(monkeypatch):
 
     monkeypatch.setattr(paths.subprocess, "run", lambda *_a, **_k: Answer())
     assert paths.foreground_pid("/dev/pts/29") == 3882912
+
+
+def test_the_agent_is_found_behind_its_wrapper(monkeypatch):
+    """tmux reports the pane's first process, which for Codex started through its npm shim is
+    `node`. The real one is two processes down, and the whole tty is where to look — these are
+    the actual rows from a `codex resume` session."""
+
+    class Answer:
+        returncode = 0
+        stdout = (
+            "node            node /home/me/.nvm/versions/node/v22.17.0/bin/codex resume\n"
+            "codex           /home/me/.nvm/.../@openai/codex-linux-x64/codex\n"
+            "bash            -bash\n"
+        )
+
+    monkeypatch.setattr(paths.subprocess, "run", lambda *_a, **_k: Answer())
+    assert paths.agent_in("/dev/pts/7") == "codex"
+
+
+def test_a_pane_with_no_agent_names_none(monkeypatch):
+    """A shell is not an agent, and guessing one would put a name on every window."""
+
+    class Answer:
+        returncode = 0
+        stdout = "bash            -bash\nsleep           sleep 300\n"
+
+    monkeypatch.setattr(paths.subprocess, "run", lambda *_a, **_k: Answer())
+    assert paths.agent_in("/dev/pts/7") is None

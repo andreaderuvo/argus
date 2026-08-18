@@ -133,6 +133,34 @@ def foreground_pid(tty: str) -> int | None:
     return next((pid for pid, pgid, _t in rows if pgid == group), None)
 
 
+# The agents worth naming. A pane running one of these is not running "node", whatever tmux
+# says: `pane_current_command` reports the wrapper, so a Codex started through its npm shim
+# shows up as `node` with the real thing two processes further down.
+AGENTS = ("claude", "codex", "gemini", "aider", "opencode", "goose", "cursor-agent")
+
+
+def agent_in(tty: str) -> str | None:
+    """Which known agent is running in this pane, by looking at the whole tty rather than
+    the first process on it."""
+    name = tty.rsplit("/", 1)[-1]
+    if not name:
+        return None
+    try:
+        p = subprocess.run(["ps", "-t", name, "-o", "comm=,args="],
+                           capture_output=True, text=True, timeout=4)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if p.returncode != 0:
+        return None
+    seen = p.stdout.lower()
+    for one in AGENTS:
+        # In the command name, or as the program a wrapper was pointed at — `bin/codex`,
+        # never a folder that merely has the word in it.
+        if re.search(rf"(^|\s|/){re.escape(one)}(\s|$)", seen) or f"/{one}" in seen:
+            return one
+    return None
+
+
 def process_cwd(pid: int) -> str | None:
     """Where that process is, now.
 
@@ -193,6 +221,8 @@ def pane_where(sock: tmux.Socket, session: str) -> dict:
     tty, current, command, told, began, model = (b.strip() for b in bits)
 
     answer = {"cwd": None, "source": None, "live": False, "command": command,
+              # What is *really* in there, when it is something worth naming.
+              "agent": agent_in(tty) if tty else None,
               "began": began if began.startswith("/") else None,
               # What the agent says it is running. Nothing outside it can know: the process
               # is called `claude` whatever model is behind it, and a model named in a config
