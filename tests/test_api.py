@@ -251,11 +251,13 @@ def test_a_session_reports_the_directory_it_is_really_in(client, monkeypatch):
         "command": "claude",
         "began": "/where/it/began",
         "model": "Opus 5",
+        "agent": "claude",
     })
     assert get(client, "/api/tmux/cwd?session=work").json() == {
         "session": "work", "cwd": "/somewhere/work",
         "cwd_source": "agent", "cwd_live": True,
-        "started_in": "/where/it/began", "command": "claude", "model": "Opus 5",
+        "started_in": "/where/it/began", "command": "claude", "agent": "claude",
+        "model": "Opus 5",
     }
     stale = get(client, "/api/tmux/cwd?session=old").json()
     assert (stale["cwd_source"], stale["cwd_live"]) == ("start", False)
