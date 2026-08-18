@@ -6802,7 +6802,6 @@ async function screenWall() {
       if (where) {
         win.dataset.session = spec.name;
         where.dataset.ws = ws.id;
-        where.hidden = true;
         where.onclick = (ev) => {
           ev.stopPropagation();
           const at = where.dataset.cwd;
@@ -6812,7 +6811,6 @@ async function screenWall() {
           .then((answer) => {
             if (!answer.cwd) return;
             where.dataset.cwd = answer.cwd;
-            where.hidden = false;
             paintStray();
           })
           .catch(() => {});
@@ -7835,7 +7833,6 @@ async function screenWall() {
         const answer = await getJSON(`/api/tmux/cwd?session=${encodeURIComponent(name)}`);
         if (!answer.cwd || answer.cwd === chip.dataset.cwd) continue;
         chip.dataset.cwd = answer.cwd;
-        chip.hidden = false;
       } catch { /* a session that has gone keeps the last thing it said */ }
     }
     paintStray();
@@ -7844,16 +7841,29 @@ async function screenWall() {
   /** Re-read every terminal's folder against the desk it is on. Cheap, and called whenever
    *  either side of the comparison can have moved: a folder set, a desk switched to. */
   function paintStray() {
-    for (const chip of document.querySelectorAll('.wherechip[data-cwd]')) {
+    /* Green, amber, red — the three anybody already reads without being told.
+     *
+     *  It was dim-or-amber, and dim is not a statement: "it agrees" and "nothing has been
+     *  worked out yet" looked the same, which is the mistake the ↵ mark made in the prompts
+     *  and is worth not making twice. Green says the answer is in and it is fine. Red is not
+     *  a worse amber — it is a different sentence: tmux was asked and did not answer, so
+     *  nobody knows where that session is, and the chip says `?` rather than a folder,
+     *  because a status must never be the colour alone.
+     */
+    for (const chip of document.querySelectorAll('.wherechip')) {
       const ws = spaces.find((w) => String(w.id) === chip.dataset.ws);
       const here = chip.dataset.cwd;
       const meant = ws ? deskHome(ws) : null;
-      const same = !meant || here === meant;
-      chip.textContent = here.split('/').pop() || here;
-      chip.classList.toggle('astray', !same);
-      chip.title = same
-        ? t('This session is in {path} — the folder the desk opens in', { path: here })
-        : t('This session is in {path}, and the desk opens in {desk}. A session made here would start in the desk’s folder; this one was made somewhere else and kept it.', { path: here, desk: meant });
+      const state = !here ? 'lost' : (!meant || here === meant) ? 'agrees' : 'astray';
+      chip.classList.toggle('agrees', state === 'agrees');
+      chip.classList.toggle('astray', state === 'astray');
+      chip.classList.toggle('lost', state === 'lost');
+      chip.textContent = here ? (here.split('/').pop() || here) : '?';
+      chip.title = state === 'lost'
+        ? t('tmux was asked where this session is and did not answer')
+        : state === 'agrees'
+          ? t('This session is in {path} — the folder the desk opens in', { path: here })
+          : t('This session is in {path}, and the desk opens in {desk}. A session made here would start in the desk’s folder; this one was made somewhere else and kept it.', { path: here, desk: meant });
     }
   }
 
