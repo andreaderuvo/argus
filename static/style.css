@@ -550,7 +550,11 @@ input.sheetfind { width: 100%; margin: .2rem 0 .5rem; }
    button colour, which is nearly the background until the pointer is on it — fine for a bar
    of icons at the top of a window, useless for the one control that says a row has more. */
 .msgpane .twist { color: var(--dim); opacity: 1; }
-.msgpane .twist:hover, .msgpane .twist.on { color: var(--accent); }
+/* Open is said by the arrow turning over, and by the thing underneath being there. Lighting
+   it up as well reads as "this one is selected", which is a different claim and not one the
+   disclosure arrow gets to make — it stays lit for as long as the row is open, so a window
+   with four things open looks like four things chosen. Colour is for the pointer only. */
+.msgpane .twist:hover { color: var(--accent); }
 .msgpane .twist .ico { width: 14px; height: 14px; transition: transform .12s ease; }
 /* A finger has no hover, so the target is a finger's size and always shown. */
 @media (hover: none) {
@@ -588,7 +592,7 @@ input.sheetfind { width: 100%; margin: .2rem 0 .5rem; }
 .msgfolder > summary .twist .ico { width: 13px; height: 13px; }
 .msgcard[open] > summary .twist,
 .folder[open] > summary .twist,
-.msgfolder[open] > summary .twist { transform: rotate(180deg); color: var(--accent); }
+.msgfolder[open] > summary .twist { transform: rotate(180deg); }
 .msgcard > summary:hover .twist,
 .folder > summary:hover .twist,
 .msgfolder > summary:hover .twist { color: var(--accent); }
