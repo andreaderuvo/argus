@@ -5446,6 +5446,9 @@ function linkPaths(term, container, session, open, following = () => {}) {
 }
 
 function attachTerminal(container, name, { transform, onGone, onPath, onLinks, mirror } = {}) {
+  // When this session last printed anything. Read by the prompt sender to tell "the agent
+  // took it" from "the box ate the return".
+  let spoke = Date.now();
   const term = new Terminal({
     fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace',
     fontSize: prefs.fontSize,
@@ -5620,6 +5623,7 @@ function attachTerminal(container, name, { transform, onGone, onPath, onLinks, m
       for (const chunk of pending) { merged.set(chunk, at); at += chunk.length; }
       pending = [];
       term.write(merged);
+      spoke = Date.now();
       harvest?.();
     };
 
@@ -5996,6 +6000,12 @@ function attachTerminal(container, name, { transform, onGone, onPath, onLinks, m
 
   return {
     send,
+    /** How long this session has said nothing, in milliseconds.
+     *
+     *  For the one question that cannot be answered by guessing: did the Enter we sent
+     *  actually do anything? An agent that took the prompt starts printing within a moment;
+     *  one whose input box swallowed the return sits there in silence. */
+    quietFor: () => Date.now() - spoke,
     relayout,
     /** Whatever is highlighted in this terminal right now. */
     selection: () => term.getSelection(),
@@ -10054,6 +10064,10 @@ function whyEmpty(name) {
  *  Nothing is lost by waiting: the text is already in front of the agent, and the only cost of
  *  half a second is half a second. */
 const pastePause = () => (prefs.enterPause === undefined ? 500 : Number(prefs.enterPause) || 0);
+// How long a session may stay silent after the return before it is taken as "that did not
+// land". Long enough that a slow agent is not pressed twice, short enough that you do not sit
+// looking at an unsent prompt.
+const LISTEN_FOR = 900;
 function typeInto(handle, text, run) {
   if (!text.includes('\n')) {
     handle.send?.(text + (run ? '\r' : ''));
@@ -10061,15 +10075,26 @@ function typeInto(handle, text, run) {
   }
   handle.send?.(`\x1b[200~${text}\x1b[201~`);
   if (!run) return;
-  /* The Enter goes in its own write, a moment later.
+
+  /* The Enter goes in its own write, a moment later — and then Argus looks.
    *
-   *  Sent together they arrive in one read, and an input box that handles a paste as a unit
-   *  takes the trailing carriage return as part of it — which is exactly what was reported: a
-   *  prompt that pastes beautifully and then sits there with a new line at the end instead of
-   *  being sent. A person cannot type that fast either; the gap is what makes it a keypress
-   *  rather than the last character of the paste.
+   *  Sent together, the paste and the return arrive in one read, and a box that treats a
+   *  paste as a unit takes the return as part of it: the prompt lands beautifully and sits
+   *  there with a new line at the end. The pause fixes that for most boxes. It did not fix it
+   *  for all of them — of two agents on one desk, one starts by itself and the other waits —
+   *  and picking a bigger number would have been the fourth guess in a row.
+   *
+   *  So: press Enter, then *watch*. An agent that took the prompt starts printing within a
+   *  moment; one whose box swallowed the return stays silent, and silence is the signal to
+   *  press again. The cost of being wrong is a return on an empty box, which does nothing
+   *  anywhere.
    */
-  setTimeout(() => handle.send?.('\r'), pastePause());
+  const press = () => handle.send?.('\r');
+  setTimeout(() => {
+    press();
+    if (!handle.quietFor) return;                 // not a terminal: nothing to watch
+    setTimeout(() => { if (handle.quietFor() > LISTEN_FOR) press(); }, LISTEN_FOR);
+  }, pastePause());
 }
 
 function fillBaton(text, known) {
