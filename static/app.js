@@ -6800,6 +6800,7 @@ async function screenWall() {
        */
       const where = spec.kind === 'term' ? el('button', { className: 'wherechip', type: 'button' }) : null;
       if (where) {
+        win.dataset.session = spec.name;
         where.dataset.ws = ws.id;
         where.hidden = true;
         where.onclick = (ev) => {
@@ -7813,6 +7814,33 @@ async function screenWall() {
     undoToast(t('layout restored'), () => wearLayout(ws, before));
   }
 
+  /** Ask tmux again where each terminal on this desk is.
+   *
+   *  A folder read once at the moment the window opened is a folder that was true once. You
+   *  `cd` in a shell and the mark goes on saying where you *were* — measured: the chip still
+   *  said `prima-qui` while tmux had been in `/tmp/poi-la` for three seconds, which is worse
+   *  than not showing it, because a wrong answer is believed.
+   *
+   *  Only the desk you are looking at, only while the tab is in front of you, and one small
+   *  request per terminal — the same shape as the session count that already ticks.
+   */
+  async function readWhere() {
+    const here = activeSpace();
+    const chips = [...document.querySelectorAll(`.wherechip[data-ws="${here?.id}"]`)];
+    for (const chip of chips) {
+      const win = chip.closest('.win');
+      const name = win?.dataset.session;
+      if (!name) continue;
+      try {
+        const answer = await getJSON(`/api/tmux/cwd?session=${encodeURIComponent(name)}`);
+        if (!answer.cwd || answer.cwd === chip.dataset.cwd) continue;
+        chip.dataset.cwd = answer.cwd;
+        chip.hidden = false;
+      } catch { /* a session that has gone keeps the last thing it said */ }
+    }
+    paintStray();
+  }
+
   /** Re-read every terminal's folder against the desk it is on. Cheap, and called whenever
    *  either side of the comparison can have moved: a folder set, a desk switched to. */
   function paintStray() {
@@ -8651,6 +8679,12 @@ async function screenWall() {
     if (wearing) for (const b of tools.querySelectorAll('button[data-mode]')) b.classList.remove('on');
   };
   paintLayoutButton();
+
+  /* Where each terminal is, asked again now and then. Ten seconds is slower than a person
+   *  changing directory and faster than they will look away and back. */
+  const whereBeat = setInterval(() => { if (!document.hidden) readWhere(); }, 10000);
+  const wasLeaving = leaving;
+  leaving = () => { clearInterval(whereBeat); wasLeaving?.(); };
 
   // A brand new desktop starts as one window per session.
   const first = activeSpace();
