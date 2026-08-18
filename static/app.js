@@ -5652,6 +5652,18 @@ function openDrawer(yes) {
   paintDrawer();
 }
 
+/** A badge that says which destination it belongs to.
+ *
+ *  `el()` is `Object.assign` over an element, which sets *properties*: `'data-for'` became a
+ *  property nobody can query and every badge in the drawer stayed empty, because the thing
+ *  filling them looks them up by attribute. `dataset` is the way to write one.
+ */
+function tallyFor(tab) {
+  const spot = el('span', { className: 'drawertally' });
+  spot.dataset.for = tab;
+  return spot;
+}
+
 function buildDrawer() {
   document.getElementById('drawer')?.remove();
   document.getElementById('drawerveil')?.remove();
@@ -5669,15 +5681,13 @@ function buildDrawer() {
       el('span', { textContent: [...link.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join('').trim() }),
       // The count travels with it, so a drawer-only phone still says how many sessions
       // there are — and the amber still means one of them has stopped and is waiting.
-      el('span', { className: 'drawertally', 'data-for': tab }),
+      tallyFor(tab),
     ]);
     copy.onclick = () => openDrawer(false);
     panel.append(copy);
   }
-  panel.append(el('div', { className: 'sheetsep' }));
-  panel.append(el('a', {
-    href: '#/settings', onclick: () => openDrawer(false),
-  }, [icon('sliders'), el('span', { textContent: t('Settings') })]));
+  // No Settings row: the sliders are two icons away in the header, on every screen, and a
+  // menu that repeats the header is a menu with one more thing to read.
 
   const veil = el('div', { id: 'drawerveil', onclick: () => openDrawer(false) });
   document.body.append(veil, panel);
@@ -5689,7 +5699,10 @@ function buildDrawer() {
 function applyBottomBar() {
   document.body.classList.toggle('nobar', noBar());
   buildDrawer();
+  // Whatever the counts are right now, into the rows that have just been built: a drawer
+  // made after the last count went out would otherwise sit blank until the next one.
   showCount('sessions', lastSessionCount);
+  showCount('wall', (prefs.workspaces || []).length > 1 ? (prefs.workspaces || []).length : 0);
 }
 
 if (moreBtn) {
