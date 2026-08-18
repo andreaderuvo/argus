@@ -10149,27 +10149,26 @@ function attachMessages(host, wsId, extras, deliver) {
           gaps.length ? el('span', { className: 'gapmark', textContent: '{ }' }) : null,
         ].filter(Boolean));
 
-        /* Whether this one presses Enter, shown and switched here.
+        /* Whether this one presses Enter — said, not offered.
          *
-         *  It was a ↵ at the far right of the row, drawn only when the prompt was already set
-         *  to run — so a prompt that does *not* run looks exactly like one that does, and the
-         *  answer to "why did it not send" was two screens away in the editor. Now it is
-         *  always there, lit when it will run, and clicking it changes that.
+         *  It is a label and behaves like one: no hover, no cursor, nothing to click. It was
+         *  briefly a switch, which was wrong twice over — a control that changes what a prompt
+         *  does does not belong on the row you tap to send it, and a thing that lights up
+         *  under the pointer is promising something it will not do. Changing it is the
+         *  editor's job, where every other property of a prompt lives.
+         *
+         *  Drawn either way, though: lit when it will press Enter and dim when it will not,
+         *  because a mark that only appears when true makes "does not run" and "you cannot
+         *  tell" look identical — which is how a prompt that quietly never sent got blamed on
+         *  the sending.
          */
-        const runs = el('button', {
-          className: `winbtn runs${kind.run ? ' on' : ''}`,
+        const runs = el('span', {
+          className: `runs${kind.run ? ' on' : ''}`,
           textContent: '↵',
           title: kind.run
             ? t('Sends it: this prompt presses Enter for you')
             : t('Puts it in without pressing Enter'),
         });
-        runs.onclick = (ev) => {
-          ev.stopPropagation();
-          kind.run = !kind.run;
-          delete kind.stock;
-          savePrefs();
-          messagesChanged();
-        };
         /* What this one takes, and what it would be *here*.
          *
          *  The hover preview shows the finished sentence, which is the right thing when you
