@@ -15,13 +15,21 @@
 # Installed by Settings → "Let your agents say where they are". The name carries the marker
 # `argus-where`, which is how removal knows what is ours and what you wrote yourself.
 payload=$(cat)
-dir=$(printf '%s' "$payload" | python3 -c 'import json,sys
+
+# Two lines out of the payload: where it thinks it is, and what it is. The second is only
+# for the status line — turning this on should not cost you the line Claude drew before.
+read -r dir model < <(printf '%s' "$payload" | python3 -c 'import json,sys
 try:
     said = json.load(sys.stdin)
 except ValueError:
     raise SystemExit
-print(said.get("workspace", {}).get("current_dir") or said.get("cwd") or "")' 2>/dev/null)
+where = said.get("workspace", {}).get("current_dir") or said.get("cwd") or "-"
+who = (said.get("model") or {}).get("display_name") or "-"
+print(where, who)' 2>/dev/null)
 
-[ -n "$dir" ] && [ -n "$TMUX_PANE" ] && tmux set -p -t "$TMUX_PANE" @argus_cwd "$dir" 2>/dev/null
+[ -n "$dir" ] && [ "$dir" != "-" ] && [ -n "$TMUX_PANE" ] &&
+    tmux set -p -t "$TMUX_PANE" @argus_cwd "$dir" 2>/dev/null
 
-printf '%s' "${dir/#$HOME/~}"
+[ "$dir" = "-" ] && dir=""
+[ "$model" = "-" ] && model=""
+printf '%s%s%s' "${dir/#$HOME/~}" "${dir:+${model:+  ·  }}" "$model"
