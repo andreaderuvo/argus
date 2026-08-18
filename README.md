@@ -11,10 +11,11 @@ Argus puts those sessions, the files they are writing and the report they just p
 one browser tab, and the same thing on your phone. Nothing to install inside the agent: if
 it runs in a terminal, it works.
 
-![An agent prints the path of the report it has written; one click opens it beside the session](docs/img/paths.gif)
+![Three agents on one desk — a frontend Claude, a backend Codex and a Claude running the tests — with a file browser beside them, then two more desks](docs/img/desks.gif)
 
-*The agent finished and printed where it wrote. One click, and the report is open next to
-the session that made it. No copying the path, no second tool, no `scp`.*
+*Three agents on one job: a Claude on the frontend, a Codex on the API, a Claude running
+the tests — and the tester has found what the other two missed. The files they are writing
+sit beside them, and the next desk is one press away.*
 
 [![tests](https://github.com/andreaderuvo/argus/actions/workflows/tests.yml/badge.svg)](https://github.com/andreaderuvo/argus/actions/workflows/tests.yml)
 [![python](https://img.shields.io/badge/python-3.11%2B-3776ab?logo=python&logoColor=white)](https://www.python.org/)

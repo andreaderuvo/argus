@@ -168,6 +168,243 @@ def build_files(root: Path) -> None:
         shutil.copy(paper, project / "results" / "cluster-report.pdf")
 
 
+# ------------------------------------------------------- the other world: a web project
+#
+# A second project, because one is not a demo of a *board*. Three agents on one job — two
+# Claudes and a Codex — a database desk and a documentation desk, all fabricated: no real
+# path, no real host, no real customer, and no code that came from anywhere.
+
+SHOP_README = """\
+# shopfront
+
+    npm install
+    npm run dev        # :5173, api on :8080
+
+Three parts: `src/` the storefront, `api/` the service behind it, `db/` the migrations.
+Everything under `dist/` is built and can be deleted.
+"""
+
+SHOP_PKG = """\
+{
+  "name": "shopfront",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "vitest"
+  }
+}
+"""
+
+CART_STORE = """\
+import { create } from './store';
+
+export type Item = { sku: string; name: string; price: number; qty: number };
+
+export const useCart = create<{ items: Item[] }>((set) => ({
+  items: [],
+
+  add: (item: Item) => set((state) => ({ items: [...state.items, item] })),
+
+  // A new array every time. Splicing in place left the badge subscribed to a length that
+  // had changed on an object that had not, so removing the last item redrew nothing.
+  remove: (sku: string) => set((state) => ({
+    items: state.items.filter((one) => one.sku !== sku),
+  })),
+}));
+"""
+
+TOTAL_TS = """\
+export function total(items: Item[], coupon?: Coupon): number {
+  const net = items.reduce((sum, one) => sum + one.price * one.qty, 0);
+  const taxed = net * (1 + TAX);
+
+  // Wrong, and every order with a coupon has paid for it: the discount belongs before the
+  // tax, not after. tests/checkout.test.ts says 41.30 and means it.
+  return coupon ? taxed - coupon.amount : taxed;
+}
+"""
+
+MIGRATION = """\
+-- 0007_add_stock_holds.sql
+--
+-- A hold is a row, not a column: two carts wanting the last one of something is a race,
+-- and a counter cannot be rolled back by an expiry.
+
+create table stock_hold (
+  id         bigserial primary key,
+  sku        text        not null references product (sku),
+  qty        integer     not null check (qty > 0),
+  cart_id    uuid        not null,
+  expires_at timestamptz not null
+);
+
+create index stock_hold_sku_live on stock_hold (sku) where expires_at > now();
+"""
+
+ARCHITECTURE = """\
+# How the shopfront is put together
+
+Three pieces and one rule: **the storefront never talks to the database.**
+
+| piece | what it is | talks to |
+|---|---|---|
+| `src/` | the storefront — a Vite app | the API, and nothing else |
+| `api/` | a small service | the database, the payment provider |
+| `db/` | migrations, in order | — |
+
+## Stock, and the race everybody has
+
+Two carts can want the last one of something. The API takes a **hold** — a row in
+`stock_hold` with an expiry — before it writes an order, and answers `409 out_of_stock`
+when it cannot. A counter on the product row would be smaller and would be wrong: a
+counter cannot be rolled back by a clock.
+
+## What is not settled
+
+- The payment webhook still answers 500 on a duplicate delivery. It is idempotent in
+  practice and not by design, which is not the same thing.
+- The coupon is applied after tax in `checkout/total.ts`. There is a failing test for it.
+"""
+
+DEV_LOG = [
+    "  VITE v6.0.7  ready in 412 ms",
+    "",
+    "  ➜  Local:   http://localhost:5173/",
+    "  ➜  API:     http://localhost:8080/",
+    "",
+    "12:02:11 [vite] hmr update /src/components/CartBadge.tsx",
+    "12:02:11 [vite] hmr update /src/store/cart.ts",
+    "12:04:38 [api] POST /api/cart 201 18ms",
+    "12:04:52 [api] POST /api/cart 409 6ms   out_of_stock sku=AX-19",
+    "12:05:03 [api] GET  /api/catalogue 200 31ms",
+    "12:07:44 [api] POST /api/checkout 500 240ms   coupon applied after tax",
+]
+
+
+def build_web(root: Path) -> None:
+    shop = root / "shopfront"
+    for folder in ("src/components", "src/store", "src/checkout", "api/routes",
+                   "tests", "db/migrations", "docs", "logs"):
+        (shop / folder).mkdir(parents=True, exist_ok=True)
+
+    (shop / "README.md").write_text(SHOP_README)
+    (shop / "package.json").write_text(SHOP_PKG)
+    (shop / "src" / "store" / "cart.ts").write_text(CART_STORE)
+    (shop / "src" / "checkout" / "total.ts").write_text(TOTAL_TS)
+    (shop / "src" / "components" / "CartBadge.tsx").write_text(
+        "export function CartBadge() {\n"
+        "  const items = useCart((s) => s.items);\n"
+        "  if (!items.length) return null;\n"
+        "  return <span className=\"badge\">{items.length}</span>;\n"
+        "}\n")
+    (shop / "api" / "routes" / "cart.ts").write_text(
+        "router.post('/api/cart', async (req, res) => {\n"
+        "  const hold = await takeHold(req.body.sku, req.body.qty ?? 1);\n"
+        "  if (!hold) return res.status(409).json({ error: 'out_of_stock', sku: req.body.sku });\n"
+        "  res.status(201).json(await addToCart(req.cart, hold));\n"
+        "});\n")
+    (shop / "tests" / "checkout.test.ts").write_text(
+        "test('applies the coupon before tax', () => {\n"
+        "  expect(total([tenPound, thirtyPound], tenOff)).toBeCloseTo(41.30);\n"
+        "});\n")
+    (shop / "tests" / "cart.test.ts").write_text(
+        "test('removing the last item empties the badge', () => {\n"
+        "  const cart = useCart.getState();\n"
+        "  cart.add(oneOf('AX-19'));\n"
+        "  cart.remove('AX-19');\n"
+        "  expect(cart.items).toHaveLength(0);\n"
+        "});\n")
+    (shop / "db" / "migrations" / "0007_add_stock_holds.sql").write_text(MIGRATION)
+    (shop / "db" / "schema.sql").write_text(
+        "create table product (\n"
+        "  sku    text primary key,\n"
+        "  name   text    not null,\n"
+        "  price  numeric not null check (price >= 0),\n"
+        "  stock  integer not null default 0\n"
+        ");\n")
+    (shop / "docs" / "architecture.md").write_text(ARCHITECTURE)
+    (shop / "docs" / "api.md").write_text(
+        "# The API\n\n"
+        "| route | answers |\n|---|---|\n"
+        "| `GET /api/catalogue` | everything in stock |\n"
+        "| `POST /api/cart` | 201, or 409 `out_of_stock` |\n"
+        "| `POST /api/checkout` | 200 with an order id |\n")
+    (shop / "logs" / "dev-server.log").write_text("\n".join(DEV_LOG * 4))
+
+
+FRONTEND = """\033[38;5;108m> the cart badge does not clear when you remove the last item\033[0m
+
+  Reading src/components/CartBadge.tsx
+  Reading src/store/cart.ts
+
+Found it, and it is the store rather than the badge.
+
+  src/store/cart.ts:14   items.splice(at, 1)     <- same array, same reference
+  src/components/CartBadge.tsx:2  subscribes to s.items
+
+Nothing the badge watches ever changes identity, so React has no reason to
+draw it again. `remove` now returns a new array and the badge clears.
+
+  npm test -- cart      3 passed
+
+Shall I do the same to `add`? It works by accident today.
+"""
+
+BACKEND = """\033[38;5;110m> POST /api/cart should answer 409 when the last one has gone, not 500\033[0m
+
+  Writing api/routes/cart.ts
+  Writing db/migrations/0007_add_stock_holds.sql
+
+Done, and it needed a table rather than a counter: two carts wanting the
+last one of something is a race, and a counter cannot be rolled back by an
+expiry.
+
+  curl -s -X POST :8080/api/cart -d '{"sku":"AX-19"}'
+  {"error":"out_of_stock","sku":"AX-19"}
+
+Left alone: the 500 from the payment webhook on a duplicate delivery.
+Different owner, different afternoon.
+"""
+
+TESTER = """\033[38;5;108m> run the suite and tell me what is actually broken\033[0m
+
+  npm test -- --run
+
+  PASS  tests/cart.test.ts        14 passed
+  PASS  tests/catalogue.test.ts   22 passed
+  FAIL  tests/checkout.test.ts     1 failed
+
+    applies the coupon before tax
+      expected 41.30
+      received 44.55
+
+The test is right and the code is wrong. src/checkout/total.ts:8 takes the
+coupon off after the tax, so every order with a coupon has been charged tax
+on the discount as well.
+
+That is money, and it is one line. I would fix it before anything else here.
+"""
+
+DB_TRANSCRIPT = """\
+shopfront=# select sku, name, stock from product where stock <= 3 order by stock;
+   sku   |          name           | stock
+---------+-------------------------+-------
+ AX-19   | Field notebook, ruled   |     0
+ KP-02   | Enamel mug              |     1
+ TR-77   | Canvas tote, natural    |     3
+(3 rows)
+
+shopfront=# select count(*) from stock_hold where expires_at > now();
+ count
+-------
+    12
+(1 row)
+
+shopfront=#
+"""
+
+
 # ------------------------------------------------------------------------ the sessions
 
 # What an agent left on the screen. Written to a file and printed by the session itself,
@@ -219,7 +456,7 @@ unset HISTFILE
 TMUXCONF = """\
 set -g status-style 'bg=colour108,fg=colour234'
 set -g status-left ' #S '
-set -g status-right ' salmonella-2026 '
+set -g status-right ' #{b:pane_current_path} '
 set -g status-left-length 30
 set -g allow-passthrough on
 set -g mouse on
@@ -249,10 +486,22 @@ def build_sessions(root: Path) -> None:
     # lines of "command not found", which is a demo showing the opposite of the point.
     waiting = ("while :; do printf '\\n\\033[38;5;108m> \\033[0m'; "
                "IFS= read -r __line || break; done")
+    shop = root / "shopfront"
+    (root / ".transcript-frontend").write_text(FRONTEND)
+    (root / ".transcript-backend").write_text(BACKEND)
+    (root / ".transcript-tests").write_text(TESTER)
+    (root / ".transcript-db").write_text(DB_TRANSCRIPT)
     plan = (
         ("claude", project, f"printf '%b\\n' \"$(cat {root}/.transcript-claude)\"; {waiting}"),
         ("codex", project, f"printf '%b\\n' \"$(cat {root}/.transcript-codex)\"; {waiting}"),
         ("shell", project, f"tail -n 8 logs/pipeline.log; {shell}"),
+        # The web project: two Claudes and a Codex, one job each, plus a psql that has just
+        # answered. Named for what they are doing rather than for what is running in them —
+        # which is what anybody with three agents open ends up doing anyway.
+        ("frontend", shop, f"printf '%b\\n' \"$(cat {root}/.transcript-frontend)\"; {waiting}"),
+        ("backend", shop, f"printf '%b\\n' \"$(cat {root}/.transcript-backend)\"; {waiting}"),
+        ("tests", shop, f"printf '%b\\n' \"$(cat {root}/.transcript-tests)\"; {waiting}"),
+        ("db", shop / "db", f"cat {root}/.transcript-db; {shell}"),
     )
     for name, cwd, command in plan:
         # The transcript is the session's own command, so nothing about producing it is
@@ -327,11 +576,12 @@ def main() -> None:
         return stop()
 
     build_files(ROOT)
+    build_web(ROOT)
     print(f"files under {ROOT}")
     if args.files_only:
         return
     build_sessions(ROOT)
-    print(f"sessions on tmux -L {SOCKET}: claude, codex, shell")
+    print(f"sessions on tmux -L {SOCKET}: claude, codex, shell, frontend, backend, tests, db")
     write_config()
     start()
 
