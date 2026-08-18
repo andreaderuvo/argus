@@ -119,6 +119,32 @@ async def rewire(_request: Request, body: dict) -> dict:
         raise ApiError(400, str(e)) from e
 
 
+@router.get("/api/where/wiring", tags=["Sessions"], summary="Which agents are set up to say which folder they are in")
+async def where_wired(_request: Request) -> dict:
+    """Which agents here can tell Argus the folder they consider current.
+
+    Only Claude Code can: it hands its status line hook `workspace.current_dir`. Nothing
+    outside an agent can work that out — an agent never moves its own process — so this is
+    the difference between a mark that follows the work and one that names where the
+    session started.
+    """
+    return wiring.where_state(Path.home())
+
+
+@router.post("/api/where/wiring", tags=["Sessions"], summary="Set the agents up to say where they are, or undo it")
+async def where_rewire(_request: Request, body: dict) -> dict:
+    """Do the setting up, or take it back out.
+
+    The same bargain as the bell: it writes into the agent's own configuration, keeps a copy
+    of the file as it was before Argus first touched it, reports a status line you wrote
+    yourself rather than replacing it, and removes only what carries our own marker.
+    """
+    try:
+        return wiring.wire_where(Path.home(), bool(body.get("on", True)))
+    except (OSError, ValueError, FileNotFoundError) as e:
+        raise ApiError(400, str(e)) from e
+
+
 @router.get("/api/bells/stream", tags=["Notifications"], summary="Bells as they happen, over one open connection")
 async def stream(request: Request, since: int = 0) -> StreamingResponse:
     """Bells as they happen, over one connection that stays open.

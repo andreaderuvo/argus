@@ -121,3 +121,47 @@ def test_unreadable_settings_are_refused_rather_than_replaced(home):
     with pytest.raises(ValueError):
         wiring.wire(home, True)
     assert (home / wiring.CLAUDE_SETTINGS).read_text() == "{ this is not json"
+
+
+def test_where_is_offered_only_where_it_can_work(tmp_path):
+    """Claude Code has a status line hook and can say which folder it considers current.
+    Codex has no equivalent, and is listed as unable rather than offered a switch that does
+    nothing."""
+    (tmp_path / ".claude").mkdir()
+    (tmp_path / ".codex").mkdir()
+    said = wiring.where_state(tmp_path)
+    assert [(a["name"], a["on"], a.get("cannot", False)) for a in said["agents"]] == [
+        ("claude", False, False), ("codex", False, True),
+    ]
+
+
+def test_wiring_where_is_additive_and_reversible(tmp_path):
+    """It writes the status line hook, keeps the file as it was, and takes back only its
+    own on the way out."""
+    settings = tmp_path / ".claude" / "settings.json"
+    settings.parent.mkdir()
+    settings.write_text(json.dumps({"model": "opus"}) + "\n")
+
+    on = wiring.wire_where(tmp_path, True)
+    assert any("status line" in line for line in on["changed"])
+    after = json.loads(settings.read_text())
+    assert after["model"] == "opus"                       # nothing of theirs disturbed
+    assert wiring.WHERE_MARK in after["statusLine"]["command"]
+    assert (tmp_path / ".claude" / "settings.json.before-argus").exists()
+    assert on["state"]["agents"][0]["on"] is True
+
+    off = wiring.wire_where(tmp_path, False)
+    assert any("back out" in line for line in off["changed"])
+    assert "statusLine" not in json.loads(settings.read_text())
+
+
+def test_a_status_line_you_wrote_is_left_alone(tmp_path):
+    """Reported, never replaced — the file belongs to the person, not to us."""
+    settings = tmp_path / ".claude" / "settings.json"
+    settings.parent.mkdir()
+    settings.write_text(json.dumps({"statusLine": {"type": "command", "command": "~/mine.sh"}}) + "\n")
+
+    answer = wiring.wire_where(tmp_path, True)
+    assert any("left the status line alone" in line for line in answer["changed"])
+    assert json.loads(settings.read_text())["statusLine"]["command"] == "~/mine.sh"
+    assert answer["state"]["agents"][0]["taken"] is True

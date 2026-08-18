@@ -1,0 +1,27 @@
+#!/bin/bash
+# argus-where — tell Argus which folder this agent considers current.
+#
+# Claude Code hands a status line command a JSON payload on stdin, and `workspace.current_dir`
+# in it is the directory Claude *considers* current. That is a thing no amount of watching
+# from outside can work out: Claude never chdir()s its own process, so tmux, /proc and
+# everything built on them go on naming the folder it was started in, however far the work
+# has moved. Measured on a real session: the claude process reported its start directory
+# from both `pane_current_path` and `/proc/<pid>/cwd` while the agent was working elsewhere.
+#
+# So it is written where Argus looks — a tmux pane option — and Argus prefers it over
+# anything it can observe. Outside tmux this does nothing but print the folder, which is a
+# perfectly good status line.
+#
+# Installed by Settings → "Let your agents say where they are". The name carries the marker
+# `argus-where`, which is how removal knows what is ours and what you wrote yourself.
+payload=$(cat)
+dir=$(printf '%s' "$payload" | python3 -c 'import json,sys
+try:
+    said = json.load(sys.stdin)
+except ValueError:
+    raise SystemExit
+print(said.get("workspace", {}).get("current_dir") or said.get("cwd") or "")' 2>/dev/null)
+
+[ -n "$dir" ] && [ -n "$TMUX_PANE" ] && tmux set -p -t "$TMUX_PANE" @argus_cwd "$dir" 2>/dev/null
+
+printf '%s' "${dir/#$HOME/~}"

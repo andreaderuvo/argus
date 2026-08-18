@@ -20,6 +20,8 @@ from pathlib import Path
 # Any command we wrote contains this, which is how removal knows what is ours and what
 # the user put there by hand.
 MARK = "argus-bell"
+# The other thing that can be wired, and its own marker for the same reason.
+WHERE_MARK = "argus-where"
 
 CLAUDE_SETTINGS = ".claude/settings.json"
 CODEX_CONFIG = ".codex/config.toml"
@@ -40,6 +42,96 @@ def script_home(home: Path) -> Path:
 
 def source_script() -> Path:
     return Path(__file__).resolve().parent.parent / "tools" / "argus-bell"
+
+
+def where_home(home: Path) -> Path:
+    """Where the folder-reporting helper goes, beside the bell one."""
+    for place in ("bin/argus-where", ".local/bin/argus-where"):
+        if (home / place).exists():
+            return home / place
+    return home / ".local/bin/argus-where"
+
+
+def where_source() -> Path:
+    return Path(__file__).resolve().parent.parent / "tools" / "argus-where"
+
+
+def _status_command(home: Path) -> str:
+    """Whatever Claude Code is told to run for its status line, or empty."""
+    settings = home / CLAUDE_SETTINGS
+    if not settings.exists():
+        return ""
+    try:
+        said = json.loads(settings.read_text()).get("statusLine") or {}
+    except (OSError, ValueError):
+        return ""
+    return said.get("command", "") if isinstance(said, dict) else ""
+
+
+def where_state(home: Path) -> dict:
+    """Whether an agent here is set up to say which folder it considers current.
+
+    Only Claude Code can: it has a status line hook, and that hook is handed
+    `workspace.current_dir`. Codex has no equivalent — its folder is the one it was started
+    in, and the honest thing is to say so rather than to offer a switch that does nothing.
+    """
+    agents = []
+    if (home / CLAUDE_SETTINGS).exists() or (home / ".claude").is_dir():
+        command = _status_command(home)
+        agents.append({
+            "name": "claude",
+            "on": WHERE_MARK in command,
+            # A status line they wrote themselves is theirs. Reported, never replaced.
+            "taken": bool(command) and WHERE_MARK not in command,
+        })
+    if (home / CODEX_CONFIG).exists() or (home / ".codex").is_dir():
+        agents.append({"name": "codex", "on": False, "taken": False, "cannot": True})
+    return {"script": str(where_home(home)) if where_home(home).exists() else None, "agents": agents}
+
+
+def wire_where(home: Path, on: bool) -> dict:
+    """Turn the folder reporting on or off, the same way as the bell: additive, marked,
+    and taking back only what carries our own name."""
+    done: list[str] = []
+    script = where_home(home)
+
+    if on:
+        source = where_source()
+        if not source.exists():
+            raise FileNotFoundError("the helper script is missing from this installation")
+        script.parent.mkdir(parents=True, exist_ok=True)
+        if not script.exists() or script.read_bytes() != source.read_bytes():
+            shutil.copyfile(source, script)
+            script.chmod(0o755)
+            done.append(f"wrote {script}")
+    elif script.exists() and WHERE_MARK in script.name:
+        script.unlink()
+        done.append(f"removed {script}")
+
+    settings = home / CLAUDE_SETTINGS
+    if settings.exists() or (home / ".claude").is_dir():
+        try:
+            data = json.loads(settings.read_text()) if settings.exists() else {}
+        except (OSError, ValueError) as e:
+            raise ValueError(f"{settings} is not readable JSON, so it is left alone: {e}") from e
+        command = _status_command(home)
+        if on and WHERE_MARK not in command:
+            if command:
+                done.append("left the status line alone — you have your own there")
+            else:
+                data["statusLine"] = {"type": "command", "command": str(script)}
+                settings.parent.mkdir(parents=True, exist_ok=True)
+                if settings.exists():
+                    _keep_a_copy(settings)
+                settings.write_text(json.dumps(data, indent=2) + "\n")
+                done.append("added the status line hook")
+        elif not on and WHERE_MARK in command:
+            data.pop("statusLine", None)
+            _keep_a_copy(settings)
+            settings.write_text(json.dumps(data, indent=2) + "\n")
+            done.append("took the status line hook back out")
+
+    return {"changed": done, "state": where_state(home)}
 
 
 # --------------------------------------------------------------------------- reading
