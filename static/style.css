@@ -2503,6 +2503,21 @@ input.traysearch:focus { border-color: var(--accent); outline: none; }
 @media (max-width: 560px) {
   .btnset > button[data-mode] > span { display: none; }
   .btnset > button[data-mode] { padding: 0 .5rem; }
+
+  /* And the same for the rest of the row, on a phone.
+   *
+   *  Measured on a 390px screen: fourteen buttons wearing their words came to 970px of
+   *  content in a 390px strip — two thirds of the toolbar off the side, and 36px tall, under
+   *  the size a thumb can be sure of. Icons alone, bigger, and what is left over still
+   *  scrolls, because a desk toolbar is a row of tools and not a row of five.
+   *
+   *  Custom keeps no word either, in the end: the puzzle piece is distinct enough beside
+   *  three tilings, and 88px of label was a seventh of the strip.
+   */
+  #walltools button.winbtn.wide > span:not([data-icon]):not(.stamp),
+  #walltools > button.winbtn > span:not([data-icon]):not(.stamp) { display: none; }
+  #walltools button.winbtn { min-height: 40px; padding: 0 .55rem; }
+  #walltools .ico { width: 19px; height: 19px; }
 }
 
 /* How many windows a desk holds, on the desk's own tab.
@@ -3006,4 +3021,29 @@ pre.file.hl .hljs-strong { font-weight: 700; }
   @media (prefers-reduced-motion: reduce) {
     #drawerveil, #drawer { transition: none; }
   }
+}
+
+/* With the bottom bar off on a phone, the drawer is the navigation and the header's
+   hamburger opens it. Both only exist below 560px: on a desktop the rail is the answer and
+   neither has any business appearing. */
+#hamburger { display: none; }
+@media (max-width: 560px) {
+  body.nobar #nav { display: none; }
+  body.nobar #hamburger { display: inline-flex; position: relative; }
+  /* The same warning the bar carried, on the thing that replaced it. A dot rather than a
+     number: the count is inside, one tap away, but "something is waiting" has to be legible
+     without opening anything. */
+  #hamburger.wants::after {
+    content: ''; position: absolute; top: 6px; right: 6px;
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--st-warning); box-shadow: 0 0 0 2px var(--bg);
+  }
+  #drawer .drawertally {
+    margin-left: auto; min-width: 1.4rem; padding: .05rem .35rem;
+    border-radius: .7rem; text-align: center;
+    font-size: .7rem; font-weight: 600;
+    color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, transparent);
+  }
+  #drawer .drawertally:empty { display: none; }
+  #drawer .drawertally.wants { color: #2b2000; background: var(--st-warning); }
 }

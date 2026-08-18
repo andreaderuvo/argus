@@ -18,6 +18,7 @@ const side = document.getElementById('side');
 const nav = document.getElementById('nav');
 const railToggle = document.getElementById('railtoggle');
 const moreBtn = document.getElementById('more');
+const hamburger = document.getElementById('hamburger');
 const railWins = document.getElementById('railwins');
 railToggle.onclick = () => {
   prefs.railWide = !prefs.railWide;
@@ -4364,6 +4365,17 @@ async function screenSettings() {
 
   wrap.append(
     group(t('Look')),
+    /* The bottom bar, on a phone, or the drawer alone.
+     *
+     *  It costs 46px and buys one thing: the Sessions tally is visible without touching
+     *  anything, and amber the moment an agent has stopped and is waiting — which is the
+     *  reason to look at a phone at all. Off, the drawer holds every destination and the
+     *  hamburger wears the same warning dot, so the alert survives the trade rather than
+     *  being quietly dropped with the bar.
+     */
+    toggle(t('Bar along the bottom, on a phone'),
+      t('off, everything moves into the menu — the waiting mark moves with it'),
+      () => prefs.bottomBar !== false, (v) => { prefs.bottomBar = v; applyBottomBar(); }),
     choice(t('Theme'), t('auto follows the system setting'), THEMES,
       () => prefs.theme, (v) => { prefs.theme = v; applyTheme(); }),
   );
@@ -5622,6 +5634,9 @@ function viewersRow() {
  *  badge rather than from the advice.
  */
 const DRAWER = ['placeholders', 'system', 'journal'];
+// With the bottom bar off, the drawer *is* the navigation and carries all of them.
+const EVERYTHING = ['files', 'sessions', 'wall', 'prompts', 'placeholders', 'system', 'journal'];
+const noBar = () => prefs.bottomBar === false;
 
 let drawerOpen = false;
 
@@ -5636,14 +5651,21 @@ function openDrawer(yes) {
 }
 
 function buildDrawer() {
-  if (document.getElementById('drawer')) return;
+  document.getElementById('drawer')?.remove();
+  document.getElementById('drawerveil')?.remove();
   const panel = el('nav', { id: 'drawer', 'aria-label': t('More') });
-  for (const tab of DRAWER) {
+  for (const tab of (noBar() ? EVERYTHING : DRAWER)) {
     const link = document.querySelector(`#nav a[data-tab="${tab}"]`);
     if (!link) continue;
     const copy = el('a', { href: link.getAttribute('href'), 'data-goes': tab }, [
-      icon({ placeholders: 'rename', system: 'activity', journal: 'journal' }[tab] || 'folder'),
+      icon({
+        files: 'folder', sessions: 'terminal', wall: 'grid', prompts: 'relay',
+        placeholders: 'rename', system: 'activity', journal: 'journal',
+      }[tab] || 'folder'),
       el('span', { textContent: link.textContent.trim() }),
+      // The count travels with it, so a drawer-only phone still says how many sessions
+      // there are — and the amber still means one of them has stopped and is waiting.
+      el('span', { className: 'drawertally', 'data-for': tab }),
     ]);
     copy.onclick = () => openDrawer(false);
     panel.append(copy);
@@ -5657,6 +5679,15 @@ function buildDrawer() {
   document.body.append(veil, panel);
 }
 
+/** The bottom bar, or not: with it off the drawer holds everything and the header's
+ *  hamburger opens it — wearing the same warning dot, because an alert nobody can see
+ *  without opening a menu is not an alert. */
+function applyBottomBar() {
+  document.body.classList.toggle('nobar', noBar());
+  buildDrawer();
+  showCount('sessions', lastSessionCount);
+}
+
 if (moreBtn) {
   buildDrawer();
   moreBtn.onclick = () => openDrawer(!drawerOpen);
@@ -5664,6 +5695,7 @@ if (moreBtn) {
   window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && drawerOpen) openDrawer(false); });
   window.addEventListener('hashchange', () => openDrawer(false));
 }
+if (hamburger) hamburger.onclick = () => openDrawer(!drawerOpen);
 
 function applyKeyBar() {
   document.body.classList.toggle('keysalways', prefs.keyBar === 'always');
@@ -9444,6 +9476,7 @@ function dragBy(grabber, win, bounds, onDone, ignore = [], peers = () => [], onT
       showGuides(bounds, hx.line, hy.line);
     };
     const up = () => {
+      clearTimeout(hold);
       grabber.removeEventListener('pointermove', move);
       grabber.removeEventListener('pointerup', up);
       win.classList.remove('dragging');
@@ -9544,10 +9577,25 @@ function reorderTab(tab, strip, onDone) {
   tab.addEventListener('pointerdown', (e) => {
     if (e.button) return;                      // right-click opens the menu
     const startX = e.clientX;
+    /* On a finger, dragging sideways is how you *scroll* the strip.
+     *
+     *  With a mouse the two gestures are distinguishable — you pick a tab up deliberately —
+     *  and eight pixels of movement was a fine trigger. On a touch screen it is the same
+     *  gesture as swiping the strip along, so a phone with six desks could reorder them all
+     *  day and never reach the seventh: the reorder ate every swipe. Reported as "the tabs
+     *  do not scroll any more".
+     *
+     *  So a finger has to hold still for a moment first, which is what the link tray already
+     *  asks for the same reason. Move before that and the browser scrolls, as it should.
+     */
+    const byFinger = e.pointerType === 'touch';
+    let armed = !byFinger;
+    const hold = byFinger ? setTimeout(() => { armed = true; }, 350) : null;
     let dragging = false;
     let moves = 0;
 
     const move = (ev) => {
+      if (!armed) return;
       if (!dragging) {
         if (Math.abs(ev.clientX - startX) < 8) return;
         dragging = true;
@@ -13073,7 +13121,21 @@ async function countSessions() {
   } catch { /* the server will be asked again shortly */ }
 }
 
+let lastSessionCount = 0;
+
 function showCount(tab, n) {
+  if (tab === 'sessions') lastSessionCount = n;
+  const wants = [...rung.values()].some((b) => b.why === 'asking');
+  // The same two facts wherever the navigation happens to be living: how many, and whether
+  // one of them has stopped and is waiting.
+  for (const spot of document.querySelectorAll(`.drawertally[data-for="${tab}"]`)) {
+    spot.textContent = n ? String(n) : '';
+    spot.classList.toggle('wants', !!n && wants);
+  }
+  if (tab === 'sessions' && hamburger) {
+    hamburger.classList.toggle('wants', wants);
+    hamburger.classList.toggle('has', !!n);
+  }
   const link = nav.querySelector(`a[data-tab="${tab}"]`);
   if (!link) return;
   let badge = link.querySelector('.tally');
@@ -13114,6 +13176,7 @@ function translateMarkup() {
   applyRail();
   applySidebar();
   applyKeyBar();
+  applyBottomBar();
   countSessions();
   // Only after the first paint: the first answer sets the mark for "now" and rings
   // nothing, so this can never greet you with the morning's leftovers.
