@@ -3033,7 +3033,27 @@ async function mountPreview(host, path, ctl) {
   }
 
   const pre = el('pre', { className: `file ${prefs.wrap ? 'wrap' : 'nowrap'}`, textContent: text });
-  host.append(pre);
+
+  /* Numbers down the side, when you want them and they can be trusted.
+   *
+   *  Not counters on each line: a highlighted file is one run of HTML whose spans cross
+   *  lines — a block comment, a long string — and cutting it into per-line elements to hang
+   *  a counter on would break exactly those. So the numbers are their own column beside the
+   *  text, in the same scroller, stuck to the left so they stay put while the code slides
+   *  sideways under them.
+   *
+   *  And they are off while lines wrap, because then they would be lying: a wrapped line
+   *  takes two rows and the column would drift a row further out with every one of them.
+   */
+  const numbered = prefs.lineNums && !prefs.wrap && wanted !== 'markdown';
+  if (numbered) {
+    const lines = text.split('\n').length - (text.endsWith('\n') ? 1 : 0);
+    const gutter = el('div', { className: 'gutter', 'aria-hidden': 'true' });
+    gutter.textContent = Array.from({ length: Math.max(1, lines) }, (_, i) => i + 1).join('\n');
+    host.append(el('div', { className: 'codewrap' }, [gutter, pre]));
+  } else {
+    host.append(pre);
+  }
   if (wanted === 'code') colour(pre, text, path);
   ctl.wrapToggle?.(() => { pre.classList.toggle('wrap'); pre.classList.toggle('nowrap'); });
   if (truncated) ctl.toBottom?.();
@@ -4362,6 +4382,8 @@ async function screenSettings() {
     group(t('Documents')),
     toggle(t('Wrap long lines'), t('the default when previewing a text file'),
       () => prefs.wrap, (v) => { prefs.wrap = v; }),
+    toggle(t('Line numbers'), t('down the side of a file — off while lines wrap, where they would drift'),
+      () => !!prefs.lineNums, (v) => { prefs.lineNums = v; }),
     viewersRow(),
     /* Whose PDF viewer.
      *
