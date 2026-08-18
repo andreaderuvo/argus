@@ -296,7 +296,7 @@ button.icon,
 .tools button.ghost,
 button.winbtn,
 button.more,
-#keys button {
+#keybar button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -902,8 +902,17 @@ body.term { grid-template-rows: var(--bar) 1fr auto; }
 #termwrap.panning, .winbody.panning { overflow: auto; }
 #termwrap.panning .xterm-screen, .winbody.panning .xterm-screen { touch-action: pan-x pan-y; }
 
-#keys {
-  display: flex;
+/* The key bar under a session: Esc, Tab, the arrows and the control codes a touch keyboard
+   has no way to send. It belongs to the device, not to the taste: shown where the pointer is
+   coarse, and available anywhere from Settings for a laptop with a touchscreen or anyone who
+   simply wants it.
+
+   It spans the whole grid, because it is not a column. Left to place itself it asked for the
+   width of fifteen buttons — 860px, measured — and the terminal beside it got what was left,
+   which is the "the window opens at half width" that was reported. */
+#keybar {
+  display: none;
+  grid-column: 1 / -1;
   gap: .3rem;
   padding: .35rem .35rem calc(.35rem + var(--safe-b));
   background: var(--panel);
@@ -912,9 +921,13 @@ body.term { grid-template-rows: var(--bar) 1fr auto; }
   scrollbar-width: none;
 }
 
-#keys::-webkit-scrollbar { display: none; }
+@media (pointer: coarse) { body.term #keybar { display: flex; } }
+body.term.keysalways #keybar { display: flex; }
+body.term.keysnever #keybar { display: none; }
 
-#keys button {
+#keybar::-webkit-scrollbar { display: none; }
+
+#keybar button {
   flex: none;
   min-width: 42px;
   height: 40px;
@@ -926,7 +939,7 @@ body.term { grid-template-rows: var(--bar) 1fr auto; }
   font: 13px/1 ui-monospace, monospace;
 }
 
-#keys button:active, #keys button.on {
+#keybar button:active, #keybar button.on {
   background: var(--accent);
   color: var(--on-accent);
   border-color: var(--accent);
@@ -2248,8 +2261,9 @@ input.groupbox:focus { border-style: solid; border-color: var(--accent); color: 
 .msgpane .trayrow:hover .trayleaf { color: var(--bright); }
 
 /* A phone has no keyboard to take a shortcut with, and the header has no room for the
-   icon: measured, it was what pushed the bar past the width of the screen. */
-@media (max-width: 560px) { #keys { display: none; } }
+   icon: measured, it was what pushed the bar past the width of the screen. This is the
+   header's button — the bar under a terminal is `#keybar`, and used to share this id. */
+@media (max-width: 560px) { #bar #keys { display: none; } }
 
 /* Keys, and the list of them. */
 kbd {

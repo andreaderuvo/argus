@@ -811,6 +811,9 @@ const ICONS = {
   down: 'M12 4.5v14M18.5 12 12 18.5 5.5 12',
   // A circle, a stem and a dot: three subpaths in one string, the way `grip` does it.
   info: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0M12 11v5.5M12 7.6h.01',
+  // A piece with a knob and a socket: the arrangement that is yours rather than one of the
+  // three the machine cuts.
+  puzzle: 'M4.8 4.8h5.4a1.9 1.9 0 1 1 3.6 0h5.4v5.4a1.9 1.9 0 1 0 0 3.6v5.4H4.8z',
   home: 'M3.5 11 12 4l8.5 7M6 9.6V20h12V9.6',
   folderPlus: 'M3.5 6.8A1.8 1.8 0 0 1 5.3 5h3.4l1.8 2h8.2a1.8 1.8 0 0 1 1.8 1.8v8.4a1.8 1.8 0 0 1-1.8 1.8H5.3a1.8 1.8 0 0 1-1.8-1.8zM12 10.8v4.8M9.6 13.2h4.8',
   upload: 'M12 16.5v-12M7 9.5 12 4.5l5 5M4.5 19.5h15',
@@ -4277,6 +4280,17 @@ async function screenSettings() {
 
   wrap.append(
     group(t('Sessions')),
+    /* Where the key bar under a session shows up.
+     *
+     *  It sends Esc, Tab, the arrows and the control codes a touch keyboard cannot, so the
+     *  device decides by default: a coarse pointer gets it, a mouse does not. The other two
+     *  are for the cases a media query cannot see — a laptop with a touchscreen that you use
+     *  with the trackpad, and a tablet whose owner keeps a keyboard on it.
+     */
+    choice(t('Key bar under a session'), t('Esc, Tab, arrows and ^C — for a keyboard that has none of them'),
+      [t('when there is no keyboard'), t('always'), t('never')],
+      () => ({ auto: 0, always: 1, never: 2 })[prefs.keyBar || 'auto'],
+      (i) => { prefs.keyBar = ['auto', 'always', 'never'][i]; applyKeyBar(); }),
     // Not under Interruptions: this one is about what a window says, not about being told.
     whereWiringRow(),
   );
@@ -5381,6 +5395,12 @@ function applyRail() {
   if (panel) panel.textContent = t('File sidebar');
 }
 
+/** The key bar's two overrides, as classes on the body: the media query does the rest. */
+function applyKeyBar() {
+  document.body.classList.toggle('keysalways', prefs.keyBar === 'always');
+  document.body.classList.toggle('keysnever', prefs.keyBar === 'never');
+}
+
 function applySidebar() {
   document.body.classList.toggle('side', prefs.sidebar && !!token);
   if (prefs.sidebar && token) renderSidebar();
@@ -6390,7 +6410,15 @@ async function screenTerm(name) {
   decorateTerm(name);
 
   const wrap = el('div', { id: 'termwrap' });
-  const keys = el('div', { id: 'keys' });
+  /* `keybar`, not `keys`.
+   *
+   *  The header's shortcut button is `#keys` in index.html, and this bar carried the same id
+   *  — two elements, one name. Every `#keys` rule hit both, which is how the bar came to be
+   *  hidden below 560px by a line written to hide the *header icon* on a phone: the one
+   *  device the bar exists for. `getElementById` answered with whichever came first, and the
+   *  bug survived because that happened to be the one the header wanted.
+   */
+  const keys = el('div', { id: 'keybar' });
   view.append(wrap);
   // Before the nav, not after it: appended last it lands in a grid row below the
   // viewport, present in the DOM and invisible on the phone.
@@ -8765,7 +8793,10 @@ async function screenWall() {
   for (const [mode, glyph, label] of LAYOUTS) {
     const b = el('button', {
       className: 'winbtn wide',
-      title: `Arrange as ${label.toLowerCase()}`,
+      // The key is in the tooltip, where somebody wondering "is there a shortcut for this"
+      // already has the pointer. A list you have to open to learn a key is a list you open
+      // once and forget.
+      title: `${t('Arrange as {how}', { how: label.toLowerCase() })} · ${keyFor(mode === 'cols' ? 'cols' : mode)}`,
       onclick: () => applyLayout(mode),
     }, [icon(glyph), el('span', { textContent: label })]);
     b.dataset.mode = mode;
@@ -8789,7 +8820,7 @@ async function screenWall() {
   const mineBtn = el('button', {
     className: 'winbtn wide',
     onclick: () => restoreLayout(activeSpace()),
-  }, [icon('layers'), el('span', { textContent: t('Custom') }), el('i', { className: 'stamp', hidden: true })]);
+  }, [icon('puzzle'), el('span', { textContent: t('Custom') }), el('i', { className: 'stamp', hidden: true })]);
   mineBtn.dataset.mine = '1';
 
   const keepBtn = el('button', {
@@ -8828,11 +8859,11 @@ async function screenWall() {
     mineBtn.classList.toggle('on', !!wearing);
     mineBtn.classList.toggle('kept', !!kept && !wearing);
     mineBtn.querySelector('.stamp').hidden = !kept;
-    mineBtn.title = !kept
+    mineBtn.title = `${keyFor('mine')} · ` + (!kept
       ? t('Nothing saved on this desk yet — the button beside this one writes down how the windows are arranged')
       : wearing
         ? t('These are the windows as you kept them ({count})', { count: kept.order.length })
-        : t('Put the windows back where you saved them ({count})', { count: kept.order.length });
+        : t('Put the windows back where you saved them ({count})', { count: kept.order.length }));
 
     // Nothing to write down when what is on screen is already what is saved — and a button
     // that cannot change anything should not invite the press.
@@ -9488,10 +9519,10 @@ const KEYS = [
   { group: 'This desk', id: 'browser', name: 'New file browser in this desk', key: 'ctrl+shift+e' },
   { group: 'This desk', id: 'links', name: 'The link tray', key: 'ctrl+shift+l' },
   { group: 'This desk', id: 'messages', name: 'The prompts window', key: 'ctrl+shift+y' },
-  { group: 'This desk', id: 'grid', name: 'Arrange as a grid', key: 'ctrl+shift+g' },
-  { group: 'This desk', id: 'cols', name: 'Arrange as columns', key: 'ctrl+shift+k' },
-  { group: 'This desk', id: 'rows', name: 'Arrange as rows', key: 'ctrl+shift+j' },
-  { group: 'This desk', id: 'mine', name: 'Back to your own arrangement', key: 'ctrl+shift+u' },
+  { group: 'This desk', id: 'grid', name: 'Arrange as a grid', key: 'altgr+g' },
+  { group: 'This desk', id: 'cols', name: 'Arrange as columns', key: 'altgr+k' },
+  { group: 'This desk', id: 'rows', name: 'Arrange as rows', key: 'altgr+j' },
+  { group: 'This desk', id: 'mine', name: 'Back to your own arrangement', key: 'altgr+u' },
   { group: 'This desk', id: 'nextDesk', name: 'Next desk (or Ctrl+Shift+→)', key: 'ctrl+shift+]' },
   { group: 'This desk', id: 'prevDesk', name: 'Previous desk (or Ctrl+Shift+←)', key: 'ctrl+shift+[' },
 ];
@@ -9520,10 +9551,20 @@ const PHYSICAL = (code) => {
 
 function keyName(e) {
   const bits = [];
-  if (e.ctrlKey) bits.push('ctrl');
-  if (e.altKey) bits.push('alt');
+  /* AltGr is its own modifier here, and it has to be.
+   *
+   *  It is not the same key twice: on Linux it is ISO_Level3_Shift and arrives as
+   *  `AltGraph`; on Windows it *is* Ctrl+Alt, and a browser reports all three. Named by
+   *  ctrl+alt it would collide with the sidebar group on one platform and not the other, so
+   *  when AltGraph is set it is called `altgr` and the ctrl and alt it may have synthesised
+   *  are dropped — one name for one physical key, wherever it is pressed.
+   */
+  const graph = e.getModifierState?.('AltGraph');
+  if (graph) bits.push('altgr');
+  if (e.ctrlKey && !graph) bits.push('ctrl');
+  if (e.altKey && !graph) bits.push('alt');
   if (e.metaKey) bits.push('meta');
-  const held = e.ctrlKey || e.altKey || e.metaKey;
+  const held = e.ctrlKey || e.altKey || e.metaKey || graph;
   const physical = held ? PHYSICAL(e.code) : null;
   if (e.shiftKey && (physical || e.key.length > 1)) bits.push('shift');
   bits.push(physical || e.key);
@@ -9569,12 +9610,15 @@ function runKey(id) {
     messages: () => { go('#/wall'); press('prompt|messag'); },
     nextDesk: () => desk(1),
     prevDesk: () => desk(-1),
-    /* The arrangements, on the letters the browser has left.
+    /* The arrangements, on AltGr.
      *
-     *  C for columns and R for rows are the obvious ones and both are spoken for —
-     *  Ctrl+Shift+C is the element picker, Ctrl+Shift+R is a hard reload, and a shortcut
-     *  that reloads the page while you are arranging windows is worse than no shortcut.
-     *  So J and K, which is where a hand that has used vim already is.
+     *  A group of their own, because they are a different kind of thing from "go to the
+     *  sidebar" and "act on this desk": they change the shape of what you are looking at.
+     *  AltGr is free of the browser entirely — no Ctrl+letter of any combination is — and on
+     *  an Italian keyboard it is a key the hand already knows, since it is how you type @.
+     *
+     *  C for columns and R for rows would be the obvious letters and both are spoken for by
+     *  a browser in the Ctrl+Shift form, so J and K stay: where a vim hand already is.
      */
     grid: () => tile('grid'),
     cols: () => tile('cols'),
@@ -12650,6 +12694,7 @@ function translateMarkup() {
   await render();
   applyRail();
   applySidebar();
+  applyKeyBar();
   countSessions();
   // Only after the first paint: the first answer sets the mark for "now" and rings
   // nothing, so this can never greet you with the morning's leftovers.
