@@ -430,21 +430,36 @@ def create_app(cfg: Config) -> FastAPI:
 
     @app.get("/api/tmux/cwd", tags=["Sessions"], summary="The directory a session is really in")
     async def pane_directory(request: Request, session: str) -> dict:
-        """Where this session actually is.
+        """Where this session actually is, and how well that is known.
 
         Not the same thing as the folder a desk was given: that one decides where a file
         browser lands and what a hand-over sentence says, while this is the directory the
-        agent is really working in, set when the session was made. Telling the other agent
-        to look somewhere its counterpart never was is a whole round wasted.
+        work is really happening in. Telling the other agent to look somewhere its
+        counterpart never was is a whole round wasted.
+
+        `cwd_source` says where the answer came from, best first — `agent` (the program said
+        so, in the pane option `@argus_cwd`), `process` (read from the process that holds the
+        terminal), `tmux` (tmux's own observation), `start` (the directory the pane was made
+        in). `cwd_live` is false only for the last, which is history rather than news.
         """
         name = await _known(request, session)
-        sock = request.app.state.socket
-        cwd = await asyncio.to_thread(paths.pane_cwd, sock, name)
-        # And whether that directory is one that moves. A shell's does; an agent's does not,
-        # because an agent never chdir()s — so a browser can say "started in" rather than
-        # "is in", which is the true sentence for it.
-        kind = await asyncio.to_thread(paths.pane_kind, sock, name)
-        return {"session": name, "cwd": cwd, **kind}
+        found = await asyncio.to_thread(paths.pane_where, request.app.state.socket, name)
+        # Where the answer came from travels with it. A directory the agent declared, one
+        # read off the process holding the terminal, one tmux observed, and the one the pane
+        # was made in are four different degrees of true, and a browser that is told which
+        # can say the right sentence instead of a plausible one.
+        return {
+            "session": name,
+            "cwd": found["cwd"],
+            "cwd_source": found["source"],
+            "cwd_live": found["live"],
+            # Where the pane was made, always, and not as a fallback: a session dragged onto
+            # a desk keeps the folder it was born in, and that fact does not stop being true
+            # when a better answer exists. Both are shown, so neither has to stand for the
+            # other.
+            "started_in": found["began"],
+            "command": found["command"],
+        }
 
     @app.get("/api/tmux/copymode", tags=["Sessions"], summary="Is this session showing history rather than the live end")
     async def read_copy_mode(request: Request, session: str) -> dict:

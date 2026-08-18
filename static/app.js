@@ -6811,7 +6811,9 @@ async function screenWall() {
           .then((answer) => {
             if (!answer.cwd) return;
             where.dataset.cwd = answer.cwd;
-            where.dataset.moves = answer.moves ? '1' : '';
+            where.dataset.began = answer.started_in || '';
+            where.dataset.from = answer.cwd_source || '';
+            where.dataset.live = answer.cwd_live ? '1' : '';
             paintStray();
           })
           .catch(() => {});
@@ -7832,7 +7834,9 @@ async function screenWall() {
       if (!name) continue;
       try {
         const answer = await getJSON(`/api/tmux/cwd?session=${encodeURIComponent(name)}`);
-        chip.dataset.moves = answer.moves ? '1' : '';
+        chip.dataset.began = answer.started_in || '';
+        chip.dataset.from = answer.cwd_source || '';
+        chip.dataset.live = answer.cwd_live ? '1' : '';
         if (!answer.cwd || answer.cwd === chip.dataset.cwd) continue;
         chip.dataset.cwd = answer.cwd;
       } catch { /* a session that has gone keeps the last thing it said */ }
@@ -7843,43 +7847,50 @@ async function screenWall() {
   /** Re-read every terminal's folder against the desk it is on. Cheap, and called whenever
    *  either side of the comparison can have moved: a folder set, a desk switched to. */
   function paintStray() {
-    /* Green, amber, red — the three anybody already reads without being told.
+    /* Two facts, and neither has to stand for the other.
      *
-     *  It was dim-or-amber, and dim is not a statement: "it agrees" and "nothing has been
-     *  worked out yet" looked the same, which is the mistake the ↵ mark made in the prompts
-     *  and is worth not making twice. Green says the answer is in and it is fine. Red is not
-     *  a worse amber — it is a different sentence: tmux was asked and did not answer, so
-     *  nobody knows where that session is, and the chip says `?` rather than a folder,
-     *  because a status must never be the colour alone.
+     *  Where the session was *made* is what a desk cannot change about a session dragged onto
+     *  it, and it stays true for ever. Where the work is *now* is what a prompt full of
+     *  {folder} needs, and for a shell it moves with every `cd`. They are usually the same
+     *  and then one of them is enough; when they are not, the bar says `began › now`, which
+     *  is shorter than either sentence explaining it.
+     *
+     *  The colour is about the second one, because that is the one a prompt will act on.
+     *  Green agrees with the desk, amber does not, red is nobody knowing — and grey is an
+     *  answer that is not about now, which happens when neither the process nor tmux would
+     *  say and all that is left is where the pane was born.
      */
+    const leaf = (path) => path.split('/').pop() || path;
+    const FROM = {
+      agent: t('as the agent itself reports it'),
+      process: t('read from the process holding the terminal'),
+      tmux: t('as tmux sees it'),
+      start: t('where the pane was made — nothing newer could be found'),
+    };
     for (const chip of document.querySelectorAll('.wherechip')) {
       const ws = spaces.find((w) => String(w.id) === chip.dataset.ws);
       const here = chip.dataset.cwd;
+      const began = chip.dataset.began;
+      const live = chip.dataset.live === '1';
       const meant = ws ? deskHome(ws) : null;
-      const state = !here ? 'lost' : (!meant || here === meant) ? 'agrees' : 'astray';
-      chip.classList.toggle('agrees', state === 'agrees');
-      chip.classList.toggle('astray', state === 'astray');
-      chip.classList.toggle('lost', state === 'lost');
-      // `≠` on the odd one out, so the state survives being read in grey.
-      chip.textContent = here ? `${state === 'astray' ? '! ' : ''}${here.split('/').pop() || here}` : '?';
-      /* "is in" for a shell, "started in" for everything else.
-       *
-       *  A shell chdir()s when you `cd`, so its folder is where it is. An agent runs your
-       *  commands in children and never moves its own process, so its folder is where it
-       *  started — and it goes on saying that while the agent works somewhere else. Saying
-       *  "is in" there is a sentence that is not true, which is what was reported the moment
-       *  somebody changed folder inside an agent and watched the mark ignore it.
-       */
-      const moves = chip.dataset.moves === '1';
-      chip.title = state === 'lost'
-        ? t('tmux was asked where this session is and did not answer')
-        : state === 'agrees'
-          ? (moves
-            ? t('This session is in {path} — the folder the desk opens in', { path: here })
-            : t('This session started in {path}, which is the folder the desk opens in. What runs in it keeps its own idea of where it is working, and tmux cannot see that.', { path: here }))
-          : (moves
-            ? t('This session is in {path}, and the desk opens in {desk}.', { path: here, desk: meant })
-            : t('This session started in {path}, and the desk opens in {desk}. What runs in it keeps its own idea of where it is working, and tmux cannot see that.', { path: here, desk: meant }));
+      const state = !here ? 'lost' : !live ? 'old' : (!meant || here === meant) ? 'agrees' : 'astray';
+      for (const one of ['agrees', 'astray', 'lost', 'old']) chip.classList.toggle(one, state === one);
+
+      chip.textContent = !here ? '?'
+        : (began && began !== here ? `${leaf(began)} › ${leaf(here)}` : leaf(here));
+
+      const said = [];
+      if (began && began !== here) said.push(t('Started in {path}', { path: began }));
+      if (here) said.push(began && began !== here
+        ? t('now in {path} ({from})', { path: here, from: FROM[chip.dataset.from] || '?' })
+        : t('In {path} ({from})', { path: here, from: FROM[chip.dataset.from] || '?' }));
+      if (!here) said.push(t('tmux was asked where this session is and did not answer'));
+      else if (meant) {
+        said.push(here === meant
+          ? t('which is the folder the desk opens in')
+          : t('the desk opens in {desk}', { desk: meant }));
+      }
+      chip.title = said.join(' · ');
     }
   }
 

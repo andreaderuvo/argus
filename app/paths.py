@@ -18,6 +18,7 @@ import asyncio
 import os
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 from fastapi import APIRouter, Request
@@ -74,73 +75,143 @@ def trim(token: str) -> tuple[str, int | None]:
     return token, line
 
 
+# Where an answer came from, best first. The names travel to the browser, which uses them to
+# say the true sentence rather than a plausible one.
+#
+#   agent    the program itself said so, in the pane option `@argus_cwd`
+#   process  the process that holds the terminal, read from /proc/<pid>/cwd
+#   tmux     tmux's own `#{pane_current_path}`, which is an observation and says so
+#   start    the directory the pane was made in, which is history, not news
+FRESH = ("agent", "process", "tmux")
+
+
+def _say(sock: tmux.Socket, session: str, fmt: str) -> str:
+    try:
+        p = subprocess.run(
+            ["tmux", *sock.args(), "display-message", "-p", "-t", session, fmt],
+            capture_output=True, text=True, timeout=4,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return p.stdout.strip() if p.returncode == 0 else ""
+
+
+def foreground_pid(tty: str) -> int | None:
+    """The process that actually holds the terminal in this pane.
+
+    `pane_pid` is the pane's *first* process — usually the shell that launched whatever you
+    are looking at — so reading its directory answers a question about the wrong process.
+    The one with the terminal is the one whose process group is the terminal's foreground
+    group: `pgid == tpgid`, which `ps` will tell us for every process on that tty.
+
+    Measured, on a pane running `cd /tmp && sleep 300`:
+
+        3882697  614513 3882697 3882912 bash     <- the pane's pid, not in the fg group
+        3882912 3882697 3882912 3882912 sleep    <- pgid == tpgid, and its cwd is /tmp
+    """
+    name = tty.rsplit("/", 1)[-1]
+    if not name:
+        return None
+    try:
+        p = subprocess.run(
+            ["ps", "-t", name, "-o", "pid=,pgid=,tpgid="],
+            capture_output=True, text=True, timeout=4,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if p.returncode != 0:
+        return None
+    rows = []
+    for line in p.stdout.splitlines():
+        bits = line.split()
+        if len(bits) != 3 or not all(b.lstrip("-").isdigit() for b in bits):
+            continue
+        rows.append(tuple(int(b) for b in bits))
+    group = next((pgid for _pid, pgid, tpgid in rows if pgid == tpgid), None)
+    if group is None:
+        return None
+    return next((pid for pid, pgid, _t in rows if pgid == group), None)
+
+
+def process_cwd(pid: int) -> str | None:
+    """Where that process is, now.
+
+    Linux keeps it in `/proc/<pid>/cwd`, which is a readlink and costs nothing. macOS has no
+    `/proc` at all, so there it is `lsof`, which ships with the system and is slower but only
+    asked for one process. Anything else — and a process that is not ours, which the kernel
+    refuses either way — falls through, and the caller drops to what tmux says.
+    """
+    try:
+        where = os.readlink(f"/proc/{pid}/cwd")
+        return where if where.startswith("/") else None
+    except OSError:
+        pass
+    if sys.platform != "darwin":
+        return None
+    try:
+        p = subprocess.run(
+            ["lsof", "-a", "-p", str(pid), "-d", "cwd", "-Fn"],
+            capture_output=True, text=True, timeout=4,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if p.returncode != 0:
+        return None
+    # `-Fn` answers in fields, one per line: `p<pid>`, then `n<path>`.
+    for line in p.stdout.splitlines():
+        if line.startswith("n/"):
+            return line[1:]
+    return None
+
+
+def pane_where(sock: tmux.Socket, session: str) -> dict:
+    """Where a session is, and how well that is known.
+
+    Four answers, best first, because they are not equally good and pretending otherwise is
+    how a mark ends up believed and wrong:
+
+    1. **The agent said so.** `tmux set -p @argus_cwd /the/folder`, which a Claude Code
+       status line hook can write on every turn — it is handed `workspace.current_dir`, the
+       directory the agent *considers* current, which is a thing no amount of watching from
+       outside can derive.
+    2. **The process that holds the terminal.** Not the pane's first process — that is the
+       shell that launched the agent — but the one whose process group is the terminal's
+       foreground group, read straight from `/proc/<pid>/cwd`.
+    3. **What tmux says**, which is its own best effort and documented as such.
+    4. **Where the pane was made**, which is history rather than news, and is marked as not
+       live so that nothing downstream treats it as an answer about now.
+
+    The one thing none of these can do is follow an agent that runs `cd x && npm test` in a
+    child: the child moves, the agent does not, and there is no cwd inherited backwards. That
+    is exactly why (1) exists and why it wins.
+    """
+    line = _say(sock, session, "\t".join([
+        "#{pane_tty}", "#{pane_current_path}", "#{pane_current_command}",
+        "#{@argus_cwd}", "#{pane_start_path}",
+    ]))
+    bits = (line.split("\t") + [""] * 5)[:5]
+    tty, current, command, told, began = (b.strip() for b in bits)
+
+    answer = {"cwd": None, "source": None, "live": False, "command": command,
+              "began": began if began.startswith("/") else None}
+    if told.startswith("/"):
+        answer.update(cwd=told, source="agent")
+    else:
+        pid = foreground_pid(tty) if tty else None
+        seen = process_cwd(pid) if pid else None
+        if seen:
+            answer.update(cwd=seen, source="process")
+        elif current.startswith("/"):
+            answer.update(cwd=current, source="tmux")
+        elif began.startswith("/"):
+            answer.update(cwd=began, source="start")
+    answer["live"] = answer["source"] in FRESH
+    return answer
+
+
 def pane_cwd(sock: tmux.Socket, session: str) -> str | None:
-    """The working directory of the pane you are looking at.
-
-    Two answers, and the first one wins.
-
-    **What something told us**, in the pane option `@argus_cwd`. This exists because
-    `#{pane_current_path}` is the *process's* directory and nothing more: tmux reads
-    `/proc/<pid>/cwd` of whatever is running in the pane. A shell moves when you `cd`,
-    because a shell really does `chdir()`. An agent does not — Claude Code and Codex run
-    your commands in children and keep their own idea of where they are, so their process
-    stays exactly where it was started and tmux has nothing to see. Measured: a `claude`
-    started in `/tmp/agente-qui` reports that path from both `pane_current_path` and
-    `/proc/<pid>/cwd` no matter what it is working on.
-
-    So whatever *does* know can write it down::
-
-        tmux set -p @argus_cwd /the/folder
-
-    which a Claude Code `statusLine` hook can do on every turn, since it is handed the live
-    directory and inherits `$TMUX_PANE`.
-
-    **Otherwise the pane's own directory**, which is right for a shell and honest for
-    everything else.
-
-    Note the target has no `=` prefix: `display-message` answers nothing at all for the
-    exact-match form, which reads as "no such session" and is not.
-    """
-    def asked(fmt: str) -> str | None:
-        try:
-            p = subprocess.run(
-                ["tmux", *sock.args(), "display-message", "-p", "-t", session, fmt],
-                capture_output=True, text=True, timeout=4,
-            )
-        except (OSError, subprocess.SubprocessError):
-            return None
-        out = p.stdout.strip()
-        return out if p.returncode == 0 and out.startswith("/") else None
-
-    return asked("#{@argus_cwd}") or asked("#{pane_current_path}")
-
-
-# What a pane is running when it is running a shell. Anything else keeps its own idea of
-# where it is working, which is the difference between "is in" and "started in".
-SHELLS = {"bash", "zsh", "fish", "sh", "dash", "ksh", "tcsh", "csh", "nu", "elvish", "xonsh"}
-
-
-def pane_kind(sock: tmux.Socket, session: str) -> dict:
-    """Whether this pane's directory can be trusted to move, and why.
-
-    A shell chdir()s when you `cd`, so its directory is where it *is*. An agent runs your
-    commands in children and never moves its own process, so its directory is where it
-    *started* — a true statement and a different one, and saying the first when you mean
-    the second is how a mark ends up believed and wrong.
-    """
-    def asked(fmt: str) -> str:
-        try:
-            p = subprocess.run(
-                ["tmux", *sock.args(), "display-message", "-p", "-t", session, fmt],
-                capture_output=True, text=True, timeout=4,
-            )
-        except (OSError, subprocess.SubprocessError):
-            return ""
-        return p.stdout.strip() if p.returncode == 0 else ""
-
-    told = asked("#{@argus_cwd}").startswith("/")
-    command = asked("#{pane_current_command}")
-    return {"command": command, "told": told, "moves": told or command in SHELLS}
+    """Just the directory, for the callers that only want a path."""
+    return pane_where(sock, session)["cwd"]
 
 
 def expand(token: str, base: str | None) -> str | None:

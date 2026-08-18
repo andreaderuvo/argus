@@ -2794,3 +2794,7 @@ dialog.sheet:has(.promptmake) { width: min(38rem, calc(100vw - 2rem)); }
 .winbar .wherechip.agrees { color: color-mix(in srgb, var(--st-good) 78%, var(--dim)); }
 .winbar .wherechip.astray { color: var(--st-warning); }
 .winbar .wherechip.lost { color: var(--st-critical); min-width: 1.2rem; text-align: center; }
+/* An answer that is not about now — the pane's birthplace, when neither the process nor tmux
+   would say. Grey on purpose: it is not a warning, it is an absence of news. */
+.winbar .wherechip.old { color: var(--dim); font-style: italic; }
+.winbar .wherechip { max-width: 14rem; }
