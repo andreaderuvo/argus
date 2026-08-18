@@ -1518,6 +1518,15 @@ video.scanner { width: 100%; border-radius: .6rem; background: #000; aspect-rati
   --st-critical: #d03b3b;
 }
 
+/* The row over the readings: read it again, how old this one is, and how often to ask. */
+.vitalbar {
+  display: flex; align-items: center; gap: .5rem; flex-wrap: wrap;
+  margin-bottom: .7rem;
+}
+.vitalbar .meta { color: var(--dim); font-size: .78rem; }
+.vitalbar .grow { flex: 1 1 auto; }
+.vitalbar .setjump { margin: 0; gap: .25rem; }
+.vitalbar .chip { padding: .1rem .5rem; font-size: .75rem; }
 .vitals { padding: .8rem .8rem 2rem; }
 
 .hero {

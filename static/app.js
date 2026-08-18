@@ -3332,6 +3332,39 @@ async function screenSystem() {
    *  moved into place rather than replaced — appending an element that is already in the
    *  document moves it, and moving does not flash.
    */
+  /* How often it reads, and who decides.
+   *
+   *  Four seconds was the only answer, and it is the right one while you are watching a job
+   *  eat a disk. It is the wrong one for a screen left open on a second monitor all day, and
+   *  wrong again for somebody on a metered connection who wants to look when they look. So
+   *  it is a choice, on the screen it governs rather than three menus away, and it is
+   *  remembered.
+   */
+  const BEATS = [
+    { key: 4000, label: t('4s') },
+    { key: 15000, label: t('15s') },
+    { key: 60000, label: t('1m') },
+    { key: 300000, label: t('5m') },
+    { key: 0, label: t('manual') },
+  ];
+  const beatNow = () => {
+    const want = Number(prefs.systemEvery);
+    return BEATS.some((b) => b.key === want) ? want : 4000;
+  };
+  let timer = null;
+  let readAt = 0;
+
+  const said = el('span', { className: 'meta' });
+  const again = el('button', { className: 'winbtn', title: t('Read it again now') }, icon('refresh'));
+  const beats = el('div', { className: 'jbar setjump' });
+  const bar = el('div', { className: 'vitalbar' }, [
+    again,
+    said,
+    el('span', { className: 'grow' }),
+    el('span', { className: 'meta', textContent: t('every') }),
+    beats,
+  ]);
+
   const heroNum = el('div', { className: 'heronum' });
   const heroState = el('span', { className: 'state' });
   const heroWhat = el('span');
@@ -3348,7 +3381,7 @@ async function screenSystem() {
   const trouble = el('p', { className: 'error', hidden: true });
 
   const ports = portsSection();
-  body.append(trouble, hero, grid, ports, procs);
+  body.append(bar, trouble, hero, grid, ports, procs);
 
   const tiles = new Map();
   const rows = [];
@@ -3442,18 +3475,58 @@ async function screenSystem() {
   const tick = async () => {
     try {
       paint(await getJSON('/api/system'));
+      readAt = Date.now();
       trouble.hidden = true;
     } catch (e) {
       // The reading that failed is not a reason to take away the last one that worked.
       write(trouble, e.message);
       trouble.hidden = false;
     }
+    sayWhen();
   };
-  await tick();
 
-  // Poll only while the screen is actually in front of someone.
-  const timer = setInterval(() => { if (!document.hidden) tick(); }, 4000);
-  leaving = () => { clearInterval(timer); ports.stop?.(); };
+  // "read 12s ago" matters most when it is not being read often: on manual, it is the only
+  // thing telling you how old the numbers in front of you are.
+  function sayWhen() {
+    const age = readAt ? Math.round((Date.now() - readAt) / 1000) : null;
+    write(said, age === null ? t('not read yet')
+      : age < 2 ? t('just now') : t('read {age}s ago', { age }));
+  }
+
+  // Only while the screen is actually in front of someone. A tab in the background reads
+  // nothing, whatever the interval says, and reads once the moment it comes back.
+  function setBeat() {
+    clearInterval(timer);
+    timer = null;
+    const every = beatNow();
+    for (const chip of beats.children) chip.classList.toggle('on', Number(chip.dataset.every) === every);
+    if (every) timer = setInterval(() => { if (!document.hidden) tick(); }, every);
+  }
+
+  for (const one of BEATS) {
+    const chip = el('button', { className: 'chip', type: 'button', textContent: one.label });
+    chip.dataset.every = String(one.key);
+    chip.onclick = () => {
+      prefs.systemEvery = one.key;
+      savePrefs();
+      setBeat();
+      if (one.key) tick();
+    };
+    beats.append(chip);
+  }
+  again.onclick = () => tick();
+
+  await tick();
+  setBeat();
+  const ageing = setInterval(sayWhen, 1000);
+  const wake = () => { if (!document.hidden && beatNow()) tick(); };
+  document.addEventListener('visibilitychange', wake);
+  leaving = () => {
+    clearInterval(timer);
+    clearInterval(ageing);
+    document.removeEventListener('visibilitychange', wake);
+    ports.stop?.();
+  };
 }
 
 /** The token is 64 hex characters. Nobody should ever type that on a phone, and the
@@ -5898,6 +5971,14 @@ function attachTerminal(container, name, { transform, onGone, onPath, onLinks, m
   // typing `{name}` anyway; the switch in Settings is for anyone who disagrees.
   const expandable = () => prefs.typedVars !== false;
 
+  /** What a placeholder typed in here can be filled from: the desk you are on, and then
+   *  your sets over the top of it. Read at the moment of typing rather than kept, because
+   *  a desk's folder can be changed while a session is open. */
+  const hereAndNow = () => {
+    const ws = currentSpace();
+    return { ...situationOf(deskHome(ws)), ...allVars(ws.id) };
+  };
+
   /** Placeholders in what you type into the session itself.
    *
    *  Here the text is yours, not a template of ours, and `{...}` already means something
@@ -5915,7 +5996,7 @@ function attachTerminal(container, name, { transform, onGone, onPath, onLinks, m
     if (!expandable() || d.length < m.open.length + m.close.length + 1 || !d.includes(m.open)) return null;
     let changed = false;
     const out = d.replace(markRe(), (whole, name) => {
-      const value = valueFor(name, { ...allVars(currentSpace().id) });
+      const value = valueFor(name, hereAndNow());
       if (value === undefined || value === '') return whole;
       changed = true;
       return value;
@@ -5943,7 +6024,7 @@ function attachTerminal(container, name, { transform, onGone, onPath, onLinks, m
     if (!recent.endsWith(mark().close)) return null;
     const hit = recent.match(markRe(true));
     if (!hit) return null;
-    const value = valueFor(hit[1], { ...allVars(currentSpace().id) });
+    const value = valueFor(hit[1], hereAndNow());
     if (value === undefined || value === '') return null;
     recent = recent.slice(0, -hit[0].length) + value;
     return { erase: hit[0].length, value };
@@ -6929,6 +7010,7 @@ async function screenWall() {
       prefs.wsSeq = id;
       const ws = { id, name: `Desk ${spaces.length + 1}`, desktop: [] };
       spaces.push(ws);
+      ownSetFor(ws);
       relocate(spec, fromWs, ws, entry, duplicate);
       activate(id);
     };
@@ -6962,6 +7044,7 @@ async function screenWall() {
     let sheet;
     const apply = (path) => {
       ws.home = path;
+      noteDeskFolder(ws);
       savePrefs();
       sayWhereBrowsersOpen();
       // Say the real folder, not the placeholder: "starts in {folder}" tells you nothing
@@ -7430,7 +7513,23 @@ async function screenWall() {
 
       const rename = async () => {
         const name = await ask(t('Rename workspace'), ws.name, t('Rename'));
-        if (name) { ws.name = name; savePrefs(); drawTabs(); }
+        if (!name || name === ws.name) return;
+        /* The set follows the desk, when the set is the desk's own.
+         *
+         *  Only when it still carries the old name and nobody else is on it: a set you
+         *  renamed yourself, or one two desks share, is yours and is left alone.
+         */
+        const mine = deskSetName(ws.id);
+        const alone = (prefs.workspaces || [])
+          .filter((other) => other.id !== ws.id && deskSetName(other.id) === mine).length === 0;
+        if (mine === ws.name && alone && !varSetNamed(name)) {
+          varSetNamed(mine).name = name;
+          chooseDeskSet(ws.id, name);
+        }
+        ws.name = name;
+        savePrefs();
+        drawTabs();
+        messagesChanged();
       };
       const shut = async () => {
         if (spaces.length < 2) return toast(t('the last workspace stays'), true);
@@ -7479,7 +7578,9 @@ async function screenWall() {
     add.onclick = async () => {
       const id = (prefs.wsSeq || spaces.length) + 1;
       prefs.wsSeq = id;
-      spaces.push({ id, name: `Desk ${spaces.length + 1}`, desktop: [] });
+      const born = { id, name: `Desk ${spaces.length + 1}`, desktop: [] };
+      spaces.push(born);
+      ownSetFor(born);
       savePrefs();
       activate(id);
       // A new desk is made *to hold* something, so the question comes straight away
@@ -10015,6 +10116,44 @@ function deskSetName(wsId) {
   return chosen && varSetNamed(chosen) ? chosen : GROUND;
 }
 
+/** Give a desk a set of placeholders of its own, named after the desk.
+ *
+ *  A desk is where you say "this one is about *that*", and a set is where you say what
+ *  *that* is worth. Keeping them apart meant every new desk started by asking you to invent
+ *  a set, name it the same thing, and choose it — three steps to arrive at the arrangement
+ *  everybody was going to arrive at anyway.
+ *
+ *  A set of that name already there is used rather than duplicated: two desks called the
+ *  same thing meaning the same thing is what a shared name says.
+ */
+function ownSetFor(ws) {
+  if (!ws) return GROUND;
+  const named = varSetNamed(ws.name);
+  if (!named) varSets().push({ name: ws.name, vars: {} });
+  chooseDeskSet(ws.id, ws.name);
+  return ws.name;
+}
+
+/** Write the desk's folder into the desk's own set, where you can see and change it.
+ *
+ *  `{folder}` resolves to the desk's folder anyway — that is a default the situation fills
+ *  in — but a default is invisible: it is not on the Placeholders screen, so there is
+ *  nothing to read and nothing to edit, and "why is this empty" is a fair question. Setting
+ *  the folder writes it down, into the desk's own set rather than the ground truth, because
+ *  a folder is the one placeholder that is never about every desk at once.
+ */
+function noteDeskFolder(ws) {
+  if (!ws) return;
+  const set = varSetNamed(deskSetName(ws.id) === GROUND ? ownSetFor(ws) : deskSetName(ws.id));
+  if (!set) return;
+  if (!ws.home) delete set.vars.folder;
+  // The resolved path, never the raw setting: what is stored may itself be written with
+  // placeholders, and a `folder` that contains `{folder}` is a question with no answer.
+  else set.vars.folder = deskHome(ws);
+  savePrefs();
+  messagesChanged();
+}
+
 function chooseDeskSet(wsId, name) {
   prefs.deskSet = prefs.deskSet || {};
   if (name === GROUND) delete prefs.deskSet[wsId];
@@ -10419,6 +10558,28 @@ const SITUATIONAL = {
   folder: '.', from: '?', to: '?', plan: '?', bridge: '?', every: '?', limit: '?', tries: '?',
 };
 
+/** What the situation itself fills in, for a desk pointed at a folder.
+ *
+ *  One function so that a name means the same thing wherever it is written. It was two:
+ *  a prompt sent from the desk knew that `{folder}` is the folder the desk opens in, and
+ *  the same placeholder typed straight into a session knew nothing at all — it was resolved
+ *  against your placeholder sets alone, so `{{folder}}` on a desk pointed at a project came
+ *  out as the literal text `{{folder}}` unless you had also written the path into a set by
+ *  hand, which is the thing the desk's own setting was supposed to save you.
+ *
+ *  Defaults, not reserved words: whatever this returns is spread *under* your sets, so a
+ *  `folder` you define yourself still wins.
+ */
+const situationOf = (folder) => ({
+  folder,
+  plan: planPath(folder),
+  bridge: bridgePath(folder),
+  every: saidAs(pairEvery(), 'second'),
+  limit: saidAs(pairLimit(), 'minute'),
+  // A count, not a duration: "after 10 reads" already says what it counts.
+  tries: pairTries(),
+});
+
 const varsIn = (text) => {
   const names = [];
   for (const m of [...text.matchAll(/\{\{?([\w.-]+)\}?\}/g), ...text.matchAll(markRe())]) {
@@ -10465,20 +10626,15 @@ function attachMessages(host, wsId, extras, deliver) {
    *  the list arrives everywhere at once.
    */
   const situationFor = (target, folder) => {
-    const here = folder || deliver.folder();
     const from = target ? senderFor(target) : null;
     return {
-      folder: here,
+      // The plan and the bridge belong to the desk, not to whichever pane is sending: that
+      // is where the pair sheet wrote them and where the note reads them from — so they are
+      // built from the desk's folder even when this call is about another one.
+      ...situationOf(deliver.folder()),
+      folder: folder || deliver.folder(),
       from: from?.name.slice(5) || '?',
       to: target?.name.slice(5) || '?',
-      // The plan and the bridge belong to the desk, not to whichever pane is sending: that
-      // is where the pair sheet wrote them and where the note reads them from.
-      plan: planPath(deliver.folder()),
-      bridge: bridgePath(deliver.folder()),
-      every: saidAs(pairEvery(), 'second'),
-      limit: saidAs(pairLimit(), 'minute'),
-      // A count, not a duration: "after 10 reads" already says what it counts.
-      tries: pairTries(),
     };
   };
 
@@ -11485,6 +11641,7 @@ function chooseDesk(spec, label) {
       prefs.wsSeq = id;
       const ws = { id, name: `Desk ${spaces.length + 1}`, desktop: [] };
       spaces.push(ws);
+      ownSetFor(ws);
       placeIn(ws, spec);
     },
   }, [icon('folderPlus'), el('span', { textContent: t('A new workspace') })]));
