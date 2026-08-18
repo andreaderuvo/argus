@@ -8692,11 +8692,22 @@ function reorderFolder(item, list, onDone) {
       window.removeEventListener('pointerup', up);
       window.removeEventListener('pointercancel', up);
       if (!dragging) return;
-      tab.classList.remove('tabdrag');
-      // The click that follows a drag is not a click on the tab: it must not switch desk.
-      tab.dataset.dragged = '1';
-      setTimeout(() => { delete tab.dataset.dragged; }, 0);
-      if (moves) onDone();
+      /* Down onto its place rather than snapping.
+       *
+       *  This handler was the tab reorderer's, left in place when the folder version was
+       *  written around it: it still spoke of `tab`, which does not exist here, so letting go
+       *  threw a ReferenceError before anything could be put back. That is why an item
+       *  dropped in the window stayed exactly where the pointer left it — not a missing
+       *  animation, an exception.
+       */
+      item.style.transition = 'transform .16s ease';
+      item.style.transform = '';
+      setTimeout(() => {
+        item.style.transition = '';
+        item.style.transform = '';
+        item.classList.remove('folderdrag');
+      }, 170);
+      if (moved) onDone();
     };
 
     // On window, not on the tab, and no setPointerCapture: reordering *removes* the tab
