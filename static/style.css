@@ -2000,12 +2000,17 @@ textarea.baton {
    bottom right, which is exactly where this handle went and why nobody could find it. */
 .msgcard > summary .dragrip,
 .folder > summary .dragrip {
-  flex: none; display: inline-flex; align-items: center;
-  cursor: grab; color: var(--dim); padding: 0 .1rem; user-select: none;
+  flex: none; display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: .3rem;
+  cursor: grab; color: var(--text); user-select: none;
 }
+/* Six dots at thirteen pixels in the dim colour came out as a smudge you had to know was
+   there. Bigger, thicker, and in the ordinary text colour: a handle nobody can see is a
+   handle nobody has, which is three attempts' worth of evidence by now. */
 .msgcard > summary .dragrip .ico,
-.folder > summary .dragrip .ico { width: 13px; height: 13px; }
-.msgcard > summary .dragrip:hover, .folder > summary .dragrip:hover { color: var(--accent); }
+.folder > summary .dragrip .ico { width: 15px; height: 15px; stroke-width: 3.4; }
+.msgcard > summary .dragrip:hover,
+.folder > summary .dragrip:hover { color: var(--accent); background: var(--line); }
 .folder.folderdrag > summary .dragrip, .msgcard.folderdrag > summary .dragrip { cursor: grabbing; }
 .msgcard.folderdrag { opacity: .8; background: var(--panel); }
 .folder.folderdrag { opacity: .8; box-shadow: 0 10px 26px rgb(0 0 0 / .45); }
