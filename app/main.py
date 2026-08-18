@@ -126,7 +126,8 @@ async def overview_of(app: FastAPI, watcher: dict | None = None) -> dict:
     Deliberately cheap: no CPU sampling window, no `nvidia-smi`, no process list. Load
     average says as much about a busy machine as a 120ms CPU sample does and costs nothing
     to read, which matters when several boards ask several machines every few seconds.
-    Everything here is a read of /proc plus one `tmux list-sessions`.
+    Everything here is a read of /proc plus two tmux calls: the sessions, and what the
+    agents in them have declared about themselves.
     """
     cfg = app.state.cfg
     cores = os.cpu_count() or 1
@@ -160,6 +161,20 @@ async def overview_of(app: FastAPI, watcher: dict | None = None) -> dict:
         # A board asking about a machine whose tmux server is not running should see the
         # machine, with no sessions, rather than an error.
         sessions = []
+
+    # And what the agents in them have said about themselves. One `list-panes` for the whole
+    # server, so a machine with forty sessions costs a board what a machine with two does —
+    # and nothing at all is inferred here: a session says `claude` because a hook wrote it,
+    # never because a process tree looked like one. Guessing is for the window in front of
+    # somebody, not for a tile on a wall.
+    try:
+        said = await asyncio.to_thread(tmux.declared, app.state.socket)
+    except Exception:
+        said = {}
+    for one in sessions:
+        told = said.get(one["name"])
+        if told:
+            one.update(told)
 
     # What has rung and not been collected: the reason to look at this machine rather than
     # another one.
@@ -205,6 +220,11 @@ async def overview_of(app: FastAPI, watcher: dict | None = None) -> dict:
                 "windows": s.get("windows", 1),
                 "attached": bool(s.get("attached")),
                 "bell": ringing.get(s["name"]),
+                # Only when something said so. A key per session that is null on every
+                # machine where nobody has wired the hook is a payload paying for a feature
+                # it is not using, and a board sweeps this every few seconds.
+                **({"agent": s["agent"]} if s.get("agent") else {}),
+                **({"model": s["model"]} if s.get("model") else {}),
             }
             for s in sessions
         ],

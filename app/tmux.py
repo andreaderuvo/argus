@@ -105,6 +105,42 @@ def list_sessions(sock: Socket) -> list[dict]:
     return parse_sessions(p.stdout)
 
 
+def declared(sock: Socket) -> dict[str, dict]:
+    """What the agents on this machine have said about themselves, by session.
+
+    `@argus_agent` and `@argus_model` are pane options — written by a hook that knows, since
+    nothing outside an agent can work either of them out — and this is one `list-panes` for
+    the whole server rather than a question per session. A board sweeping ten machines every
+    few seconds is the reason: the answer has to cost the same whether a machine has two
+    sessions or forty.
+
+    Session options are not consulted on purpose. A pane says what is in *that* pane, and a
+    session with two of them holding two different agents should not be made to pick one.
+    """
+    try:
+        p = subprocess.run(
+            ["tmux", *sock.args(), "list-panes", "-a", "-F",
+             "#{session_name}\t#{@argus_agent}\t#{@argus_model}"],
+            capture_output=True, text=True, timeout=4,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return {}
+    if p.returncode != 0:
+        return {}
+    said = {}
+    for line in p.stdout.splitlines():
+        parts = line.rsplit("\t", 2)
+        if len(parts) != 3:
+            continue
+        name, agent, model = (bit.strip() for bit in parts)
+        if not name or (not agent and not model):
+            continue
+        # The first pane that says anything wins: a second one answering differently is a
+        # split with two agents in it, and the tile has room for one word.
+        said.setdefault(name, {"agent": agent or None, "model": model or None})
+    return said
+
+
 class BadName(Exception):
     """The name cannot be used as a tmux target."""
 
