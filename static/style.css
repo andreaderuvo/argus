@@ -2022,6 +2022,17 @@ button.winbtn.done, button.winbtn.done:hover { color: var(--st-good); border-col
    fill, so "there is a layout kept here" and "you are in it" are told apart at a glance. */
 button.winbtn.kept { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); color: var(--bright); }
 button.winbtn:disabled { opacity: .4; cursor: default; }
+/* Saving lives inside the Custom control as a smaller button: narrower, no label, and the
+   divider between them is what says the two belong to one thing. */
+.btnset > button.winbtn[data-keep] { padding: 0 .45rem; }
+/* "There is something saved on this desk" — the one question the old pair could not answer
+   without being pressed. A dot on the corner, present whether or not you are wearing it. */
+button.winbtn { position: relative; }
+button.winbtn > .stamp {
+  position: absolute; top: 3px; right: 3px; width: 5px; height: 5px;
+  border-radius: 50%; background: var(--accent);
+}
+button.winbtn.on > .stamp { background: var(--bg); }
 button.winbtn:disabled:hover { background: none; color: var(--text); }
 .msgpane .dragrip { width: 20px; height: 20px; }
 .folder.folderdrag > summary .dragrip, .msgcard.folderdrag > summary .dragrip { cursor: grabbing; }

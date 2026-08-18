@@ -8234,63 +8234,73 @@ async function screenWall() {
 
   /* The arrangement that is yours, at the end of the row of the ones the machine picks.
    *
-   *  Two buttons and not one. A single button that saved the first time and restored ever
-   *  after left no way to save again short of a menu, which is a menu nobody finds when
-   *  their hand is already on the toolbar. Two named actions, side by side, each doing one
-   *  thing every time: Keep writes down what is on screen, Mine puts it back.
+   *  It was two buttons, Keep and Mine — one wrote down what was on screen, the other put it
+   *  back. Side by side they read as two equals, and equals raise a question the toolbar then
+   *  could not answer: press Grid, then Keep, and Grid is still lit while the thing you just
+   *  saved is somewhere behind a button that looks the same as it did a moment ago.
+   *
+   *  So there is one arrangement here, **Custom**, which behaves exactly like Grid and Rows
+   *  beside it — press it and you are in it, and it is lit while you are. Saving is a smaller
+   *  button held inside the same control, because saving is not a fourth way to arrange a
+   *  desk; it is something you do *to* this one. A dot on the corner says there is something
+   *  saved here at all, which is the question you ask from across the room.
    */
-  const keepBtn = el('button', {
+  const mineBtn = el('button', {
     className: 'winbtn wide',
+    onclick: () => restoreLayout(activeSpace()),
+  }, [icon('layers'), el('span', { textContent: t('Custom') }), el('i', { className: 'stamp', hidden: true })]);
+  mineBtn.dataset.mine = '1';
+
+  const keepBtn = el('button', {
+    className: 'winbtn',
     onclick: () => {
       keepLayout(activeSpace());
       // A tick for a moment, like the copied path. Saving an arrangement changes nothing on
       // screen — that is the point of it — so without a mark the button looks broken, and
       // was reported as broken.
-      const was = [...keepBtn.childNodes];
-      keepBtn.replaceChildren(icon('tick'), el('span', { textContent: t('Kept') }));
+      keepBtn.replaceChildren(icon('tick'));
       keepBtn.classList.add('done');
-      setTimeout(() => { keepBtn.replaceChildren(...was); keepBtn.classList.remove('done'); }, 1400);
+      setTimeout(() => { keepBtn.replaceChildren(icon('save')); keepBtn.classList.remove('done'); paintLayoutButton(); }, 1400);
     },
-  }, [icon('save'), el('span', { textContent: t('Keep') })]);
+  }, [icon('save')]);
   keepBtn.dataset.keep = '1';
 
-  const mineBtn = el('button', {
-    className: 'winbtn wide',
-    onclick: () => restoreLayout(activeSpace()),
-  }, [icon('layers'), el('span', { textContent: t('Mine') })]);
-  mineBtn.dataset.mine = '1';
-
   // Ruled together into one control rather than dropped side by side in a row of flat
-  // buttons, where they read as two unrelated things — reported. They are two halves of
-  // the same idea, and the outline and the divider say so. Same treatment as the tiling
-  // controls beside them, which is what makes the pair of groups read as one answer.
-  tools.append(el('div', { className: 'btnset' }, [keepBtn, mineBtn]));
+  // buttons, where they read as two unrelated things — reported. Same treatment as the
+  // tiling controls beside them, which is what makes the two groups read as one answer.
+  tools.append(el('div', { className: 'btnset' }, [mineBtn, keepBtn]));
 
   paintLayoutButton = () => {
     const ws = activeSpace();
     const kept = savedLayout(ws);
     const wearing = kept && wearingKept(ws);
 
-    keepBtn.title = kept
-      ? t('Save this arrangement over the one you kept ({count})', { count: kept.order.length })
-      : t('Remember how the windows are arranged now');
-
-    /* Mine is always there, and says which of three things is true.
+    /* Custom says which of three things is true.
      *
-     *  Nothing kept: dimmed, and it says what to press. Kept but you have moved on: available,
-     *  with a mark that there is something behind it. Kept and you are in it: lit, the same
-     *  way Grid says "you are in a grid" — which is also what makes Keep visibly *do*
-     *  something, since the moment it saves, Mine lights and the tiling button goes out.
+     *  Nothing saved: dimmed, with nothing to go back to, and it says which button changes
+     *  that. Saved but you have moved on: available, wearing the dot. Saved and you are in
+     *  it: lit, the way Grid says "you are in a grid" — which is also what makes saving
+     *  visibly *do* something, since the moment it saves, Custom lights and the tiling
+     *  button goes out.
      */
-    mineBtn.hidden = false;
     mineBtn.disabled = !kept;
     mineBtn.classList.toggle('on', !!wearing);
     mineBtn.classList.toggle('kept', !!kept && !wearing);
+    mineBtn.querySelector('.stamp').hidden = !kept;
     mineBtn.title = !kept
-      ? t('Nothing kept on this desk yet — Keep writes down how the windows are arranged')
+      ? t('Nothing saved on this desk yet — the button beside this one writes down how the windows are arranged')
       : wearing
         ? t('These are the windows as you kept them ({count})', { count: kept.order.length })
         : t('Put the windows back where you saved them ({count})', { count: kept.order.length });
+
+    // Nothing to write down when what is on screen is already what is saved — and a button
+    // that cannot change anything should not invite the press.
+    keepBtn.disabled = !!wearing;
+    keepBtn.title = !kept
+      ? t('Remember how the windows are arranged now')
+      : wearing
+        ? t('Already saved, exactly as it is')
+        : t('Save this arrangement over the one you kept ({count})', { count: kept.order.length });
 
     // Two claims of "this is the arrangement you are in" would be one too many.
     if (wearing) for (const b of tools.querySelectorAll('button[data-mode]')) b.classList.remove('on');
