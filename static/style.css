@@ -533,14 +533,16 @@ input.sheetfind { width: 100%; margin: .2rem 0 .5rem; }
    than picked out of a sentence. Each value is elided on its own line; the whole lot is
    in the row's tooltip as well. */
 .msgentry { display: block; }
-/* "This one presses Enter", beside the name rather than against the far edge, and lit only
-   when it is true. Dim means the prompt is put in and left for you. */
+/* "This one presses Enter", beside the name. A label: no hover, no pointer, nothing to
+   press — hovering something that does not respond is a promise the interface will not keep.
+   Lit when it is true, dim when it is not, and always drawn, because a mark that appears only
+   when true makes "it will not send" indistinguishable from "you cannot tell". */
 .msgpane .runs {
-  flex: none; width: 26px; height: 26px; font-size: .82rem; line-height: 1;
-  color: var(--dim); opacity: 1;
+  flex: none; display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; font-size: .82rem; line-height: 1; color: var(--line-strong, #39414f);
+  cursor: default; user-select: none;
 }
 .msgpane .runs.on { color: var(--accent); font-weight: 700; }
-.msgpane .runs:hover { color: var(--bright); }
 .msgpane .trayrow { flex: 0 1 auto; }
 /* The chevron that opens a prompt's values. Quiet, and turned when it is open — the same
    thing every disclosure control does, so nobody has to be told. */
@@ -1793,10 +1795,15 @@ button.toend.fresh::after {
 .traylist { flex: 1; overflow-y: auto; padding: .3rem; display: flex; flex-direction: column; gap: .12rem; }
 .traylist .empty { padding: .8rem; color: var(--dim); }
 .trayline { display: flex; align-items: stretch; gap: .15rem; }
-.trayline .winbtn { flex: none; opacity: 0; }
+/* Buttons in a row keep out of the way until the pointer is on it — but only the ones that
+   *do* something. The two that say what a row *is* — whether it presses Enter, whether it
+   has more under it — are state, and state hidden until you hover is state nobody has. This
+   was the actual reason those two icons were invisible; their colour was never the problem. */
+.trayline .winbtn:not(.twist) { flex: none; opacity: 0; }
+.trayline .winbtn.twist { flex: none; opacity: 1; }
 .trayline:hover .winbtn, .trayline:focus-within .winbtn { opacity: 1; }
 /* No hover on a phone: a button that only appears on hover never appears at all. */
-@media (hover: none) { .trayline .winbtn { opacity: .7; } }
+@media (hover: none) { .trayline .winbtn { opacity: .85; } }
 button.trayrow {
   flex: 1;
   min-width: 0;
