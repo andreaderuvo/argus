@@ -999,10 +999,25 @@ dialog.sheet h2 {
   font-size: .95rem;
   color: var(--bright);
   border-bottom: 1px solid var(--line);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
 }
+dialog.sheet h2 > .grow { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The cross, where every window keeps it. Quiet until the pointer is on it — it is not the
+   thing anybody came to the sheet to press. */
+.sheetx {
+  flex: none; margin: -.35rem -.4rem -.35rem 0;
+  width: 1.7rem; height: 1.7rem; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid transparent; border-radius: .35rem;
+  background: none; color: var(--dim); cursor: pointer;
+}
+.sheetx:hover { color: var(--bright); background: var(--line); }
+.sheetx:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.sheetx .ico { width: 15px; height: 15px; }
+/* A thumb needs more than a pointer does. */
+@media (pointer: coarse) { .sheetx { width: 2.2rem; height: 2.2rem; } }
 
 .sheetbody { padding: .9rem 1rem; }
 .sheetbody p { margin: 0; line-height: 1.5; }

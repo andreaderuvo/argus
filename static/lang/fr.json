@@ -72,7 +72,7 @@
   "Create it": "La créer",
   "Create it?": "La créer ?",
   "Ctrl": "Ctrl",
-  "Ctrl+Alt reaches the sidebar, Ctrl+Shift works on the desk you are on, and Ctrl+Shift+1…9 (or Alt+1…9) goes to a desk by its number.": "Ctrl+Alt atteint la barre latérale, Ctrl+Maj agit sur le bureau où vous êtes, et Ctrl+Maj+1…9 (ou Alt+1…9) va à un bureau par son numéro.",
+  "Ctrl+Alt reaches the sidebar — its arrows walk along it — and Ctrl+Shift works on the desk you are on, with Ctrl+Shift+1…9 (or Alt+1…9) for a desk by its number.": "Ctrl+Alt atteint la barre latérale — les flèches la parcourent — et Ctrl+Maj agit sur le bureau où vous êtes, avec Ctrl+Maj+1…9 (ou Alt+1…9) pour un bureau par son numéro.",
   "Custom": "Le mien",
   "Delete": "Supprimer",
   "Delete all": "Delete all",
