@@ -4192,6 +4192,7 @@ async function screenMessages(open = null) {
       const mine = all.filter((x) => x.group === group);
       const folder = el('details', { className: 'folder', open: !!mine.length });
       const summary = el('summary', {}, [
+        el('span', { className: 'twist' }, icon('down')),
         icon('folder'),
         el('span', { className: 'foldername', textContent: group }),
         el('span', { className: 'count', textContent: String(mine.length) }),
@@ -4300,7 +4301,11 @@ async function screenMessages(open = null) {
         drawMessagePane();
       };
     };
+    // A chevron, because a row that opens has to say so. The default marker is hidden here —
+    // it points sideways and looks like a bullet — and what replaced it was nothing at all,
+    // so the rows read as a list you cannot do anything with.
     card.append(el('summary', {}, [
+      el('span', { className: 'twist' }, icon('down')),
       el('span', { className: 'name', textContent: kind.name }),
       el('span', { className: 'meta', textContent: first }),
       bin,
@@ -10136,15 +10141,35 @@ function attachMessages(host, wsId, extras, deliver) {
         const gaps = gapsIn(kind.text, { ...SITUATIONAL, folder: deliver.folder(), ...allVars(wsId) });
         const row = el('button', {
           className: `trayrow${gaps.length ? ' hasgap' : ''}`,
-          title: (kind.run ? t('sends it') + ' — ' : '')
-            + (gaps.length ? `${t('nothing to put in {list}', { list: gaps.map((g) => `{${g}}`).join(' ') })} — ` : '')
+          title: (gaps.length ? `${t('nothing to put in {list}', { list: gaps.map((g) => `{${g}}`).join(' ') })} — ` : '')
             + kind.text.split('\n')[0],
         }, [
           icon('relay'),
           el('span', { className: 'trayleaf', textContent: kind.name }),
           gaps.length ? el('span', { className: 'gapmark', textContent: '{ }' }) : null,
-          kind.run ? el('span', { className: 'verb', textContent: '↵' }) : null,
         ].filter(Boolean));
+
+        /* Whether this one presses Enter, shown and switched here.
+         *
+         *  It was a ↵ at the far right of the row, drawn only when the prompt was already set
+         *  to run — so a prompt that does *not* run looks exactly like one that does, and the
+         *  answer to "why did it not send" was two screens away in the editor. Now it is
+         *  always there, lit when it will run, and clicking it changes that.
+         */
+        const runs = el('button', {
+          className: `winbtn runs${kind.run ? ' on' : ''}`,
+          textContent: '↵',
+          title: kind.run
+            ? t('Sends it: this prompt presses Enter for you')
+            : t('Puts it in without pressing Enter'),
+        });
+        runs.onclick = (ev) => {
+          ev.stopPropagation();
+          kind.run = !kind.run;
+          delete kind.stock;
+          savePrefs();
+          messagesChanged();
+        };
         /* What this one takes, and what it would be *here*.
          *
          *  The hover preview shows the finished sentence, which is the right thing when you
@@ -10357,7 +10382,7 @@ function attachMessages(host, wsId, extras, deliver) {
         // The twist goes first. Every tree anybody has ever used puts the disclosure control
         // to the left of the thing it discloses, and the eye looks for it there.
         folder.append(el('div', { className: 'msgentry' }, [
-          el('div', { className: 'trayline' }, [show, row, more].filter(Boolean)),
+          el('div', { className: 'trayline' }, [show, row, runs, more].filter(Boolean)),
           uses,
         ].filter(Boolean)));
       }

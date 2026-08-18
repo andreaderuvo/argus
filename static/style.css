@@ -533,6 +533,15 @@ input.sheetfind { width: 100%; margin: .2rem 0 .5rem; }
    than picked out of a sentence. Each value is elided on its own line; the whole lot is
    in the row's tooltip as well. */
 .msgentry { display: block; }
+/* "This one presses Enter", beside the name rather than against the far edge, and lit only
+   when it is true. Dim means the prompt is put in and left for you. */
+.msgpane .runs {
+  flex: none; width: 26px; height: 26px; font-size: .82rem; line-height: 1;
+  color: var(--dim); opacity: 1;
+}
+.msgpane .runs.on { color: var(--accent); font-weight: 700; }
+.msgpane .runs:hover { color: var(--bright); }
+.msgpane .trayrow { flex: 0 1 auto; }
 /* The chevron that opens a prompt's values. Quiet, and turned when it is open — the same
    thing every disclosure control does, so nobody has to be told. */
 /* Visible without being loud, and visible *without hovering*: it was inheriting the window
@@ -547,9 +556,40 @@ input.sheetfind { width: 100%; margin: .2rem 0 .5rem; }
   .msgpane .twist .ico { width: 16px; height: 16px; }
 }
 .msgpane .twist.on .ico { transform: rotate(180deg); }
+/* How many prompts are in a folder, as a badge rather than a stray number — the same pill
+   the rail uses for its counts, so it reads as a count and not as part of the name. */
+.folder > summary .count,
+.msgfolder > summary .count,
 .msgpane .msgfolder > summary .count {
-  margin-left: auto; font-size: .72rem; color: var(--dim);
+  /* Beside the name, not at the far end of the row: a number floating against the right
+     edge of a wide window belongs to nothing, and the eye has to travel to pair it with
+     the folder it counts. */
+  margin: 0 0 0 .5rem;
+  min-width: 1.2rem; padding: .05rem .35rem;
+  border-radius: .7rem;
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
+  font-size: .7rem; font-weight: 600; text-align: center;
 }
+
+/* The disclosure chevron, wherever a row opens: in the window, and on the Prompts screen,
+   where there was nothing at all — the default marker is hidden and nothing took its place,
+   so a list of things you can open looked like a list you cannot. */
+.msgcard > summary .twist,
+.folder > summary .twist,
+.msgfolder > summary .twist {
+  display: inline-flex; align-items: center; flex: none;
+  color: var(--dim); transition: transform .12s ease;
+}
+.msgcard > summary .twist .ico,
+.folder > summary .twist .ico,
+.msgfolder > summary .twist .ico { width: 13px; height: 13px; }
+.msgcard[open] > summary .twist,
+.folder[open] > summary .twist,
+.msgfolder[open] > summary .twist { transform: rotate(180deg); color: var(--accent); }
+.msgcard > summary:hover .twist,
+.folder > summary:hover .twist,
+.msgfolder > summary:hover .twist { color: var(--accent); }
 .msgpane .usesline {
   /* Lined up under the name, which now starts after the twist. */
   min-width: 0; margin: .1rem 0 .35rem 2.6rem;
@@ -1945,10 +1985,7 @@ textarea.baton {
 }
 .folder > summary::-webkit-details-marker { display: none; }
 .folder > summary .ico { color: var(--accent); }
-.folder > summary .count {
-  margin-left: auto; padding: 0 .45rem; border-radius: .7rem;
-  background: var(--bg); color: var(--dim); font-size: .72rem; font-weight: 700;
-}
+
 .foldertools { display: flex; flex-wrap: wrap; gap: .35rem; padding: 0 .8rem .6rem; }
 .foldertools .ghost.dup { font-size: .74rem; min-height: 1.9rem; padding: 0 .6rem; }
 .folder > .empty.tiny { padding: 0 .8rem .7rem; color: var(--dim); }
