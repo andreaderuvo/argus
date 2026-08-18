@@ -3047,12 +3047,16 @@ pre.file.hl .hljs-strong { font-weight: 700; }
     width: 8px; height: 8px; border-radius: 50%;
     background: var(--st-warning); box-shadow: 0 0 0 2px var(--bg);
   }
+  /* The counts, legible. At 18% of the accent on a dark panel they were a shape rather than
+     a number — reported as "the badges cannot be seen". Filled, in the accent, with the text
+     dark enough to read on it. */
   #drawer .drawertally {
-    margin-left: auto; min-width: 1.4rem; padding: .05rem .35rem;
-    border-radius: .7rem; text-align: center;
-    font-size: .7rem; font-weight: 600;
-    color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, transparent);
+    margin-left: auto; min-width: 1.5rem; padding: .1rem .4rem;
+    border-radius: .8rem; text-align: center;
+    font-size: .74rem; font-weight: 700; font-variant-numeric: tabular-nums;
+    color: var(--on-accent, #06210f); background: var(--accent);
   }
   #drawer .drawertally:empty { display: none; }
+  /* Amber means one of them has stopped and is waiting: the only state worth shouting. */
   #drawer .drawertally.wants { color: #2b2000; background: var(--st-warning); }
 }
