@@ -139,25 +139,78 @@ def foreground_pid(tty: str) -> int | None:
 AGENTS = ("claude", "codex", "gemini", "aider", "opencode", "goose", "cursor-agent")
 
 
-def agent_in(tty: str) -> str | None:
-    """Which known agent is running in this pane, by looking at the whole tty rather than
-    the first process on it."""
+def _tty_rows(tty: str) -> list[dict]:
+    """Every process on this terminal, as `{pid, pgid, tpgid, comm, args}`."""
     name = tty.rsplit("/", 1)[-1]
     if not name:
-        return None
+        return []
     try:
-        p = subprocess.run(["ps", "-t", name, "-o", "comm=,args="],
+        p = subprocess.run(["ps", "-t", name, "-o", "pid=,pgid=,tpgid=,comm=,args="],
                            capture_output=True, text=True, timeout=4)
     except (OSError, subprocess.SubprocessError):
-        return None
+        return []
     if p.returncode != 0:
+        return []
+    rows = []
+    for line in p.stdout.splitlines():
+        bits = line.split(None, 4)
+        if len(bits) < 4 or not all(b.lstrip("-").isdigit() for b in bits[:3]):
+            continue
+        rows.append({
+            "pid": int(bits[0]), "pgid": int(bits[1]), "tpgid": int(bits[2]),
+            "comm": bits[3], "args": bits[4] if len(bits) > 4 else "",
+        })
+    return rows
+
+
+def _named_agent(row: dict) -> str | None:
+    """Which agent this row is, if it is one.
+
+    Two ways, both strict, because the loose version was wrong on a real machine: it searched
+    the whole of `ps` as one string, so a folder called `codex-andrea` in somebody's `vim`
+    command line made the pane a Codex.
+
+    1. **The command name.** `comm` is the executable, never a path, so nothing a folder is
+       called can reach it.
+    2. **A program a wrapper was pointed at**, for the npm shims: `node …/bin/codex resume`.
+       Only an argument whose *basename* is the agent counts — `/home/me/codex-andrea/notes.md`
+       has the basename `notes.md`, and `--project ~/claude-bmc-review` has `claude-bmc-review`.
+    """
+    if row["comm"].lower() in AGENTS:
+        return row["comm"].lower()
+    for token in row["args"].split()[1:]:
+        if token.startswith("-"):
+            continue
+        base = token.rsplit("/", 1)[-1].lower()
+        if base in AGENTS:
+            return base
+    return None
+
+
+def agent_in(tty: str) -> str | None:
+    """Which known agent is running in this pane.
+
+    The pane's own process is the wrong thing to ask: `pane_current_command` reports the
+    first one, which for Codex started through its npm shim is `node`, with the real binary
+    two processes further down. So the whole terminal is read — and the *foreground* group
+    first, because that is what you are looking at. Deepest first inside the group: a wrapper
+    spawns the thing it wraps, and the thing it wraps is the answer.
+    """
+    rows = _tty_rows(tty)
+    if not rows:
         return None
-    seen = p.stdout.lower()
-    for one in AGENTS:
-        # In the command name, or as the program a wrapper was pointed at — `bin/codex`,
-        # never a folder that merely has the word in it.
-        if re.search(rf"(^|\s|/){re.escape(one)}(\s|$)", seen) or f"/{one}" in seen:
-            return one
+    group = next((r["pgid"] for r in rows if r["pgid"] == r["tpgid"]), None)
+    ahead = [r for r in rows if r["pgid"] == group] if group is not None else []
+    for row in reversed(ahead):
+        found = _named_agent(row)
+        if found:
+            return found
+    # Nothing in front: an agent left running while a shell has the terminal still counts,
+    # since the window is that agent's window.
+    for row in reversed(rows):
+        found = _named_agent(row)
+        if found:
+            return found
     return None
 
 

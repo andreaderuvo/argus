@@ -8067,7 +8067,13 @@ async function screenWall() {
         // Only worth its own chip when it is not the same fact twice.
         const same = now === seen;
         const tone = deskAt && now !== deskAt ? 'astray' : 'agrees';
-        const label = from === 'agent' ? agent : from === 'process' ? t('process') : 'tmux';
+        /* Whose folder it is, by name when we know the name.
+         *
+         *  It said `process` even for a pane we had just identified as Codex, which is the
+         *  true-but-useless answer: the reader knows it came from a process, what they want
+         *  is *which*. The word is only for a pane running something nobody has a name for.
+         */
+        const label = agent || (from === 'process' ? t('process') : 'tmux');
         if (!same || from === 'agent') {
           out.push(chip(label, said(now), tone, t('{path} — {from}', {
             path: now,
