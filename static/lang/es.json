@@ -806,6 +806,17 @@
     "{n} headers taken from that curl": "{n} cabeceras tomadas de ese curl",
     "Open this folder in Files": "Abre esta carpeta en Archivos",
     "A file browser here, in a desk": "Un explorador de archivos aquí, en un escritorio",
-    "Copy the absolute path": "Copia la ruta absoluta"
+    "Copy the absolute path": "Copia la ruta absoluta",
+    "To do": "Por hacer",
+    "to do": "por hacer",
+    "doing": "en curso",
+    "done": "hecho",
+    "all": "todas",
+    "what needs doing?": "¿qué hay que hacer?",
+    "filter": "filtrar",
+    "Nothing on the list.": "No hay nada en la lista.",
+    "Press to move it on": "Pulsa para avanzarla",
+    "Click to change the words": "Haz clic para cambiar las palabras",
+    "Take it off the list": "Quítala de la lista"
   }
 }

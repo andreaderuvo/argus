@@ -2526,6 +2526,171 @@
     ]
    }
   },
+  "/api/todo": {
+   "get": {
+    "description": "Kept on the server rather than in the browser, so the note you wrote at the desk is\non the phone as well. That is the whole reason it is here and not in the preferences.",
+    "operationId": "getApiTodo",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response List Todo Api Todo Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "The list of things to do",
+    "tags": [
+     "Setup"
+    ]
+   },
+   "post": {
+    "operationId": "postApiTodo",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Add Todo Api Todo Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Add something to do",
+    "tags": [
+     "Setup"
+    ]
+   }
+  },
+  "/api/todo/{ident}": {
+   "delete": {
+    "operationId": "deleteApiTodoIdent",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "ident",
+      "required": true,
+      "schema": {
+       "title": "Ident",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Drop Todo Api Todo  Ident  Delete",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Take one off the list",
+    "tags": [
+     "Setup"
+    ]
+   },
+   "patch": {
+    "operationId": "patchApiTodoIdent",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "ident",
+      "required": true,
+      "schema": {
+       "title": "Ident",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Edit Todo Api Todo  Ident  Patch",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Change one: its words or its state",
+    "tags": [
+     "Setup"
+    ]
+   }
+  },
   "/api/version": {
    "get": {
     "description": "Answers immediately from a day-old cache; the question is only asked of GitHub\nwhen that cache is stale. Switched off, it answers about this machine and stops\nthere, which is also what it does when there is no way out to the network.",
