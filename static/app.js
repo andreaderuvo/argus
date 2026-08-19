@@ -3420,13 +3420,17 @@ function whereStrip(path) {
     }),
     el('button', {
       className: 'icon', type: 'button', title: t('A file browser here, in this desk'),
-      /* The desk you are on, not a question about which one.
+      /* The desk you are on, and the folder this file is in. Neither is a question.
        *
-       *  This asked, because that is what opening a *file* in a window does — and there the
-       *  question earns its place: you are sending something somewhere. Here you are looking at
-       *  a document and want the folder beside it, which means here, now, no dialog. Reported
-       *  in exactly those words. */
-      onclick: () => openWindow({ kind: 'browser', id: nextWindowId(), path: here }),
+       *  It asked which desk, because that is what opening a *file* in a window does — and
+       *  there the question earns its place: you are sending something somewhere. Here you are
+       *  looking at a document and want the folder beside it, which means here, now, no dialog.
+       *
+       *  And `fresh`, which is the half that was missing: a browser window opens on the desk's
+       *  own folder unless it says it was opened *at* something. Without it the dialog went
+       *  away and the window still landed on the desk's home — the right desk, the wrong
+       *  folder, which from the outside is the same button not working. */
+      onclick: () => openWindow({ kind: 'browser', id: nextWindowId(), path: here, fresh: true }),
     }, icon('split')),
     el('button', {
       className: 'icon', type: 'button', title: t('Copy the absolute path'),
