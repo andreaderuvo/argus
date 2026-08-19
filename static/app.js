@@ -7697,6 +7697,28 @@ async function screenWall() {
        *  the window; full screen means the screen shows this and nothing else. The button
        *  now does what its label says, and filling the desk is the double-click on the
        *  title bar, which is where a desktop puts it anyway. */
+      /* Behind the others, which is the move a stack of windows has never had here.
+       *
+       *  Everything raises: clicking a window, typing in it, opening something. Nothing lowers,
+       *  so the only way to get a window out of the way was to click every other one in turn —
+       *  and with four open that is three clicks to see what is underneath.
+       *
+       *  Not a negative z-index, which would put it behind the desk itself. The stack is
+       *  renumbered from the bottom with this one first, which keeps the numbers small and the
+       *  order intact for everything else.
+       */
+      const behind = el('button', { className: 'winbtn behindbtn', title: t('Send it behind the others') }, icon('layers'));
+      behind.onclick = () => {
+        const deck = decks.get(ws.id);
+        if (!deck) return;
+        const stack = [...deck.open].sort((a, b) => (Number(a.win.style.zIndex) || 0) - (Number(b.win.style.zIndex) || 0));
+        const me = stack.find((o) => o.win === win);
+        if (!me || stack.length < 2) return;
+        const order = [me, ...stack.filter((o) => o !== me)];
+        order.forEach((o, i) => { o.win.style.zIndex = 11 + i; });
+        top = 11 + order.length;
+      };
+
       const solo = el('button', { className: 'winbtn solobtn', title: t('Full screen') }, icon('expand'));
       const fill = () => {
         if (win.dataset.full) {
@@ -7811,7 +7833,7 @@ async function screenWall() {
 
       // The `i` sits with the name, not with the buttons: it is about *this session*, and the
       // buttons at the other end are things you do to the window.
-      const head = el('div', { className: 'winbar' }, [swatch, title, ...(factsBtn ? [factsBtn] : []), extras, send, solo, more, close]);
+      const head = el('div', { className: 'winbar' }, [swatch, title, ...(factsBtn ? [factsBtn] : []), extras, send, behind, solo, more, close]);
       win.append(head, ...(facts ? [facts] : []), body);
       node.append(win);
 

@@ -2530,6 +2530,7 @@ button.keyrow kbd { flex: none; }
 @container (max-width: 520px) {
   .winbar > .winextras,
   .winbar > .sendbtn,
+  .winbar > .behindbtn,
   .winbar > .solobtn { display: none; }
   .winbar > .winmore { display: inline-flex; }
 }
