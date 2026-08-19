@@ -40,8 +40,10 @@ import time
 from datetime import date
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from orchestra import Argus, slug          # noqa: E402  — the same tiny client, not a copy of it
+from argus_client import Argus             # noqa: E402  — one file, stdlib only
+from orchestra import slug                 # noqa: E402
 
 # Four lenses that disagree with each other on purpose. Change them: they are the argument.
 LENSES = [
@@ -86,10 +88,7 @@ def start_referees(argus: Argus, paper: Path, out: Path, lenses, launcher: str, 
             f"referees have the other lenses and will cover them.\n"
             + CONTRACT.format(out=target, session=session)
         )
-        said = argus.call("POST", "/api/tmux/launch", {
-            "launcher": launcher, "name": session, "path": str(paper),
-            "prompt": prompt, "run": run,
-        })
+        said = argus.launch(launcher, session, paper, prompt, run=run)
         started.append({"lens": name, "session": said["name"], "file": target})
         print(f"  {said['name']:18} {name:9} -> {target.name}")
     return started
@@ -147,9 +146,7 @@ def start_editor(argus: Argus, paper: Path, out: Path, done, launcher: str, run:
         "Do not edit the paper and do not rewrite the reviews.\n"
         "When it is written, run:  argus-say ring --why done --session editor"
     )
-    said = argus.call("POST", "/api/tmux/launch", {
-        "launcher": launcher, "name": "editor", "path": str(paper), "prompt": prompt, "run": run,
-    })
+    said = argus.launch(launcher, "editor", paper, prompt, run=run)
     return said["name"]
 
 
@@ -167,9 +164,7 @@ def start_rebuttal(argus: Argus, paper: Path, out: Path, launcher: str, run: boo
         "nothing. Do not edit the paper yet.\n"
         "When it is written, run:  argus-say ring --why done --session rebuttal"
     )
-    said = argus.call("POST", "/api/tmux/launch", {
-        "launcher": launcher, "name": "rebuttal", "path": str(paper), "prompt": prompt, "run": run,
-    })
+    said = argus.launch(launcher, "rebuttal", paper, prompt, run=run)
     return said["name"]
 
 
@@ -203,7 +198,7 @@ def main() -> None:
 
     argus = Argus()
     run = not args.no_run
-    here = argus.call("GET", "/api/who")
+    here = argus.who()
     if args.launcher not in here.get("launchers", []):
         sys.exit(f"{args.launcher!r} is not one of this machine's launchers: {here.get('launchers')}")
 

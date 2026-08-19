@@ -805,7 +805,6 @@
     "headers, one per line": "cabeceras, una por línea",
     "{n} headers taken from that curl": "{n} cabeceras tomadas de ese curl",
     "Open this folder in Files": "Abre esta carpeta en Archivos",
-    "A file browser here, in a desk": "Un explorador de archivos aquí, en un escritorio",
     "Copy the absolute path": "Copia la ruta absoluta",
     "To do": "Por hacer",
     "to do": "por hacer",
@@ -818,6 +817,7 @@
     "Press to move it on": "Pulsa para avanzarla",
     "Click to change the words": "Haz clic para cambiar las palabras",
     "Take it off the list": "Quítala de la lista",
-    "Send it behind the others": "Mándala detrás de las demás"
+    "Send it behind the others": "Mándala detrás de las demás",
+    "A file browser here, in this desk": "Un explorador de archivos aquí, en este escritorio"
   }
 }

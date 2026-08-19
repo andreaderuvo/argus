@@ -3419,9 +3419,14 @@ function whereStrip(path) {
       onclick: () => go(`#/files?path=${encodeURIComponent(here)}`),
     }),
     el('button', {
-      className: 'icon', type: 'button', title: t('A file browser here, in a desk'),
-      onclick: () => chooseDesk({ kind: 'browser', id: Date.now() % 100000, path: here },
-                                here.split('/').pop() || '/'),
+      className: 'icon', type: 'button', title: t('A file browser here, in this desk'),
+      /* The desk you are on, not a question about which one.
+       *
+       *  This asked, because that is what opening a *file* in a window does — and there the
+       *  question earns its place: you are sending something somewhere. Here you are looking at
+       *  a document and want the folder beside it, which means here, now, no dialog. Reported
+       *  in exactly those words. */
+      onclick: () => openWindow({ kind: 'browser', id: nextWindowId(), path: here }),
     }, icon('split')),
     el('button', {
       className: 'icon', type: 'button', title: t('Copy the absolute path'),

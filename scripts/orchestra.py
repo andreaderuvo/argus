@@ -41,110 +41,31 @@ lines of the same kind.
 from __future__ import annotations
 
 import argparse
-import json
-import os
 import re
 import sys
 import time
-import urllib.error
-import urllib.request
 from pathlib import Path
 
 RESULT = "RESULT.md"
 
 
 # --------------------------------------------------------------- talking to argus
+#
+# The client is `tools/argus_client.py`: one stdlib file, importable and copyable. It was thirty
+# lines at the top of this script until the other two examples started importing them from here,
+# which is the moment a shared thing wants to stop being a script.
 
-def config_path() -> Path:
-    base = os.environ.get("XDG_CONFIG_HOME")
-    root = Path(base) if base else Path(os.environ.get("HOME") or "/") / ".config"
-    return Path(os.environ.get("ARGUS_CONFIG") or root / "argus" / "config.yaml")
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
+from argus_client import Argus, ArgusError, TooFast     # noqa: E402
 
+RESULT = "RESULT.md"
 
-def credentials() -> tuple[str, str]:
-    """Where Argus is, and a key for it — the agent one if there is one.
-
-    The same three regexes `tools/argus-say` uses, and for the same reason: a YAML parser would
-    be a dependency for reading two lines out of a file that this machine already has.
-    """
-    text = config_path().read_text(encoding="utf-8")
-    listen, master, agent, section = "127.0.0.1:8090", None, None, None
-    for line in text.splitlines():
-        bare = line.strip()
-        if not bare or bare.startswith("#"):
-            continue
-        if not line.startswith((" ", "\t", "-")):
-            section = bare.split(":")[0]
-        if section == "listen" and bare.startswith("listen:"):
-            listen = bare.split(":", 1)[1].strip().strip("\"'")
-        elif section == "token" and bare.startswith("token:"):
-            master = bare.split(":", 1)[1].strip().strip("\"'")
-        elif section == "agents" and "token:" in bare and not agent:
-            agent = bare.split("token:", 1)[1].strip().strip("\"'")
-    where = listen.replace("0.0.0.0", "127.0.0.1")
-    key = os.environ.get("ARGUS_TOKEN") or agent or master
-    if not key:
-        sys.exit(f"no token in {config_path()}")
-    return f"http://{where}", key
-
-
-class Argus:
-    def __init__(self) -> None:
-        self.base, self.token = credentials()
-
-    def call(self, method: str, path: str, body: dict | None = None, timeout: float = 60) -> dict:
-        data = json.dumps(body).encode() if body is not None else None
-        request = urllib.request.Request(self.base + path, data=data, method=method, headers={
-            "authorization": f"Bearer {self.token}",
-            **({"content-type": "application/json"} if data else {}),
-        })
-        try:
-            with urllib.request.urlopen(request, timeout=timeout) as answer:
-                return json.loads(answer.read() or "{}")
-        except urllib.error.HTTPError as e:
-            sys.exit(f"argus said {e.code} for {method} {path}: {e.read().decode(errors='replace')[:300]}")
-
-    def bells(self, since: int, until: float):
-        """Bells as they ring, over one open connection, until `until` (a monotonic time).
-
-        Polling would work and would be worse: a stream is how you find out in the second it
-        happens rather than in the next sweep, and the whole point of an orchestrator is that
-        nobody is watching.
-
-        The deadline is checked **here**, on every line, and that is the whole reason this
-        function takes one. The stream sends a heartbeat every twenty-five seconds and a
-        heartbeat is not a bell — so a caller that checks the clock between yields never gets
-        the chance, and the loop it thought it was driving spins inside this generator instead.
-        Measured: an orchestrator asked to wait one minute was still waiting after three, with
-        nothing wrong anywhere else.
-
-        It can still overshoot by up to one heartbeat, because the check happens when a line
-        arrives and the quietest the stream ever goes is twenty-five seconds. For "how long to
-        wait for an agent" that is noise; the alternative is a reader thread and a queue, which
-        is more machinery than an example should carry.
-        """
-        request = urllib.request.Request(f"{self.base}/api/bells/stream?since={since}",
-                                         headers={"authorization": f"Bearer {self.token}"})
-        # A socket timeout as well, for the case where even the heartbeat stops: a stream that
-        # has silently died must not hold the whole thing open until the process is killed.
-        # The socket timeout tracks the deadline rather than being a flat number: a read that
-        # blocks for forty seconds when the caller has ten left overshoots by thirty, which is
-        # what the first run of this did.
-        with urllib.request.urlopen(request, timeout=max(2.0, min(40.0, until - time.monotonic()))) as stream:
-            for raw in stream:
-                if time.monotonic() >= until:
-                    return
-                line = raw.decode(errors="replace").strip()
-                if line.startswith("data:"):
-                    with_it = line[5:].strip()
-                    if with_it:
-                        yield json.loads(with_it)
-
-
-# --------------------------------------------------------------------- the shape
 
 def slug(text: str, n: int = 24) -> str:
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")[:n] or "idea"
+
+
+# --------------------------------------------------------------------- the shape
 
 
 def fan_out(argus: Argus, repo: Path, launcher: str, ideas: list[str], run: bool) -> list[dict]:
@@ -152,7 +73,7 @@ def fan_out(argus: Argus, repo: Path, launcher: str, ideas: list[str], run: bool
     started = []
     for idea in ideas:
         branch = f"try/{slug(idea)}"
-        made = argus.call("POST", "/api/git/worktree", {"path": str(repo), "branch": branch})
+        made = argus.worktree(repo, branch)
         where = Path(made["path"])
         # The contract, in the prompt, because there is no other way to be told it is done.
         prompt = (
@@ -162,10 +83,7 @@ def fan_out(argus: Argus, repo: Path, launcher: str, ideas: list[str], run: bool
             "'VERDICT:' saying whether you would ship it.\n"
             f"Then run: argus-say ring --why done --session {slug(idea)}"
         )
-        said = argus.call("POST", "/api/tmux/launch", {
-            "launcher": launcher, "name": slug(idea), "path": str(where),
-            "prompt": prompt, "run": run,
-        })
+        said = argus.launch(launcher, slug(idea), where, prompt, run=run)
         started.append({"idea": idea, "session": said["name"], "path": where, "branch": branch})
         print(f"  {said['name']:24} {branch:28} {where}")
     return started
@@ -221,9 +139,7 @@ def judge(argus: Argus, repo: Path, launcher: str, done: list[dict], run: bool) 
         "compare them on correctness first and speed second, and say which one to keep\n"
         "and why in three sentences. Do not edit anything.\n\n" + listing
     )
-    said = argus.call("POST", "/api/tmux/launch", {
-        "launcher": launcher, "name": "judge", "path": str(repo), "prompt": prompt, "run": run,
-    })
+    said = argus.launch(launcher, "judge", repo, prompt, run=run)
     return said["name"]
 
 
@@ -243,7 +159,7 @@ def main() -> None:
 
     argus = Argus()
     run = not args.no_run
-    here = argus.call("GET", "/api/who")
+    here = argus.who()
     if args.launcher not in here.get("launchers", []):
         sys.exit(f"{args.launcher!r} is not one of this machine's launchers: {here.get('launchers')}")
 

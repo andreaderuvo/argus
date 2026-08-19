@@ -805,7 +805,6 @@
     "headers, one per line": "headers, one per line",
     "{n} headers taken from that curl": "{n} headers taken from that curl",
     "Open this folder in Files": "Open this folder in Files",
-    "A file browser here, in a desk": "A file browser here, in a desk",
     "Copy the absolute path": "Copy the absolute path",
     "To do": "To do",
     "to do": "to do",
@@ -818,6 +817,7 @@
     "Press to move it on": "Press to move it on",
     "Click to change the words": "Click to change the words",
     "Take it off the list": "Take it off the list",
-    "Send it behind the others": "Send it behind the others"
+    "Send it behind the others": "Send it behind the others",
+    "A file browser here, in this desk": "A file browser here, in this desk"
   }
 }

@@ -3,177 +3,22 @@
 
     argus-say who                                  who else is here, and who is waiting
     argus-say relay reviewer "look at the diff"    hand a sentence to another session
-    argus-say relay reviewer --file notes.md --run and press return for it
     argus-say ring "stuck on the credentials"      call the person
-    argus-say start "Claude Code" --in ~/proj \\
-              --prompt "read the failing test" --worktree fix-42
+    argus-say start "Claude Code" --name fix \\
+              --in ~/proj --worktree fix-42 --prompt "read the failing test"
 
-Why this exists, given that everything it does is an HTTP call: because the alternative is a
-token in a prompt. An agent on this machine can read `~/.config/argus/config.yaml` — it runs as
-you — so this grants nothing new; it saves the agent from being *told* a secret it can look up,
-which is the difference between a credential in your notes and a credential in your config.
-
-It prefers the key marked `agents:` in that file, and falls back to the master token only when
-there is none. The narrow key is worth adding: it can read what is happening, ring, relay a
-sentence and start something from your launcher list, and it cannot delete a file, kill a
-session, expose a port, mint a token or stop the server.
-
-    agents:
-      - name: in-session
-        token: <64 hex characters of your choosing>
-
-Standard library only, so it runs wherever Argus does and needs no install.
+A three-line front door onto `argus_client.py`, which sits beside it: the same reading of the
+config, the same preference for the narrow agent key, the same words on failure. It was a copy
+of that code until the library existed, which is exactly the duplication a library is for.
 """
 
 from __future__ import annotations
 
-import argparse
-import json
-import os
 import sys
-import urllib.error
-import urllib.request
 from pathlib import Path
 
-
-def config_path() -> Path:
-    base = os.environ.get("XDG_CONFIG_HOME")
-    root = Path(base) if base else Path(os.environ.get("HOME") or "/") / ".config"
-    return Path(os.environ.get("ARGUS_CONFIG") or root / "argus" / "config.yaml")
-
-
-def read_config() -> dict:
-    """The two lines of YAML this needs, without a YAML parser.
-
-    `listen`, `token`, and the first `token:` under `agents:`. A dependency for three regexes
-    would be a dependency an agent's environment has to have, and the whole point of this file
-    is that it runs anywhere Python does.
-    """
-    text = config_path().read_text(encoding="utf-8")
-    found = {"listen": "127.0.0.1:8090", "token": None, "agent": None}
-    section = None
-    for line in text.splitlines():
-        bare = line.strip()
-        if not bare or bare.startswith("#"):
-            continue
-        if not line.startswith((" ", "\t", "-")):
-            section = bare.split(":")[0]
-        if section == "listen" and bare.startswith("listen:"):
-            found["listen"] = bare.split(":", 1)[1].strip().strip("\"'")
-        elif section == "token" and bare.startswith("token:"):
-            found["token"] = bare.split(":", 1)[1].strip().strip("\"'")
-        elif section == "agents" and "token:" in bare and not found["agent"]:
-            found["agent"] = bare.split("token:", 1)[1].strip().strip("\"'")
-    return found
-
-
-def call(method: str, path: str, body: dict | None = None) -> dict:
-    cfg = read_config()
-    token = os.environ.get("ARGUS_TOKEN") or cfg["agent"] or cfg["token"]
-    if not token:
-        sys.exit(f"no token in {config_path()} — is this the machine Argus runs on?")
-    where = cfg["listen"]
-    if where.startswith("0.0.0.0"):
-        # What it *listens* on is not an address to call: loopback always reaches it, and a
-        # request to 0.0.0.0 is a request to nothing.
-        where = where.replace("0.0.0.0", "127.0.0.1")
-    url = f"http://{where}{path}"
-    data = json.dumps(body).encode() if body is not None else None
-    request = urllib.request.Request(url, data=data, method=method, headers={
-        "authorization": f"Bearer {token}",
-        **({"content-type": "application/json"} if data else {}),
-    })
-    try:
-        with urllib.request.urlopen(request, timeout=30) as answer:
-            return json.loads(answer.read() or "{}")
-    except urllib.error.HTTPError as e:
-        # Argus's own words, which say what a key may do when the answer is 403.
-        sys.exit(f"argus said {e.code}: {e.read().decode(errors='replace')[:400]}")
-    except OSError as e:
-        sys.exit(f"could not reach argus at {url}: {e}")
-
-
-def cmd_who(args) -> None:
-    said = call("GET", "/api/who")
-    if args.json:
-        print(json.dumps(said, indent=1))
-        return
-    print(said.get("machine", "?"))
-    for one in said.get("sessions", []):
-        marks = []
-        if one.get("wants_you"):
-            marks.append("WAITING FOR A PERSON")
-        if one.get("attached"):
-            marks.append("attached")
-        who = " · ".join(x for x in (one.get("agent"), one.get("model")) if x)
-        print(f"  {one['name']:20} {who or 'no agent declared':34} {one.get('folder') or ''}"
-              + (f"   [{', '.join(marks)}]" if marks else ""))
-    if said.get("launchers"):
-        print("  can start: " + ", ".join(said["launchers"]))
-
-
-def cmd_relay(args) -> None:
-    text = Path(args.file).read_text(encoding="utf-8") if args.file else args.text
-    if not text:
-        sys.exit("nothing to say: give some text, or --file")
-    said = call("POST", "/api/relay", {"to": args.to, "text": text, "run": args.run})
-    print(f"{said['characters']} characters to {said['to']}"
-          + (" and the return pressed" if said.get("sent") else " — waiting for their return"))
-
-
-def cmd_ring(args) -> None:
-    call("POST", "/api/bell", {"why": args.why, "text": args.text, "session": args.session})
-    print("rung")
-
-
-def cmd_start(args) -> None:
-    body = {"launcher": args.launcher, "name": args.name, "path": args.where,
-            "prompt": args.prompt or "", "run": args.run}
-    if args.worktree:
-        made = call("POST", "/api/git/worktree", {"path": args.where, "branch": args.worktree})
-        body["path"] = made["path"]
-        print(f"worktree {made['branch']} at {made['path']}")
-    said = call("POST", "/api/tmux/launch", body)
-    print(f"{said['name']} started"
-          + (" — the prompt is typed in, waiting for a return" if said.get("seeded") and not said.get("sent")
-             else ", and the prompt is on its way" if said.get("sent") else ""))
-
-
-def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    subs = ap.add_subparsers(dest="what", required=True)
-
-    w = subs.add_parser("who", help="who else is on this machine, and who is waiting")
-    w.add_argument("--json", action="store_true", help="the whole answer, unformatted")
-    w.set_defaults(run=cmd_who)
-
-    r = subs.add_parser("relay", help="hand a sentence to another session")
-    r.add_argument("to", help="the session to type into")
-    r.add_argument("text", nargs="?", default="", help="what to say")
-    r.add_argument("--file", help="read what to say from a file instead")
-    r.add_argument("--run", action="store_true", help="press return for them too")
-    r.set_defaults(run=cmd_relay)
-
-    b = subs.add_parser("ring", help="call the person")
-    b.add_argument("text", nargs="?", default="", help="what to say when it rings")
-    b.add_argument("--why", default="asking", choices=["asking", "done", "failed"],
-                   help="asking (default) waits for a person; done and failed only report")
-    b.add_argument("--session", default=os.environ.get("ARGUS_SESSION", ""),
-                   help="which session is ringing, so the window can be marked")
-    b.set_defaults(run=cmd_ring)
-
-    s = subs.add_parser("start", help="start something from the launcher list")
-    s.add_argument("launcher", help="a name from `argus-say who` → can start")
-    s.add_argument("--name", required=True, help="what to call the session")
-    s.add_argument("--in", dest="where", default=os.getcwd(), help="the folder to start it in")
-    s.add_argument("--prompt", help="its first instruction")
-    s.add_argument("--run", action="store_true", help="press return once it has settled")
-    s.add_argument("--worktree", metavar="BRANCH", help="make a git worktree on this branch first")
-    s.set_defaults(run=cmd_start)
-
-    args = ap.parse_args()
-    args.run(args)
-
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from argus_client import main          # noqa: E402
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
