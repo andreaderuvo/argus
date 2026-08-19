@@ -210,6 +210,7 @@ async def fetch_link(request: Request, body: dict) -> dict:
         raise ApiError(400, "only http and https links")
     dest = _directory(_resolve(request, str(body.get("path", ""))))
     limit = request.app.state.cfg.max_upload_bytes
+    sent = clean_headers(body.get("headers"))
 
     import httpx
 
@@ -217,7 +218,7 @@ async def fetch_link(request: Request, body: dict) -> dict:
     part = None
     try:
         async with httpx.AsyncClient(follow_redirects=True, timeout=httpx.Timeout(30, read=300)) as client:
-            async with client.stream("GET", url) as answer:
+            async with client.stream("GET", url, headers=sent) as answer:
                 if answer.status_code >= 400:
                     raise ApiError(502, f"{url} answered {answer.status_code}")
                 # What to call it: what you said, or what the server called it, or the last
@@ -257,6 +258,38 @@ async def fetch_link(request: Request, body: dict) -> dict:
                 part.unlink()
         raise ApiError(500, f"could not write it: {e.strerror}") from e
     return {"name": target.name, "path": str(target), "bytes": size}
+
+
+# Hop-by-hop headers belong to the connection, not to the request: passing them on is at best
+# ignored and at worst confusing, and httpx sets its own.
+NOT_YOURS = {"host", "content-length", "connection", "keep-alive", "transfer-encoding",
+             "upgrade", "te", "trailer", "proxy-authorization"}
+
+
+def clean_headers(said) -> dict[str, str]:
+    """The headers a caller wants sent with the fetch — `Cookie`, `Authorization`, whatever.
+
+    Because a link worth fetching is often behind a login. The alternative was: download it to
+    your laptop, then upload it to the machine, which for a file the machine could have taken
+    in one hop is a long way round — and on a phone it is worse.
+
+    Nothing is stored. They are used for this one request and forgotten; the journal records
+    that a fetch happened and to which route, never the body it came in.
+    """
+    if not isinstance(said, dict):
+        return {}
+    out: dict[str, str] = {}
+    for name, value in list(said.items())[:24]:
+        name = str(name).strip()
+        value = str(value).strip()
+        if not name or not value or name.lower() in NOT_YOURS:
+            continue
+        # A newline in a header value is header injection, and this one is handed to a client
+        # that would otherwise write it out verbatim.
+        if any(c in name + value for c in "\r\n"):
+            raise ApiError(400, f"that {name} header has a line break in it")
+        out[name] = value[:8192]
+    return out
 
 
 def from_disposition(header: str) -> str:

@@ -1324,6 +1324,100 @@ function fileActions(entry, refresh, dest, favGroup = 'main') {
 
 /** Upload with a progress bar, which means XMLHttpRequest: `fetch` still cannot report
  *  how far a request body has got, and a 4 GB fastq with no feedback is unusable. */
+/** Put what is behind a link into a folder, without it passing through this device. */
+function fetchHere(path) {
+  const box = el('input', {
+    type: 'url', className: 'linkbox', placeholder: 'https://…', spellcheck: false,
+    autocapitalize: 'off', autocorrect: 'off',
+  });
+  const named = el('input', {
+    type: 'text', className: 'linkbox', placeholder: t('leave it empty to keep its own name'),
+    spellcheck: false, autocapitalize: 'off',
+  });
+  /* Headers, because a link worth fetching is often behind a login.
+   *
+   *  One per line, `Name: value`, which is the shape they are already written in wherever you
+   *  copied them from. And the shortcut that makes this pleasant: paste a whole `curl` command
+   *  — the thing every browser's network panel offers as "Copy as cURL" — and the address and
+   *  the headers are pulled out of it. That is one gesture instead of six.
+   */
+  const heads = el('textarea', {
+    className: 'linkbox', rows: 3, spellcheck: false,
+    placeholder: 'Cookie: session=…\nAuthorization: Bearer …',
+  });
+  const said = el('p', { className: 'hint' });
+
+  const fromCurl = (text) => {
+    if (!/^\s*curl\b/.test(text)) return false;
+    // Not a shell parser: quotes and the flags that carry what we need. Anything it does not
+    // understand is left alone rather than guessed at.
+    const bits = text.match(/'[^']*'|"[^"]*"|\S+/g) || [];
+    const bare = (x) => x.replace(/^['"]|['"]$/g, '');
+    const found = [];
+    let url = '';
+    for (let i = 0; i < bits.length; i += 1) {
+      const one = bits[i];
+      if (one === '-H' || one === '--header') { found.push(bare(bits[++i] || '')); continue; }
+      if (one === '-b' || one === '--cookie') { found.push(`Cookie: ${bare(bits[++i] || '')}`); continue; }
+      if (one === '-u' || one === '--user') {
+        found.push(`Authorization: Basic ${btoa(bare(bits[++i] || ''))}`);
+        continue;
+      }
+      if (/^['"]?https?:\/\//.test(one) && !url) url = bare(one);
+    }
+    if (!url) return false;
+    box.value = url;
+    heads.value = found.join('\n');
+    said.textContent = t('{n} headers taken from that curl', { n: found.length });
+    return true;
+  };
+  box.addEventListener('paste', (e) => {
+    const text = (e.clipboardData || window.clipboardData)?.getData('text') || '';
+    if (fromCurl(text)) e.preventDefault();
+  });
+
+  const body = el('div', { className: 'sheetbody' }, [
+    el('p', { className: 'meta', textContent: t('into {where}', { where: path }) }),
+    box,
+    el('p', { className: 'hint', textContent: t('a whole curl command works too — paste it here') }),
+    el('label', { className: 'startlabel', textContent: t('call it') }), named,
+    el('label', { className: 'startlabel', textContent: t('headers, one per line') }), heads,
+    said,
+  ]);
+  let sheet;
+  const go = el('button', { className: 'primary inline', textContent: t('Fetch') });
+  const start = async () => {
+    const url = box.value.trim();
+    if (!url) return;
+    go.disabled = true;
+    // The machine may be pulling a gigabyte over a slow link. Two minutes of nothing is how
+    // somebody concludes it is broken and presses it again.
+    said.textContent = t('fetching…');
+    try {
+      const headers = {};
+      for (const line of heads.value.split('\n')) {
+        const at = line.indexOf(':');
+        if (at > 0) headers[line.slice(0, at).trim()] = line.slice(at + 1).trim();
+      }
+      const r = await postJSON('/api/fs/fetch', { path, url, name: named.value.trim(), headers });
+      sheet.close();
+      toast(`${r.name} · ${human(r.bytes)}`);
+      refreshAllBrowsers();
+    } catch (e) {
+      go.disabled = false;
+      said.textContent = '';
+      toast(e.message, true);
+    }
+  };
+  box.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); start(); } };
+  go.onclick = start;
+  sheet = modal(t('Fetch a link'), body, [
+    el('button', { className: 'ghost', textContent: t('Cancel'), onclick: () => sheet.close() }),
+    go,
+  ]);
+  setTimeout(() => box.focus(), 50);
+}
+
 function uploadTo(path, fileList, onDone, { sequence = '', quiet = false, called = '' } = {}) {
   const files = [...fileList];
   if (!files.length) return;
@@ -2216,6 +2310,16 @@ function fileBrowser({
     tools.append(
       el('button', { className: 'ghost', title: t('Upload files'), onclick: () => picker.click() }, icon('upload')),
       picker,
+      /* The other way a file arrives: as an address.
+       *
+       *  Uploading something you have not got is three moves — find a terminal, wget, come back
+       *  — and from a phone it is four, because the file has to come *down* to the phone before
+       *  it can go up again. A link is the whole instruction, and the machine is the one with
+       *  the bandwidth. */
+      el('button', {
+        className: 'ghost', title: t('Fetch a link into this folder'),
+        onclick: () => fetchHere(path),
+      }, icon('link')),
     );
 
     // Dropping onto the pane uploads into *that* pane's folder, which is the obvious

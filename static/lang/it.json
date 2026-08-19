@@ -793,6 +793,16 @@
     "Start a shell or an agent here, in this desk’s folder": "Avvia una shell o un agente qui, nella cartella del desk",
     "looking at what this machine can start…": "sto guardando cosa può avviare questa macchina…",
     "The API, live": "L’API, dal vivo",
-    "every route, with a button that really calls it": "ogni rotta, con un bottone che la chiama davvero"
+    "every route, with a button that really calls it": "ogni rotta, con un bottone che la chiama davvero",
+    "Fetch a link into this folder": "Scarica un link in questa cartella",
+    "Fetch a link": "Scarica un link",
+    "Fetch": "Scarica",
+    "into {where}": "in {where}",
+    "call it": "chiamalo",
+    "leave it empty to keep its own name": "lascia vuoto per tenere il suo nome",
+    "fetching…": "sto scaricando…",
+    "a whole curl command works too — paste it here": "funziona anche un comando curl intero — incollalo qui",
+    "headers, one per line": "intestazioni, una per riga",
+    "{n} headers taken from that curl": "{n} intestazioni prese da quel curl"
   }
 }
