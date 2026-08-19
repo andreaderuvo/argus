@@ -52,6 +52,7 @@ or copyable — same bargain as the client.
 
 from __future__ import annotations
 
+import os
 import re
 import sys
 import time
@@ -93,6 +94,8 @@ class Agent:
         self.branch = branch      # the worktree's branch, if it got one
         self.label = label or name
         self.done = False
+        self.asking = False       # a bell said it wants a person
+        self.lost = False         # the clock ran out on it
 
     def arrived(self) -> bool:
         return bool(self.file and self.file.exists() and self.file.stat().st_size)
@@ -105,8 +108,19 @@ class Agent:
         except OSError:
             return ""
 
+    @property
+    def state(self) -> str:
+        """One word, for the diagram: what a person glancing at this needs."""
+        if self.done:
+            return "done"
+        if self.lost:
+            return "lost"
+        if self.asking:
+            return "asking"
+        return "working" if self.file else "waiting"
+
     def __repr__(self) -> str:
-        return f"<agent {self.name} {'done' if self.done else 'waiting'}>"
+        return f"<agent {self.name} {self.state}>"
 
 
 class Group:
@@ -197,7 +211,7 @@ class Orchestra:
 
     def __init__(self, where: str | Path = ".", launcher: str = "Claude Code",
                  prefix: str = "", minutes: float = 30, run: bool = True,
-                 watch: bool = False, on_lost: str = "continue",
+                 watch: bool = False, on_lost: str = "continue", name: str = "",
                  argus: Argus | None = None) -> None:
         """`run=False` types every prompt in and leaves the return to a person — do that
         first. `watch=True` also puts each session on the desk of whatever browser has Argus
@@ -214,7 +228,15 @@ class Orchestra:
         self.watch = watch
         self.on_lost = on_lost
         self.started: list[Agent] = []
+        self.stages: list[dict] = []
         self.began = time.monotonic()
+        # The clock and the process, which is unique enough for a noticeboard that holds
+        # sixteen of these and forgets them when the server restarts.
+        self.id = f"{int(time.time())}-{os.getpid()}"
+        self.name = name or Path(sys.argv[0]).stem or "a run"
+        self.state = "running"
+        self._last: dict | None = None
+        self._quiet = False
 
         self.here = self.argus.who()
         if launcher not in self.here.get("launchers", []):
@@ -223,6 +245,46 @@ class Orchestra:
         self.say(f"{self.here.get('machine', 'this machine')} · "
                  f"{len(self.here.get('sessions', []))} sessions already here"
                  + ("" if self.run else "  (nothing will be sent: run=False)"))
+
+    # ------------------------------------------------------------------ telling the wall
+
+    def _shape(self) -> dict:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "where": str(self.where),
+            "state": self.state,
+            "steps": [{"name": s["name"],
+                       "agents": [{"name": a.name, "label": a.label, "state": a.state,
+                                   "file": a.file.name if a.file else ""}
+                                  for a in s["agents"]]}
+                      for s in self.stages],
+        }
+
+    def _push(self) -> None:
+        """Post the shape, if anybody asked to watch and it has actually changed.
+
+        Only under `watch=True`: an orchestration that nobody is looking at should not be
+        making an HTTP request every time a file appears. And never fatal — a noticeboard that
+        cannot be reached is a noticeboard, not a reason to stop three agents mid-job. It is
+        said once, so a server too old to have `/api/runs` does not print a line per step.
+        """
+        if not self.watch:
+            return
+        shape = self._shape()
+        if shape == self._last:
+            return
+        self._last = shape
+        try:
+            self.argus.call("POST", "/api/runs", shape)
+        except Exception as e:                                   # noqa: BLE001 — see above
+            if not self._quiet:
+                self._quiet = True
+                self.say(f"  (not drawing this run: {e})")
+
+    def _stage(self, name: str, agents: list[Agent]) -> None:
+        self.stages.append({"name": name, "agents": agents})
+        self._push()
 
     # ------------------------------------------------------------------ small things
 
@@ -319,6 +381,7 @@ class Orchestra:
         agent = Agent(session, spot, target, branch, label=name)
         self.started.append(agent)
         self.say(f"  {session:24} {(branch or str(spot)):32}")
+        self._stage(name, [agent])
         return agent
 
     def fan_out(self, items, say: str, until: str | Path | None = None,
@@ -359,6 +422,7 @@ class Orchestra:
             self.started.append(agent)
             self.say(f"  {names[i]:24} {(branch or str(spot)):32}")
 
+        self._stage(f"{n} ways", agents)
         group = Group(agents)
         if wait:
             self.wait(*agents, minutes=minutes)
@@ -445,17 +509,29 @@ class Orchestra:
             for a in list(waiting):
                 if a.arrived():
                     a.done = True
+                    a.asking = False
                     waiting.remove(a)
                     self.say(f"  {a.name} wrote {a.file.name}")
+                    self._push()
 
         def heard(bell: dict) -> None:
-            if bell.get("why") == "asking":
-                self.say(f"  ** {bell.get('session') or 'somebody'} is asking for a person: "
-                         f"{bell.get('text', '')}")
+            if bell.get("why") != "asking":
+                return
+            who = bell.get("session")
+            self.say(f"  ** {who or 'somebody'} is asking for a person: {bell.get('text', '')}")
+            # Marked as well as printed: the whole reason for the diagram is that the line
+            # scrolled past while you were somewhere else.
+            for a in waiting:
+                if a.name == who:
+                    a.asking = True
+                    self._push()
 
         collect()
         self._until(deadline, lambda: not waiting, collect, heard)
 
+        for a in waiting:
+            a.lost = True
+        self._push()
         for a in waiting:
             # The whole path, because the file is not always in the folder the session was
             # started in — a referee runs in the paper's directory and writes into reviews/ —
@@ -526,6 +602,8 @@ class Orchestra:
         sessions are still open and the worktrees are still on disk, because the useful move
         after an orchestration is usually to go and ask one of them something.
         """
+        self.state = "done"
+        self._push()
         done = [a for a in self.started if a.done]
         lost = [a for a in self.started if a.file and not a.done]
         mins = (time.monotonic() - self.began) / 60

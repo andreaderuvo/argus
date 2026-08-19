@@ -2032,6 +2032,74 @@
     ]
    }
   },
+  "/api/runs": {
+   "get": {
+    "description": "What is running, newest first. A page that arrives in the middle of a run draws it from\nhere; after that it is told about every change on the bell stream.",
+    "operationId": "getApiRuns",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Listing Api Runs Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Orchestrations happening now",
+    "tags": [
+     "Sessions"
+    ]
+   },
+   "post": {
+    "description": "Called by the framework, every time something about a run changes.\n\nThe whole document each time rather than a patch: a run is a dozen lines of JSON, the\nsender always knows the truth, and a diff protocol between a script and a noticeboard is\nmachinery in exchange for nothing.",
+    "operationId": "postApiRuns",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Post Api Runs Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Post the shape and state of an orchestration",
+    "tags": [
+     "Sessions"
+    ]
+   }
+  },
   "/api/search": {
    "get": {
     "operationId": "getApiSearch",

@@ -107,8 +107,15 @@ def test_the_list_of_what_an_agent_may_do_is_short():
 
     The value of this scope is that it is small enough to hold in your head. If it grows, that
     should be a decision somebody makes on purpose, with this test in front of them.
+
+    It has grown once: twelve to fourteen, for `GET` and `POST /api/runs`. The reasoning, since
+    that is the point of stopping here — those two reach a noticeboard held in memory that says
+    which orchestration is running and how far it has got. Posting to it cannot start, stop or
+    reach an agent, cannot touch a file, and changes nothing if no browser is open. It buys the
+    ability to *watch* what an agent-driven orchestration is doing, which is the opposite of a
+    widening: an orchestration you can see is one you can stop.
     """
-    assert len(AGENT_ROUTES) <= 12
+    assert len(AGENT_ROUTES) <= 14
     assert all(method in ("GET", "POST") for method, _ in AGENT_ROUTES)
     assert not any(path.startswith("/api/fs") or path.startswith("/api/devices")
                    for _, path in AGENT_ROUTES)

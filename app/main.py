@@ -21,7 +21,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 
 from . import (announce, bells, devices, favourites, files, fsops, gitwork, journal, languages,
-               launch, mounts, paths, ports, prefs, proxy, release, runner, system, term, tmux, todo)
+               launch, mounts, paths, ports, prefs, proxy, release, runner, runs, system, term,
+               tmux, todo)
 import httpx
 
 from .auth import PROXY_COOKIE, TokenAuthMiddleware
@@ -333,6 +334,7 @@ def create_app(cfg: Config) -> FastAPI:
     app.include_router(files.router)
     app.include_router(proxy.router)
     app.include_router(bells.router)
+    app.include_router(runs.router)
     app.include_router(fsops.router, tags=["Writing"])
     app.include_router(paths.router, tags=["Prompts"])
     app.include_router(term.router, tags=["Sessions"])

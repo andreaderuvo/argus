@@ -3636,33 +3636,11 @@ function undoEntities(s) {
   return box.value;
 }
 
-async function drawDiagrams(container) {
-  /* `[class*=]`, not the exact class: an info string is not always the bare word — ```mermaid
-   *  with anything after it becomes `language-mermaid-something`, and a fence written that
-   *  way is still a diagram. */
-  const blocks = [...container.querySelectorAll('pre > code[class*="language-mermaid"]')];
-  // Colours are baked into the svg at draw time, so a theme switch has to redraw whatever is
-  // already on the page — a diagram drawn at night is a black box on a white document.
-  const again = [...container.querySelectorAll('.diagram')].filter((d) => d.source);
-  if (!blocks.length && !again.length) return;
-  try {
-    if (!mmd.engine) ({ default: mmd.engine } = await import('/vendor/mermaid-11.16.1/mermaid.esm.min.mjs'));
-  } catch (e) {
-    /* Say it on the page, not only in the console.
-     *
-     *  A library that will not load looks exactly like a feature that is not there — which
-     *  is the whole difficulty of "the diagrams are not drawn": nothing distinguishes a copy
-     *  of Argus too old to have this from one where the file is missing or is being served
-     *  with a MIME type a browser will not import. One line, under the block, does. */
-    console.warn(`argus: no diagrams — ${e.message}`);
-    for (const code of blocks) {
-      code.parentElement.after(el('p', { className: 'meta', textContent: t('the diagram library did not load') }));
-    }
-    return;
-  }
-  // Built from the palette rather than mermaid's own dark and light themes, so a diagram
-  // is the same two greens and the same greys as the page holding it — and follows a theme
-  // switch, because these are read at draw time and a document redraws when the theme does.
+/** The engine, ready and wearing this palette. Shared, because a run window and a document
+ *  both want it and the theme has to be re-read each time: the colours are baked into the svg
+ *  at draw time, so a diagram drawn at night is a black box on a white page. */
+async function readyDiagrams() {
+  if (!mmd.engine) ({ default: mmd.engine } = await import('/vendor/mermaid-11.16.1/mermaid.esm.min.mjs'));
   const paint = getComputedStyle(document.documentElement);
   const hue = (name) => paint.getPropertyValue(name).trim();
   mmd.engine.initialize({
@@ -3686,6 +3664,41 @@ async function drawDiagrams(container) {
       errorTextColor: hue('--danger'),
     },
   });
+  return mmd.engine;
+}
+
+/** One diagram into one box, remembering its source so a theme switch can redraw it. */
+async function drawInto(box, source) {
+  const engine = await readyDiagrams();
+  box.innerHTML = (await engine.render(`mmd-${++mmd.drawn}`, source)).svg;
+  box.source = source;
+  box.classList.add('diagram');
+}
+
+async function drawDiagrams(container) {
+  /* `[class*=]`, not the exact class: an info string is not always the bare word — ```mermaid
+   *  with anything after it becomes `language-mermaid-something`, and a fence written that
+   *  way is still a diagram. */
+  const blocks = [...container.querySelectorAll('pre > code[class*="language-mermaid"]')];
+  // Colours are baked into the svg at draw time, so a theme switch has to redraw whatever is
+  // already on the page — a diagram drawn at night is a black box on a white document.
+  const again = [...container.querySelectorAll('.diagram')].filter((d) => d.source);
+  if (!blocks.length && !again.length) return;
+  try {
+    await readyDiagrams();
+  } catch (e) {
+    /* Say it on the page, not only in the console.
+     *
+     *  A library that will not load looks exactly like a feature that is not there — which
+     *  is the whole difficulty of "the diagrams are not drawn": nothing distinguishes a copy
+     *  of Argus too old to have this from one where the file is missing or is being served
+     *  with a MIME type a browser will not import. One line, under the block, does. */
+    console.warn(`argus: no diagrams — ${e.message}`);
+    for (const code of blocks) {
+      code.parentElement.after(el('p', { className: 'meta', textContent: t('the diagram library did not load') }));
+    }
+    return;
+  }
   for (const code of blocks) {
     // Already decoded by renderMarkdown, which is the only thing that puts a fence here.
     const source = code.textContent || '';
@@ -3712,9 +3725,14 @@ async function drawDiagrams(container) {
 
 /** Redraw what is on screen after the palette changed under it. */
 function repaintDiagrams() {           // a declaration: applyTheme runs long before this line
-  for (const doc of document.querySelectorAll('.md')) {
-    if (doc.querySelector('.diagram')) drawDiagrams(doc);
+  // Every box that has drawn something, wherever it lives: a run window is a diagram outside
+  // any document, and the first version of this only knew how to find the ones in `.md`.
+  for (const box of document.querySelectorAll('.diagram')) {
+    if (box.source) drawInto(box, box.source).catch(() => {});
   }
+  // A run's colours are written into its source, so redrawing the stored source would keep
+  // last night's palette. These build theirs again.
+  for (const draw of watchers) draw();
 }
 
 /* ------------------------------------------------------------------ vitals */
@@ -6128,6 +6146,7 @@ function railLabel(spec) {
   if (spec.kind === 'messages') return t('Prompts');
   if (spec.kind === 'term') return spec.name;
   if (spec.kind === 'web') return spec.label || spec.url;
+  if (spec.kind === 'run') return runs.get(spec.id)?.name || t('a run');
   return (spec.path || '').split('/').filter(Boolean).pop() || spec.path || '?';
 }
 
@@ -7821,6 +7840,7 @@ async function screenWall() {
           // the one thing here you could stare at for a while without working out.
           : spec.kind === 'links' ? (whoseLinks ? t('Links · {desk}', { desk: whoseLinks }) : t('Links'))
           : spec.kind === 'web' ? (spec.label || spec.url)
+          : spec.kind === 'run' ? (runs.get(spec.id)?.name || t('a run'))
             : (spec.path.split('/').pop() || spec.path);
 
       const isTray = spec.kind === 'links' || spec.kind === 'messages';
@@ -7906,6 +7926,7 @@ async function screenWall() {
       const title = el('span', {
         className: 'wintitle',
         title: spec.kind === 'term' ? label
+          : spec.kind === 'run' ? t('An orchestration, while it happens')
           : spec.kind === 'messages' ? t('What to hand to an agent')
             : isTray ? t('What went past in this desk') : (spec.path || spec.url),
         textContent: label,
@@ -7995,6 +8016,7 @@ async function screenWall() {
           drop: deliverLink,
         })
         : spec.kind === 'web' ? attachWeb(body, spec, setLabel)
+        : spec.kind === 'run' ? attachRun(body, spec, setLabel)
         // Where a browser *lands* is the desk's business, not the folder it happened to
         // be left in: reopening a desk should put you where that desk starts.
         : isBrowser ? attachBrowser(body, spec, setLabel, landingFor(ws, spec))
@@ -11226,6 +11248,19 @@ function listenForBells() {
  *  merge with whatever you happen to be dragging at that moment.
  */
 function aside(said) {
+  if (said.what === 'run' && said.run?.id) {
+    const known = runs.has(said.run.id);
+    runs.set(said.run.id, said.run);
+    for (const draw of watchers) draw();
+    // The first time a run speaks it gets a window, and after that it only updates the one it
+    // has. A run only posts at all when it was started with `watch=True`, so this is somebody
+    // saying "show me" rather than every script on the machine opening a window.
+    if (!known && said.run.state !== 'done') {
+      openWindow({ kind: 'run', id: said.run.id }, undefined, { jump: false });
+      toast(t('{name} is running — it is on your desk', { name: said.run.name }));
+    }
+    return;
+  }
   if (said.what !== 'started' || !said.name) return;
   openWindow({ kind: 'term', name: said.name }, undefined, { jump: false });
   toast(t('{name} started, and is on your desk', { name: said.name }));
@@ -13231,6 +13266,7 @@ const specId = (spec) => (spec.kind === 'links' ? (spec.from ? `links:${spec.fro
   : spec.kind === 'messages' ? 'messages'
   : spec.kind === 'term' ? `term:${spec.name}`
   : spec.kind === 'web' ? `web:${spec.url}`
+    : spec.kind === 'run' ? `run:${spec.id}`
     : spec.kind === 'browser' && spec.id ? `browser:${spec.id}`
       : `${spec.kind}:${spec.path}`);
 
@@ -13580,6 +13616,122 @@ function openWindow(spec, geom, { jump = true } = {}) {
   if (jump) go('#/wall');
   else paintRailWindows();
 }
+
+/* Orchestrations that have said what they are doing, by id. Filled from `/api/runs` when a
+ *  window opens and kept up to date by the stream, so several windows on one run all draw the
+ *  same thing without each of them asking. */
+const runs = new Map();
+
+/** One orchestration as a diagram: what it started, in what order, and how each one is doing.
+ *
+ *  The framework knows this and used to print it as lines scrolling past in the terminal that
+ *  launched it — which is the wrong place, because the reason to run several agents at once is
+ *  that you cannot watch them all, and a print statement in a pane you have scrolled away from
+ *  is not watching. Here it is a picture, on the desk, beside the terminals it describes.
+ */
+function runDiagram(run) {
+  /* Coloured with mermaid's own `classDef` rather than with a stylesheet.
+   *
+   *  The first version put the five states in `style.css` and none of them showed: mermaid
+   *  writes `fill` and `stroke` *inline* on every node, and an inline style beats a rule. The
+   *  choice was `!important` against every node in the file, or saying it the way the library
+   *  is asking to be told. This reads the same palette either way, so a run is the same greens
+   *  and ambers as the badge on the tab that led you to it.
+   *
+   *  And the state is a *word* under the name, not only a colour: a tick and an hourglass were
+   *  there in the text and drew as nothing on a machine with no emoji font, which is a diagram
+   *  that says the same thing three times. The word is also the half that survives being
+   *  colour-blind, printed, or looked at sideways.
+   */
+  const paint = getComputedStyle(document.documentElement);
+  const hue = (name) => paint.getPropertyValue(name).trim();
+  const ink = hue('--bg');
+  const tone = {
+    done: hue('--st-good'), working: hue('--accent'), asking: hue('--st-warning'),
+    lost: hue('--st-critical'), waiting: hue('--line'),
+  };
+  const word = {
+    done: t('done'), working: t('working'), asking: t('wants you'),
+    lost: t('never finished'), waiting: t('waiting'),
+  };
+  const lines = ['graph LR'];
+  for (const [state, fill] of Object.entries(tone)) {
+    const text = state === 'waiting' ? hue('--text') : ink;
+    lines.push(`  classDef ${state} fill:${fill},stroke:${fill},color:${text}`);
+  }
+  const stages = run.steps || [];
+  stages.forEach((step, i) => {
+    for (const [j, agent] of (step.agents || []).entries()) {
+      const id = `n${i}_${j}`;
+      // Quoted and stripped: a label is somebody's sentence and mermaid reads several of
+      // these characters as syntax. The engine sanitises too — this keeps it *drawing*.
+      const label = String(agent.label || agent.name).replace(/["<>|{}[\]()]/g, '').slice(0, 40);
+      const state = agent.state in tone ? agent.state : 'waiting';
+      lines.push(`  ${id}["${label}<br/>${word[state]}"]:::${state}`);
+      if (i > 0) {
+        // Everything in a stage depends on everything in the one before it, which is what a
+        // blocking `fan_out` means: the next step did not start until these were finished.
+        // Except the ones that never did — an arrow from a timed-out agent into the judge says
+        // it fed the judge, and it did not: the judge was given what came back.
+        (stages[i - 1].agents || []).forEach((was, k) => {
+          if (was.state !== 'lost') lines.push(`  n${i - 1}_${k} --> ${id}`);
+        });
+      }
+    }
+  });
+  return lines.join('\n');
+}
+
+function attachRun(host, spec, setLabel) {
+  const box = el('div', { className: 'rundiagram' });
+  const note = el('p', { className: 'meta' });
+  host.replaceChildren(el('div', { className: 'runbody' }, [box, note]));
+
+  const paint = async () => {
+    const run = runs.get(spec.id);
+    if (!run) {
+      note.textContent = t('nothing is running under that name');
+      return;
+    }
+    setLabel?.(run.name, `${run.name} · ${run.where}`);
+    const counted = (run.steps || []).flatMap((x) => x.agents || []);
+    const done = counted.filter((a) => a.state === 'done').length;
+    note.textContent = run.state === 'done'
+      ? t('finished · {done} of {all}', { done, all: counted.length })
+      : t('running · {done} of {all}', { done, all: counted.length });
+    host.classList.toggle('runasking', counted.some((a) => a.state === 'asking'));
+    try {
+      await drawInto(box, runDiagram(run));
+      /* Made to fit the window, which mermaid will not do on its own: it writes a pixel
+       *  `max-width` on the svg and draws at whatever size the graph came out, so five agents
+       *  in a small window is a picture you scroll — and a diagram you have to scroll is a
+       *  diagram that has stopped being a glance. The viewBox is already there; this only has
+       *  to stop the inline width from overriding it. */
+      const drawn = box.querySelector('svg');
+      if (drawn) {
+        drawn.style.maxWidth = 'none';
+        drawn.style.width = '100%';
+        drawn.style.height = '100%';
+      }
+    } catch { /* it drew once before, or it never will; the count above still says what is up */ }
+  };
+
+  // Whatever the server has now, then every change as it happens. A window opened halfway
+  // through a run has to start from the state, not from the next event.
+  getJSON('/api/runs').then((said) => {
+    for (const one of said.runs || []) runs.set(one.id, one);
+    paint();
+  }).catch(() => paint());
+
+  watchers.add(paint);
+  return {
+    relayout: () => {},
+    dispose: () => watchers.delete(paint),
+  };
+}
+
+/** Everything that wants telling when a run changes. */
+const watchers = new Set();
 
 /** A web page inside a window: a port you opened, sitting next to the job serving it. */
 function attachWeb(host, spec, setLabel) {
