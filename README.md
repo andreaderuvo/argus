@@ -31,15 +31,23 @@ wiki →](https://github.com/andreaderuvo/argus/wiki)**
 ## Run it
 
 ```bash
-git clone https://github.com/andreaderuvo/argus && cd argus
-pip install -r requirements.txt
-python3 -m app.main --allow-write        # prints a URL with a token in it
+curl -fsSL https://raw.githubusercontent.com/andreaderuvo/argus/master/install.sh | bash
+argus --allow-write        # prints a URL with a token in it
 ```
 
-Open the URL it prints. Python 3.11+, tmux, three dependencies, no build step and no
-database; `--qr` prints a code to photograph with a phone. The first run writes
-`~/.config/argus/config.yaml` with a fresh 64-character token, which is the only
-credential there is.
+Into `~/.local/share/argus`, with a launcher at `~/.local/bin/argus`. No `sudo`, no system
+package, nothing outside your home; the same line again updates it, `-s -- uninstall` removes
+it, `-s -- --service` also installs a systemd user service. Or `docker compose up -d`, or
+`git clone` and `pip install -r requirements.txt` — [all three, and what the container
+needs](https://github.com/andreaderuvo/argus/wiki/Getting-started).
+
+Python 3.11+, tmux, five dependencies, no build step and no database; `--qr` prints a code to
+photograph with a phone. The first run writes `~/.config/argus/config.yaml` with a fresh
+64-character token, which is the only credential there is.
+
+Linux and macOS natively — Windows inside WSL, because tmux is a Unix program and has no
+native Windows build. The browser side is any operating system with a browser, which is the
+point.
 
 > [!WARNING]
 > **This is remote shell access wearing a browser.** Anyone holding the token can run
