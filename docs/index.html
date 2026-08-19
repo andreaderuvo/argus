@@ -370,11 +370,13 @@ argus --allow-write   <span class="said"># prints a URL with a token in it</span
       </div>
       <div class="card">
         <h3>Several agents, and something to conduct them</h3>
-        <p>Three worked orchestrators ship in <code>scripts/</code>, each run against real tmux
-          before it was committed: <em>N attempts at one problem and a judge</em>, <em>N referees
-          with different lenses and an editor</em>, <em>a backend, a frontend and a tester who
-          hand work to each other in order</em>. They are examples, not a feature — copy one and
-          change the middle. The Python client they use is one standard-library file.</p>
+        <p>A small framework — one standard-library file — owns the part that is always the
+          same: the &ldquo;write this file, then ring&rdquo; contract appended to every prompt, one
+          correct waiting loop, the session names, a git worktree per agent. On top of it, three
+          worked orchestrators of about twenty lines each, all run against real tmux before they
+          were committed: <em>N attempts at one problem and a judge</em>, <em>N referees with
+          different lenses and an editor</em>, <em>a backend, a frontend and a tester handing
+          work to each other in order</em>. It stays ordinary Python, so a loop is a loop.</p>
       </div>
 
       <div class="card">

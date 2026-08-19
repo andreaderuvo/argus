@@ -1,230 +1,71 @@
 #!/usr/bin/env python3
-"""Three agents try three things, and a fourth says which won.
-
-This is a worked example, not a feature. Argus does not ship an orchestrator and is not going
-to: what it ships is the substrate one is made of — start a thing, see who is there, hand a
-sentence over, ring a person — and this file is two hundred lines showing that the substrate is
-enough. Copy it and change the middle.
+"""N agents try N things, and one more says which won.
 
     python3 scripts/orchestra.py --repo ~/work/api \\
         --try "a cache in front of the query" \\
         --try "an index on the join column" \\
         --try "rewriting it as one query"
 
-What happens:
+A git worktree per idea so nobody edits somebody else's checkout, an agent in each, and a
+judge reading the results. Twenty lines, because the plumbing is in
+[`tools/argus_orchestra.py`](../tools/argus_orchestra.py) — the waiting, the contract that
+tells an agent how to say it has finished, the naming, the worktrees, the report.
 
-  1. a git worktree per idea, each on its own branch, so three agents never edit one checkout
-  2. an agent in each, with the idea as its first instruction and a contract in the prompt:
-     *write RESULT.md, then ring* — because the one thing this cannot do is read their answers
-  3. the orchestrator waits on the bell stream, which is an open connection rather than polling
-  4. a judge, started in the repository itself, given the three paths to compare
+This file used to be two hundred lines and most of them were that plumbing. What is left is
+the shape, which is the part worth copying: change the middle and you have your own.
 
-Three constraints shaped every line of it, and they are worth reading before you write your own.
-
-**You cannot read what an agent said.** Argus can type into a session; it cannot read one back.
-Reading a pane means `capture-pane`, which is both scraping a text user interface and — on at
-least one machine this was tested against — a way to take the whole tmux server down. So
-coordination goes through the filesystem: the agents write files, the orchestrator reads files.
-Every serious pattern here ends up in the same place, which is why Argus's two-agent recipes
-have always used a bridge file.
-
-**There is no implicit "finished".** An agent is done when it says so. That has to be in the
-prompt — *when you have finished, write X and ring* — and the contract is the orchestrator's
-half of the work. `--why done` rings without asking for a person; `--why asking` is for when it
-needs you, and this script tells you about those rather than swallowing them.
-
-**Nothing here retries, supervises or recovers.** If an agent wanders off, the timeout fires and
-you are told which one. A real supervisor is yours to write, and it would be another hundred
-lines of the same kind.
+`--no-run` types every prompt in and leaves the return to you. Do that first.
 """
 
 from __future__ import annotations
 
 import argparse
-import re
 import sys
-import time
 from pathlib import Path
 
-RESULT = "RESULT.md"
-
-
-# --------------------------------------------------------------- talking to argus
-#
-# The client is `tools/argus_client.py`: one stdlib file, importable and copyable. It was thirty
-# lines at the top of this script until the other two examples started importing them from here,
-# which is the moment a shared thing wants to stop being a script.
-
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
-from argus_client import Argus, ArgusError, TooFast     # noqa: E402
+from argus_orchestra import Orchestra          # noqa: E402
 
-RESULT = "RESULT.md"
-
-
-def slug(text: str, n: int = 24) -> str:
-    return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")[:n] or "idea"
-
-
-def naming(prefix: str, name: str) -> str:
-    """A session name for this run.
-
-    Not made unique behind your back, and that is deliberate: a session name is the *address*
-    these scripts relay to and the name each agent is told to ring with, so a `frontend`
-    silently renamed `frontend-2` is a sentence delivered to the wrong agent. Your prefix or
-    nothing.
-    """
-    return f"{slug(prefix, 12)}-{name}" if prefix else name
-
-
-def unused(here: dict, names: list[str]) -> None:
-    """Refuse before starting anything, rather than 409 on the third launch.
-
-    Every one of these scripts uses fixed role names — `judge`, `editor`, `backend` — and a
-    machine that has been worked on for a week already has a session called one of them. The
-    first version found out halfway through a fan-out, which is the worst moment: two agents
-    running, nothing to hand their work to, and a traceback instead of a sentence.
-    """
-    taken = sorted({s["name"] for s in here.get("sessions", [])} & set(names))
-    if taken:
-        sys.exit(f"these are already running here: {', '.join(taken)}\n"
-                 "close them, or give this run a --prefix of its own")
-
-
-# --------------------------------------------------------------------- the shape
-
-
-def fan_out(argus: Argus, repo: Path, launcher: str, ideas: list[str], run: bool,
-            prefix: str = "") -> list[dict]:
-    """One worktree and one agent per idea."""
-    started = []
-    for idea in ideas:
-        name = naming(prefix, slug(idea))
-        branch = f"try/{name}"
-        made = argus.worktree(repo, branch)
-        where = Path(made["path"])
-        # The contract, in the prompt, because there is no other way to be told it is done.
-        prompt = (
-            f"You are trying one approach among several, in this checkout: {idea}.\n"
-            f"Work only in {where}. When you have something that runs, write {RESULT}\n"
-            "with: what you changed, whether the tests pass, and one line beginning\n"
-            "'VERDICT:' saying whether you would ship it.\n"
-            f"Then run: argus-say ring --why done --session {name}"
-        )
-        said = argus.launch(launcher, name, where, prompt, run=run)
-        started.append({"idea": idea, "session": said["name"], "path": where, "branch": branch})
-        print(f"  {said['name']:24} {branch:28} {where}")
-    return started
-
-
-def wait_for(argus: Argus, started: list[dict], minutes: float) -> tuple[list[dict], list[dict]]:
-    """Until each has rung, or the clock runs out.
-
-    Two ways of knowing, and both are used: the bell is the *signal*, the file is the *fact*. An
-    agent that writes its result and forgets to ring is not a failure, so the file is checked
-    whenever a bell arrives and once more at the end.
-    """
-    done, waiting = [], list(started)
-    deadline = time.monotonic() + minutes * 60
-
-    def collect() -> None:
-        for one in list(waiting):
-            if (one["path"] / RESULT).exists():
-                waiting.remove(one)
-                done.append(one)
-                print(f"  {one['session']} has written {RESULT}")
-
-    collect()
-    since = 0
-    while waiting and time.monotonic() < deadline:
-        try:
-            for bell in argus.bells(since=since, until=deadline):
-                # The deadline, checked *inside* the stream. The bell stream sends a
-                # heartbeat every 25 seconds and never ends on its own, so a `while` around
-                # the generator is a `while` that is never reached: measured, an orchestrator
-                # asked to wait ninety seconds waited five minutes and was killed.
-                if time.monotonic() > deadline:
-                    break
-                since = max(since, int(bell.get("seq", 0)))
-                who, why = bell.get("session"), bell.get("why")
-                if why == "asking":
-                    # Not swallowed: this is the case a person is wanted for, and an
-                    # orchestrator that hides it is the reason people stop trusting one.
-                    print(f"  ** {who or 'somebody'} is asking for a person: {bell.get('text', '')}")
-                collect()
-                if not waiting:
-                    break
-        # `OSError` and not the three names it used to list: `TimeoutError` and
-        # `urllib.error.URLError` are both subclasses of it, and one of the three was a name
-        # this file never imported — an `except` clause that would have raised `NameError` at
-        # the exact moment it was meant to recover.
-        except OSError:
-            collect()          # the stream ended or timed out; look at the facts and go again
-    collect()
-    return done, waiting
-
-
-def judge(argus: Argus, repo: Path, launcher: str, done: list[dict], run: bool,
-          prefix: str = "") -> str:
-    listing = "\n".join(f"- {one['idea']}: {one['path'] / RESULT}" for one in done)
-    prompt = (
-        "Three attempts at the same problem have finished. Read each RESULT.md below,\n"
-        "compare them on correctness first and speed second, and say which one to keep\n"
-        "and why in three sentences. Do not edit anything.\n\n" + listing
-    )
-    said = argus.launch(launcher, naming(prefix, "judge"), repo, prompt, run=run)
-    return said["name"]
-
-
-# ------------------------------------------------------------------------- main
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--repo", required=True, type=Path, help="a git repository to work in")
     ap.add_argument("--try", dest="ideas", action="append", required=True, metavar="IDEA",
                     help="an approach to try; repeat it for as many as you want")
     ap.add_argument("--launcher", default="Claude Code", help="a name from `argus-say who`")
     ap.add_argument("--minutes", type=float, default=30, help="how long to wait for them")
+    ap.add_argument("--prefix", default="", help="in front of every session name, so a second "
+                                                 "run does not collide with the first")
     ap.add_argument("--no-run", action="store_true",
                     help="type each prompt in but leave the return to a person — try this first")
     ap.add_argument("--no-judge", action="store_true", help="stop after the attempts")
-    ap.add_argument("--prefix", default="",
-                    help="put this in front of every session name, so a second run of the "
-                         "same thing does not collide with the first")
+    ap.add_argument("--watch", action="store_true",
+                    help="put each session on the desk as it starts")
     args = ap.parse_args()
 
-    argus = Argus()
-    run = not args.no_run
-    here = argus.who()
-    if args.launcher not in here.get("launchers", []):
-        sys.exit(f"{args.launcher!r} is not one of this machine's launchers: {here.get('launchers')}")
+    o = Orchestra(args.repo, launcher=args.launcher, prefix=args.prefix,
+                  minutes=args.minutes, run=not args.no_run, watch=args.watch)
 
-    wanted = [naming(args.prefix, slug(idea)) for idea in args.ideas]
-    if not args.no_judge:
-        wanted.append(naming(args.prefix, "judge"))
-    unused(here, wanted)
+    tries = o.fan_out(
+        args.ideas,
+        say="You are trying one approach among several: {each}.\n"
+            "When you have something that runs, write what you changed, whether the tests\n"
+            "pass, and one line beginning 'VERDICT:' saying whether you would ship it.",
+        worktree="try/{each}",
+        until="RESULT.md",
+    )
 
-    print(f"{here['machine']} · {len(here['sessions'])} sessions already here")
-    print(f"\nstarting {len(args.ideas)} attempts:")
-    started = fan_out(argus, args.repo.expanduser(), args.launcher, args.ideas, run, args.prefix)
+    if tries.done and not args.no_judge:
+        o.step(
+            name="judge",
+            say="Several attempts at the same problem have finished. Read each RESULT.md\n"
+                "below, compare them on correctness first and speed second, and say which\n"
+                f"one to keep and why in three sentences. Do not edit anything.\n\n{tries.files}",
+            until="DECISION.md",
+        )
 
-    print(f"\nwaiting up to {args.minutes:g} minutes for {RESULT} in each:")
-    done, lost = wait_for(argus, started, args.minutes)
-    for one in lost:
-        print(f"  {one['session']} never finished — its worktree is at {one['path']}")
-    if not done:
-        sys.exit("\nnothing finished; nothing to judge")
-
-    if args.no_judge:
-        print("\nfinished:")
-        for one in done:
-            print(f"  {one['idea']}: {one['path'] / RESULT}")
-        return
-
-    print(f"\n{len(done)} finished. Starting the judge:")
-    name = judge(argus, args.repo.expanduser(), args.launcher, done, run, args.prefix)
-    print(f"  {name} is reading them, in {args.repo}")
-    print("\nThe worktrees are left where they are: this script does not delete work.")
-    print("  git -C %s worktree list" % args.repo)
+    o.report()
 
 
 if __name__ == "__main__":
