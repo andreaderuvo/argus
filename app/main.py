@@ -21,7 +21,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 
 from . import (announce, bells, devices, favourites, files, fsops, gitwork, journal, languages,
-               launch, mounts, paths, ports, proxy, release, runner, system, term, tmux)
+               launch, mounts, paths, ports, proxy, release, runner, system, term, tmux, todo)
 import httpx
 
 from .auth import PROXY_COOKIE, TokenAuthMiddleware
@@ -295,6 +295,7 @@ def create_app(cfg: Config) -> FastAPI:
     app.state.jail = Jail(cfg.roots)
     app.state.socket = tmux.Socket.new(cfg.tmux_socket)
     app.state.favourites = getattr(cfg, "favourites_store", None) or Path("/nonexistent")
+    app.state.todo = getattr(cfg, "todo_store", None) or Path("/nonexistent")
     app.state.devices = cfg.devices_store or Path("/nonexistent")
     app.state.journal = cfg.journal_store
     app.state.lang = Path("/nonexistent")
@@ -370,6 +371,45 @@ def create_app(cfg: Config) -> FastAPI:
         except OSError as e:
             raise ApiError(500, f"could not save the language: {e.strerror}") from e
         return {"code": code, "name": name, "count": len(strings)}
+
+    @app.get("/api/todo", tags=["Setup"], summary="The list of things to do")
+    async def list_todo(request: Request) -> dict:
+        """Kept on the server rather than in the browser, so the note you wrote at the desk is
+        on the phone as well. That is the whole reason it is here and not in the preferences."""
+        return {"items": todo.load(request.app.state.todo)}
+
+    @app.post("/api/todo", tags=["Setup"], summary="Add something to do")
+    async def add_todo(request: Request, body: dict) -> dict:
+        store = request.app.state.todo
+        try:
+            items, made = todo.add(todo.load(store), str(body.get("note", "")),
+                                   str(body.get("status", "open")))
+        except ValueError as e:
+            raise ApiError(400, str(e)) from e
+        todo.save(store, items)
+        return made
+
+    @app.patch("/api/todo/{ident}", tags=["Setup"], summary="Change one: its words or its state")
+    async def edit_todo(request: Request, ident: str, body: dict) -> dict:
+        store = request.app.state.todo
+        try:
+            items, found = todo.change(todo.load(store), ident,
+                                       body.get("note"), body.get("status"))
+        except ValueError as e:
+            raise ApiError(400, str(e)) from e
+        if not found:
+            raise ApiError(404, "there is nothing here with that id")
+        todo.save(store, items)
+        return found
+
+    @app.delete("/api/todo/{ident}", tags=["Setup"], summary="Take one off the list")
+    async def drop_todo(request: Request, ident: str) -> dict:
+        store = request.app.state.todo
+        items, gone = todo.remove(todo.load(store), ident)
+        if not gone:
+            raise ApiError(404, "there is nothing here with that id")
+        todo.save(store, items)
+        return {"removed": ident}
 
     @app.get("/api/favourites", tags=["Files"], summary="Pinned folders, kept on the server")
     async def list_favourites(request: Request) -> dict:
@@ -1341,6 +1381,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     app.state.favourites = favourites.default_store(config_path)
+    app.state.todo = todo.default_store(config_path)
     app.state.lang = config_path.parent / "lang"
     app.state.port = port
     app.state.host = host

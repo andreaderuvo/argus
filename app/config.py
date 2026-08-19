@@ -131,6 +131,7 @@ class Config:
     # config in a file this program owns, rather than inside a file the reader hand-edits and
     # fills with comments that a YAML round-trip would erase.
     devices_store: Path | None = None
+    todo_store: Path | None = None
     # Where the record of what was done here is appended. Beside the config, same reasoning.
     journal_store: Path | None = None
 

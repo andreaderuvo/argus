@@ -2410,6 +2410,39 @@ button.keyrow kbd { flex: none; }
 .msgcard > summary .winbtn.star:hover { color: var(--accent); }
 .msgcard > summary .winbtn.star.on .ico path { fill: currentColor; }
 
+/* The little list of things to do: three columns, and no fourth. */
+.todo .todoadd { display: flex; gap: .5rem; padding: .8rem 1rem .4rem; }
+.todobox {
+  flex: 1; min-width: 0; padding: .5rem .7rem; font-size: .95rem;
+  background: var(--bg); color: var(--bright);
+  border: 1px solid var(--line); border-radius: .4rem;
+}
+.todo .todobar { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; }
+.todochips { display: flex; gap: .3rem; flex-wrap: wrap; }
+.todochips .chip { display: inline-flex; gap: .35rem; align-items: baseline; }
+.todochips .chip .count { color: var(--dim); font-size: .72rem; font-variant-numeric: tabular-nums; }
+.todolist { padding: .2rem 0 3rem; }
+.todorow {
+  display: flex; align-items: center; gap: .6rem;
+  padding: .45rem 1rem; min-height: var(--tap);
+  border-bottom: 1px solid var(--line);
+}
+.todorow.done .todonote { color: var(--dim); text-decoration: line-through; }
+.todostate {
+  flex: none; min-width: 4.6rem; padding: .2rem .5rem; border-radius: .7rem; cursor: pointer;
+  background: var(--line); color: var(--text); border: 1px solid transparent;
+  font-size: .7rem; text-transform: uppercase; letter-spacing: .04em;
+}
+.todostate.doing { background: color-mix(in srgb, var(--st-warning, #d6b98f) 26%, transparent); color: var(--bright); }
+.todostate.done { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent); }
+.todonote {
+  flex: 1; min-width: 0; text-align: left; background: none; border: 0; cursor: text;
+  color: var(--text); font-size: .95rem; padding: .2rem 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.todonote:hover { color: var(--bright); }
+.todowhen { flex: none; color: var(--dim); font-size: .75rem; font-variant-numeric: tabular-nums; }
+
 /* Under the title of a document: where it is, and the two things you want from that. */
 .prevwhere {
   display: flex; align-items: center; gap: .25rem;

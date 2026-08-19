@@ -432,6 +432,12 @@ const postJSON = (p, body) => api(p, {
 
 const delJSON = (p) => api(p, { method: 'DELETE' }).then((r) => r.json());
 
+const patchJSON = (p, body) => api(p, {
+  method: 'PATCH',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(body),
+}).then((r) => r.json());
+
 const withToken = (p) => p + (p.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token);
 
 async function serverInfo() {
@@ -1829,6 +1835,7 @@ async function render() {
     if (path === '/preview') return await screenPreview(q.get('path'));
     if (path === '/system') return await screenSystem();
     if (path === '/journal') return await screenJournal();
+    if (path === '/todo') return await screenTodo();
     if (path === '/settings') return await screenSettings();
     if (path === '/tmuxconf') return await screenTmuxConf();
     if (path === '/placeholders') return await screenMessages('vars');
@@ -4285,6 +4292,143 @@ function deviceRows() {
  *  Only the token from the config can read it. A record that a stolen device could read is a
  *  record that tells whoever took it exactly what you can see.
  */
+/** A short list of things to do, on the machine rather than in this browser.
+ *
+ *  Three columns because that is the whole idea: when you wrote it, what it says, and where it
+ *  is. Every to-do list grows tags, projects, priorities and recurrence until it is a second
+ *  job; the thing this competes with is a sticky note on a monitor, and a sticky note has no
+ *  fields.
+ *
+ *  It lives beside the config on the server, like the pinned folders and unlike the desks: a
+ *  note written at the desk and invisible from the phone would be worse than no note.
+ */
+async function screenTodo() {
+  setTitle(t('To do'));
+  const wrap = el('div', { className: 'settings todo' });
+  view.replaceChildren(wrap);
+
+  let items = [];
+  const STATES = ['open', 'doing', 'done'];
+  const WORD = { open: t('to do'), doing: t('doing'), done: t('done') };
+  let only = 'all';
+  let needle = '';
+
+  const rows = el('div', { className: 'todolist' });
+
+  const chips = el('div', { className: 'todochips' });
+  const drawChips = () => {
+    chips.replaceChildren();
+    for (const [key, label] of [['all', t('all')], ['open', WORD.open], ['doing', WORD.doing], ['done', WORD.done]]) {
+      const n = key === 'all' ? items.length : items.filter((x) => x.status === key).length;
+      chips.append(el('button', {
+        className: `chip${only === key ? ' on' : ''}`,
+        onclick: () => { only = key; paint(); },
+      }, [el('span', { textContent: label }), el('span', { className: 'count', textContent: String(n) })]));
+    }
+  };
+
+
+  const paint = () => {
+    // The counts are part of the drawing, not a step beside it: called by hand they were right
+    // when the screen opened and wrong the moment anything was added.
+    drawChips();
+    const want = items.filter((one) =>
+      (only === 'all' || one.status === only)
+      && (!needle || one.note.toLowerCase().includes(needle)));
+    rows.replaceChildren();
+    if (!items.length) {
+      rows.append(el('p', { className: 'empty', textContent: t('Nothing on the list.') }));
+    } else if (!want.length) {
+      rows.append(el('p', { className: 'empty', textContent: t('Nothing matches that.') }));
+    }
+    for (const one of want) {
+      /* The state is the button, and it cycles. Three states and a dropdown would be two
+       *  presses for a thing that is really "I have started it" and "it is finished". */
+      const state = el('button', {
+        className: `todostate ${one.status}`, textContent: WORD[one.status],
+        title: t('Press to move it on'),
+        onclick: async () => {
+          const next = STATES[(STATES.indexOf(one.status) + 1) % STATES.length];
+          try {
+            const said = await patchJSON(`/api/todo/${one.id}`, { status: next });
+            Object.assign(one, said);
+            paint();
+          } catch (e) { toast(e.message, true); }
+        },
+      });
+      // Click the words to change them, which is the only editing a line of text needs.
+      const note = el('button', {
+        className: 'todonote', textContent: one.note, title: t('Click to change the words'),
+        onclick: function edit() {
+          const box = el('input', { type: 'text', className: 'todobox', value: one.note });
+          const done = async (save) => {
+            if (!save || !box.value.trim() || box.value === one.note) return paint();
+            try {
+              Object.assign(one, await patchJSON(`/api/todo/${one.id}`, { note: box.value }));
+            } catch (e) { toast(e.message, true); }
+            paint();
+          };
+          box.onkeydown = (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); done(true); }
+            if (e.key === 'Escape') { e.preventDefault(); done(false); }
+          };
+          box.onblur = () => done(true);
+          this.replaceWith(box);
+          box.focus();
+          box.select();
+        },
+      });
+      rows.append(el('div', { className: `todorow ${one.status}` }, [
+        state,
+        note,
+        el('span', { className: 'todowhen', textContent: when(one.at), title: new Date(one.at * 1000).toLocaleString() }),
+        el('button', {
+          className: 'winbtn', title: t('Take it off the list'),
+          onclick: async () => {
+            try {
+              await delJSON(`/api/todo/${one.id}`);
+              items = items.filter((x) => x !== one);
+              paint();
+            } catch (e) { toast(e.message, true); }
+          },
+        }, icon('trash')),
+      ]));
+    }
+  };
+
+  const box = el('input', {
+    type: 'text', className: 'todobox', placeholder: t('what needs doing?'), spellcheck: false,
+  });
+  const add = async () => {
+    const note = box.value.trim();
+    if (!note) return;
+    try {
+      items = [await postJSON('/api/todo', { note }), ...items];
+      box.value = '';
+      paint();
+    } catch (e) { toast(e.message, true); }
+  };
+  box.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } };
+
+  const find = el('input', {
+    type: 'search', className: 'jfind', placeholder: t('filter'), spellcheck: false,
+    oninput: (e) => { needle = e.target.value.trim().toLowerCase(); paint(); },
+  });
+
+  wrap.append(
+    el('div', { className: 'todoadd' }, [box, el('button', { className: 'primary inline', textContent: t('Add'), onclick: add })]),
+    el('div', { className: 'jbar todobar' }, [chips, find]),
+    rows,
+  );
+
+  try {
+    items = (await getJSON('/api/todo')).items || [];
+  } catch (e) {
+    wrap.append(el('p', { className: 'hint', textContent: e.message }));
+  }
+  paint();
+}
+
 async function screenJournal() {
   setTitle(t('Journal'));
   const wrap = el('div', { className: 'settings journal' });
@@ -5975,9 +6119,9 @@ function viewersRow() {
  *  three slide in from the left with their names on. Standard advice, arrived at from the
  *  badge rather than from the advice.
  */
-const DRAWER = ['placeholders', 'system', 'journal'];
+const DRAWER = ['placeholders', 'todo', 'system', 'journal'];
 // With the bottom bar off, the drawer *is* the navigation and carries all of them.
-const EVERYTHING = ['files', 'sessions', 'wall', 'prompts', 'placeholders', 'system', 'journal'];
+const EVERYTHING = ['files', 'sessions', 'wall', 'prompts', 'placeholders', 'todo', 'system', 'journal'];
 // Drawer only, unless somebody asks for the bar back. Asked for plainly, and the bar was
 // left in place by mistake the first time.
 const noBar = () => prefs.bottomBar !== true;
@@ -6016,7 +6160,7 @@ function buildDrawer() {
     const copy = el('a', { href: link.getAttribute('href'), 'data-goes': tab }, [
       icon({
         files: 'folder', sessions: 'terminal', wall: 'grid', prompts: 'relay',
-        placeholders: 'rename', system: 'activity', journal: 'journal',
+        placeholders: 'rename', todo: 'tick', system: 'activity', journal: 'journal',
       }[tab] || 'folder'),
       // The link's own words, not its badge: `textContent` on the anchor swept up the tally
       // as well, so the drawer read "Windows4".
@@ -13910,7 +14054,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) coun
  *  but English. */
 const TAB_WORD = {
   files: 'Files', sessions: 'Sessions', wall: 'Windows', prompts: 'Prompts',
-  placeholders: 'Values', system: 'System', journal: 'Journal',
+  placeholders: 'Values', todo: 'To do', system: 'System', journal: 'Journal',
 };
 
 /** The nav labels and the title sit in the HTML, so they are translated in place. */

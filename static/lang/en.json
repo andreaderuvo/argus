@@ -806,6 +806,17 @@
     "{n} headers taken from that curl": "{n} headers taken from that curl",
     "Open this folder in Files": "Open this folder in Files",
     "A file browser here, in a desk": "A file browser here, in a desk",
-    "Copy the absolute path": "Copy the absolute path"
+    "Copy the absolute path": "Copy the absolute path",
+    "To do": "To do",
+    "to do": "to do",
+    "doing": "doing",
+    "done": "done",
+    "all": "all",
+    "what needs doing?": "what needs doing?",
+    "filter": "filter",
+    "Nothing on the list.": "Nothing on the list.",
+    "Press to move it on": "Press to move it on",
+    "Click to change the words": "Click to change the words",
+    "Take it off the list": "Take it off the list"
   }
 }
