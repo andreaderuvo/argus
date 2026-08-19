@@ -546,9 +546,9 @@ def create_app(cfg: Config) -> FastAPI:
         `&&` in it is a shell line rather than a program, and checking the PATH for it would
         be a guess dressed as a fact.
         """
-        cfg = request.app.state.cfg
-        return {"launchers": [{"name": one.name, "command": one.command, "available": one.available}
-                              for one in launch.configured(cfg)]}
+        # One shell for the lot, and remembered for a minute: asked one at a time this took
+        # 2.9 seconds, which is a button that looks broken and then works.
+        return {"launchers": await asyncio.to_thread(launch.describe, request.app.state.cfg)}
 
     @app.post("/api/tmux/launch", tags=["Sessions"], summary="Start an agent, with its first instruction")
     async def launch_agent(request: Request, body: dict) -> dict:

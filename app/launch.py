@@ -59,38 +59,102 @@ class Launcher:
 
     @property
     def available(self) -> bool | None:
-        """Whether the first word of the command can be found — *in the environment it will
-        run in*, which is not the one this process has.
+        """Whether this one can be found, asked the way it will be used.
 
-        `shutil.which` was the obvious answer and it was wrong in the commonest case there is.
-        A server started by systemd has a minimal PATH: `claude` was reported as not on this
-        machine while a login shell finds it immediately, because it lives in `~/.local/bin`
-        or behind nvm — and the launcher *is* run through a login shell, so the app was
-        greying out the very thing it would have started perfectly well.
-
-        So the question is asked the way the answer will be used: `$SHELL -lc 'command -v x'`.
-        Slower than a PATH walk, by the cost of starting one shell, and asked once when the
-        box is opened.
-
-        `None` when the answer is not knowable — a command with a pipe, an `&&`, a variable in
-        it is a shell line rather than a program, and pretending to have checked it would be a
-        guess dressed as a fact. The UI greys out a `False` and leaves a `None` alone.
+        See `probe()` for why it is a login shell and not `shutil.which`, and for why asking
+        about several at once matters.
         """
         line = self.command.strip()
         if not line:
             return True                      # a plain shell is always there
-        if any(ch in line for ch in "|&;<>$(`"):
+        if unknowable(line):
             return None
-        first = line.split()[0]
-        shell = os.environ.get("SHELL") or "/bin/sh"
-        try:
-            done = subprocess.run([shell, "-l", "-c", f"command -v {shell_quote(first)}"],
-                                  capture_output=True, text=True, timeout=6)
-            if done.returncode == 0 and done.stdout.strip():
-                return True
-        except (OSError, subprocess.SubprocessError):
-            pass                             # fall back to the plainer question
-        return shutil.which(first) is not None
+        return probe([line.split()[0]]).get(line.split()[0])
+
+
+def unknowable(line: str) -> bool:
+    """A shell line is not a program, and claiming to have checked the PATH for one would be a
+    guess dressed as a fact."""
+    return any(ch in line for ch in "|&;<>$(`")
+
+
+# What was found, and when. A login shell costs the better part of a second on the machine this
+# was written on, and the answer changes about as often as somebody installs a tool.
+_seen: dict[str, tuple[float, bool]] = {}
+REMEMBER_FOR = 60.0
+
+
+def probe(firsts: list[str]) -> dict[str, bool]:
+    """Which of these words the login shell can find — **all of them in one shell**.
+
+    Two measurements are behind this.
+
+    `shutil.which` was the obvious way and it was wrong in the commonest case there is: a server
+    started by systemd has a minimal PATH, so `claude` was reported as missing on the very
+    machine it works on, because what puts it on the PATH is a shell profile. The question has to
+    be asked in the environment the answer will be used in.
+
+    And then asking it four times cost four shells: `/api/launchers` took **2.9 seconds**, which
+    is a button that appears to do nothing and then, later, does something. One shell asks about
+    the lot in a single pass, which is 0.9s once and nothing at all for the next minute.
+    """
+    now = time.monotonic()
+    answer: dict[str, bool] = {}
+    ask: list[str] = []
+    for word in firsts:
+        got = _seen.get(word)
+        if got and now - got[0] < REMEMBER_FOR:
+            answer[word] = got[1]
+        else:
+            ask.append(word)
+    if not ask:
+        return answer
+
+    script = (
+        'for c in ' + " ".join(shell_quote(w) for w in ask) + '; do '
+        'if command -v "$c" >/dev/null 2>&1; then printf "%s\t1\n" "$c"; '
+        'else printf "%s\t0\n" "$c"; fi; done'
+    )
+    shell = os.environ.get("SHELL") or "/bin/sh"
+    found: dict[str, bool] = {}
+    try:
+        done = subprocess.run([shell, "-l", "-c", script], capture_output=True, text=True, timeout=15)
+        if done.returncode == 0:
+            for line in done.stdout.splitlines():
+                word, _, flag = line.partition("\t")
+                if word:
+                    found[word] = flag.strip() == "1"
+    except (OSError, subprocess.SubprocessError):
+        pass
+    for word in ask:
+        # No answer from the shell — a profile that hung, a shell that is not there — falls back
+        # to the plainer question rather than to a shrug.
+        got = found.get(word, shutil.which(word) is not None)
+        _seen[word] = (now, got)
+        answer[word] = got
+    return answer
+
+
+def describe(cfg) -> list[dict]:
+    """The list a browser is given: name, command, and whether it is really here.
+
+    Built in one go so the shell is started once for every launcher rather than once each.
+    """
+    ones = configured(cfg)
+    firsts = [one.command.strip().split()[0] for one in ones
+              if one.command.strip() and not unknowable(one.command)]
+    known = probe(firsts) if firsts else {}
+    out = []
+    for one in ones:
+        line = one.command.strip()
+        if not line:
+            available: bool | None = True
+        elif unknowable(line):
+            available = None
+        else:
+            available = known.get(line.split()[0])
+        out.append({"name": one.name, "command": one.command, "available": available})
+    return out
 
 
 def configured(cfg) -> list[Launcher]:

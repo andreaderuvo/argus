@@ -2426,6 +2426,11 @@ button.keyrow kbd { flex: none; }
 }
 .startbody .startpath, .startbody .startbranch { font-family: ui-monospace, monospace; font-size: .82rem; }
 .startpicks { display: flex; flex-direction: column; gap: .25rem; }
+/* While the machine is being asked what it can start. */
+.startwait { display: flex; align-items: center; gap: .5rem; padding: .8rem .2rem; color: var(--dim); font-size: .85rem; }
+.startwait .spinner { display: inline-flex; animation: weighing 1s linear infinite; }
+.startwait .spinner .ico { width: 15px; height: 15px; }
+@media (prefers-reduced-motion: reduce) { .startwait .spinner { animation: none; } }
 .startpick { text-align: left; }
 .startpick .meta { font-family: ui-monospace, monospace; font-size: .72rem; }
 .startpick.on { border-color: var(--accent); color: var(--bright); }
