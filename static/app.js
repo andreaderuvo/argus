@@ -13254,13 +13254,32 @@ async function createSession({ path, suggest = 'shell', wsId = null } = {}) {
       picks.append(row);
     }
   };
-  /** A name you would have typed anyway: what it is, and where. */
+  /** A name you would have typed anyway: what it is, and where.
+   *
+   *  Both halves go through the same sieve, and the folder's half did not: tmux reads `:` and
+   *  `.` as window and pane separators, so the server refuses a name carrying either — and the
+   *  suggestion is built from the folder you are standing in. A home directory with a dot in
+   *  its name, which is most of them where people are `first.last`, made every default name
+   *  illegal and Start answered 400 for a name the person never typed.
+   */
+  const nameable = (s) => s.replace(/[^\w -]+/g, '-').replace(/-{2,}/g, '-').replace(/^-|-$/g, '');
   const sayName = (one) => {
-    const leaf = (where.value || '').replace(/\/+$/, '').split('/').pop() || 'shell';
-    const slug = (one.command || 'shell').split(/[\s/]+/).pop().replace(/[^\w-]/g, '') || 'shell';
+    const leaf = nameable((where.value || '').replace(/\/+$/, '').split('/').pop() || '') || 'shell';
+    const slug = nameable((one.command || '').split(/[\s/]+/).pop() || '') || 'shell';
     if (!name.dataset.touched) name.value = `${slug}-${leaf}`.slice(0, 60);
   };
-  name.oninput = () => { name.dataset.touched = '1'; };
+  /* And if you type one yourself, you are told here rather than by a 400 after pressing
+   *  Start — the same two characters, checked in the same place you are typing. */
+  const nameWhy = el('p', { className: 'hint', hidden: true });
+  const checkName = () => {
+    const bad = /[:.]/.test(name.value) ? t("a session name cannot contain ':' or '.'")
+      : !name.value.trim() ? t('a session needs a name') : '';
+    nameWhy.textContent = bad;
+    nameWhy.hidden = !bad;
+    name.classList.toggle('wrong', !!bad);
+    return !bad;
+  };
+  name.oninput = () => { name.dataset.touched = '1'; checkName(); };
 
   /* The first instruction, and the library it can come from — filled in for this desk, so
    *  `{folder}` is a path rather than a word by the time it reaches the agent. */
@@ -13341,7 +13360,7 @@ async function createSession({ path, suggest = 'shell', wsId = null } = {}) {
   };
 
   body.append(
-    el('label', { className: 'startlabel', textContent: t('name') }), name,
+    el('label', { className: 'startlabel', textContent: t('name') }), name, nameWhy,
     el('label', { className: 'startlabel', textContent: t('in') }), where,
     el('label', { className: 'startlabel', textContent: t('what to start') }), picks,
     el('label', { className: 'startlabel', textContent: t('first instruction') }),
@@ -13396,6 +13415,7 @@ async function createSession({ path, suggest = 'shell', wsId = null } = {}) {
   })();
 
   go.onclick = async () => {
+    if (!checkName()) return name.focus();
     go.disabled = true;
     let folder = where.value.trim();
     try {
