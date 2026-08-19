@@ -714,6 +714,25 @@ input.sheetfind { width: 100%; margin: .2rem 0 .5rem; }
   .rowwrap:hover .row .name { min-width: 0; }
 }
 
+/* A session's actions, on its row.
+ *
+ *  The same reasoning as the file rows above, landing the other way round: there the ⋯ stays
+ *  because a folder has eight things behind it, while a session has three and two of them are
+ *  the whole reason the screen exists. So on a pointer they are drawn, always — not on hover,
+ *  because a list of twenty sessions is a list you are scanning and a control that appears
+ *  under the cursor is one you have to go looking for twice — and the ⋯ goes away.
+ *
+ *  On a touch screen none of it changes: no hover to reveal anything, three targets side by
+ *  side is a lottery, and one of them kills a session. The ⋯ is what a phone gets. */
+.rowwrap.sess .more.act { display: none; }
+@media (hover: hover) and (pointer: fine) {
+  .rowwrap.sess .more.act { display: inline-flex; }
+  .rowwrap.sess .more.menu { display: none; }
+  .rowwrap.sess .more.act:hover { color: var(--bright); }
+  .rowwrap.sess .more.act.kill:hover { color: var(--st-critical); }
+  .rowwrap.sess:hover .row .name { min-width: 0; }
+}
+
 /* The set, opened inside the Prompts window. Deliberately plain: it sits above the list it
    changes, and every keystroke in it shows up down there. */
 .setpanel {
