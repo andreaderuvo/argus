@@ -630,12 +630,18 @@ def create_app(cfg: Config) -> FastAPI:
             "launchers": [one.name for one in launch.configured(state.cfg)],
         }
 
-    # How many sentences an agent may push into other sessions in a minute, and how many things
-    # it may start in one. Not a security boundary — the launcher list is that — but a brake on
-    # the one failure this arrangement invites: A pokes B, B pokes A, and by morning there are
-    # nine hundred lines of two robots talking.
-    RELAY_A_MINUTE = 30
-    STARTS_A_MINUTE = 6
+    # How many sentences may be pushed into other sessions in a minute, and how many things may
+    # be started in one. Not a security boundary — the launcher list is that — but a brake on the
+    # failure this arrangement invites: A pokes B, B pokes A, and by morning there are nine
+    # hundred lines of two robots talking.
+    #
+    # The launch number was six and that was wrong: a runaway loop does hundreds, while a
+    # deliberate fan-out — four referees and an editor, three roles on one repository — is five
+    # or eight in a few seconds, and hitting a wall halfway through leaves half an orchestra
+    # running. Measured against the examples in `scripts/`: two of the three tripped it.
+    # Twelve, and both are config keys, because whoever runs a fan-out of twenty knows they are.
+    RELAY_A_MINUTE = int(getattr(cfg, "relay_a_minute", 0) or 30)
+    STARTS_A_MINUTE = int(getattr(cfg, "launches_a_minute", 0) or 12)
     lately: dict[str, list[float]] = {}
 
     def too_fast(kind: str, cap: int) -> bool:
@@ -668,7 +674,8 @@ def create_app(cfg: Config) -> FastAPI:
             raise ApiError(404, f"there is no session called {to}")
         if too_fast("relay", RELAY_A_MINUTE):
             raise ApiError(429, f"more than {RELAY_A_MINUTE} relays in a minute — something is "
-                                "talking to itself; nothing was sent")
+                                "talking to itself; nothing was sent. Raise `relay_a_minute` in "
+                                "the config if you meant it.")
         try:
             await asyncio.to_thread(launch.seed, state.socket, to, text, bool(body.get("run")))
         except tmux.TmuxError as e:
@@ -726,7 +733,8 @@ def create_app(cfg: Config) -> FastAPI:
 
         if too_fast("start", STARTS_A_MINUTE):
             raise ApiError(429, f"more than {STARTS_A_MINUTE} launches in a minute — nothing was "
-                                "started. A machine fills up quietly.")
+                                "started. A machine fills up quietly; raise `launches_a_minute` "
+                                "in the config if this is a fan-out you meant.")
         try:
             await asyncio.to_thread(launch.start, state.socket, name, where, chosen.command)
         except tmux.TmuxError as e:
@@ -795,7 +803,8 @@ def create_app(cfg: Config) -> FastAPI:
             raise ApiError(400, f"{here} is not inside a git repository")
         if too_fast("worktree", STARTS_A_MINUTE):
             raise ApiError(429, f"more than {STARTS_A_MINUTE} worktrees in a minute — nothing was "
-                                "made. A disk fills up quietly.")
+                                "made. A disk fills up quietly; `launches_a_minute` raises this "
+                                "too.")
         try:
             branch = launch.check_branch(str(body.get("branch", "")))
         except ValueError as e:
