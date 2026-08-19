@@ -1,5 +1,6 @@
 """End-to-end through the real ASGI app: the gate, the jail and the error contract."""
 
+import time
 import pytest
 from fastapi.testclient import TestClient
 
@@ -300,3 +301,23 @@ def test_the_overview_carries_running_orchestrations(client):
     # A summary and not the graph: the picture belongs on the machine you can act on.
     assert said == [{"id": "r1", "name": "orchestra", "state": "running",
                      "done": 1, "agents": 2, "asking": 1, "lost": 0}]
+
+
+def test_a_run_that_stops_calling_in_is_not_believed(client, monkeypatch):
+    """A script killed with Ctrl-C used to leave a run saying `running` for ever, and a window
+    on somebody's desk that would never finish."""
+    from app import runs
+
+    shape = {"id": "r2", "name": "orchestra", "where": "/tmp",
+             "steps": [{"name": "one", "agents": [
+                 {"name": "a", "label": "a", "state": "working", "file": "R.md"}]}]}
+    client.post("/api/runs", json=shape, headers={"Authorization": f"Bearer {TOKEN}"})
+
+    said = get(client, "/api/runs").json()["runs"][0]
+    assert said["state"] == "running"
+
+    # Five minutes of silence, and the framework beats once a minute while it waits.
+    later = time.time() + runs.GONE_AFTER + 1
+    assert runs.as_told(said, now=later)["state"] == "gone"
+    # Not "failed": nothing here ever reached those agents, and they are probably still going.
+    assert get(client, "/api/overview").json()["runs"][0]["state"] == "running"

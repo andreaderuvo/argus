@@ -13698,7 +13698,11 @@ function attachRun(host, spec, setLabel) {
     const done = counted.filter((a) => a.state === 'done').length;
     note.textContent = run.state === 'done'
       ? t('finished · {done} of {all}', { done, all: counted.length })
-      : t('running · {done} of {all}', { done, all: counted.length });
+      // Not "failed": the agents are almost certainly still working. What stopped is the
+      // script that was watching them, and Argus never reached them in the first place.
+      : run.state === 'gone'
+        ? t('lost touch · {done} of {all} when last heard', { done, all: counted.length })
+        : t('running · {done} of {all}', { done, all: counted.length });
     host.classList.toggle('runasking', counted.some((a) => a.state === 'asking'));
     try {
       await drawInto(box, runDiagram(run));
