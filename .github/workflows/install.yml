@@ -1,0 +1,120 @@
+name: install
+
+# Does the one-line install actually work, and does the container actually see the host's
+# tmux? Both are claims made in the README, and a claim in a README is a thing that rots
+# quietly. These jobs are the ones that would notice.
+#
+# The installer is run *from the checkout*, not from the network, so a pull request tests its
+# own version of the script rather than whatever is on master.
+
+on:
+  push:
+    branches: [master, main]
+    paths: ['install.sh', 'Dockerfile', 'docker-compose.yml', 'requirements.txt', '.github/workflows/install.yml']
+  pull_request:
+    paths: ['install.sh', 'Dockerfile', 'docker-compose.yml', 'requirements.txt', '.github/workflows/install.yml']
+  workflow_dispatch:
+
+jobs:
+  # "It runs on every OS" is worth checking on more than the one it was written on. Linux and
+  # macOS are the two a server side can be: Windows has no native tmux at all, so its answer
+  # is WSL, which is one of these two wearing a different name.
+  installer:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install tmux
+        run: |
+          if [ "$RUNNER_OS" = "macOS" ]; then brew install tmux; else sudo apt-get update && sudo apt-get install -y tmux; fi
+
+      # A home of its own, so the run cannot be helped along by anything already on the
+      # runner — and so the PATH warning is exercised too.
+      - name: install into an empty home
+        run: |
+          mkdir -p "$RUNNER_TEMP/home"
+          env -i HOME="$RUNNER_TEMP/home" PATH="$PATH" USER="$USER" bash install.sh
+
+      - name: it starts, answers, and knows its own version
+        run: |
+          export HOME="$RUNNER_TEMP/home"
+          export PATH="$HOME/.local/bin:$PATH"
+          argus --version
+          argus --listen 127.0.0.1:8099 &
+          for i in $(seq 1 40); do sleep 0.5; [ -f "$HOME/.config/argus/config.yaml" ] && break; done
+          token=$(sed -n 's/^token: *"\{0,1\}\([0-9a-f]*\).*/\1/p' "$HOME/.config/argus/config.yaml")
+          [ -n "$token" ] || { echo "no token in the config"; exit 1; }
+          for i in $(seq 1 40); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:8099/api/version?token=$token" || true)
+            [ "$code" = "200" ] && break
+            sleep 0.5
+          done
+          [ "$code" = "200" ] || { echo "the installed copy never answered"; exit 1; }
+          # A real tmux session, listed through the installed copy: this is the whole app in
+          # one assertion.
+          tmux new-session -d -s ci-check
+          curl -s "http://127.0.0.1:8099/api/tmux/sessions?token=$token" | grep -q ci-check \
+            || { echo "the session it created is not in the list"; exit 1; }
+          echo "answered, and listed a real session"
+
+      - name: running it again updates in place and keeps the token
+        run: |
+          export HOME="$RUNNER_TEMP/home"
+          before=$(sed -n 's/^token: *//p' "$HOME/.config/argus/config.yaml")
+          env -i HOME="$HOME" PATH="$PATH" USER="$USER" bash install.sh
+          after=$(sed -n 's/^token: *//p' "$HOME/.config/argus/config.yaml")
+          [ "$before" = "$after" ] || { echo "the update changed the token"; exit 1; }
+
+      - name: uninstalling leaves the configuration and nothing else
+        run: |
+          export HOME="$RUNNER_TEMP/home"
+          env -i HOME="$HOME" PATH="$PATH" USER="$USER" bash install.sh uninstall
+          [ ! -e "$HOME/.local/share/argus" ] || { echo "the code is still there"; exit 1; }
+          [ ! -e "$HOME/.local/bin/argus" ] || { echo "the launcher is still there"; exit 1; }
+          [ -f "$HOME/.config/argus/config.yaml" ] || { echo "it threw away the config"; exit 1; }
+
+  # The claim this one checks is the awkward one: a container whose whole job is to attach to
+  # the *host's* tmux. If the namespaces and the socket mount are not exactly right, the image
+  # comes up perfectly and shows an empty machine — which is the failure that looks like
+  # success, so it is asserted rather than eyeballed.
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y tmux
+      - run: docker build -t argus:ci .
+
+      - name: a session on the host, and the container had better see it
+        run: |
+          tmux new-session -d -s from-the-host
+          docker run -d --name argus-ci \
+            --pid=host \
+            --user "$(id -u):$(id -g)" \
+            -e HOME="$HOME" \
+            -v "$HOME:$HOME" \
+            -v "/tmp/tmux-$(id -u):/tmp/tmux-$(id -u)" \
+            -p 127.0.0.1:8099:8090 \
+            argus:ci --root "$HOME"
+          for i in $(seq 1 40); do sleep 0.5; [ -f "$HOME/.config/argus/config.yaml" ] && break; done
+          token=$(sed -n 's/^token: *"\{0,1\}\([0-9a-f]*\).*/\1/p' "$HOME/.config/argus/config.yaml")
+          for i in $(seq 1 40); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:8099/api/version?token=$token" || true)
+            [ "$code" = "200" ] && break
+            sleep 0.5
+          done
+          [ "$code" = "200" ] || { docker logs argus-ci; echo "the container never answered"; exit 1; }
+          curl -s "http://127.0.0.1:8099/api/tmux/sessions?token=$token" | grep -q from-the-host \
+            || { docker logs argus-ci; echo "the container cannot see the host's tmux"; exit 1; }
+          # And the part that needs --pid=host: what a pane is running, read through /proc.
+          curl -s "http://127.0.0.1:8099/api/tmux/cwd?session=from-the-host&token=$token" | grep -q '"cwd"' \
+            || { docker logs argus-ci; echo "no folder for the pane — is --pid=host missing?"; exit 1; }
+          echo "the container sees the host's sessions and reads their processes"
+
+      - name: and the compose file says the same thing
+        run: |
+          UID=$(id -u) GID=$(id -g) ARGUS_PORT=8098 docker compose config >/dev/null
+          echo "compose file parses with the documented variables"

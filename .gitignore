@@ -10,3 +10,8 @@ config.yaml
 
 *.log
 node_modules/
+
+# Notes for me, not for anybody else: the comparison against the neighbouring projects, with
+# stars, gaps and what to do about them. Deliberately untracked — it is a working note about
+# other people's software, not documentation of this one.
+COMPARISON.md

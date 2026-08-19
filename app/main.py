@@ -972,6 +972,11 @@ def main(argv: list[str] | None = None) -> int:
         prog="argus",
         description="Browse files and attach to tmux sessions from your phone",
     )
+    # `--version` before anything else: it is the first thing anybody types at a program they
+    # have just installed, the first thing an issue report is asked for, and the banner is no
+    # substitute — that only appears once the server has started, which is exactly the case
+    # where you cannot ask.
+    parser.add_argument("--version", action="version", version=f"argus {VERSION}")
     parser.add_argument("-c", "--config", type=Path, help="config file (created with a fresh token on first run)")
     parser.add_argument("-l", "--listen", help="override `listen`, e.g. 0.0.0.0:8080")
     parser.add_argument("-r", "--root", action="append", default=[], type=Path, help="override `roots` (repeatable)")

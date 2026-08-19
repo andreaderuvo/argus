@@ -1,0 +1,56 @@
+# Argus in a container.
+#
+#   docker compose up -d          # then read the token: docker compose logs
+#
+# **This container is a way to get the runtime, not a sandbox.** Argus's entire job is to
+# attach to the tmux sessions and read the files of the machine it runs on, so it has to be
+# handed that machine. Every line below is one of the things it needs, and none of them is
+# optional if you want it to work:
+#
+#   pid: host      the process lookups that say which agent is in a pane and what folder it
+#                  is really in read /proc. Without this the sessions list, and every one of
+#                  them says nothing about itself.
+#   user           the same uid as you, or the tmux socket refuses to talk and the files it
+#                  can read are root's rather than yours.
+#   $HOME:$HOME    the same path inside as outside. A pane reports `/home/you/project`, and
+#                  a mount at `/work` would make that path a file Argus cannot find.
+#   the socket     /tmp/tmux-<uid> is how a tmux client reaches a tmux server. This is what
+#                  makes it *your* sessions rather than a fresh empty server in a container.
+#
+# Verified on this arrangement: the host's sessions listed, and a pane correctly reported as
+# `claude` in `/home/…/argus`, read through /proc from inside the container.
+#
+# One caveat worth knowing before it bites: tmux's client and server talk a versioned
+# protocol. The image ships Debian's tmux, and a host running a much older or much newer one
+# can be refused. If `docker compose logs` says the socket cannot be spoken to, mount your
+# own binary over the image's — `- /usr/bin/tmux:/usr/bin/tmux:ro` — or install natively with
+# the one-line installer, which cannot have this problem at all.
+#
+# Windows: run this inside WSL, not in Windows itself. tmux is a Unix program and there is no
+# native Windows build of it; WSL is a Linux machine and everything here works there.
+
+services:
+  argus:
+    build: .
+    # Or, once a release is published:
+    # image: ghcr.io/andreaderuvo/argus:latest
+    container_name: argus
+    pid: host
+    user: "${UID:-1000}:${GID:-1000}"
+    environment:
+      HOME: ${HOME}
+    volumes:
+      - ${HOME}:${HOME}
+      - /tmp/tmux-${UID:-1000}:/tmp/tmux-${UID:-1000}
+    ports:
+      # Loopback only, and the outside port is yours to pick — `ARGUS_PORT=8100 docker compose
+      # up -d` when 8090 is taken, which it will be if you already run one natively. Reaching
+      # it from another device is a tunnel, a VPN or Tailscale — see the wiki. Drop the
+      # `127.0.0.1:` and it is on your network; do that knowing what the token is worth.
+      - "127.0.0.1:${ARGUS_PORT:-8090}:8090"
+    # --root, explicitly. The config is the one in your home, so an Argus you already run
+    # natively lends this one its token *and* its settings — including `include_mounts`, and
+    # inside a container the mounts docker injects (/etc/resolv.conf, /etc/hostname) are what
+    # that offers as places to browse. Naming the root you meant costs one line.
+    command: ["--allow-write", "--root", "${HOME}"]
+    restart: unless-stopped
