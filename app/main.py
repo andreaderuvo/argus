@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import contextlib
+import json
 import os
 import mimetypes
 import shutil
@@ -758,6 +759,10 @@ def create_app(cfg: Config) -> FastAPI:
             "how_to_start_it_again": "a shell on this machine, or the service that supervises it",
         }
 
+    @app.get("/manifest.webmanifest", include_in_schema=False)
+    async def manifest(request: Request) -> Response:
+        return app_manifest(request.headers.get("host", ""))
+
     # Registered last so it never shadows the API: unknown paths are the frontend's.
     @app.get("/{requested:path}", include_in_schema=False)
     async def static_handler(requested: str) -> Response:
@@ -792,6 +797,32 @@ def favourites_target(request: Request, raw: str) -> Path:
         return request.app.state.jail.resolve(raw)
     except PathError:
         raise ApiError(403, "outside the configured roots") from None
+
+
+def app_manifest(host: str) -> Response:
+    """The manifest, wearing the address it was asked for.
+
+    Two Argus instances installed on one phone are two icons called Argus, drawn with the
+    same picture, and nothing anywhere says which machine either of them is — which is not a
+    corner case for an app whose companion exists because people run it on several machines.
+
+    So the name carries the host as the browser asked for it. Nothing is stored and nothing
+    is guessed: it is the Host header, which is what the person typed.
+    """
+    doc = json.loads((STATIC_DIR / "manifest.webmanifest").read_text(encoding="utf-8"))
+    where = host.strip()
+    if where and not where.startswith(("localhost", "127.0.0.1", "[")):
+        doc["name"] = f"Argus · {where}"
+        # The label under the icon is `short_name`, so that is the one that has to differ.
+        # `www` is nobody's machine name, and the port belongs in the long name only.
+        labels = [bit for bit in where.split(":")[0].split(".") if bit and bit != "www"]
+        if labels:
+            doc["short_name"] = labels[0]
+    return Response(
+        json.dumps(doc, ensure_ascii=False),
+        media_type="application/manifest+json",
+        headers={"cache-control": "no-cache"},
+    )
 
 
 def serve_static(requested: str) -> Response:

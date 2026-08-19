@@ -754,6 +754,15 @@
     "“{name}” is empty.": "“{name}” is empty.",
     "→ {path} · not there yet": "→ {path} · not there yet",
     "this diagram did not draw": "this diagram did not draw",
-    "the diagram library did not load": "the diagram library did not load"
+    "the diagram library did not load": "the diagram library did not load",
+    "Install it on this device": "Install it on this device",
+    "it gets its own icon and opens without the browser around it": "it gets its own icon and opens without the browser around it",
+    "how to, if your browser has not offered": "how to, if your browser has not offered",
+    "this browser has not offered, so it has to be asked": "this browser has not offered, so it has to be asked",
+    "Chrome or Edge on a computer: the install icon at the right of the address bar, or its menu": "Chrome or Edge on a computer: the install icon at the right of the address bar, or its menu",
+    "Chrome on Android: the ⋮ menu, then Install app": "Chrome on Android: the ⋮ menu, then Install app",
+    "Safari on an iPhone: Share, then Add to Home Screen": "Safari on an iPhone: Share, then Add to Home Screen",
+    "every address is its own app: a second machine installs beside the first rather than replacing it": "every address is its own app: a second machine installs beside the first rather than replacing it",
+    "installed — it has its own icon now": "installed — it has its own icon now"
   }
 }

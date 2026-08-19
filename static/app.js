@@ -4449,6 +4449,28 @@ async function screenSettings() {
   ]);
   handoff.onclick = handoffSheet;
 
+  /* Installing it, without waiting to be asked.
+   *
+   *  A browser decides on its own whether to offer, and having decided once it does not
+   *  come back — so a second Argus, on a second machine, is a site the phone will happily
+   *  never offer to install even though everything it requires is in place. The offer is
+   *  captured when it comes and kept behind this row; where there is nothing to capture,
+   *  the row says where the browser keeps it instead.
+   */
+  const install = el('div', { className: 'row setting' }, [
+    el('span', { className: 'grow' }, [
+      el('span', { className: 'name', textContent: t('Install it on this device') }),
+      el('span', {
+        className: 'meta',
+        textContent: installOffer
+          ? t('it gets its own icon and opens without the browser around it')
+          : t('how to, if your browser has not offered'),
+      }),
+    ]),
+    icon('download'),
+  ]);
+  install.onclick = () => installHere();
+
   // Language first: everything below it is easier to read once it is right.
   const langRow = el('div', { className: 'row setting' });
 
@@ -4458,7 +4480,8 @@ async function screenSettings() {
    *  list, the tmux configuration, the QR code) are the reason people open this screen at
    *  all. Making them read past a theme to find one was the worst part of the flat list.
    */
-  wrap.append(group(t('Go to')), keys, conf, messages, handoff, langRow);
+  wrap.append(group(t('Go to')), keys, conf, messages, handoff,
+    ...(installed() ? [] : [install]), langRow);
   (async () => {
     let list = [];
     try { list = await getJSON('/api/languages'); } catch { /* English then */ }
@@ -13206,6 +13229,61 @@ function resizable(win, bounds, onDone, peers = () => [], onPeerDone = () => {})
       grip.addEventListener('pointerup', up);
     });
   }
+}
+
+/* ------------------------------------------------------------- installing */
+
+/** Whether this is already the installed app rather than a page in a browser. */
+const installed = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+
+/** The browser's offer, kept for when the person wants it rather than when the browser
+ *  happens to raise it.
+ *
+ *  An app is identified by its origin and the manifest's `id`, so a second Argus on a second
+ *  machine is a second app — installing one has never had anything to do with the other. What
+ *  does get in the way is that a browser offers on its own schedule, once, and having decided
+ *  not to it does not come back; and Safari never offers at all. Holding the event turns that
+ *  into a button.
+ */
+let installOffer = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  installOffer = e;
+  if (location.hash.startsWith('#/settings')) render();
+});
+window.addEventListener('appinstalled', () => {
+  installOffer = null;
+  toast(t('installed — it has its own icon now'));
+});
+
+async function installHere() {
+  if (installOffer) {
+    try {
+      installOffer.prompt();
+      const { outcome } = await installOffer.userChoice;
+      // The same event cannot be spent twice.
+      if (outcome === 'accepted') installOffer = null;
+      return;
+    } catch (e) {
+      /* It opens from a real press and once only. If it will not open — a stale offer, a
+       *  press the browser did not count — the way to do it by hand is a better answer than
+       *  a button that silently does nothing. */
+      console.warn(`argus: the install offer would not open — ${e.message}`);
+    }
+  }
+  const body = el('div', { className: 'sheetbody' });
+  body.append(
+    el('p', { className: 'meta', textContent: t('this browser has not offered, so it has to be asked') }),
+    el('ul', { className: 'sheetlist' }, [
+      el('li', { textContent: t('Chrome or Edge on a computer: the install icon at the right of the address bar, or its menu') }),
+      el('li', { textContent: t('Chrome on Android: the ⋮ menu, then Install app') }),
+      el('li', { textContent: t('Safari on an iPhone: Share, then Add to Home Screen') }),
+    ]),
+    el('p', { className: 'meta', textContent: t('every address is its own app: a second machine installs beside the first rather than replacing it') }),
+  );
+  const sheet = modal(t('Install it on this device'), body, [
+    el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),
+  ]);
 }
 
 /* -------------------------------------------------------------------- boot */

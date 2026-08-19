@@ -754,6 +754,15 @@
     "“{name}” is empty.": "«{name}» è vuoto.",
     "→ {path} · not there yet": "→ {path} · non c’è ancora",
     "this diagram did not draw": "questo diagramma non si è disegnato",
-    "the diagram library did not load": "la libreria dei diagrammi non si è caricata"
+    "the diagram library did not load": "la libreria dei diagrammi non si è caricata",
+    "Install it on this device": "Installala su questo dispositivo",
+    "it gets its own icon and opens without the browser around it": "avrà una sua icona e si aprirà senza il browser attorno",
+    "how to, if your browser has not offered": "come fare, se il browser non te l'ha proposto",
+    "this browser has not offered, so it has to be asked": "questo browser non te l’ha proposto, quindi bisogna chiederglielo",
+    "Chrome or Edge on a computer: the install icon at the right of the address bar, or its menu": "Chrome o Edge su un computer: l'icona di installazione a destra nella barra degli indirizzi, oppure il suo menu",
+    "Chrome on Android: the ⋮ menu, then Install app": "Chrome su Android: il menu ⋮, poi Installa app",
+    "Safari on an iPhone: Share, then Add to Home Screen": "Safari su iPhone: Condividi, poi Aggiungi alla schermata Home",
+    "every address is its own app: a second machine installs beside the first rather than replacing it": "ogni indirizzo è un’app a sé: una seconda macchina si installa accanto alla prima, non al suo posto",
+    "installed — it has its own icon now": "installata: ora ha una sua icona"
   }
 }
