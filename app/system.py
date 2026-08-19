@@ -6,6 +6,7 @@ subprocess is nvidia-smi, and only if it exists.
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -162,7 +163,39 @@ def disk(path: Path) -> dict | None:
     }
 
 
+# A machine that does not exist, for the pictures.
+#
+#   ARGUS_PRETEND=/path/to/system.json  python3 -m app.main …
+#
+# Every screenshot in the documentation comes from `scripts/demo.py`, on invented sessions and
+# invented files, and there was one hole in that: the System screen reads /proc, so the picture
+# of it carried the real machine's core count, its memory and the model of its GPU. The hostname
+# in the published one had been masked by hand, which is worse than either extreme — the numbers
+# were real and the picture could not be taken again by anybody.
+#
+# So the fabrication is a file, and the switch is an environment variable that nothing sets by
+# accident. When it is on, the banner says so: an Argus that quietly lies about the machine it
+# is watching would be a bad joke rather than a feature.
+PRETEND = "ARGUS_PRETEND"
+
+
+def pretending() -> dict | None:
+    """The invented readout, when one is asked for and readable. Never raises: a broken file
+    means the real machine, not a broken server."""
+    where = os.environ.get(PRETEND)
+    if not where:
+        return None
+    try:
+        return json.loads(Path(where).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
 def snapshot(paths: list[Path]) -> dict:
+    made_up = pretending()
+    if made_up is not None:
+        # Straight through, with the timestamp made now so ages and freshness still move.
+        return {**made_up, "at": time.time()}
     before = parse_stat(Path("/proc/stat").read_text())
     time.sleep(0.12)   # the shortest window that still gives a stable percentage
     after = parse_stat(Path("/proc/stat").read_text())

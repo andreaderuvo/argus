@@ -19,6 +19,7 @@ to touch the sessions somebody is actually working in.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import shutil
 import signal
@@ -542,6 +543,45 @@ def write_config() -> None:
     """))
 
 
+# The machine the System picture is of. Deliberately unlike this one and unlike anybody's: a
+# middling workstation with one modest GPU, a disk that is nearly full because that is the state
+# worth a screenshot, and swap under pressure for the same reason. Ports and processes are the
+# ordinary furniture of a machine somebody analyses data on.
+FAKE_MACHINE = {
+    "hostname": "worklab-01",
+    "uptime": 47 * 86400 + 12 * 3600,
+    "cpu": {"pct": 0.5, "cores": 32, "load": [0.24, 0.29, 0.28], "load_pct": 0.8, "level": "ok"},
+    "memory": {
+        "total": 135_000_000_000, "used": 37_000_000_000, "available": 96_000_000_000,
+        "pct": 27.4, "cached": 61_000_000_000,
+        "swap_total": 6_400_000_000, "swap_used": 6_200_000_000, "swap_pct": 96.9,
+        "level": "ok", "swap_level": "critical",
+    },
+    "disks": [
+        {"path": "/tmp/argus-demo", "total": 274_000_000_000, "used": 260_000_000_000,
+         "free": 14_000_000_000, "pct": 95.0, "level": "critical"},
+        {"path": "/srv/work", "total": 2_000_000_000_000, "used": 1_220_000_000_000,
+         "free": 780_000_000_000, "pct": 61.0, "level": "ok"},
+    ],
+    # Bytes, like the real reading: the first attempt used gigabytes and the card came out as
+    # "0.4 B / 8 B", which is the kind of thing only a screenshot tells you.
+    "gpus": [{"name": "NVIDIA T1000", "util": 0.0, "mem_used": 420_000_000, "mem_total": 8_000_000_000,
+              "mem_pct": 5.0, "temp": 41.0, "level": "ok"}],
+    "processes": [
+        {"rss": 2_400_000_000, "cpu": 0.1, "name": "java"},
+        {"rss": 1_900_000_000, "cpu": 0.5, "name": "java"},
+        {"rss": 1_200_000_000, "cpu": 0.5, "name": "dockerd"},
+        {"rss": 900_000_000, "cpu": 0.2, "name": "python3"},
+        {"rss": 460_000_000, "cpu": 0.0, "name": "postgres"},
+    ],
+    "ports": [
+        {"port": 8888, "name": "python3", "command": "jupyter-lab --no-browser --port 8888", "local": True},
+        {"port": 5000, "name": "python3", "command": "flask run --port 5000", "local": True},
+        {"port": 5432, "name": "postgres", "command": "postgres -D /var/lib/pgsql/data", "local": False},
+    ],
+}
+
+
 def running() -> list[int]:
     out = subprocess.run(["pgrep", "-f", f"app.main --config {CONFIG}"],
                          capture_output=True, text=True).stdout.split()
@@ -570,8 +610,18 @@ def start() -> None:
     if taken(PORT):
         sys.exit(f"port {PORT} is already in use by something else — nothing started")
     log = open("/tmp/lab-demo.log", "w")
+    # A machine that does not exist, for the System picture.
+    #
+    # Every other screenshot here is of invented sessions and invented files. The System screen
+    # was the hole: it reads /proc, so the published picture of it carried this machine's real
+    # core count, its real memory and the model of its real GPU, with the hostname masked by
+    # hand — which is the worst of both, because the numbers were true and nobody could take the
+    # picture again. So the whole readout is fabricated, in a file, and Argus is told to read it.
+    pretend = ROOT / "system.json"
+    pretend.write_text(json.dumps(FAKE_MACHINE), encoding="utf-8")
     subprocess.Popen([sys.executable, "-m", "app.main", "--config", str(CONFIG)],
-                     cwd=HERE, stdout=log, stderr=log, start_new_session=True)
+                     cwd=HERE, stdout=log, stderr=log, start_new_session=True,
+                     env={**os.environ, "ARGUS_PRETEND": str(pretend)})
     for _ in range(40):
         time.sleep(0.25)
         if taken(PORT):

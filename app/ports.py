@@ -9,6 +9,7 @@ names to themselves, which is the kernel's decision, not ours.
 from __future__ import annotations
 
 import glob
+import json
 import os
 import socket
 import struct
@@ -77,7 +78,34 @@ def command_line(pid: int) -> str:
     return " ".join(raw.decode("utf-8", "replace").split("\0")).strip()
 
 
+def pretending() -> list[dict] | None:
+    """The invented list of open ports, when `ARGUS_PRETEND` names a file that has one.
+
+    Same reason as the fabricated system readout beside it: the System picture in the
+    documentation showed what was really listening on the machine it was taken on — a port, the
+    command holding it, and its arguments, which is a good deal to publish by accident.
+    """
+    where = os.environ.get("ARGUS_PRETEND")
+    if not where:
+        return None
+    try:
+        said = json.loads(Path(where).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    made = said.get("ports")
+    return made if isinstance(made, list) else None
+
+
 def listening(own_port: int | None = None) -> list[dict]:
+    made_up = pretending()
+    if made_up is not None:
+        # The same keys a real row has, or the screen draws half of it: `process` and `command`
+        # are what the list shows, and `self`/`pid` are what it uses to leave itself alone.
+        return [{"port": int(x.get("port", 0)),
+                 "address": "127.0.0.1" if x.get("local", True) else "0.0.0.0",
+                 "loopback": bool(x.get("local", True)), "mine": True, "self": False,
+                 "pid": None, "process": x.get("name", ""), "command": x.get("command", "")}
+                for x in made_up]
     rows = []
     for path, v6 in (("/proc/net/tcp", False), ("/proc/net/tcp6", True)):
         try:
