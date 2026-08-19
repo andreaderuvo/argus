@@ -4953,11 +4953,36 @@ async function screenMessages(open = null) {
     // A chevron, because a row that opens has to say so. The default marker is hidden here —
     // it points sideways and looks like a bullet — and what replaced it was nothing at all,
     // so the rows read as a list you cannot do anything with.
+    /* Starred, which is the only thing a desk's Prompts window puts above the folders.
+     *
+     *  A library grows into folders and folders are a place to *keep* things, not a place to
+     *  reach for the four prompts you send forty times a day. The star is set here, where a
+     *  prompt is looked after; what it does is add a line at the top of every Prompts window,
+     *  without its folder, in reach.
+     *
+     *  The flag rides on the template object rather than on its name, so renaming one, moving
+     *  it to another group, or reordering the library never loses it.
+     */
+    const star = el('button', {
+      className: `winbtn star${kind.fav ? ' on' : ''}`,
+      title: kind.fav ? t('Starred — it sits at the top of a desk\'s Prompts window') : t('Star it: put it at the top of a desk\'s Prompts window'),
+    }, icon('star'));
+    star.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (kind.fav) delete kind.fav; else kind.fav = true;
+      savePrefs();
+      messagesChanged();
+      star.classList.toggle('on', !!kind.fav);
+      star.title = kind.fav ? t('Starred — it sits at the top of a desk\'s Prompts window') : t('Star it: put it at the top of a desk\'s Prompts window');
+    };
+
     card.append(el('summary', {}, [
       el('span', { className: 'dragrip', title: t('Drag to reorder') }, icon('grip')),
       el('span', { className: 'twist' }, icon('down')),
       el('span', { className: 'name', textContent: kind.name }),
       el('span', { className: 'meta', textContent: first }),
+      star,
       bin,
     ]));
 
@@ -11930,8 +11955,311 @@ function attachMessages(host, wsId, extras, deliver) {
     paintList();
   };
 
+  /** One prompt, as a row that sends it.
+   *
+   *  Built here rather than inside the folder loop because the starred line at the top of the
+   *  window draws exactly the same row from a different list: the group a prompt belongs to
+   *  decides where it is *kept*, not how it behaves when you tap it.
+   */
+  const entryFor = (kind, group) => {
+    // Whether this one has everything it needs, said before you tap rather than after
+    // it has gone. The four situational names are stubbed here because at send time
+    // they are always known — what is worth flagging is a `{paper}` this desk has not
+    // got, not the fact that nothing is aimed at anything yet.
+    // Every name the situation fills in, stubbed — this asks "what would this desk fail
+    // to fill", and the six situational ones are never the answer. Two of them were
+    // missing here when they were added, so every pair prompt wore a warning saying it
+    // could not fill {bridge}: the list of situational names belongs in one place.
+    const gaps = gapsIn(kind.text, { ...SITUATIONAL, folder: deliver.folder(), ...allVars(wsId) });
+    const row = el('button', {
+      className: `trayrow${gaps.length ? ' hasgap' : ''}`,
+      title: (gaps.length ? `${t('nothing to put in {list}', { list: gaps.map((g) => `{${g}}`).join(' ') })} — ` : '')
+        + kind.text.split('\n')[0],
+    }, [
+      icon('relay'),
+      el('span', { className: 'trayleaf', textContent: kind.name }),
+      gaps.length ? el('span', { className: 'gapmark', textContent: '{ }' }) : null,
+    ].filter(Boolean));
+
+    /* Whether this one presses Enter — said, not offered.
+     *
+     *  It is a label and behaves like one: no hover, no cursor, nothing to click. It was
+     *  briefly a switch, which was wrong twice over — a control that changes what a prompt
+     *  does does not belong on the row you tap to send it, and a thing that lights up
+     *  under the pointer is promising something it will not do. Changing it is the
+     *  editor's job, where every other property of a prompt lives.
+     *
+     *  Drawn either way, though: lit when it will press Enter and dim when it will not,
+     *  because a mark that only appears when true makes "does not run" and "you cannot
+     *  tell" look identical — which is how a prompt that quietly never sent got blamed on
+     *  the sending.
+     */
+    const runs = el('span', {
+      className: `runs${kind.run ? ' on' : ''}`,
+      // A word, not a glyph. `↵` lit and `↵` dim are the same symbol twice, so the
+      // difference between them was a shade of grey — reported as "you cannot tell
+      // whether it will send". These two say what happens instead: one sends the
+      // prompt, the other only types it in and leaves the Enter to you.
+      textContent: kind.run ? t('sends') : t('types'),
+      title: kind.run
+        ? t('Sends it: this prompt presses Enter for you')
+        : t('Puts it in without pressing Enter'),
+    });
+    /* What this one takes, and what it would be *here*.
+     *
+     *  The hover preview shows the finished sentence, which is the right thing when you
+     *  are about to send one and the wrong thing when you are looking down a list of
+     *  fifteen deciding which. This is the miniature: the names in order, each with the
+     *  value this desk would give it, and the ones with nothing behind them in amber.
+     *  A prompt that takes no placeholders gets no line — most of them do not.
+     */
+    /** One value, edited where you found it.
+     *
+     *  Click it, type, Enter. It is written into the set this desk is on — the one named
+     *  at the top of this window — which is what "this desk's values" means, and why the
+     *  chip up there is worth having next to it. Escape leaves it alone; emptying it
+     *  leaves the name with nothing in it, which counts as missing everywhere else and
+     *  is a perfectly good way to say "ask me again later".
+     */
+    const fillable = (name, value, gone) => {
+      const cell = el('button', {
+        className: `was fillbtn${gone ? ' gone' : ''}`,
+        type: 'button',
+        title: t('Change it, for this desk'),
+        textContent: gone ? t('nothing here') : String(value),
+      });
+      cell.onclick = (ev) => {
+        ev.stopPropagation();
+        const box = el('input', {
+          type: 'text', className: 'fillbox', value: gone ? '' : String(value), spellcheck: false,
+        });
+        const done = (save) => {
+          if (save) {
+            const set = varSetNamed(deskSetName(wsId)) || varSetNamed(GROUND);
+            set.vars[name] = box.value.trim();
+            savePrefs();
+            messagesChanged();          // every other Prompts window says the same thing
+          }
+          draw();
+        };
+        box.onkeydown = (e) => {
+          if (e.key === 'Enter') { e.preventDefault(); done(true); }
+          if (e.key === 'Escape') { e.preventDefault(); done(false); }
+        };
+        box.onblur = () => done(true);
+        cell.replaceWith(box);
+        box.focus();
+        box.select();
+      };
+      return cell;
+    };
+
+    let uses = null;
+    const takes = varsIn(kind.text);
+    if (takes.length) {
+      const here = { ...situationFor(deliver.aim()), ...allVars(wsId) };
+      uses = el('div', { className: 'usesline' });
+      const said = [];
+      for (const name of takes) {
+        const value = valueFor(name, here);
+        const gone = value === undefined;
+        said.push(`{${name}} ${gone ? '—' : value}`);
+        uses.append(
+          el('code', { className: gone ? 'gone' : '', textContent: `{${name}}` }),
+          // The situation's own names are read-only here: {folder} is where the session
+          // is, and typing something else into it would not make it so. Yours are a
+          // value in a set, and a value in a set is a thing you can just change — from
+          // the window where you noticed it was wrong, rather than two screens away.
+          // A situational name is not editable and has to *say* so when you try, or the
+          // click that does nothing reads as a broken feature — which is exactly how it
+          // was reported. The ones you can change wear a dotted line so you can tell
+          // before clicking, rather than by hovering everything to find out.
+          name in SITUATIONAL
+            ? el('button', {
+              className: `was fixedval${gone ? ' gone' : ''}`,
+              type: 'button',
+              title: t('{name} comes from the situation — it cannot be typed over', { name: `{${name}}` }),
+              textContent: gone ? t('nothing here') : String(value),
+              onclick: (ev) => {
+                ev.stopPropagation();
+                toast(t('{name} comes from the situation — it cannot be typed over', { name: `{${name}}` }));
+              },
+            })
+            : fillable(name, value, gone),
+        );
+      }
+      uses.title = said.join(' · ');
+    }
+
+    dragLink(row, { text: kind.name, message: kind }, deliver.find, (item, target) => send(item.message, target));
+    row.onclick = () => {
+      if (row.dataset.dragged) return;
+      sendAll(kind);
+    };
+
+    // What it will actually say, without sending it. Hover on a mouse; on a touch
+    // screen the ⋯ opens the same thing, since hovering is not a gesture a finger has.
+    let peek = null;
+    let peeking = null;
+    const showPeek = () => {
+      const target = deliver.aim();
+      const known = { ...situationFor(target), ...allVars(wsId) };
+      const short = gapsIn(kind.text, known);
+      peek = el('div', { className: 'promptpeek' }, [
+        el('div', { className: 'peekname', textContent: kind.name }),
+        el('pre', { textContent: fillBaton(kind.text, known) }),
+        short.length ? el('p', { className: 'peekgap', textContent: t('nothing to put in {list}', { list: short.map((g) => `{${g}}`).join(' ') }) }) : null,
+      ].filter(Boolean));
+      // Reaching the panel keeps it; leaving the panel closes it. Scrolling inside it is
+      // then just scrolling.
+      peek.addEventListener('pointerenter', () => clearTimeout(going));
+      peek.addEventListener('pointerleave', letGo);
+      document.body.append(peek);
+      const box = row.getBoundingClientRect();
+      const wide = peek.getBoundingClientRect();
+      // Beside the row if it fits, otherwise on its other side: a panel that runs off
+      // the screen is worse than no panel.
+      const left = box.left - wide.width - 10 > 8 ? box.left - wide.width - 10 : Math.min(box.right + 10, window.innerWidth - wide.width - 8);
+      peek.style.left = `${Math.max(8, left)}px`;
+      peek.style.top = `${Math.max(8, Math.min(box.top, window.innerHeight - wide.height - 8))}px`;
+    };
+    /* Closing it, but not the moment the pointer leaves the row.
+     *
+     *  A long prompt does not fit in the panel, and the panel scrolls — except the way
+     *  to it is across the gap between the row and the panel, and leaving the row shut
+     *  it instantly. So there is a beat before it goes, and reaching the panel cancels
+     *  it: the ordinary hover-card behaviour, which is only worth spelling out because
+     *  getting it wrong makes the panel look like it is running away from you. */
+    let going = null;
+    const hidePeek = () => {
+      clearTimeout(peeking);
+      clearTimeout(going);
+      peeking = null;
+      going = null;
+      peek?.remove();
+      peek = null;
+    };
+    const letGo = () => {
+      clearTimeout(going);
+      going = setTimeout(hidePeek, 260);
+    };
+    // Pointer events rather than a media query: the event itself says whether a mouse
+    // did this, which is the thing that matters and is right on the hybrids a query
+    // gets wrong. A finger never opens it — tapping sends the prompt, and the ⋯ is
+    // where a touch screen looks at one first.
+    row.addEventListener('pointerenter', (e) => {
+      if (e.pointerType !== 'mouse') return;
+      peeking = setTimeout(showPeek, 320);
+    });
+    row.addEventListener('pointerleave', letGo);
+    row.addEventListener('pointerdown', hidePeek);
+
+    // For the times a word needs changing before it goes. Not saved anywhere: this is
+    // a one-off, and the library is edited where the library lives.
+    const more = el('button', { className: 'winbtn', title: t('Change it before sending') }, icon('more'));
+    more.onclick = (e) => {
+      e.stopPropagation();
+      const target = deliver.aim();
+      if (!target) return toast(t('no session in this desk to send it to'), true);
+      const known = { ...situationFor(target), ...allVars(wsId) };
+      const note = el('textarea', { className: 'baton', spellcheck: false, rows: 7, value: kind.text });
+      const shown = el('pre', { className: 'batonpreview' });
+      // Edited here, so the gaps move as you type: filling one in by hand is half of
+      // what this dialog is for.
+      const short = el('p', { className: 'hint warn' });
+      const see = () => {
+        shown.textContent = fillBaton(note.value, known);
+        const gaps = gapsIn(note.value, known);
+        short.hidden = !gaps.length;
+        short.textContent = gaps.length
+          ? t('nothing to put in {list}', { list: gaps.map((g) => `{${g}}`).join(' ') }) : '';
+      };
+      note.addEventListener('input', see);
+      see();
+      let sheet;
+      sheet = modal(`${kind.name} → ${target.name.slice(5)}`, el('div', { className: 'sheetbody' }, [
+        note,
+        el('p', { className: 'hint', textContent: t('what will be typed over there:') }),
+        shown,
+        short,
+      ]), [
+        el('button', { className: 'ghost', textContent: t('Cancel'), onclick: () => sheet.close() }),
+        el('button', {
+          className: 'primary inline',
+          textContent: t('Send it'),
+          onclick: () => { sheet.close(); send({ ...kind, text: note.value }, target); },
+        }),
+      ]);
+    };
+
+    // The row is a button — tap it and the prompt goes — so the values cannot live
+    // inside it: a text box nested in a button is both invalid and unusable, and every
+    // click in it would have sent the prompt. The chevron beside it is what opens them,
+    // for the same reason: tapping the name must keep meaning "send this".
+    let show = null;
+    if (uses) {
+      const mineKey = `p:${group}/${kind.name}`;
+      uses.hidden = !unfolded.has(mineKey);
+      show = el('button', {
+        className: `winbtn twist${uses.hidden ? '' : ' on'}`,
+        title: t('What it takes'),
+      }, icon('down'));
+      show.onclick = (ev) => {
+        ev.stopPropagation();
+        uses.hidden = !uses.hidden;
+        show.classList.toggle('on', !uses.hidden);
+        if (uses.hidden) unfolded.delete(mineKey);
+        else unfolded.add(mineKey);
+        rememberOpen();
+      };
+    }
+    // The twist goes first. Every tree anybody has ever used puts the disclosure control
+    // to the left of the thing it discloses, and the eye looks for it there.
+    const entry = el('div', { className: 'msgentry' }, [
+      el('div', { className: 'trayline' }, [show, row, runs, more].filter(Boolean)),
+      uses,
+    ].filter(Boolean));
+    entry.kind = kind;
+    return entry;
+  };
+
   const paintList = () => {
     rowsBox.replaceChildren();
+
+    /* The starred ones, above the folders, without their folders.
+     *
+     *  Folders are where a library is kept. They are the wrong shape for the four prompts you
+     *  send forty times an afternoon: those live in three different groups, so reaching them
+     *  means opening three folders and shutting them again. Starred prompts are one line at
+     *  the top — flat, no group names, in the order the library has them.
+     *
+     *  A starred prompt stays in its folder as well. Starring is a shortcut, not a move: a
+     *  library that quietly loses a prompt because you marked it is a library you stop
+     *  trusting.
+     *
+     *  Open unless you shut it, which is the opposite of a folder — a shortcut you have to
+     *  open first is not one. So the remembered key is the *shut* state.
+     */
+    const stars = batonTemplates().filter((k) => k.fav);
+    if (stars.length) {
+      const shut = 'g:starred-shut';
+      const line = el('details', { className: 'msgfolder starred', open: !unfolded.has(shut) });
+      line.addEventListener('toggle', () => {
+        if (line.open) unfolded.delete(shut);
+        else unfolded.add(shut);
+        rememberOpen();
+      });
+      line.append(el('summary', {}, [
+        icon('star'),
+        el('span', { textContent: t('Starred') }),
+        el('span', { className: 'count', textContent: String(stars.length) }),
+      ]));
+      // Its own group name, so the rows below get their own unfold keys and opening what a
+      // prompt takes up here does not also open it down in its folder.
+      for (const kind of stars) line.append(entryFor(kind, '★'));
+      rowsBox.append(line);
+    }
+
     for (const group of batonGroups()) {
       const mine = batonTemplates().filter((x) => x.group === group);
       if (!mine.length) continue;
@@ -11956,267 +12284,7 @@ function attachMessages(host, wsId, extras, deliver) {
         el('span', { className: 'count', textContent: String(mine.length) }),
       ]));
       folder.dataset.group = group;
-      for (const kind of mine) {
-        // Whether this one has everything it needs, said before you tap rather than after
-        // it has gone. The four situational names are stubbed here because at send time
-        // they are always known — what is worth flagging is a `{paper}` this desk has not
-        // got, not the fact that nothing is aimed at anything yet.
-        // Every name the situation fills in, stubbed — this asks "what would this desk fail
-        // to fill", and the six situational ones are never the answer. Two of them were
-        // missing here when they were added, so every pair prompt wore a warning saying it
-        // could not fill {bridge}: the list of situational names belongs in one place.
-        const gaps = gapsIn(kind.text, { ...SITUATIONAL, folder: deliver.folder(), ...allVars(wsId) });
-        const row = el('button', {
-          className: `trayrow${gaps.length ? ' hasgap' : ''}`,
-          title: (gaps.length ? `${t('nothing to put in {list}', { list: gaps.map((g) => `{${g}}`).join(' ') })} — ` : '')
-            + kind.text.split('\n')[0],
-        }, [
-          icon('relay'),
-          el('span', { className: 'trayleaf', textContent: kind.name }),
-          gaps.length ? el('span', { className: 'gapmark', textContent: '{ }' }) : null,
-        ].filter(Boolean));
-
-        /* Whether this one presses Enter — said, not offered.
-         *
-         *  It is a label and behaves like one: no hover, no cursor, nothing to click. It was
-         *  briefly a switch, which was wrong twice over — a control that changes what a prompt
-         *  does does not belong on the row you tap to send it, and a thing that lights up
-         *  under the pointer is promising something it will not do. Changing it is the
-         *  editor's job, where every other property of a prompt lives.
-         *
-         *  Drawn either way, though: lit when it will press Enter and dim when it will not,
-         *  because a mark that only appears when true makes "does not run" and "you cannot
-         *  tell" look identical — which is how a prompt that quietly never sent got blamed on
-         *  the sending.
-         */
-        const runs = el('span', {
-          className: `runs${kind.run ? ' on' : ''}`,
-          // A word, not a glyph. `↵` lit and `↵` dim are the same symbol twice, so the
-          // difference between them was a shade of grey — reported as "you cannot tell
-          // whether it will send". These two say what happens instead: one sends the
-          // prompt, the other only types it in and leaves the Enter to you.
-          textContent: kind.run ? t('sends') : t('types'),
-          title: kind.run
-            ? t('Sends it: this prompt presses Enter for you')
-            : t('Puts it in without pressing Enter'),
-        });
-        /* What this one takes, and what it would be *here*.
-         *
-         *  The hover preview shows the finished sentence, which is the right thing when you
-         *  are about to send one and the wrong thing when you are looking down a list of
-         *  fifteen deciding which. This is the miniature: the names in order, each with the
-         *  value this desk would give it, and the ones with nothing behind them in amber.
-         *  A prompt that takes no placeholders gets no line — most of them do not.
-         */
-        /** One value, edited where you found it.
-         *
-         *  Click it, type, Enter. It is written into the set this desk is on — the one named
-         *  at the top of this window — which is what "this desk's values" means, and why the
-         *  chip up there is worth having next to it. Escape leaves it alone; emptying it
-         *  leaves the name with nothing in it, which counts as missing everywhere else and
-         *  is a perfectly good way to say "ask me again later".
-         */
-        const fillable = (name, value, gone) => {
-          const cell = el('button', {
-            className: `was fillbtn${gone ? ' gone' : ''}`,
-            type: 'button',
-            title: t('Change it, for this desk'),
-            textContent: gone ? t('nothing here') : String(value),
-          });
-          cell.onclick = (ev) => {
-            ev.stopPropagation();
-            const box = el('input', {
-              type: 'text', className: 'fillbox', value: gone ? '' : String(value), spellcheck: false,
-            });
-            const done = (save) => {
-              if (save) {
-                const set = varSetNamed(deskSetName(wsId)) || varSetNamed(GROUND);
-                set.vars[name] = box.value.trim();
-                savePrefs();
-                messagesChanged();          // every other Prompts window says the same thing
-              }
-              draw();
-            };
-            box.onkeydown = (e) => {
-              if (e.key === 'Enter') { e.preventDefault(); done(true); }
-              if (e.key === 'Escape') { e.preventDefault(); done(false); }
-            };
-            box.onblur = () => done(true);
-            cell.replaceWith(box);
-            box.focus();
-            box.select();
-          };
-          return cell;
-        };
-
-        let uses = null;
-        const takes = varsIn(kind.text);
-        if (takes.length) {
-          const here = { ...situationFor(deliver.aim()), ...allVars(wsId) };
-          uses = el('div', { className: 'usesline' });
-          const said = [];
-          for (const name of takes) {
-            const value = valueFor(name, here);
-            const gone = value === undefined;
-            said.push(`{${name}} ${gone ? '—' : value}`);
-            uses.append(
-              el('code', { className: gone ? 'gone' : '', textContent: `{${name}}` }),
-              // The situation's own names are read-only here: {folder} is where the session
-              // is, and typing something else into it would not make it so. Yours are a
-              // value in a set, and a value in a set is a thing you can just change — from
-              // the window where you noticed it was wrong, rather than two screens away.
-              // A situational name is not editable and has to *say* so when you try, or the
-              // click that does nothing reads as a broken feature — which is exactly how it
-              // was reported. The ones you can change wear a dotted line so you can tell
-              // before clicking, rather than by hovering everything to find out.
-              name in SITUATIONAL
-                ? el('button', {
-                  className: `was fixedval${gone ? ' gone' : ''}`,
-                  type: 'button',
-                  title: t('{name} comes from the situation — it cannot be typed over', { name: `{${name}}` }),
-                  textContent: gone ? t('nothing here') : String(value),
-                  onclick: (ev) => {
-                    ev.stopPropagation();
-                    toast(t('{name} comes from the situation — it cannot be typed over', { name: `{${name}}` }));
-                  },
-                })
-                : fillable(name, value, gone),
-            );
-          }
-          uses.title = said.join(' · ');
-        }
-
-        dragLink(row, { text: kind.name, message: kind }, deliver.find, (item, target) => send(item.message, target));
-        row.onclick = () => {
-          if (row.dataset.dragged) return;
-          sendAll(kind);
-        };
-
-        // What it will actually say, without sending it. Hover on a mouse; on a touch
-        // screen the ⋯ opens the same thing, since hovering is not a gesture a finger has.
-        let peek = null;
-        let peeking = null;
-        const showPeek = () => {
-          const target = deliver.aim();
-          const known = { ...situationFor(target), ...allVars(wsId) };
-          const short = gapsIn(kind.text, known);
-          peek = el('div', { className: 'promptpeek' }, [
-            el('div', { className: 'peekname', textContent: kind.name }),
-            el('pre', { textContent: fillBaton(kind.text, known) }),
-            short.length ? el('p', { className: 'peekgap', textContent: t('nothing to put in {list}', { list: short.map((g) => `{${g}}`).join(' ') }) }) : null,
-          ].filter(Boolean));
-          // Reaching the panel keeps it; leaving the panel closes it. Scrolling inside it is
-          // then just scrolling.
-          peek.addEventListener('pointerenter', () => clearTimeout(going));
-          peek.addEventListener('pointerleave', letGo);
-          document.body.append(peek);
-          const box = row.getBoundingClientRect();
-          const wide = peek.getBoundingClientRect();
-          // Beside the row if it fits, otherwise on its other side: a panel that runs off
-          // the screen is worse than no panel.
-          const left = box.left - wide.width - 10 > 8 ? box.left - wide.width - 10 : Math.min(box.right + 10, window.innerWidth - wide.width - 8);
-          peek.style.left = `${Math.max(8, left)}px`;
-          peek.style.top = `${Math.max(8, Math.min(box.top, window.innerHeight - wide.height - 8))}px`;
-        };
-        /* Closing it, but not the moment the pointer leaves the row.
-         *
-         *  A long prompt does not fit in the panel, and the panel scrolls — except the way
-         *  to it is across the gap between the row and the panel, and leaving the row shut
-         *  it instantly. So there is a beat before it goes, and reaching the panel cancels
-         *  it: the ordinary hover-card behaviour, which is only worth spelling out because
-         *  getting it wrong makes the panel look like it is running away from you. */
-        let going = null;
-        const hidePeek = () => {
-          clearTimeout(peeking);
-          clearTimeout(going);
-          peeking = null;
-          going = null;
-          peek?.remove();
-          peek = null;
-        };
-        const letGo = () => {
-          clearTimeout(going);
-          going = setTimeout(hidePeek, 260);
-        };
-        // Pointer events rather than a media query: the event itself says whether a mouse
-        // did this, which is the thing that matters and is right on the hybrids a query
-        // gets wrong. A finger never opens it — tapping sends the prompt, and the ⋯ is
-        // where a touch screen looks at one first.
-        row.addEventListener('pointerenter', (e) => {
-          if (e.pointerType !== 'mouse') return;
-          peeking = setTimeout(showPeek, 320);
-        });
-        row.addEventListener('pointerleave', letGo);
-        row.addEventListener('pointerdown', hidePeek);
-
-        // For the times a word needs changing before it goes. Not saved anywhere: this is
-        // a one-off, and the library is edited where the library lives.
-        const more = el('button', { className: 'winbtn', title: t('Change it before sending') }, icon('more'));
-        more.onclick = (e) => {
-          e.stopPropagation();
-          const target = deliver.aim();
-          if (!target) return toast(t('no session in this desk to send it to'), true);
-          const known = { ...situationFor(target), ...allVars(wsId) };
-          const note = el('textarea', { className: 'baton', spellcheck: false, rows: 7, value: kind.text });
-          const shown = el('pre', { className: 'batonpreview' });
-          // Edited here, so the gaps move as you type: filling one in by hand is half of
-          // what this dialog is for.
-          const short = el('p', { className: 'hint warn' });
-          const see = () => {
-            shown.textContent = fillBaton(note.value, known);
-            const gaps = gapsIn(note.value, known);
-            short.hidden = !gaps.length;
-            short.textContent = gaps.length
-              ? t('nothing to put in {list}', { list: gaps.map((g) => `{${g}}`).join(' ') }) : '';
-          };
-          note.addEventListener('input', see);
-          see();
-          let sheet;
-          sheet = modal(`${kind.name} → ${target.name.slice(5)}`, el('div', { className: 'sheetbody' }, [
-            note,
-            el('p', { className: 'hint', textContent: t('what will be typed over there:') }),
-            shown,
-            short,
-          ]), [
-            el('button', { className: 'ghost', textContent: t('Cancel'), onclick: () => sheet.close() }),
-            el('button', {
-              className: 'primary inline',
-              textContent: t('Send it'),
-              onclick: () => { sheet.close(); send({ ...kind, text: note.value }, target); },
-            }),
-          ]);
-        };
-
-        // The row is a button — tap it and the prompt goes — so the values cannot live
-        // inside it: a text box nested in a button is both invalid and unusable, and every
-        // click in it would have sent the prompt. The chevron beside it is what opens them,
-        // for the same reason: tapping the name must keep meaning "send this".
-        let show = null;
-        if (uses) {
-          const mineKey = `p:${group}/${kind.name}`;
-          uses.hidden = !unfolded.has(mineKey);
-          show = el('button', {
-            className: `winbtn twist${uses.hidden ? '' : ' on'}`,
-            title: t('What it takes'),
-          }, icon('down'));
-          show.onclick = (ev) => {
-            ev.stopPropagation();
-            uses.hidden = !uses.hidden;
-            show.classList.toggle('on', !uses.hidden);
-            if (uses.hidden) unfolded.delete(mineKey);
-            else unfolded.add(mineKey);
-            rememberOpen();
-          };
-        }
-        // The twist goes first. Every tree anybody has ever used puts the disclosure control
-        // to the left of the thing it discloses, and the eye looks for it there.
-        const entry = el('div', { className: 'msgentry' }, [
-          el('div', { className: 'trayline' }, [show, row, runs, more].filter(Boolean)),
-          uses,
-        ].filter(Boolean));
-        entry.kind = kind;
-        folder.append(entry);
-      }
+      for (const kind of mine) folder.append(entryFor(kind, group));
       rowsBox.append(folder);
     }
   };
@@ -13272,8 +13340,9 @@ async function installHere() {
     }
   }
   const body = el('div', { className: 'sheetbody' });
+  body.append(el('p', { className: 'meta', textContent: t('this browser has not offered, so it has to be asked') }));
+
   body.append(
-    el('p', { className: 'meta', textContent: t('this browser has not offered, so it has to be asked') }),
     el('ul', { className: 'sheetlist' }, [
       el('li', { textContent: t('Chrome or Edge on a computer: the install icon at the right of the address bar, or its menu') }),
       el('li', { textContent: t('Chrome on Android: the ⋮ menu, then Install app') }),
