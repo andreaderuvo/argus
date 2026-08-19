@@ -165,8 +165,87 @@ function readJSON(key) {
   try { return JSON.parse(localStorage.getItem(key) || '{}'); } catch { return {}; }
 }
 
+/* The same document, in two places, and which one is in charge.
+ *
+ *  It lived only in this browser's storage: sixty keys — the desks, where every window sits,
+ *  the prompt library, the placeholder sets, the shortcuts. Two things were impossible because
+ *  of that, and they are the two people ask for: a desk you made at the desk did not exist on
+ *  the phone, and nothing outside a browser could read any of it, so an agent that had just
+ *  started three jobs could not lay out a desk to watch them in.
+ *
+ *  So the machine holds it and this holds a copy. localStorage stays as the *cache*: it is what
+ *  paints the first frame, and what the app runs on when the server cannot be reached. The
+ *  server is the truth, read once at boot.
+ */
+let prefsVersion = 0;
+let baseline = {};
+let pushing = null;
+
+/** What this browser has changed since it last agreed with the server. */
+function changedKeys() {
+  const changes = {};
+  for (const [key, value] of Object.entries(prefs)) {
+    if (JSON.stringify(baseline[key]) !== JSON.stringify(value)) changes[key] = value;
+  }
+  // A key this browser has dropped is a key to remove, not one to leave behind: null says so.
+  for (const key of Object.keys(baseline)) if (!(key in prefs)) changes[key] = null;
+  return changes;
+}
+
 function savePrefs() {
   localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+  /* Pushed as *changed keys*, not as the whole document.
+   *
+   *  Sending everything means the last device to save wins everything, which loses the desk
+   *  made on the phone the moment this laptop saves an older copy of it. Sending the three keys
+   *  this browser actually touched lets two devices edit different things without either of
+   *  them noticing the other.
+   *
+   *  Coalesced: dragging a window calls this on every frame of the drop, and a request per
+   *  frame is a request per frame.
+   */
+  clearTimeout(pushing);
+  pushing = setTimeout(async () => {
+    const changes = changedKeys();
+    if (!Object.keys(changes).length) return;
+    try {
+      const said = await patchJSON('/api/prefs', { changes });
+      prefsVersion = said.version;
+      baseline = JSON.parse(JSON.stringify(prefs));
+    } catch (e) {
+      // Offline, or a server too old to have this: the browser goes on working from its own
+      // copy and tries again on the next save. Not a toast — this happens in the background and
+      // nothing the person did has failed.
+      console.warn(`argus: preferences not saved to the machine — ${e.message}`);
+    }
+  }, 500);
+}
+
+/** Read what the machine has, once, before the first paint. */
+async function syncPrefs() {
+  try {
+    const said = await getJSON('/api/prefs');
+    const theirs = said.prefs || {};
+    if (said.version > 0 && Object.keys(theirs).length) {
+      // The machine has a workspace: this browser adopts it, cache and all. Replacing the keys
+      // in place rather than the object, because everything else in here closes over it.
+      for (const key of Object.keys(prefs)) delete prefs[key];
+      Object.assign(prefs, theirs);
+      localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+    } else if (Object.keys(prefs).length) {
+      // Nothing there and something here: this browser's copy becomes the machine's. That is
+      // the migration, and it happens once, silently, on whichever device opens it first.
+      await api('/api/prefs', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ version: said.version, prefs }),
+      });
+    }
+    prefsVersion = said.version;
+    baseline = JSON.parse(JSON.stringify(prefs));
+  } catch (e) {
+    console.warn(`argus: the machine's preferences could not be read — ${e.message}`);
+  }
 }
 
 /* ------------------------------------------------------------------- theme */
@@ -14124,6 +14203,9 @@ function translateMarkup() {
     try { list = await getJSON('/api/languages'); } catch { /* English then */ }
     await loadLanguage(preferredLanguage(list.map((l) => l.code)));
     translateMarkup();
+    // Before the first paint: the desks and the theme in it decide what is drawn.
+    await syncPrefs();
+    applyTheme();
     await loadFavourites();
   }
   await render();

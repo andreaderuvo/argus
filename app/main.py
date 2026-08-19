@@ -21,7 +21,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 
 from . import (announce, bells, devices, favourites, files, fsops, gitwork, journal, languages,
-               launch, mounts, paths, ports, proxy, release, runner, system, term, tmux, todo)
+               launch, mounts, paths, ports, prefs, proxy, release, runner, system, term, tmux, todo)
 import httpx
 
 from .auth import PROXY_COOKIE, TokenAuthMiddleware
@@ -296,6 +296,7 @@ def create_app(cfg: Config) -> FastAPI:
     app.state.socket = tmux.Socket.new(cfg.tmux_socket)
     app.state.favourites = getattr(cfg, "favourites_store", None) or Path("/nonexistent")
     app.state.todo = getattr(cfg, "todo_store", None) or Path("/nonexistent")
+    app.state.prefs = getattr(cfg, "prefs_store", None) or Path("/nonexistent")
     app.state.devices = cfg.devices_store or Path("/nonexistent")
     app.state.journal = cfg.journal_store
     app.state.lang = Path("/nonexistent")
@@ -371,6 +372,70 @@ def create_app(cfg: Config) -> FastAPI:
         except OSError as e:
             raise ApiError(500, f"could not save the language: {e.strerror}") from e
         return {"code": code, "name": name, "count": len(strings)}
+
+    @app.get("/api/prefs", tags=["Setup"], summary="Everything the browser remembers, from here")
+    async def read_prefs(request: Request) -> dict:
+        """The desks, the windows and where they sit, the prompt library, the placeholder sets,
+        the shortcuts, the theme — the sixty keys that used to live only in one browser's
+        storage.
+
+        Two things become possible by moving them here, and they are the two people ask for: a
+        desk made at the desk exists on the phone, and something that is not a browser can read
+        the workspace — a script that wants the prompt library, an agent that has just started
+        three jobs and could lay out a desk to watch them in.
+
+        The version comes with the document and is what a full replacement has to present.
+        """
+        version, doc = prefs.load(request.app.state.prefs)
+        return {"version": version, "prefs": doc}
+
+    @app.patch("/api/prefs", tags=["Setup"], summary="Change some of them, leaving the rest alone")
+    async def patch_prefs(request: Request, body: dict) -> dict:
+        """Merge the keys you send into whatever is there now, and nothing else.
+
+        This is how the browser saves, and the reason it is a merge rather than a replacement:
+        last-write-wins on the whole document loses a desk made on the phone the moment a laptop
+        saves an older copy of everything. Two devices changing different keys both keep their
+        change; two devices changing the same key still resolve to the last one, and there is no
+        honest way around that without asking somebody which they meant.
+
+        A key sent as `null` is removed, which is how a browser says it has stopped keeping
+        something.
+        """
+        changes = body.get("changes")
+        if not isinstance(changes, dict):
+            raise ApiError(400, "send {changes: {key: value}} — a null value removes a key")
+        store = request.app.state.prefs
+        version, doc = prefs.load(store)
+        try:
+            prefs.save(store, version + 1, prefs.merge(doc, changes))
+        except (ValueError, OSError) as e:
+            raise ApiError(413 if isinstance(e, ValueError) else 500, str(e)) from e
+        return {"version": version + 1, "changed": sorted(changes)}
+
+    @app.put("/api/prefs", tags=["Setup"], summary="Replace the whole document")
+    async def put_prefs(request: Request, body: dict) -> dict:
+        """The whole thing at once — an import, a restore, a browser adopting a machine that has
+        nothing yet.
+
+        It must present the version it believes it is replacing. A mismatch is a 409 carrying the
+        current document, so the caller can look at what changed underneath rather than
+        discovering later that an afternoon of window-moving went away. `version: 0` is "there
+        should be nothing here", which is exactly what a first upload means.
+        """
+        doc = body.get("prefs")
+        if not isinstance(doc, dict):
+            raise ApiError(400, "send {version: n, prefs: {…}}")
+        store = request.app.state.prefs
+        version, current = prefs.load(store)
+        if int(body.get("version", -1)) != version:
+            raise ApiError(409, f"this is version {version}, not {body.get('version')} — "
+                                "read it again and merge")
+        try:
+            prefs.save(store, version + 1, doc)
+        except (ValueError, OSError) as e:
+            raise ApiError(413 if isinstance(e, ValueError) else 500, str(e)) from e
+        return {"version": version + 1}
 
     @app.get("/api/todo", tags=["Setup"], summary="The list of things to do")
     async def list_todo(request: Request) -> dict:
@@ -1391,6 +1456,7 @@ def main(argv: list[str] | None = None) -> int:
 
     app.state.favourites = favourites.default_store(config_path)
     app.state.todo = todo.default_store(config_path)
+    app.state.prefs = prefs.default_store(config_path)
     app.state.lang = config_path.parent / "lang"
     app.state.port = port
     app.state.host = host

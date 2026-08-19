@@ -136,6 +136,8 @@ class Config:
     # fills with comments that a YAML round-trip would erase.
     devices_store: Path | None = None
     todo_store: Path | None = None
+    # What the browser remembers, kept here so it is the same from every device.
+    prefs_store: Path | None = None
     # Where the record of what was done here is appended. Beside the config, same reasoning.
     journal_store: Path | None = None
 

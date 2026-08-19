@@ -1793,6 +1793,118 @@
     ]
    }
   },
+  "/api/prefs": {
+   "get": {
+    "description": "The desks, the windows and where they sit, the prompt library, the placeholder sets,\nthe shortcuts, the theme \u2014 the sixty keys that used to live only in one browser's\nstorage.\n\nTwo things become possible by moving them here, and they are the two people ask for: a\ndesk made at the desk exists on the phone, and something that is not a browser can read\nthe workspace \u2014 a script that wants the prompt library, an agent that has just started\nthree jobs and could lay out a desk to watch them in.\n\nThe version comes with the document and is what a full replacement has to present.",
+    "operationId": "getApiPrefs",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Read Prefs Api Prefs Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Everything the browser remembers, from here",
+    "tags": [
+     "Setup"
+    ]
+   },
+   "patch": {
+    "description": "Merge the keys you send into whatever is there now, and nothing else.\n\nThis is how the browser saves, and the reason it is a merge rather than a replacement:\nlast-write-wins on the whole document loses a desk made on the phone the moment a laptop\nsaves an older copy of everything. Two devices changing different keys both keep their\nchange; two devices changing the same key still resolve to the last one, and there is no\nhonest way around that without asking somebody which they meant.\n\nA key sent as `null` is removed, which is how a browser says it has stopped keeping\nsomething.",
+    "operationId": "patchApiPrefs",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Patch Prefs Api Prefs Patch",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Change some of them, leaving the rest alone",
+    "tags": [
+     "Setup"
+    ]
+   },
+   "put": {
+    "description": "The whole thing at once \u2014 an import, a restore, a browser adopting a machine that has\nnothing yet.\n\nIt must present the version it believes it is replacing. A mismatch is a 409 carrying the\ncurrent document, so the caller can look at what changed underneath rather than\ndiscovering later that an afternoon of window-moving went away. `version: 0` is \"there\nshould be nothing here\", which is exactly what a first upload means.",
+    "operationId": "putApiPrefs",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Put Prefs Api Prefs Put",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Replace the whole document",
+    "tags": [
+     "Setup"
+    ]
+   }
+  },
   "/api/relay": {
    "post": {
     "description": "Type text into another session, and press return if asked.\n\nThis is what the browser does when you drop a prompt onto a terminal, offered to the\nthing already sitting in a session: *I have finished, go and look*. It carries text and\nnot a prompt from the library, because the library lives in the browser \u2014 an agent that\nwants a template can read it out of the desk it belongs to, or simply write the\nsentence, which is what it is good at.\n\nThe same care as everywhere else: bracketed paste, and the return as a separate write a\nmoment later, or an input box that reads writes rather than lines swallows it.",
