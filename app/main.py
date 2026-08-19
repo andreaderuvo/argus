@@ -196,10 +196,30 @@ async def overview_of(app: FastAPI, watcher: dict | None = None) -> dict:
     except Exception:
         offers = []
 
+    # And the orchestrations, if any are running. A summary and never the graph: a board
+    # sweeping ten machines every five seconds wants "three of four, one asking", and the
+    # picture belongs on the machine where you can act on it. Absent entirely when nothing is
+    # running, for the same reason `agent` is absent below — a key that is null everywhere
+    # is a payload paying for a feature nobody switched on.
+    watching = []
+    for run in getattr(app.state, "runs", {}).values():
+        agents = [a for step in run["steps"] for a in step["agents"]]
+        watching.append({
+            "id": run["id"],
+            "name": run["name"],
+            "state": run["state"],
+            "done": sum(1 for a in agents if a["state"] == "done"),
+            "agents": len(agents),
+            "asking": sum(1 for a in agents if a["state"] == "asking"),
+            "lost": sum(1 for a in agents if a["state"] == "lost"),
+        })
+
     return {
         "name": os.uname().nodename,
         "version": VERSION,
         "runnable": offers,
+        **({"runs": sorted(watching, key=lambda r: (r["state"] == "done", r["name"]))}
+           if watching else {}),
         # About the key that asked, not about the config: two boards can hold two watcher
         # tokens with different permissions. `None` means the main token or this machine
         # announcing itself, and neither is a board being offered a button.
