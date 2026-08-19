@@ -53,6 +53,14 @@ AGENT_ROUTES = frozenset({
     ("POST", "/api/bell"),
     ("POST", "/api/relay"),
     ("POST", "/api/tmux/launch"),
+    # A worktree, because the alternative is worse. An agent that may start a second agent but
+    # not give it a checkout of its own will start it in the same one, which is the collision
+    # the whole feature exists to avoid. It is still a bounded write: `--allow-write` must be
+    # on, the branch name is checked, the path has to land inside the configured roots, and an
+    # existing path is refused. Removing one is *not* here — that deletes work.
+    ("POST", "/api/git/worktree"),
+    ("GET", "/api/bells"),
+    ("GET", "/api/bells/stream"),
 })
 
 

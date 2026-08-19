@@ -15,3 +15,10 @@ node_modules/
 # stars, gaps and what to do about them. Deliberately untracked — it is a working note about
 # other people's software, not documentation of this one.
 COMPARISON.md
+
+# Throwaway probes. Measuring something in the live app means a little CDP script, and those
+# live at the root while I am using them — two of them (`pulizia.mjs`, `titolo.mjs`) rode into
+# the repository on a `git add -A` and were spotted by somebody reading the file list, which is
+# not the review step this deserves. Root-level only: `scripts/record.mjs` is real.
+/*.mjs
+/*.probe.py
