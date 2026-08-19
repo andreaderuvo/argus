@@ -4461,6 +4461,21 @@ async function screenSettings() {
   ]);
   messages.onclick = () => go('#/prompts');
 
+  /* The live API, on this machine, with the token already in the request.
+   *
+   *  There is a written page about the API on the website, and it is the right thing to read.
+   *  This is the other half: fifty routes with their shapes, a box to find one, and a button
+   *  that really calls it — which is how anybody who is going to script against this finds out
+   *  whether they have understood it. */
+  const apidocs = el('div', { className: 'row setting' }, [
+    el('span', { className: 'grow' }, [
+      el('span', { className: 'name', textContent: t('The API, live') }),
+      el('span', { className: 'meta', textContent: t('every route, with a button that really calls it') }),
+    ]),
+    icon('relay'),
+  ]);
+  apidocs.onclick = () => window.open(withToken('/api/docs'), '_blank', 'noopener');
+
   const handoff = el('div', { className: 'row setting' }, [
     el('span', { className: 'grow' }, [
       el('span', { className: 'name', textContent: t('Open on another device') }),
@@ -4501,7 +4516,7 @@ async function screenSettings() {
    *  list, the tmux configuration, the QR code) are the reason people open this screen at
    *  all. Making them read past a theme to find one was the worst part of the flat list.
    */
-  wrap.append(group(t('Go to')), keys, conf, messages, handoff,
+  wrap.append(group(t('Go to')), keys, conf, messages, handoff, apidocs,
     ...(installed() ? [] : [install]), langRow);
   (async () => {
     let list = [];

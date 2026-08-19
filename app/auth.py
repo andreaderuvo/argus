@@ -33,6 +33,28 @@ RUN_LIST = "/api/runnable"
 RUN_PREFIX = "/api/runnable/"
 STOP_PATH = "/api/shutdown"
 
+# What a key marked `agents:` in the config may do, by method and path, and nothing else.
+#
+# The reason this list exists rather than "give the agent the token": an agent living in a
+# session on this machine can already read the config file — it runs as you — so the question
+# was never whether it *can* drive Argus. It was what it should be able to reach when it does.
+# The master key would mean killing sessions, deleting files, exposing a loopback port to the
+# network, minting and revoking device tokens, emptying the journal and stopping the server.
+# None of that is needed to hand work to another agent.
+#
+# So: read what is happening, ring the person, pass a sentence to another session, start
+# something from the launcher list. Everything else answers 403 and says what it may do.
+AGENT_ROUTES = frozenset({
+    ("GET", "/api/who"),
+    ("GET", "/api/overview"),
+    ("GET", "/api/launchers"),
+    ("GET", "/api/tmux/sessions"),
+    ("GET", "/api/tmux/cwd"),
+    ("POST", "/api/bell"),
+    ("POST", "/api/relay"),
+    ("POST", "/api/tmux/launch"),
+})
+
 
 def presented_token(scope: dict) -> str | None:
     """Accepts the token from the ``Authorization`` header or from ``?token=``.
@@ -87,10 +109,11 @@ class TokenAuthMiddleware:
     WebSocket connections — and the terminal is a WebSocket."""
 
     def __init__(self, app, token: str, watchers: list[dict] | None = None,
-                 devices_store: Path | None = None):
+                 devices_store: Path | None = None, agents: list[dict] | None = None):
         self.app = app
         self.token = token
         self.watchers = list(watchers or [])
+        self.agents = list(agents or [])
         # Where the per-device tokens live. Read on each attempt rather than cached: revoking
         # a device has to take effect now, and a board or a phone retrying a second later must
         # not still get in because the list was loaded at startup.
@@ -109,6 +132,15 @@ class TokenAuthMiddleware:
             devices.touch(self.devices_store, device)
         except Exception:
             pass
+
+    def agent_for(self, presented: str) -> dict | None:
+        """The agent key this token belongs to, if any. Compared like the others: every
+        candidate is checked even after a match, so the time taken says nothing about which."""
+        found = None
+        for a in self.agents:
+            if matches(presented, a.get("token", "")):
+                found = a
+        return found
 
     def watching(self, presented: str) -> dict | None:
         """The watcher this token belongs to, if any. Every candidate is compared even
@@ -143,6 +175,26 @@ class TokenAuthMiddleware:
                     return await response(scope, receive, send)
             scope["argus_device"] = device
             self.remember(device)
+            return await self.app(scope, receive, send)
+
+        agent = self.agent_for(token) if token is not None else None
+        if agent:
+            # No WebSocket, ever. The terminal is a WebSocket, and an agent holding one could
+            # type into any session on the machine — which is the one thing this scope exists
+            # to make impossible by accident.
+            if scope["type"] != "http":
+                await receive()
+                return await send({"type": "websocket.close", "code": 1008})
+            if (scope.get("method", "GET").upper(), scope["path"]) not in AGENT_ROUTES:
+                response = PlainTextResponse(
+                    "an agent key may only read what is happening (/api/who, /api/overview, "
+                    "/api/tmux/sessions, /api/tmux/cwd, /api/launchers), ring the bell "
+                    "(/api/bell), pass a sentence to another session (/api/relay) and start "
+                    "something from the launcher list (/api/tmux/launch)",
+                    status_code=403,
+                )
+                return await response(scope, receive, send)
+            scope["argus_agent"] = agent
             return await self.app(scope, receive, send)
 
         watcher = self.watching(token) if token is not None else None

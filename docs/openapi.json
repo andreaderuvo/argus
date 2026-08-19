@@ -1747,6 +1747,52 @@
     ]
    }
   },
+  "/api/relay": {
+   "post": {
+    "description": "Type text into another session, and press return if asked.\n\nThis is what the browser does when you drop a prompt onto a terminal, offered to the\nthing already sitting in a session: *I have finished, go and look*. It carries text and\nnot a prompt from the library, because the library lives in the browser \u2014 an agent that\nwants a template can read it out of the desk it belongs to, or simply write the\nsentence, which is what it is good at.\n\nThe same care as everywhere else: bracketed paste, and the return as a separate write a\nmoment later, or an input box that reads writes rather than lines swallows it.",
+    "operationId": "postApiRelay",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Relay Api Relay Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Hand a sentence to another session, the way a person would",
+    "tags": [
+     "Sessions"
+    ]
+   }
+  },
   "/api/runnable": {
    "get": {
     "description": "The names, and whether each is up right now. Not the commands.\n\nA board needs to know what it may ask for and what is already happening; it has no\nuse for the shell line, and every extra thing on the wire is one more thing a leaked\nboard leaks.",
@@ -2521,6 +2567,30 @@
      }
     },
     "summary": "Set the agents up to say where they are, or undo it",
+    "tags": [
+     "Sessions"
+    ]
+   }
+  },
+  "/api/who": {
+   "get": {
+    "description": "The one call an agent makes first.\n\nThe same facts the browser assembles from four requests, put together on this side: the\nsessions, who is in each one and in which folder, which of them are asking for a person,\nand where the machine is. An agent that has to make four calls to find out who else is\nworking will make none.",
+    "operationId": "getApiWho",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Who Api Who Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "What is on this machine, in one answer, for an agent",
     "tags": [
      "Sessions"
     ]

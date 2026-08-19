@@ -87,6 +87,14 @@ class Config:
     # writes, no proxy. A board watching several machines holds one of these per machine,
     # so losing the board loses a list of session names rather than every box it can see.
     watchers: list[dict] = field(default_factory=list)
+    # Keys for the agents that run *on this machine*, in the sessions Argus watches. Each is
+    # {name, token}, and what one may do is a fixed short list — see `AGENT_ROUTES` in auth.py.
+    #
+    # An agent here can already read this file: it runs as you. So this is not about granting
+    # access, it is about the shape of the access it takes — a key that cannot delete a file,
+    # kill a session, expose a port, mint a token or stop the server, and that shows up in the
+    # journal under its own name so you can read what your agents said to each other.
+    agents: list[dict] = field(default_factory=list)
     # Things a board is allowed to start and stop here, listed by hand.
     #
     # A watcher token is meant to be worth almost nothing: a board holds one per machine in
@@ -226,6 +234,7 @@ class Config:
             include_mounts=bool(raw.get("include_mounts", False)),
             allow_proxy=bool(raw.get("allow_proxy", False)),
             launchers=[dict(x) for x in (raw.get("launchers") or []) if isinstance(x, dict)],
+            agents=[dict(x) for x in (raw.get("agents") or []) if isinstance(x, dict)],
             max_upload_bytes=int(raw.get("max_upload_bytes", 2 * 1024 * 1024 * 1024)),
             check_releases=bool(raw.get("check_releases", True)),
             report_to=dict(raw.get("report_to") or {}),
@@ -269,6 +278,7 @@ class Config:
             "include_mounts": self.include_mounts,
             "allow_proxy": self.allow_proxy,
             "launchers": self.launchers,
+            "agents": self.agents,
             "max_upload_bytes": self.max_upload_bytes,
             "tls_cert": str(self.tls_cert) if self.tls_cert else None,
             "tls_key": str(self.tls_key) if self.tls_key else None,

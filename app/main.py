@@ -538,6 +538,103 @@ def create_app(cfg: Config) -> FastAPI:
             raise ApiError(502, str(e)) from e
         return {"name": name, "path": where}
 
+    @app.get("/api/who", tags=["Sessions"],
+             summary="What is on this machine, in one answer, for an agent")
+    async def who(request: Request) -> dict:
+        """The one call an agent makes first.
+
+        The same facts the browser assembles from four requests, put together on this side: the
+        sessions, who is in each one and in which folder, which of them are asking for a person,
+        and where the machine is. An agent that has to make four calls to find out who else is
+        working will make none.
+        """
+        state = request.app.state
+        try:
+            sessions = await asyncio.to_thread(tmux.list_sessions, state.socket)
+        except Exception:
+            sessions = []
+        try:
+            said = await asyncio.to_thread(tmux.declared, state.socket)
+        except Exception:
+            said = {}
+        # Who has rung and not been answered, as far as this server knows: the last bell each
+        # session rang, kept if it was a question rather than a finish. `asking` is the whole
+        # point of the call — an agent deciding whether to bother somebody wants to know if
+        # somebody is already being bothered.
+        rung = getattr(state, "bells", None) or {}
+        waiting = set()
+        for bell in list(rung.get("list", [])):
+            if not bell.get("session"):
+                continue
+            if bell.get("why") == "asking":
+                waiting.add(bell["session"])
+            else:
+                waiting.discard(bell["session"])
+        out = []
+        for one in sessions:
+            name = one["name"]
+            told = said.get(name) or {}
+            out.append({
+                "name": name,
+                "windows": one.get("windows"),
+                "attached": bool(one.get("attached")),
+                "agent": told.get("agent"),
+                "model": told.get("model"),
+                "folder": told.get("cwd"),
+                "wants_you": name in waiting,
+            })
+        return {
+            "machine": os.uname().nodename,
+            "sessions": out,
+            "asking": [x["name"] for x in out if x["wants_you"]],
+            "launchers": [one.name for one in launch.configured(state.cfg)],
+        }
+
+    # How many sentences an agent may push into other sessions in a minute, and how many things
+    # it may start in one. Not a security boundary — the launcher list is that — but a brake on
+    # the one failure this arrangement invites: A pokes B, B pokes A, and by morning there are
+    # nine hundred lines of two robots talking.
+    RELAY_A_MINUTE = 30
+    STARTS_A_MINUTE = 6
+    lately: dict[str, list[float]] = {}
+
+    def too_fast(kind: str, cap: int) -> bool:
+        now = time.time()
+        seen = [t for t in lately.get(kind, []) if now - t < 60]
+        seen.append(now)
+        lately[kind] = seen
+        return len(seen) > cap
+
+    @app.post("/api/relay", tags=["Sessions"],
+              summary="Hand a sentence to another session, the way a person would")
+    async def relay(request: Request, body: dict) -> dict:
+        """Type text into another session, and press return if asked.
+
+        This is what the browser does when you drop a prompt onto a terminal, offered to the
+        thing already sitting in a session: *I have finished, go and look*. It carries text and
+        not a prompt from the library, because the library lives in the browser — an agent that
+        wants a template can read it out of the desk it belongs to, or simply write the
+        sentence, which is what it is good at.
+
+        The same care as everywhere else: bracketed paste, and the return as a separate write a
+        moment later, or an input box that reads writes rather than lines swallows it.
+        """
+        state = request.app.state
+        to = str(body.get("to", "")).strip()
+        text = str(body.get("text", ""))
+        if not to or not text:
+            raise ApiError(400, "relay wants `to` (a session) and `text`")
+        if not await asyncio.to_thread(tmux.session_exists, state.socket, to):
+            raise ApiError(404, f"there is no session called {to}")
+        if too_fast("relay", RELAY_A_MINUTE):
+            raise ApiError(429, f"more than {RELAY_A_MINUTE} relays in a minute — something is "
+                                "talking to itself; nothing was sent")
+        try:
+            await asyncio.to_thread(launch.seed, state.socket, to, text, bool(body.get("run")))
+        except tmux.TmuxError as e:
+            raise ApiError(502, str(e)) from e
+        return {"to": to, "characters": len(text), "sent": bool(body.get("run"))}
+
     @app.get("/api/launchers", tags=["Sessions"], summary="What this machine can start")
     async def launchers(request: Request, versions: bool = False) -> dict:
         """The list a browser is allowed to pick from, and whether each one is really here.
@@ -587,6 +684,9 @@ def create_app(cfg: Config) -> FastAPI:
             except PathError:
                 raise ApiError(403, "outside the configured roots") from None
 
+        if too_fast("start", STARTS_A_MINUTE):
+            raise ApiError(429, f"more than {STARTS_A_MINUTE} launches in a minute — nothing was "
+                                "started. A machine fills up quietly.")
         try:
             await asyncio.to_thread(launch.start, state.socket, name, where, chosen.command)
         except tmux.TmuxError as e:
@@ -915,6 +1015,21 @@ def create_app(cfg: Config) -> FastAPI:
             "how_to_start_it_again": "a shell on this machine, or the service that supervises it",
         }
 
+    @app.get("/api/docs", include_in_schema=False)
+    async def api_docs() -> Response:
+        """Swagger UI, vendored, behind the token.
+
+        FastAPI serves this in one line and that line fetches its JavaScript from a CDN, which
+        is the one thing this project does not do — Argus runs on machines with no way out, and
+        a documentation page that needs the internet is a documentation page that is not there
+        when you need it. So the bundle sits in `static/vendor/` like xterm and pdf.js, and this
+        route hands over the page that loads it.
+
+        Under `/api/`, deliberately: the route list of a server that holds a shell is not a
+        thing to publish, and everything under that prefix wants the token.
+        """
+        return serve_static("apidocs.html")
+
     @app.get("/manifest.webmanifest", include_in_schema=False)
     async def manifest(request: Request) -> Response:
         return app_manifest(request.headers.get("host", ""))
@@ -937,7 +1052,7 @@ def create_app(cfg: Config) -> FastAPI:
         return answer
 
     app.add_middleware(TokenAuthMiddleware, token=cfg.token, watchers=cfg.watchers,
-                       devices_store=cfg.devices_store)
+                       devices_store=cfg.devices_store, agents=cfg.agents)
     # Added *after* the auth middleware, so it runs *outside* it — Starlette wraps in reverse
     # order — and therefore sees the `argus_master` / `argus_device` / `argus_watcher` that auth
     # put on the scope. Written here rather than in twenty handlers so a route added next month
