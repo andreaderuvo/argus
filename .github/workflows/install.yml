@@ -125,5 +125,5 @@ jobs:
 
       - name: and the compose file says the same thing
         run: |
-          UID=$(id -u) GID=$(id -g) ARGUS_PORT=8098 docker compose config >/dev/null
+          ARGUS_UID=$(id -u) ARGUS_GID=$(id -g) ARGUS_PORT=8098 docker compose config >/dev/null
           echo "compose file parses with the documented variables"
