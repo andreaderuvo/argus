@@ -20,7 +20,8 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 
-from . import announce, bells, devices, favourites, files, fsops, journal, languages, mounts, paths, ports, proxy, release, runner, system, term, tmux
+from . import (announce, bells, devices, favourites, files, fsops, gitwork, journal, languages,
+               launch, mounts, paths, ports, proxy, release, runner, system, term, tmux)
 import httpx
 
 from .auth import PROXY_COOKIE, TokenAuthMiddleware
@@ -536,6 +537,156 @@ def create_app(cfg: Config) -> FastAPI:
         except tmux.TmuxError as e:
             raise ApiError(502, str(e)) from e
         return {"name": name, "path": where}
+
+    @app.get("/api/launchers", tags=["Sessions"], summary="What this machine can start")
+    async def launchers(request: Request) -> dict:
+        """The list a browser is allowed to pick from, and whether each one is really here.
+
+        `available` is `null` when the answer is not knowable: a command with a pipe or a
+        `&&` in it is a shell line rather than a program, and checking the PATH for it would
+        be a guess dressed as a fact.
+        """
+        cfg = request.app.state.cfg
+        return {"launchers": [{"name": one.name, "command": one.command, "available": one.available}
+                              for one in launch.configured(cfg)]}
+
+    @app.post("/api/tmux/launch", tags=["Sessions"], summary="Start an agent, with its first instruction")
+    async def launch_agent(request: Request, body: dict) -> dict:
+        """Create a session, start a launcher in it, wait for it to settle, type the prompt.
+
+        Only a launcher **named in the config** can be started, which is what keeps this from
+        being "run anything" — the terminal next to it always was, but an endpoint that takes
+        a command line is a different thing to leave on a network.
+
+        The return says what actually happened rather than only that it worked: whether the
+        thing settled before the wait ran out, and whether the return was pressed. A prompt
+        typed into an agent that was still drawing its banner is the failure this is designed
+        around, so when `ready` is false the text is left sitting there unsent, for you.
+        """
+        state = request.app.state
+        chosen = launch.named(state.cfg, str(body.get("launcher", "")))
+        if not chosen:
+            raise ApiError(400, "no launcher of that name — see /api/launchers")
+
+        try:
+            name = tmux.check_name(str(body.get("name", "")))
+        except tmux.BadName as e:
+            raise ApiError(400, str(e)) from e
+        if await asyncio.to_thread(tmux.session_exists, state.socket, name):
+            raise ApiError(409, f"a session called {name} is already there")
+
+        where = body.get("path")
+        if where:
+            try:
+                where = str(state.jail.resolve(str(where)))
+            except PathError:
+                raise ApiError(403, "outside the configured roots") from None
+
+        try:
+            await asyncio.to_thread(launch.start, state.socket, name, where, chosen.command)
+        except tmux.TmuxError as e:
+            raise ApiError(502, str(e)) from e
+
+        prompt = str(body.get("prompt") or "")
+        wants_return = bool(body.get("run"))
+        settled = None
+        if prompt:
+            if body.get("wait", True) and chosen.command.strip():
+                # The request is held while this waits, which is why the cap here is twelve
+                # seconds rather than the module's own twenty-five: a browser on a train should
+                # not be holding a POST open while an agent thinks. Ask for longer with
+                # `wait_seconds` when you are driving this from a script and do not care.
+                patience = float(body.get("wait_seconds") or 12)
+                settled = await asyncio.to_thread(launch.wait_until_settled, state.socket, name,
+                                                  min(max(patience, 1.0), 60.0))
+            else:
+                settled = True
+            # Never the return into something still drawing: the text goes in either way, and
+            # an unsettled launcher keeps the Enter for the person watching.
+            await asyncio.to_thread(launch.seed, state.socket, name, prompt,
+                                    wants_return and bool(settled))
+        return {
+            "name": name,
+            "path": where,
+            "launcher": chosen.name,
+            "command": chosen.command,
+            "seeded": bool(prompt),
+            "ready": settled,
+            "sent": bool(prompt) and wants_return and bool(settled),
+        }
+
+    @app.get("/api/git/worktrees", tags=["Sessions"], summary="The working directories of a repository")
+    async def list_worktrees(request: Request, path: str) -> dict:
+        state = request.app.state
+        try:
+            here = state.jail.resolve(path)
+        except PathError:
+            raise ApiError(403, "outside the configured roots") from None
+        top = await asyncio.to_thread(gitwork.top_of, here)
+        if not top:
+            return {"repo": None, "worktrees": []}
+        try:
+            found = await asyncio.to_thread(gitwork.worktrees, top)
+        except gitwork.GitError as e:
+            raise ApiError(502, str(e)) from e
+        return {"repo": str(top), "worktrees": found}
+
+    @app.post("/api/git/worktree", tags=["Sessions"], summary="Add a working directory on its own branch")
+    async def add_worktree(request: Request, body: dict) -> dict:
+        """A second checkout of the same repository, on its own branch.
+
+        Writing, so it needs `--allow-write`: it makes a directory, and one that git will go
+        on believing in until somebody removes it properly.
+        """
+        state = request.app.state
+        if not state.cfg.allow_write:
+            raise ApiError(403, "this server is read-only — start it with --allow-write to change that")
+        try:
+            here = state.jail.resolve(str(body.get("path", "")))
+        except PathError:
+            raise ApiError(403, "outside the configured roots") from None
+        top = await asyncio.to_thread(gitwork.top_of, here)
+        if not top:
+            raise ApiError(400, f"{here} is not inside a git repository")
+        try:
+            branch = launch.check_branch(str(body.get("branch", "")))
+        except ValueError as e:
+            raise ApiError(400, str(e)) from e
+
+        wanted = body.get("to")
+        target = Path(str(wanted)) if wanted else gitwork.suggested_path(top, branch)
+        # Where a worktree may go is where anything else may go: inside the roots. Otherwise
+        # Argus would make a checkout it cannot then browse, edit or open a session in.
+        try:
+            state.jail.resolve(str(target.parent))
+        except PathError:
+            raise ApiError(403, f"{target} would be outside the configured roots") from None
+
+        try:
+            made = await asyncio.to_thread(gitwork.add, top, target, branch)
+        except gitwork.GitError as e:
+            raise ApiError(409, str(e)) from e
+        return made
+
+    @app.delete("/api/git/worktree", tags=["Sessions"], summary="Remove a working directory")
+    async def drop_worktree(request: Request, path: str, force: bool = False) -> dict:
+        state = request.app.state
+        if not state.cfg.allow_write:
+            raise ApiError(403, "this server is read-only — start it with --allow-write to change that")
+        try:
+            here = state.jail.resolve(path)
+        except PathError:
+            raise ApiError(403, "outside the configured roots") from None
+        top = await asyncio.to_thread(gitwork.top_of, here)
+        if not top:
+            raise ApiError(400, f"{here} is not inside a git repository")
+        if Path(str(top)) == Path(str(here)):
+            raise ApiError(400, "that is the repository itself, not one of its worktrees")
+        try:
+            await asyncio.to_thread(gitwork.remove, top, here, force)
+        except gitwork.GitError as e:
+            raise ApiError(409, str(e)) from e
+        return {"removed": str(here)}
 
     @app.post("/api/tmux/rename", tags=["Sessions"], summary="Rename a session")
     async def rename_session(request: Request, body: dict) -> dict:

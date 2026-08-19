@@ -771,6 +771,25 @@
     "the manifest arrives and names its icons": "il manifest arriva e dichiara le sue icone",
     "Safari never offers: on an iPhone it is always Share, then Add to Home Screen": "Safari non lo propone mai: su iPhone si fa sempre da Condividi, poi Aggiungi alla schermata Home",
     "all three in place and still no offer means the browser has already made up its mind — or it is installed for this address already, in which case open that one": "se tutte e tre ci sono e non te lo propone, il browser ha già deciso — oppure per questo indirizzo è già installata, e allora apri quella",
-    "Chrome on Android: the browser menu, then Install app": "Chrome su Android: il menu del browser, poi Installa app"
+    "Chrome on Android: the browser menu, then Install app": "Chrome su Android: il menu del browser, poi Installa app",
+    "Start something here": "Fai partire qualcosa qui",
+    "what to start": "cosa avviare",
+    "first instruction": "prima istruzione",
+    "what it should do first — optional": "cosa deve fare per prima cosa — facoltativo",
+    "from the library…": "dalla libreria…",
+    "press Enter for me": "premi Enter per me",
+    "only once it has stopped drawing — otherwise it is left typed in, for you": "solo quando ha smesso di disegnare — altrimenti resta scritto, e l’invio è tuo",
+    "in a new git worktree": "in un nuovo worktree git",
+    "a second checkout on its own branch, beside this one": "un secondo checkout sul suo ramo, accanto a questo",
+    "a second checkout on its own branch — this repository already has {n}": "un secondo checkout sul suo ramo — questo repository ne ha già {n}",
+    "branch name": "nome del ramo",
+    "a plain terminal": "un terminale e basta",
+    "just a shell": "solo una shell",
+    "not here": "non c’è",
+    "{command} is not on this machine’s PATH": "{command} non è nel PATH di questa macchina",
+    "worktree {branch} at {path}": "worktree {branch} in {path}",
+    "{name} started, and the prompt is on its way": "{name} avviata, e il prompt è partito",
+    "{name} started — the prompt is typed in, waiting for your Enter": "{name} avviata — il prompt è scritto, aspetta il tuo Enter",
+    "Start a shell or an agent here, in this desk’s folder": "Avvia una shell o un agente qui, nella cartella del desk"
   }
 }

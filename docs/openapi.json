@@ -1206,6 +1206,148 @@
     ]
    }
   },
+  "/api/git/worktree": {
+   "delete": {
+    "operationId": "deleteApiGitWorktree",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "path",
+      "required": true,
+      "schema": {
+       "title": "Path",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "force",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Force",
+       "type": "boolean"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Drop Worktree Api Git Worktree Delete",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Remove a working directory",
+    "tags": [
+     "Sessions"
+    ]
+   },
+   "post": {
+    "description": "A second checkout of the same repository, on its own branch.\n\nWriting, so it needs `--allow-write`: it makes a directory, and one that git will go\non believing in until somebody removes it properly.",
+    "operationId": "postApiGitWorktree",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Add Worktree Api Git Worktree Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Add a working directory on its own branch",
+    "tags": [
+     "Sessions"
+    ]
+   }
+  },
+  "/api/git/worktrees": {
+   "get": {
+    "operationId": "getApiGitWorktrees",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "path",
+      "required": true,
+      "schema": {
+       "title": "Path",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response List Worktrees Api Git Worktrees Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "The working directories of a repository",
+    "tags": [
+     "Sessions"
+    ]
+   }
+  },
   "/api/journal": {
    "delete": {
     "description": "Everything, or everything before a cutoff given in seconds.\n\nThe deletion is recorded like any other change \u2014 the middleware sees this request and\nwrites it down \u2014 so the journal always says that it was emptied, when, and from where.",
@@ -1415,6 +1557,30 @@
     "summary": "The interface languages available",
     "tags": [
      "Setup"
+    ]
+   }
+  },
+  "/api/launchers": {
+   "get": {
+    "description": "The list a browser is allowed to pick from, and whether each one is really here.\n\n`available` is `null` when the answer is not knowable: a command with a pipe or a\n`&&` in it is a shell line rather than a program, and checking the PATH for it would\nbe a guess dressed as a fact.",
+    "operationId": "getApiLaunchers",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Launchers Api Launchers Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "What this machine can start",
+    "tags": [
+     "Sessions"
     ]
    }
   },
@@ -1987,6 +2153,52 @@
      }
     },
     "summary": "End a session",
+    "tags": [
+     "Sessions"
+    ]
+   }
+  },
+  "/api/tmux/launch": {
+   "post": {
+    "description": "Create a session, start a launcher in it, wait for it to settle, type the prompt.\n\nOnly a launcher **named in the config** can be started, which is what keeps this from\nbeing \"run anything\" \u2014 the terminal next to it always was, but an endpoint that takes\na command line is a different thing to leave on a network.\n\nThe return says what actually happened rather than only that it worked: whether the\nthing settled before the wait ran out, and whether the return was pressed. A prompt\ntyped into an agent that was still drawing its banner is the failure this is designed\naround, so when `ready` is false the text is left sitting there unsent, for you.",
+    "operationId": "postApiTmuxLaunch",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Launch Agent Api Tmux Launch Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Start an agent, with its first instruction",
     "tags": [
      "Sessions"
     ]

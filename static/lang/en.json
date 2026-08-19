@@ -771,6 +771,25 @@
     "the manifest arrives and names its icons": "the manifest arrives and names its icons",
     "Safari never offers: on an iPhone it is always Share, then Add to Home Screen": "Safari never offers: on an iPhone it is always Share, then Add to Home Screen",
     "all three in place and still no offer means the browser has already made up its mind — or it is installed for this address already, in which case open that one": "all three in place and still no offer means the browser has already made up its mind — or it is installed for this address already, in which case open that one",
-    "Chrome on Android: the browser menu, then Install app": "Chrome on Android: the browser menu, then Install app"
+    "Chrome on Android: the browser menu, then Install app": "Chrome on Android: the browser menu, then Install app",
+    "Start something here": "Start something here",
+    "what to start": "what to start",
+    "first instruction": "first instruction",
+    "what it should do first — optional": "what it should do first — optional",
+    "from the library…": "from the library…",
+    "press Enter for me": "press Enter for me",
+    "only once it has stopped drawing — otherwise it is left typed in, for you": "only once it has stopped drawing — otherwise it is left typed in, for you",
+    "in a new git worktree": "in a new git worktree",
+    "a second checkout on its own branch, beside this one": "a second checkout on its own branch, beside this one",
+    "a second checkout on its own branch — this repository already has {n}": "a second checkout on its own branch — this repository already has {n}",
+    "branch name": "branch name",
+    "a plain terminal": "a plain terminal",
+    "just a shell": "just a shell",
+    "not here": "not here",
+    "{command} is not on this machine’s PATH": "{command} is not on this machine’s PATH",
+    "worktree {branch} at {path}": "worktree {branch} at {path}",
+    "{name} started, and the prompt is on its way": "{name} started, and the prompt is on its way",
+    "{name} started — the prompt is typed in, waiting for your Enter": "{name} started — the prompt is typed in, waiting for your Enter",
+    "Start a shell or an agent here, in this desk’s folder": "Start a shell or an agent here, in this desk’s folder"
   }
 }

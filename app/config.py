@@ -73,6 +73,16 @@ class Config:
     # Cap on a single uploaded file. 0 means no cap; the default keeps a stray drag of
     # something enormous from filling a disk that is already at 94%.
     max_upload_bytes: int = 2 * 1024 * 1024 * 1024
+    # What "start an agent" may start, by name. Empty means the shipped list — Claude Code,
+    # Codex, Gemini and a plain shell — which is a starting point rather than a claim about
+    # your machine: put your own here and yours are the only ones there are. A command is a
+    # shell line run through your login shell, so `conda activate x && claude` is a valid
+    # entry and Argus never has to know how your tools are installed.
+    #
+    # It is also the constraint that makes the endpoint safe to have: it can start a launcher
+    # *by name from this list* and nothing else. The terminal beside it has always been able
+    # to run anything; this cannot.
+    launchers: list[dict] = field(default_factory=list)
     # Tokens that may ask what is happening here and nothing else: no shell, no files, no
     # writes, no proxy. A board watching several machines holds one of these per machine,
     # so losing the board loses a list of session names rather than every box it can see.
@@ -215,6 +225,7 @@ class Config:
             allow_write=bool(raw.get("allow_write", False)),
             include_mounts=bool(raw.get("include_mounts", False)),
             allow_proxy=bool(raw.get("allow_proxy", False)),
+            launchers=[dict(x) for x in (raw.get("launchers") or []) if isinstance(x, dict)],
             max_upload_bytes=int(raw.get("max_upload_bytes", 2 * 1024 * 1024 * 1024)),
             check_releases=bool(raw.get("check_releases", True)),
             report_to=dict(raw.get("report_to") or {}),
@@ -257,6 +268,7 @@ class Config:
             "allow_write": self.allow_write,
             "include_mounts": self.include_mounts,
             "allow_proxy": self.allow_proxy,
+            "launchers": self.launchers,
             "max_upload_bytes": self.max_upload_bytes,
             "tls_cert": str(self.tls_cert) if self.tls_cert else None,
             "tls_key": str(self.tls_key) if self.tls_key else None,

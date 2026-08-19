@@ -8697,7 +8697,8 @@ async function screenWall() {
         // Always the desk's folder — `deskHome` already falls back to the usual home for a
         // desk that has not chosen one, and "started somewhere else entirely" is not a
         // useful third possibility.
-        const name = await createSession({ path: deskHome(activeSpace()) });
+        const ws = activeSpace();
+        const name = await createSession({ path: deskHome(ws), wsId: ws?.id });
         if (name) openWindow({ kind: 'term', name });
       },
     }, [icon('plus'), el('span', { textContent: t('Start a new session…') })]));
@@ -8786,9 +8787,10 @@ async function screenWall() {
    */
   tools.append(el('button', {
     className: 'winbtn wide',
-    title: t('Start a new session, in this desk\u2019s folder'),
+    title: t('Start a shell or an agent here, in this desk\u2019s folder'),
     onclick: async () => {
-      const name = await createSession({ path: deskHome(activeSpace()) });
+      const ws = activeSpace();
+      const name = await createSession({ path: deskHome(ws), wsId: ws?.id });
       if (name) openWindow({ kind: 'term', name });
     },
   }, [icon('plus'), el('span', { textContent: t('New session') })]));
@@ -12759,17 +12761,204 @@ function placeIn(ws, spec) {
  *  it a session is the better answer: it survives the window being closed, the phone
  *  sleeping, and the browser being quit, which a bare shell would not.
  */
-async function createSession({ path, suggest = 'shell' } = {}) {
-  const name = await ask(path ? t('New session in {where}', { where: path.split('/').pop() }) : t('New session'), suggest, t('Create'));
-  if (!name) return null;
-  try {
-    const r = await postJSON('/api/tmux/new', { name, path });
-    toast(path ? t('{name} started in {path}', { name: r.name, path }) : t('{name} started', { name: r.name }));
-    return r.name;
-  } catch (e) {
-    toast(e.message, true);
-    return null;
+/** Start something: a shell, or an agent, with its first instruction already typed.
+ *
+ *  This used to ask for a name and make an empty session, which left the desk a window onto
+ *  work you had begun somewhere else — and on a phone, where there is no shell, meant you could
+ *  watch and answer but never begin.
+ *
+ *  It is the same one button as before, in the same two places. Nothing new to find: what
+ *  changed is that the box that asked for a name now also asks what to run in it, what to say
+ *  to it first, and whether to make a git worktree to do it in.
+ */
+async function createSession({ path, suggest = 'shell', wsId = null } = {}) {
+  let sheet;
+  const body = el('div', { className: 'sheetbody startbody' });
+
+  const where = el('input', {
+    type: 'text', className: 'startpath', value: path || '', spellcheck: false,
+    autocapitalize: 'off', autocorrect: 'off',
+  });
+  const name = el('input', {
+    type: 'text', className: 'startname', value: suggest, spellcheck: false,
+    autocapitalize: 'off', autocorrect: 'off',
+  });
+
+  /* What to run. A list from the server, because which of these exist is a fact about the
+   *  machine and not about the browser — and a greyed row saying "not on the PATH" is a better
+   *  answer than a session that dies in half a second for reasons you have to go and read. */
+  const picks = el('div', { className: 'startpicks' });
+  let chosen = null;
+  const drawPicks = (list) => {
+    picks.replaceChildren();
+    for (const one of list) {
+      const off = one.available === false;
+      const row = el('button', {
+        className: `ghost block startpick${off ? ' missing' : ''}${chosen === one.name ? ' on' : ''}`,
+        type: 'button',
+        title: off ? t('{command} is not on this machine\u2019s PATH', { command: one.command }) : (one.command || t('just a shell')),
+        onclick: () => { chosen = one.name; drawPicks(list); sayName(one); },
+      }, [
+        icon(off ? 'close' : (one.command ? 'relay' : 'terminal')),
+        el('span', { className: 'grow' }, [
+          el('span', { className: 'name', textContent: one.name }),
+          el('span', { className: 'meta', textContent: one.command || t('a plain terminal') }),
+        ]),
+        off ? el('span', { className: 'verb', textContent: t('not here') }) : null,
+      ].filter(Boolean));
+      picks.append(row);
+    }
+  };
+  /** A name you would have typed anyway: what it is, and where. */
+  const sayName = (one) => {
+    const leaf = (where.value || '').replace(/\/+$/, '').split('/').pop() || 'shell';
+    const slug = (one.command || 'shell').split(/[\s/]+/).pop().replace(/[^\w-]/g, '') || 'shell';
+    if (!name.dataset.touched) name.value = `${slug}-${leaf}`.slice(0, 60);
+  };
+  name.oninput = () => { name.dataset.touched = '1'; };
+
+  /* The first instruction, and the library it can come from — filled in for this desk, so
+   *  `{folder}` is a path rather than a word by the time it reaches the agent. */
+  const prompt = el('textarea', { className: 'baton', rows: 4, spellcheck: false, placeholder: t('what it should do first — optional') });
+  const fromLibrary = el('select', { className: 'setpick' });
+  fromLibrary.append(el('option', { value: '', textContent: t('from the library…') }));
+  for (const kind of batonTemplates()) {
+    fromLibrary.append(el('option', { value: kind.name, textContent: `${kind.group || ''} · ${kind.name}`.replace(/^ · /, '') }));
   }
+  fromLibrary.onchange = () => {
+    const kind = batonTemplates().find((k) => k.name === fromLibrary.value);
+    if (!kind) return;
+    const known = { ...situationOf(where.value), folder: where.value, ...allVars(wsId) };
+    prompt.value = fillBaton(kind.text, known);
+    prompt.dispatchEvent(new Event('input'));
+  };
+
+  // Off, and it stays off: the return is the one keystroke that cannot be taken back, and an
+  // agent that has not finished starting is exactly what this cannot be sure about.
+  const alsoSend = el('input', { type: 'checkbox' });
+  const sendRow = el('label', { className: 'startsend' }, [
+    alsoSend,
+    el('span', {}, [
+      el('span', { className: 'name', textContent: t('press Enter for me') }),
+      el('span', { className: 'meta', textContent: t('only once it has stopped drawing — otherwise it is left typed in, for you') }),
+    ]),
+  ]);
+  prompt.oninput = () => { sendRow.hidden = !prompt.value.trim(); };
+  sendRow.hidden = true;
+
+  /* And a worktree, when the folder is in a repository. Two agents in one checkout tread on
+   *  each other; git's own answer is a second working directory on its own branch, and it is
+   *  three commands rather than a copy of the repository. */
+  const wtOn = el('input', { type: 'checkbox' });
+  const branch = el('input', { type: 'text', className: 'startbranch', spellcheck: false, placeholder: t('branch name') });
+  const wtWhere = el('span', { className: 'meta' });
+  const wtBox = el('div', { className: 'startwt', hidden: true }, [
+    el('label', { className: 'startsend' }, [
+      wtOn,
+      el('span', {}, [
+        el('span', { className: 'name', textContent: t('in a new git worktree') }),
+        el('span', { className: 'meta', textContent: t('a second checkout on its own branch, beside this one') }),
+      ]),
+    ]),
+    el('div', { className: 'startwtrow' }, [branch, wtWhere]),
+  ]);
+  let repo = null;
+  const sayWorktree = () => {
+    branch.disabled = !wtOn.checked;
+    const leaf = (branch.value || '').trim().replace(/\//g, '-');
+    wtWhere.textContent = repo && leaf
+      ? `${repo.replace(/\/[^/]+$/, '')}/${repo.split('/').pop()}-${leaf}`
+      : '';
+  };
+  wtOn.onchange = sayWorktree;
+  branch.oninput = sayWorktree;
+
+  const lookAtFolder = async () => {
+    try {
+      const r = await getJSON(`/api/git/worktrees?path=${encodeURIComponent(where.value)}`);
+      repo = r.repo || null;
+      wtBox.hidden = !repo;
+      if (repo) {
+        const others = (r.worktrees || []).length;
+        wtBox.querySelector('.startsend .meta').textContent = others > 1
+          ? t('a second checkout on its own branch — this repository already has {n}', { n: others })
+          : t('a second checkout on its own branch, beside this one');
+      }
+      sayWorktree();
+    } catch { wtBox.hidden = true; }
+  };
+  where.onchange = () => {
+    lookAtFolder();
+    // The suggested name is "what · where", so changing where changes it — until you type
+    // your own, after which it is yours.
+    const one = (window.__lastLaunchers || []).find((x) => x.name === chosen);
+    if (one) sayName(one);
+  };
+
+  body.append(
+    el('label', { className: 'startlabel', textContent: t('name') }), name,
+    el('label', { className: 'startlabel', textContent: t('in') }), where,
+    el('label', { className: 'startlabel', textContent: t('what to start') }), picks,
+    el('label', { className: 'startlabel', textContent: t('first instruction') }),
+    el('div', { className: 'startpromptrow' }, [fromLibrary]),
+    prompt, sendRow, wtBox,
+  );
+
+  const go = el('button', { className: 'primary inline', textContent: t('Start') });
+  sheet = modal(t('Start something here'), body, [
+    el('button', { className: 'ghost', textContent: t('Cancel'), onclick: () => { sheet.close(); done(null); } }),
+    go,
+  ]);
+
+  let settle;
+  const answer = new Promise((r) => { settle = r; });
+  const done = (v) => { settle(v); settle = () => {}; };
+
+  // The list, then the repository: both are questions for the server and neither should keep
+  // the box from appearing.
+  (async () => {
+    try {
+      const r = await getJSON('/api/launchers');
+      const list = r.launchers || [];
+      window.__lastLaunchers = list;
+      chosen = (list.find((x) => x.available !== false) || list[0])?.name || null;
+      drawPicks(list);
+      const first = list.find((x) => x.name === chosen);
+      if (first) sayName(first);
+    } catch (e) {
+      picks.append(el('p', { className: 'error', textContent: e.message }));
+    }
+    lookAtFolder();
+  })();
+
+  go.onclick = async () => {
+    go.disabled = true;
+    let folder = where.value.trim();
+    try {
+      if (wtOn.checked) {
+        const made = await postJSON('/api/git/worktree', { path: folder, branch: branch.value.trim() });
+        folder = made.path;
+        toast(t('worktree {branch} at {path}', { branch: made.branch, path: made.path }));
+      }
+      const r = await postJSON('/api/tmux/launch', {
+        launcher: chosen, name: name.value.trim(), path: folder,
+        prompt: prompt.value, run: alsoSend.checked, wait: true,
+      });
+      sheet.close();
+      // Said as it happened rather than as it was asked for: "typed in, not sent" is the case
+      // people need to know about, and it is the case they would otherwise discover by waiting
+      // for an agent that is not going to answer.
+      toast(r.sent ? t('{name} started, and the prompt is on its way', { name: r.name })
+        : r.seeded ? t('{name} started — the prompt is typed in, waiting for your Enter', { name: r.name })
+          : t('{name} started in {path}', { name: r.name, path: folder }));
+      done(r.name);
+    } catch (e) {
+      go.disabled = false;
+      toast(e.message, true);
+    }
+  };
+
+  return answer;
 }
 
 /** Ask which desk, unless there is only one — then the question is noise. */
