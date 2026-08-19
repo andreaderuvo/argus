@@ -4426,6 +4426,10 @@ async function screenTodo() {
     // The counts are part of the drawing, not a step beside it: called by hand they were right
     // when the screen opened and wrong the moment anything was added.
     drawChips();
+    // And the badge on the icon, which is looking at the same list: ticking something off here
+    // and watching the tab still say four until the next tick is the badge being wrong in the
+    // one place you can see it is wrong.
+    showCount('todo', items.filter((one) => one.status !== 'done').length);
     const want = items.filter((one) =>
       (only === 'all' || one.status === only)
       && (!needle || one.note.toLowerCase().includes(needle)));
@@ -6282,6 +6286,7 @@ function applyBottomBar() {
   // Whatever the counts are right now, into the rows that have just been built: a drawer
   // made after the last count went out would otherwise sit blank until the next one.
   showCount('sessions', lastSessionCount);
+  showCount('todo', lastTodoCount);
   showCount('wall', (prefs.workspaces || []).length > 1 ? (prefs.workspaces || []).length : 0);
 }
 
@@ -14141,11 +14146,37 @@ async function countSessions() {
   } catch { /* the server will be asked again shortly */ }
 }
 
+/** How many things on the list are not finished.
+ *
+ *  On the same tick as the sessions count rather than a timer of its own — it is a small file
+ *  and the point of a badge is that you never have to open the screen to know. `done` is not
+ *  counted: forty finished jobs are not forty things to do, and a badge that only ever goes up
+ *  is a badge people stop reading.
+ */
+async function countTodo() {
+  if (!token) return;
+  try {
+    const said = await getJSON('/api/todo');
+    showCount('todo', (said.items || []).filter((one) => one.status !== 'done').length);
+  } catch { /* the server will be asked again shortly */ }
+}
+
 let lastSessionCount = 0;
+let lastTodoCount = 0;
+
+/** Which counts turn amber when an agent is waiting.
+ *
+ *  The amber means "one of these has stopped and wants you", which is a fact about sessions —
+ *  the desks hold them, so Windows carries it too. Nothing else does: a list of things to do
+ *  going orange because a terminal is asking a question is the badge lying about which thing
+ *  needs a person.
+ */
+const RINGS = new Set(['sessions', 'wall']);
 
 function showCount(tab, n) {
   if (tab === 'sessions') lastSessionCount = n;
-  const wants = [...rung.values()].some((b) => b.why === 'asking');
+  if (tab === 'todo') lastTodoCount = n;
+  const wants = RINGS.has(tab) && [...rung.values()].some((b) => b.why === 'asking');
   // The same two facts wherever the navigation happens to be living: how many, and whether
   // one of them has stopped and is waiting.
   for (const spot of document.querySelectorAll(`.drawertally[data-for="${tab}"]`)) {
@@ -14167,11 +14198,11 @@ function showCount(tab, n) {
   badge.textContent = String(n);
   // Amber the moment one of them is asking for you: the number alone says how many
   // exist, not that one of them has stopped and is waiting.
-  badge.classList.toggle('wants', [...rung.values()].some((b) => b.why === 'asking'));
+  badge.classList.toggle('wants', wants);
 }
 
-setInterval(() => { if (!document.hidden) countSessions(); }, SESSION_COUNT_EVERY);
-document.addEventListener('visibilitychange', () => { if (!document.hidden) countSessions(); });
+setInterval(() => { if (!document.hidden) { countSessions(); countTodo(); } }, SESSION_COUNT_EVERY);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { countSessions(); countTodo(); } });
 
 /** What each tab is called. Two of them are not their own name — `wall` is Windows, and
  *  `placeholders` is Values on the bar, which is the word the markup uses and the word the
@@ -14219,6 +14250,7 @@ function translateMarkup() {
   applyKeyBar();
   applyBottomBar();
   countSessions();
+  countTodo();
   // Only after the first paint: the first answer sets the mark for "now" and rings
   // nothing, so this can never greet you with the morning's leftovers.
   if (token) listenForBells();
