@@ -202,7 +202,9 @@ async def overview_of(app: FastAPI, watcher: dict | None = None) -> dict:
     # running, for the same reason `agent` is absent below — a key that is null everywhere
     # is a payload paying for a feature nobody switched on.
     watching = []
-    for run in getattr(app.state, "runs", {}).values():
+    for kept_run in getattr(app.state, "runs", {}).values():
+        # Through the same reading as the page's: one place decides that a run has lost touch.
+        run = runs.as_told(kept_run)
         agents = [a for step in run["steps"] for a in step["agents"]]
         watching.append({
             "id": run["id"],
@@ -218,7 +220,7 @@ async def overview_of(app: FastAPI, watcher: dict | None = None) -> dict:
         "name": os.uname().nodename,
         "version": VERSION,
         "runnable": offers,
-        **({"runs": sorted(watching, key=lambda r: (r["state"] == "done", r["name"]))}
+        **({"runs": sorted(watching, key=lambda r: (r["state"] != "running", r["name"]))}
            if watching else {}),
         # About the key that asked, not about the config: two boards can hold two watcher
         # tokens with different permissions. `None` means the main token or this machine

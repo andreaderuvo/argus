@@ -34,6 +34,12 @@ MAX_AGENTS = 64
 MAX_TEXT = 200
 STATES = {"waiting", "working", "asking", "done", "lost"}
 
+# How long a run may claim to be running without saying anything before the board stops
+# believing it. The framework beats once a minute while it waits, so silence for five is a
+# script that was killed, a machine that went down, or a network that went away — and a run
+# that says "running" for ever is worse than one that admits it lost touch.
+GONE_AFTER = 300
+
 
 def store(request: Request) -> dict[str, Any]:
     state = request.app.state
@@ -90,9 +96,24 @@ def trim(runs: dict) -> None:
     one that ended twenty minutes ago — which is exactly backwards.
     """
     while len(runs) > KEEP:
-        finished = [k for k, v in runs.items() if v["state"] == "done"]
+        finished = [k for k, v in runs.items()
+                    if v["state"] == "done" or time.time() - v["seen"] > GONE_AFTER]
         pool = finished or list(runs)
         runs.pop(min(pool, key=lambda k: runs[k]["seen"]))
+
+
+def as_told(run: dict, now: float | None = None) -> dict:
+    """A run as it should be read now, rather than as it was last posted.
+
+    Only one thing is decided here and it is decided in one place, so the board, the page and
+    the overview cannot disagree about it: a run that claims to be running and has not been
+    heard from in `GONE_AFTER` has lost touch. Its agents are almost certainly still working —
+    nothing here reaches them — which is why it is `gone` and not `failed`.
+    """
+    now = time.time() if now is None else now
+    if run["state"] == "running" and now - run["seen"] > GONE_AFTER:
+        return {**run, "state": "gone"}
+    return run
 
 
 @router.get("/api/runs", tags=["Sessions"], summary="Orchestrations happening now")
@@ -100,7 +121,7 @@ async def listing(request: Request) -> dict:
     """What is running, newest first. A page that arrives in the middle of a run draws it from
     here; after that it is told about every change on the bell stream."""
     runs = store(request)
-    return {"runs": sorted(runs.values(), key=lambda r: r["at"], reverse=True)}
+    return {"runs": [as_told(r) for r in sorted(runs.values(), key=lambda r: r["at"], reverse=True)]}
 
 
 @router.post("/api/runs", tags=["Sessions"], summary="Post the shape and state of an orchestration")

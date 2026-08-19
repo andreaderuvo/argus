@@ -52,6 +52,7 @@ or copyable — same bargain as the client.
 
 from __future__ import annotations
 
+import atexit
 import os
 import re
 import sys
@@ -236,7 +237,15 @@ class Orchestra:
         self.name = name or Path(sys.argv[0]).stem or "a run"
         self.state = "running"
         self._last: dict | None = None
+        self._spoke = 0.0
         self._quiet = False
+        # Ctrl-C is how an orchestration usually ends when you have seen enough, and until
+        # this it left the run on the noticeboard saying "running" for ever — a window on the
+        # desk that would never finish, for a script that is not there any more. `atexit`
+        # catches the interrupt, the exception and the ordinary return alike. Not a `kill -9`,
+        # which is what the heartbeat below is for.
+        if self.watch:
+            atexit.register(self._ended)
 
         self.here = self.argus.who()
         if launcher not in self.here.get("launchers", []):
@@ -261,7 +270,7 @@ class Orchestra:
                       for s in self.stages],
         }
 
-    def _push(self) -> None:
+    def _push(self, force: bool = False) -> None:
         """Post the shape, if anybody asked to watch and it has actually changed.
 
         Only under `watch=True`: an orchestration that nobody is looking at should not be
@@ -272,15 +281,32 @@ class Orchestra:
         if not self.watch:
             return
         shape = self._shape()
-        if shape == self._last:
+        if shape == self._last and not force:
             return
         self._last = shape
+        self._spoke = time.monotonic()
         try:
             self.argus.call("POST", "/api/runs", shape)
         except Exception as e:                                   # noqa: BLE001 — see above
             if not self._quiet:
                 self._quiet = True
                 self.say(f"  (not drawing this run: {e})")
+
+    # How often to say "still here" while nothing is changing. A run waiting half an hour for
+    # an agent posts nothing in that time, so without this a board cannot tell a patient
+    # orchestration from a script somebody killed — and the whole point of the noticeboard is
+    # that it is telling you the truth while you are not looking.
+    BEAT_EVERY = 60
+
+    def _beat(self) -> None:
+        if self.watch and time.monotonic() - self._spoke > self.BEAT_EVERY:
+            self._push(force=True)
+
+    def _ended(self) -> None:
+        """However this run finishes, the board is told it has."""
+        if self.state != "done":
+            self.state = "done"
+            self._push(force=True)
 
     def _stage(self, name: str, agents: list[Agent]) -> None:
         self.stages.append({"name": name, "agents": agents})
@@ -473,6 +499,7 @@ class Orchestra:
             except OSError:
                 pass          # the stream dropped; look at the facts and go round again
             look()
+            self._beat()
 
     def wait(self, *targets: Agent, minutes: float | None = None) -> list[Agent]:
         """Until each has written its file, or the clock runs out.
@@ -602,8 +629,7 @@ class Orchestra:
         sessions are still open and the worktrees are still on disk, because the useful move
         after an orchestration is usually to go and ask one of them something.
         """
-        self.state = "done"
-        self._push()
+        self._ended()
         done = [a for a in self.started if a.done]
         lost = [a for a in self.started if a.file and not a.done]
         mins = (time.monotonic() - self.began) / 60
