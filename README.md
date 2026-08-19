@@ -89,6 +89,7 @@ you could read it.
 | [Files](https://github.com/andreaderuvo/argus/wiki/Files) and [Documents](https://github.com/andreaderuvo/argus/wiki/Documents) | browsing, editing, uploading; markdown, PDF, Word, logs |
 | [Desks and windows](https://github.com/andreaderuvo/argus/wiki/Desks-and-windows) | workspaces, arrangements, the link tray |
 | [Two agents on one job](https://github.com/andreaderuvo/argus/wiki/Two-agents) | the two patterns, the bridge file, the review loop |
+| [The API](https://github.com/andreaderuvo/argus/wiki/The-API#the-workspace) | the workspace lives on the machine: a desk made at the desk is on the phone, and a script can read the prompt library |
 | [Notifications](https://github.com/andreaderuvo/argus/wiki/Notifications) | being told when it has finished, or when it wants you |
 | [Keyboard shortcuts](https://github.com/andreaderuvo/argus/wiki/Keyboard) | the keys, and how to change them |
 | [What each agent can do](https://github.com/andreaderuvo/argus/wiki/Agents) | who rings, who can say which folder and model it is on |
