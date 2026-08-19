@@ -14,6 +14,7 @@ import re
 import shutil
 import stat
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, File, Form, Request, UploadFile
 from pydantic import BaseModel
@@ -183,6 +184,90 @@ async def copy(request: Request, body: DestBody) -> dict:
     except OSError as e:
         raise ApiError(500, f"could not copy: {e.strerror}") from e
     return _done(target)
+
+
+@router.post("/api/fs/fetch", summary="Put a link's file into a folder, without a round trip")
+async def fetch_link(request: Request, body: dict) -> dict:
+    """Download a URL straight into a directory.
+
+    The upload you would otherwise do in three moves — open a terminal, `wget`, come back — or
+    in four, if the file is on the far side of the machine you are holding: download it to a
+    phone and upload it again. A link is the whole instruction.
+
+    The same care as an upload, because it is one: streamed to a dotted part-file and renamed
+    into place only when it is complete, so an interrupted download never leaves a truncated
+    file wearing the real name. Nothing is ever overwritten; a name already taken gets a number.
+
+    **On the obvious objection.** Yes, this makes the server fetch a URL somebody else chose,
+    and yes, that URL could be `169.254.169.254` or a service on loopback. It grants nothing:
+    whoever can call this can already open a terminal here and run `curl`, because that is what
+    Argus *is*. It is behind `--allow-write` like every other route that puts something on the
+    disk, and it is worth knowing rather than worth hiding.
+    """
+    _writable(request)
+    url = str(body.get("url", "")).strip()
+    if not url.lower().startswith(("http://", "https://")):
+        raise ApiError(400, "only http and https links")
+    dest = _directory(_resolve(request, str(body.get("path", ""))))
+    limit = request.app.state.cfg.max_upload_bytes
+
+    import httpx
+
+    said = str(body.get("name", "")).strip()
+    part = None
+    try:
+        async with httpx.AsyncClient(follow_redirects=True, timeout=httpx.Timeout(30, read=300)) as client:
+            async with client.stream("GET", url) as answer:
+                if answer.status_code >= 400:
+                    raise ApiError(502, f"{url} answered {answer.status_code}")
+                # What to call it: what you said, or what the server called it, or the last
+                # part of the address. A URL ending in a slash or a query gets a plain name
+                # rather than something unusable.
+                name = safe_name(said or from_disposition(answer.headers.get("content-disposition", ""))
+                                 or Path(urlsplit(url).path).name or "download")
+                target = _free(dest / name)
+                part = dest / f".{target.name}.argus-part"
+                # A length the other end declares is worth refusing on *before* the download
+                # rather than after: no point spending ten minutes to reject it.
+                declared = answer.headers.get("content-length")
+                if limit and declared and declared.isdigit() and int(declared) > limit:
+                    raise ApiError(413, f"that is {int(declared)} bytes and max_upload_bytes is {limit}")
+                size = 0
+                with part.open("wb") as fh:
+                    async for chunk in answer.aiter_bytes(UPLOAD_CHUNK):
+                        size += len(chunk)
+                        if limit and size > limit:
+                            raise ApiError(413, f"larger than max_upload_bytes ({limit})")
+                        await asyncio.to_thread(fh.write, chunk)
+        part.rename(target)
+    except ApiError:
+        if part:
+            with contextlib.suppress(OSError):
+                part.unlink()
+        raise
+    except httpx.HTTPError as e:
+        if part:
+            with contextlib.suppress(OSError):
+                part.unlink()
+        # httpx's own words, which say whether it was DNS, a refusal or a timeout.
+        raise ApiError(502, f"could not fetch it: {type(e).__name__}: {e}") from e
+    except OSError as e:
+        if part:
+            with contextlib.suppress(OSError):
+                part.unlink()
+        raise ApiError(500, f"could not write it: {e.strerror}") from e
+    return {"name": target.name, "path": str(target), "bytes": size}
+
+
+def from_disposition(header: str) -> str:
+    """The filename a server suggests, if it suggests one that is not a trick.
+
+    Only the last component: `filename="../../etc/passwd"` is a real thing that real servers
+    have been persuaded to send, and `safe_name` upstream would catch it anyway — this makes
+    the intent visible rather than relying on the next function along.
+    """
+    found = re.search(r'filename\*?=(?:UTF-8'')?"?([^";]+)"?', header, re.I)
+    return Path(found.group(1)).name if found else ""
 
 
 @router.post("/api/fs/upload")

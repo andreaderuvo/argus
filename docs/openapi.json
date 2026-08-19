@@ -900,6 +900,52 @@
     ]
    }
   },
+  "/api/fs/fetch": {
+   "post": {
+    "description": "Download a URL straight into a directory.\n\nThe upload you would otherwise do in three moves \u2014 open a terminal, `wget`, come back \u2014 or\nin four, if the file is on the far side of the machine you are holding: download it to a\nphone and upload it again. A link is the whole instruction.\n\nThe same care as an upload, because it is one: streamed to a dotted part-file and renamed\ninto place only when it is complete, so an interrupted download never leaves a truncated\nfile wearing the real name. Nothing is ever overwritten; a name already taken gets a number.\n\n**On the obvious objection.** Yes, this makes the server fetch a URL somebody else chose,\nand yes, that URL could be `169.254.169.254` or a service on loopback. It grants nothing:\nwhoever can call this can already open a terminal here and run `curl`, because that is what\nArgus *is*. It is behind `--allow-write` like every other route that puts something on the\ndisk, and it is worth knowing rather than worth hiding.",
+    "operationId": "postApiFsFetch",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Fetch Link Api Fs Fetch Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Put a link's file into a folder, without a round trip",
+    "tags": [
+     "Writing"
+    ]
+   }
+  },
   "/api/fs/locate": {
    "post": {
     "description": "Which of these words are files? Read-only, and jailed like everything else.",

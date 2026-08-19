@@ -19,7 +19,7 @@ portal /run/user/1000/doc fuse.portal rw 0 0
 
 def test_keeps_real_filesystems_and_drops_the_kernel_ones():
     assert parse_mounts(SAMPLE) == [
-        Path("/"), Path("/home"), Path("/mnt/disk2"), Path("/mnt/backup"), Path("/mnt/my disk"),
+        Path("/home"), Path("/mnt/disk2"), Path("/mnt/backup"), Path("/mnt/my disk"),
     ]
 
 
@@ -27,8 +27,15 @@ def test_a_space_in_a_mount_point_is_unescaped():
     assert Path("/mnt/my disk") in parse_mounts(SAMPLE)
 
 
-def test_root_always_counts_even_though_dev_is_excluded():
-    assert is_interesting("/", "xfs")
+def test_the_root_filesystem_is_not_added_by_discovery():
+    """`--mounts` is for the disks your data is on, not for everything.
+
+    It used to keep `/`, which meant that switching the flag on to reach /mnt/disk2 also made
+    the whole filesystem browsable — while the documentation went on saying that roots are the
+    only paths that can be read. Anybody who wants that can write `/` in `roots:`, which is a
+    sentence somebody typed rather than a side effect of a convenience.
+    """
+    assert not is_interesting("/", "xfs")
     assert not is_interesting("/dev/shm", "tmpfs")
     assert not is_interesting("/boot/efi", "vfat")
     assert not is_interesting("/proc", "proc")

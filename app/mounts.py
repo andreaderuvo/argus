@@ -24,7 +24,18 @@ def is_interesting(target: str, fstype: str) -> bool:
     if fstype in VIRTUAL_FSTYPES or fstype.startswith("fuse.") and target.startswith("/run"):
         return False
     if target == "/":
-        return True
+        # Not the root filesystem, and this used to be the opposite.
+        #
+        # `--mounts` is for reaching the data that is not under $HOME — /mnt/disk2, /mnt/backup,
+        # the second array. Adding `/` along with them reaches that data and everything else,
+        # which quietly turns the file jail into no jail at all: the documentation says roots
+        # are "the only paths that can be read", and with this on that sentence was false and
+        # nobody was told. The unix permissions still applied, so this was never privilege —
+        # it was scope, arriving without being asked for.
+        #
+        # Anybody who does want the whole filesystem can still have it by writing `/` in
+        # `roots:`, which is one line and an obvious act rather than a side effect.
+        return False
     return not any(target == p or target.startswith(p + "/") for p in VIRTUAL_PREFIXES)
 
 
