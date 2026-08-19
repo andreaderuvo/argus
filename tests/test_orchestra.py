@@ -210,3 +210,53 @@ def test_telling_reaches_the_prefixed_name(fake, tmp_path):
 def test_slug_survives_a_sentence():
     assert slug("a cache in front of the query!") == "a-cache-in-front-of-the"
     assert slug("") == "step"
+
+
+# ------------------------------------------------------------------ what the wall is told
+
+
+def test_a_run_describes_itself_only_when_somebody_is_watching(fake, tmp_path):
+    posted = []
+    fake.call = lambda method, path, body=None, **kw: posted.append((path, body))
+
+    quiet = orchestra(fake, tmp_path)
+    quiet.start("worker", say="x", until="R.md")
+    assert posted == []
+
+    seen = orchestra(fake, tmp_path, watch=True, prefix="w")
+    seen.start("worker", say="x", until="R.md")
+    assert posted and posted[0][0] == "/api/runs"
+    shape = posted[0][1]
+    assert shape["steps"][0]["agents"][0] == {
+        "name": "w-worker", "label": "worker", "state": "working", "file": "R.md"}
+
+
+def test_the_wall_not_answering_does_not_stop_the_orchestration(fake, tmp_path):
+    def refuse(*a, **kw):
+        raise RuntimeError("no such route")
+    fake.call = refuse
+    o = orchestra(fake, tmp_path, watch=True)
+    # It says so once and carries on: a noticeboard that cannot be reached is a noticeboard,
+    # not a reason to abandon three agents mid-job.
+    o.start("one", say="x", until="R.md")
+    o.start("two", say="x", until="R.md")
+    assert [x["name"] for x in fake.launched] == ["one", "two"]
+
+
+def test_the_shape_a_diagram_is_drawn_from(fake, tmp_path):
+    posted = []
+    fake.call = lambda method, path, body=None, **kw: posted.append(body)
+    o = orchestra(fake, tmp_path, watch=True)
+    group = o.fan_out(["a cache", "an index"], say="x", until="R.md", wait=False)
+    o.start("judge", say="x", until="D.md")
+
+    shape = posted[-1]
+    assert [s["name"] for s in shape["steps"]] == ["2 ways", "judge"]
+    assert shape["state"] == "running"
+    # The states the picture is coloured by, and the four that exist.
+    group.agents[0].done = True
+    group.agents[1].lost = True
+    o.report()
+    ended = posted[-1]
+    assert ended["state"] == "done"
+    assert [a["state"] for a in ended["steps"][0]["agents"]] == ["done", "lost"]

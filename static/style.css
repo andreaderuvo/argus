@@ -3246,3 +3246,20 @@ pre.file.hl .hljs-strong { font-weight: 700; }
   /* Amber means one of them has stopped and is waiting: the only state worth shouting. */
   #drawer .drawertally.wants { color: #2b2000; background: var(--st-warning); }
 }
+
+/* An orchestration in a window.
+ *
+ *  The nodes wear the same four states as everything else here — a stopped agent is the same
+ *  amber as a session that is asking for you, on the bar and in the drawer — because a colour
+ *  that means one thing in one place and another somewhere else is a colour you have to read
+ *  twice. The diagram itself is drawn by mermaid from the palette; these are the five classes
+ *  the framework's shape maps onto. */
+.runbody { padding: .6rem .7rem; height: 100%; display: flex; flex-direction: column; gap: .4rem; }
+/* The diagram takes the room and the line underneath keeps its own: `min-height: 0` because a
+   flex child will not shrink below its content otherwise, and the content here is an svg that
+   would happily be a thousand pixels tall. */
+.rundiagram { flex: 1; min-height: 0; display: flex; justify-content: center; }
+.runbody .meta { margin: 0; text-align: center; flex: none; }
+.win.runasking { box-shadow: inset 0 0 0 2px var(--st-warning); }
+/* The five state colours are written into the diagram's own `classDef` — see
+   runDiagram(). A rule here would lose to the inline style mermaid puts on every node. */
