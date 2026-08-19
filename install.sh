@@ -67,8 +67,8 @@ if [ "$ACTION" = uninstall ]; then
     step "the service is stopped and gone"
   fi
   rm -rf "$DIR"
-  rm -f "$BIN/argus"
-  step "removed $DIR and $BIN/argus"
+  rm -f "$BIN/argus" "$BIN/argus-say"
+  step "removed $DIR, $BIN/argus and $BIN/argus-say"
   say ""
   say "  Your configuration is still at ${B}~/.config/argus${N} — the token, the devices, the"
   say "  journal. Delete it yourself if you mean to; an uninstaller that throws away a token"
@@ -159,6 +159,18 @@ exec "$DIR/venv/bin/python" -m app.main "\$@"
 LAUNCH
 chmod +x "$BIN/argus"
 step "launcher at $BIN/argus"
+
+# `argus-say` beside it: the command an agent in a session uses to ring, to see who else is
+# here, and to hand a sentence to another agent. It was in the repository and not on the PATH,
+# which made a liar of every orchestrator prompt — they all end "then run: argus-say ring".
+# Standard library only, so it runs on the system python and needs none of the venv.
+cat > "$BIN/argus-say" <<SAY
+#!/bin/sh
+# Written by install.sh.
+exec "$DIR/venv/bin/python" "$DIR/tools/argus_client.py" "\$@"
+SAY
+chmod +x "$BIN/argus-say"
+step "argus-say at $BIN/argus-say"
 
 # ------------------------------------------------------------------ service
 
