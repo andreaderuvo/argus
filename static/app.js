@@ -2614,7 +2614,7 @@ async function renameSession(session) {
   } catch (e) { toast(e.message, true); }
 }
 
-async function killSession(session) {
+async function killSession(session, then = null) {
   // Everything running inside it dies with it, which is not what detaching does. This one
   // asks, and goes on asking however quick the rest of the screen gets.
   const sure = await confirmBox(
@@ -2626,7 +2626,10 @@ async function killSession(session) {
   try {
     await postJSON('/api/tmux/kill', { name: session.name });
     toast(t('{name} killed', { name: session.name }));
-    render();
+    // The list redraws itself; a window has to be told, because `render()` does not rebuild
+    // a desk that is already up — that is the whole reason a terminal survives switching tabs.
+    if (then) then();
+    else render();
   } catch (e) { toast(e.message, true); }
 }
 
@@ -8082,6 +8085,25 @@ async function screenWall() {
         };
       }
 
+      /* Kill the session, from the window that is showing it.
+       *
+       *  The cross beside it closes the *window* and leaves the session running, which is
+       *  right and is also why this is a second button rather than a modifier on that one:
+       *  the two look alike and one of them is irreversible. So it is marked in red on
+       *  hover, it asks first — naming the session and saying what detaching would do
+       *  instead — and when it is done the window goes too, because a window you deliberately
+       *  killed the session of is not something to leave sitting there saying "gone".
+       */
+      const doom = spec.kind === 'term'
+        ? el('button', { className: 'winbtn killbtn', title: t('Kill session') }, icon('trash'))
+        : null;
+      if (doom) {
+        doom.onclick = async (ev) => {
+          ev.stopPropagation();
+          await killSession({ name: spec.name }, () => close.onclick());
+        };
+      }
+
       const chain = spec.kind === 'term'
         ? el('button', { className: 'winbtn chainbtn' }, icon('link'))
         : null;
@@ -8095,7 +8117,7 @@ async function screenWall() {
         };
       }
       const entry = { win, handle, name: id, chainBtn: chain };
-      if (spec.kind === 'term') extras.append(copyButton(handle, 'winbtn'), relabel, quiet, dress, chain, ...sizeButtons(handle, 'winbtn'));
+      if (spec.kind === 'term') extras.append(copyButton(handle, 'winbtn'), relabel, doom, quiet, dress, chain, ...sizeButtons(handle, 'winbtn'));
       open.push(entry);
       if (chain) paintChain();
       paintTally();
