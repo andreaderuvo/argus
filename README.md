@@ -67,6 +67,7 @@ you could read it.
 | | |
 |---|---|
 | [Getting started](https://github.com/andreaderuvo/argus/wiki/Getting-started) | installing, the config file, running it as a service |
+| [Starting an agent](https://github.com/andreaderuvo/argus/wiki/Starting-an-agent) | a shell or an agent, in a folder or a fresh git worktree, with its first instruction typed in |
 | [Sessions and the terminal](https://github.com/andreaderuvo/argus/wiki/Sessions-and-the-terminal) | attaching, typing, copying, prompts, placeholders |
 | [Files](https://github.com/andreaderuvo/argus/wiki/Files) and [Documents](https://github.com/andreaderuvo/argus/wiki/Documents) | browsing, editing, uploading; markdown, PDF, Word, logs |
 | [Desks and windows](https://github.com/andreaderuvo/argus/wiki/Desks-and-windows) | workspaces, arrangements, the link tray |
