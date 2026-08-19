@@ -54,6 +54,7 @@ def test_it_may_ring(agent):
     ("DELETE", "/api/devices/whatever", None),
     ("POST", "/api/journal", {"older_than": 0}),
     ("POST", "/api/shutdown", None),
+    # Adding one is allowed; removing one deletes work, so it is not.
     ("DELETE", "/api/git/worktree?path=/tmp", None),
     ("POST", "/api/fs/delete", {"path": "/tmp/x"}),
 ])
@@ -107,7 +108,7 @@ def test_the_list_of_what_an_agent_may_do_is_short():
     The value of this scope is that it is small enough to hold in your head. If it grows, that
     should be a decision somebody makes on purpose, with this test in front of them.
     """
-    assert len(AGENT_ROUTES) <= 10
+    assert len(AGENT_ROUTES) <= 12
     assert all(method in ("GET", "POST") for method, _ in AGENT_ROUTES)
     assert not any(path.startswith("/api/fs") or path.startswith("/api/devices")
                    for _, path in AGENT_ROUTES)

@@ -753,6 +753,9 @@ def create_app(cfg: Config) -> FastAPI:
         top = await asyncio.to_thread(gitwork.top_of, here)
         if not top:
             raise ApiError(400, f"{here} is not inside a git repository")
+        if too_fast("worktree", STARTS_A_MINUTE):
+            raise ApiError(429, f"more than {STARTS_A_MINUTE} worktrees in a minute — nothing was "
+                                "made. A disk fills up quietly.")
         try:
             branch = launch.check_branch(str(body.get("branch", "")))
         except ValueError as e:
