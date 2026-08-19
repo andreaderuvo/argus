@@ -2410,6 +2410,14 @@ button.keyrow kbd { flex: none; }
 .msgcard > summary .winbtn.star:hover { color: var(--accent); }
 .msgcard > summary .winbtn.star.on .ico path { fill: currentColor; }
 
+/* The box you paste a link into. */
+.sheetbody .linkbox {
+  width: 100%; margin: .3rem 0 .2rem; padding: .5rem .6rem;
+  background: var(--bg); color: var(--bright);
+  border: 1px solid var(--line); border-radius: .4rem;
+  font: 13px/1.5 ui-monospace, "SF Mono", Menlo, monospace;
+}
+
 /* Starting something: the box that used to ask only for a name.
    Rows rather than a dropdown for what to run: three or four of them, each with its command
    under it, and a greyed one that says why it cannot be picked. */

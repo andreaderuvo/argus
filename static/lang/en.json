@@ -793,6 +793,16 @@
     "Start a shell or an agent here, in this desk’s folder": "Start a shell or an agent here, in this desk’s folder",
     "looking at what this machine can start…": "looking at what this machine can start…",
     "The API, live": "The API, live",
-    "every route, with a button that really calls it": "every route, with a button that really calls it"
+    "every route, with a button that really calls it": "every route, with a button that really calls it",
+    "Fetch a link into this folder": "Fetch a link into this folder",
+    "Fetch a link": "Fetch a link",
+    "Fetch": "Fetch",
+    "into {where}": "into {where}",
+    "call it": "call it",
+    "leave it empty to keep its own name": "leave it empty to keep its own name",
+    "fetching…": "fetching…",
+    "a whole curl command works too — paste it here": "a whole curl command works too — paste it here",
+    "headers, one per line": "headers, one per line",
+    "{n} headers taken from that curl": "{n} headers taken from that curl"
   }
 }
