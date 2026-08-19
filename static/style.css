@@ -1467,6 +1467,10 @@ button.winbtn {
 }
 
 button.winbtn:hover { color: var(--bright); background: var(--line); }
+/* The one irreversible button on a title bar, beside a cross that only closes the
+   window. It is not red at rest — a red button always on screen stops being a warning
+   after a day — but it says what it is the moment a hand is on it. */
+button.winbtn.killbtn:hover, button.winbtn.killbtn:hover .ico { color: var(--st-critical); }
 button.winbtn.wide { padding: 0 .6rem; height: 30px; font-size: .75rem; white-space: nowrap; }
 button.winbtn.on { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
 
