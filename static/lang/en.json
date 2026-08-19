@@ -766,6 +766,11 @@
     "Starred": "Starred",
     "Starred — it sits at the top of a desk's Prompts window": "Starred — it sits at the top of a desk's Prompts window",
     "Star it: put it at the top of a desk's Prompts window": "Star it: put it at the top of a desk's Prompts window",
-    "Chrome on Android: the ⋮ menu, then Install app": "Chrome on Android: the ⋮ menu, then Install app"
+    "a secure origin — https, or the machine itself": "a secure origin — https, or the machine itself",
+    "the service worker is running": "the service worker is running",
+    "the manifest arrives and names its icons": "the manifest arrives and names its icons",
+    "Safari never offers: on an iPhone it is always Share, then Add to Home Screen": "Safari never offers: on an iPhone it is always Share, then Add to Home Screen",
+    "all three in place and still no offer means the browser has already made up its mind — or it is installed for this address already, in which case open that one": "all three in place and still no offer means the browser has already made up its mind — or it is installed for this address already, in which case open that one",
+    "Chrome on Android: the browser menu, then Install app": "Chrome on Android: the browser menu, then Install app"
   }
 }

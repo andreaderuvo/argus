@@ -2413,6 +2413,13 @@ button.keyrow kbd { flex: none; }
 /* A short list inside a sheet — the ways a browser hides its install command. */
 .sheetbody .sheetlist { margin: .5rem 0; padding-left: 1.1rem; }
 .sheetbody .sheetlist li { margin: .3rem 0; line-height: 1.5; color: var(--text); }
+/* The three checks, where a tick or a cross is the whole point of the line. */
+.sheetbody .sheetlist.checks { list-style: none; padding-left: 0; }
+.sheetbody .sheetlist.checks li { display: flex; gap: .5rem; align-items: baseline; }
+.sheetbody .sheetlist.checks .tick { flex: none; display: inline-flex; }
+.sheetbody .sheetlist.checks .tick .ico { width: 15px; height: 15px; }
+.sheetbody .sheetlist.checks .yes .tick, .sheetbody .sheetlist.checks li.yes .tick { color: var(--accent); }
+.sheetbody .sheetlist.checks li.no { color: var(--danger); }
 
 /* A window's title bar, when the window is narrow.
    Asked of the window rather than the screen: a 300px window on a wide monitor has the

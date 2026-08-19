@@ -766,6 +766,11 @@
     "Starred": "Favoris",
     "Starred — it sits at the top of a desk's Prompts window": "Favori : il est en haut de la fenêtre Prompts d'un bureau",
     "Star it: put it at the top of a desk's Prompts window": "En favori : il ira en haut de la fenêtre Prompts d'un bureau",
-    "Chrome on Android: the ⋮ menu, then Install app": "Chrome sur Android : le menu ⋮, puis Installer l'application"
+    "a secure origin — https, or the machine itself": "une origine sûre : https, ou la machine elle-même",
+    "the service worker is running": "le service worker tourne",
+    "the manifest arrives and names its icons": "le manifeste arrive et déclare ses icônes",
+    "Safari never offers: on an iPhone it is always Share, then Add to Home Screen": "Safari ne le propose jamais : sur iPhone c'est toujours Partager, puis Sur l'écran d'accueil",
+    "all three in place and still no offer means the browser has already made up its mind — or it is installed for this address already, in which case open that one": "si les trois sont là et qu'il ne propose rien, le navigateur a déjà tranché — ou elle est déjà installée pour cette adresse, et alors ouvrez celle-là",
+    "Chrome on Android: the browser menu, then Install app": "Chrome sur Android : le menu du navigateur, puis Installer l'application"
   }
 }
