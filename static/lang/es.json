@@ -760,9 +760,12 @@
     "how to, if your browser has not offered": "cómo hacerlo, si el navegador no te lo ha ofrecido",
     "this browser has not offered, so it has to be asked": "este navegador no lo ha ofrecido, así que hay que pedírselo",
     "Chrome or Edge on a computer: the install icon at the right of the address bar, or its menu": "Chrome o Edge en un ordenador: el icono de instalación a la derecha de la barra de direcciones, o su menú",
-    "Chrome on Android: the ⋮ menu, then Install app": "Chrome en Android: el menú ⋮, luego Instalar aplicación",
     "Safari on an iPhone: Share, then Add to Home Screen": "Safari en un iPhone: Compartir, luego Añadir a pantalla de inicio",
     "every address is its own app: a second machine installs beside the first rather than replacing it": "cada dirección es su propia app: una segunda máquina se instala junto a la primera, no en su lugar",
-    "installed — it has its own icon now": "instalada: ahora tiene su propio icono"
+    "installed — it has its own icon now": "instalada: ahora tiene su propio icono",
+    "Starred": "Destacados",
+    "Starred — it sits at the top of a desk's Prompts window": "Destacado: está arriba en la ventana Prompts de un escritorio",
+    "Star it: put it at the top of a desk's Prompts window": "Destácalo: irá arriba en la ventana Prompts de un escritorio",
+    "Chrome on Android: the ⋮ menu, then Install app": "Chrome en Android: el menú ⋮, luego Instalar aplicación"
   }
 }

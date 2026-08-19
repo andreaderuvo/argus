@@ -760,9 +760,12 @@
     "how to, if your browser has not offered": "how to, if your browser has not offered",
     "this browser has not offered, so it has to be asked": "this browser has not offered, so it has to be asked",
     "Chrome or Edge on a computer: the install icon at the right of the address bar, or its menu": "Chrome or Edge on a computer: the install icon at the right of the address bar, or its menu",
-    "Chrome on Android: the ⋮ menu, then Install app": "Chrome on Android: the ⋮ menu, then Install app",
     "Safari on an iPhone: Share, then Add to Home Screen": "Safari on an iPhone: Share, then Add to Home Screen",
     "every address is its own app: a second machine installs beside the first rather than replacing it": "every address is its own app: a second machine installs beside the first rather than replacing it",
-    "installed — it has its own icon now": "installed — it has its own icon now"
+    "installed — it has its own icon now": "installed — it has its own icon now",
+    "Starred": "Starred",
+    "Starred — it sits at the top of a desk's Prompts window": "Starred — it sits at the top of a desk's Prompts window",
+    "Star it: put it at the top of a desk's Prompts window": "Star it: put it at the top of a desk's Prompts window",
+    "Chrome on Android: the ⋮ menu, then Install app": "Chrome on Android: the ⋮ menu, then Install app"
   }
 }
