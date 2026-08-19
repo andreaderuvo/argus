@@ -2484,6 +2484,10 @@ button.keyrow kbd { flex: none; }
   border: 1px solid var(--line); border-radius: .4rem; padding: .45rem .6rem; font-size: .9rem;
 }
 .startbody .startpath, .startbody .startbranch { font-family: ui-monospace, monospace; font-size: .82rem; }
+/* A name tmux cannot address, said where it is being typed rather than as a toast
+   after Start has already failed. */
+.startbody input[type=text].wrong { border-color: var(--danger); }
+.startbody .hint { margin: .3rem 0 0; font-size: .78rem; color: var(--danger); }
 .startpicks { display: flex; flex-direction: column; gap: .25rem; }
 /* While the machine is being asked what it can start. */
 .startwait { display: flex; align-items: center; gap: .5rem; padding: .8rem .2rem; color: var(--dim); font-size: .85rem; }
