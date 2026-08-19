@@ -281,3 +281,22 @@ def test_asking_about_versions_can_be_switched_off(tmp_path):
     assert body["running"] and body["latest"] is None and body["newer"] is False
     # Nothing was asked of anybody: no cache was written.
     assert not hasattr(client.app.state, "release")
+
+
+def test_the_overview_carries_running_orchestrations(client):
+    """A board watching ten machines should learn that one of them is orchestrating without
+    asking a second question — and should not be charged a key for it when none is."""
+    assert "runs" not in get(client, "/api/overview").json()
+
+    shape = {"id": "r1", "name": "orchestra", "where": "/tmp",
+             "steps": [{"name": "2 ways", "agents": [
+                 {"name": "a", "label": "a cache", "state": "done", "file": "R.md"},
+                 {"name": "b", "label": "an index", "state": "asking", "file": "R.md"}]}]}
+    posted = client.post("/api/runs", json=shape,
+                         headers={"Authorization": f"Bearer {TOKEN}"})
+    assert posted.status_code == 200
+
+    said = get(client, "/api/overview").json()["runs"]
+    # A summary and not the graph: the picture belongs on the machine you can act on.
+    assert said == [{"id": "r1", "name": "orchestra", "state": "running",
+                     "done": 1, "agents": 2, "asking": 1, "lost": 0}]
