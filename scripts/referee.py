@@ -110,7 +110,7 @@ def wait_for_files(argus: Argus, started, minutes: float):
     since = 0
     while waiting and time.monotonic() < deadline:
         try:
-            for bell in argus.bells(since, until=deadline):
+            for bell in argus.bells(since=since, until=deadline):
                 # The deadline, checked *inside* the stream. The bell stream sends a
                 # heartbeat every 25 seconds and never ends on its own, so a `while` around
                 # the generator is a `while` that is never reached: measured, an orchestrator

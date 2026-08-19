@@ -110,7 +110,7 @@ def wait_for(argus: Argus, started: list[dict], minutes: float) -> tuple[list[di
     since = 0
     while waiting and time.monotonic() < deadline:
         try:
-            for bell in argus.bells(since, until=deadline):
+            for bell in argus.bells(since=since, until=deadline):
                 # The deadline, checked *inside* the stream. The bell stream sends a
                 # heartbeat every 25 seconds and never ends on its own, so a `while` around
                 # the generator is a `while` that is never reached: measured, an orchestrator
@@ -126,7 +126,11 @@ def wait_for(argus: Argus, started: list[dict], minutes: float) -> tuple[list[di
                 collect()
                 if not waiting:
                     break
-        except (TimeoutError, urllib.error.URLError, OSError):
+        # `OSError` and not the three names it used to list: `TimeoutError` and
+        # `urllib.error.URLError` are both subclasses of it, and one of the three was a name
+        # this file never imported — an `except` clause that would have raised `NameError` at
+        # the exact moment it was meant to recover.
+        except OSError:
             collect()          # the stream ended or timed out; look at the facts and go again
     collect()
     return done, waiting
