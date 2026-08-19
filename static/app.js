@@ -3281,6 +3281,26 @@ async function renderMarkdown(text, container, from = '') {
   }
   const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   container.innerHTML = marked.parse(escaped, { gfm: true });
+
+  /* Undo the second escape, inside code only.
+   *
+   *  The document is escaped once here, before marked sees it, so raw HTML in a file somebody
+   *  else wrote renders as text instead of executing in a page that holds the access token.
+   *  That part is right. What it did not account for is that marked escapes code *again*, and
+   *  unconditionally: `A -> B` in a fence arrived as `-&amp;gt;` in the HTML and was drawn on
+   *  screen, literally, as `-&gt;`. Every fence with a `<`, a `>` or an `&` in it — which is
+   *  most fences that matter — was being shown wrong. Reported from a document full of
+   *  arrows.
+   *
+   *  One layer comes back off, and only within `code`, where it is unambiguous: the text of a
+   *  code element is text. Writing it back through `textContent` cannot execute anything,
+   *  which is what makes this safe to do rather than a hole reopened.
+   */
+  for (const box of container.querySelectorAll('code')) {
+    const plain = undoEntities(box.textContent || '');
+    if (plain !== box.textContent) box.textContent = plain;
+  }
+
   drawDiagrams(container);
 
   for (const a of container.querySelectorAll('a[href]')) {
@@ -3386,7 +3406,8 @@ async function drawDiagrams(container) {
     },
   });
   for (const code of blocks) {
-    const source = undoEntities(code.textContent || '');
+    // Already decoded by renderMarkdown, which is the only thing that puts a fence here.
+    const source = code.textContent || '';
     try {
       const box = el('div', { className: 'diagram' });
       box.innerHTML = (await mmd.engine.render(`mmd-${++mmd.drawn}`, source)).svg;
