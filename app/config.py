@@ -95,6 +95,10 @@ class Config:
     # kill a session, expose a port, mint a token or stop the server, and that shows up in the
     # journal under its own name so you can read what your agents said to each other.
     agents: list[dict] = field(default_factory=list)
+    # The brakes on starting things and passing sentences around, per minute. Not security —
+    # the launcher list is that — but the difference between a fan-out and a runaway loop.
+    launches_a_minute: int = 12
+    relay_a_minute: int = 30
     # Things a board is allowed to start and stop here, listed by hand.
     #
     # A watcher token is meant to be worth almost nothing: a board holds one per machine in
@@ -236,6 +240,8 @@ class Config:
             allow_proxy=bool(raw.get("allow_proxy", False)),
             launchers=[dict(x) for x in (raw.get("launchers") or []) if isinstance(x, dict)],
             agents=[dict(x) for x in (raw.get("agents") or []) if isinstance(x, dict)],
+            launches_a_minute=int(raw.get("launches_a_minute", 12)),
+            relay_a_minute=int(raw.get("relay_a_minute", 30)),
             max_upload_bytes=int(raw.get("max_upload_bytes", 2 * 1024 * 1024 * 1024)),
             check_releases=bool(raw.get("check_releases", True)),
             report_to=dict(raw.get("report_to") or {}),
@@ -280,6 +286,8 @@ class Config:
             "allow_proxy": self.allow_proxy,
             "launchers": self.launchers,
             "agents": self.agents,
+            "launches_a_minute": self.launches_a_minute,
+            "relay_a_minute": self.relay_a_minute,
             "max_upload_bytes": self.max_upload_bytes,
             "tls_cert": str(self.tls_cert) if self.tls_cert else None,
             "tls_key": str(self.tls_key) if self.tls_key else None,
