@@ -72,6 +72,23 @@ class Launcher:
         return probe([line.split()[0]]).get(line.split()[0])
 
 
+def login_shell() -> str:
+    """The user's own shell, asked of the system when the environment does not say.
+
+    A server started by systemd has no `SHELL`, so falling back to `/bin/sh` meant asking a
+    shell that reads none of your profile whether `claude` exists — and being told no, on a
+    machine where it plainly does. `/etc/passwd` knows what the environment forgot.
+    """
+    said = os.environ.get("SHELL")
+    if said:
+        return said
+    try:
+        import pwd
+        return pwd.getpwuid(os.getuid()).pw_shell or "/bin/sh"
+    except (ImportError, KeyError, OSError):
+        return "/bin/sh"
+
+
 def unknowable(line: str) -> bool:
     """A shell line is not a program, and claiming to have checked the PATH for one would be a
     guess dressed as a fact."""
@@ -115,7 +132,7 @@ def probe(firsts: list[str]) -> dict[str, bool]:
         'if command -v "$c" >/dev/null 2>&1; then printf "%s\t1\n" "$c"; '
         'else printf "%s\t0\n" "$c"; fi; done'
     )
-    shell = os.environ.get("SHELL") or "/bin/sh"
+    shell = login_shell()
     found: dict[str, bool] = {}
     try:
         done = subprocess.run([shell, "-l", "-c", script], capture_output=True, text=True, timeout=15)
@@ -135,7 +152,60 @@ def probe(firsts: list[str]) -> dict[str, bool]:
     return answer
 
 
-def describe(cfg) -> list[dict]:
+# What each command says about itself, and when it was asked. Ten minutes: a version changes
+# when somebody upgrades a tool, which is not something to re-measure every time a box opens.
+_versions: dict[str, tuple[float, str]] = {}
+VERSION_REMEMBER_FOR = 600.0
+
+
+def versions(firsts: list[str]) -> dict[str, str]:
+    """`--version` for each of these, in one login shell.
+
+    Asked **separately from whether they exist**, and that split is the whole design. Finding out
+    a word is on the PATH costs nothing; running three programs to ask their version costs 1.8
+    seconds here, because each is a node process starting cold. Folded into the first question it
+    would have put that back onto the box that just stopped being slow — so the box appears with
+    its choices, and the versions arrive a beat later and fill themselves in.
+
+    `< /dev/null` on each, because a program that decides to ask something instead of answering
+    would otherwise hold the shell until the timeout.
+    """
+    now = time.monotonic()
+    answer: dict[str, str] = {}
+    ask: list[str] = []
+    for word in firsts:
+        got = _versions.get(word)
+        if got and now - got[0] < VERSION_REMEMBER_FOR:
+            answer[word] = got[1]
+        else:
+            ask.append(word)
+    if not ask:
+        return answer
+
+    script = "; ".join(
+        f'printf "%s\\t" {shell_quote(w)}; {shell_quote(w)} --version </dev/null 2>/dev/null | head -1 || printf "\\n"'
+        for w in ask
+    )
+    shell = login_shell()
+    said: dict[str, str] = {}
+    try:
+        done = subprocess.run([shell, "-l", "-c", script], capture_output=True, text=True, timeout=25)
+        for line in done.stdout.splitlines():
+            word, _, rest = line.partition("\t")
+            if word and rest.strip():
+                # "2.1.235 (Claude Code)" and "codex-cli 0.147.0" are both what a tool chose to
+                # say. Passed through rather than parsed: a version scraper that guesses wrong is
+                # worse than one that quotes.
+                said[word] = rest.strip()[:60]
+    except (OSError, subprocess.SubprocessError):
+        pass
+    for word in ask:
+        _versions[word] = (now, said.get(word, ""))
+        answer[word] = said.get(word, "")
+    return answer
+
+
+def describe(cfg, with_versions: bool = False) -> list[dict]:
     """The list a browser is given: name, command, and whether it is really here.
 
     Built in one go so the shell is started once for every launcher rather than once each.
@@ -144,6 +214,7 @@ def describe(cfg) -> list[dict]:
     firsts = [one.command.strip().split()[0] for one in ones
               if one.command.strip() and not unknowable(one.command)]
     known = probe(firsts) if firsts else {}
+    told = versions([w for w in firsts if known.get(w)]) if (with_versions and firsts) else {}
     out = []
     for one in ones:
         line = one.command.strip()
@@ -153,7 +224,9 @@ def describe(cfg) -> list[dict]:
             available = None
         else:
             available = known.get(line.split()[0])
-        out.append({"name": one.name, "command": one.command, "available": available})
+        first = line.split()[0] if line and not unknowable(line) else ""
+        out.append({"name": one.name, "command": one.command, "available": available,
+                    "version": told.get(first) or None})
     return out
 
 

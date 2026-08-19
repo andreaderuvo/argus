@@ -539,16 +539,21 @@ def create_app(cfg: Config) -> FastAPI:
         return {"name": name, "path": where}
 
     @app.get("/api/launchers", tags=["Sessions"], summary="What this machine can start")
-    async def launchers(request: Request) -> dict:
+    async def launchers(request: Request, versions: bool = False) -> dict:
         """The list a browser is allowed to pick from, and whether each one is really here.
 
         `available` is `null` when the answer is not knowable: a command with a pipe or a
         `&&` in it is a shell line rather than a program, and checking the PATH for it would
         be a guess dressed as a fact.
+
+        `?versions=1` also runs each of them with `--version`, which is a second question and
+        deliberately a second request: finding out a word is on the PATH is free, and starting
+        three node programs to ask their version costs about two seconds. The box appears with
+        its choices; the versions arrive after and fill themselves in.
         """
-        # One shell for the lot, and remembered for a minute: asked one at a time this took
-        # 2.9 seconds, which is a button that looks broken and then works.
-        return {"launchers": await asyncio.to_thread(launch.describe, request.app.state.cfg)}
+        # One shell for the lot, and remembered: asked one at a time this took 2.9 seconds,
+        # which is a button that looks broken and then works.
+        return {"launchers": await asyncio.to_thread(launch.describe, request.app.state.cfg, versions)}
 
     @app.post("/api/tmux/launch", tags=["Sessions"], summary="Start an agent, with its first instruction")
     async def launch_agent(request: Request, body: dict) -> dict:
