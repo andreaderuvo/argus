@@ -2128,10 +2128,30 @@ async function screenSessions() {
       chooseDesk({ kind: 'term', name: s.name }, s.name);
     };
 
-    const menu = el('button', { className: 'more', title: t('Rename or kill') }, icon('more'));
+    /* Rename and kill, on the row.
+     *
+     *  They were behind the ⋯, which is one target instead of three — the right trade on a
+     *  phone and the wrong one here, where every session you want to rename costs a press, a
+     *  dialog, a read and a second press. On a pointer they are just there; on a touch screen
+     *  they are not drawn at all and the ⋯ is what you get, because three targets side by side
+     *  in a row is a lottery with a *kill* in it.
+     */
+    const act = (glyph, label, fn, extra = '') => {
+      const b = el('button', { className: `more act${extra ? ` ${extra}` : ''}`, type: 'button', title: label }, icon(glyph));
+      b.onclick = (ev) => { ev.preventDefault(); ev.stopPropagation(); fn(); };
+      return b;
+    };
+
+    const menu = el('button', { className: 'more menu', title: t('Rename or kill') }, icon('more'));
     menu.onclick = (ev) => { ev.preventDefault(); ev.stopPropagation(); sessionActions(s); };
 
-    list.append(el('div', { className: 'rowwrap' }, [row, toWall, menu]));
+    list.append(el('div', { className: 'rowwrap sess' }, [
+      row,
+      toWall,
+      act('rename', t('Rename…'), () => renameSession(s)),
+      act('trash', t('Kill session'), () => killSession(s), 'kill'),
+      menu,
+    ]));
   }
   }
 }
@@ -2575,7 +2595,42 @@ function refreshAllBrowsers() {
   renderSidebar();
 }
 
-/** Rename or kill, the two things you cannot do from inside a session. */
+/** Rename, and kill. The two things you cannot do from inside a session.
+ *
+ *  They live out here rather than inside the menu that used to be the only way to reach them,
+ *  because a button on the row now calls exactly the same code — including the confirmation
+ *  before a kill, which is not the dialog anybody was complaining about. */
+async function renameSession(session) {
+  const to = await ask(t('Rename session'), session.name, t('Rename'));
+  if (!to || to === session.name) return;
+  try {
+    await postJSON('/api/tmux/rename', { name: session.name, to });
+    // The same tidying as the pencil on a window: a rename from here used to leave every
+    // desk holding the old name, which is how you end up with a window that says "gone"
+    // beside a session that is running perfectly well under its new name.
+    renamedSession(session.name, to);
+    toast(t('now called {name}', { name: to }));
+    render();
+  } catch (e) { toast(e.message, true); }
+}
+
+async function killSession(session) {
+  // Everything running inside it dies with it, which is not what detaching does. This one
+  // asks, and goes on asking however quick the rest of the screen gets.
+  const sure = await confirmBox(
+    t('Kill session'),
+    t('{name} and everything running in it will stop. Detaching a window instead leaves it running.', { name: session.name }),
+    t('Kill it'),
+  );
+  if (!sure) return;
+  try {
+    await postJSON('/api/tmux/kill', { name: session.name });
+    toast(t('{name} killed', { name: session.name }));
+    render();
+  } catch (e) { toast(e.message, true); }
+}
+
+/** The same three, behind one target. Only reached on a touch screen now — see the row. */
 function sessionActions(session) {
   const body = el('div', { className: 'sheetbody actions' });
   let sheet;
@@ -2585,33 +2640,8 @@ function sessionActions(session) {
   );
 
   item('grid', 'Open in a window', () => chooseDesk({ kind: 'term', name: session.name }, session.name));
-  item('rename', 'Rename…', async () => {
-    const to = await ask(t('Rename session'), session.name, t('Rename'));
-    if (!to || to === session.name) return;
-    try {
-      await postJSON('/api/tmux/rename', { name: session.name, to });
-      // The same tidying as the pencil on a window: a rename from here used to leave every
-      // desk holding the old name, which is how you end up with a window that says "gone"
-      // beside a session that is running perfectly well under its new name.
-      renamedSession(session.name, to);
-      toast(t('now called {name}', { name: to }));
-      render();
-    } catch (e) { toast(e.message, true); }
-  });
-  item('trash', 'Kill session', async () => {
-    // Everything running inside it dies with it, which is not what detaching does.
-    const sure = await confirmBox(
-      t('Kill session'),
-      t('{name} and everything running in it will stop. Detaching a window instead leaves it running.', { name: session.name }),
-      t('Kill it'),
-    );
-    if (!sure) return;
-    try {
-      await postJSON('/api/tmux/kill', { name: session.name });
-      toast(t('{name} killed', { name: session.name }));
-      render();
-    } catch (e) { toast(e.message, true); }
-  });
+  item('rename', 'Rename…', () => renameSession(session));
+  item('trash', 'Kill session', () => killSession(session));
 
   sheet = modal(session.name, body, [
     el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),
@@ -6099,12 +6129,19 @@ function railLabel(spec) {
 }
 
 function paintRailWindows() {
-  // How many desks there are, on the tab that holds them: Sessions has carried its count
-  // for a while and Windows was the one place still making you go and look.
-  showCount('wall', (prefs.workspaces || []).length > 1 ? (prefs.workspaces || []).length : 0);
-  if (!railWins) return;
-  const desk = (prefs.workspaces || []).find((w) => w.id === prefs.ws);
+  const desk = (prefs.workspaces || []).find((w) => w.id === prefs.ws) || (prefs.workspaces || [])[0];
   const open = (desk && desk.desktop) || [];
+  /* How many windows are open, on the tab that opens them.
+   *
+   *  It counted *desks*, and only ever showed the number when there were two or more — so the
+   *  usual arrangement, one desk with things on it, wore no badge at all and the tab looked
+   *  like it had nothing behind it. The number a person reads off that icon is how many
+   *  windows are waiting on the other side of it, which is also the one that is never blank
+   *  when there is something to see. How many desks there are is already along the top of the
+   *  wall, as tabs, which is a better place for it.
+   */
+  showCount('wall', open.length);
+  if (!railWins) return;
   railWins.replaceChildren();
   // Only while you are on the desk. Reading a file has nothing to do with which windows
   // are open behind it, and a list of them beside the folder you are in is furniture.
@@ -6291,7 +6328,7 @@ function applyBottomBar() {
   // made after the last count went out would otherwise sit blank until the next one.
   showCount('sessions', lastSessionCount);
   showCount('todo', lastTodoCount);
-  showCount('wall', (prefs.workspaces || []).length > 1 ? (prefs.workspaces || []).length : 0);
+  paintRailWindows();
 }
 
 if (moreBtn) {
