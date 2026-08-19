@@ -2391,6 +2391,15 @@ button.keyrow kbd { flex: none; }
   font: 12.5px/1.6 ui-monospace, "SF Mono", Menlo, monospace;
 }
 
+/* A name with a note under it, on a button rather than in a list.
+   `.name` and `.meta` were only given `display: block` inside `.row`, so four buttons built
+   the same way — open every session as windows, a file row in a sheet, a placeholder set —
+   ran the two strings together into one word: "…in its own windowone desk, one window each".
+   The pair stacks wherever it is used, not only in a list. */
+.ghost.block .grow { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
+.ghost.block .grow .name { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ghost.block .grow .meta { display: block; font-size: .75rem; color: var(--dim); max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+
 /* The starred line at the top of a Prompts window, and the star that puts a prompt there.
    Marked with the accent rather than made bigger: it is the same list of rows, and what is
    different about it is that these are the ones you chose. */
