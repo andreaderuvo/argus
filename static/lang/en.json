@@ -803,6 +803,9 @@
     "fetching…": "fetching…",
     "a whole curl command works too — paste it here": "a whole curl command works too — paste it here",
     "headers, one per line": "headers, one per line",
-    "{n} headers taken from that curl": "{n} headers taken from that curl"
+    "{n} headers taken from that curl": "{n} headers taken from that curl",
+    "Open this folder in Files": "Open this folder in Files",
+    "A file browser here, in a desk": "A file browser here, in a desk",
+    "Copy the absolute path": "Copy the absolute path"
   }
 }
