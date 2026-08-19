@@ -11192,6 +11192,23 @@ function listenForBells() {
  *  reconnect, so that is done here — and the polling fallback that already existed for
  *  awkward proxies now also covers a browser too old for streaming bodies.
  */
+/** Something happened that is not a bell.
+ *
+ *  So far, one thing: a session started somewhere else — from `argus-say`, from a script, from
+ *  an orchestrator — that asked to be watched. It goes on the desk you are on, without taking
+ *  you there: the point is that it is *already there* when you look, not that the page jumps
+ *  under your hands while you are reading something else.
+ *
+ *  The desk is still the browser's: the server says a session started and each open page puts
+ *  the window where it keeps its own windows. A server writing into the desks directly is a
+ *  merge with whatever you happen to be dragging at that moment.
+ */
+function aside(said) {
+  if (said.what !== 'started' || !said.name) return;
+  openWindow({ kind: 'term', name: said.name }, undefined, { jump: false });
+  toast(t('{name} started, and is on your desk', { name: said.name }));
+}
+
 function openStream() {
   if (bellStream || !window.ReadableStream) return pollForBells();
 
@@ -11222,9 +11239,13 @@ function openStream() {
           for (const line of frame.split('\n')) {
             if (!line.startsWith('data:')) continue;
             try {
-              const bell = JSON.parse(line.slice(5).trim());
-              heardUpTo = Math.max(heardUpTo ?? 0, bell.seq);
-              ring(bell);
+              const said = JSON.parse(line.slice(5).trim());
+              // Not everything on this connection is a bell. An aside carries `what` and no
+              // sequence: it is never counted, never replayed, and must not move the mark for
+              // how far the bells have been heard.
+              if (said.what) { aside(said); continue; }
+              heardUpTo = Math.max(heardUpTo ?? 0, said.seq);
+              ring(said);
             } catch { /* not a bell */ }
           }
           cut = buffered.indexOf('\n\n');
@@ -13523,7 +13544,7 @@ function chooseDesk(spec, label) {
   ]);
 }
 
-function openWindow(spec, geom) {
+function openWindow(spec, geom, { jump = true } = {}) {
   const id = specId(spec);
   const ws = currentSpace();
   if (!ws.desktop.some((x) => specId(x) === id)) {
@@ -13531,7 +13552,11 @@ function openWindow(spec, geom) {
     savePrefs();
   }
   if (live?.key === 'wall') live.addWindow?.(spec, geom);
-  go('#/wall');
+  // Every other caller is a person pressing something and expecting to arrive. The one that
+  // is not is a window appearing because a script started an agent: it belongs on the desk,
+  // it does not get to move you off the page you are reading.
+  if (jump) go('#/wall');
+  else paintRailWindows();
 }
 
 /** A web page inside a window: a port you opened, sitting next to the job serving it. */

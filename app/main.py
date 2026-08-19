@@ -632,10 +632,7 @@ def create_app(cfg: Config) -> FastAPI:
 
         where = body.get("path")
         if where:
-            try:
-                where = str(state.jail.resolve(str(where)))
-            except PathError:
-                raise ApiError(403, "outside the configured roots") from None
+            where = str(under_roots(request, str(where)))
 
         try:
             await asyncio.to_thread(tmux.run, tmux.new_argv(state.socket, name, where))
@@ -791,10 +788,7 @@ def create_app(cfg: Config) -> FastAPI:
 
         where = body.get("path")
         if where:
-            try:
-                where = str(state.jail.resolve(str(where)))
-            except PathError:
-                raise ApiError(403, "outside the configured roots") from None
+            where = str(under_roots(request, str(where)))
 
         if too_fast("start", STARTS_A_MINUTE):
             raise ApiError(429, f"more than {STARTS_A_MINUTE} launches in a minute — nothing was "
@@ -823,6 +817,16 @@ def create_app(cfg: Config) -> FastAPI:
             # an unsettled launcher keeps the Enter for the person watching.
             await asyncio.to_thread(launch.seed, state.socket, name, prompt,
                                     wants_return and bool(settled))
+        # And, if asked, tell whoever has the app open that it is there.
+        #
+        # Not by writing into their desks from here: the arrangement of a desk belongs to the
+        # browser, and a server appending a window to a document the browser is also editing is
+        # a merge conflict waiting for the one moment you are dragging something. It says a
+        # session started; each open page decides, and the page that started it from its own
+        # New-session sheet never asks for this because it has already put the window where it
+        # wanted it.
+        if body.get("desk"):
+            bells.announce(request, {"what": "started", "name": name, "launcher": chosen.name})
         return {
             "name": name,
             "path": where,
@@ -836,10 +840,7 @@ def create_app(cfg: Config) -> FastAPI:
     @app.get("/api/git/worktrees", tags=["Sessions"], summary="The working directories of a repository")
     async def list_worktrees(request: Request, path: str) -> dict:
         state = request.app.state
-        try:
-            here = state.jail.resolve(path)
-        except PathError:
-            raise ApiError(403, "outside the configured roots") from None
+        here = under_roots(request, path)
         top = await asyncio.to_thread(gitwork.top_of, here)
         if not top:
             return {"repo": None, "worktrees": []}
@@ -859,10 +860,7 @@ def create_app(cfg: Config) -> FastAPI:
         state = request.app.state
         if not state.cfg.allow_write:
             raise ApiError(403, "this server is read-only — start it with --allow-write to change that")
-        try:
-            here = state.jail.resolve(str(body.get("path", "")))
-        except PathError:
-            raise ApiError(403, "outside the configured roots") from None
+        here = under_roots(request, str(body.get("path", "")))
         top = await asyncio.to_thread(gitwork.top_of, here)
         if not top:
             raise ApiError(400, f"{here} is not inside a git repository")
@@ -895,10 +893,7 @@ def create_app(cfg: Config) -> FastAPI:
         state = request.app.state
         if not state.cfg.allow_write:
             raise ApiError(403, "this server is read-only — start it with --allow-write to change that")
-        try:
-            here = state.jail.resolve(path)
-        except PathError:
-            raise ApiError(403, "outside the configured roots") from None
+        here = under_roots(request, path)
         top = await asyncio.to_thread(gitwork.top_of, here)
         if not top:
             raise ApiError(400, f"{here} is not inside a git repository")
@@ -1178,13 +1173,28 @@ def create_app(cfg: Config) -> FastAPI:
     return app
 
 
-def favourites_target(request: Request, raw: str) -> Path:
-    from .safepath import PathError
+def under_roots(request: Request, raw: str) -> Path:
+    """A path from a client, resolved — with the two ways it can fail kept apart.
+
+    The jail is careful about this: a path that does not exist *inside* the roots is a 404 and
+    one that points outside them is a 403, so an answer never confirms the existence of
+    anything Argus does not serve. Seven routes then caught the common parent and said
+    "outside the configured roots" for both, which is how somebody spends an afternoon
+    checking a `roots:` line that was right all along because the folder they typed is simply
+    not there. Reported from a worktree that would not start: `~/thing` had been moved.
+    """
+    from .safepath import Denied, NotFound
 
     try:
         return request.app.state.jail.resolve(raw)
-    except PathError:
+    except NotFound:
+        raise ApiError(404, f"there is nothing at {raw}") from None
+    except Denied:
         raise ApiError(403, "outside the configured roots") from None
+
+
+def favourites_target(request: Request, raw: str) -> Path:
+    return under_roots(request, raw)
 
 
 def app_manifest(host: str) -> Response:

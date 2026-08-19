@@ -81,6 +81,26 @@ async def ring(request: Request, body: dict) -> dict:
     return bell
 
 
+def announce(request: Request, said: dict) -> None:
+    """Tell the open browsers something that is *not* a bell.
+
+    The stream was built for bells and is the only thing this server has that reaches a page
+    the moment something happens, so the alternative to reusing it is a second connection
+    doing the same job. What keeps the two apart is that this is not given a sequence and
+    never joins the kept list: it is not counted, not replayed to a browser that reconnects,
+    and cannot ring anything. A page that does not know the word simply ignores it.
+
+    Nothing is delivered to a machine with no page open, which is the honest shape of it —
+    "show me this now" only means something while somebody is looking.
+    """
+    kept = store(request)
+    for ear in list(kept["ears"]):
+        try:
+            ear.put_nowait(said)
+        except asyncio.QueueFull:
+            kept["ears"].discard(ear)
+
+
 @router.get("/api/bells", tags=["Notifications"], summary="What has rung since a given point")
 async def since(request: Request, since: int = 0) -> dict:
     """Everything rung after `since`.

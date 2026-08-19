@@ -163,18 +163,22 @@ class Argus:
 
     def launch(self, launcher: str, name: str, where: str | Path = ".", prompt: str = "",
                run: bool = False, worktree: str | None = None, wait: bool = True,
-               wait_seconds: float | None = None) -> dict:
+               wait_seconds: float | None = None, desk: bool = False) -> dict:
         """Start something, optionally in a fresh git worktree, with its first instruction.
 
         `run=False` types the prompt in and leaves the return to a person, which is the right
         default: the answer says whether the launcher had settled, and a prompt typed into
         something still drawing its banner is the failure this is designed around.
+
+        `desk=True` also puts a window on the desk of whoever has the app open, the moment it
+        starts, rather than leaving you to go and find it in the session list. It reaches only
+        pages that are open right now; nothing is queued for later.
         """
         where = str(where)
         if worktree:
             where = self.worktree(where, worktree)["path"]
         body = {"launcher": launcher, "name": name, "path": where,
-                "prompt": prompt, "run": run, "wait": wait}
+                "prompt": prompt, "run": run, "wait": wait, "desk": desk}
         if wait_seconds is not None:
             body["wait_seconds"] = wait_seconds
         # Long, because the call holds while the launcher settles.
@@ -297,6 +301,9 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--prompt", default="")
     s.add_argument("--run", action="store_true")
     s.add_argument("--worktree", metavar="BRANCH")
+    s.add_argument("--desk", action="store_true",
+                   help="also put a window for it on the desk, in whatever browser has Argus "
+                        "open right now")
 
     args = ap.parse_args(argv)
     try:
@@ -328,7 +335,7 @@ def main(argv: list[str] | None = None) -> int:
             print("rung")
         elif args.what == "start":
             said = argus.launch(args.launcher, args.name, args.where, args.prompt,
-                                run=args.run, worktree=args.worktree)
+                                run=args.run, worktree=args.worktree, desk=args.desk)
             print(f"{said['name']} started"
                   + (", and the prompt is on its way" if said.get("sent")
                      else " — the prompt is typed in, waiting for a return" if said.get("seeded") else ""))

@@ -792,6 +792,7 @@
   "{name} started": "{name} started",
   "{name} started in {path}": "{name} started in {path}",
   "{name} started — the prompt is typed in, waiting for your Enter": "{name} iniciada — el prompt está escrito, esperando tu Enter",
+  "{name} started, and is on your desk": "{name} ha arrancado, y está en tu escritorio",
   "{name} started, and the prompt is on its way": "{name} iniciada, y el prompt va en camino",
   "{name} written in — save and apply it to see it": "{name} escrito en el archivo — guarda y aplícalo",
   "{name} {what} to {dest}": "{name} {what} a {dest}",
