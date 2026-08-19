@@ -791,6 +791,8 @@
     "{name} started, and the prompt is on its way": "{name} démarrée, et le prompt est parti",
     "{name} started — the prompt is typed in, waiting for your Enter": "{name} démarrée — le prompt est tapé, il attend votre Entrée",
     "Start a shell or an agent here, in this desk’s folder": "Démarrer un shell ou un agent ici, dans le dossier du bureau",
-    "looking at what this machine can start…": "je regarde ce que cette machine peut démarrer…"
+    "looking at what this machine can start…": "je regarde ce que cette machine peut démarrer…",
+    "The API, live": "L'API, en direct",
+    "every route, with a button that really calls it": "chaque route, avec un bouton qui l’appelle vraiment"
   }
 }

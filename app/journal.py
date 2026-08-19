@@ -198,7 +198,7 @@ def trim(store: Path) -> None:
         pass
 
 
-def clear(store: Path, older_than: float | None = None) -> int:
+def clear(store: Path | None, older_than: float | None = None) -> int:
     """Throw away the whole thing, or everything before a cutoff. Returns how many lines went.
 
     A journal you cannot empty fills with the noise of ordinary use and stops being read, and
@@ -210,6 +210,8 @@ def clear(store: Path, older_than: float | None = None) -> int:
     much of a record; a record that says "somebody cleared me, at this hour, from this
     address" still answers the question it exists for.
     """
+    if store is None:
+        return 0
     try:
         with store.open(encoding="utf-8") as f:
             lines = f.readlines()
@@ -242,8 +244,15 @@ def clear(store: Path, older_than: float | None = None) -> int:
     return gone
 
 
-def read(store: Path, limit: int = 200) -> list[dict]:
-    """The most recent first, which is the order anybody reads this in."""
+def read(store: Path | None, limit: int = 200) -> list[dict]:
+    """The most recent first, which is the order anybody reads this in.
+
+    A missing store is an empty journal, not an exception: nothing here is important enough to
+    fail a request over, and a server built without one — a test, an embedding — should answer
+    "nothing recorded" rather than 500.
+    """
+    if store is None:
+        return []
     try:
         with store.open(encoding="utf-8") as f:
             lines = f.readlines()
