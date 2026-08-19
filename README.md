@@ -20,6 +20,7 @@ sit beside them, and the next desk is one press away.*
 [![tests](https://github.com/andreaderuvo/argus/actions/workflows/tests.yml/badge.svg)](https://github.com/andreaderuvo/argus/actions/workflows/tests.yml)
 [![install](https://github.com/andreaderuvo/argus/actions/workflows/install.yml/badge.svg)](https://github.com/andreaderuvo/argus/actions/workflows/install.yml)
 [![python](https://img.shields.io/badge/python-3.11%2B-3776ab?logo=python&logoColor=white)](https://www.python.org/)
+[![status](https://img.shields.io/badge/status-early%20%C2%B7%20interfaces%20may%20change-d6b46f)](#)
 [![licence](https://img.shields.io/badge/licence-MIT-blue)](LICENSE)
 [![no build step](https://img.shields.io/badge/build%20step-none-8fd6a0)](https://github.com/andreaderuvo/argus/wiki/Getting-started)
 [![tmux](https://img.shields.io/badge/tmux-real%20PTY-1bb91f)](https://github.com/andreaderuvo/argus/wiki/Sessions-and-the-terminal)
@@ -49,6 +50,22 @@ photograph with a phone. The first run writes `~/.config/argus/config.yaml` with
 Linux and macOS natively — Windows inside WSL, because tmux is a Unix program and has no
 native Windows build. The browser side is any operating system with a browser, which is the
 point.
+
+> [!NOTE]
+> **Early, and moving.** Argus is a few weeks old and in daily use by one person — the tests
+> are real (400+, on Linux and macOS, every push) and so is the churn. Concretely: **config
+> keys, API shapes and the layout of what the browser remembers can change between commits**,
+> there is no upgrade path promised yet, and a version number is a marker rather than a
+> contract until 1.0.
+>
+> What is *not* at risk is your work: Argus owns no data. It attaches to tmux sessions that
+> outlive it, reads files it did not create, and the one switch that lets it change anything is
+> `--allow-write`. Kill it and everything carries on.
+>
+> **Feedback is the most useful thing you can send** — especially "this broke", "this was
+> confusing", or "I expected X". [Open an issue](https://github.com/andreaderuvo/argus/issues)
+> with what you did, what happened, and which OS; a screenshot of a wrong-looking screen is
+> worth a paragraph.
 
 > [!WARNING]
 > **This is remote shell access wearing a browser.** Anyone holding the token can run
