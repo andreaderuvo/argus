@@ -99,6 +99,11 @@ class Agent:
         self.lost = False         # the clock ran out on it
 
     def arrived(self) -> bool:
+        """Is the file there *now* — asked of the disk, not of what was decided earlier.
+
+        Empty does not count. An agent that creates its result file and then thinks about what
+        to put in it would otherwise be finished for a moment.
+        """
         return bool(self.file and self.file.exists() and self.file.stat().st_size)
 
     def text(self) -> str:
@@ -138,14 +143,19 @@ class Group:
 
     @property
     def done(self) -> list[Agent]:
+        """The ones that wrote their file."""
         return [a for a in self.agents if a.done]
 
     @property
     def lost(self) -> list[Agent]:
+        """The ones that did not — worth naming rather than counting, because each is a
+        worktree still on disk with whatever it managed in it."""
         return [a for a in self.agents if not a.done]
 
     @property
     def paths(self) -> list[Path]:
+        """The finished files, for when you want to read them yourself rather than hand the
+        list to another agent."""
         return [a.file for a in self.done if a.file]
 
     @property
@@ -171,6 +181,12 @@ class Result:
             pass
 
     def says(self, what: str) -> bool:
+        """Does the file contain this, ignoring case.
+
+        For the agreed word rather than for parsing: a tester told to write `ALL GREEN` and
+        nothing else will one day write `all green.` with a full stop, and an orchestration
+        that loops for ever over a full stop is a bad night.
+        """
         return what.upper() in self.text.upper()
 
     def split_by(self, *prefixes: str) -> dict[str, list[str]]:
@@ -315,6 +331,12 @@ class Orchestra:
     # ------------------------------------------------------------------ small things
 
     def say(self, line: str = "") -> None:
+        """A line of the running commentary.
+
+        Yours goes through here too, so it lands in the same stream as the framework's in the
+        order it happened — `print` with a buffer behind it puts your line somewhere else
+        entirely when the output is a pipe, which is how a log ends up lying about the order.
+        """
         print(line, flush=True)
 
     def named(self, name: str) -> str:

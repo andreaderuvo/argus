@@ -24,4 +24,12 @@ jobs:
       # tmux is not needed — nothing here drives a real server — but pandoc decides
       # whether the Word-document tests run or skip, so it is worth having.
       - run: sudo apt-get update && sudo apt-get install -y pandoc
+      # The wiki is a separate repository, and one test wants to read it: every public name in
+      # `tools/` has to be named on a page. Without this the test skips, which is right on a
+      # laptop and wrong here — here is the only place the two repositories are ever seen
+      # together, so here is where the drift has to be caught.
+      - name: the wiki, for the documentation check
+        run: git clone --depth 1 https://github.com/andreaderuvo/argus.wiki.git "$RUNNER_TEMP/wiki" || true
       - run: python -m pytest -q
+        env:
+          ARGUS_WIKI: ${{ runner.temp }}/wiki
