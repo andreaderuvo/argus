@@ -94,6 +94,7 @@ you could read it.
 | [What each agent can do](https://github.com/andreaderuvo/argus/wiki/Agents) | who rings, who can say which folder and model it is on |
 | [Security](https://github.com/andreaderuvo/argus/wiki/Security) | the token, the file jail, per-device keys, the journal |
 | [An agent driving Argus](https://github.com/andreaderuvo/argus/wiki/An-agent-driving-Argus) | a key that can do five things, so your agents can hand work to each other |
+| [Orchestrating several agents](https://github.com/andreaderuvo/argus/wiki/Orchestrating-several-agents) | three worked examples: N attempts and a judge, N referees and an editor, three roles on one repo |
 | [The API](https://github.com/andreaderuvo/argus/wiki/The-API) | everything the app does, a script can do — and Swagger on your own machine |
 | [Everything it does](https://github.com/andreaderuvo/argus/wiki/Everything-it-does) | the whole catalogue, one page, searchable |
 | [FAQ](https://github.com/andreaderuvo/argus/wiki/FAQ) and [Troubleshooting](https://github.com/andreaderuvo/argus/wiki/Troubleshooting) | the questions people actually ask |

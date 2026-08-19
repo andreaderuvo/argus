@@ -7875,13 +7875,19 @@ async function screenWall() {
             mirror: (data) => echoToChain(spec.name, data),
             onGone: () => {
               win.classList.add('gone');
-              extras.prepend(el('span', { className: 'state critical gonemark', textContent: t('gone') }));
+              /* Straight after the name, not in with the buttons.
+               *
+               *  It used to be prepended to the row of controls, which put it after the `i` —
+               *  so the eye read "frontend · info · gone", and the word that matters most was
+               *  sitting among things you press. It belongs to the name: that session is what
+               *  has gone. */
+              title.after(el('span', { className: 'state critical gonemark', textContent: t('gone') }));
             },
             // The same name, running again: the window picks it up rather than making you
             // close a dead one and add it back.
             onBack: () => {
               win.classList.remove('gone');
-              extras.querySelector('.gonemark')?.remove();
+              head.querySelector('.gonemark')?.remove();
               toast(t('{name} is back', { name: spec.name }));
             },
           });
