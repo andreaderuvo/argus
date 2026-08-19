@@ -34,24 +34,33 @@ jobs:
 
       # A home of its own, so the run cannot be helped along by anything already on the
       # runner — and so the PATH warning is exercised too.
+      # XDG_CONFIG_HOME as well as HOME, and this is the CI being wrong rather than the app:
+      # a config path that prefers XDG_CONFIG_HOME is correct, and the ubuntu runners set it,
+      # so a test that only moved HOME watched the app write into the runner's real home and
+      # then failed looking for the file where it had asked for it.
       - name: install into an empty home
         run: |
-          mkdir -p "$RUNNER_TEMP/home"
-          env -i HOME="$RUNNER_TEMP/home" PATH="$PATH" USER="$USER" bash install.sh
+          mkdir -p "$RUNNER_TEMP/home/.config"
+          env -i HOME="$RUNNER_TEMP/home" XDG_CONFIG_HOME="$RUNNER_TEMP/home/.config" \
+                 PATH="$PATH" USER="$USER" bash install.sh
 
       - name: it starts, answers, and knows its own version
         run: |
           export HOME="$RUNNER_TEMP/home"
+          export XDG_CONFIG_HOME="$HOME/.config"
           export PATH="$HOME/.local/bin:$PATH"
           argus --version
           argus --listen 127.0.0.1:8099 &
           for i in $(seq 1 40); do sleep 0.5; [ -f "$HOME/.config/argus/config.yaml" ] && break; done
           token=$(sed -n 's/^token: *"\{0,1\}\([0-9a-f]*\).*/\1/p' "$HOME/.config/argus/config.yaml")
           [ -n "$token" ] || { echo "no token in the config"; exit 1; }
-          for i in $(seq 1 40); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:8099/api/version?token=$token" || true)
+          # Two minutes, and on a local route. /api/version asks GitHub whether a newer
+          # release exists, so a slow answer out there looked exactly like an app that never
+          # started — which is what the macOS runner reported the first time this ran.
+          for i in $(seq 1 120); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:8099/api/tmux/sessions?token=$token" || true)
             [ "$code" = "200" ] && break
-            sleep 0.5
+            sleep 1
           done
           [ "$code" = "200" ] || { echo "the installed copy never answered"; exit 1; }
           # A real tmux session, listed through the installed copy: this is the whole app in
@@ -65,14 +74,14 @@ jobs:
         run: |
           export HOME="$RUNNER_TEMP/home"
           before=$(sed -n 's/^token: *//p' "$HOME/.config/argus/config.yaml")
-          env -i HOME="$HOME" PATH="$PATH" USER="$USER" bash install.sh
+          env -i HOME="$HOME" XDG_CONFIG_HOME="$HOME/.config" PATH="$PATH" USER="$USER" bash install.sh
           after=$(sed -n 's/^token: *//p' "$HOME/.config/argus/config.yaml")
           [ "$before" = "$after" ] || { echo "the update changed the token"; exit 1; }
 
       - name: uninstalling leaves the configuration and nothing else
         run: |
           export HOME="$RUNNER_TEMP/home"
-          env -i HOME="$HOME" PATH="$PATH" USER="$USER" bash install.sh uninstall
+          env -i HOME="$HOME" XDG_CONFIG_HOME="$HOME/.config" PATH="$PATH" USER="$USER" bash install.sh uninstall
           [ ! -e "$HOME/.local/share/argus" ] || { echo "the code is still there"; exit 1; }
           [ ! -e "$HOME/.local/bin/argus" ] || { echo "the launcher is still there"; exit 1; }
           [ -f "$HOME/.config/argus/config.yaml" ] || { echo "it threw away the config"; exit 1; }
@@ -101,10 +110,10 @@ jobs:
             argus:ci --root "$HOME"
           for i in $(seq 1 40); do sleep 0.5; [ -f "$HOME/.config/argus/config.yaml" ] && break; done
           token=$(sed -n 's/^token: *"\{0,1\}\([0-9a-f]*\).*/\1/p' "$HOME/.config/argus/config.yaml")
-          for i in $(seq 1 40); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:8099/api/version?token=$token" || true)
+          for i in $(seq 1 120); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:8099/api/tmux/sessions?token=$token" || true)
             [ "$code" = "200" ] && break
-            sleep 0.5
+            sleep 1
           done
           [ "$code" = "200" ] || { docker logs argus-ci; echo "the container never answered"; exit 1; }
           curl -s "http://127.0.0.1:8099/api/tmux/sessions?token=$token" | grep -q from-the-host \
