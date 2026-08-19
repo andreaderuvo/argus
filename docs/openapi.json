@@ -1562,8 +1562,20 @@
   },
   "/api/launchers": {
    "get": {
-    "description": "The list a browser is allowed to pick from, and whether each one is really here.\n\n`available` is `null` when the answer is not knowable: a command with a pipe or a\n`&&` in it is a shell line rather than a program, and checking the PATH for it would\nbe a guess dressed as a fact.",
+    "description": "The list a browser is allowed to pick from, and whether each one is really here.\n\n`available` is `null` when the answer is not knowable: a command with a pipe or a\n`&&` in it is a shell line rather than a program, and checking the PATH for it would\nbe a guess dressed as a fact.\n\n`?versions=1` also runs each of them with `--version`, which is a second question and\ndeliberately a second request: finding out a word is on the PATH is free, and starting\nthree node programs to ask their version costs about two seconds. The box appears with\nits choices; the versions arrive after and fill themselves in.",
     "operationId": "getApiLaunchers",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "versions",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Versions",
+       "type": "boolean"
+      }
+     }
+    ],
     "responses": {
      "200": {
       "content": {
@@ -1576,6 +1588,16 @@
        }
       },
       "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
      }
     },
     "summary": "What this machine can start",

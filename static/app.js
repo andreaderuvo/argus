@@ -12939,6 +12939,23 @@ async function createSession({ path, suggest = 'shell', wsId = null } = {}) {
       if (first) sayName(first);
       // Only now: with nothing to start, Start is a button that can only fail.
       go.disabled = !chosen;
+      /* And then the versions, as a second question.
+       *
+       *  Asking three CLIs what version they are means starting three of them, which is about
+       *  two seconds — so it is not allowed to hold up the box. The rows are already there and
+       *  usable; each one's command line grows its version when the answer lands. */
+      try {
+        const more = await getJSON('/api/launchers?versions=1');
+        const said = new Map((more.launchers || []).map((x) => [x.name, x.version]));
+        window.__lastLaunchers = more.launchers || list;
+        for (const row of picks.querySelectorAll('.startpick')) {
+          const who = row.querySelector('.name')?.textContent;
+          const version = said.get(who);
+          if (!version) continue;
+          const meta = row.querySelector('.meta');
+          if (meta) meta.textContent = `${meta.textContent} · ${version}`;
+        }
+      } catch { /* the list is the useful half; a version is a nicety */ }
     } catch (e) {
       picks.replaceChildren(el('p', { className: 'error', textContent: e.message }));
     }
