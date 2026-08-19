@@ -792,6 +792,7 @@
   "{name} started": "{name} started",
   "{name} started in {path}": "{name} started in {path}",
   "{name} started — the prompt is typed in, waiting for your Enter": "{name} started — the prompt is typed in, waiting for your Enter",
+  "{name} started, and is on your desk": "{name} started, and is on your desk",
   "{name} started, and the prompt is on its way": "{name} started, and the prompt is on its way",
   "{name} written in — save and apply it to see it": "{name} written in — save and apply it to see it",
   "{name} {what} to {dest}": "{name} {what} to {dest}",
