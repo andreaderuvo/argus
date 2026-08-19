@@ -12788,6 +12788,18 @@ async function createSession({ path, suggest = 'shell', wsId = null } = {}) {
    *  machine and not about the browser — and a greyed row saying "not on the PATH" is a better
    *  answer than a session that dies in half a second for reasons you have to go and read. */
   const picks = el('div', { className: 'startpicks' });
+  /* Something there while the list is on its way.
+   *
+   *  Asking the machine what it can start means asking a login shell, which costs the better
+   *  part of a second the first time — and an empty space where the choices go is a box that
+   *  looks broken. Reported exactly that way: "premo e non succede nulla e poi scopro che si
+   *  stava caricando". So: a line that says it is looking, and a Start that cannot be pressed
+   *  until there is something to start.
+   */
+  picks.append(el('div', { className: 'startwait' }, [
+    el('span', { className: 'ico spinner' }, icon('refresh')),
+    el('span', { textContent: t('looking at what this machine can start…') }),
+  ]));
   let chosen = null;
   const drawPicks = (list) => {
     picks.replaceChildren();
@@ -12904,7 +12916,7 @@ async function createSession({ path, suggest = 'shell', wsId = null } = {}) {
     prompt, sendRow, wtBox,
   );
 
-  const go = el('button', { className: 'primary inline', textContent: t('Start') });
+  const go = el('button', { className: 'primary inline', textContent: t('Start'), disabled: true });
   sheet = modal(t('Start something here'), body, [
     el('button', { className: 'ghost', textContent: t('Cancel'), onclick: () => { sheet.close(); done(null); } }),
     go,
@@ -12925,8 +12937,10 @@ async function createSession({ path, suggest = 'shell', wsId = null } = {}) {
       drawPicks(list);
       const first = list.find((x) => x.name === chosen);
       if (first) sayName(first);
+      // Only now: with nothing to start, Start is a button that can only fail.
+      go.disabled = !chosen;
     } catch (e) {
-      picks.append(el('p', { className: 'error', textContent: e.message }));
+      picks.replaceChildren(el('p', { className: 'error', textContent: e.message }));
     }
     lookAtFolder();
   })();

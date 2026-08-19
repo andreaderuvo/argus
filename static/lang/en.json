@@ -790,6 +790,7 @@
     "worktree {branch} at {path}": "worktree {branch} at {path}",
     "{name} started, and the prompt is on its way": "{name} started, and the prompt is on its way",
     "{name} started — the prompt is typed in, waiting for your Enter": "{name} started — the prompt is typed in, waiting for your Enter",
-    "Start a shell or an agent here, in this desk’s folder": "Start a shell or an agent here, in this desk’s folder"
+    "Start a shell or an agent here, in this desk’s folder": "Start a shell or an agent here, in this desk’s folder",
+    "looking at what this machine can start…": "looking at what this machine can start…"
   }
 }
