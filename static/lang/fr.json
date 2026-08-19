@@ -803,6 +803,9 @@
     "fetching…": "téléchargement…",
     "a whole curl command works too — paste it here": "une commande curl entière marche aussi — collez-la ici",
     "headers, one per line": "en-têtes, un par ligne",
-    "{n} headers taken from that curl": "{n} en-têtes pris dans ce curl"
+    "{n} headers taken from that curl": "{n} en-têtes pris dans ce curl",
+    "Open this folder in Files": "Ouvrir ce dossier dans Fichiers",
+    "A file browser here, in a desk": "Un navigateur de fichiers ici, dans un bureau",
+    "Copy the absolute path": "Copier le chemin absolu"
   }
 }

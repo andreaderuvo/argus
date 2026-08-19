@@ -3328,6 +3328,41 @@ async function screenPreview(path) {
   bar.alt.replaceChildren(icon('split'));
   bar.alt.onclick = () => chooseDesk({ kind: 'file', path }, path.split('/').pop());
 
+  /* Where this file is, under the title, with the two things you want from it there.
+   *
+   *  The header says the file's name and nothing else, which is right until the moment you want
+   *  the folder — to see what is beside it, or to paste the path into a terminal. Both were two
+   *  or three moves away: back out to Files, or read the address off the URL bar and retype it.
+   *  A strip with the absolute path, a button that opens a browser there, and a button that
+   *  copies it.
+   */
+  const here = parentOf(path);
+  const strip = el('div', { className: 'prevwhere' }, [
+    el('button', {
+      className: 'wherepath', type: 'button',
+      // The whole path in the tooltip, since the visible one is cut when it is long.
+      title: `${here} — ${t('Open this folder in Files')}`,
+      textContent: here,
+      onclick: () => go(`#/files?path=${encodeURIComponent(here)}`),
+    }),
+    el('button', {
+      className: 'icon', type: 'button', title: t('A file browser here, in a desk'),
+      onclick: () => chooseDesk({ kind: 'browser', id: Date.now() % 100000, path: here },
+                                here.split('/').pop() || '/'),
+    }, icon('split')),
+    el('button', {
+      className: 'icon', type: 'button', title: t('Copy the absolute path'),
+      onclick: async function copied() {
+        // The tick, because a button that copies and then looks exactly as it did is a button
+        // you press again to be sure. Same as everywhere else a path is copied here.
+        if (!await copyText(path)) return;
+        this.replaceChildren(icon('tick'));
+        this.classList.add('done');
+        setTimeout(() => { this.replaceChildren(icon('clipboard')); this.classList.remove('done'); }, 1200);
+      },
+    }, icon('clipboard')),
+  ]);
+
   await mountPreview(view, path, {
     download: (fn) => {
       bar.action.hidden = false;
@@ -3348,6 +3383,10 @@ async function screenPreview(path) {
       };
     },
   });
+
+  // After the mount, because mounting empties the view. First child, so it reads as a caption
+  // rather than as something that arrived with the file.
+  view.prepend(strip);
 }
 
 /** A visible switch between a rendered document and its source. Tapping the title does

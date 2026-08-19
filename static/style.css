@@ -2410,6 +2410,24 @@ button.keyrow kbd { flex: none; }
 .msgcard > summary .winbtn.star:hover { color: var(--accent); }
 .msgcard > summary .winbtn.star.on .ico path { fill: currentColor; }
 
+/* Under the title of a document: where it is, and the two things you want from that. */
+.prevwhere {
+  display: flex; align-items: center; gap: .25rem;
+  padding: .35rem .6rem; border-bottom: 1px solid var(--line);
+  background: var(--panel); position: sticky; top: 0; z-index: 3;
+}
+.prevwhere .wherepath {
+  flex: 1; min-width: 0; text-align: left; background: none; border: 0; cursor: pointer;
+  color: var(--dim); font: 12.5px/1.4 ui-monospace, "SF Mono", Menlo, monospace;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  /* Not `direction: rtl`, which is the usual trick for truncating a path at its start: it
+     moves the leading slash to the end, so `/tmp/lab` was drawn as `tmp/lab/`. A long path
+     loses its tail here instead, and the whole of it is one hover or one copy away. */
+}
+.prevwhere .wherepath:hover { color: var(--accent); }
+.prevwhere .icon { flex: none; }
+.prevwhere .icon.done { color: var(--st-good, var(--accent)); }
+
 /* The box you paste a link into. */
 .sheetbody .linkbox {
   width: 100%; margin: .3rem 0 .2rem; padding: .5rem .6rem;
