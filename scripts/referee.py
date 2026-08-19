@@ -43,7 +43,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from argus_client import Argus             # noqa: E402  — one file, stdlib only
-from orchestra import slug                 # noqa: E402
+from orchestra import naming, slug, unused  # noqa: E402
 
 # Four lenses that disagree with each other on purpose. Change them: they are the argument.
 LENSES = [
@@ -76,10 +76,11 @@ When the file is written, run:  argus-say ring --why done --session {session}
 """
 
 
-def start_referees(argus: Argus, paper: Path, out: Path, lenses, launcher: str, run: bool):
+def start_referees(argus: Argus, paper: Path, out: Path, lenses, launcher: str, run: bool,
+                   prefix: str = ""):
     started = []
     for name, lens in lenses:
-        session = f"ref-{slug(name, 12)}"
+        session = naming(prefix, f"ref-{slug(name, 12)}")
         target = out / f"REVIEW-{name}.md"
         prompt = (
             f"You are one of {len(lenses)} referees reading the same paper, and you are the one "
@@ -129,7 +130,8 @@ def wait_for_files(argus: Argus, started, minutes: float):
     return done, waiting
 
 
-def start_editor(argus: Argus, paper: Path, out: Path, done, launcher: str, run: bool) -> str:
+def start_editor(argus: Argus, paper: Path, out: Path, done, launcher: str, run: bool,
+                 prefix: str = "") -> str:
     listing = "\n".join(f"- {one['lens']}: {one['file']}" for one in done)
     prompt = (
         f"You are the editor. {len(done)} referees have read the paper in {paper}, each through "
@@ -146,11 +148,11 @@ def start_editor(argus: Argus, paper: Path, out: Path, done, launcher: str, run:
         "Do not edit the paper and do not rewrite the reviews.\n"
         "When it is written, run:  argus-say ring --why done --session editor"
     )
-    said = argus.launch(launcher, "editor", paper, prompt, run=run)
+    said = argus.launch(launcher, naming(prefix, "editor"), paper, prompt, run=run)
     return said["name"]
 
 
-def start_rebuttal(argus: Argus, paper: Path, out: Path, launcher: str, run: bool) -> str:
+def start_rebuttal(argus: Argus, paper: Path, out: Path, launcher: str, run: bool, prefix: str = "") -> str:
     prompt = (
         f"You are the author. The editor's decision on the paper in {paper} is in "
         f"{out / 'DECISION.md'}, and the referees' reviews are beside it.\n\n"
@@ -164,7 +166,7 @@ def start_rebuttal(argus: Argus, paper: Path, out: Path, launcher: str, run: boo
         "nothing. Do not edit the paper yet.\n"
         "When it is written, run:  argus-say ring --why done --session rebuttal"
     )
-    said = argus.launch(launcher, "rebuttal", paper, prompt, run=run)
+    said = argus.launch(launcher, naming(prefix, "rebuttal"), paper, prompt, run=run)
     return said["name"]
 
 
@@ -178,6 +180,9 @@ def main() -> None:
     ap.add_argument("--rebuttal", action="store_true", help="a third round: the author answers")
     ap.add_argument("--no-run", action="store_true",
                     help="type each prompt in but leave the return to a person — try this first")
+    ap.add_argument("--prefix", default="",
+                    help="put this in front of every session name, so two papers can be "
+                         "refereed at once without their editors colliding")
     ap.add_argument("--out", type=Path, help="where the reviews go (default: <paper>/reviews/<today>)")
     args = ap.parse_args()
 
@@ -202,9 +207,13 @@ def main() -> None:
     if args.launcher not in here.get("launchers", []):
         sys.exit(f"{args.launcher!r} is not one of this machine's launchers: {here.get('launchers')}")
 
+    unused(here, [naming(args.prefix, f"ref-{slug(n, 12)}") for n, _ in lenses]
+                 + [naming(args.prefix, "editor")]
+                 + ([naming(args.prefix, "rebuttal")] if args.rebuttal else []))
+
     print(f"{here['machine']} · reviewing {paper.name} · reviews into {out}")
     print(f"\nround 1 — {len(lenses)} referees:")
-    started = start_referees(argus, paper, out, lenses, args.launcher, run)
+    started = start_referees(argus, paper, out, lenses, args.launcher, run, args.prefix)
 
     print(f"\nwaiting up to {args.minutes:g} minutes:")
     done, lost = wait_for_files(argus, started, args.minutes)
@@ -214,9 +223,10 @@ def main() -> None:
         sys.exit("\nno reviews; nothing to edit")
 
     print(f"\nround 2 — the editor, on {len(done)} review(s):")
-    start_editor(argus, paper, out, done, args.launcher, run)
+    start_editor(argus, paper, out, done, args.launcher, run, args.prefix)
     decision = out / "DECISION.md"
-    got, _ = wait_for_files(argus, [{"lens": "editor", "session": "editor", "file": decision}], args.minutes)
+    got, _ = wait_for_files(argus, [{"lens": "editor", "session": naming(args.prefix, "editor"),
+                                     "file": decision}], args.minutes)
     if not got:
         sys.exit(f"\nthe editor never wrote {decision}")
     print(f"\n{decision}:\n")
@@ -224,8 +234,8 @@ def main() -> None:
 
     if args.rebuttal:
         print("\nround 3 — the author answers:")
-        start_rebuttal(argus, paper, out, args.launcher, run)
-        wait_for_files(argus, [{"lens": "author", "session": "rebuttal",
+        start_rebuttal(argus, paper, out, args.launcher, run, args.prefix)
+        wait_for_files(argus, [{"lens": "author", "session": naming(args.prefix, "rebuttal"),
                                 "file": out / "REBUTTAL.md"}], args.minutes)
 
     print(f"\nEverything is in {out}. Nothing was edited and no session was closed:")

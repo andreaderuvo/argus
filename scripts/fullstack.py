@@ -40,7 +40,9 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
-from argus_client import Argus         # noqa: E402  — one file, stdlib only
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from argus_client import Argus              # noqa: E402  — one file, stdlib only
+from orchestra import naming, unused        # noqa: E402
 
 CONTRACT = "When it is written, run:  argus-say ring --why done --session {session}"
 
@@ -71,19 +73,21 @@ ROLES = {
 }
 
 
-def start(argus: Argus, repo: Path, notes: Path, launcher: str, task: str, run: bool) -> dict:
+def start(argus: Argus, repo: Path, notes: Path, launcher: str, task: str, run: bool,
+          prefix: str = "") -> dict:
     """The three of them, in one checkout, each with its job and the task."""
     made = {}
     for role, brief in ROLES.items():
+        session = naming(prefix, role)
         prompt = (
             f"Three agents are working on one repository at {repo}: a backend, a frontend and a\n"
             f"tester. You are the {role}.\n\n"
             f"THE TASK: {task}\n\n"
             + brief.format(notes=notes) + "\n\n"
             f"Shared notes go in {notes}. Read the other files there when you need them.\n"
-            + CONTRACT.format(session=role)
+            + CONTRACT.format(session=session)
         )
-        said = argus.launch(launcher, role, repo, prompt, run=run)
+        said = argus.launch(launcher, session, repo, prompt, run=run)
         made[role] = said["name"]
         print(f"  {said['name']:10} started in {repo}")
     return made
@@ -157,6 +161,9 @@ def main() -> None:
     ap.add_argument("--minutes", type=float, default=30, help="how long to wait in each round")
     ap.add_argument("--no-run", action="store_true",
                     help="type each prompt in but leave the return to a person — try this first")
+    ap.add_argument("--prefix", default="",
+                    help="put this in front of every session name, so a machine that already "
+                         "has a `backend` open is not a reason this cannot run")
     ap.add_argument("--notes", type=Path, help="where the shared files go (default: <repo>/.handover)")
     args = ap.parse_args()
 
@@ -171,10 +178,12 @@ def main() -> None:
     here = argus.who()
     if args.launcher not in here.get("launchers", []):
         sys.exit(f"{args.launcher!r} is not one of this machine's launchers: {here.get('launchers')}")
+    roles = {role: naming(args.prefix, role) for role in ROLES}
+    unused(here, list(roles.values()))
     print(f"{here['machine']} · {repo.name} · notes in {notes}\n")
 
     print("starting three:")
-    start(argus, repo, notes, args.launcher, args.task, run)
+    start(argus, repo, notes, args.launcher, args.task, run, args.prefix)
 
     # The one hard dependency: nobody builds against a contract that does not exist yet. The
     # frontend was started with the same task and will be sitting there; it is *told* when the
@@ -182,14 +191,14 @@ def main() -> None:
     print("\nthe contract first:")
     if not wait_for(argus, [notes / "API.md"], args.minutes, "the backend to write API.md"):
         sys.exit("the backend never wrote API.md — nothing to build against")
-    tell(argus, "frontend", f"{notes / 'API.md'} is written. Build against it now.", run)
+    tell(argus, roles["frontend"], f"{notes / 'API.md'} is written. Build against it now.", run)
 
     failures = notes / "FAILURES.md"
     for turn in range(1, args.rounds + 1):
         print(f"\nround {turn}: the tester")
         if failures.exists():
             failures.unlink()          # each round writes its own; a stale file would end it early
-        tell(argus, "tests",
+        tell(argus, roles["tests"],
              f"Both sides say they have something. Run everything and write {failures} — "
              "'ALL GREEN' if it passes.", run)
         if not wait_for(argus, [failures], args.minutes, "the tester"):
@@ -206,7 +215,7 @@ def main() -> None:
         for side in ("backend", "frontend"):
             theirs = whose[side] + (whose["unassigned"] if side == "backend" else [])
             if theirs:
-                tell(argus, side, "The tester found these, and they are yours:\n"
+                tell(argus, roles[side], "The tester found these, and they are yours:\n"
                      + "\n".join(theirs[:20]) + f"\n\nFix them, then ring done. Round {turn}.", run)
         if turn == args.rounds:
             print(f"\nStopped after {args.rounds} rounds with failures left in {failures}.")

@@ -65,14 +65,41 @@ def slug(text: str, n: int = 24) -> str:
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")[:n] or "idea"
 
 
+def naming(prefix: str, name: str) -> str:
+    """A session name for this run.
+
+    Not made unique behind your back, and that is deliberate: a session name is the *address*
+    these scripts relay to and the name each agent is told to ring with, so a `frontend`
+    silently renamed `frontend-2` is a sentence delivered to the wrong agent. Your prefix or
+    nothing.
+    """
+    return f"{slug(prefix, 12)}-{name}" if prefix else name
+
+
+def unused(here: dict, names: list[str]) -> None:
+    """Refuse before starting anything, rather than 409 on the third launch.
+
+    Every one of these scripts uses fixed role names — `judge`, `editor`, `backend` — and a
+    machine that has been worked on for a week already has a session called one of them. The
+    first version found out halfway through a fan-out, which is the worst moment: two agents
+    running, nothing to hand their work to, and a traceback instead of a sentence.
+    """
+    taken = sorted({s["name"] for s in here.get("sessions", [])} & set(names))
+    if taken:
+        sys.exit(f"these are already running here: {', '.join(taken)}\n"
+                 "close them, or give this run a --prefix of its own")
+
+
 # --------------------------------------------------------------------- the shape
 
 
-def fan_out(argus: Argus, repo: Path, launcher: str, ideas: list[str], run: bool) -> list[dict]:
+def fan_out(argus: Argus, repo: Path, launcher: str, ideas: list[str], run: bool,
+            prefix: str = "") -> list[dict]:
     """One worktree and one agent per idea."""
     started = []
     for idea in ideas:
-        branch = f"try/{slug(idea)}"
+        name = naming(prefix, slug(idea))
+        branch = f"try/{name}"
         made = argus.worktree(repo, branch)
         where = Path(made["path"])
         # The contract, in the prompt, because there is no other way to be told it is done.
@@ -81,9 +108,9 @@ def fan_out(argus: Argus, repo: Path, launcher: str, ideas: list[str], run: bool
             f"Work only in {where}. When you have something that runs, write {RESULT}\n"
             "with: what you changed, whether the tests pass, and one line beginning\n"
             "'VERDICT:' saying whether you would ship it.\n"
-            f"Then run: argus-say ring --why done --session {slug(idea)}"
+            f"Then run: argus-say ring --why done --session {name}"
         )
-        said = argus.launch(launcher, slug(idea), where, prompt, run=run)
+        said = argus.launch(launcher, name, where, prompt, run=run)
         started.append({"idea": idea, "session": said["name"], "path": where, "branch": branch})
         print(f"  {said['name']:24} {branch:28} {where}")
     return started
@@ -136,14 +163,15 @@ def wait_for(argus: Argus, started: list[dict], minutes: float) -> tuple[list[di
     return done, waiting
 
 
-def judge(argus: Argus, repo: Path, launcher: str, done: list[dict], run: bool) -> str:
+def judge(argus: Argus, repo: Path, launcher: str, done: list[dict], run: bool,
+          prefix: str = "") -> str:
     listing = "\n".join(f"- {one['idea']}: {one['path'] / RESULT}" for one in done)
     prompt = (
         "Three attempts at the same problem have finished. Read each RESULT.md below,\n"
         "compare them on correctness first and speed second, and say which one to keep\n"
         "and why in three sentences. Do not edit anything.\n\n" + listing
     )
-    said = argus.launch(launcher, "judge", repo, prompt, run=run)
+    said = argus.launch(launcher, naming(prefix, "judge"), repo, prompt, run=run)
     return said["name"]
 
 
@@ -159,6 +187,9 @@ def main() -> None:
     ap.add_argument("--no-run", action="store_true",
                     help="type each prompt in but leave the return to a person — try this first")
     ap.add_argument("--no-judge", action="store_true", help="stop after the attempts")
+    ap.add_argument("--prefix", default="",
+                    help="put this in front of every session name, so a second run of the "
+                         "same thing does not collide with the first")
     args = ap.parse_args()
 
     argus = Argus()
@@ -167,9 +198,14 @@ def main() -> None:
     if args.launcher not in here.get("launchers", []):
         sys.exit(f"{args.launcher!r} is not one of this machine's launchers: {here.get('launchers')}")
 
+    wanted = [naming(args.prefix, slug(idea)) for idea in args.ideas]
+    if not args.no_judge:
+        wanted.append(naming(args.prefix, "judge"))
+    unused(here, wanted)
+
     print(f"{here['machine']} · {len(here['sessions'])} sessions already here")
     print(f"\nstarting {len(args.ideas)} attempts:")
-    started = fan_out(argus, args.repo.expanduser(), args.launcher, args.ideas, run)
+    started = fan_out(argus, args.repo.expanduser(), args.launcher, args.ideas, run, args.prefix)
 
     print(f"\nwaiting up to {args.minutes:g} minutes for {RESULT} in each:")
     done, lost = wait_for(argus, started, args.minutes)
@@ -185,7 +221,7 @@ def main() -> None:
         return
 
     print(f"\n{len(done)} finished. Starting the judge:")
-    name = judge(argus, args.repo.expanduser(), args.launcher, done, run)
+    name = judge(argus, args.repo.expanduser(), args.launcher, done, run, args.prefix)
     print(f"  {name} is reading them, in {args.repo}")
     print("\nThe worktrees are left where they are: this script does not delete work.")
     print("  git -C %s worktree list" % args.repo)
