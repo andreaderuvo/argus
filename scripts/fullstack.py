@@ -39,8 +39,8 @@ import sys
 import time
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from orchestra import Argus            # noqa: E402  — the same tiny client
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
+from argus_client import Argus         # noqa: E402  — one file, stdlib only
 
 CONTRACT = "When it is written, run:  argus-say ring --why done --session {session}"
 
@@ -83,9 +83,7 @@ def start(argus: Argus, repo: Path, notes: Path, launcher: str, task: str, run: 
             f"Shared notes go in {notes}. Read the other files there when you need them.\n"
             + CONTRACT.format(session=role)
         )
-        said = argus.call("POST", "/api/tmux/launch", {
-            "launcher": launcher, "name": role, "path": str(repo), "prompt": prompt, "run": run,
-        })
+        said = argus.launch(launcher, role, repo, prompt, run=run)
         made[role] = said["name"]
         print(f"  {said['name']:10} started in {repo}")
     return made
@@ -129,7 +127,7 @@ def wait_for(argus: Argus, files: list[Path], minutes: float, why: str) -> list[
 
 def tell(argus: Argus, session: str, text: str, run: bool) -> None:
     """A sentence into a session that is already running — the thing a person does by dragging."""
-    argus.call("POST", "/api/relay", {"to": session, "text": text, "run": run})
+    argus.relay(session, text, run)
     print(f"  → {session}: {text.splitlines()[0][:70]}")
 
 
@@ -170,7 +168,7 @@ def main() -> None:
     run = not args.no_run
 
     argus = Argus()
-    here = argus.call("GET", "/api/who")
+    here = argus.who()
     if args.launcher not in here.get("launchers", []):
         sys.exit(f"{args.launcher!r} is not one of this machine's launchers: {here.get('launchers')}")
     print(f"{here['machine']} · {repo.name} · notes in {notes}\n")
