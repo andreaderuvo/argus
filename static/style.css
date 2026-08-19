@@ -2410,6 +2410,36 @@ button.keyrow kbd { flex: none; }
 .msgcard > summary .winbtn.star:hover { color: var(--accent); }
 .msgcard > summary .winbtn.star.on .ico path { fill: currentColor; }
 
+/* Starting something: the box that used to ask only for a name.
+   Rows rather than a dropdown for what to run: three or four of them, each with its command
+   under it, and a greyed one that says why it cannot be picked. */
+.startbody { display: flex; flex-direction: column; gap: .3rem; max-height: 70vh; overflow-y: auto; }
+/* Nothing in a scrolling column may be squeezed: without this the textarea — the one field
+   with something to say — was flattened to a five-pixel slot between the select above it and
+   the checkbox below. */
+.startbody > * { flex: none; }
+.startbody textarea { min-height: 5.5rem; resize: vertical; }
+.startlabel { margin-top: .5rem; font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--accent); }
+.startbody input[type=text], .startbody textarea, .startbody select {
+  width: 100%; background: var(--bg); color: var(--bright);
+  border: 1px solid var(--line); border-radius: .4rem; padding: .45rem .6rem; font-size: .9rem;
+}
+.startbody .startpath, .startbody .startbranch { font-family: ui-monospace, monospace; font-size: .82rem; }
+.startpicks { display: flex; flex-direction: column; gap: .25rem; }
+.startpick { text-align: left; }
+.startpick .meta { font-family: ui-monospace, monospace; font-size: .72rem; }
+.startpick.on { border-color: var(--accent); color: var(--bright); }
+.startpick.missing { opacity: .55; }
+.startpick.missing .verb { color: var(--danger); }
+.startsend { display: flex; gap: .6rem; align-items: flex-start; padding: .45rem .1rem; cursor: pointer; }
+.startsend input { margin-top: .2rem; flex: none; }
+.startsend .name { display: block; }
+.startsend .meta { display: block; font-size: .75rem; color: var(--dim); }
+.startwt { border-top: 1px solid var(--line); margin-top: .5rem; padding-top: .3rem; }
+.startwtrow { display: flex; gap: .5rem; align-items: center; }
+.startwtrow .meta { font-family: ui-monospace, monospace; font-size: .72rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.startpromptrow { display: flex; gap: .4rem; }
+
 /* A short list inside a sheet — the ways a browser hides its install command. */
 .sheetbody .sheetlist { margin: .5rem 0; padding-left: 1.1rem; }
 .sheetbody .sheetlist li { margin: .3rem 0; line-height: 1.5; color: var(--text); }
