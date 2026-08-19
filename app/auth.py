@@ -48,6 +48,11 @@ AGENT_ROUTES = frozenset({
     ("GET", "/api/who"),
     ("GET", "/api/overview"),
     ("GET", "/api/launchers"),
+    # Read, not write. The prompt library and the desks are in here, and an agent that wants to
+    # send a prompt should be able to read the library it comes from — while an agent quietly
+    # rearranging your windows is a different proposition, and one line away if it is ever
+    # wanted.
+    ("GET", "/api/prefs"),
     ("GET", "/api/tmux/sessions"),
     ("GET", "/api/tmux/cwd"),
     ("POST", "/api/bell"),
