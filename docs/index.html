@@ -238,9 +238,8 @@
       <a class="btn ghost" href="api.html">The API</a>
     </div>
 
-    <code class="oneliner">git clone https://github.com/andreaderuvo/argus &amp;&amp; cd argus
-pip install -r requirements.txt
-python3 -m app.main --allow-write   <span class="said"># prints a URL with a token in it</span></code>
+    <code class="oneliner">curl -fsSL https://raw.githubusercontent.com/andreaderuvo/argus/master/install.sh | bash
+argus --allow-write   <span class="said"># prints a URL with a token in it</span></code>
     <p class="badges">MIT · Python + vanilla JS · no build step · no database · self-hosted</p>
 
     <div class="pinshot">
@@ -370,11 +369,22 @@ python3 -m app.main --allow-write   <span class="said"># prints a URL with a tok
           folder.</p>
       </div>
       <div class="card">
+        <h3>Start the work, not just watch it</h3>
+        <p>The same button that made an empty session now asks what to run — a shell, or an
+          agent from a list you write — in which folder, and what to say to it first. It waits
+          for the thing to stop drawing before typing, and does not press Enter unless you say
+          so. If the folder is a git repository it will make a <strong>worktree</strong> on a new
+          branch and start the agent in there, so two of them are not editing one checkout.
+          On a phone this is the difference between answering an agent and beginning one.</p>
+      </div>
+
+      <div class="card">
         <h3>Prompts you keep, not retype</h3>
         <p>Folders of prompts written with placeholders, and named sets that fill them —
           one wording serves every project. Hover to see exactly what it will say before it
           says it, drag one onto a terminal to hand it over, or aim it at two agents at
-          once and press it once.</p>
+          once and press it once. Star the four you send all afternoon and they sit at the top
+          of every desk, without their folders.</p>
       </div>
     </div>
 
@@ -472,13 +482,25 @@ python3 -m app.main --allow-write   <span class="said"># prints a URL with a tok
 
   <section id="start">
     <h2>Run it in a minute</h2>
+<pre>curl -fsSL https://raw.githubusercontent.com/andreaderuvo/argus/master/install.sh | bash
+argus --allow-write                      # prints a URL with a token in it</pre>
+    <p>Into <code>~/.local/share/argus</code>, with a launcher in <code>~/.local/bin</code>. No
+      <code>sudo</code>, no system package, nothing outside your home — so it does not ask,
+      because there is nothing to ask. The same line again updates it in place and leaves your
+      token alone; <code>-s -- --service</code> also writes a systemd user unit;
+      <code>-s -- uninstall</code> removes it and keeps your configuration.</p>
+    <p>Or a container, which is the answer on Windows — through WSL, because tmux is a Unix
+      program and has no native Windows build:</p>
 <pre>git clone https://github.com/andreaderuvo/argus &amp;&amp; cd argus
-pip install -r requirements.txt
-python3 -m app.main --allow-write        # prints a URL with a token in it</pre>
-    <p>Open that URL, or scan the QR code it can print, and the phone is in. No build step,
-      no database, no agent to install anywhere — and nothing changes about how you use
-      tmux: Argus attaches to the sessions you already have and leaves them running when
-      you close the tab.</p>
+ARGUS_UID=$(id -u) ARGUS_GID=$(id -g) docker compose up -d</pre>
+    <p>Or the old way, <code>git clone</code> and <code>pip install -r requirements.txt</code>.
+      All three are checked on every change, on Linux and macOS: installed into an empty home,
+      started, a real tmux session listed through the API, updated, removed — and the image is
+      started against a real tmux to prove it can see the host's sessions.</p>
+    <p>Open the URL it prints, or scan the QR code it can print, and the phone is in. No build
+      step, no database, no agent to install anywhere — and nothing changes about how you use
+      tmux: Argus attaches to the sessions you already have and leaves them running when you
+      close the tab.</p>
 
     <div class="note">
       <strong>Reaching it from a phone that is not on your network:</strong> install
