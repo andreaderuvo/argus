@@ -1219,6 +1219,11 @@ def banner(config_path: Path, created: bool, host: str, port: int, cfg: Config, 
     print(f"  created {config_path} with a fresh token" if created else f"  config  {config_path}")
     shown = [str(r) for r in cfg.roots]
     print(f"  roots   {', '.join(shown[:4])}{f' (+{len(shown) - 4} more)' if len(shown) > 4 else ''}")
+    # A root of `/` is a legitimate thing to want and an easy thing to end up with by accident,
+    # and the difference matters enough to say out loud: with it, "the file jail" is a sentence
+    # about nothing.
+    if any(str(r) == "/" for r in cfg.roots):
+        print("          (one of them is / — every file this user can read is reachable)")
     print(f"  resize  {cfg.resize_policy}")
     # Not fatal: files, documents and the machine page work without it, and refusing to
     # start would take those away over something half the screens do not need. But it is
