@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Submitted by hand in Search Console. It is not a ranking signal and does not make Google
+     visit: it is the only way to *tell* Google these pages exist at all, because every link
+     GitHub draws to them — the About box and the README alike — carries rel="nofollow", so
+     nothing on the web points here in a way a crawler follows. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://andreaderuvo.github.io/argus/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://andreaderuvo.github.io/argus/api.html</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+</urlset>
