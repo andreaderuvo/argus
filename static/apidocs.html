@@ -17,15 +17,98 @@
 -->
 <link rel="stylesheet" href="/vendor/swagger-ui-5.32.14/swagger-ui.css">
 <style>
-  body { margin: 0; background: #0b0e14; }
-  .topbar { display: none; }               /* its URL box: this page has exactly one spec */
-  .swagger-ui .info { margin: 1.5rem 0; }
-  #said {
-    font: 500 14px/1.5 system-ui, sans-serif; color: #c5cad3; background: #11151d;
-    border-bottom: 1px solid #1e2530; padding: .8rem 1.2rem;
+  /* Swagger's own stylesheet is light, and the first version of this page put a dark page
+     behind it: white cards floating on black, grey-on-grey inside them. Unreadable, and worse
+     than either honest choice.
+
+     So the page follows the app instead — the same `argus.prefs` the app keeps its theme in —
+     and the dark half is written out rather than wished for. Only surfaces and ink: no
+     inverting, which would turn Swagger's blue GET and green POST into colours that mean
+     nothing. */
+  :root {
+    --bg: #ffffff; --panel: #f6f7f9; --line: #dde2ea; --text: #2c333d;
+    --bright: #10141b; --dim: #6c7583; --accent: #17805a;
   }
-  #said b { color: #8fd6a0; }
-  #said a { color: #8fd6a0; }
+  html[data-theme="dark"] {
+    --bg: #0b0e14; --panel: #11151d; --line: #1e2530; --text: #c5cad3;
+    --bright: #e6e9ef; --dim: #6b7484; --accent: #8fd6a0;
+  }
+  body { margin: 0; background: var(--bg); }
+  .topbar { display: none; }               /* its URL box: this page has exactly one spec */
+  #said {
+    font: 500 14px/1.5 system-ui, sans-serif; color: var(--text); background: var(--panel);
+    border-bottom: 1px solid var(--line); padding: .8rem 1.2rem;
+  }
+  #said b { color: var(--accent); }
+  #said a { color: var(--accent); }
+  .swagger-ui .info { margin: 1.5rem 0; }
+
+  /* ---- the dark half. Swagger names everything, so this is a list of surfaces. ---- */
+  html[data-theme="dark"] .swagger-ui,
+  html[data-theme="dark"] .swagger-ui .info li,
+  html[data-theme="dark"] .swagger-ui .info p,
+  html[data-theme="dark"] .swagger-ui .info table,
+  html[data-theme="dark"] .swagger-ui label,
+  html[data-theme="dark"] .swagger-ui .tab li,
+  html[data-theme="dark"] .swagger-ui .opblock-description-wrapper p,
+  html[data-theme="dark"] .swagger-ui .opblock-external-docs-wrapper p,
+  html[data-theme="dark"] .swagger-ui .opblock-title_normal p,
+  html[data-theme="dark"] .swagger-ui .responses-inner h4,
+  html[data-theme="dark"] .swagger-ui .responses-inner h5,
+  html[data-theme="dark"] .swagger-ui .response-col_status,
+  html[data-theme="dark"] .swagger-ui table thead tr td,
+  html[data-theme="dark"] .swagger-ui table thead tr th,
+  html[data-theme="dark"] .swagger-ui .parameter__name,
+  html[data-theme="dark"] .swagger-ui .parameter__type,
+  html[data-theme="dark"] .swagger-ui .prop-format,
+  html[data-theme="dark"] .swagger-ui .model-title,
+  html[data-theme="dark"] .swagger-ui .model { color: var(--text); }
+
+  html[data-theme="dark"] .swagger-ui .info .title,
+  html[data-theme="dark"] .swagger-ui .opblock-tag,
+  html[data-theme="dark"] .swagger-ui .opblock .opblock-summary-path,
+  html[data-theme="dark"] .swagger-ui .opblock .opblock-summary-path__deprecated,
+  html[data-theme="dark"] .swagger-ui h1, html[data-theme="dark"] .swagger-ui h2,
+  html[data-theme="dark"] .swagger-ui h3, html[data-theme="dark"] .swagger-ui h4,
+  html[data-theme="dark"] .swagger-ui h5 { color: var(--bright); }
+
+  html[data-theme="dark"] .swagger-ui .opblock-tag small,
+  html[data-theme="dark"] .swagger-ui .opblock .opblock-summary-description,
+  html[data-theme="dark"] .swagger-ui .parameter__in,
+  html[data-theme="dark"] .swagger-ui .response-col_links,
+  html[data-theme="dark"] .swagger-ui .markdown code,
+  html[data-theme="dark"] .swagger-ui .renderedMarkdown code { color: var(--dim); }
+
+  html[data-theme="dark"] .swagger-ui .opblock-tag { border-bottom-color: var(--line); }
+  html[data-theme="dark"] .swagger-ui .opblock { background: var(--panel); border-color: var(--line); }
+  html[data-theme="dark"] .swagger-ui .opblock .opblock-section-header {
+    background: var(--bg); border-color: var(--line); box-shadow: none;
+  }
+  html[data-theme="dark"] .swagger-ui section.models,
+  html[data-theme="dark"] .swagger-ui section.models .model-container,
+  html[data-theme="dark"] .swagger-ui .model-box { background: var(--panel); border-color: var(--line); }
+  html[data-theme="dark"] .swagger-ui table tbody tr td { border-color: var(--line); }
+  html[data-theme="dark"] .swagger-ui .parameters-col_description input,
+  html[data-theme="dark"] .swagger-ui input[type=text],
+  html[data-theme="dark"] .swagger-ui textarea,
+  html[data-theme="dark"] .swagger-ui select,
+  html[data-theme="dark"] .swagger-ui .filter .operation-filter-input {
+    background: var(--bg); color: var(--bright); border-color: var(--line);
+  }
+  /* The one place Swagger draws its own dark: request and response bodies. Left alone except
+     for the frame, because a code block that matches the page loses its edges. */
+  html[data-theme="dark"] .swagger-ui .highlight-code > .microlight { border: 1px solid var(--line); }
+  html[data-theme="dark"] .swagger-ui .btn { color: var(--text); border-color: var(--line); }
+  html[data-theme="dark"] .swagger-ui .btn.execute { background: var(--accent); color: #0b0e14; border-color: var(--accent); }
+  html[data-theme="dark"] .swagger-ui .btn.authorize { color: var(--accent); border-color: var(--accent); }
+  html[data-theme="dark"] .swagger-ui .btn.authorize svg { fill: var(--accent); }
+  html[data-theme="dark"] .swagger-ui svg:not(:root) { fill: var(--text); }
+  html[data-theme="dark"] .swagger-ui .expand-methods svg { fill: var(--dim); }
+  html[data-theme="dark"] .swagger-ui .info a { color: var(--accent); }
+  html[data-theme="dark"] .swagger-ui .scheme-container { background: var(--panel); box-shadow: none; }
+  html[data-theme="dark"] .swagger-ui .dialog-ux .modal-ux { background: var(--panel); border-color: var(--line); }
+  html[data-theme="dark"] .swagger-ui .dialog-ux .modal-ux-header h3,
+  html[data-theme="dark"] .swagger-ui .dialog-ux .modal-ux-content h4 { color: var(--bright); }
 </style>
 </head>
 <body>
@@ -40,6 +123,16 @@
   // The token from the address, or from the hash the app puts it in. Not stored here: this
   // page is a viewer, and one more copy of a credential in one more place is one more thing
   // to think about.
+  /* The app's own theme, from the preferences it already keeps. A separate switch here would
+     be a second place to set the same thing, and this page is a viewer. */
+  try {
+    const prefs = JSON.parse(localStorage.getItem('argus.prefs') || '{}');
+    const wanted = prefs.theme === 'auto' || !prefs.theme
+      ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+      : prefs.theme;
+    document.documentElement.dataset.theme = wanted;
+  } catch { document.documentElement.dataset.theme = 'dark'; }
+
   const said = new URLSearchParams(location.search);
   const fromHash = new URLSearchParams((location.hash || '').replace(/^#/, ''));
   const token = said.get('token') || fromHash.get('token') || '';
