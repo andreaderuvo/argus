@@ -75,6 +75,11 @@ class TooFast(ArgusError):
 
 
 def config_path() -> Path:
+    """Where the configuration is looked for.
+
+    `$ARGUS_CONFIG` wins, which is how a script is pointed at a second Argus on the same
+    machine — a demo instance on its own socket, say, without touching the real one.
+    """
     base = os.environ.get("XDG_CONFIG_HOME")
     root = Path(base) if base else Path(os.environ.get("HOME") or "/") / ".config"
     return Path(os.environ.get("ARGUS_CONFIG") or root / "argus" / "config.yaml")
@@ -127,6 +132,13 @@ class Argus:
     # ---------------------------------------------------------------- the wire
 
     def call(self, method: str, path: str, body: dict | None = None, timeout: float = 60) -> dict:
+        """Any route at all, with the token attached and the error unwrapped.
+
+        The escape hatch, and the reason it is fair to say nothing is hidden behind the methods
+        below: they are conveniences over this, and a route none of them covers is one call
+        away. A refusal comes back as `ArgusError` carrying Argus's own sentence rather than
+        as an HTML error page, and a 429 as `TooFast`, because a brake is not a failure.
+        """
         data = json.dumps(body).encode() if body is not None else None
         request = urllib.request.Request(self.base + path, data=data, method=method, headers={
             "authorization": f"Bearer {self.token}",
@@ -155,6 +167,8 @@ class Argus:
         return self.call("GET", "/api/who")
 
     def sessions(self) -> list[dict]:
+        """Just the sessions, when `who()` is more than you need — no folders, no agents, no
+        working out who is waiting."""
         return self.call("GET", "/api/tmux/sessions")
 
     def launchers(self, versions: bool = False) -> list[dict]:
@@ -195,12 +209,21 @@ class Argus:
                          {"why": why, "text": text, "session": session or os.environ.get("ARGUS_SESSION", "")})
 
     def worktree(self, repo: str | Path, branch: str, to: str | Path | None = None) -> dict:
+        """A second checkout of `repo`, on its own branch: how two agents work on one
+        repository without editing each other's files.
+
+        Refuses a path that already exists rather than joining whatever is there, and there is
+        no counterpart that removes one — deleting a checkout deletes work, and this is not the
+        thing that should be able to.
+        """
         body = {"path": str(repo), "branch": branch}
         if to:
             body["to"] = str(to)
         return self.call("POST", "/api/git/worktree", body)
 
     def worktrees(self, path: str | Path) -> dict:
+        """The repository that path belongs to, and every checkout of it — including the ones
+        an orchestration left behind, which is usually why you are asking."""
         from urllib.parse import quote
         return self.call("GET", f"/api/git/worktrees?path={quote(str(path))}")
 
@@ -274,6 +297,12 @@ class Argus:
 # ------------------------------------------------------------------------ cli
 
 def main(argv: list[str] | None = None) -> int:
+    """The command line: `who`, `relay`, `ring`, `start`.
+
+    Four verbs and no more, because this is what an *agent* reaches for from inside a session —
+    the four things it can usefully do about the other agents on the machine. Anything larger
+    is a script, and a script should import the class.
+    """
     import argparse
 
     ap = argparse.ArgumentParser(prog="argus_client", description=__doc__.split("##")[0],
