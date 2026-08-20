@@ -8,21 +8,23 @@ import contextlib
 import json
 import os
 import mimetypes
+import re
 import shutil
 import signal
 import subprocess
 import sys
 import time
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 
 from . import (announce, bells, devices, favourites, files, fsops, gitwork, journal, languages,
-               launch, mounts, paths, ports, prefs, proxy, release, runner, runs, system, term,
-               tmux, todo)
+               launch, mounts, network, paths, ports, prefs, proxy, release, runner, runs,
+               system, term, tmux, todo)
 import httpx
 
 from .auth import PROXY_COOKIE, TokenAuthMiddleware
@@ -1026,6 +1028,47 @@ def create_app(cfg: Config) -> FastAPI:
         """
         return await overview_of(request.app, request.scope.get("argus_watcher"))
 
+    @app.get("/api/network", tags=["The machine"],
+             summary="Where this machine is, where you are, and the ssh line between them")
+    async def where_we_are(request: Request) -> dict:
+        """Read entirely from this machine and this request — no network call, ever.
+
+        The machine's own address comes from asking the kernel which source it would use for
+        the default route, which sends nothing. Yours comes from the socket the request arrived
+        on, which the server was holding anyway. The public address is deliberately *not* here:
+        it needs a stranger, so it needs a press — see `/api/network/outside`.
+        """
+        peer, claimed = journal.where_from(request.scope)
+        said = network.summary(int(getattr(request.app.state, "port", 0) or 0), peer, claimed)
+        said["may_ask_outside"] = bool(request.app.state.cfg.ask_outside)
+        said["would_ask"] = network.OUTSIDE[0]
+        return said
+
+    @app.post("/api/network/outside", tags=["The machine"],
+              summary="Ask a stranger what this machine's public address is")
+    async def from_outside(request: Request) -> dict:
+        """The only thing in Argus that tells somebody else anything, and it is a POST for that
+        reason: it is an action with a consequence, not a reading.
+
+        Asking a service "what is my address" *is* telling that service your address, which is
+        why nothing here does it on a timer, on load, or on anybody's behalf. The answer is
+        returned and not written down: no cache, no config, no journal entry beyond the fact
+        that the route was called, which the journal records for every route anyway.
+        """
+        cfg = request.app.state.cfg
+        if not cfg.ask_outside:
+            raise ApiError(403, "this machine is set not to ask anybody — `ask_outside: false`")
+        for who in network.OUTSIDE:
+            try:
+                async with httpx.AsyncClient(timeout=6) as client:
+                    got = await client.get(who, headers={"user-agent": f"argus/{VERSION}"})
+                said = got.text.strip()
+                if got.status_code == 200 and 6 < len(said) < 46:
+                    return {"address": said, "asked": who}
+            except (httpx.HTTPError, OSError):
+                continue
+        raise ApiError(502, "nobody answered — no way out, or both services are down")
+
     @app.get("/api/devices", tags=["Setup"], summary="The devices that may get in")
     async def list_devices(request: Request) -> list[dict]:
         """Names, when each was added and when each was last used. Never the tokens: only a
@@ -1172,7 +1215,26 @@ def create_app(cfg: Config) -> FastAPI:
 
     # Registered last so it never shadows the API: unknown paths are the frontend's.
     @app.get("/{requested:path}", include_in_schema=False)
-    async def static_handler(requested: str) -> Response:
+    async def static_handler(request: Request, requested: str) -> Response:
+        """The page, or — for something a proxied service asked for — that service's own file.
+
+        A page served through `/proxy/8000/` gets a `<base>` tag, which fixes every *relative*
+        reference in it. It cannot fix an absolute one: `<script src="/static/app.js">` is a
+        request for the root of *this* server, and the handler below answers every unknown path
+        with `index.html` and a 200. So the browser asked for JavaScript, was handed HTML with
+        `nosniff` on it, refused to execute it, and the page rendered as bare markup with no
+        script and no style — reported as "it only shows the html", which is exactly what it is.
+
+        The `Referer` says which proxied page asked, so the request can be sent where it meant
+        to go. It works because the referrer policy is `same-origin` rather than `no-referrer`:
+        the promise that policy exists to keep is that *another site* learns nothing about this
+        machine, and `same-origin` keeps it exactly while letting this server hear its own pages.
+        """
+        came_from = re.match(r"^/proxy/(\d+)/", urlsplit(request.headers.get("referer", "")).path)
+        if came_from and not (STATIC_DIR / requested).is_file():
+            return RedirectResponse(f"/proxy/{came_from.group(1)}/{requested}"
+                                    + (f"?{request.url.query}" if request.url.query else ""),
+                                    status_code=307)
         return serve_static(requested)
 
     @app.middleware("http")
@@ -1184,7 +1246,11 @@ def create_app(cfg: Config) -> FastAPI:
         handing to github.com because somebody clicked the link in the header.
         """
         answer = await call_next(request)
-        answer.headers.setdefault("referrer-policy", "no-referrer")
+        # `same-origin` and not `no-referrer`: the promise here is that the *other end* learns
+        # nothing, and this keeps it — nothing is sent to another site at all. What it stops
+        # throwing away is this server hearing which of its own pages a request came from,
+        # which is the only way an absolute path from a proxied service can be sent home.
+        answer.headers.setdefault("referrer-policy", "same-origin")
         return answer
 
     app.add_middleware(TokenAuthMiddleware, token=cfg.token, watchers=cfg.watchers,

@@ -70,6 +70,10 @@ class Config:
     # reachable by anyone holding the token. Off unless asked for, and then still one
     # port at a time.
     allow_proxy: bool = False
+    # Whether the System screen may offer to ask a stranger what this machine's public address
+    # is. Nothing happens without a press and the button names who it will ask, but a machine
+    # that has to be able to promise it never speaks to anybody unasked can remove the offer.
+    ask_outside: bool = True
     # Cap on a single uploaded file. 0 means no cap; the default keeps a stray drag of
     # something enormous from filling a disk that is already at 94%.
     max_upload_bytes: int = 2 * 1024 * 1024 * 1024
@@ -240,6 +244,7 @@ class Config:
             allow_write=bool(raw.get("allow_write", False)),
             include_mounts=bool(raw.get("include_mounts", False)),
             allow_proxy=bool(raw.get("allow_proxy", False)),
+            ask_outside=bool(raw.get("ask_outside", True)),
             launchers=[dict(x) for x in (raw.get("launchers") or []) if isinstance(x, dict)],
             agents=[dict(x) for x in (raw.get("agents") or []) if isinstance(x, dict)],
             launches_a_minute=int(raw.get("launches_a_minute", 12)),
@@ -286,6 +291,7 @@ class Config:
             "allow_write": self.allow_write,
             "include_mounts": self.include_mounts,
             "allow_proxy": self.allow_proxy,
+            "ask_outside": self.ask_outside,
             "launchers": self.launchers,
             "agents": self.agents,
             "launches_a_minute": self.launches_a_minute,

@@ -1652,6 +1652,54 @@
     ]
    }
   },
+  "/api/network": {
+   "get": {
+    "description": "Read entirely from this machine and this request \u2014 no network call, ever.\n\nThe machine's own address comes from asking the kernel which source it would use for\nthe default route, which sends nothing. Yours comes from the socket the request arrived\non, which the server was holding anyway. The public address is deliberately *not* here:\nit needs a stranger, so it needs a press \u2014 see `/api/network/outside`.",
+    "operationId": "getApiNetwork",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Where We Are Api Network Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Where this machine is, where you are, and the ssh line between them",
+    "tags": [
+     "The machine"
+    ]
+   }
+  },
+  "/api/network/outside": {
+   "post": {
+    "description": "The only thing in Argus that tells somebody else anything, and it is a POST for that\nreason: it is an action with a consequence, not a reading.\n\nAsking a service \"what is my address\" *is* telling that service your address, which is\nwhy nothing here does it on a timer, on load, or on anybody's behalf. The answer is\nreturned and not written down: no cache, no config, no journal entry beyond the fact\nthat the route was called, which the journal records for every route anyway.",
+    "operationId": "postApiNetworkOutside",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response From Outside Api Network Outside Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Ask a stranger what this machine's public address is",
+    "tags": [
+     "The machine"
+    ]
+   }
+  },
   "/api/overview": {
    "get": {
     "description": "Everything a board watching several machines needs, and nothing it does not.\n\nThis is the one door a watcher token opens, and the same answer a machine\nannounces to a board that cannot reach it.",
