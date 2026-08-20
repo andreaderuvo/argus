@@ -3674,33 +3674,66 @@ function undoEntities(s) {
   return box.value;
 }
 
-/** The engine, ready and wearing this palette. Shared, because a run window and a document
- *  both want it and the theme has to be re-read each time: the colours are baked into the svg
- *  at draw time, so a diagram drawn at night is a black box on a white page. */
+/** The engine, ready and dressed.
+ *
+ *  Shared, because a run window and a document both want it and the theme has to be re-read
+ *  each time: the colours are baked into the svg at draw time, so a diagram drawn at night is
+ *  a black box on a white page.
+ *
+ *  **Which palette, and why this is a choice rather than a decision.** The first version built
+ *  one out of the app's own variables, so that a diagram was the same greys and the same green
+ *  as the page holding it. That is right for a small picture inside a document and wrong for a
+ *  diagram you are working *on*: those variables are three shades of dark, so every node came
+ *  out the same box with the same border, and beside mermaid's own themes it looks broken
+ *  rather than restrained. Reported exactly that way, and the report is correct.
+ *
+ *  So mermaid's own theme is the default — `dark` or `default`, following the app, which is
+ *  what any other mermaid tool would give you — and the flat one is kept as `match the app`
+ *  for anybody who liked it. Either way a diagram's own `classDef` and `style` lines win: the
+ *  theme decides what an unstyled node looks like, never what a styled one does.
+ */
 async function readyDiagrams() {
   if (!mmd.engine) ({ default: mmd.engine } = await import('/vendor/mermaid-11.16.1/mermaid.esm.min.mjs'));
   const paint = getComputedStyle(document.documentElement);
   const hue = (name) => paint.getPropertyValue(name).trim();
+  /* Which of mermaid's themes, or none of them.
+   *
+   *  `auto` follows the app, which is what any other mermaid tool does. It is also the reason
+   *  the first complaint did not go away when the flat palette did: mermaid's *dark* theme is
+   *  greys, and the colourful one everybody has seen on mermaid.live is `default`, which is a
+   *  light theme. So it is offered by name and can be chosen against a dark app, because
+   *  wanting a colourful diagram on a dark page is not a contradiction.
+   */
+  const light = document.documentElement.dataset.theme === 'light';
+  const asked = prefs.diagramTheme || 'auto';
+  const flat = asked === 'app';
+  const named = { colourful: 'default', forest: 'forest', neutral: 'neutral' }[asked]
+    || (light ? 'default' : 'dark');
   mmd.engine.initialize({
     startOnLoad: false,
     securityLevel: 'strict',        // labels go through the sanitiser; no scripts, no click handlers
     suppressErrorRendering: true,   // a bad diagram must not put mermaid's own red box on the page
     fontFamily: paint.fontFamily,
-    theme: 'base',
-    themeVariables: {
-      background: hue('--panel'),
-      primaryColor: hue('--line'),
-      primaryTextColor: hue('--bright'),
-      primaryBorderColor: hue('--accent'),
-      secondaryColor: hue('--panel'),
-      tertiaryColor: hue('--bg'),
-      mainBkg: hue('--line'),
-      nodeBorder: hue('--accent'),
-      lineColor: hue('--dim'),
-      textColor: hue('--text'),
-      errorBkgColor: hue('--panel'),
-      errorTextColor: hue('--danger'),
-    },
+    theme: flat ? 'base' : named,
+    // Only when flattening. Handing `themeVariables` to mermaid's own themes overrides the
+    // very palette that was asked for, one key at a time, which is how you end up with a
+    // theme that is neither.
+    ...(flat ? {
+      themeVariables: {
+        background: hue('--panel'),
+        primaryColor: hue('--line'),
+        primaryTextColor: hue('--bright'),
+        primaryBorderColor: hue('--accent'),
+        secondaryColor: hue('--panel'),
+        tertiaryColor: hue('--bg'),
+        mainBkg: hue('--line'),
+        nodeBorder: hue('--accent'),
+        lineColor: hue('--dim'),
+        textColor: hue('--text'),
+        errorBkgColor: hue('--panel'),
+        errorTextColor: hue('--danger'),
+      },
+    } : {}),
   });
   return mmd.engine;
 }
@@ -5268,6 +5301,24 @@ async function screenSettings() {
       [t('built in'), t('the browser’s')],
       () => (prefs.pdfNative ? t('the browser’s') : t('built in')),
       (v) => { prefs.pdfNative = v === t('the browser’s'); }),
+    /* Which palette a diagram wears.
+     *
+     *  It used to be built from the app's own variables so a picture matched the page it sat
+     *  in. Those variables are three shades of dark, so every node came out the same box with
+     *  the same border — restrained inside a document, and plainly broken next to any other
+     *  mermaid tool, which is how it was reported. Mermaid's own is the default now; the flat
+     *  one is still here for whoever wanted it.
+     */
+    choice(t('Diagram colours'),
+      t('mermaid’s own themes; “colourful” is the one you have seen on mermaid.live'),
+      [t('auto'), t('colourful'), t('forest'), t('flat')],
+      () => ({ colourful: t('colourful'), forest: t('forest'), app: t('flat') }[prefs.diagramTheme] || t('auto')),
+      (v) => {
+        prefs.diagramTheme = v === t('colourful') ? 'colourful'
+          : v === t('forest') ? 'forest' : v === t('flat') ? 'app' : 'auto';
+        // Every diagram already on screen has the old palette baked into its svg.
+        repaintDiagrams();
+      }),
     choice(t('How a PDF opens'), t('a document you have not read before — after that it opens where you left it'),
       [t('whole page'), t('page width'), t('as it comes')],
       () => ({ page: t('whole page'), width: t('page width'), actual: t('as it comes') })[prefs.pdfFit || 'page'],
