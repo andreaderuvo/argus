@@ -16,7 +16,7 @@ from urllib.parse import parse_qsl, urlencode
 
 import httpx
 from fastapi import APIRouter, Request
-from fastapi.responses import Response, StreamingResponse
+from fastapi.responses import RedirectResponse, Response, StreamingResponse
 
 from .auth import PROXY_COOKIE
 from .errors import ApiError
@@ -77,6 +77,18 @@ def check(request: Request, port: int) -> None:
         raise ApiError(403, "proxying is off — start the server with --allow-proxy")
     if port not in opened(request):
         raise ApiError(403, f"port {port} is not open — open it from the System screen")
+
+
+@router.get("/proxy/{port}", include_in_schema=False)
+async def needs_a_slash(port: int) -> Response:
+    """`/proxy/8000` is not `/proxy/8000/`, and the difference used to be invisible.
+
+    The route below matches `/proxy/{port}/{path}`, so the form without the trailing slash
+    matched nothing and fell through to the page handler, which answers *every* unknown path
+    with the app's own `index.html` and a 200. So pasting the address one character short
+    showed Argus itself, looking broken, with no hint that the address was the problem.
+    """
+    return RedirectResponse(f"/proxy/{port}/", status_code=308)
 
 
 @router.api_route(

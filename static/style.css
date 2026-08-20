@@ -3263,3 +3263,29 @@ pre.file.hl .hljs-strong { font-weight: 700; }
 .win.runasking { box-shadow: inset 0 0 0 2px var(--st-warning); }
 /* The five state colours are written into the diagram's own `classDef` — see
    runDiagram(). A rule here would lose to the inline style mermaid puts on every node. */
+
+/* Where this machine is, and how to reach a port on it.
+ *
+ *  Addresses are set in the monospace face and allowed to scroll rather than wrap: an address
+ *  broken over two lines is one you cannot read back, and these exist to be read back and
+ *  typed somewhere else. */
+.wheresec { margin: .8rem 0 .2rem; }
+.wherebody { display: flex; flex-direction: column; gap: .3rem; }
+.addrrow { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.addrlabel { font-size: .72rem; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--accent); min-width: 9rem; }
+.addrtext { font-family: ui-monospace, monospace; font-size: .84rem; color: var(--bright);
+  overflow-x: auto; white-space: nowrap; max-width: 100%; }
+a.addrtext { text-decoration: none; }
+a.addrtext:hover { text-decoration: underline; }
+.addrrow .meta { font-size: .76rem; }
+.addrrow .winbtn.done, .addrrow .winbtn.done .ico { color: var(--st-good); }
+/* Under the port it belongs to, indented to the width of the port number so the eye reads it
+   as part of that row rather than as a new one. */
+.portmore { display: flex; flex-direction: column; gap: .25rem;
+  margin: -.1rem 0 .5rem 3.2rem; padding-left: .6rem; border-left: 2px solid var(--line); }
+.portmore .addrlabel { min-width: 7.5rem; }
+@media (max-width: 640px) {
+  .addrlabel, .portmore .addrlabel { min-width: 0; }
+  .portmore { margin-left: .8rem; }
+}

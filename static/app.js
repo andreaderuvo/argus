@@ -3797,11 +3797,122 @@ const duration = (s) => {
   return d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : `${m}m`;
 };
 
+/** Where this machine is, where you are, and the line that joins the two.
+ *
+ *  Three facts that were nowhere and are asked constantly the moment Argus is on a machine
+ *  that is not the one in front of you: what do I type to reach this box, which of my machines
+ *  am I coming from, and what is the ssh line for a port that only listens on loopback.
+ */
+function whereSection() {
+  const box = el('div', { className: 'wheresec' });
+  const head = el('div', { className: 'tilelabel', textContent: t('Where it is') });
+  const body = el('div', { className: 'wherebody' });
+  box.append(head, body);
+
+  const draw = (said) => {
+    body.replaceChildren();
+    body.append(factRow(t('this machine'), said.hostname,
+                        said.user ? t('you would ssh in as {user}', { user: said.user }) : ''));
+
+    for (const one of said.addresses || []) {
+      const words = {
+        lan: t('on the network'), public: t('reachable from the internet'),
+        loopback: t('this machine only'), 'link-local': t('link-local'), other: '',
+      }[one.kind] || '';
+      body.append(addressLine(
+        one.routed ? t('address · the one to use') : t('also'),
+        `${location.protocol}//${one.address}:${said.port}/`,
+        words,
+      ));
+    }
+
+    if (said.you) {
+      // Behind a reverse proxy the socket says 127.0.0.1 and the header says who really asked.
+      // Both, and which is which: one is a fact, the other is a claim.
+      body.append(factRow(t('you are'), said.you, said.you_claimed
+        ? t('through a proxy, which says you are {who}', { who: said.you_claimed })
+        : { lan: t('on the network'), public: t('from the internet'),
+            loopback: t('on this machine') }[said.you_kind] || ''));
+    }
+
+    if (said.may_ask_outside) {
+      const ask = el('button', {
+        className: 'ghost inline', textContent: t('What does the world see?'),
+        onclick: async () => {
+          ask.disabled = true;
+          try {
+            const got = await postJSON('/api/network/outside', {});
+            ask.replaceWith(addressLine(t('from outside'), `${location.protocol}//${got.address}:${said.port}/`,
+                                        t('according to {who}', { who: got.asked })));
+          } catch (e) { toast(e.message, true); ask.disabled = false; }
+        },
+      });
+      body.append(el('div', { className: 'addrrow' }, [
+        ask,
+        // Said before it is pressed, not after: asking a service what your address is *is*
+        // telling that service your address, and that is a choice rather than a lookup.
+        el('span', { className: 'meta', textContent: t('asks {who} — the only thing here that speaks to anybody', { who: said.would_ask }) }),
+      ]));
+    }
+  };
+
+  getJSON('/api/network').then((said) => { box.said = said; draw(said); })
+    .catch((e) => body.append(el('p', { className: 'meta', textContent: e.message })));
+  return box;
+}
+
+/** An address, written out and copyable.
+ *
+ *  The reason this exists: somebody with a dashboard on `127.0.0.1:11000` pressed *Reach it*,
+ *  saw it open in a window, and then had no idea what to type into the browser on their own
+ *  laptop. The address was real, worked, and appeared nowhere — it existed only inside an
+ *  `onclick`. A link you cannot see is a link you cannot use anywhere else, and "anywhere
+ *  else" is most of why the port was opened.
+ */
+function addressLine(label, url, note) {
+  return factRow(label, url, note, { link: url });
+}
+
+/** The same, for something to run in a terminal rather than to open. */
+function commandLine(label, command, note) {
+  return factRow(label, command, note, { code: true });
+}
+
+/** A label, a value, and a button that copies it. Always the button.
+ *
+ *  Asked for in those words — "the copy button everywhere" — and the reason is the same every
+ *  time: every value on this panel exists to be typed somewhere else. An address you can read
+ *  and not copy is an address you retype, and an address retyped from a screen is an address
+ *  with a digit wrong in it.
+ */
+function factRow(label, value, note, { link = null, code = false } = {}) {
+  const shown = link
+    ? el('a', { className: 'addrtext', href: link, target: '_blank', rel: 'noopener noreferrer',
+                textContent: value, title: value })
+    : el(code ? 'code' : 'span', { className: 'addrtext', textContent: value, title: value });
+  const copy = el('button', {
+    className: 'winbtn', type: 'button', title: t('Copy'), 'aria-label': `${t('Copy')} ${value}`,
+    onclick: async function copied(ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (!await copyText(value)) return;
+      this.replaceChildren(icon('tick'));
+      this.classList.add('done');
+      setTimeout(() => { this.replaceChildren(icon('clipboard')); this.classList.remove('done'); }, 1200);
+    },
+  }, icon('clipboard'));
+  return el('div', { className: 'addrrow' }, [
+    el('span', { className: 'addrlabel', textContent: label }),
+    shown, copy,
+    note ? el('span', { className: 'meta', textContent: note }) : null,
+  ]);
+}
+
 /** What is listening, and how to reach it.
  *
  *  A port on 0.0.0.0 is already reachable from your phone — you only needed to be told
  *  it exists. One on 127.0.0.1 is not, and that is what the proxy is for. */
-function portsSection() {
+function portsSection(where) {
   const box = el('div', { className: 'proclist ports' });
   const head = el('div', { className: 'tilelabel', textContent: t('Listening ports') });
   box.append(head);
@@ -3910,6 +4021,7 @@ function portsSection() {
       const direct = `${location.protocol}//${location.hostname}:${p.port}/`;
       const through = withToken(`/proxy/${p.port}/`);
 
+      let after = null;
       const row = el('div', { className: 'portrow' }, [
         el('span', { className: 'portnum', textContent: String(p.port) }),
         el('span', { className: 'grow' }, [
@@ -3936,6 +4048,25 @@ function portsSection() {
           textContent: t('View'),
           onclick: () => openWindow({ kind: 'web', url: through, label: `:${p.port}` }),
         }));
+        /* And the address, in words, under the row.
+         *
+         *  `View` opens it here, which is the common case and not the only one: the reason to
+         *  open a port is usually to look at it from the laptop you are actually working on,
+         *  and until now the address that does that existed nowhere on the screen. Reported
+         *  exactly so — "it was not clear I had to do /proxy/11000".
+         */
+        after = el('div', { className: 'portmore' }, [
+          addressLine(t('open it anywhere'), `${location.origin}/proxy/${p.port}/`,
+                      t('the token travels with you; a stranger gets nothing')),
+        ]);
+        // The tunnel, for the two things a proxy in front of HTTP cannot do: a socket that is
+        // not HTTP at all, and a page that talks over a WebSocket.
+        const ssh = (where?.said?.ssh || []).find((x) => x.name === 'OpenSSH');
+        if (ssh) {
+          after.append(commandLine('ssh',
+            ssh.line.replaceAll(String(where.said.port), String(p.port)),
+            t('if it needs a websocket, or is not http at all')));
+        }
         row.append(el('button', {
           className: 'winbtn',
           title: `Stop reaching port ${p.port}`,
@@ -3956,6 +4087,10 @@ function portsSection() {
               // Always ask, even when the server already has it open: this call is what
               // hands this browser the cookie, and another client may have opened it.
               await postJSON('/api/ports', { port: p.port, open: true });
+              // Redrawn straight away rather than at the next fifteen-second beat: pressing
+              // this is exactly when the address underneath is wanted, and waiting a quarter
+              // of a minute for the row to admit it worked reads as it not having worked.
+              paint();
               openWindow({ kind: 'web', url: through, label: `:${p.port}` });
             } catch (e) { toast(e.message, true); }
           },
@@ -3963,6 +4098,7 @@ function portsSection() {
       }
 
       list.append(row);
+      if (after) list.append(after);
     }
   };
   paint();
@@ -4044,8 +4180,11 @@ async function screenSystem() {
   procs.append(procHead);
   const trouble = el('p', { className: 'error', hidden: true });
 
-  const ports = portsSection();
-  body.append(bar, trouble, hero, grid, ports, procs);
+  const where = whereSection();
+  const ports = portsSection(where);
+  // First, not last: "which address do I type" is the question people arrive with, and it
+  // was under three screens of meters.
+  body.append(bar, trouble, where, hero, grid, ports, procs);
 
   const tiles = new Map();
   const rows = [];
