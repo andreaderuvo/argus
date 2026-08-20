@@ -3289,3 +3289,8 @@ a.addrtext:hover { text-decoration: underline; }
   .addrlabel, .portmore .addrlabel { min-width: 0; }
   .portmore { margin-left: .8rem; }
 }
+
+/* The twist on a port row: the same rotation the message panes use, so the gesture means the
+   same thing in both places. */
+.portrow .winbtn.twist .ico { transition: transform .12s ease; }
+.portrow .winbtn.twist.on .ico { transform: rotate(180deg); }
