@@ -8935,16 +8935,24 @@ async function screenWall() {
       if (await copyText(link)) toast(t('link copied'));
       else showText(t('Link to {desk}', { desk: ws.name }), link);
     });
-    /* Put it away, with the two guards that keep it from being a way to lose things.
+    /* Put it away — including the one you are standing on, which is the ordinary case.
      *
-     *  Not the desk you are standing on — parking the floor under your feet leaves the app
-     *  showing a desk that is not in the strip, which is the confusion this feature exists to
-     *  avoid rather than to cause. And never the last one visible: a strip with no desks in it
-     *  is a wall with no way back to anything.
+     *  The first version refused that, reasoning that parking the floor under your feet would
+     *  leave the app showing a desk that is not in the strip. True, and the wrong answer: the
+     *  first thing anybody does is restore a desk, land on it, and reach for the same menu
+     *  item — which had silently vanished, with nothing to say why. Reported within a minute.
+     *
+     *  So it steps off first. The only guard left is the one that cannot be worked around:
+     *  never the last visible desk, because a strip with nothing in it is a wall with no way
+     *  back to anything.
      */
     const visible = spaces.filter((w) => !w.hidden);
-    if (!ws.hidden && ws.id !== prefs.ws && visible.length > 1) {
+    if (!ws.hidden && visible.length > 1) {
       item('down', t('Put it away'), () => {
+        if (ws.id === prefs.ws) {
+          const next = visible.find((w) => w.id !== ws.id);
+          if (next) activate(next.id);
+        }
         ws.hidden = true;
         savePrefs();
         drawTabs();
