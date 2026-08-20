@@ -20,6 +20,7 @@ const railToggle = document.getElementById('railtoggle');
 const moreBtn = document.getElementById('more');
 const hamburger = document.getElementById('hamburger');
 const railWins = document.getElementById('railwins');
+const railDesks = document.getElementById('raildesks');
 railToggle.onclick = () => {
   prefs.railWide = !prefs.railWide;
   savePrefs();
@@ -6350,7 +6351,67 @@ function railLabel(spec) {
   return (spec.path || '').split('/').filter(Boolean).pop() || spec.path || '?';
 }
 
+/** Desks that have been put away.
+ *
+ *  A desk is an arrangement — three terminals and a report, placed where you want them — and
+ *  until now the only way to get one off the tab strip was to close it, which throws that
+ *  arrangement away. This parks it instead. The strip is horizontal and narrow, the rail is
+ *  vertical and has room, so the space is moved from where it is scarce to where it is free.
+ *
+ *  Three things make it a park rather than a hiding place, and each of them is the difference
+ *  between this being useful and being a trap:
+ *
+ *  **It is still amber when something in it is asking.** If a parked desk with an agent
+ *  waiting for you looked the same as a quiet one, `hide` would have quietly meant `mute`, and
+ *  you would find out in the morning.
+ *
+ *  **It is visible from everywhere.** The windows below vanish when you leave the wall, and
+ *  rightly — reading a file has nothing to do with them. A parked desk is the opposite: the
+ *  reason to look at it is that it might want you, and that does not depend on where you are.
+ *
+ *  **Clicking brings it back.** Parking is a place to leave something, not a mode it lives in.
+ *  A desk you use but cannot see in the strip is a desk you spend time looking for.
+ */
+function paintRailDesks() {
+  if (!railDesks) return;
+  const away = (prefs.workspaces || []).filter((w) => w.hidden);
+  railDesks.replaceChildren();
+  railDesks.hidden = !away.length || !token;
+  for (const ws of away) {
+    /* Worked out from the stored list rather than from live windows.
+     *
+     *  The tabs get their mark from the terminals actually on screen, which cannot work here:
+     *  a desk is built the first time you open it, so one that has been parked since the page
+     *  loaded has no windows in the document at all. Its list, on the other hand, is always
+     *  there — and the whole point is the desk you have not looked at.
+     */
+    const ringing = (ws.desktop || []).some((x) => x.kind === 'term' && rung.has(x.name));
+    // A dot and no glyph, where a window has a glyph and no dot. Narrow, the dot is all there
+    // is — and that is exactly when the two must not be mistaken for each other.
+    const dot = el('span', { className: 'raildot' });
+    dot.style.background = colorFor(`ws:${ws.id}`);
+    const button = el('button', {
+      // `ringing`, the same word and the same halo the desk tabs use, because this *is* one
+      // of those tabs put somewhere else. The window list below has its own vocabulary and
+      // borrowing it here would make a desk look like a window.
+      className: `railwin raildesk${ringing ? ' ringing' : ''}`,
+      title: t('{name} — put away. Click to bring it back.', { name: ws.name }),
+      onclick: () => {
+        delete ws.hidden;
+        savePrefs();
+        paintRailDesks();
+        go(`#/wall?ws=${ws.id}`);
+      },
+    }, [dot, el('span', { className: 'railname', textContent: ws.name })]);
+    if ((ws.desktop || []).length) {
+      button.append(el('span', { className: 'railcount', textContent: String(ws.desktop.length) }));
+    }
+    railDesks.append(button);
+  }
+}
+
 function paintRailWindows() {
+  paintRailDesks();
   const desk = (prefs.workspaces || []).find((w) => w.id === prefs.ws) || (prefs.workspaces || [])[0];
   const open = (desk && desk.desktop) || [];
   /* How many windows are open, on the tab that opens them.
@@ -8874,6 +8935,23 @@ async function screenWall() {
       if (await copyText(link)) toast(t('link copied'));
       else showText(t('Link to {desk}', { desk: ws.name }), link);
     });
+    /* Put it away, with the two guards that keep it from being a way to lose things.
+     *
+     *  Not the desk you are standing on — parking the floor under your feet leaves the app
+     *  showing a desk that is not in the strip, which is the confusion this feature exists to
+     *  avoid rather than to cause. And never the last one visible: a strip with no desks in it
+     *  is a wall with no way back to anything.
+     */
+    const visible = spaces.filter((w) => !w.hidden);
+    if (!ws.hidden && ws.id !== prefs.ws && visible.length > 1) {
+      item('down', t('Put it away'), () => {
+        ws.hidden = true;
+        savePrefs();
+        drawTabs();
+        paintRailDesks();
+        toast(t('{name} is in the rail now', { name: ws.name }));
+      });
+    }
     item('pin', ws.pinned ? t('Unpin') : t('Pin to the front'), () => {
       ws.pinned = !ws.pinned;
       // Move it to the boundary between the two groups, so pinning does not also
@@ -8992,6 +9070,10 @@ async function screenWall() {
   function drawTabs() {
     tabs.textContent = '';
     for (const ws of spaces) {
+      // Put away: it is in the rail, not up here. The one you are standing on is drawn
+      // regardless — arriving at a desk by its link should not leave the strip lying about
+      // where you are.
+      if (ws.hidden && ws.id !== prefs.ws) continue;
       const on = ws.id === prefs.ws;
       const dot = el('span', { className: 'tabdot' });
       dot.style.background = colorFor(`ws:${ws.id}`);
@@ -11327,6 +11409,10 @@ function quieten(name) {
 /** The marks: on the window that rang, and on the tab of the desk holding it. */
 function paintBells() {
   countSessions();
+  // A desk that has been put away has to say so too, and this is the only place that runs
+  // when a bell arrives. Without it `put away` quietly means `mute`: the strip and the window
+  // list both light up, the parked desk sits there plain, and you find out in the morning.
+  paintRailDesks();
   sayIfNewer();
   const desks = new Set();
   for (const win of document.querySelectorAll('.win[data-kind="term"]')) {

@@ -3294,3 +3294,21 @@ a.addrtext:hover { text-decoration: underline; }
    same thing in both places. */
 .portrow .winbtn.twist .ico { transition: transform .12s ease; }
 .portrow .winbtn.twist.on .ico { transform: rotate(180deg); }
+
+/* A desk put away, in the rail.
+ *
+ *  A dot where a window has a glyph: narrow, the dot is all there is, and that is exactly when
+ *  the two must not be mistaken for each other. The separators say the rail holds three kinds
+ *  of thing — where the app can go, desks you parked, windows you have open — rather than one
+ *  long list of everything. */
+#raildesks { display: flex; flex-direction: column; border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line); margin: .3rem 0; padding: .3rem 0; }
+#raildesks:empty { display: none; }
+.railwin.raildesk .raildot { width: 10px; height: 10px; border-radius: 50%; flex: none;
+  margin: 0 3px; box-shadow: 0 0 0 1px var(--bg); }
+.railwin.raildesk .railcount { margin-left: auto; font-size: .7rem; color: var(--dim); }
+/* Ringing: the halo the desk tabs put round their dot, so a parked desk says it wants you in
+   the same language as an unparked one. */
+.railwin.raildesk.ringing .raildot {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 55%, transparent); }
+body:not(.railwide) .railwin.raildesk .railcount { display: none; }
