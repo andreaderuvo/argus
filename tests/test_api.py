@@ -356,6 +356,31 @@ def test_a_proxied_page_gets_its_own_files_even_when_argus_has_one_by_that_name(
     assert own.status_code == 200
 
 
+def test_a_proxied_page_reaching_for_api_is_sent_home_before_auth(client):
+    """The half that the first two attempts both missed, and the one that was actually biting.
+
+    A dashboard calling `/api/dashboard` is asking the root of *this* server for a protected
+    path, holding a cookie scoped to `/proxy` and nothing else. So it was refused with a 401
+    before any handler saw it — and being refused is exactly the case that needs redirecting.
+    The redirect therefore has to run *outside* the auth middleware rather than in a route.
+
+    Nothing is loosened by that: the address it redirects to is authenticated the same as ever.
+    This only sends the request somewhere it can be judged properly.
+    """
+    said = client.get("/api/dashboard", headers={"Referer": "http://x/proxy/8000/"},
+                      follow_redirects=False)
+    assert said.status_code == 307
+    assert said.headers["location"] == "/proxy/8000/api/dashboard"
+
+    # Without that referer it is what it always was: refused, with no hint that it exists.
+    assert client.get("/api/dashboard", follow_redirects=False).status_code == 401
+
+    # And a request already under the right prefix is left alone, or it would loop.
+    passed = client.get("/proxy/8000/api/dashboard", headers={"Referer": "http://x/proxy/8000/"},
+                        follow_redirects=False)
+    assert passed.status_code != 307
+
+
 def test_a_proxy_address_without_its_slash_redirects(client):
     """`/proxy/8000` matched no route and fell through to the page handler, which showed Argus
     itself looking broken — with nothing to say the address was one character short."""

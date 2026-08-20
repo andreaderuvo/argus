@@ -1215,32 +1215,7 @@ def create_app(cfg: Config) -> FastAPI:
 
     # Registered last so it never shadows the API: unknown paths are the frontend's.
     @app.get("/{requested:path}", include_in_schema=False)
-    async def static_handler(request: Request, requested: str) -> Response:
-        """The page, or — for something a proxied service asked for — that service's own file.
-
-        A page served through `/proxy/8000/` gets a `<base>` tag, which fixes every *relative*
-        reference in it. It cannot fix an absolute one: `<script src="/static/app.js">` is a
-        request for the root of *this* server, and the handler below answers every unknown path
-        with `index.html` and a 200. So the browser asked for JavaScript, was handed HTML with
-        `nosniff` on it, refused to execute it, and the page rendered as bare markup with no
-        script and no style — reported as "it only shows the html", which is exactly what it is.
-
-        The `Referer` says which proxied page asked, so the request can be sent where it meant
-        to go. It works because the referrer policy is `same-origin` rather than `no-referrer`:
-        the promise that policy exists to keep is that *another site* learns nothing about this
-        machine, and `same-origin` keeps it exactly while letting this server hear its own pages.
-        """
-        came_from = re.match(r"^/proxy/(\d+)/", urlsplit(request.headers.get("referer", "")).path)
-        # Whatever a proxied page asks for belongs to that page — *even when this server has a
-        # file by the same name*. That was the first version's mistake and it was invisible in
-        # testing: `/static/app.js` redirected correctly while `/app.js` did not, because Argus
-        # has an `app.js` of its own, so a dashboard asking for the commonest filename there is
-        # was handed Argus's own application instead of its script. Argus's assets are only
-        # ever asked for by Argus's own pages, whose referer is not a proxy path.
-        if came_from:
-            return RedirectResponse(f"/proxy/{came_from.group(1)}/{requested}"
-                                    + (f"?{request.url.query}" if request.url.query else ""),
-                                    status_code=307)
+    async def static_handler(requested: str) -> Response:
         return serve_static(requested)
 
     @app.middleware("http")
@@ -1261,6 +1236,40 @@ def create_app(cfg: Config) -> FastAPI:
 
     app.add_middleware(TokenAuthMiddleware, token=cfg.token, watchers=cfg.watchers,
                        devices_store=cfg.devices_store, agents=cfg.agents)
+
+    @app.middleware("http")
+    async def home_again(request: Request, call_next):
+        """Something a proxied page asked for, with an absolute path, sent where it meant to go.
+
+        A page served through `/proxy/8000/` gets a `<base>` tag, which corrects every
+        *relative* reference in it and cannot touch an absolute one: `/static/app.js` and
+        `/api/dashboard` are requests for the root of *this* server. What came back was
+        Argus's own `index.html` with a 200, or — for anything under `/api/` — a flat 401,
+        because the page holds a cookie scoped to `/proxy` and nothing else. Either way the
+        dashboard rendered as bare markup with no script, no style and no data.
+
+        The `Referer` says which proxied page asked. This is added *after* the auth middleware
+        so that it wraps *outside* it — Starlette wraps in reverse — because `/api/dashboard`
+        is refused before any handler sees it, and being refused is exactly the case that needs
+        redirecting. Nothing is loosened: the address it redirects *to* is authenticated the
+        same as ever, so this only sends a request somewhere it can be judged properly.
+
+        It works at all because the referrer policy is `same-origin` rather than `no-referrer`.
+        The promise that policy keeps is that *another site* learns nothing about this machine,
+        and `same-origin` keeps it exactly while letting this server hear from its own pages.
+        """
+        came_from = re.match(r"^/proxy/(\d+)/", urlsplit(request.headers.get("referer", "")).path)
+        # Whatever a proxied page asks for belongs to that page — *even when this server has a
+        # file by the same name*. That was the first attempt's mistake and it was invisible in
+        # testing: `/static/app.js` was corrected while `/app.js` was not, because Argus has an
+        # `app.js` of its own, so a dashboard asking for the commonest filename there is got
+        # Argus's own application. Argus's own assets are only ever asked for by Argus's own
+        # pages, and their referer is not a proxy path.
+        if came_from and not request.url.path.startswith(f"/proxy/{came_from.group(1)}/"):
+            return RedirectResponse(f"/proxy/{came_from.group(1)}{request.url.path}"
+                                    + (f"?{request.url.query}" if request.url.query else ""),
+                                    status_code=307)
+        return await call_next(request)
     # Added *after* the auth middleware, so it runs *outside* it — Starlette wraps in reverse
     # order — and therefore sees the `argus_master` / `argus_device` / `argus_watcher` that auth
     # put on the scope. Written here rather than in twenty handlers so a route added next month

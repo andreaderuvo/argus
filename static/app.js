@@ -3913,6 +3913,13 @@ function factRow(label, value, note, { link = null, code = false } = {}) {
  *  A port on 0.0.0.0 is already reachable from your phone — you only needed to be told
  *  it exists. One on 127.0.0.1 is not, and that is what the proxy is for. */
 function portsSection(where) {
+  /* Which rows have their details open.
+   *
+   *  Outside `paint`, deliberately: this section redraws itself every fifteen seconds, and a
+   *  strip that folded shut under your hands while you were reading the ssh line out of it
+   *  would be worse than not having it.
+   */
+  const unfolded = new Set();
   const box = el('div', { className: 'proclist ports' });
   const head = el('div', { className: 'tilelabel', textContent: t('Listening ports') });
   box.append(head);
@@ -4021,7 +4028,6 @@ function portsSection(where) {
       const direct = `${location.protocol}//${location.hostname}:${p.port}/`;
       const through = withToken(`/proxy/${p.port}/`);
 
-      let after = null;
       const row = el('div', { className: 'portrow' }, [
         el('span', { className: 'portnum', textContent: String(p.port) }),
         el('span', { className: 'grow' }, [
@@ -4048,30 +4054,6 @@ function portsSection(where) {
           textContent: t('View'),
           onclick: () => openWindow({ kind: 'web', url: through, label: `:${p.port}` }),
         }));
-        /* And the address, in words, under the row.
-         *
-         *  `View` opens it here, which is the common case and not the only one: the reason to
-         *  open a port is usually to look at it from the laptop you are actually working on,
-         *  and until now the address that does that existed nowhere on the screen. Reported
-         *  exactly so — "it was not clear I had to do /proxy/11000".
-         */
-        after = el('div', { className: 'portmore' }, [
-          // With the token in it, because that is what makes the words true. Pressing `Reach
-          // it` gives *this* browser a cookie for `/proxy`, and the plain address then works
-          // here and nowhere else — which is the opposite of the point: the address is copied
-          // in order to paste it into the laptop you are actually working on. So it carries
-          // the key, exactly like the address Argus itself is opened with, and says so.
-          addressLine(t('open it anywhere'), withToken(`${location.origin}/proxy/${p.port}/`),
-                      t('carries the key — treat it like the address bar')),
-        ]);
-        // The tunnel, for the two things a proxy in front of HTTP cannot do: a socket that is
-        // not HTTP at all, and a page that talks over a WebSocket.
-        const ssh = (where?.said?.ssh || []).find((x) => x.name === 'OpenSSH');
-        if (ssh) {
-          after.append(commandLine('ssh',
-            ssh.line.replaceAll(String(where.said.port), String(p.port)),
-            t('if it needs a websocket, or is not http at all')));
-        }
         row.append(el('button', {
           className: 'winbtn',
           title: `Stop reaching port ${p.port}`,
@@ -4102,8 +4084,48 @@ function portsSection(where) {
         }));
       }
 
+      /* The details, behind one press, on every row.
+       *
+       *  They used to appear only once a port had been opened to the proxy, which meant the
+       *  way to *read the ssh line* was to press `Reach it` — an action with a consequence,
+       *  to see a piece of text. Reported in those words. Now every port can be unfolded,
+       *  opened or not: the tunnel line is true either way, and it is the answer for the two
+       *  things a proxy in front of HTTP cannot do — a socket that is not HTTP, and a page
+       *  that talks over a WebSocket.
+       */
+      const more = el('div', { className: 'portmore', hidden: !unfolded.has(p.port) });
+      if (open) {
+        // With the token in it, because that is what makes the words true. `Reach it` gives
+        // *this* browser a cookie for `/proxy`, and the plain address then works here and
+        // nowhere else — the opposite of the point, since it is copied to be pasted into the
+        // laptop you are actually working on.
+        more.append(addressLine(t('open it anywhere'), withToken(`${location.origin}/proxy/${p.port}/`),
+                                t('carries the key — treat it like the address bar')));
+      } else if (!p.loopback) {
+        more.append(addressLine(t('open it anywhere'), direct, t('it is on the network already')));
+      }
+      const ssh = (where?.said?.ssh || []).find((x) => x.name === 'OpenSSH');
+      if (ssh) {
+        more.append(commandLine('ssh',
+          ssh.line.replaceAll(String(where.said.port), String(p.port)),
+          t('run this on your own machine, then open localhost:{port}', { port: p.port })));
+      }
+      more.append(commandLine(t('the process'), p.command || p.address, ''));
+
+      const twist = el('button', {
+        className: `winbtn twist${unfolded.has(p.port) ? ' on' : ''}`,
+        title: t('How to reach it'), 'aria-label': t('How to reach it'),
+        onclick: () => {
+          const now = !unfolded.has(p.port);
+          if (now) unfolded.add(p.port); else unfolded.delete(p.port);
+          more.hidden = !now;
+          twist.classList.toggle('on', now);
+        },
+      }, icon('down'));
+      row.append(twist);
+
       list.append(row);
-      if (after) list.append(after);
+      list.append(more);
     }
   };
   paint();
