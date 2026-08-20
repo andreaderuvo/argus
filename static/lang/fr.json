@@ -665,7 +665,7 @@
   "plain": "brut",
   "point it at the code": "point it at the code",
   "port {port} closed": "port {port} closed",
-  "port {port} is open now — the link works": "le port {port} est ouvert — le lien marche",
+  "port {port} is open — the link works now": "le port {port} est ouvert — le lien marche maintenant",
   "port {port} opened and served through Argus": "port {port} ouvert et servi par Argus",
   "press Enter for me": "appuyer sur Entrée pour moi",
   "press the keys…": "appuyez sur les touches…",

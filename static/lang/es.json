@@ -665,7 +665,7 @@
   "plain": "plano",
   "point it at the code": "point it at the code",
   "port {port} closed": "port {port} closed",
-  "port {port} is open now — the link works": "el puerto {port} ya está abierto — el enlace funciona",
+  "port {port} is open — the link works now": "el puerto {port} está abierto — ahora el enlace funciona",
   "port {port} opened and served through Argus": "puerto {port} abierto y servido por Argus",
   "press Enter for me": "pulsa Enter por mí",
   "press the keys…": "pulsa las teclas…",
