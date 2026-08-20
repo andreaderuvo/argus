@@ -3262,6 +3262,35 @@ async function mountPreview(host, path, ctl) {
   }
 
   const wanted = viewerFor(path);
+  if (wanted === 'diagram') {
+    const body = el('div', { className: 'md' });
+    host.append(body);
+    return ctl.source(async (rendered) => {
+      body.textContent = '';
+      if (!rendered) {
+        body.append(el('pre', { className: `file ${prefs.wrap ? 'wrap' : 'nowrap'}`, textContent: text }));
+        return;
+      }
+      const box = el('div', {});
+      body.append(box);
+      try {
+        await drawInto(box, text);
+      } catch (e) {
+        /* The source stays, and the complaint goes under it.
+         *
+         *  A diagram that will not parse is somebody halfway through writing one, and the
+         *  useful thing is the line mermaid objected to — not an empty box, and not the file
+         *  hidden behind an error. So it falls back to exactly what the source view shows,
+         *  with the reason above it.
+         */
+        box.replaceChildren(el('p', {
+          className: 'error',
+          textContent: `${t('this diagram did not draw')} — ${String(e.message || e).split('\n')[0]}`,
+        }));
+        body.append(el('pre', { className: `file ${prefs.wrap ? 'wrap' : 'nowrap'}`, textContent: text }));
+      }
+    });
+  }
   if (wanted === 'markdown') {
     const body = el('div', { className: 'md' });
     host.append(body);
@@ -3286,7 +3315,7 @@ async function mountPreview(host, path, ctl) {
    *  And they are off while lines wrap, because then they would be lying: a wrapped line
    *  takes two rows and the column would drift a row further out with every one of them.
    */
-  const numbered = prefs.lineNums && !prefs.wrap && wanted !== 'markdown';
+  const numbered = prefs.lineNums && !prefs.wrap && wanted !== 'markdown';   // 'diagram' returns above
   if (numbered) {
     const lines = text.split('\n').length - (text.endsWith('\n') ? 1 : 0);
     const gutter = el('div', { className: 'gutter', 'aria-hidden': 'true' });
@@ -3343,7 +3372,7 @@ const NAMED = { dockerfile: 'dockerfile', makefile: 'makefile', 'nginx.conf': 'n
  *  you want to read as source because it is a template. So the guess is a default and the
  *  answer is a setting, per extension, kept as `{ ext: viewer }`.
  */
-const VIEWERS = ['auto', 'code', 'plain', 'markdown'];
+const VIEWERS = ['auto', 'code', 'plain', 'markdown', 'diagram'];
 
 const viewerFor = (path) => {
   const leaf = (path.split('/').pop() || '').toLowerCase();
@@ -3351,6 +3380,14 @@ const viewerFor = (path) => {
   const said = (prefs.viewers || {})[ext];
   if (said && said !== 'auto' && VIEWERS.includes(said)) return said;
   if (/\.(md|markdown|mdown)$/i.test(leaf)) return 'markdown';
+  /* A diagram written on its own, rather than fenced inside a document.
+   *
+   *  `.mmd` is what the mermaid command-line reads and writes, and it was arriving here as a
+   *  wall of arrows — the one place a reader is worse off than running `cat`, which is the
+   *  same sentence that got fences drawn in the first place. The engine is already vendored
+   *  and already loaded on demand, so this costs a branch.
+   */
+  if (/\.(mmd|mermaid)$/i.test(leaf)) return 'diagram';
   return tongueOf(path) ? 'code' : 'plain';
 };
 
