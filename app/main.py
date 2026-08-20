@@ -1231,7 +1231,13 @@ def create_app(cfg: Config) -> FastAPI:
         machine, and `same-origin` keeps it exactly while letting this server hear its own pages.
         """
         came_from = re.match(r"^/proxy/(\d+)/", urlsplit(request.headers.get("referer", "")).path)
-        if came_from and not (STATIC_DIR / requested).is_file():
+        # Whatever a proxied page asks for belongs to that page — *even when this server has a
+        # file by the same name*. That was the first version's mistake and it was invisible in
+        # testing: `/static/app.js` redirected correctly while `/app.js` did not, because Argus
+        # has an `app.js` of its own, so a dashboard asking for the commonest filename there is
+        # was handed Argus's own application instead of its script. Argus's assets are only
+        # ever asked for by Argus's own pages, whose referer is not a proxy path.
+        if came_from:
             return RedirectResponse(f"/proxy/{came_from.group(1)}/{requested}"
                                     + (f"?{request.url.query}" if request.url.query else ""),
                                     status_code=307)
