@@ -4056,8 +4056,13 @@ function portsSection(where) {
          *  exactly so — "it was not clear I had to do /proxy/11000".
          */
         after = el('div', { className: 'portmore' }, [
-          addressLine(t('open it anywhere'), `${location.origin}/proxy/${p.port}/`,
-                      t('the token travels with you; a stranger gets nothing')),
+          // With the token in it, because that is what makes the words true. Pressing `Reach
+          // it` gives *this* browser a cookie for `/proxy`, and the plain address then works
+          // here and nowhere else — which is the opposite of the point: the address is copied
+          // in order to paste it into the laptop you are actually working on. So it carries
+          // the key, exactly like the address Argus itself is opened with, and says so.
+          addressLine(t('open it anywhere'), withToken(`${location.origin}/proxy/${p.port}/`),
+                      t('carries the key — treat it like the address bar')),
         ]);
         // The tunnel, for the two things a proxy in front of HTTP cannot do: a socket that is
         // not HTTP at all, and a page that talks over a WebSocket.

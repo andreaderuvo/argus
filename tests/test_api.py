@@ -321,3 +321,45 @@ def test_a_run_that_stops_calling_in_is_not_believed(client, monkeypatch):
     assert runs.as_told(said, now=later)["state"] == "gone"
     # Not "failed": nothing here ever reached those agents, and they are probably still going.
     assert get(client, "/api/overview").json()["runs"][0]["state"] == "running"
+
+
+def test_a_proxied_page_gets_its_own_files_even_when_argus_has_one_by_that_name(client):
+    """The bug that survived the first fix, which is why it is written down here.
+
+    A page served through `/proxy/8000/` can only have its *relative* references corrected, by
+    the `<base>` tag the proxy injects. An absolute one — `<script src="/app.js">` — is a
+    request for the root of this server, and the page handler answers every unknown path with
+    `index.html` and a 200: the browser asks for JavaScript, is handed HTML with `nosniff` on
+    it, refuses to run it, and the page renders as bare markup.
+
+    The `Referer` says which proxied page asked. The first version only used it when this
+    server had no file of that name, which fixed `/static/app.js` and left `/app.js` broken —
+    and `app.js` is the commonest filename there is, so the fix looked like it worked and did
+    not.
+    """
+    from_proxy = {"Authorization": f"Bearer {TOKEN}", "Referer": "http://x/proxy/8000/"}
+
+    # A name Argus does not have.
+    away = client.get("/static/thing.js", headers=from_proxy, follow_redirects=False)
+    assert away.status_code == 307
+    assert away.headers["location"] == "/proxy/8000/static/thing.js"
+
+    # And one it does. This is the one that regressed.
+    mine = client.get("/app.js", headers=from_proxy, follow_redirects=False)
+    assert mine.status_code == 307
+    assert mine.headers["location"] == "/proxy/8000/app.js"
+
+    # Asked for by Argus's own page, it is Argus's own file and nothing is redirected.
+    own = client.get("/app.js", headers={"Authorization": f"Bearer {TOKEN}",
+                                         "Referer": "http://x/#/system"},
+                     follow_redirects=False)
+    assert own.status_code == 200
+
+
+def test_a_proxy_address_without_its_slash_redirects(client):
+    """`/proxy/8000` matched no route and fell through to the page handler, which showed Argus
+    itself looking broken — with nothing to say the address was one character short."""
+    said = client.get("/proxy/8000", headers={"Authorization": f"Bearer {TOKEN}"},
+                      follow_redirects=False)
+    assert said.status_code == 308
+    assert said.headers["location"] == "/proxy/8000/"
