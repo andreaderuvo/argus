@@ -1,5 +1,6 @@
 """End-to-end through the real ASGI app: the gate, the jail and the error contract."""
 
+import json
 import time
 import pytest
 from fastapi.testclient import TestClient
@@ -388,3 +389,39 @@ def test_a_proxy_address_without_its_slash_redirects(client):
                       follow_redirects=False)
     assert said.status_code == 308
     assert said.headers["location"] == "/proxy/8000/"
+
+
+def test_the_proxy_does_not_hand_our_token_to_the_service(client, monkeypatch):
+    """The hole the other two were plugged against, arriving by the other door.
+
+    The proxy strips the token from the query it forwards, and pops `cookie` and
+    `authorization`, all for one reason: an address with a credential in it ends up in
+    somebody's access log. `Referer` is not hop-by-hop, so it went straight through — and a
+    page opened at `/proxy/11000/?token=…` puts that whole address in the `Referer` of every
+    request it makes. Made likely the day the ready-made link was given the token so that it
+    would work in another browser.
+    """
+    seen = {}
+
+    class Answer:
+        status_code = 200
+        content = b"ok"
+        headers = {"content-type": "text/plain"}
+
+    async def pretend(method, url, headers=None, content=None):
+        seen.update(headers or {})
+        return Answer()
+
+    client.app.state.cfg.allow_proxy = True
+    client.app.state.proxied.add(9911)
+    monkeypatch.setattr(client.app.state.http, "request", pretend)
+    client.get("/proxy/9911/thing", headers={
+        "Authorization": f"Bearer {TOKEN}",
+        "Referer": f"http://box:8090/proxy/9911/page?token={TOKEN}",
+        "Cookie": f"argus_proxy={TOKEN}",
+    })
+
+    assert TOKEN not in json.dumps(dict(seen)), "a credential reached the service"
+    # Rewritten rather than dropped: some services check it, and this is the truth from where
+    # the service is standing — its own root, the path it knows, nothing of ours attached.
+    assert seen["referer"] == "http://127.0.0.1:9911/page"

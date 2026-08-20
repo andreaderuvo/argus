@@ -12,7 +12,7 @@ port was opened by hand. A port bound to loopback was bound there on purpose.
 from __future__ import annotations
 
 import re
-from urllib.parse import parse_qsl, urlencode
+from urllib.parse import parse_qsl, urlencode, urlsplit
 
 import httpx
 from fastapi import APIRouter, Request
@@ -110,6 +110,21 @@ async def through(request: Request, port: int, path: str) -> Response:
     headers["host"] = f"127.0.0.1:{port}"
     headers.pop("cookie", None)      # our own cookie is not the service's business
     headers.pop("authorization", None)
+    # And the referer, which was the hole the other two were plugged against.
+    #
+    # A page opened at `/proxy/11000/?token=…` puts that whole address — token and all — in
+    # the `Referer` of every request it makes, and `Referer` is not hop-by-hop, so it went
+    # straight through to the service and into its access log. Precisely the leak the query
+    # is stripped to prevent, arriving by the other door, and made likely the day the ready
+    # link was given the token so it would work in another browser.
+    #
+    # Rewritten rather than dropped: some services check it for CSRF, and from where the
+    # service is standing this is the truth — the request did come from its own root, by the
+    # path it knows, with nothing of ours attached.
+    if "referer" in headers:
+        was = urlsplit(headers["referer"]).path
+        inside = was[len(f"/proxy/{port}"):] if was.startswith(f"/proxy/{port}") else "/"
+        headers["referer"] = f"http://127.0.0.1:{port}{inside or '/'}"
 
     client: httpx.AsyncClient = request.app.state.http
     try:
