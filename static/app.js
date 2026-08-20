@@ -14096,9 +14096,20 @@ function attachViewer(host, path, extras) {
   host.addEventListener('pointerdown', () => setCurrent(path), true);
   const srcBtn = el('button', { className: 'winbtn', hidden: true, title: t('View the source') }, icon('code'));
   const editBtn = el('button', { className: 'winbtn', hidden: true, title: t('Edit this file') }, icon('rename'));
-  const watchBtn = el('button', { className: 'winbtn on', title: t('Reload when the file changes') }, icon('refresh'));
+  /* Two buttons where there was one, because one of them was lying.
+   *
+   *  The circular arrow is the universal "do it again", and here it was a *switch*: it turned
+   *  following-changes on and off. Pressing it did nothing you could see — and for a PDF, less
+   *  than nothing, because a watched PDF does not reload on its own anyway, it offers. So it
+   *  read as a refresh button that does not work, and was reported as exactly that.
+   *
+   *  Now the arrow reads the file again, right now, which is what an arrow means. The eye
+   *  beside it is the switch, and an eye is a thing that either is or is not watching.
+   */
+  const again = el('button', { className: 'winbtn', title: t('Read it again now') }, icon('refresh'));
+  const watchBtn = el('button', { className: 'winbtn on', title: t('Reload when the file changes') }, icon('eye'));
   const dl = el('button', { className: 'winbtn', title: t('Download') }, icon('download'));
-  extras.append(srcBtn, editBtn, watchBtn, dl);
+  extras.append(srcBtn, editBtn, again, watchBtn, dl);
 
   let rendered = true;
   let askFirst = false;         // this document loses your place when it reloads
@@ -14176,8 +14187,25 @@ function attachViewer(host, path, extras) {
   watchBtn.onclick = () => {
     watching = !watching;
     watchBtn.classList.toggle('on', watching);
-    watchBtn.title = watching ? 'Reload when the file changes' : 'Not watching — tap to follow changes';
+    watchBtn.title = watching ? t('Reload when the file changes') : t('Not watching — tap to follow changes');
     if (watching) poll();
+  };
+
+  /* Read it again, whatever the disk says.
+   *
+   *  Not the watcher's job and not conditional on anything: the file may be identical and you
+   *  may still want it drawn again — a PDF whose page you have scrolled away from, a report you
+   *  are not sure finished writing. `stamp` is cleared so the watcher does not then announce a
+   *  change that was only this.
+   */
+  again.onclick = async () => {
+    again.disabled = true;
+    const wasAt = host.scrollTop;
+    try {
+      stamp = null;
+      await load();
+      host.scrollTop = wasAt;
+    } finally { again.disabled = false; }
   };
 
   return {
