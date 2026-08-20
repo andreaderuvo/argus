@@ -3901,10 +3901,12 @@ function factRow(label, value, note, { link = null, code = false } = {}) {
       setTimeout(() => { this.replaceChildren(icon('clipboard')); this.classList.remove('done'); }, 1200);
     },
   }, icon('clipboard'));
+  // Built as a list and filtered, because `el` here appends whatever it is given: a `null`
+  // child arrives as the word "null" on the screen. It did, under a port with no note.
   return el('div', { className: 'addrrow' }, [
     el('span', { className: 'addrlabel', textContent: label }),
     shown, copy,
-    note ? el('span', { className: 'meta', textContent: note }) : null,
+    ...(note ? [el('span', { className: 'meta', textContent: note })] : []),
   ]);
 }
 
@@ -4094,15 +4096,47 @@ function portsSection(where) {
        *  that talks over a WebSocket.
        */
       const more = el('div', { className: 'portmore', hidden: !unfolded.has(p.port) });
-      if (open) {
-        // With the token in it, because that is what makes the words true. `Reach it` gives
-        // *this* browser a cookie for `/proxy`, and the plain address then works here and
-        // nowhere else — the opposite of the point, since it is copied to be pasted into the
-        // laptop you are actually working on.
-        more.append(addressLine(t('open it anywhere'), withToken(`${location.origin}/proxy/${p.port}/`),
-                                t('carries the key — treat it like the address bar')));
-      } else if (!p.loopback) {
+      /* The address, whether or not the port has been opened yet.
+       *
+       *  It used to appear only once the port was open, which meant the way to *see the link*
+       *  was to open the port — and the link is the thing people came for: something to paste
+       *  into a new tab on the laptop they are actually working on. So it is always written
+       *  out, and when the port is still shut the line underneath says so rather than the
+       *  address being absent and unexplained.
+       *
+       *  With the token in it, because that is what makes it work anywhere. `Reach it` gives
+       *  *this* browser a cookie scoped to `/proxy`, so the bare address works here and
+       *  nowhere else — the opposite of the point.
+       */
+      if (!p.loopback) {
         more.append(addressLine(t('open it anywhere'), direct, t('it is on the network already')));
+      } else {
+        const ready = addressLine(t('open it anywhere'), withToken(`${location.origin}/proxy/${p.port}/`),
+                                  open ? t('carries the key — treat it like the address bar')
+                                       : t('clicking it opens the port first'));
+        if (!open) {
+          /* Clicking the link is the same intent as pressing `Reach it`, so it does both.
+           *
+           *  What it does *not* do is let the server open a port on its own when something
+           *  asks for it: a port bound to loopback was bound there deliberately, and that
+           *  stays a decision somebody makes. This is that decision, made by clicking.
+           *
+           *  The tab is opened after the port is, which some browsers treat as no longer
+           *  being your click and refuse. If they do, the port is open anyway and the same
+           *  link works on the second press — so that is what it says.
+           */
+          ready.querySelector('a').onclick = async (ev) => {
+            ev.preventDefault();
+            try {
+              await postJSON('/api/ports', { port: p.port, open: true });
+            } catch (e) { return toast(e.message, true); }
+            paint();
+            if (!window.open(ev.currentTarget.href, '_blank', 'noopener')) {
+              toast(t('port {port} is open now — the link works', { port: p.port }));
+            }
+          };
+        }
+        more.append(ready);
       }
       const ssh = (where?.said?.ssh || []).find((x) => x.name === 'OpenSSH');
       if (ssh) {
