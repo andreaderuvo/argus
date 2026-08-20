@@ -4196,15 +4196,30 @@ function portsSection(where) {
            *  being your click and refuse. If they do, the port is open anyway and the same
            *  link works on the second press — so that is what it says.
            */
-          ready.querySelector('a').onclick = async (ev) => {
+          ready.querySelector('a').onclick = (ev) => {
             ev.preventDefault();
-            try {
-              await postJSON('/api/ports', { port: p.port, open: true });
-            } catch (e) { return toast(e.message, true); }
-            paint();
-            if (!window.open(ev.currentTarget.href, '_blank', 'noopener')) {
-              toast(t('port {port} is open now — the link works', { port: p.port }));
-            }
+            /* The tab is opened *now*, empty, and sent somewhere once the port is.
+             *
+             *  A browser only allows `window.open` while it still believes it is inside your
+             *  click, and an `await` ends that belief. So the first version opened the port and
+             *  then asked for a tab it was no longer allowed to have, said so, and left you to
+             *  click a second time — which is two clicks for one intention, and was reported in
+             *  exactly those words. Opening a blank tab first keeps the gesture; the address
+             *  goes in when the port answers, and if it refuses the tab is closed again rather
+             *  than left sitting there on nothing.
+             */
+            const where = ev.currentTarget.href;
+            const tab = window.open('', '_blank', 'noopener');
+            postJSON('/api/ports', { port: p.port, open: true })
+              .then(() => {
+                paint();
+                // A blocked popup must not become "we take you there instead": leaving Argus
+                // was not what was asked for. The port is open by then, so the link works —
+                // and saying so is better than hijacking the page you were on.
+                if (tab) tab.location = where;
+                else toast(t('port {port} is open — the link works now', { port: p.port }));
+              })
+              .catch((e) => { tab?.close(); toast(e.message, true); });
           };
         }
         more.append(ready);
