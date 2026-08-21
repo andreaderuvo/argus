@@ -3313,10 +3313,13 @@ a.addrtext:hover { text-decoration: underline; }
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 55%, transparent); }
 body:not(.railwide) .railwin.raildesk .railcount { display: none; }
 
-/* The folder, said the way a terminal says where it is — same strip, same look, same `i`. */
+/* The folder, said the way a terminal says where it is — same strip, same look, same `i`.
+ *
+ *  No colour rules of its own: `button.icon.on` and `button.winbtn.on` already say what an
+ *  active toggle looks like in each place, and a third opinion here was both redundant and
+ *  louder than either — the `i` is a closed ring, so filling it with the accent reads as a
+ *  green disc rather than as an icon that happens to be on. */
 .docfacts { border-bottom: 1px solid var(--line); }
-#docwhere.twist.docwhere.on, #docwhere.twist.docwhere.on .ico { color: var(--accent); }
-.winbtn.twist.docwhere.on, .winbtn.twist.docwhere.on .ico { color: var(--accent); }
 /* The file's own buttons sit at the end of the document's row, pushed there rather than
    crowding the page controls. */
 .pdfbar > .winbtn.done, .pdfbar > .winbtn.done .ico { color: var(--st-good); }
