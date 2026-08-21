@@ -183,13 +183,29 @@ let baseline = {};
 let pushing = null;
 
 /** What this browser has changed since it last agreed with the server. */
+/* Kept in this browser and never sent to the machine.
+ *
+ *  Everything else in here is deliberately shared: a desk made at the desk should be on the
+ *  phone, and that is the whole reason the workspace moved off `localStorage`. *Which desk you
+ *  are looking at right now* is the opposite kind of fact. Two devices are never on the same
+ *  one — the phone is watching a build while the laptop is reading a paper — so sharing it
+ *  means whichever moved last drags the other one with it.
+ *
+ *  Found rather than reasoned: a second browser opened to test something quietly moved this
+ *  one onto another desk, mid-sentence, because both were writing the same key.
+ */
+const MINE_ONLY = new Set(['ws']);
+
 function changedKeys() {
   const changes = {};
   for (const [key, value] of Object.entries(prefs)) {
+    if (MINE_ONLY.has(key)) continue;
     if (JSON.stringify(baseline[key]) !== JSON.stringify(value)) changes[key] = value;
   }
   // A key this browser has dropped is a key to remove, not one to leave behind: null says so.
-  for (const key of Object.keys(baseline)) if (!(key in prefs)) changes[key] = null;
+  for (const key of Object.keys(baseline)) {
+    if (!MINE_ONLY.has(key) && !(key in prefs)) changes[key] = null;
+  }
   return changes;
 }
 
@@ -230,16 +246,22 @@ async function syncPrefs() {
     if (said.version > 0 && Object.keys(theirs).length) {
       // The machine has a workspace: this browser adopts it, cache and all. Replacing the keys
       // in place rather than the object, because everything else in here closes over it.
+      // Except this browser's own — see MINE_ONLY: adopting the machine's idea of which desk
+      // is open would land you wherever the last device to look happened to be.
+      const mine = {};
+      for (const key of MINE_ONLY) if (key in prefs) mine[key] = prefs[key];
       for (const key of Object.keys(prefs)) delete prefs[key];
-      Object.assign(prefs, theirs);
+      Object.assign(prefs, theirs, mine);
       localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
     } else if (Object.keys(prefs).length) {
       // Nothing there and something here: this browser's copy becomes the machine's. That is
       // the migration, and it happens once, silently, on whichever device opens it first.
+      const toSend = { ...prefs };
+      for (const key of MINE_ONLY) delete toSend[key];
       await api('/api/prefs', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ version: said.version, prefs }),
+        body: JSON.stringify({ version: said.version, prefs: toSend }),
       });
     }
     prefsVersion = said.version;
