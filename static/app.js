@@ -862,6 +862,20 @@ async function copyText(text) {
   return ok;
 }
 
+/** The tick on the button you just pressed.
+ *
+ *  Eleven things in here copy something. Nine said so with a toast at the other end of the
+ *  screen and two with a tick on the button itself, which is the one you are looking at — you
+ *  pressed it, your eye is on it, and a message somewhere else is a message you may miss. So
+ *  every *button* that copies now ticks; the toast stays where it carries something a tick
+ *  cannot, like how many characters went.
+ */
+function ticked(button, glyph = 'clipboard') {
+  button.replaceChildren(icon('tick'));
+  button.classList.add('done');
+  setTimeout(() => { button.replaceChildren(icon(glyph)); button.classList.remove('done'); }, 1200);
+}
+
 async function copyPath(path) {
   const ok = await copyText(path);
   // Says so in words as well: the tick is on the button you just pressed, and by then you may
@@ -926,6 +940,9 @@ const ICONS = {
   // Put away. A line along the bottom, which is what the underscore on every window
   // manager's minimise button has meant for thirty years.
   away: 'M5 18.5h14',
+  // Select all: a dashed box round everything, which is what a marquee round a whole page
+  // looks like the moment before you let go.
+  selectall: 'M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16M8.5 12h7',
   // A circle, a stem and a dot: three subpaths in one string, the way `grip` does it.
   info: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0M12 11v5.5M12 7.6h.01',
   // A piece with a knob and a socket: the arrangement that is yours rather than one of the
@@ -3554,12 +3571,7 @@ function whereButtons(path) {
   const here = parentOf(path);
   const copies = (what, glyph, title) => el('button', {
     className: 'winbtn', type: 'button', title,
-    onclick: async function copied() {
-      if (!await copyText(what())) return;
-      this.replaceChildren(icon('tick'));
-      this.classList.add('done');
-      setTimeout(() => { this.replaceChildren(icon(glyph)); this.classList.remove('done'); }, 1200);
-    },
+    onclick: async function copied() { if (await copyText(what())) ticked(this, glyph); },
   }, icon(glyph));
   return [
     el('button', {
@@ -3589,6 +3601,42 @@ function whereFacts(path) {
 
 /** Put both where they belong: the buttons on the document's own row when it has one, on a row
  *  of their own when it does not; the facts always underneath. */
+/** Take the whole thing: select it, or copy it.
+ *
+ *  Missing, and the two halves of the same want — a file opened to be read is usually a file
+ *  something else is about to receive. Selecting is for when you want part of it after all and
+ *  the drag across three screens is the annoying bit; copying is for when you want all of it
+ *  and never wanted the drag.
+ *
+ *  Only where there is text to take. A PDF is pages of drawn glyphs and there is nothing here
+ *  to select; its own row already has a search that does what you would want instead.
+ */
+function wholeButtons(into) {
+  const body = into.querySelector('pre.file, .md');
+  if (!body) return [];
+  const all = el('button', {
+    className: 'winbtn', type: 'button', title: t('Select the whole document'),
+    onclick: () => {
+      const range = document.createRange();
+      range.selectNodeContents(body);
+      const picked = getSelection();
+      picked.removeAllRanges();
+      picked.addRange(range);
+    },
+  }, icon('selectall'));
+  const grab = el('button', {
+    className: 'winbtn', type: 'button', title: t('Copy the whole document'),
+    onclick: async () => {
+      const text = body.innerText;
+      if (await copyText(text)) {
+        ticked(grab, 'copy');
+        toast(t('copied {count} characters', { count: text.length }));
+      } else showText(t('Copy this'), text);
+    },
+  }, icon('copy'));
+  return [all, grab];
+}
+
 function putStrip(into, path) {
   /* The facts go directly under the title bar, exactly where a terminal keeps its own — that
    *  is the whole point of using the same strip and the same `i`, and putting them under the
@@ -3599,7 +3647,7 @@ function putStrip(into, path) {
    */
   const own = into.querySelector('.pdfbar');
   if (own) own.append(...whereButtons(path));
-  else into.prepend(el('div', { className: 'prevwhere' }, whereButtons(path)));
+  else into.prepend(el('div', { className: 'prevwhere' }, [...wholeButtons(into), ...whereButtons(path)]));
   into.prepend(whereFacts(path));
 }
 
@@ -6909,8 +6957,10 @@ function copyButton(handle, cls) {
     }
     // The click is still the user gesture the browser wants, so the old execCommand path
     // inside copyText works even on a plain-http address where the clipboard API is gone.
-    if (await copyText(text)) toast(t('copied {count} characters from the {where}', { count: text.length, where }));
-    else showText(t('Copy this'), text);
+    if (await copyText(text)) {
+      ticked(btn, 'copy');
+      toast(t('copied {count} characters from the {where}', { count: text.length, where }));
+    } else showText(t('Copy this'), text);
   };
   return btn;
 }
@@ -13750,7 +13800,7 @@ function attachTray(host, wsId, extras, deliver) {
       const grab = el('button', { className: 'winbtn', title: t('Copy the path') }, icon('copy'));
       grab.onclick = async (e) => {
         e.stopPropagation();
-        if (await copyText(item.text)) toast(t('copied'));
+        if (await copyText(item.text)) ticked(grab, 'copy');
         else showText(t('The path'), item.text);
       };
       const drop = el('button', { className: 'winbtn', title: t('Forget this one') }, icon('close'));
