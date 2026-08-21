@@ -3525,6 +3525,24 @@ function whereStrip(path) {
        *  folder, which from the outside is the same button not working. */
       onclick: () => openWindow({ kind: 'browser', id: nextWindowId(), path: here, fresh: true }),
     }, icon('split')),
+    /* The address, not the path.
+     *
+     *  Two different things and both are wanted. The path is what you type into a terminal on
+     *  this machine; the address is what you paste into a browser, a message, a note — and for
+     *  a PDF especially, because the useful thing to hand somebody is a link that opens the
+     *  document, not a filename they cannot reach. It carries the token, like every other
+     *  address here that is meant to work somewhere else, and says so.
+     */
+    el('button', {
+      className: 'icon', type: 'button', title: t('Copy a link to this file'),
+      onclick: async function copied() {
+        const link = withToken(`${location.origin}/api/file?path=${encodeURIComponent(path)}`);
+        if (!await copyText(link)) return;
+        this.replaceChildren(icon('tick'));
+        this.classList.add('done');
+        setTimeout(() => { this.replaceChildren(icon('link')); this.classList.remove('done'); }, 1200);
+      },
+    }, icon('link')),
     el('button', {
       className: 'icon', type: 'button', title: t('Copy the absolute path'),
       onclick: async function copied() {
