@@ -923,6 +923,9 @@ const ICONS = {
   back: 'M15 4.5 7.5 12 15 19.5',
   up: 'M12 19.5v-14M5.5 12 12 5.5 18.5 12',
   down: 'M12 4.5v14M18.5 12 12 18.5 5.5 12',
+  // Put away. A line along the bottom, which is what the underscore on every window
+  // manager's minimise button has meant for thirty years.
+  away: 'M5 18.5h14',
   // A circle, a stem and a dot: three subpaths in one string, the way `grip` does it.
   info: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0M12 11v5.5M12 7.6h.01',
   // A piece with a knob and a socket: the arrangement that is yours rather than one of the
@@ -3504,92 +3507,100 @@ function editor({ text, mtime, host, path }, { onDone, watch } = {}) {
  *  files are actually opened here — the first version only had it on the screen, and the window
  *  is the one you live in.
  */
-/** Where a document's caption goes, and whether it is showing.
+/** One row of controls, and the folder as a fact underneath.
  *
- *  Under the *document's own controls*, not above them: a PDF has a row of page and zoom
- *  buttons of its own, and putting the folder above those made the first thing you see the
- *  least interesting thing on the screen. Everything else has no controls, so there it is
- *  simply at the top.
+ *  Two rows became one because they were the same row: a PDF had its page and zoom buttons on
+ *  top and three more buttons about the *file* directly beneath, which reads as two toolbars
+ *  disagreeing about which is the toolbar. So the document's own controls and the file's own
+ *  controls share a line, and the folder — a long path, and usually one you already know —
+ *  moves out of it entirely.
+ *
+ *  It moves into the same strip a terminal wears under its title bar: a labelled fact, in the
+ *  same style, behind the same `i`. A terminal says *where tmux thinks it is*; a document says
+ *  *where it is*. Same question, same place, same look.
  */
+const strips = () => prefs.docWhere === true;
+
+/** Park a desk: off the strip, into the rail.
+ *
+ *  One function, because it is now reached from two places — the tab and its menu — and two
+ *  copies of "step off it first, then hide it" is how one of them ends up leaving you standing
+ *  on a desk that is not in the strip.
+ */
+function putDeskAway(ws, spaces, activate, drawTabs) {
+  if (ws.id === prefs.ws) {
+    const next = spaces.find((w) => !w.hidden && w.id !== ws.id);
+    if (next) activate(next.id);
+  }
+  ws.hidden = true;
+  savePrefs();
+  drawTabs();
+  paintRailDesks();
+  toast(t('{name} is in the rail now', { name: ws.name }));
+}
+
 function toggleStrips() {
   prefs.docWhere = !strips();
   savePrefs();
   // Every document at once, the way the terminals' facts work: it is a way of reading, not a
   // property of one window, and half of them showing it would be a puzzle rather than a view.
-  for (const one of document.querySelectorAll('.prevwhere')) one.hidden = !strips();
-  for (const b of document.querySelectorAll('.winbtn.twist.facts, .icon.twist.facts')) {
-    if (b.title === t('Where this file is')) b.classList.toggle('on', strips());
-  }
+  for (const one of document.querySelectorAll('.docfacts')) one.hidden = !strips();
+  for (const b of document.querySelectorAll('.twist.docwhere')) b.classList.toggle('on', strips());
 }
 
-function putStrip(into, strip) {
-  const own = into.querySelector('.pdfbar');
-  if (own) own.after(strip);
-  else into.prepend(strip);
-}
-
-/** Shown when you ask, like the facts under a terminal.
- *
- *  It was always there, and most of the time the answer to "which folder is this in" is one
- *  you already know. The same `i` the terminals use, meaning the same thing in both places —
- *  and, like theirs, it is one answer for every document rather than a state per window.
- */
-const strips = () => prefs.docWhere === true;
-
-function whereStrip(path) {
+/** The buttons that belong to the *file* rather than to the document: where it is, its link,
+ *  its path. Icons only — the words were the path, and the path has moved. */
+function whereButtons(path) {
   const here = parentOf(path);
-  return el('div', { className: 'prevwhere', hidden: !strips() }, [
+  const copies = (what, glyph, title) => el('button', {
+    className: 'winbtn', type: 'button', title,
+    onclick: async function copied() {
+      if (!await copyText(what())) return;
+      this.replaceChildren(icon('tick'));
+      this.classList.add('done');
+      setTimeout(() => { this.replaceChildren(icon(glyph)); this.classList.remove('done'); }, 1200);
+    },
+  }, icon(glyph));
+  return [
     el('button', {
-      className: 'wherepath', type: 'button',
-      // The whole path in the tooltip, since the visible one is cut when it is long.
-      title: `${here} — ${t('Open this folder in Files')}`,
-      textContent: here,
-      onclick: () => go(`#/files?path=${encodeURIComponent(here)}`),
-    }),
-    el('button', {
-      className: 'icon', type: 'button', title: t('A file browser here, in this desk'),
-      /* The desk you are on, and the folder this file is in. Neither is a question.
-       *
-       *  It asked which desk, because that is what opening a *file* in a window does — and
-       *  there the question earns its place: you are sending something somewhere. Here you are
-       *  looking at a document and want the folder beside it, which means here, now, no dialog.
-       *
-       *  And `fresh`, which is the half that was missing: a browser window opens on the desk's
-       *  own folder unless it says it was opened *at* something. Without it the dialog went
-       *  away and the window still landed on the desk's home — the right desk, the wrong
-       *  folder, which from the outside is the same button not working. */
+      className: 'winbtn', type: 'button', title: `${here} — ${t('A file browser here, in this desk')}`,
       onclick: () => openWindow({ kind: 'browser', id: nextWindowId(), path: here, fresh: true }),
     }, icon('split')),
-    /* The address, not the path.
-     *
-     *  Two different things and both are wanted. The path is what you type into a terminal on
-     *  this machine; the address is what you paste into a browser, a message, a note — and for
-     *  a PDF especially, because the useful thing to hand somebody is a link that opens the
-     *  document, not a filename they cannot reach. It carries the token, like every other
-     *  address here that is meant to work somewhere else, and says so.
-     */
-    el('button', {
-      className: 'icon', type: 'button', title: t('Copy a link to this file'),
-      onclick: async function copied() {
-        const link = withToken(`${location.origin}/api/file?path=${encodeURIComponent(path)}`);
-        if (!await copyText(link)) return;
-        this.replaceChildren(icon('tick'));
-        this.classList.add('done');
-        setTimeout(() => { this.replaceChildren(icon('link')); this.classList.remove('done'); }, 1200);
-      },
-    }, icon('link')),
-    el('button', {
-      className: 'icon', type: 'button', title: t('Copy the absolute path'),
-      onclick: async function copied() {
-        // The tick, because a button that copies and then looks exactly as it did is a button
-        // you press again to be sure. Same as everywhere else a path is copied here.
-        if (!await copyText(path)) return;
-        this.replaceChildren(icon('tick'));
-        this.classList.add('done');
-        setTimeout(() => { this.replaceChildren(icon('clipboard')); this.classList.remove('done'); }, 1200);
-      },
-    }, icon('clipboard')),
-  ]);
+    copies(() => withToken(`${location.origin}/api/file?path=${encodeURIComponent(path)}`),
+           'link', t('Copy a link to this file')),
+    copies(() => path, 'clipboard', t('Copy the absolute path')),
+  ];
+}
+
+/** The folder, as the terminals say things. */
+function whereFacts(path) {
+  const here = parentOf(path);
+  const strip = el('div', { className: 'winfacts docfacts', hidden: !strips() });
+  strip.append(el('button', {
+    className: 'fact goes', type: 'button',
+    title: `${here} · ${t('press to open a file browser here')}`,
+    onclick: () => openWindow({ kind: 'browser', id: nextWindowId(), path: here, fresh: true }),
+  }, [
+    el('span', { className: 'factname', textContent: t('folder') }),
+    el('span', { className: 'factvalue', textContent: here }),
+  ]));
+  return strip;
+}
+
+/** Put both where they belong: the buttons on the document's own row when it has one, on a row
+ *  of their own when it does not; the facts always underneath. */
+function putStrip(into, path) {
+  /* The facts go directly under the title bar, exactly where a terminal keeps its own — that
+   *  is the whole point of using the same strip and the same `i`, and putting them under the
+   *  page controls instead made them a third bar rather than the same one.
+   *
+   *  The buttons go on the document's own row when it has one, because two toolbars in a
+   *  column read as two toolbars disagreeing about which is the toolbar.
+   */
+  const own = into.querySelector('.pdfbar');
+  if (own) own.append(...whereButtons(path));
+  else into.prepend(el('div', { className: 'prevwhere' }, whereButtons(path)));
+  into.prepend(whereFacts(path));
 }
 
 async function screenPreview(path) {
@@ -3621,10 +3632,10 @@ async function screenPreview(path) {
   bar.where.hidden = false;
   bar.where.replaceChildren(icon('info'));
   bar.where.title = t('Where this file is');
-  bar.where.classList.toggle('on', strips());
+  bar.where.className = `icon twist docwhere${strips() ? ' on' : ''}`;
   bar.where.onclick = toggleStrips;
 
-  const strip = whereStrip(path);
+
 
   await mountPreview(view, path, {
     download: (fn) => {
@@ -3649,7 +3660,7 @@ async function screenPreview(path) {
 
   // After the mount, because mounting empties the view. First child, so it reads as a caption
   // rather than as something that arrived with the file.
-  putStrip(view, strip);
+  putStrip(view, path);
 }
 
 /** A visible switch between a rendered document and its source. Tapping the title does
@@ -9176,19 +9187,8 @@ async function screenWall() {
      *  never the last visible desk, because a strip with nothing in it is a wall with no way
      *  back to anything.
      */
-    const visible = spaces.filter((w) => !w.hidden);
-    if (!ws.hidden && visible.length > 1) {
-      item('down', t('Put it away'), () => {
-        if (ws.id === prefs.ws) {
-          const next = visible.find((w) => w.id !== ws.id);
-          if (next) activate(next.id);
-        }
-        ws.hidden = true;
-        savePrefs();
-        drawTabs();
-        paintRailDesks();
-        toast(t('{name} is in the rail now', { name: ws.name }));
-      });
+    if (!ws.hidden && spaces.filter((w) => !w.hidden).length > 1) {
+      item('away', t('Put it away'), () => putDeskAway(ws, spaces, activate, drawTabs));
     }
     item('pin', ws.pinned ? t('Unpin') : t('Pin to the front'), () => {
       ws.pinned = !ws.pinned;
@@ -9411,6 +9411,21 @@ async function screenWall() {
       const more = el('button', { className: 'tabmore', title: t('This workspace…') }, icon('more'));
       more.onclick = (e) => { e.stopPropagation(); tabSheet(ws, rename, shut); };
       tab.append(more);
+      /* Put it away, on the tab itself.
+       *
+       *  It was in the menu, which is two presses and a read for something you do to get a
+       *  desk out of the way — and getting something out of the way is exactly the action that
+       *  must not cost more than the clutter does. Beside the cross, because they are the two
+       *  ways a desk leaves the strip and only one of them is final.
+       *
+       *  Only on the desk you are looking at, like the cross: eight tabs each wearing two
+       *  little buttons is a strip you cannot read at all.
+       */
+      if (on && spaces.filter((w) => !w.hidden).length > 1) {
+        const away = el('button', { className: 'tabclose tabaway', title: t('Put it away') }, icon('away'));
+        away.onclick = (e) => { e.stopPropagation(); putDeskAway(ws, spaces, activate, drawTabs); };
+        tab.append(away);
+      }
       if (on && spaces.length > 1 && !ws.pinned) {
         const x = el('button', { className: 'tabclose', title: t('Close this workspace') }, icon('close'));
         x.onclick = (e) => { e.stopPropagation(); shut(); };
@@ -14339,7 +14354,7 @@ function attachViewer(host, path, extras) {
   const again = el('button', { className: 'winbtn', title: t('Read it again now') }, icon('refresh'));
   const watchBtn = el('button', { className: 'winbtn on', title: t('Reload when the file changes') }, icon('eye'));
   const whereBtn = el('button', {
-    className: `winbtn twist facts${strips() ? ' on' : ''}`, title: t('Where this file is'),
+    className: `winbtn twist docwhere${strips() ? ' on' : ''}`, title: t('Where this file is'),
     onclick: toggleStrips,
   }, icon('info'));
   const dl = el('button', { className: 'winbtn', title: t('Download') }, icon('download'));
@@ -14377,7 +14392,7 @@ function attachViewer(host, path, extras) {
     await mountPreview(host, path, ctl);
     // The same caption as the full-screen viewer: mounting empties the host, so it goes back
     // on afterwards, every time the file is reloaded under you.
-    putStrip(host, whereStrip(path));
+    putStrip(host, path);
   };
   load();
 
