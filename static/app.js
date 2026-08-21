@@ -7418,6 +7418,28 @@ function attachTerminal(container, name, { transform, onGone, onBack, onPath, on
 
   connect();
 
+  /* A tap puts the keyboard up.
+   *
+   *  A terminal is focused through a hidden textarea, and on a phone getting a tap to reach
+   *  it is a lottery: xterm's own handler wants a click on its canvas, the drag layer above
+   *  it swallows some, and a tap that lands a pixel off does nothing at all — so you tap,
+   *  nothing happens, you tap again. Reported as "with difficulty I manage to get the focus".
+   *
+   *  `pointerup`, on the whole container, and only for a tap that did not move: a drag is a
+   *  selection or a scroll and must not be turned into a keyboard. Nothing is done for a
+   *  mouse, where clicking already works and stealing focus would fight text selection.
+   */
+  let touchedAt = null;
+  container.addEventListener('pointerdown', (e) => {
+    touchedAt = e.pointerType === 'mouse' ? null : { x: e.clientX, y: e.clientY };
+  }, { passive: true });
+  container.addEventListener('pointerup', (e) => {
+    if (!touchedAt) return;
+    const still = Math.abs(e.clientX - touchedAt.x) < 8 && Math.abs(e.clientY - touchedAt.y) < 8;
+    touchedAt = null;
+    if (still && !term.hasSelection()) term.focus();
+  }, { passive: true });
+
   const send = (data) => { if (ws?.readyState === WebSocket.OPEN) ws.send(enc.encode(data)); };
 
   /* Predictive keyboards send the word twice.
@@ -7932,7 +7954,25 @@ async function screenTerm(name) {
     // Enter sends; Shift+Enter is a new line, the way every chat box works.
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); deliver(true); }
   });
-  const compose = el('div', { id: 'compose', hidden: !prefs.composeBar }, [
+  /* On by default where there is no keyboard.
+   *
+   *  Typing straight into a terminal from a phone runs into xterm.js issue 3600 — a predictive
+   *  keyboard commits a word and Android delivers the commit *again* on top of the composition,
+   *  so the line arrives twice. The guard above catches the clean cases and cannot catch the
+   *  rest; this box does not meet the problem at all, because it is an ordinary text field
+   *  where predictive typing behaves the way it does everywhere else on the phone.
+   *
+   *  It was here and switched off, which meant the people it exists for were the people who
+   *  never found it — reported by somebody fighting exactly the bug it avoids. A coarse
+   *  pointer and no fine one is a phone; the switch still wins wherever it has been set.
+   */
+  // Coarse and nothing fine is a phone. `maxTouchPoints` as well as the media query, because
+  // the query is the honest answer and not every browser gives one — a touch laptop is
+  // excluded either way by having a fine pointer too.
+  const fine = matchMedia('(pointer: fine)').matches;
+  const noKeyboard = !fine && (matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0);
+  const composeOn = prefs.composeBar === undefined ? noKeyboard : !!prefs.composeBar;
+  const compose = el('div', { id: 'compose', hidden: !composeOn }, [
     line,
     el('button', { className: 'ghost dup', title: t('Put it in without running it'), textContent: '↵', onclick: () => deliver(false) }),
     el('button', { className: 'primary inline', textContent: t('Send'), onclick: () => deliver(true) }),
@@ -7941,9 +7981,9 @@ async function screenTerm(name) {
 
   keys.append(el('button', {
     title: t('Write a line in a box instead'),
-    className: prefs.composeBar ? 'on' : '',
+    className: composeOn ? 'on' : '',
     onclick: (e) => {
-      prefs.composeBar = !prefs.composeBar;
+      prefs.composeBar = compose.hidden;
       savePrefs();
       compose.hidden = !prefs.composeBar;
       e.currentTarget.classList.toggle('on', prefs.composeBar);
