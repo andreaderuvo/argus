@@ -36,6 +36,7 @@ const bar = {
   alt: document.getElementById('alt'),
   settings: document.getElementById('settings'),
   full: document.getElementById('fullscreen'),
+  where: document.getElementById('docwhere'),
   about: document.getElementById('about'),
   keys: document.getElementById('keys'),
 };
@@ -1893,6 +1894,8 @@ async function render() {
   bar.action.className = 'icon';
   bar.alt.hidden = true;
   bar.alt.onclick = null;
+  bar.where.hidden = true;
+  bar.where.onclick = null;
   bar.title.onclick = null;
   view.style.overflow = '';
   view.innerHTML = '';
@@ -3501,9 +3504,41 @@ function editor({ text, mtime, host, path }, { onDone, watch } = {}) {
  *  files are actually opened here — the first version only had it on the screen, and the window
  *  is the one you live in.
  */
+/** Where a document's caption goes, and whether it is showing.
+ *
+ *  Under the *document's own controls*, not above them: a PDF has a row of page and zoom
+ *  buttons of its own, and putting the folder above those made the first thing you see the
+ *  least interesting thing on the screen. Everything else has no controls, so there it is
+ *  simply at the top.
+ */
+function toggleStrips() {
+  prefs.docWhere = !strips();
+  savePrefs();
+  // Every document at once, the way the terminals' facts work: it is a way of reading, not a
+  // property of one window, and half of them showing it would be a puzzle rather than a view.
+  for (const one of document.querySelectorAll('.prevwhere')) one.hidden = !strips();
+  for (const b of document.querySelectorAll('.winbtn.twist.facts, .icon.twist.facts')) {
+    if (b.title === t('Where this file is')) b.classList.toggle('on', strips());
+  }
+}
+
+function putStrip(into, strip) {
+  const own = into.querySelector('.pdfbar');
+  if (own) own.after(strip);
+  else into.prepend(strip);
+}
+
+/** Shown when you ask, like the facts under a terminal.
+ *
+ *  It was always there, and most of the time the answer to "which folder is this in" is one
+ *  you already know. The same `i` the terminals use, meaning the same thing in both places —
+ *  and, like theirs, it is one answer for every document rather than a state per window.
+ */
+const strips = () => prefs.docWhere === true;
+
 function whereStrip(path) {
   const here = parentOf(path);
-  return el('div', { className: 'prevwhere' }, [
+  return el('div', { className: 'prevwhere', hidden: !strips() }, [
     el('button', {
       className: 'wherepath', type: 'button',
       // The whole path in the tooltip, since the visible one is cut when it is long.
@@ -3577,6 +3612,18 @@ async function screenPreview(path) {
    *  A strip with the absolute path, a button that opens a browser there, and a button that
    *  copies it.
    */
+  /* The same `i` the terminals wear, in the header where the other document buttons are.
+   *
+   *  Asked for in those words: the folder is usually a thing you already know, so it should be
+   *  something you open rather than something you scroll past. It is one answer for every
+   *  document, like the facts under a terminal, rather than a state per file.
+   */
+  bar.where.hidden = false;
+  bar.where.replaceChildren(icon('info'));
+  bar.where.title = t('Where this file is');
+  bar.where.classList.toggle('on', strips());
+  bar.where.onclick = toggleStrips;
+
   const strip = whereStrip(path);
 
   await mountPreview(view, path, {
@@ -3602,7 +3649,7 @@ async function screenPreview(path) {
 
   // After the mount, because mounting empties the view. First child, so it reads as a caption
   // rather than as something that arrived with the file.
-  view.prepend(strip);
+  putStrip(view, strip);
 }
 
 /** A visible switch between a rendered document and its source. Tapping the title does
@@ -14291,8 +14338,12 @@ function attachViewer(host, path, extras) {
    */
   const again = el('button', { className: 'winbtn', title: t('Read it again now') }, icon('refresh'));
   const watchBtn = el('button', { className: 'winbtn on', title: t('Reload when the file changes') }, icon('eye'));
+  const whereBtn = el('button', {
+    className: `winbtn twist facts${strips() ? ' on' : ''}`, title: t('Where this file is'),
+    onclick: toggleStrips,
+  }, icon('info'));
   const dl = el('button', { className: 'winbtn', title: t('Download') }, icon('download'));
-  extras.append(srcBtn, editBtn, again, watchBtn, dl);
+  extras.append(srcBtn, editBtn, again, watchBtn, whereBtn, dl);
 
   let rendered = true;
   let askFirst = false;         // this document loses your place when it reloads
@@ -14326,7 +14377,7 @@ function attachViewer(host, path, extras) {
     await mountPreview(host, path, ctl);
     // The same caption as the full-screen viewer: mounting empties the host, so it goes back
     // on afterwards, every time the file is reloaded under you.
-    host.prepend(whereStrip(path));
+    putStrip(host, whereStrip(path));
   };
   load();
 

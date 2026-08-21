@@ -3312,3 +3312,8 @@ a.addrtext:hover { text-decoration: underline; }
 .railwin.raildesk.ringing .raildot {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 55%, transparent); }
 body:not(.railwide) .railwin.raildesk .railcount { display: none; }
+
+/* The document caption, when it is showing: under whatever controls the document has of its
+   own, so a PDF's page and zoom buttons stay the first row rather than the second. */
+.pdfbar + .prevwhere { border-top: 1px solid var(--line); }
+#docwhere.twist.facts.on, #docwhere.twist.facts.on .ico { color: var(--accent); }

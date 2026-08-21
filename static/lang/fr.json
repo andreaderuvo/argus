@@ -420,6 +420,7 @@
   "What to hand to an agent": "Ce qu'on passe à un agent",
   "What went past in this desk": "Ce qui est passé dans ce bureau",
   "Where it is": "Où elle est",
+  "Where this file is": "Où est ce fichier",
   "Where tmux sees this session: {path}": "Où tmux voit cette session : {path}",
   "Where {desk} starts": "Où démarre {desk}",
   "Which viewer, by extension": "Quel afficheur, par extension",
