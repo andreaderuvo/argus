@@ -3313,7 +3313,15 @@ a.addrtext:hover { text-decoration: underline; }
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 55%, transparent); }
 body:not(.railwide) .railwin.raildesk .railcount { display: none; }
 
-/* The document caption, when it is showing: under whatever controls the document has of its
-   own, so a PDF's page and zoom buttons stay the first row rather than the second. */
-.pdfbar + .prevwhere { border-top: 1px solid var(--line); }
-#docwhere.twist.facts.on, #docwhere.twist.facts.on .ico { color: var(--accent); }
+/* The folder, said the way a terminal says where it is — same strip, same look, same `i`. */
+.docfacts { border-bottom: 1px solid var(--line); }
+#docwhere.twist.docwhere.on, #docwhere.twist.docwhere.on .ico { color: var(--accent); }
+.winbtn.twist.docwhere.on, .winbtn.twist.docwhere.on .ico { color: var(--accent); }
+/* The file's own buttons sit at the end of the document's row, pushed there rather than
+   crowding the page controls. */
+.pdfbar > .winbtn.done, .pdfbar > .winbtn.done .ico { color: var(--st-good); }
+.prevwhere .winbtn.done, .prevwhere .winbtn.done .ico { color: var(--st-good); }
+
+/* Put away, beside the cross. Amber on hover rather than red: it is the reversible one of the
+   two, and they must not look like the same decision. */
+.tabclose.tabaway:hover { color: var(--st-warning); }
