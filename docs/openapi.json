@@ -684,6 +684,7 @@
     ]
    },
    "post": {
+    "description": "Pinning is jailed; unpinning is not, and the difference is the whole of this.\n\nA favourite is a folder somebody kept. Folders get renamed, moved and deleted, and the\npin outlives them \u2014 which is fine, it goes grey and says so. What was not fine is that\nremoving it went through the jail too, and the jail refuses a path that is not there.\nSo the one favourite you certainly want gone was the one that could not be removed.\nReported exactly that way.\n\nTaking something *off* a list needs no path on disk: the entry was jailed on the way\nin, so matching the stored string is enough and nothing can be smuggled by it. Putting\none *on* still resolves strictly \u2014 you cannot bookmark your way out, and a typo should\nnot become a favourite.",
     "operationId": "postApiFavourites",
     "requestBody": {
      "content": {

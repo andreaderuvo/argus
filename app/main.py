@@ -508,12 +508,26 @@ def create_app(cfg: Config) -> FastAPI:
 
     @app.post("/api/favourites", tags=["Files"], summary="Pin or unpin a folder")
     async def toggle_favourite(request: Request, body: dict) -> dict:
+        """Pinning is jailed; unpinning is not, and the difference is the whole of this.
+
+        A favourite is a folder somebody kept. Folders get renamed, moved and deleted, and the
+        pin outlives them — which is fine, it goes grey and says so. What was not fine is that
+        removing it went through the jail too, and the jail refuses a path that is not there.
+        So the one favourite you certainly want gone was the one that could not be removed.
+        Reported exactly that way.
+
+        Taking something *off* a list needs no path on disk: the entry was jailed on the way
+        in, so matching the stored string is enough and nothing can be smuggled by it. Putting
+        one *on* still resolves strictly — you cannot bookmark your way out, and a typo should
+        not become a favourite.
+        """
         raw = str(body.get("path", ""))
-        # Pinning is jailed like everything else: you cannot bookmark your way out.
-        target = str(favourites_target(request, raw))
         group = favourites.group_of(body.get("group"))
         store = request.app.state.favourites
-        paths, pinned = favourites.toggle(favourites.load(store), group, target)
+        paths = favourites.load(store)
+
+        target = raw if raw in paths.get(group, []) else str(favourites_target(request, raw))
+        paths, pinned = favourites.toggle(paths, group, target)
         favourites.save(store, paths)
         return {"pinned": pinned, "group": group, "favourites": favourites.describe_all(paths)}
 

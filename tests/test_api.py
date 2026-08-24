@@ -425,3 +425,31 @@ def test_the_proxy_does_not_hand_our_token_to_the_service(client, monkeypatch):
     # Rewritten rather than dropped: some services check it, and this is the truth from where
     # the service is standing — its own root, the path it knows, nothing of ours attached.
     assert seen["referer"] == "http://127.0.0.1:9911/page"
+def test_a_favourite_can_be_removed_after_its_folder_is_gone(client, tree):
+    """The one favourite you certainly want gone was the one that could not be removed.
+
+    A pin outlives the folder — that is fine, it goes grey and says so — but unpinning went
+    through the jail, and the jail refuses a path that is not there. Taking something off a
+    list needs no path on disk: it was jailed on the way in.
+    """
+    # The fixture leaves the store unset, which is right for an app nobody pinned anything in.
+    client.app.state.favourites = tree / "favourites.json"
+    doomed = tree / "root" / "temporanea"
+    doomed.mkdir()
+    head = {"Authorization": f"Bearer {TOKEN}"}
+
+    on = client.post("/api/favourites", json={"path": str(doomed), "group": "main"}, headers=head)
+    assert on.status_code == 200 and on.json()["pinned"] is True
+
+    doomed.rmdir()
+    # Still listed, because a pin is a thing somebody kept rather than a thing that exists.
+    assert any(f["path"] == str(doomed) for f in get(client, "/api/favourites").json()["main"])
+
+    off = client.post("/api/favourites", json={"path": str(doomed), "group": "main"}, headers=head)
+    assert off.status_code == 200, off.text
+    assert off.json()["pinned"] is False
+    assert not any(f["path"] == str(doomed) for f in off.json()["favourites"]["main"])
+
+    # And pinning something that is not there is still refused: only removal is forgiving.
+    gone = client.post("/api/favourites", json={"path": str(doomed), "group": "main"}, headers=head)
+    assert gone.status_code == 404

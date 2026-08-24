@@ -92,3 +92,4 @@ def test_a_rename_carries_pins_in_every_group(tmp_path):
     assert out["main"] == ["/data/archive"]
     assert out["sidebar"] == ["/data/archive/one.txt"]
     assert out["windows"] == ["/other"]
+
