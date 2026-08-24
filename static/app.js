@@ -1244,6 +1244,39 @@ function dropSheet(entry, dest) {
   ]);
 }
 
+/** A folder or a file as a tile.
+ *
+ *  The list is the right shape when what you are doing is reading — sizes, dates, one line
+ *  each, forty of them at a glance. It is the wrong shape when what you are doing is *finding
+ *  your way*, which is most of what a folder of folders is for: names in a column all look
+ *  alike, and the eye that knows a project by where its folder sits has nothing to work with.
+ *
+ *  So the same entries, laid out the way every desktop has laid them out for forty years. The
+ *  same click, the same menu on a right-click or a long press, the same colours the list uses
+ *  for a kind of file — only the arrangement changes.
+ */
+function entryTile(e, { onClick, refresh, dest, favGroup = 'main' }) {
+  const dir = e.type === 'directory';
+  const glyph = fileIcon(e);
+  const tile = el('button', {
+    className: `tile${dir ? ' dir' : ''}`, type: 'button',
+    title: `${e.name}${e.symlink ? ' ↪' : ''}\n${dir ? '' : `${human(e.size)} · `}${when(e.mtime)}`,
+    onclick: onClick,
+  }, [
+    el('span', { className: 'tileface' }, glyph),
+    el('span', { className: 'tilename', textContent: e.name + (e.symlink ? ' ↪' : '') }),
+  ]);
+  // The same menu the row carries, on the gestures a tile has room for.
+  const menu = (ev) => { ev.preventDefault(); fileActions(e, refresh, dest, favGroup); };
+  tile.addEventListener('contextmenu', menu);
+  let held = null;
+  tile.addEventListener('pointerdown', (ev) => { held = setTimeout(() => menu(ev), 500); });
+  for (const done of ['pointerup', 'pointerleave', 'pointercancel', 'pointermove']) {
+    tile.addEventListener(done, () => clearTimeout(held));
+  }
+  return tile;
+}
+
 function entryRow(e, { href, onClick, refresh, dest, favGroup = 'main' }) {
   const dir = e.type === 'directory';
   const meta = el('span', {
@@ -2216,6 +2249,10 @@ function fileBrowser({
   // which is what the Settings switch writes.
   getTree = () => prefs.tree,
   setTree = (v) => { prefs.tree = v; savePrefs(); },
+  // The same bargain as the tree: a window remembers its own arrangement, the panes and the
+  // sidebar share one.
+  getGrid = () => prefs.browserGrid,
+  setGrid = (v) => { prefs.browserGrid = v; savePrefs(); },
   favGroup = 'main',
 }) {
   const node = el('div', { className: `pane${compact ? ' compact' : ''}` });
@@ -2252,6 +2289,19 @@ function fileBrowser({
         textContent: hidden ? `Nothing but ${hidden} hidden item(s).` : 'Nothing here.',
       }));
     }
+    if (getGrid()) {
+      list.classList.add('tiles');
+      for (const e of shown) {
+        list.append(entryTile(e, {
+          onClick: () => (e.type === 'directory' ? setPath(e.path) : openFile(e)),
+          refresh: reload,
+          dest: other,
+          favGroup,
+        }));
+      }
+      return;
+    }
+    list.classList.remove('tiles');
     for (const e of shown) {
       list.append(entryRow(e, {
         onClick: () => (e.type === 'directory' ? setPath(e.path) : openFile(e)),
@@ -2274,6 +2324,21 @@ function fileBrowser({
 
   const nest = el('button', {}, icon('tree'));
   nest.onclick = () => { setTree(!getTree()); paint(); };
+
+  /* Icons or a list.
+   *
+   *  Not a third mode on the same switch: the tree is about *depth* and this is about
+   *  *arrangement*, and a single button cycling three things is a button you have to press
+   *  twice to find out what it does. Turning icons on turns the tree off, because a tree of
+   *  tiles is neither.
+   */
+  const tiles = el('button', {}, icon('grid'));
+  tiles.onclick = () => {
+    const on = !getGrid();
+    setGrid(on);
+    if (on && getTree()) setTree(false);
+    paint();
+  };
 
   const again = el('button', { title: t('Refresh') }, icon('refresh'));
   again.onclick = () => {
@@ -2315,7 +2380,7 @@ function fileBrowser({
     onclick: () => { prefs.split = !prefs.split; savePrefs(); render(); },
   }, icon('split')) : null;
 
-  const head = el('div', { className: 'sidehead' }, [up, jump, ...(split ? [split] : []), crumb, again, nest, pin]);
+  const head = el('div', { className: 'sidehead' }, [up, jump, ...(split ? [split] : []), crumb, again, tiles, nest, pin]);
 
   crumb.onclick = () => {
     const box = el('input', {
@@ -2409,7 +2474,9 @@ function fileBrowser({
   const favsHolder = el('div');
   const renderFavs = () => {
     nest.className = getTree() ? 'on' : '';
-    nest.title = getTree() ? 'Flat list' : 'Expand folders in place';
+    nest.title = getTree() ? t('Flat list') : t('Expand folders in place');
+    tiles.className = getGrid() ? 'on' : '';
+    tiles.title = getGrid() ? t('Back to a list') : t('Show them as icons');
     const mine = favsIn(favGroup);
     pin.className = isFavourite(path, favGroup) ? 'on' : '';
     pin.title = isFavourite(path, favGroup) ? `Unpin from ${favGroup} favourites` : `Pin this folder in ${favGroup} favourites`;
@@ -14358,6 +14425,8 @@ function attachBrowser(host, spec, setLabel, landing) {
       other: () => null,
       getTree: () => spec.tree ?? prefs.tree,
       setTree: (v) => { spec.tree = v; savePrefs(); },
+      getGrid: () => spec.grid ?? prefs.browserGrid,
+      setGrid: (v) => { spec.grid = v; savePrefs(); },
       favGroup: 'windows',
       setPath: (p) => {
         here = p;
