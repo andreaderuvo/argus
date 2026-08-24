@@ -3361,3 +3361,10 @@ body:not(.railwide) .railwin.raildesk .railcount { display: none; }
   .panelist.tiles { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
   .panelist.tiles .tileface .ficon { width: 32px; height: 32px; }
 }
+
+/* Three arrangements, one choice. A set rather than three loose buttons, because being
+   adjacent and sharing a border is the whole explanation that only one of them is on. */
+.sidehead .viewset { display: inline-flex; flex: none; }
+.sidehead .viewset > button { border-radius: 0; }
+.sidehead .viewset > button:first-child { border-top-left-radius: .4rem; border-bottom-left-radius: .4rem; }
+.sidehead .viewset > button:last-child { border-top-right-radius: .4rem; border-bottom-right-radius: .4rem; }

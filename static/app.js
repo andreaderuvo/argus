@@ -2240,6 +2240,15 @@ async function screenSessions() {
  *  to reach the *other* one — which is what makes copy and move between panes useful. */
 let crumbSeq = 0;
 
+/** Which arrangement, reading the two switches this replaced when nobody has chosen yet.
+ *
+ *  Not a migration written into the document: the old keys are simply believed once, so a
+ *  browser that was showing a tree yesterday is showing one today without anybody's
+ *  preferences being rewritten underneath them.
+ */
+const browserView = (from) => from.browserView
+  || (from.browserGrid ? 'tiles' : from.tree ? 'tree' : 'list');
+
 function fileBrowser({
   path, setPath, other, roots, compact = false,
   // Only the Files screen's first pane carries the split switch. A window's browser and the
@@ -2247,12 +2256,18 @@ function fileBrowser({
   splitToggle = false,
   // A window keeps its own answer; the panes and the sidebar keep using the shared one,
   // which is what the Settings switch writes.
-  getTree = () => prefs.tree,
-  setTree = (v) => { prefs.tree = v; savePrefs(); },
-  // The same bargain as the tree: a window remembers its own arrangement, the panes and the
-  // sidebar share one.
-  getGrid = () => prefs.browserGrid,
-  setGrid = (v) => { prefs.browserGrid = v; savePrefs(); },
+  /* One arrangement at a time, from three.
+   *
+   *  It was two independent switches — expand-in-place, and icons — which meant four
+   *  combinations for three ideas, and one of them (a tree of tiles) is not an idea at all.
+   *  Reported as a mess and it was: two buttons that each look like a toggle, with a rule
+   *  between them you can only discover by pressing both.
+   *
+   *  So: icons, list, tree. Exclusive, in one set, where being three buttons is the whole
+   *  explanation. A window remembers its own; the panes and the sidebar share one.
+   */
+  getView = () => browserView(prefs),
+  setView = (v) => { prefs.browserView = v; savePrefs(); },
   favGroup = 'main',
 }) {
   const node = el('div', { className: `pane${compact ? ' compact' : ''}` });
@@ -2289,7 +2304,7 @@ function fileBrowser({
         textContent: hidden ? `Nothing but ${hidden} hidden item(s).` : 'Nothing here.',
       }));
     }
-    if (getGrid()) {
+    if (getView() === 'tiles') {
       list.classList.add('tiles');
       for (const e of shown) {
         list.append(entryTile(e, {
@@ -2315,30 +2330,30 @@ function fileBrowser({
   // Search results span folders, so they are always a flat list — clearing the box puts
   // you back into whichever mode you chose.
   const show = (entries, err, q) =>
-    (!q && getTree() ? drawTree(list, path, openFile, reload, other, favGroup) : draw(entries, err));
+    (!q && getView() === 'tree'
+      ? drawTree(list, path, openFile, reload, other, favGroup)
+      : draw(entries, err));
 
   const up = el('button', { title: t('Parent folder'), disabled: roots.includes(path) }, icon('up'));
   up.onclick = () => setPath(parentOf(path));
 
   const pin = el('button', { onclick: () => toggleFavourite(path, favGroup) }, icon('star'));
 
-  const nest = el('button', {}, icon('tree'));
-  nest.onclick = () => { setTree(!getTree()); paint(); };
-
-  /* Icons or a list.
-   *
-   *  Not a third mode on the same switch: the tree is about *depth* and this is about
-   *  *arrangement*, and a single button cycling three things is a button you have to press
-   *  twice to find out what it does. Turning icons on turns the tree off, because a tree of
-   *  tiles is neither.
+  /* Three buttons because there are three arrangements, and a set because they are one
+   *  choice. A single button cycling them is a button you press twice to learn what it does,
+   *  and two independent toggles were what made this confusing in the first place.
    */
-  const tiles = el('button', {}, icon('grid'));
-  tiles.onclick = () => {
-    const on = !getGrid();
-    setGrid(on);
-    if (on && getTree()) setTree(false);
-    paint();
-  };
+  const VIEWS = [
+    ['tiles', 'grid', () => t('Icons')],
+    ['list', 'rows', () => t('A list')],
+    ['tree', 'tree', () => t('Expand folders in place')],
+  ];
+  const viewBtns = VIEWS.map(([key, glyph, says]) => {
+    const b = el('button', { className: 'winbtn', type: 'button', title: says() }, icon(glyph));
+    b.onclick = () => { setView(key); paint(); };
+    return b;
+  });
+  const views = el('div', { className: 'btnset viewset' }, viewBtns);
 
   const again = el('button', { title: t('Refresh') }, icon('refresh'));
   again.onclick = () => {
@@ -2380,7 +2395,7 @@ function fileBrowser({
     onclick: () => { prefs.split = !prefs.split; savePrefs(); render(); },
   }, icon('split')) : null;
 
-  const head = el('div', { className: 'sidehead' }, [up, jump, ...(split ? [split] : []), crumb, again, tiles, nest, pin]);
+  const head = el('div', { className: 'sidehead' }, [up, jump, ...(split ? [split] : []), crumb, again, views, pin]);
 
   crumb.onclick = () => {
     const box = el('input', {
@@ -2473,10 +2488,7 @@ function fileBrowser({
   // used to redraw the listing and leave this strip showing the old set.
   const favsHolder = el('div');
   const renderFavs = () => {
-    nest.className = getTree() ? 'on' : '';
-    nest.title = getTree() ? t('Flat list') : t('Expand folders in place');
-    tiles.className = getGrid() ? 'on' : '';
-    tiles.title = getGrid() ? t('Back to a list') : t('Show them as icons');
+    VIEWS.forEach(([key], i) => viewBtns[i].classList.toggle('on', getView() === key));
     const mine = favsIn(favGroup);
     pin.className = isFavourite(path, favGroup) ? 'on' : '';
     pin.title = isFavourite(path, favGroup) ? `Unpin from ${favGroup} favourites` : `Pin this folder in ${favGroup} favourites`;
@@ -2573,7 +2585,7 @@ function fileBrowser({
     // landed, and the alternative is a registry of live panes to keep in step with reality.
     node.dataset.at = path;
     renderFavs();
-    if (getTree()) await drawTree(list, path, openFile, reload, other, favGroup);
+    if (getView() === 'tree') await drawTree(list, path, openFile, reload, other, favGroup);
     else {
       try {
         const entries = await getJSON(`/api/files?path=${encodeURIComponent(path)}`);
@@ -2587,7 +2599,7 @@ function fileBrowser({
     }
     if (mine !== painting) return;
     markCurrent(list);
-    await applyPointed(list, path, getTree());
+    await applyPointed(list, path, getView() === 'tree');
   }
   paint();
 
@@ -2605,7 +2617,7 @@ function fileBrowser({
     // Panes are rebuilt often — the sidebar throws its away on every navigation — and
     // nothing calls a teardown, so the timer has to notice it is orphaned.
     if (!node.isConnected) return clearInterval(watcher);
-    if (document.hidden || getTree() || !node.getClientRects().length) return;
+    if (document.hidden || getView() === 'tree' || !node.getClientRects().length) return;
     try {
       const before = painting;
       const entries = await getJSON(`/api/files?path=${encodeURIComponent(path)}`);
@@ -2629,7 +2641,7 @@ function fileBrowser({
      *  up by whatever paint that causes — including the sidebar rebuilding itself. */
     reveal: (target) => {
       pointed = target;
-      if (getTree() ? under(path, target) : parentOf(target) === path) paint();
+      if (getView() === 'tree' ? under(path, target) : parentOf(target) === path) paint();
       else setPath(parentOf(target));
     },
   };
@@ -14423,10 +14435,8 @@ function attachBrowser(host, spec, setLabel, landing) {
       roots: server?.roots || [spec.path],
       compact: true,
       other: () => null,
-      getTree: () => spec.tree ?? prefs.tree,
-      setTree: (v) => { spec.tree = v; savePrefs(); },
-      getGrid: () => spec.grid ?? prefs.browserGrid,
-      setGrid: (v) => { spec.grid = v; savePrefs(); },
+      getView: () => spec.view || browserView(spec.tree !== undefined ? spec : prefs),
+      setView: (v) => { spec.view = v; savePrefs(); },
       favGroup: 'windows',
       setPath: (p) => {
         here = p;
