@@ -1255,6 +1255,45 @@ function dropSheet(entry, dest) {
  *  same click, the same menu on a right-click or a long press, the same colours the list uses
  *  for a kind of file — only the arrangement changes.
  */
+/** Hold to open something, on a screen with no right button.
+ *
+ *  Written twice before and wrong both times, in the same two ways.
+ *
+ *  **A finger is never still.** Cancelling on any `pointermove` means cancelling on the tremble
+ *  every real hand has: measured, two pixels was enough to lose the menu. So it takes the same
+ *  slack a tap does — move more than ten pixels and you were scrolling or dragging, and the
+ *  hold is off.
+ *
+ *  **And a hold that fires is not also a tap.** Lifting after a long press still produces a
+ *  `click`, so the menu opened *and* the folder underneath it opened too. The next click is
+ *  swallowed, once, by the thing that caused it.
+ */
+function holdFor(node, run, ms = 500) {
+  let held = null;
+  let from = null;
+  let fired = false;
+  const stop = () => { clearTimeout(held); held = null; from = null; };
+  node.addEventListener('pointerdown', (ev) => {
+    if (ev.button > 0) return;
+    from = { x: ev.clientX, y: ev.clientY };
+    fired = false;
+    held = setTimeout(() => { fired = true; stop(); run(ev); }, ms);
+  });
+  node.addEventListener('pointermove', (ev) => {
+    if (!from) return;
+    if (Math.abs(ev.clientX - from.x) > 10 || Math.abs(ev.clientY - from.y) > 10) stop();
+  });
+  for (const done of ['pointerup', 'pointerleave', 'pointercancel']) node.addEventListener(done, stop);
+  // Capture, so it is swallowed before the element's own handler ever sees it.
+  node.addEventListener('click', (ev) => {
+    if (!fired) return;
+    fired = false;
+    ev.preventDefault();
+    ev.stopPropagation();
+  }, true);
+  node.addEventListener('contextmenu', (ev) => { stop(); run(ev); });
+}
+
 function entryTile(e, { onClick, refresh, dest, favGroup = 'main' }) {
   const dir = e.type === 'directory';
   const glyph = fileIcon(e);
@@ -1267,13 +1306,7 @@ function entryTile(e, { onClick, refresh, dest, favGroup = 'main' }) {
     el('span', { className: 'tilename', textContent: e.name + (e.symlink ? ' ↪' : '') }),
   ]);
   // The same menu the row carries, on the gestures a tile has room for.
-  const menu = (ev) => { ev.preventDefault(); fileActions(e, refresh, dest, favGroup); };
-  tile.addEventListener('contextmenu', menu);
-  let held = null;
-  tile.addEventListener('pointerdown', (ev) => { held = setTimeout(() => menu(ev), 500); });
-  for (const done of ['pointerup', 'pointerleave', 'pointercancel', 'pointermove']) {
-    tile.addEventListener(done, () => clearTimeout(held));
-  }
+  holdFor(tile, (ev) => { ev.preventDefault(); fileActions(e, refresh, dest, favGroup); });
   return tile;
 }
 
@@ -9525,16 +9558,10 @@ async function screenWall() {
       // Double-click is the desktop shortcut. On a phone it competes with double-tap
       // zoom and nobody would guess it, so holding the tab opens the same choices.
       tab.ondblclick = rename;
-      const menu = (ev) => {
-        ev.preventDefault();
-        tabSheet(ws, rename, shut);
-      };
-      tab.addEventListener('contextmenu', menu);
-      let held;
-      tab.addEventListener('pointerdown', (ev) => { held = setTimeout(() => menu(ev), 500); });
-      for (const done of ['pointerup', 'pointerleave', 'pointercancel', 'pointermove']) {
-        tab.addEventListener(done, () => clearTimeout(held));
-      }
+      // The same hold a tile has, with the same slack for a hand that is never quite still —
+      // and the same swallowing of the click that a fired hold would otherwise also produce,
+      // which here would have switched you to the desk whose menu you had just opened.
+      holdFor(tab, (ev) => { ev.preventDefault(); tabSheet(ws, rename, shut); });
       // Holding the tab and right-clicking both still work, but neither is a gesture
       // anybody finds: every tab carries the menu where you can see it.
       const more = el('button', { className: 'tabmore', title: t('This workspace…') }, icon('more'));
