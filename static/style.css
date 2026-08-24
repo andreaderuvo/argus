@@ -3328,3 +3328,36 @@ body:not(.railwide) .railwin.raildesk .railcount { display: none; }
 /* Put away, beside the cross. Amber on hover rather than red: it is the reversible one of the
    two, and they must not look like the same decision. */
 .tabclose.tabaway:hover { color: var(--st-warning); }
+
+/* A folder as a tile.
+ *
+ *  Sized so a name of ordinary length fits on two lines and a long one is cut rather than
+ *  pushing its neighbours out of line: a grid whose cells are different heights is a grid the
+ *  eye cannot scan, which is the one thing this arrangement is for. `auto-fill` and not
+ *  `auto-fit`, so a folder with three things in it does not stretch them across the pane. */
+.panelist.tiles {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: .35rem; padding: .5rem; align-content: start;
+}
+.panelist.tiles .tile {
+  display: flex; flex-direction: column; align-items: center; gap: .35rem;
+  padding: .6rem .3rem .5rem; border: 1px solid transparent; border-radius: .5rem;
+  background: none; color: var(--text); cursor: pointer; text-align: center;
+}
+.panelist.tiles .tile:hover { background: var(--panel); border-color: var(--line); }
+.panelist.tiles .tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* `.ficon`, not `.ico`: a file's glyph is drawn by `fileIcon` and wears its own class, and
+   it is only ever sized by `.row .ficon` — outside a row it had no size at all, so the first
+   grid was a page of names with nothing above them. */
+.panelist.tiles .tileface .ficon { width: 38px; height: 38px; display: block; }
+/* Two lines and then an ellipsis, so every cell is the same height. */
+.panelist.tiles .tilename {
+  font-size: .76rem; line-height: 1.25; width: 100%;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; overflow-wrap: anywhere;
+}
+/* Narrow — a phone, or a browser in a small window — takes what it can get. */
+@media (max-width: 560px) {
+  .panelist.tiles { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
+  .panelist.tiles .tileface .ficon { width: 32px; height: 32px; }
+}
