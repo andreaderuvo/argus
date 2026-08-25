@@ -3027,30 +3027,30 @@ dialog.sheet:has(.promptmake) { width: min(38rem, calc(100vw - 2rem)); }
 /* The facts about a session, in a strip under its title bar. Shown when you ask and gone
    when you do not: five labelled things is a sentence, and a sentence does not belong on a
    bar with nine buttons on it. */
-.winfacts {
+.winfacts, .docfacts {
   display: flex; flex-wrap: wrap; gap: .3rem;
   padding: .25rem .45rem; border-bottom: 1px solid var(--line);
   background: color-mix(in srgb, var(--panel) 60%, transparent);
 }
-.winfacts .fact {
+.winfacts .fact, .docfacts .fact {
   display: inline-flex; align-items: baseline; gap: .25rem;
   max-width: 22rem; padding: .02rem .32rem;
   background: none;
   border: 1px solid var(--line); border-radius: .3rem;
   font-size: .64rem; line-height: 1.6; color: var(--text);
 }
-.winfacts .factname { color: var(--dim); text-transform: lowercase; flex: none; }
+.winfacts .factname, .docfacts .factname { color: var(--dim); text-transform: lowercase; flex: none; }
 /* A folder is a place you can go, and says so when the pointer is on it. */
-.winfacts .fact.goes { cursor: pointer; }
-.winfacts .fact.goes:hover { border-color: var(--accent); }
-.winfacts .fact.goes:hover .factvalue { color: var(--accent); }
-.winfacts .factvalue { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.winfacts .fact.goes, .docfacts .fact.goes { cursor: pointer; }
+.winfacts .fact.goes:hover, .docfacts .fact.goes:hover { border-color: var(--accent); }
+.winfacts .fact.goes:hover .factvalue, .docfacts .fact.goes:hover .factvalue { color: var(--accent); }
+.winfacts .factvalue, .docfacts .factvalue { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Only a folder can disagree with the desk, so only a folder is ever coloured. */
-.winfacts .fact.agrees .factvalue { color: color-mix(in srgb, var(--st-good) 78%, var(--text)); }
-.winfacts .fact.astray { border-color: color-mix(in srgb, var(--st-warning) 45%, var(--line)); }
-.winfacts .fact.astray .factvalue { color: var(--st-warning); }
-.winfacts .fact.lost { border-color: color-mix(in srgb, var(--st-critical) 45%, var(--line)); }
-.winfacts .fact.lost .factvalue { color: var(--st-critical); }
+.winfacts .fact.agrees .factvalue, .docfacts .fact.agrees .factvalue { color: color-mix(in srgb, var(--st-good) 78%, var(--text)); }
+.winfacts .fact.astray, .docfacts .fact.astray { border-color: color-mix(in srgb, var(--st-warning) 45%, var(--line)); }
+.winfacts .fact.astray .factvalue, .docfacts .fact.astray .factvalue { color: var(--st-warning); }
+.winfacts .fact.lost, .docfacts .fact.lost { border-color: color-mix(in srgb, var(--st-critical) 45%, var(--line)); }
+.winfacts .fact.lost .factvalue, .docfacts .fact.lost .factvalue { color: var(--st-critical); }
 
 /* A desk with something moving in it. Not the bell — that one means "finished, or wants
    you", and it keeps the accent to itself. This is quieter and it breathes: a slow pulse on
