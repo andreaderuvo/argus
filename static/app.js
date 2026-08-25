@@ -3696,7 +3696,7 @@ function whereButtons(path) {
   ];
 }
 
-/** The folder, as the terminals say things. */
+/** The folder and when it last changed, as the terminals say things. */
 function whereFacts(path) {
   const here = parentOf(path);
   const strip = el('div', { className: 'winfacts docfacts', hidden: !strips() });
@@ -3708,6 +3708,32 @@ function whereFacts(path) {
     el('span', { className: 'factname', textContent: t('folder') }),
     el('span', { className: 'factvalue', textContent: here }),
   ]));
+
+  /* When it last changed, to the minute.
+   *
+   *  The listing says "18:04" for today and "25 Aug" for anything older, which is the right
+   *  answer in a column of forty files and the wrong one here: a document you are reading
+   *  while something rewrites it is a document whose *time* you want, and "25 Aug" does not
+   *  tell you whether the run that was supposed to update it has finished.
+   *
+   *  Asked for after the fact rather than passed in, because the strip is built from a path
+   *  and nothing else — and rebuilt on every reload, so it is re-asked every time the file
+   *  changes underneath.
+   */
+  const changed = el('span', { className: 'fact' }, [
+    el('span', { className: 'factname', textContent: t('changed') }),
+    el('span', { className: 'factvalue', textContent: '…' }),
+  ]);
+  strip.append(changed);
+  getJSON(`/api/stat?path=${encodeURIComponent(path)}`).then((s) => {
+    const at = new Date(s.mtime * 1000);
+    changed.querySelector('.factvalue').textContent = at.toLocaleString([], {
+      day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+    });
+    // The size beside it in the tooltip: it is the other half of "has it finished writing",
+    // and a second chip for it would push the folder off a narrow strip.
+    changed.title = `${human(s.size)} · ${when(s.mtime)}`;
+  }).catch(() => changed.remove());
   return strip;
 }
 
