@@ -3705,10 +3705,16 @@ function whereButtons(path) {
   ];
 }
 
-/** The folder and when it last changed, as the terminals say things. */
+/* The folder and when it last changed, as the terminals say things — but *only* as they
+ * say them. It wore `winfacts` as well, for the look, and a class here is not a stylesheet:
+ * it is who owns the node. The painter that fills a terminal's strip from its `data-cwd`
+ * takes every `.winfacts` on the page, found this one, and — a document having no session —
+ * wrote `tmux ?` over the folder and the time, every ten seconds, which is the whole of
+ * "the info bar sometimes goes to hell". The terminal's own `i` was hiding these too. The
+ * look is shared in the stylesheet, where sharing a look belongs. */
 function whereFacts(path) {
   const here = parentOf(path);
-  const strip = el('div', { className: 'winfacts docfacts', hidden: !strips() });
+  const strip = el('div', { className: 'docfacts', hidden: !strips() });
   strip.append(el('button', {
     className: 'fact goes', type: 'button',
     title: `${here} · ${t('press to open a file browser here')}`,
