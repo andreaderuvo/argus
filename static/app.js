@@ -3396,10 +3396,19 @@ async function mountPreview(host, path, ctl) {
   // than the document. So the finding is done here and the viewer is sent to the page.
   if (type.startsWith('application/pdf')) {
     ctl.fill?.(true);
-    /* A document that is rebuilt while you are reading it — latexmk, a report an agent
-     *  regenerates — is not reloaded under you: the watcher offers, and reloading is your
-     *  click. It now returns you to where you were, which it never used to. */
-    ctl.askBeforeReload?.(true);
+    /* A rebuilt document reloads by itself, like every other kind.
+     *
+     *  It used to offer instead — "this file has changed, [Reload]" — on the reasoning that a
+     *  document rebuilt while you are reading page thirty must not throw you to page one. That
+     *  reasoning stopped being true when this viewer started remembering the place: the page,
+     *  the scroll and the zoom all come back. What was left was a notice standing between you
+     *  and a document you had already asked to be shown the new version of, and it read as the
+     *  watcher not noticing at all.
+     *
+     *  A reload that lands mid-write draws a broken document for one tick and then fixes
+     *  itself, because a file still being written keeps changing and the next poll reloads it
+     *  again. The last reload is the finished one.
+     */
     await mountPdf(host, path, versioned, download);
     return;
   }
@@ -14543,7 +14552,13 @@ function attachViewer(host, path, extras) {
   extras.append(srcBtn, editBtn, again, watchBtn, whereBtn, dl);
 
   let rendered = true;
-  let askFirst = false;         // this document loses your place when it reloads
+  /* Kept for a document that cannot come back to where you were.
+   *
+   *  Nothing sets it today — the PDF viewer, which was the only caller, now remembers its
+   *  place and reloads like everything else. The machinery stays because the *question* is
+   *  real and will come back the first time something is shown here that cannot be restored.
+   */
+  let askFirst = false;
   const ctl = {
     askBeforeReload: (on) => { askFirst = on; },
     download: (fn) => { dl.onclick = fn; },
