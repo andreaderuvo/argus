@@ -112,6 +112,25 @@ def _free(target: Path) -> Path:
     return target
 
 
+def _spare(folder: Path, name: str) -> Path:
+    """`report.pdf`, and then `report-2.pdf`, keeping the name it arrived with.
+
+    For a destination the sender did not choose. Uploading into a folder you picked refuses
+    a name that is taken — you are looking at that folder and can see what is in it. A file
+    dropped on a session lands wherever the server keeps drops, and dropping the second
+    version of a report there is the normal case, not a mistake worth a red message.
+    """
+    target = folder / name
+    if not target.exists() and not target.is_symlink():
+        return target
+    stem, suffix = Path(name).stem, Path(name).suffix
+    for n in range(2, MAX_SEQUENCE + 1):
+        candidate = folder / f"{stem}-{n}{suffix}"
+        if not candidate.exists() and not candidate.is_symlink():
+            return candidate
+    raise ApiError(409, f"there are already {MAX_SEQUENCE} files called {stem}-N{suffix}")
+
+
 def _directory(p: Path) -> Path:
     if not p.is_dir():
         raise ApiError(400, "the destination is not a directory")
@@ -323,6 +342,23 @@ async def upload(
     _writable(request)
     dest = _directory(_resolve(request, path))
     limit = request.app.state.cfg.max_upload_bytes
+    return {"ok": True, "files": await _receive(dest, files, limit, sequence=sequence)}
+
+
+async def _receive(
+    dest: Path,
+    files: list[UploadFile],
+    limit: int,
+    *,
+    sequence: str = "",
+    beside: bool = False,
+) -> list[dict]:
+    """Stream each file into `dest` and return what landed.
+
+    Shared by the two ways a file arrives, because the careful part is the same for both:
+    a dotted part-file renamed into place only once it is whole. `beside` is the one
+    difference — see :func:`_spare`.
+    """
     written = []
 
     for item in files:
@@ -331,7 +367,8 @@ async def upload(
             name = target.name
         else:
             name = safe_name(Path(item.filename or "").name)
-            target = _free(dest / name)
+            target = _spare(dest, name) if beside else _free(dest / name)
+            name = target.name
         part = dest / f".{name}.argus-part"
         size = 0
         try:
@@ -353,7 +390,54 @@ async def upload(
             raise ApiError(500, f"could not write {name}: {e.strerror}") from e
         written.append({"path": str(target), "size": size})
 
-    return {"ok": True, "files": written}
+    return written
+
+
+@router.post("/api/fs/drop", summary="Put a file where drops land, and say where that is")
+async def drop(request: Request, files: list[UploadFile] = File(...)) -> dict:
+    """Receive files dropped onto a session.
+
+    A terminal is not a folder, so a file dropped on one has to land somewhere the sender
+    did not choose — and the same somewhere every time, or the absolute path it is handed
+    back means nothing the next day. That place is `drop_dir` in the config, and it is
+    named here rather than by the client precisely because nobody was looking at a folder
+    when they let go of the file.
+
+    Created the first time something is dropped and never before: a machine where this is
+    not used does not grow a directory for it.
+    """
+    _writable(request)
+    cfg = request.app.state.cfg
+    wanted = cfg.drops()
+    if not wanted:
+        raise ApiError(404, "`drop_dir` is empty in the config — this server takes no drops")
+
+    if not wanted.is_dir():
+        # Nothing is created until the jail has agreed to it. The jail can only answer about
+        # a path that exists, so it is asked about the nearest ancestor that does — which is
+        # the check that matters: a folder made under an approved ancestor is inside. The
+        # config refuses a `drop_dir` outside the roots at startup too; this is the second
+        # lock, on the code path that does the creating.
+        if not request.app.state.jail.contains(_deepest(wanted)):
+            raise ApiError(403, "`drop_dir` is outside the configured roots")
+        try:
+            wanted.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            raise ApiError(500, f"could not create {wanted}: {e.strerror}") from e
+
+    dest = _directory(_resolve(request, str(wanted)))
+    landed = await _receive(dest, files, cfg.max_upload_bytes, beside=True)
+    return {"ok": True, "folder": str(dest), "files": landed}
+
+
+def _deepest(p: Path) -> Path:
+    """The nearest ancestor of `p` that exists, canonicalized. What the jail can be asked
+    about when the path itself is not there yet."""
+    for candidate in [p, *p.parents]:
+        if candidate.exists():
+            with contextlib.suppress(OSError):
+                return candidate.resolve(strict=True)
+    return p
 
 
 @router.post("/api/fs/write")

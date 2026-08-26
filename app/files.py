@@ -126,6 +126,9 @@ async def server_info(request: Request) -> dict:
         # reason to ask that endpoint, and read it as "off" until this was here.
         "allow_proxy": cfg.allow_proxy,
         "max_upload_bytes": cfg.max_upload_bytes,
+        # Where a file dropped on a session lands. Empty means drops are refused, and the UI
+        # then does not light a terminal up as somewhere a file can go.
+        "drop_dir": str(cfg.drops() or ""),
         # Where tmux reads its configuration, so the UI can offer to edit it.
         "tmux_conf": tmux.conf_path(),
         # For the "open this on another device" QR code.

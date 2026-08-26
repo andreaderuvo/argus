@@ -1613,7 +1613,80 @@ function fetchHere(path) {
   setTimeout(() => box.focus(), 50);
 }
 
-function uploadTo(path, fileList, onDone, { sequence = '', quiet = false, called = '' } = {}) {
+/* Nothing dropped on this page ever navigates away from it.
+ *
+ *  A browser handed a file it was not asked for opens it, which here means the app is gone
+ *  and every terminal in it with it — one slip of the hand while dragging something towards
+ *  a folder. Refusing the default everywhere costs one listener and makes the whole window a
+ *  place a drag can safely end. What *accepts* a file is still decided per node, below;
+ *  this only takes away the trapdoor.
+ */
+for (const kind of ['dragover', 'drop']) {
+  document.addEventListener(kind, (e) => {
+    if (carriesFiles(e)) e.preventDefault();
+  });
+}
+
+/** Is this drag carrying files, rather than text or a link? */
+function carriesFiles(e) {
+  return [...(e.dataTransfer?.types || [])].includes('Files');
+}
+
+/** Make a node somewhere a file can be dropped.
+ *
+ *  `dragenter` and `dragleave` fire for every child the pointer crosses, so leaving one is
+ *  not leaving the node — hence the count rather than a toggle. Only a drag carrying files
+ *  lights anything up: dragging selected text across a terminal is not an upload, and a
+ *  border that promises otherwise is a lie you find out about after letting go.
+ */
+function takesDrops(node, onFiles, { lit = 'dropping' } = {}) {
+  let depth = 0;
+  const off = () => { depth = 0; node.classList.remove(lit); };
+  node.addEventListener('dragenter', (e) => {
+    if (!carriesFiles(e)) return;
+    e.preventDefault();
+    if (++depth === 1) node.classList.add(lit);
+  });
+  node.addEventListener('dragover', (e) => { if (carriesFiles(e)) e.preventDefault(); });
+  node.addEventListener('dragleave', () => { if (--depth <= 0) off(); });
+  node.addEventListener('drop', (e) => {
+    if (!carriesFiles(e)) return;
+    e.preventDefault();
+    // Or the document listener above sees it too, and a pane inside a pane would fire twice.
+    e.stopPropagation();
+    off();
+    if (e.dataTransfer.files.length) onFiles(e.dataTransfer.files);
+  });
+}
+
+/** A file dropped onto a session: it lands in the drop folder and its path goes to the
+ *  clipboard.
+ *
+ *  A terminal is not a folder, so there is no "here" to drop into — but a path is exactly
+ *  what a terminal wants, and getting one out of a laptop and into an agent's prompt is
+ *  otherwise scp, or a browser pane opened only to upload through. The file goes to the
+ *  one place the server keeps drops and you are handed the absolute path, which is the
+ *  next thing you were going to need anyway.
+ */
+function dropOnSession(files, session) {
+  const where = server?.drop_dir;
+  if (!where) return toast(t('this server takes no drops — set drop_dir in the config'), true);
+  uploadTo(where, files, (result) => {
+    const landed = (result?.files || []).map((f) => f.path);
+    if (!landed.length) return;
+    const paths = landed.join('\n');
+    // The clipboard belongs to gestures. Letting go of a file is one, and an upload
+    // finishing a second later is not — browsers refuse the second. Try anyway, because
+    // the activation is often still warm, and hand over a button when it is not: tapping
+    // that *is* a gesture. Same bargain as a pasted screenshot, same two messages.
+    copyText(paths).then((ok) => {
+      if (ok) toast(landed.length === 1 ? t('path copied: {path}', { path: paths }) : t('{count} paths copied', { count: landed.length }));
+      else toast(t('tap to copy {path}', { path: paths }), false, () => copyText(paths).then((done) => toast(done ? t('copied') : paths)));
+    });
+  }, { quiet: true, drop: true, called: files.length === 1 ? files[0].name : t('{count} files onto {session}', { count: files.length, session }) });
+}
+
+function uploadTo(path, fileList, onDone, { sequence = '', quiet = false, called = '', drop = false } = {}) {
   const files = [...fileList];
   if (!files.length) return;
   const total = files.reduce((n, f) => n + f.size, 0);
@@ -1629,14 +1702,16 @@ function uploadTo(path, fileList, onDone, { sequence = '', quiet = false, called
   const bar = progressBar(`${label} · ${human(total)}`, `→ ${path}`);
 
   const body = new FormData();
-  body.append('path', path);
+  // A drop names no destination: nobody was looking at a folder when they let go, so the
+  // server says where its drops go and `path` here is only what the progress bar reads out.
+  if (!drop) body.append('path', path);
   // A pasted image has no name worth keeping — the clipboard says "image.png" every
   // time — so the server numbers it instead.
   if (sequence) body.append('sequence', sequence);
   for (const f of files) body.append('files', f, f.name);
 
   const xhr = new XMLHttpRequest();
-  xhr.open('POST', '/api/fs/upload');
+  xhr.open('POST', drop ? '/api/fs/drop' : '/api/fs/upload');
   xhr.setRequestHeader('Authorization', `Bearer ${token}`);
   xhr.upload.onprogress = (e) => bar.set(e.lengthComputable ? e.loaded / e.total : 0);
   xhr.onload = () => {
@@ -2588,16 +2663,7 @@ function fileBrowser({
 
     // Dropping onto the pane uploads into *that* pane's folder, which is the obvious
     // meaning when two of them are side by side.
-    let depth = 0;   // dragenter/leave fire for every child; count instead of toggling
-    node.addEventListener('dragenter', (e) => { e.preventDefault(); if (++depth === 1) node.classList.add('dropping'); });
-    node.addEventListener('dragover', (e) => { e.preventDefault(); });
-    node.addEventListener('dragleave', () => { if (--depth <= 0) { depth = 0; node.classList.remove('dropping'); } });
-    node.addEventListener('drop', (e) => {
-      e.preventDefault();
-      depth = 0;
-      node.classList.remove('dropping');
-      if (e.dataTransfer?.files?.length) uploadTo(path, e.dataTransfer.files);
-    });
+    takesDrops(node, (files) => uploadTo(path, files));
   }
   node.append(tools, list);
 
@@ -7455,6 +7521,18 @@ function attachTerminal(container, name, { transform, onGone, onBack, onPath, on
   const fit = new FitAddon();
   term.loadAddon(fit);
   term.open(container);
+
+  /* Drop a file on a session and you are handed its path.
+   *
+   *  Here rather than at the two places terminals are built, so a session takes a file the
+   *  same way whether it is in a window or filling the screen — and so there is one answer
+   *  to "what happens if I let go here" instead of two that drift.
+   *
+   *  Only where the server can write: everything else about a read-only Argus refuses
+   *  quietly rather than lighting up and then apologising, and a dashed border promising
+   *  somewhere to land is worse than no border at all.
+   */
+  if (server?.allow_write && server?.drop_dir) takesDrops(container, (files) => dropOnSession(files, name));
 
   // The DOM renderer repaints cell by cell, which is what a slow link turns into
   // visible tearing. WebGL draws the frame in one go; where it is unavailable the

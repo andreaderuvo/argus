@@ -1727,6 +1727,20 @@ video.scanner { width: 100%; border-radius: .6rem; background: #000; aspect-rati
 .pane.dropping { outline: 2px dashed var(--accent); outline-offset: -6px; }
 .pane.dropping .panelist { opacity: .55; }
 
+/* A session about to take a file. Dashed like a pane, because it is the same promise.
+
+   Not an `outline` though — measured: an inset outline is painted with the element's own
+   background, and the terminal's canvas is a child, so it lands on top and the border is
+   invisible on exactly the surface it is describing. This is drawn over the canvas instead,
+   and takes no pointer events, or it would be the thing the file was dropped on. A window
+   and the full screen wear it in the same place. */
+.winbody.dropping, #termwrap.dropping { position: relative; }
+.winbody.dropping::after, #termwrap.dropping::after {
+  content: ''; position: absolute; inset: 5px; pointer-events: none; z-index: 6;
+  border: 2px dashed var(--accent); border-radius: .4rem;
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+}
+
 .uploading {
   position: fixed;
   left: 50%;

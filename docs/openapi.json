@@ -1,6 +1,23 @@
 {
  "components": {
   "schemas": {
+   "Body_drop_api_fs_drop_post": {
+    "properties": {
+     "files": {
+      "items": {
+       "contentMediaType": "application/octet-stream",
+       "type": "string"
+      },
+      "title": "Files",
+      "type": "array"
+     }
+    },
+    "required": [
+     "files"
+    ],
+    "title": "Body_drop_api_fs_drop_post",
+    "type": "object"
+   },
    "Body_upload_api_fs_upload_post": {
     "properties": {
      "files": {
@@ -896,6 +913,50 @@
      }
     },
     "summary": "Delete",
+    "tags": [
+     "Writing"
+    ]
+   }
+  },
+  "/api/fs/drop": {
+   "post": {
+    "description": "Receive files dropped onto a session.\n\nA terminal is not a folder, so a file dropped on one has to land somewhere the sender\ndid not choose \u2014 and the same somewhere every time, or the absolute path it is handed\nback means nothing the next day. That place is `drop_dir` in the config, and it is\nnamed here rather than by the client precisely because nobody was looking at a folder\nwhen they let go of the file.\n\nCreated the first time something is dropped and never before: a machine where this is\nnot used does not grow a directory for it.",
+    "operationId": "postApiFsDrop",
+    "requestBody": {
+     "content": {
+      "multipart/form-data": {
+       "schema": {
+        "$ref": "#/components/schemas/Body_drop_api_fs_drop_post"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Drop Api Fs Drop Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Put a file where drops land, and say where that is",
     "tags": [
      "Writing"
     ]
