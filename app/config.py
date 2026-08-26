@@ -38,6 +38,20 @@ def default_path() -> Path:
     return root / "argus" / "config.yaml"
 
 
+def _drop_dir(raw: dict) -> Path | None:
+    """Three different answers, so it is read by hand rather than with `.get(k, default)`.
+
+    Absent means the default, which is what every config written before drops existed says.
+    A path means that path — with `~` expanded, because this is a line somebody typed, and
+    relative to the first root if it is relative. And an *empty* one is a decision: no
+    folder, and a session refuses what is dropped on it.
+    """
+    if "drop_dir" not in raw:
+        return Path("argus-drops")
+    written = str(raw.get("drop_dir") or "").strip()
+    return Path(os.path.expanduser(written)) if written else None
+
+
 @dataclass
 class Config:
     token: str
@@ -77,6 +91,21 @@ class Config:
     # Cap on a single uploaded file. 0 means no cap; the default keeps a stray drag of
     # something enormous from filling a disk that is already at 94%.
     max_upload_bytes: int = 2 * 1024 * 1024 * 1024
+    # Where a file dropped onto a session lands. A terminal is not a folder: the drop has to
+    # go somewhere nobody chose, and it has to be the *same* somewhere every time, or the
+    # absolute path handed back means nothing tomorrow.
+    #
+    # Relative — as the default is — means inside the first root, which is where the file
+    # browser opens and so is already "here" as far as this server is concerned. That is what
+    # makes the default safe on a machine whose roots are `/data` and not the home directory:
+    # it is inside the jail by construction rather than by luck, and a dropped file has to be
+    # readable afterwards or it has been thrown away. An absolute path is taken as written and
+    # checked against the roots at startup. An empty one means a session takes no drops.
+    #
+    # Made the first time something is dropped and never before. Nothing is ever removed from
+    # it: deciding on your behalf which of your files have expired is not a thing to do
+    # quietly.
+    drop_dir: Path | None = Path("argus-drops")
     # What "start an agent" may start, by name. Empty means the shipped list — Claude Code,
     # Codex, Gemini and a plain shell — which is a starting point rather than a claim about
     # your machine: put your own here and yours are the only ones there are. A command is a
@@ -150,6 +179,12 @@ class Config:
         in term.py, since it depends on who else is already there."""
         return ["-f", "ignore-size"] if self.resize_policy == "preserve" else []
 
+    def drops(self) -> Path | None:
+        """The folder a file dropped on a session lands in, or None if drops are refused."""
+        if not self.drop_dir or not self.roots:
+            return None
+        return self.drop_dir if self.drop_dir.is_absolute() else self.roots[0] / self.drop_dir
+
     def tls(self) -> tuple[Path, Path] | None:
         if self.tls_cert and self.tls_key:
             return self.tls_cert, self.tls_key
@@ -216,6 +251,17 @@ class Config:
             )
         if not self.roots:
             raise ConfigError("`roots` is empty — nothing would be browsable")
+        if self.drop_dir and self.drop_dir.is_absolute() and not any(
+            self.drop_dir == r or self.drop_dir.is_relative_to(r) for r in self.roots
+        ):
+            # Only a path written by hand can be wrong this way — a relative one is inside the
+            # first root by construction. Said now rather than at the first drop: a file goes
+            # there to be read again, and everything that reads goes through the jail, so a
+            # `drop_dir` outside the roots is a folder things vanish into.
+            raise ConfigError(
+                f"`drop_dir` ({self.drop_dir}) is outside `roots` — a dropped file would land "
+                "somewhere nothing here can read it back"
+            )
         if self.resize_policy not in RESIZE_POLICIES:
             raise ConfigError(
                 f"`resize_policy` must be one of {' | '.join(RESIZE_POLICIES)}, "
@@ -250,6 +296,7 @@ class Config:
             launches_a_minute=int(raw.get("launches_a_minute", 12)),
             relay_a_minute=int(raw.get("relay_a_minute", 30)),
             max_upload_bytes=int(raw.get("max_upload_bytes", 2 * 1024 * 1024 * 1024)),
+            drop_dir=_drop_dir(raw),
             check_releases=bool(raw.get("check_releases", True)),
             report_to=dict(raw.get("report_to") or {}),
             obey_board=bool(raw.get("obey_board", False)),
@@ -297,6 +344,7 @@ class Config:
             "launches_a_minute": self.launches_a_minute,
             "relay_a_minute": self.relay_a_minute,
             "max_upload_bytes": self.max_upload_bytes,
+            "drop_dir": str(self.drop_dir) if self.drop_dir else "",
             "tls_cert": str(self.tls_cert) if self.tls_cert else None,
             "tls_key": str(self.tls_key) if self.tls_key else None,
         }
