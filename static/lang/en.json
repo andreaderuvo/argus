@@ -836,6 +836,7 @@
   "{name} deleted — tap to undo": "{name} deleted — tap to undo",
   "{name} deleted — “Put back the ones it came with” brings it back": "{name} deleted — “Put back the ones it came with” brings it back",
   "{name} holds {count} window(s). Close it?": "{name} holds {count} window(s). Close it?",
+  "{name} is already running — this one needs a name of its own": "{name} is already running — this one needs a name of its own",
   "{name} is back": "{name} is back",
   "{name} is in the rail now": "{name} is in the rail now",
   "{name} is not empty. Delete it and all its contents?": "{name} is not empty. Delete it and all its contents?",

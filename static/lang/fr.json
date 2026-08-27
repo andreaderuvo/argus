@@ -836,6 +836,7 @@
   "{name} deleted — tap to undo": "{name} supprimé — touchez pour annuler",
   "{name} deleted — “Put back the ones it came with” brings it back": "{name} supprimé — « Remettre ceux d’origine » le fait revenir",
   "{name} holds {count} window(s). Close it?": "{name} holds {count} window(s). Close it?",
+  "{name} is already running — this one needs a name of its own": "{name} tourne déjà — celle-ci a besoin de son propre nom",
   "{name} is back": "{name} est de retour",
   "{name} is in the rail now": "{name} est dans la barre maintenant",
   "{name} is not empty. Delete it and all its contents?": "{name} is not empty. Delete it and all its contents?",
