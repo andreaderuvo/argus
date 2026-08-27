@@ -13,6 +13,7 @@ import os
 import re
 import shutil
 import stat
+import time
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -434,6 +435,34 @@ async def drop(
     dest = _directory(_resolve(request, str(wanted)))
     landed = await _receive(dest, files, cfg.max_upload_bytes, sequence=sequence, beside=True)
     return {"ok": True, "folder": str(dest), "files": landed}
+
+
+def sweep_drops(folder: Path, days: int) -> list[str]:
+    """Remove files in the drop folder older than `days`, and say which.
+
+    Only that folder, only its own files, only by when they were last written. Not
+    recursive: a directory in there was put there on purpose — nothing this app writes to
+    the drop folder is a directory — and walking into one would turn a tidy-up into a
+    recursive delete, which is not what anybody agreed to when they typed a number.
+
+    Says which files went rather than only how many. A sweep nobody can audit is a sweep
+    nobody should trust, and this one deletes without asking.
+    """
+    if not days or not folder or not folder.is_dir():
+        return []
+    cutoff = time.time() - days * 86400
+    gone = []
+    for entry in sorted(folder.iterdir()):
+        try:
+            if not entry.is_file() or entry.is_symlink():
+                continue
+            if entry.stat().st_mtime >= cutoff:
+                continue
+            entry.unlink()
+            gone.append(str(entry))
+        except OSError:
+            continue                      # one file that will not go is not a failed sweep
+    return gone
 
 
 def _deepest(p: Path) -> Path:

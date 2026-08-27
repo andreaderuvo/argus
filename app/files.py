@@ -153,6 +153,8 @@ async def server_info(request: Request) -> dict:
         # Where a file dropped on a session lands. Empty means drops are refused, and the UI
         # then does not light a terminal up as somewhere a file can go.
         "drop_dir": str(cfg.drops() or ""),
+        # 0 means they are kept for ever, which is the default.
+        "drop_keep_days": cfg.drop_keep_days,
         # Where tmux reads its configuration, so the UI can offer to edit it.
         "tmux_conf": tmux.conf_path(),
         # For the "open this on another device" QR code.

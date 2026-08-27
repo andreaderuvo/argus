@@ -106,6 +106,12 @@ class Config:
     # it: deciding on your behalf which of your files have expired is not a thing to do
     # quietly.
     drop_dir: Path | None = Path("argus-drops")
+    # How long a dropped file is kept, in days. 0 — the default — means for ever, because
+    # deciding on your behalf which of somebody's files have expired is not a thing to do
+    # quietly, and a path handed to an agent yesterday has to still resolve today. Set it and
+    # the folder is swept when the server starts and once a day after that: files only, by
+    # when they were last written, and nothing anywhere else.
+    drop_keep_days: int = 0
     # What "start an agent" may start, by name. Empty means the shipped list — Claude Code,
     # Codex, Gemini and a plain shell — which is a starting point rather than a claim about
     # your machine: put your own here and yours are the only ones there are. A command is a
@@ -251,6 +257,12 @@ class Config:
             )
         if not self.roots:
             raise ConfigError("`roots` is empty — nothing would be browsable")
+        if self.drop_keep_days < 0:
+            raise ConfigError("`drop_keep_days` cannot be negative — 0 means keep everything")
+        if self.drop_keep_days and not self.drop_dir:
+            raise ConfigError(
+                "`drop_keep_days` is set but `drop_dir` is empty — there is no folder to sweep"
+            )
         if self.drop_dir and self.drop_dir.is_absolute() and not any(
             self.drop_dir == r or self.drop_dir.is_relative_to(r) for r in self.roots
         ):
@@ -297,6 +309,7 @@ class Config:
             relay_a_minute=int(raw.get("relay_a_minute", 30)),
             max_upload_bytes=int(raw.get("max_upload_bytes", 2 * 1024 * 1024 * 1024)),
             drop_dir=_drop_dir(raw),
+            drop_keep_days=int(raw.get("drop_keep_days", 0) or 0),
             check_releases=bool(raw.get("check_releases", True)),
             report_to=dict(raw.get("report_to") or {}),
             obey_board=bool(raw.get("obey_board", False)),
@@ -345,9 +358,37 @@ class Config:
             "relay_a_minute": self.relay_a_minute,
             "max_upload_bytes": self.max_upload_bytes,
             "drop_dir": str(self.drop_dir) if self.drop_dir else "",
+            "drop_keep_days": self.drop_keep_days,
             "tls_cert": str(self.tls_cert) if self.tls_cert else None,
             "tls_key": str(self.tls_key) if self.tls_key else None,
         }
+
+    def set_in_file(self, path: Path, key: str, value: object) -> None:
+        """Change one line of the config file and leave the rest exactly as it was written.
+
+        `write_to` re-dumps the whole document, which is right when this program made the
+        file and wrong the moment anybody has touched it: a YAML round trip silently drops
+        every comment they wrote, and this config is meant to be read and edited by hand.
+        So the line is replaced where it exists and appended where it does not, and nothing
+        else in the file is even parsed.
+        """
+        setattr(self, key, value)
+        written = yaml.safe_dump({key: value}, sort_keys=False).strip()
+        if path.exists():
+            lines = path.read_text(encoding="utf-8").split("\n")
+            for i, line in enumerate(lines):
+                if line.startswith(f"{key}:"):
+                    lines[i] = written
+                    break
+            else:
+                # Before any trailing blank lines, so the file does not grow a gap each time.
+                while lines and not lines[-1].strip():
+                    lines.pop()
+                lines.append(written)
+            path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        else:
+            self.write_to(path)
+        path.chmod(0o600)
 
     def write_to(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
