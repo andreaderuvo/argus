@@ -870,6 +870,19 @@ async function copyText(text) {
  *  every *button* that copies now ticks; the toast stays where it carries something a tick
  *  cannot, like how many characters went.
  */
+/** A button that copies something and says so, which is every button here that copies.
+ *
+ *  `what` is a function rather than a string because what is worth copying is often not known
+ *  when the button is made — the path of a file that has not been saved yet, a link built from
+ *  wherever the document has got to.
+ */
+function copies(what, glyph, title) {
+  return el('button', {
+    className: 'winbtn', type: 'button', title,
+    onclick: async function copied() { if (await copyText(what())) ticked(this, glyph); },
+  }, icon(glyph));
+}
+
 function ticked(button, glyph = 'clipboard') {
   button.replaceChildren(icon('tick'));
   button.classList.add('done');
@@ -1684,75 +1697,6 @@ function dropOnSession(files, session) {
       else toast(t('tap to copy {path}', { path: paths }), false, () => copyText(paths).then((done) => toast(done ? t('copied') : paths)));
     });
   }, { quiet: true, drop: true, called: files.length === 1 ? files[0].name : t('{count} files onto {session}', { count: files.length, session }) });
-}
-
-/** A piece of text too big to be typed twice, saved as a file, with its path handed back.
- *
- *  The third way something gets from you into a session, after a drag and a paste. It exists
- *  because the terminal is the wrong shape for it: eight thousand characters of log, or a
- *  schema, or somebody's email, pasted into a prompt is a wall an agent reads badly and a
- *  pane redraws slowly — and pasted into `cat > file` it is at the mercy of bracketed paste
- *  and whatever the text does to the shell. A path is one line, and the agent opens the file
- *  itself.
- *
- *  `into` is a folder for the case where you are looking at one. Without it the text lands
- *  where dropped files land, which is the whole point of having one place for things that
- *  came from outside.
- */
-function textIntoFile({ into = '' } = {}) {
-  const where = into || server?.drop_dir || '';
-  if (!where) return toast(t('this server takes no drops — set drop_dir in the config'), true);
-
-  const box = el('textarea', {
-    className: 'baton', rows: 14, spellcheck: false,
-    placeholder: t('paste it here — it is saved as a file and you are given the path'),
-  });
-  const named = el('input', { type: 'text', className: 'linkbox', value: 'note.txt', spellcheck: false, autocapitalize: 'off' });
-  const said = el('p', { className: 'meta' });
-  const go = el('button', { className: 'primary inline', textContent: t('Save'), disabled: true });
-
-  const measure = () => {
-    const n = box.value.length;
-    // How much is in there, because the reason you are using this at all is that it is a lot,
-    // and a textarea showing fourteen lines of eight hundred is not a quantity.
-    said.textContent = n ? t('{n} characters', { n: n.toLocaleString() }) : '';
-    go.disabled = !n;
-  };
-  box.oninput = measure;
-
-  const save = () => {
-    const text = box.value;
-    if (!text) return;
-    const name = named.value.trim() || 'note.txt';
-    go.disabled = true;
-    uploadTo(where, [new File([text], name, { type: 'text/plain' })], (result) => {
-      const saved = result?.files?.[0]?.path;
-      if (!saved) { go.disabled = false; return; }      // uploadTo has already said why
-      sheet.close();
-      copyText(saved).then((ok) => {
-        if (ok) toast(t('path copied: {path}', { path: saved }));
-        else toast(t('tap to copy {path}', { path: saved }), false, () => copyText(saved).then((done) => toast(done ? t('copied') : saved)));
-      });
-    }, { quiet: true, drop: !into, called: name });
-  };
-
-  // Ctrl+Enter saves. Enter cannot: this is a box for text with newlines in it, and the
-  // whole reason it exists is that there are a great many of them.
-  box.onkeydown = (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); save(); } };
-  go.onclick = save;
-
-  const body = el('div', { className: 'sheetbody' }, [
-    el('p', { className: 'meta', textContent: t('into {where}', { where }) }),
-    box,
-    el('label', { className: 'startlabel', textContent: t('call it') }), named,
-    said,
-  ]);
-  const sheet = modal(t('Text into a file'), body, [
-    el('button', { className: 'ghost', textContent: t('Cancel'), onclick: () => sheet.close() }),
-    go,
-  ]);
-  setTimeout(() => box.focus(), 50);
-  return sheet;
 }
 
 function uploadTo(path, fileList, onDone, { sequence = '', quiet = false, called = '', drop = false } = {}) {
@@ -2733,7 +2677,7 @@ function fileBrowser({
        *  it to go — the drop folder is for when there is no folder in front of you. */
       el('button', {
         className: 'ghost', title: t('Paste a large piece of text and get a path to it'),
-        onclick: () => textIntoFile({ into: path }),
+        onclick: () => openWindow({ kind: 'note', id: nextWindowId(), path }),
       }, icon('file')),
     );
 
@@ -3832,10 +3776,6 @@ function toggleStrips() {
  *  its path. Icons only — the words were the path, and the path has moved. */
 function whereButtons(path) {
   const here = parentOf(path);
-  const copies = (what, glyph, title) => el('button', {
-    className: 'winbtn', type: 'button', title,
-    onclick: async function copied() { if (await copyText(what())) ticked(this, glyph); },
-  }, icon(glyph));
   return [
     el('button', {
       className: 'winbtn', type: 'button', title: `${here} — ${t('A file browser here, in this desk')}`,
@@ -6892,6 +6832,7 @@ function railLabel(spec) {
   if (spec.kind === 'term') return spec.name;
   if (spec.kind === 'web') return spec.label || spec.url;
   if (spec.kind === 'run') return runs.get(spec.id)?.name || t('a run');
+  if (spec.kind === 'note') return spec.name || t('Text');
   return (spec.path || '').split('/').filter(Boolean).pop() || spec.path || '?';
 }
 
@@ -8700,6 +8641,7 @@ async function screenWall() {
           : spec.kind === 'links' ? (whoseLinks ? t('Links · {desk}', { desk: whoseLinks }) : t('Links'))
           : spec.kind === 'web' ? (spec.label || spec.url)
           : spec.kind === 'run' ? (runs.get(spec.id)?.name || t('a run'))
+          : spec.kind === 'note' ? t('Text')
             : (spec.path.split('/').pop() || spec.path);
 
       const isTray = spec.kind === 'links' || spec.kind === 'messages';
@@ -8787,6 +8729,7 @@ async function screenWall() {
         title: spec.kind === 'term' ? label
           : spec.kind === 'run' ? t('An orchestration, while it happens')
           : spec.kind === 'messages' ? t('What to hand to an agent')
+          : spec.kind === 'note' ? t('Text into a file')
             : isTray ? t('What went past in this desk') : (spec.path || spec.url),
         textContent: label,
       });
@@ -8876,6 +8819,7 @@ async function screenWall() {
         })
         : spec.kind === 'web' ? attachWeb(body, spec, setLabel)
         : spec.kind === 'run' ? attachRun(body, spec, setLabel)
+        : spec.kind === 'note' ? attachNote(body, spec, setLabel)
         // Where a browser *lands* is the desk's business, not the folder it happened to
         // be left in: reopening a desk should put you where that desk starts.
         : isBrowser ? attachBrowser(body, spec, setLabel, landingFor(ws, spec))
@@ -10644,7 +10588,7 @@ async function screenWall() {
 
       const under = el('span', {
         className: 'meta',
-        textContent: t(kind === 'term' ? 'session' : kind === 'browser' ? 'files' : kind === 'web' ? 'page' : kind === 'links' ? 'the tray' : 'document'),
+        textContent: t(kind === 'term' ? 'session' : kind === 'browser' ? 'files' : kind === 'web' ? 'page' : kind === 'links' ? 'the tray' : kind === 'note' ? 'Text' : 'document'),
       });
       // For a terminal the useful second line is not the word "session" — it is where
       // that session actually is, which is otherwise written down nowhere.
@@ -10802,7 +10746,7 @@ async function screenWall() {
     tools.append(el('button', {
       className: 'winbtn wide',
       title: t('Paste a large piece of text and get a path to it'),
-      onclick: () => textIntoFile(),
+      onclick: () => openWindow({ kind: 'note', id: nextWindowId() }),
     }, [icon('file'), el('span', { textContent: t('Text') })]));
   }
 
@@ -14171,6 +14115,7 @@ const specId = (spec) => (spec.kind === 'links' ? (spec.from ? `links:${spec.fro
   : spec.kind === 'term' ? `term:${spec.name}`
   : spec.kind === 'web' ? `web:${spec.url}`
     : spec.kind === 'run' ? `run:${spec.id}`
+    : spec.kind === 'note' ? `note:${spec.id || spec.path || 'one'}`
     : spec.kind === 'browser' && spec.id ? `browser:${spec.id}`
       : `${spec.kind}:${spec.path}`);
 
@@ -14684,6 +14629,98 @@ function attachRun(host, spec, setLabel) {
 
 /** Everything that wants telling when a run changes. */
 const watchers = new Set();
+
+/** A window you paste into, and a file at the end of it.
+ *
+ *  A window rather than a box that takes over the screen, because of what it is for: the text
+ *  is going to somebody in the terminal next to it, and you want to see them both — paste,
+ *  save, hand over the path, paste the next thing. A dialog makes each of those a round trip
+ *  through opening and closing something, and it hides the very session the file is for.
+ *
+ *  It lands where dropped files land, or in `spec.path` when it was opened from a folder.
+ */
+function attachNote(host, spec, setLabel) {
+  const where = spec.path || server?.drop_dir || '';
+  /* The draft, so a reload does not eat forty thousand characters somebody pasted an hour ago.
+   *
+   *  `sessionStorage` and not the preferences: the preferences are one document that every
+   *  device fetches, and a scratch pad's contents have no business travelling to a phone or
+   *  being written to disk on the server. This is a safety net for one tab, and it is emptied
+   *  the moment the text becomes a file, which is the real place it was going. */
+  const draftKey = `argus:note:${spec.id || 'one'}`;
+
+  const box = el('textarea', {
+    className: 'baton notearea', spellcheck: false,
+    placeholder: t('paste it here — it is saved as a file and you are given the path'),
+  });
+  try { box.value = sessionStorage.getItem(draftKey) || ''; } catch { /* private mode */ }
+  const named = el('input', {
+    type: 'text', className: 'linkbox notename', value: 'note.txt',
+    spellcheck: false, autocapitalize: 'off', title: t('call it'),
+  });
+  const said = el('span', { className: 'meta notecount' });
+  const go = el('button', { className: 'winbtn wide', disabled: true }, [icon('save'), el('span', { textContent: t('Save') })]);
+  const landed = el('div', { className: 'noteland', hidden: true });
+
+  const relabel = () => setLabel?.(named.value.trim() || t('Text'), where ? t('into {where}', { where }) : '');
+  const measure = () => {
+    const n = box.value.length;
+    said.textContent = n ? t('{n} characters', { n: n.toLocaleString() }) : '';
+    go.disabled = !n || !where;
+  };
+  box.oninput = () => {
+    measure();
+    try { sessionStorage.setItem(draftKey, box.value); } catch { /* full, or refused */ }
+  };
+  named.oninput = relabel;
+
+  const save = () => {
+    const text = box.value;
+    if (!text || !where) return;
+    const name = named.value.trim() || 'note.txt';
+    go.disabled = true;
+    uploadTo(where, [new File([text], name, { type: 'text/plain' })], (result) => {
+      const saved = result?.files?.[0]?.path;
+      if (!saved) { measure(); return; }        // uploadTo has already said why
+      try { sessionStorage.removeItem(draftKey); } catch { /* nothing to clear */ }
+      /* The path stays on the window, with its own copy button.
+       *
+       *  It goes to the clipboard as well, on the usual bargain — but a clipboard holds one
+       *  thing, and the next thing you copy is the next thing you copy. Saved here it is still
+       *  readable in an hour, which is when you actually want it again. */
+      landed.hidden = false;
+      landed.replaceChildren(
+        el('code', { className: 'notepath', textContent: saved }),
+        copies(() => saved, 'clipboard', t('Copy the absolute path')),
+      );
+      measure();
+      copyText(saved).then((ok) => {
+        if (ok) toast(t('path copied: {path}', { path: saved }));
+        else toast(t('tap to copy {path}', { path: saved }), false, () => copyText(saved).then((done) => toast(done ? t('copied') : saved)));
+      });
+    }, { quiet: true, drop: !spec.path, called: name });
+  };
+  go.onclick = save;
+  // Ctrl+Enter saves. Enter cannot: this is a box for text with newlines in it, and the whole
+  // reason it exists is that there are a great many of them.
+  box.onkeydown = (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); save(); } };
+
+  host.replaceChildren(el('div', { className: 'notebody' }, [
+    box,
+    el('div', { className: 'noterow' }, [named, said, go]),
+    landed,
+  ]));
+  measure();
+  relabel();
+  if (!where) said.textContent = t('this server takes no drops — set drop_dir in the config');
+
+  return {
+    relayout: () => {},
+    // The draft outlives the window on purpose: shutting one by accident is the other way to
+    // lose a paste, and an empty note leaves nothing behind either way.
+    dispose: () => { host.textContent = ''; },
+  };
+}
 
 /** A web page inside a window: a port you opened, sitting next to the job serving it. */
 function attachWeb(host, spec, setLabel) {

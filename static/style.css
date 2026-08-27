@@ -3382,3 +3382,25 @@ body:not(.railwide) .railwin.raildesk .railcount { display: none; }
 .sidehead .viewset > button { border-radius: 0; }
 .sidehead .viewset > button:first-child { border-top-left-radius: .4rem; border-bottom-left-radius: .4rem; }
 .sidehead .viewset > button:last-child { border-top-right-radius: .4rem; border-bottom-right-radius: .4rem; }
+
+/* ---------- text into a file ---------- */
+
+/* Same shape as the run window: the thing you work in takes the room, the line under it
+   keeps its own. `min-height: 0` because a flex child will not shrink below its content,
+   and a textarea's content is however much somebody pasted. */
+.notebody { padding: .6rem .7rem; height: 100%; display: flex; flex-direction: column; gap: .45rem; }
+.notebody .notearea { flex: 1; min-height: 0; resize: none; }
+/* Wraps, because a window can be 240px wide — every window on a busy desk is — and the row
+   that does not wrap is the row whose last item you cannot reach. Save is the last item. */
+.noterow { display: flex; align-items: center; gap: .5rem .4rem; flex: none; flex-wrap: wrap; }
+/* The name is the wide one: it is the part you change. The count reads itself out of the way,
+   and goes first to the wrap, being the one thing here you can also just look at the text for. */
+.noterow .notename { flex: 1 1 7rem; min-width: 0; }
+.noterow .notecount { flex: 1 1 auto; color: var(--dim); white-space: nowrap; text-align: right; }
+.noterow .winbtn { flex: none; }
+/* Where it went, kept on the window rather than only in a message that fades. */
+.noteland { flex: none; display: flex; align-items: center; gap: .4rem; }
+.notepath {
+  flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font: 11px/1.5 ui-monospace, "SF Mono", Menlo, monospace; color: var(--accent);
+}
