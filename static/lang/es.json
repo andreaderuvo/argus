@@ -860,6 +860,7 @@
   "{name} written in — save and apply it to see it": "{name} escrito en el archivo — guarda y aplícalo",
   "{name} {what} to {dest}": "{name} {what} a {dest}",
   "{name} — put away. Click to bring it back.": "{name} — guardado. Pulsa para traerlo de vuelta.",
+  "{name} → {session}": "{name} → {session}",
   "{n} characters": "{n} caracteres",
   "{n} entries": "{n} entradas",
   "{n} entries removed": "{n} entradas eliminadas",

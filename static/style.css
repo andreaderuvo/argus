@@ -1734,11 +1734,27 @@ video.scanner { width: 100%; border-radius: .6rem; background: #000; aspect-rati
    invisible on exactly the surface it is describing. This is drawn over the canvas instead,
    and takes no pointer events, or it would be the thing the file was dropped on. A window
    and the full screen wear it in the same place. */
-.winbody.dropping, #termwrap.dropping { position: relative; }
+.winbody.dropping, #termwrap.dropping,
+.winbody.landed, #termwrap.landed { position: relative; }
 .winbody.dropping::after, #termwrap.dropping::after {
   content: ''; position: absolute; inset: 5px; pointer-events: none; z-index: 6;
   border: 2px dashed var(--accent); border-radius: .4rem;
   background: color-mix(in srgb, var(--accent) 9%, transparent);
+}
+
+/* It landed. The frame the drag drew comes back once, solid and in the colour of a thing
+   that worked, and fades — the answer arrives where the question was asked. Drawn over the
+   canvas for the same reason the dashed one is, and gone on its own: a mark that stays is a
+   mark somebody has to dismiss. */
+.winbody.landed::after, #termwrap.landed::after {
+  content: ''; position: absolute; inset: 5px; pointer-events: none; z-index: 6;
+  border: 2px solid var(--st-good); border-radius: .4rem;
+  animation: landed 1.2s ease-out forwards;
+}
+@keyframes landed {
+  0% { opacity: 1; background: color-mix(in srgb, var(--st-good) 18%, transparent); }
+  70% { opacity: 1; background: color-mix(in srgb, var(--st-good) 6%, transparent); }
+  100% { opacity: 0; background: transparent; }
 }
 
 .uploading {
