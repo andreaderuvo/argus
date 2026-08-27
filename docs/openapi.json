@@ -683,6 +683,52 @@
     ]
    }
   },
+  "/api/drops/keep": {
+   "post": {
+    "description": "Set `drop_keep_days`, write it to the config, and sweep straight away.\n\nA setting rather than a button, and one of the very few the browser may change: it\ndecides that files get deleted, so it belongs in the file everybody reads to find out\nwhat this server does, next to `drop_dir` \u2014 not in the preferences, which are the\nbrowser's own memory and are not where anybody would look for \"why did my file go\".\n\nOnly one key is written, and only this one. The config is a document people edit by\nhand and comment; re-dumping it to change a number would quietly erase what they\nwrote, so the line is replaced in place.",
+    "operationId": "postApiDropsKeep",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Set Drops Keep Api Drops Keep Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "How long a dropped file is kept",
+    "tags": [
+     "Writing"
+    ]
+   }
+  },
   "/api/favourites": {
    "get": {
     "operationId": "getApiFavourites",

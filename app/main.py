@@ -274,11 +274,38 @@ async def sweeping_the_journal(store) -> None:
             pass
 
 
+DAY = 86400
+
+
+async def sweeping_the_drops(app: FastAPI) -> None:
+    """Take out the old drops, if a number of days has been set.
+
+    Once when the server starts and once a day after that. Not on a timer inside the drop
+    itself: a machine left running for a month should still be tidying, and a machine
+    restarted every morning should not have to wait until the evening for its first sweep.
+
+    Every file it removes is named in the log. This deletes without asking — that is what
+    was asked for — so what it did has to be readable afterwards.
+    """
+    while True:
+        cfg = app.state.cfg
+        folder = cfg.drops()
+        if cfg.drop_keep_days and folder:
+            try:
+                gone = await asyncio.to_thread(fsops.sweep_drops, folder, cfg.drop_keep_days)
+                for one in gone:
+                    print(f"drops: removed {one} (older than {cfg.drop_keep_days} days)", flush=True)
+            except Exception as e:                          # a tidy-up must never take the server with it
+                print(f"drops: sweep failed: {e}", file=sys.stderr, flush=True)
+        await asyncio.sleep(DAY)
+
+
 @contextlib.asynccontextmanager
 async def announcing(app: FastAPI):
     """Announce this machine to a board, if it has been told about one."""
     cfg = app.state.cfg
     sweeper = asyncio.create_task(sweeping_the_journal(app.state.journal))
+    drops = asyncio.create_task(sweeping_the_drops(app))
     task = None
     if getattr(cfg, "report_to", None):
         async def mine() -> dict:
@@ -287,9 +314,10 @@ async def announcing(app: FastAPI):
     try:
         yield
     finally:
-        sweeper.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await sweeper
+        for one in (sweeper, drops):
+            one.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await one
         if task:
             task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -325,6 +353,7 @@ def create_app(cfg: Config) -> FastAPI:
     app.state.devices = cfg.devices_store or Path("/nonexistent")
     app.state.journal = cfg.journal_store
     app.state.lang = Path("/nonexistent")
+    app.state.config_path = None
     app.state.addresses = []
 
     app.state.proxied = set()          # ports opened by hand, this run only
@@ -414,6 +443,41 @@ def create_app(cfg: Config) -> FastAPI:
         """
         version, doc = prefs.load(request.app.state.prefs)
         return {"version": version, "prefs": doc}
+
+    @app.post("/api/drops/keep", tags=["Writing"], summary="How long a dropped file is kept")
+    async def set_drops_keep(request: Request, body: dict) -> dict:
+        """Set `drop_keep_days`, write it to the config, and sweep straight away.
+
+        A setting rather than a button, and one of the very few the browser may change: it
+        decides that files get deleted, so it belongs in the file everybody reads to find out
+        what this server does, next to `drop_dir` — not in the preferences, which are the
+        browser's own memory and are not where anybody would look for "why did my file go".
+
+        Only one key is written, and only this one. The config is a document people edit by
+        hand and comment; re-dumping it to change a number would quietly erase what they
+        wrote, so the line is replaced in place.
+        """
+        state = request.app.state
+        if not state.cfg.allow_write:
+            raise ApiError(403, "this server is read-only — start it with --allow-write to change that")
+        try:
+            days = int(body.get("days"))
+        except (TypeError, ValueError):
+            raise ApiError(400, "`days` must be a whole number of days, 0 for keeping everything") from None
+        if days < 0 or days > 3650:
+            raise ApiError(400, "`days` must be between 0 and 3650")
+        if days and not state.cfg.drops():
+            raise ApiError(400, "there is no `drop_dir` to sweep")
+        if not state.config_path:
+            raise ApiError(409, "this server was not started from a config file")
+
+        state.cfg.set_in_file(Path(state.config_path), "drop_keep_days", days)
+        # At once, rather than at the next daily sweep: somebody who just typed 7 wants to
+        # know what that means for the folder they are looking at, not tomorrow.
+        gone = await asyncio.to_thread(fsops.sweep_drops, state.cfg.drops(), days) if days else []
+        for one in gone:
+            print(f"drops: removed {one} (older than {days} days)", flush=True)
+        return {"ok": True, "days": days, "removed": len(gone)}
 
     @app.patch("/api/prefs", tags=["Setup"], summary="Change some of them, leaving the rest alone")
     async def patch_prefs(request: Request, body: dict) -> dict:
@@ -1525,6 +1589,13 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="add every real filesystem on the machine to the browsable roots",
     )
+    parser.add_argument(
+        "--drop-keep-days",
+        type=int,
+        metavar="N",
+        help="delete files in the drop folder after N days, swept at startup and once a "
+             "day. 0, the default, keeps them for ever",
+    )
     parser.add_argument("--print-url", action="store_true", help="print the URL with the access token and exit")
     parser.add_argument(
         "--qr",
@@ -1545,6 +1616,9 @@ def main(argv: list[str] | None = None) -> int:
             cfg.tmux_socket = args.socket
         if args.allow_write:
             cfg.allow_write = True
+        # `is not None`, so `--drop-keep-days 0` can turn off a sweep the config asks for.
+        if args.drop_keep_days is not None:
+            cfg.drop_keep_days = args.drop_keep_days
         if args.mounts:
             cfg.include_mounts = True
         if args.allow_proxy:
@@ -1583,6 +1657,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: {e}", file=sys.stderr)
         return 1
 
+    # So the one setting the UI may change can be written back to the file it came from.
+    app.state.config_path = config_path
     app.state.favourites = favourites.default_store(config_path)
     app.state.todo = todo.default_store(config_path)
     app.state.prefs = prefs.default_store(config_path)

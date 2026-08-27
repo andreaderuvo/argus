@@ -1724,6 +1724,58 @@ function takesDrops(node, onFiles, { lit = 'dropping' } = {}) {
   });
 }
 
+/** How long the drop folder keeps things — the one server setting the browser may change.
+ *
+ *  It belongs in the config rather than in the preferences, and the row says so by naming the
+ *  folder: this is not "how my browser behaves", it is "what this machine does to my files",
+ *  and the person who comes back in a month asking where a file went has to be able to find
+ *  the answer in the file everybody reads. So the number goes to the server, which writes the
+ *  one line and sweeps at once — a setting whose effect you only see tomorrow is one nobody
+ *  can tell they set correctly.
+ */
+function keepDropsRow() {
+  const days = el('input', {
+    type: 'number', className: 'pairrounds', min: '0', max: '3650', step: '1',
+    value: String(server?.drop_keep_days || 0),
+  });
+  const said = el('span', { className: 'meta' });
+  const say = () => {
+    const n = Number(days.value) || 0;
+    said.textContent = n
+      ? t('older than {n} days are deleted from {where}', { n, where: server.drop_dir })
+      : t('kept for ever in {where} — set a number of days to sweep it', { where: server.drop_dir });
+  };
+  say();
+  days.onchange = async () => {
+    const asked = Math.max(0, Math.min(3650, Math.round(Number(days.value) || 0)));
+    days.disabled = true;
+    try {
+      const r = await postJSON('/api/drops/keep', { days: asked });
+      server.drop_keep_days = r.days;
+      days.value = String(r.days);
+      say();
+      // What it did, not only that it was saved: this deletes, and a number that quietly
+      // removed nine files is a number you would want to hear about.
+      toast(r.removed
+        ? t('{count} old files removed', { count: r.removed })
+        : t('saved'));
+    } catch (e) {
+      days.value = String(server?.drop_keep_days || 0);
+      say();
+      toast(e.message, true);
+    } finally {
+      days.disabled = false;
+    }
+  };
+  return el('div', { className: 'row setting' }, [
+    el('span', { className: 'grow' }, [
+      el('span', { className: 'name', textContent: t('Keep dropped files for') }),
+      said,
+    ]),
+    days,
+  ]);
+}
+
 /** A file dropped onto a session: it lands in the drop folder and its path goes to the
  *  clipboard.
  *
@@ -5773,6 +5825,7 @@ async function screenSettings() {
       () => prefs.tree, (v) => { prefs.tree = v; renderSidebar(); }),
     toggle(t('Open files inside the desk'), t('a file opened from a window becomes a window, instead of taking the screen'),
       () => prefs.openInDesk !== false, (v) => { prefs.openInDesk = v; }),
+    ...(server?.allow_write && server?.drop_dir ? [keepDropsRow()] : []),
   );
 
   wrap.append(
