@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import errno
 import mimetypes
 import os
 import shutil
@@ -84,6 +85,24 @@ def _resolve(request: Request, path: str) -> Path:
         raise ApiError(403, "outside the configured roots") from None
 
 
+def _refused(where: Path, e: OSError) -> ApiError:
+    """A folder you may not read is not a server fault.
+
+    `/home/IZSNT` on a machine with domain accounts is the ordinary case, not a broken one:
+    you may walk through it to your own home and you may not list it. Answering 500 said
+    Argus had failed — which sends whoever opens the console looking for a bug that is not
+    there, and gives the tree walking down to a file no way to tell "I may not look here"
+    from "this server is in trouble". The kernel already said which; this passes it on.
+    """
+    if e.errno in (errno.EACCES, errno.EPERM):
+        return ApiError(403, f"{where}: not readable — check the permissions")
+    if e.errno == errno.ENOENT:
+        return ApiError(404, "not found")
+    if e.errno == errno.ENOTDIR:
+        return ApiError(400, "not a directory")
+    return ApiError(500, str(e))
+
+
 def _entry(path: Path, name: str | None = None) -> dict:
     """Follow symlinks for the reported kind/size; fall back to the link itself when
     the target is missing or unreadable."""
@@ -126,6 +145,11 @@ async def server_info(request: Request) -> dict:
         # reason to ask that endpoint, and read it as "off" until this was here.
         "allow_proxy": cfg.allow_proxy,
         "max_upload_bytes": cfg.max_upload_bytes,
+        # When this process started. The page remembers it, and after an outage it can tell
+        # "the same server, briefly unreachable" from "a server that has been restarted and
+        # may be serving a different frontend" — which is the only one of the two worth
+        # throwing away what somebody was doing for.
+        "started": request.app.state.started,
         # Where a file dropped on a session lands. Empty means drops are refused, and the UI
         # then does not light a terminal up as somewhere a file can go.
         "drop_dir": str(cfg.drops() or ""),
@@ -153,7 +177,7 @@ async def list_dir(request: Request, path: str) -> list[dict]:
                 except OSError:
                     continue  # an unreadable entry should not sink the whole listing
     except OSError as e:
-        raise ApiError(500, str(e)) from e
+        raise _refused(directory, e) from e
 
     # Directories first, then case-insensitive by name — the order a person expects.
     out.sort(key=lambda e: (e["type"] == "file", e["name"].lower(), e["name"]))

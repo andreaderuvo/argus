@@ -1,5 +1,7 @@
 from app.files import content_disposition, walk_for
 
+TOKEN = "testtoken-0123456789abcdef"
+
 
 def test_content_disposition_neutralises_hostile_filenames():
     cd = content_disposition('in"jec\nted.txt')
@@ -165,3 +167,55 @@ def test_text_is_read_again_every_time(tmp_path):
     client = TestClient(create_app(Config(token=token, roots=[tmp_path])))
     r = client.get(f"/api/file?path={note}", headers={"Authorization": f"Bearer {token}"})
     assert "etag" not in r.headers
+
+
+def test_a_folder_you_may_not_read_is_not_a_server_error(tmp_path, monkeypatch):
+    """403, not 500.
+
+    `/home/IZSNT` on a machine with domain accounts is exactly this: you walk through it to
+    your own home every day and you may not list it. Reported as a 500 in the console while
+    the file browser walked down to a file — which reads as "Argus is broken" and is not.
+    """
+    import errno as _errno
+    import os as _os
+
+    from fastapi.testclient import TestClient
+    from app.config import Config
+    from app.main import create_app
+
+    (tmp_path / "root" / "shut").mkdir(parents=True)
+    client = TestClient(create_app(Config(token=TOKEN, roots=[tmp_path / "root"])))
+
+    real = _os.scandir
+
+    def refuse(where, *a, **k):
+        if str(where).endswith("shut"):
+            raise PermissionError(_errno.EACCES, "Permission denied", str(where))
+        return real(where, *a, **k)
+
+    monkeypatch.setattr(_os, "scandir", refuse)
+    r = client.get(
+        f"/api/files?path={tmp_path / 'root' / 'shut'}",
+        headers={"Authorization": f"Bearer {TOKEN}"},
+    )
+    assert r.status_code == 403, r.text
+    assert "not readable" in r.json()["error"]
+
+
+def test_the_server_says_when_it_started(tmp_path):
+    """So the page can tell a blip from a restart, and only reload for the second.
+
+    Any failed request used to mean "the server is gone", and the next successful one
+    reloaded the page — so a single dropped request threw away whatever was on screen. The
+    page now asks twice before believing it, and when the server answers again it compares
+    this: the same process is not a reason to start over.
+    """
+    from fastapi.testclient import TestClient
+    from app.config import Config
+    from app.main import create_app
+
+    (tmp_path / "root").mkdir()
+    client = TestClient(create_app(Config(token=TOKEN, roots=[tmp_path / "root"])))
+    said = client.get("/api/config", headers={"Authorization": f"Bearer {TOKEN}"}).json()
+    assert isinstance(said["started"], float)
+    assert said["started"] > 0

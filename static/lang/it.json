@@ -384,6 +384,7 @@
   "There is no folder at {path}": "Non c'è nessuna cartella in {path}",
   "There is no folder at {path}.": "Non c’è nessuna cartella in {path}.",
   "There it is. Reloading…": "Eccolo. Ricarico…",
+  "There it is…": "Eccolo…",
   "These are the windows as you kept them ({count})": "Le finestre sono come le hai salvate ({count})",
   "These work when you are not typing: a terminal, or any box you are writing in, keeps the keyboard to itself.": "Funzionano quando non stai scrivendo: un terminale, o una qualsiasi casella in cui scrivi, si tiene la tastiera.",
   "They belong to this desk, so one message serves every project.": "Sono di questo desk, così un messaggio solo serve per ogni progetto.",

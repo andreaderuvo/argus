@@ -417,7 +417,7 @@ async function api(path, init) {
     // No answer at all — not a refusal, an absence. The machine is off, the service has
     // stopped, the wifi has gone, the laptop has been shut. Every one of those looks like
     // an app that has quietly stopped working, so it says so instead.
-    if (e.name !== 'AbortError') lostTheServer();
+    if (e.name !== 'AbortError') maybeLost();
     throw e;
   }
   // Anything that came back means it is there, whatever it said.
@@ -451,11 +451,63 @@ async function api(path, init) {
 const RETRY_AFTER = [3, 5, 8, 13, 21, 34];
 let waiting = null;
 
-function foundTheServer() {
-  if (!waiting) return;
+/* One failed request is not a lost server.
+ *
+ *  `fetch` rejects for a great many ordinary reasons that have nothing to do with the machine
+ *  being gone: a request the browser cancelled because whatever asked for it went away, a tab
+ *  coming back from sleep, a connection the network dropped and would hand back on the next
+ *  try. Any one of them used to mean "the server is down" — and because *the next successful
+ *  request reloads the page*, a single dropped request threw the whole app away. Silently:
+ *  the two happen within milliseconds of each other, so nothing has time to appear on screen
+ *  and all anybody sees is the application restarting under them. Reported as exactly that,
+ *  after opening a PDF, which over a network is the heaviest thing this app does and so the
+ *  likeliest moment for one request to be dropped.
+ *
+ *  So it asks a second time before believing it. One small request, and only its answer
+ *  decides.
+ */
+async function maybeLost() {
+  if (waiting || !token) return;
+  const stop = new AbortController();
+  const giveUp = setTimeout(() => stop.abort(), 4000);
+  try {
+    await fetch('/api/config', { headers: { Authorization: `Bearer ${token}` }, signal: stop.signal });
+  } catch {
+    lostTheServer();                        // asked twice, answered neither time
+  } finally {
+    clearTimeout(giveUp);
+  }
+}
+
+/* And coming back is not always a reason to start again.
+ *
+ *  The reload is there for what a *restart* leaves behind: a frontend that has changed under
+ *  a page that is still running the old one, a rotated token, a listing describing a world
+ *  that has moved on. None of that is true of a server that was unreachable for two seconds
+ *  and is the same process it always was — and a reload costs whatever was on screen, which
+ *  by now includes half-typed text in a note window and the page somebody had reached in a
+ *  document. So it asks which of the two happened, and the server's start time is the answer.
+ */
+async function foundTheServer() {
+  if (!waiting || waiting.done) return;
+  waiting.done = true;                      // whichever of the two callers arrives first
   clearTimeout(waiting.clock);
+  waiting.said.textContent = t('There it is…');
+
+  let restarted = true;                     // if it cannot be asked, starting again is safe
+  try {
+    const said = await (await fetch('/api/config', {
+      headers: { Authorization: `Bearer ${token}` },
+    })).json();
+    restarted = !server?.started || said.started !== server.started;
+  } catch { /* gone again already — take the reload */ }
+
+  if (!restarted) {
+    waiting.veil.remove();
+    waiting = null;
+    return;
+  }
   waiting.said.textContent = t('There it is. Reloading…');
-  waiting = { ...waiting, done: true };
   location.reload();
 }
 
@@ -478,7 +530,7 @@ function lostTheServer() {
   ]);
   const veil = el('div', { className: 'lostveil' }, [box]);
   document.body.append(veil);
-  waiting = { veil, said, clock: null, tries: 0 };
+  waiting = { veil, said, clock: null, tries: 0, done: false };
 
   const probe = async () => {
     said.textContent = t('Trying…');
@@ -1681,7 +1733,7 @@ function takesDrops(node, onFiles, { lit = 'dropping' } = {}) {
  *  one place the server keeps drops and you are handed the absolute path, which is the
  *  next thing you were going to need anyway.
  */
-function dropOnSession(files, session, { typeIn = null, done = null } = {}) {
+function dropOnSession(files, session, { typeIn = null, done = null, sequence = '' } = {}) {
   const where = server?.drop_dir;
   if (!where) return toast(t('this server takes no drops — set drop_dir in the config'), true);
   uploadTo(where, files, (result) => {
@@ -1710,7 +1762,16 @@ function dropOnSession(files, session, { typeIn = null, done = null } = {}) {
       ? t('{name} → {session}', { name: landed.map((p) => p.split('/').pop()).join(' '), session })
       : landed.length === 1 ? t('path copied: {path}', { path: paths })
         : t('{count} paths copied', { count: landed.length }));
-  }, { quiet: true, drop: true, called: files.length === 1 ? files[0].name : t('{count} files onto {session}', { count: files.length, session }) });
+  }, {
+    quiet: true,
+    drop: true,
+    sequence,
+    // A pasted image has no name worth reading back: the clipboard calls every one of them
+    // "image.png", so the bar says what it is instead.
+    called: sequence ? t('screenshot from the clipboard')
+      : files.length === 1 ? files[0].name
+        : t('{count} files onto {session}', { count: files.length, session }),
+  });
 }
 
 /** A path as a shell needs it, quoted only when it has to be.
@@ -1743,7 +1804,7 @@ function uploadTo(path, fileList, onDone, { sequence = '', quiet = false, called
   // server says where its drops go and `path` here is only what the progress bar reads out.
   if (!drop) body.append('path', path);
   // A pasted image has no name worth keeping — the clipboard says "image.png" every
-  // time — so the server numbers it instead.
+  // time — so the server numbers it instead. Both doors take it.
   if (sequence) body.append('sequence', sequence);
   for (const f of files) body.append('files', f, f.name);
 
@@ -2813,7 +2874,22 @@ function pasteImages(e) {
   if (!images.length) return;
 
   const pane = (lastPane?.node.isConnected && lastPane) || [...browsers].find((b) => b.node.isConnected);
-  if (!pane) return toast(t('open a folder first — a pasted image needs somewhere to go'), true);
+  /* No folder in front of you is no longer a refusal.
+   *
+   *  It used to say "open a folder first", which is a true statement about how this was
+   *  built and an unhelpful one about what you wanted: you had a picture and somewhere for
+   *  it to go was this app's problem, not yours. There is a place for things from outside
+   *  now — the same one a dropped file lands in — so the answer is to use it and hand back
+   *  the path. A pane still wins when there is one: you were looking at a folder, so you
+   *  meant that folder.
+   */
+  if (!pane) {
+    if (!server?.allow_write || !server?.drop_dir) {
+      return toast(t('this server takes no drops — set drop_dir in the config'), true);
+    }
+    e.preventDefault();
+    return dropOnSession(images, '', { sequence: 'screenshot' });
+  }
 
   e.preventDefault();
   // Three things have to be obvious: that it started, where it is going, and what
@@ -7573,18 +7649,49 @@ function attachTerminal(container, name, { transform, onGone, onBack, onPath, on
    *  quietly rather than lighting up and then apologising, and a dashed border promising
    *  somewhere to land is worse than no border at all.
    */
+  const intoThisPane = {
+    // Typed into this pane, through the same socket the keyboard uses — no Enter.
+    typeIn: (text) => { send(text); term.focus(); },
+    /* And the frame the drag drew comes back for a moment, in the colour of a thing that
+     *  worked. The path appearing at the prompt is the real answer, but it appears at the
+     *  cursor and the eye is on the file it just let go of, which is somewhere else. */
+    done: () => {
+      container.classList.add('landed');
+      setTimeout(() => container.classList.remove('landed'), 1200);
+    },
+  };
+
   if (server?.allow_write && server?.drop_dir) {
-    takesDrops(container, (files) => dropOnSession(files, name, {
-      // Typed into this pane, through the same socket the keyboard uses — no Enter.
-      typeIn: (text) => { send(text); term.focus(); },
-      /* And the frame the drag drew comes back for a moment, in the colour of a thing that
-       *  worked. The path appearing at the prompt is the real answer, but it appears at the
-       *  cursor and the eye is on the file it just let go of, which is somewhere else. */
-      done: () => {
-        container.classList.add('landed');
-        setTimeout(() => container.classList.remove('landed'), 1200);
-      },
-    }));
+    takesDrops(container, (files) => dropOnSession(files, name, intoThisPane));
+
+    /* And Ctrl+V of an image, in the session, with the cursor exactly where you were typing.
+     *
+     *  A terminal owns its paste — that is not negotiable, a pasted command has to reach
+     *  tmux — so this takes only what a terminal cannot use: a clipboard carrying an *image
+     *  file*. Text of any kind, including the HTML flavour that comes alongside a copied
+     *  picture, goes through untouched. That one rule is what lets the two live on the same
+     *  keystroke, and it is why this can sit on the pane rather than asking you to click
+     *  somewhere neutral first: pasting a screenshot used to be refused wherever a terminal
+     *  had the focus, which is the one place you are when you want it.
+     */
+    container.addEventListener('paste', (e) => {
+      const images = [...(e.clipboardData?.items || [])]
+        .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
+        .map((item) => item.getAsFile())
+        .filter(Boolean);
+      if (!images.length) return;             // ordinary paste: xterm's business, not ours
+      e.preventDefault();
+      e.stopPropagation();                    // and not the document's either
+      dropOnSession(images, name, { ...intoThisPane, sequence: 'screenshot' });
+      /* On the way *down*, not up.
+       *
+       *  xterm reads the paste on its own hidden textarea and stops it there — measured: the
+       *  text arrives at tmux and nothing bubbles out, so a listener on the container was
+       *  never called and an image pasted into a focused terminal went nowhere. Capturing
+       *  means this sees it first, and taking it here is also what keeps xterm from sending
+       *  tmux an empty bracketed paste for a clipboard that held no text at all.
+       */
+    }, true);
   }
 
   // The DOM renderer repaints cell by cell, which is what a slow link turns into
