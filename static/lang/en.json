@@ -860,6 +860,7 @@
   "{name} written in — save and apply it to see it": "{name} written in — save and apply it to see it",
   "{name} {what} to {dest}": "{name} {what} to {dest}",
   "{name} — put away. Click to bring it back.": "{name} — put away. Click to bring it back.",
+  "{name} → {session}": "{name} → {session}",
   "{n} characters": "{n} characters",
   "{n} entries": "{n} entries",
   "{n} entries removed": "{n} entries removed",

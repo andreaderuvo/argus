@@ -1681,22 +1681,46 @@ function takesDrops(node, onFiles, { lit = 'dropping' } = {}) {
  *  one place the server keeps drops and you are handed the absolute path, which is the
  *  next thing you were going to need anyway.
  */
-function dropOnSession(files, session) {
+function dropOnSession(files, session, { typeIn = null, done = null } = {}) {
   const where = server?.drop_dir;
   if (!where) return toast(t('this server takes no drops — set drop_dir in the config'), true);
   uploadTo(where, files, (result) => {
     const landed = (result?.files || []).map((f) => f.path);
     if (!landed.length) return;
     const paths = landed.join('\n');
-    // The clipboard belongs to gestures. Letting go of a file is one, and an upload
-    // finishing a second later is not — browsers refuse the second. Try anyway, because
-    // the activation is often still warm, and hand over a button when it is not: tapping
-    // that *is* a gesture. Same bargain as a pasted screenshot, same two messages.
-    copyText(paths).then((ok) => {
-      if (ok) toast(landed.length === 1 ? t('path copied: {path}', { path: paths }) : t('{count} paths copied', { count: landed.length }));
-      else toast(t('tap to copy {path}', { path: paths }), false, () => copyText(paths).then((done) => toast(done ? t('copied') : paths)));
-    });
+    /* Into the session itself, and no Enter.
+     *
+     *  The path was always going to be typed there — that is what the drop was for — and
+     *  handing it over through the clipboard made you do the last step by hand, on a phone
+     *  with two taps and a long press. Typed, it is simply *there*, in the prompt or at the
+     *  shell, waiting for you to say what to do with it. Never the return: what happens to
+     *  a file is your sentence to finish, and an Enter nobody asked for is an instruction
+     *  nobody wrote.
+     */
+    /* With a space after it, which is not a detail: drop a second file and its path would
+     *  otherwise begin where the first one ended, `…ceppi.tsv'/tmp/lab/…`, one unusable word.
+     *  A trailing space is also what you would type next anyway. */
+    if (typeIn) typeIn(`${landed.map(quoted).join(' ')} `);
+    done?.();
+    // The clipboard as well, quietly. It costs nothing, it is what you want when the file
+    // is for something other than this session, and where it fails there is now no harm
+    // done: the path is already in the terminal you dropped on.
+    copyText(paths);
+    toast(typeIn
+      ? t('{name} → {session}', { name: landed.map((p) => p.split('/').pop()).join(' '), session })
+      : landed.length === 1 ? t('path copied: {path}', { path: paths })
+        : t('{count} paths copied', { count: landed.length }));
   }, { quiet: true, drop: true, called: files.length === 1 ? files[0].name : t('{count} files onto {session}', { count: files.length, session }) });
+}
+
+/** A path as a shell needs it, quoted only when it has to be.
+ *
+ *  Most paths are plain and quoting them all would put punctuation in front of somebody for
+ *  no reason. A name with a space in it — which uploads keep, because it is the name the file
+ *  had — would otherwise arrive at the shell as two arguments.
+ */
+function quoted(path) {
+  return /^[\w@%+=:,./-]+$/.test(path) ? path : `'${path.replaceAll("'", "'\\''")}'`;
 }
 
 function uploadTo(path, fileList, onDone, { sequence = '', quiet = false, called = '', drop = false } = {}) {
@@ -7549,7 +7573,19 @@ function attachTerminal(container, name, { transform, onGone, onBack, onPath, on
    *  quietly rather than lighting up and then apologising, and a dashed border promising
    *  somewhere to land is worse than no border at all.
    */
-  if (server?.allow_write && server?.drop_dir) takesDrops(container, (files) => dropOnSession(files, name));
+  if (server?.allow_write && server?.drop_dir) {
+    takesDrops(container, (files) => dropOnSession(files, name, {
+      // Typed into this pane, through the same socket the keyboard uses — no Enter.
+      typeIn: (text) => { send(text); term.focus(); },
+      /* And the frame the drag drew comes back for a moment, in the colour of a thing that
+       *  worked. The path appearing at the prompt is the real answer, but it appears at the
+       *  cursor and the eye is on the file it just let go of, which is somewhere else. */
+      done: () => {
+        container.classList.add('landed');
+        setTimeout(() => container.classList.remove('landed'), 1200);
+      },
+    }));
+  }
 
   // The DOM renderer repaints cell by cell, which is what a slow link turns into
   // visible tearing. WebGL draws the frame in one go; where it is unavailable the
