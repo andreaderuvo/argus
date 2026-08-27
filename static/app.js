@@ -7674,6 +7674,27 @@ function attachTerminal(container, name, { transform, onGone, onBack, onPath, on
      *  somewhere neutral first: pasting a screenshot used to be refused wherever a terminal
      *  had the focus, which is the one place you are when you want it.
      */
+    /* And Ctrl+V has to become a paste before any of that can happen.
+     *
+     *  Measured, with a real image on the clipboard and a real keystroke: xterm takes Ctrl+V,
+     *  prevents the browser's default, and sends `^V` to tmux — so no paste event fires and
+     *  the page never sees the clipboard at all. What reaches the far end is a control code,
+     *  which is why an agent answered "no image found in clipboard": it went looking on the
+     *  *server*, and the image is on the laptop holding the keyboard.
+     *
+     *  That is the argument for taking the key here. In a terminal on the same machine, `^V`
+     *  reaching the application is worth something; through a browser it can never be — the
+     *  clipboard is on this side of the wire. Returning false leaves the keystroke to the
+     *  browser, which pastes: an image becomes a file below, and text goes to tmux through
+     *  xterm's own paste, which is what pasting into a terminal is supposed to do.
+     *
+     *  A literal `^V` — readline's quoted-insert, vim's block select — is still there: tap
+     *  Ctrl on the key bar and then V, which is the bar's whole purpose.
+     */
+    term.attachCustomKeyEventHandler((e) => !(
+      e.type === 'keydown' && (e.ctrlKey || e.metaKey) && !e.altKey && e.key?.toLowerCase() === 'v'
+    ));
+
     container.addEventListener('paste', (e) => {
       const images = [...(e.clipboardData?.items || [])]
         .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
