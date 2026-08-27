@@ -394,7 +394,13 @@ async def _receive(
 
 
 @router.post("/api/fs/drop", summary="Put a file where drops land, and say where that is")
-async def drop(request: Request, files: list[UploadFile] = File(...)) -> dict:
+async def drop(
+    request: Request,
+    files: list[UploadFile] = File(...),
+    # A pasted image has no name of its own — the clipboard offers "image.png" every time —
+    # so the server numbers it, exactly as it does for one pasted into a folder.
+    sequence: str = Form(""),
+) -> dict:
     """Receive files dropped onto a session.
 
     A terminal is not a folder, so a file dropped on one has to land somewhere the sender
@@ -426,7 +432,7 @@ async def drop(request: Request, files: list[UploadFile] = File(...)) -> dict:
             raise ApiError(500, f"could not create {wanted}: {e.strerror}") from e
 
     dest = _directory(_resolve(request, str(wanted)))
-    landed = await _receive(dest, files, cfg.max_upload_bytes, beside=True)
+    landed = await _receive(dest, files, cfg.max_upload_bytes, sequence=sequence, beside=True)
     return {"ok": True, "folder": str(dest), "files": landed}
 
 

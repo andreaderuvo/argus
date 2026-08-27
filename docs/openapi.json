@@ -10,6 +10,11 @@
       },
       "title": "Files",
       "type": "array"
+     },
+     "sequence": {
+      "default": "",
+      "title": "Sequence",
+      "type": "string"
      }
     },
     "required": [
