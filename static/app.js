@@ -14193,17 +14193,48 @@ async function createSession({ path, suggest = 'shell', wsId = null } = {}) {
    *  illegal and Start answered 400 for a name the person never typed.
    */
   const nameable = (s) => s.replace(/[^\w -]+/g, '-').replace(/-{2,}/g, '-').replace(/^-|-$/g, '');
+  /* What is already running. Filled in below, and until it arrives the suggestion is simply
+   *  the one it always was — an empty set makes every name look free, which is the old
+   *  behaviour rather than a wrong answer. */
+  let taken = new Set();
+  /** The same name with a number after it, until one is free.
+   *
+   *  A suggestion is only useful if it can be accepted. This one is built from the launcher
+   *  and the folder, so opening a second shell in the same place proposed the name of the
+   *  first one every time — and the server, correctly, refused it. What you saw was Start
+   *  doing nothing, six times, because the box kept handing back the name it had just been
+   *  told was taken.
+   */
+  const free = (base) => {
+    if (!taken.has(base)) return base;
+    for (let n = 2; n < 1000; n++) if (!taken.has(`${base}-${n}`)) return `${base}-${n}`;
+    return base;
+  };
+  // The last launcher the suggestion was built from, so the answer can be redone when the
+  // list of what is running lands after the box is already on screen.
+  let named = null;
   const sayName = (one) => {
+    named = one || named;
+    if (!named) return;
     const leaf = nameable((where.value || '').replace(/\/+$/, '').split('/').pop() || '') || 'shell';
-    const slug = nameable((one.command || '').split(/[\s/]+/).pop() || '') || 'shell';
-    if (!name.dataset.touched) name.value = `${slug}-${leaf}`.slice(0, 60);
+    const slug = nameable((named.command || '').split(/[\s/]+/).pop() || '') || 'shell';
+    if (name.dataset.touched) return;
+    name.value = free(`${slug}-${leaf}`.slice(0, 56));
+    // The complaint under the box is about whatever is *in* the box. Writing a new name
+    // without re-reading it left the previous name's objection sitting under a field it no
+    // longer described — which is a worse lie than saying nothing.
+    checkName();
   };
   /* And if you type one yourself, you are told here rather than by a 400 after pressing
-   *  Start — the same two characters, checked in the same place you are typing. */
+   *  Start — the same two characters, checked in the same place you are typing. A name that
+   *  is taken belongs in the same sentence: it is the other way Start can only fail, and it
+   *  was the one you found out about afterwards. */
   const nameWhy = el('p', { className: 'hint', hidden: true });
   const checkName = () => {
     const bad = /[:.]/.test(name.value) ? t("a session name cannot contain ':' or '.'")
-      : !name.value.trim() ? t('a session needs a name') : '';
+      : !name.value.trim() ? t('a session needs a name')
+        : taken.has(name.value.trim()) ? t('{name} is already running — this one needs a name of its own', { name: name.value.trim() })
+          : '';
     nameWhy.textContent = bad;
     nameWhy.hidden = !bad;
     name.classList.toggle('wrong', !!bad);
@@ -14307,6 +14338,19 @@ async function createSession({ path, suggest = 'shell', wsId = null } = {}) {
   let settle;
   const answer = new Promise((r) => { settle = r; });
   const done = (v) => { settle(v); settle = () => {}; };
+
+  /* What is running, asked for at the same time as the launchers and waited on by neither.
+   *
+   *  The box is usable the moment it opens; this only makes the name in it one that can be
+   *  accepted. If it lands after you have started typing, your name stands — `touched` is
+   *  the whole rule — but it is still checked against the list, because a name you typed can
+   *  be taken too and that is the same disappointment.
+   */
+  getJSON('/api/tmux/sessions').then((list) => {
+    taken = new Set((list || []).map((one) => one.name));
+    sayName(null);
+    checkName();
+  }).catch(() => { /* then names are only checked by the server, as they were */ });
 
   // The list, then the repository: both are questions for the server and neither should keep
   // the box from appearing.

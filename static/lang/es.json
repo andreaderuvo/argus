@@ -836,6 +836,7 @@
   "{name} deleted — tap to undo": "{name} eliminado — toca para deshacer",
   "{name} deleted — “Put back the ones it came with” brings it back": "{name} eliminado — «Vuelve a poner los de serie» lo trae de vuelta",
   "{name} holds {count} window(s). Close it?": "{name} holds {count} window(s). Close it?",
+  "{name} is already running — this one needs a name of its own": "{name} ya está en marcha — esta necesita un nombre propio",
   "{name} is back": "{name} ha vuelto",
   "{name} is in the rail now": "{name} ahora está en la barra",
   "{name} is not empty. Delete it and all its contents?": "{name} is not empty. Delete it and all its contents?",
