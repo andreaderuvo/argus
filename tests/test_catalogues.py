@@ -24,7 +24,7 @@ LANG = ROOT / "static" / "lang"
 # The words that get shown are the other branches, and those are checked like everything
 # else. Listing them is better than a cleverer parser: a new one shows up as a failure here
 # and gets a decision, rather than being guessed at.
-NOT_TEXT = {"browser", "links", "term", "vars", "wall", "web"}
+NOT_TEXT = {"browser", "links", "note", "term", "vars", "wall", "web"}
 
 
 def unescape(js: str) -> str:
