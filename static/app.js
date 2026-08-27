@@ -1686,6 +1686,75 @@ function dropOnSession(files, session) {
   }, { quiet: true, drop: true, called: files.length === 1 ? files[0].name : t('{count} files onto {session}', { count: files.length, session }) });
 }
 
+/** A piece of text too big to be typed twice, saved as a file, with its path handed back.
+ *
+ *  The third way something gets from you into a session, after a drag and a paste. It exists
+ *  because the terminal is the wrong shape for it: eight thousand characters of log, or a
+ *  schema, or somebody's email, pasted into a prompt is a wall an agent reads badly and a
+ *  pane redraws slowly — and pasted into `cat > file` it is at the mercy of bracketed paste
+ *  and whatever the text does to the shell. A path is one line, and the agent opens the file
+ *  itself.
+ *
+ *  `into` is a folder for the case where you are looking at one. Without it the text lands
+ *  where dropped files land, which is the whole point of having one place for things that
+ *  came from outside.
+ */
+function textIntoFile({ into = '' } = {}) {
+  const where = into || server?.drop_dir || '';
+  if (!where) return toast(t('this server takes no drops — set drop_dir in the config'), true);
+
+  const box = el('textarea', {
+    className: 'baton', rows: 14, spellcheck: false,
+    placeholder: t('paste it here — it is saved as a file and you are given the path'),
+  });
+  const named = el('input', { type: 'text', className: 'linkbox', value: 'note.txt', spellcheck: false, autocapitalize: 'off' });
+  const said = el('p', { className: 'meta' });
+  const go = el('button', { className: 'primary inline', textContent: t('Save'), disabled: true });
+
+  const measure = () => {
+    const n = box.value.length;
+    // How much is in there, because the reason you are using this at all is that it is a lot,
+    // and a textarea showing fourteen lines of eight hundred is not a quantity.
+    said.textContent = n ? t('{n} characters', { n: n.toLocaleString() }) : '';
+    go.disabled = !n;
+  };
+  box.oninput = measure;
+
+  const save = () => {
+    const text = box.value;
+    if (!text) return;
+    const name = named.value.trim() || 'note.txt';
+    go.disabled = true;
+    uploadTo(where, [new File([text], name, { type: 'text/plain' })], (result) => {
+      const saved = result?.files?.[0]?.path;
+      if (!saved) { go.disabled = false; return; }      // uploadTo has already said why
+      sheet.close();
+      copyText(saved).then((ok) => {
+        if (ok) toast(t('path copied: {path}', { path: saved }));
+        else toast(t('tap to copy {path}', { path: saved }), false, () => copyText(saved).then((done) => toast(done ? t('copied') : saved)));
+      });
+    }, { quiet: true, drop: !into, called: name });
+  };
+
+  // Ctrl+Enter saves. Enter cannot: this is a box for text with newlines in it, and the
+  // whole reason it exists is that there are a great many of them.
+  box.onkeydown = (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); save(); } };
+  go.onclick = save;
+
+  const body = el('div', { className: 'sheetbody' }, [
+    el('p', { className: 'meta', textContent: t('into {where}', { where }) }),
+    box,
+    el('label', { className: 'startlabel', textContent: t('call it') }), named,
+    said,
+  ]);
+  const sheet = modal(t('Text into a file'), body, [
+    el('button', { className: 'ghost', textContent: t('Cancel'), onclick: () => sheet.close() }),
+    go,
+  ]);
+  setTimeout(() => box.focus(), 50);
+  return sheet;
+}
+
 function uploadTo(path, fileList, onDone, { sequence = '', quiet = false, called = '', drop = false } = {}) {
   const files = [...fileList];
   if (!files.length) return;
@@ -2659,6 +2728,13 @@ function fileBrowser({
         className: 'ghost', title: t('Fetch a link into this folder'),
         onclick: () => fetchHere(path),
       }, icon('link')),
+      /* And the third: text you have, rather than a file you have. Here as well as beside the
+       *  sessions because when you are looking at a folder, *this* folder is where you mean
+       *  it to go — the drop folder is for when there is no folder in front of you. */
+      el('button', {
+        className: 'ghost', title: t('Paste a large piece of text and get a path to it'),
+        onclick: () => textIntoFile({ into: path }),
+      }, icon('file')),
     );
 
     // Dropping onto the pane uploads into *that* pane's folder, which is the obvious
@@ -10715,6 +10791,20 @@ async function screenWall() {
     onclick: () => openWindow({ kind: 'browser', id: nextWindowId(), path: deskFolder() }),
   }, [icon('folderPlus'), el('span', { textContent: t('Browser') })]);
   tools.append(browserBtn);
+
+  /* Somewhere to put a large piece of text.
+   *
+   *  Beside the drop, because it is the same errand: something of yours has to become a path
+   *  an agent can open. Only where the server can write, like everything else that makes a
+   *  file — a button that can only apologise is worse than one that is not there.
+   */
+  if (server?.allow_write && server?.drop_dir) {
+    tools.append(el('button', {
+      className: 'winbtn wide',
+      title: t('Paste a large piece of text and get a path to it'),
+      onclick: () => textIntoFile(),
+    }, [icon('file'), el('span', { textContent: t('Text') })]));
+  }
 
   /* Everything above this line answers "what is on the desk"; everything below it answers
    *  "how is it arranged". Flat in a flat row they read as nine things of equal weight, so
