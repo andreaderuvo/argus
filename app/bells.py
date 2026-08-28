@@ -57,19 +57,33 @@ def store(request: Request) -> dict[str, Any]:
 @router.post("/api/bell", tags=["Notifications"], summary="Ring: something finished, or wants you")
 async def ring(request: Request, body: dict) -> dict:
     """Called by an agent hook, or by anything else that knows it has finished."""
-    kept = store(request)
     why = str(body.get("why") or "done")
     if why not in REASONS:
         raise ApiError(400, f"why must be one of {', '.join(sorted(REASONS))}")
+    return rung(request, why,
+                session=str(body.get("session") or "").strip() or None,
+                text=str(body.get("text") or ""))
 
+
+def rung(request: Request, why: str, session: str | None = None, text: str = "", **extra) -> dict:
+    """Ring, from inside this program rather than over the wire.
+
+    A question asked of a person is a bell — the same phone, the same badge, the same line
+    under "waiting for you" — and it would be absurd for one part of this server to post to
+    another to say so. `extra` is how a bell carries the thing it is about: an `ask` puts its
+    own id there, and a browser that does not know the word ignores it, which is the same
+    bargain the whole stream is built on.
+    """
+    kept = store(request)
     kept["seq"] += 1
     bell = {
         "seq": kept["seq"],
         "at": int(time.time()),
         # A bell that names no session still rings; it just cannot mark a window.
-        "session": (str(body.get("session") or "").strip() or None),
+        "session": session,
         "why": why,
-        "text": str(body.get("text") or "")[:MAX_TEXT],
+        "text": str(text or "")[:MAX_TEXT],
+        **extra,
     }
     kept["list"].append(bell)
     for ear in list(kept["ears"]):
