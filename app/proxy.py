@@ -11,7 +11,9 @@ port was opened by hand. A port bound to loopback was bound there on purpose.
 
 from __future__ import annotations
 
+import json
 import re
+from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urlsplit
 
 import httpx
@@ -22,6 +24,38 @@ from .auth import PROXY_COOKIE
 from .errors import ApiError
 
 router = APIRouter()
+
+
+def load(store: Path) -> set[int]:
+    """Which ports were open, so a restart is not the same as closing every one of them.
+
+    A port opened by hand stays open until it is closed by hand — that is the whole point
+    of asking before proxying anything — and a restart is not a decision anybody made
+    about any of them. `allow_proxy` still gates every request through this list; losing
+    that flag on restart is exactly as it should be, and this only restores what was
+    already allowed.
+    """
+    try:
+        raw = json.loads(store.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return set()
+    if not isinstance(raw, list):
+        return set()
+    return {p for p in raw if isinstance(p, int) and 1 <= p <= 65535}
+
+
+def save(store: Path, ports: set[int]) -> None:
+    store.parent.mkdir(parents=True, exist_ok=True)
+    # Beside the target and renamed into place: a crash mid-write must not leave a
+    # truncated list where a valid one used to be.
+    tmp = store.with_suffix(".json.part")
+    tmp.write_text(json.dumps(sorted(ports)), encoding="utf-8")
+    tmp.chmod(0o600)
+    tmp.replace(store)
+
+
+def default_store(config_path: Path) -> Path:
+    return config_path.parent / "proxied.json"
 
 # Hop-by-hop headers belong to one connection and must not be relayed onto another.
 HOP_BY_HOP = {
