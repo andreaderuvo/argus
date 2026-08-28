@@ -1172,7 +1172,7 @@ const FAMILIES = [
   [/^(gz|bz2|xz|zst|zip|tar|tgz|7z|rar|lz4)$/, '#d6b46f'],
   [/^(fa|fasta|fq|fastq|vcf|bam|sam|cram|bed|gff|gtf|gbk|nwk|phy)$/, '#9fd66f'],
   [/^(mp3|wav|flac|ogg|m4a|mp4|mkv|mov|avi|webm)$/, '#d66fa8'],
-  [/^(stl)$/, '#e0a15a'],
+  [/^(stl|step|stp)$/, '#e0a15a'],
   [/^(yaml|yml|toml|ini|cfg|conf|env|lock|nf|mk)$/, '#8a93a3'],
   [/^(md|txt|rst|log|out|err|tex|docx?|odt)$/, '#7aa2d6'],
 ];
@@ -3246,18 +3246,71 @@ function repaintMeshes() {
   for (const canvas of document.querySelectorAll('canvas.meshview')) canvas._meshRepaint?.();
 }
 
-/** A triangle mesh, orbitable.
+/** three.js, loaded once and shared by every kind of mesh this app draws. */
+async function loadThree() {
+  const [THREE, { OrbitControls }] = await Promise.all([
+    import('three'),
+    import('/vendor/three-0.185.1/OrbitControls.js'),
+  ]);
+  return { THREE, OrbitControls };
+}
+
+/* One loader per process, however many models get opened.
+ *
+ *  `occtimportjs()` compiles a 7.5 MB WebAssembly module — the OpenCascade CAD kernel,
+ *  which is a different scale of thing from a mesh format's own parser and is why STEP is
+ *  loaded separately from STL rather than folded into the same bundle. Doing that twice in
+ *  one visit because two STEP files were opened would be paying for it twice; the promise
+ *  is cached, not the result, so a failed load can still be retried on the next file.
+ */
+let occtLoading = null;
+function loadOcct() {
+  if (!occtLoading) {
+    /* A classic script, not a module — Emscripten's own glue attaches `occtimportjs` as a
+     *  plain global, with `export` nowhere in it, so `import()` resolves to an empty
+     *  namespace and calling anything off it fails; a `<script>` tag is what this build
+     *  was actually written for. */
+    occtLoading = new Promise((resolve, reject) => {
+      const tag = document.createElement('script');
+      tag.src = '/vendor/occt-import-js-0.0.23/occt-import-js.js';
+      tag.onload = () => resolve(window.occtimportjs);
+      tag.onerror = () => reject(new Error('could not load occt-import-js.js'));
+      document.head.append(tag);
+    }).then((init) => init({
+      locateFile: (path) => `/vendor/occt-import-js-0.0.23/${path}`,
+    }))
+      .catch((e) => { occtLoading = null; throw e; });
+  }
+  return occtLoading;
+}
+
+/** One `THREE.BufferGeometry` per part in a STEP assembly. Colours are not read from the
+ *  file — this wears the app's palette, the same choice STL already made — only the shape. */
+function occtGeometries(THREE, result) {
+  return (result.meshes || []).map((m) => {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(m.attributes.position.array, 3));
+    if (m.attributes.normal) g.setAttribute('normal', new THREE.Float32BufferAttribute(m.attributes.normal.array, 3));
+    g.setIndex(new THREE.BufferAttribute(Uint32Array.from(m.index.array), 1));
+    return g;
+  });
+}
+
+/** A triangle mesh, orbitable — an STL's one part, or a STEP assembly's several.
  *
  *  three.js is vendored for exactly this and loaded only when a document of this kind is
  *  opened — the same bargain mermaid and pdf.js already made. `STLLoader` takes binary or
  *  ASCII without being told which, because the format itself does not say either; nothing
- *  here has to guess.
+ *  here has to guess. STEP is read by OCCT itself, compiled to WebAssembly, because a STEP
+ *  file is a boundary representation — curved surfaces described algebraically — and
+ *  tessellating that into triangles is a CAD kernel's job, not something worth
+ *  reimplementing badly here.
  *
  *  Faceted on purpose: `flatShading` computes each triangle's normal from its own geometry
- *  rather than trusting whatever the file says, which for STL is both the conventional look
- *  — a printed or milled part has edges, not a smooth blend across them — and the safer
- *  choice, since a bad or absent normal in the file is a real thing that happens and a
- *  computed one cannot be wrong in the same way.
+ *  rather than trusting whatever the file says, which for a mechanical part is both the
+ *  conventional look — edges, not a smooth blend across them — and the safer choice, since
+ *  a bad or absent normal in the file is a real thing that happens and a computed one
+ *  cannot be wrong in the same way.
  *
  *  Disposal has two routes in because this is mounted from two places that dispose
  *  differently. A window's own `dispose()` reaches it through `ctl.onDispose` — the one
@@ -3268,37 +3321,45 @@ function repaintMeshes() {
  *  function, and whichever fires first wins — a stray rAF loop holding a WebGL context
  *  open on a canvas nobody can see any more is the failure mode this exists to prevent.
  */
-async function mountMesh(host, buf, ctl) {
+async function mountMesh(host, buf, ctl, kind = 'stl') {
   host._meshDispose?.();
 
-  let THREE, STLLoader, OrbitControls;
+  let THREE, OrbitControls;
   try {
-    [THREE, { STLLoader }, { OrbitControls }] = await Promise.all([
-      import('three'),
-      import('/vendor/three-0.185.1/STLLoader.js'),
-      import('/vendor/three-0.185.1/OrbitControls.js'),
-    ]);
+    ({ THREE, OrbitControls } = await loadThree());
   } catch {
     host.append(el('p', { className: 'error', textContent: t('the 3D viewer did not load') }));
     return;
   }
 
-  let geometry;
+  let geometries;
   try {
-    geometry = new STLLoader().parse(buf);
+    if (kind === 'step') {
+      const occt = await loadOcct();
+      const result = occt.ReadStepFile(new Uint8Array(buf), null);
+      if (!result.success) throw new Error(t('OCCT could not read this file'));
+      geometries = occtGeometries(THREE, result);
+      if (!geometries.length) throw new Error(t('the file has no shapes in it'));
+    } else {
+      const { STLLoader } = await import('/vendor/three-0.185.1/STLLoader.js');
+      geometries = [new STLLoader().parse(buf)];
+    }
   } catch (e) {
     host.append(el('p', {
       className: 'error',
-      textContent: `${t('this file did not parse as STL')} — ${String(e.message || e).split('\n')[0]}`,
+      textContent: `${t('this file did not open as a 3D model')} — ${String(e.message || e).split('\n')[0]}`,
     }));
     return;
   }
-  // Raw STL coordinates are wherever the part sat in whatever program exported it — often
-  // nowhere near the origin. Centred, the default camera below is guaranteed to be looking
-  // at the model rather than at the empty space beside it.
-  geometry.center();
-  geometry.computeBoundingSphere();
-  const radius = geometry.boundingSphere?.radius || 1;
+
+  // Raw coordinates are wherever the part sat in whatever program exported it — often
+  // nowhere near the origin, and for an assembly of several parts the offset has to be the
+  // *same* one for every part, or centring each on its own would tear the assembly apart.
+  const box = new THREE.Box3();
+  for (const g of geometries) { g.computeBoundingBox(); box.union(g.boundingBox); }
+  const middle = box.getCenter(new THREE.Vector3());
+  for (const g of geometries) g.translate(-middle.x, -middle.y, -middle.z);
+  const radius = box.getBoundingSphere(new THREE.Sphere()).radius || 1;
 
   const canvas = el('canvas', { className: 'meshview' });
   host.append(canvas);
@@ -3307,8 +3368,9 @@ async function mountMesh(host, buf, ctl) {
   const material = new THREE.MeshStandardMaterial({ metalness: 0.15, roughness: 0.6, flatShading: true, side: THREE.DoubleSide });
   // Both sides, because a face's winding is only a convention and plenty of real files get
   // some of their triangles backwards — a hole in the surface would read as a bug in the
-  // viewer rather than as what it actually is.
-  scene.add(new THREE.Mesh(geometry, material));
+  // viewer rather than as what it actually is. One material for the whole assembly, same
+  // as one part: colour here is the app's, not whatever the file happened to say.
+  for (const g of geometries) scene.add(new THREE.Mesh(g, material));
   scene.add(new THREE.HemisphereLight(0xffffff, 0x30384a, 1.5));
   const key = new THREE.DirectionalLight(0xffffff, 1.7);
   key.position.set(radius, radius * 1.5, radius * 2);
@@ -3356,7 +3418,7 @@ async function mountMesh(host, buf, ctl) {
     ro.disconnect();
     window.removeEventListener('hashchange', dispose);
     controls.dispose();
-    geometry.dispose();
+    for (const g of geometries) g.dispose();
     material.dispose();
     renderer.dispose();
     if (host._meshDispose === dispose) host._meshDispose = null;
@@ -3851,10 +3913,10 @@ async function mountPreview(host, path, ctl) {
     return;
   }
 
-  if (type.startsWith('model/stl')) {
+  if (type.startsWith('model/stl') || type.startsWith('model/step')) {
     ctl.fill?.(true);
     const buf = await r.arrayBuffer();
-    await mountMesh(host, buf, ctl);
+    await mountMesh(host, buf, ctl, type.startsWith('model/step') ? 'step' : 'stl');
     return;
   }
 

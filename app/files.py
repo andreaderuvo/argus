@@ -48,13 +48,15 @@ BINARY_SNIFF_BYTES = 8192
 
 # Binary types the browser renders better than we ever could, so they go out untouched
 # with their real content type instead of being refused as "not text".
-INLINE_TYPES = ("application/pdf", "model/stl")
+INLINE_TYPES = ("application/pdf", "model/stl", "model/step")
 
 # Not left to `mimetypes.guess_type`, whose table differs by Python version and by whatever
 # `/etc/mime.txt` the host happens to have. A binary STL's own header is often eighty bytes
 # of zero padding — the exact signal `is_binary` uses to refuse a file — so guessing wrong
-# here does not mean a mislabelled response, it means a 415 in place of a model.
-MESH_TYPES = {".stl": "model/stl"}
+# here does not mean a mislabelled response, it means a 415 in place of a model. A STEP file
+# is plain text and would pass `is_binary` regardless, but still belongs inline: it is a
+# model, not a document, and a tail of one is a corrupt assembly rather than a smaller one.
+MESH_TYPES = {".stl": "model/stl", ".step": "model/step", ".stp": "model/step"}
 
 # An HTML file is served as HTML so it can be previewed rendered — but a page from this
 # origin could read the access token out of localStorage, and plenty of HTML on a
