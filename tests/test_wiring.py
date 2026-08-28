@@ -28,11 +28,20 @@ def home(tmp_path: Path) -> Path:
     (tmp_path / ".codex/config.toml").write_text(
         'model = "gpt"\npersonality = "pragmatic"\n\n[projects."/work"]\ntrust_level = "trusted"\n'
     )
+    (tmp_path / ".gemini").mkdir()
+    (tmp_path / ".gemini/settings.json").write_text(json.dumps({
+        "general": {"vimMode": True},
+        "hooks": {"PreToolUse": [{"matcher": "run_shell_command", "hooks": [{"type": "command", "command": MINE}]}]},
+    }, indent=2))
     return tmp_path
 
 
 def settings(home: Path) -> dict:
     return json.loads((home / wiring.CLAUDE_SETTINGS).read_text())
+
+
+def gemini_settings(home: Path) -> dict:
+    return json.loads((home / wiring.GEMINI_SETTINGS).read_text())
 
 
 def codex(home: Path) -> dict:
@@ -165,3 +174,58 @@ def test_a_status_line_you_wrote_is_left_alone(tmp_path):
     assert any("left the status line alone" in line for line in answer["changed"])
     assert json.loads(settings.read_text())["statusLine"]["command"] == "~/mine.sh"
     assert answer["state"]["agents"][0]["taken"] is True
+
+
+def test_gemini_gets_the_same_two_hooks_under_its_own_names(home):
+    wiring.wire(home, True)
+
+    hooks = gemini_settings(home)["hooks"]
+    assert wiring.MARK in hooks["AfterAgent"][0]["hooks"][0]["command"]
+    assert wiring.MARK in hooks["Notification"][0]["hooks"][0]["command"]
+    # Theirs, untouched — same guarantee as Claude Code's own PreToolUse.
+    assert hooks["PreToolUse"][0]["hooks"][0]["command"] == MINE
+    assert gemini_settings(home)["general"] == {"vimMode": True}
+
+
+def test_gemini_removal_and_idempotency_match_claudes(home):
+    wiring.wire(home, True)
+    before = json.dumps(gemini_settings(home), sort_keys=True)
+    wiring.wire(home, True)                              # doing it twice changes nothing
+    assert json.dumps(gemini_settings(home), sort_keys=True) == before
+
+    wiring.wire(home, False)
+    hooks = gemini_settings(home)["hooks"]
+    assert "AfterAgent" not in hooks and "Notification" not in hooks
+    assert hooks["PreToolUse"][0]["hooks"][0]["command"] == MINE
+
+
+def test_gemini_event_already_in_use_is_left_alone(home):
+    data = gemini_settings(home)
+    data["hooks"]["AfterAgent"] = [{"hooks": [{"type": "command", "command": MINE}]}]
+    (home / wiring.GEMINI_SETTINGS).write_text(json.dumps(data))
+
+    said = wiring.wire(home, True)["changed"]
+    assert any("left AfterAgent alone" in s for s in said)
+    assert gemini_settings(home)["hooks"]["AfterAgent"][0]["hooks"][0]["command"] == MINE
+    # The other one still gets wired: one clash does not abandon the job.
+    assert wiring.MARK in gemini_settings(home)["hooks"]["Notification"][0]["hooks"][0]["command"]
+
+
+def test_gemini_is_reported_alongside_the_others(home):
+    said = wiring.state(home)
+    names = {a["name"] for a in said["agents"]}
+    assert names == {"Claude Code", "Codex", "Gemini CLI"}
+
+
+def test_gemini_unreadable_settings_are_refused_rather_than_replaced(home):
+    (home / wiring.GEMINI_SETTINGS).write_text("{ not json at all")
+    with pytest.raises(ValueError):
+        wiring.wire(home, True)
+    assert (home / wiring.GEMINI_SETTINGS).read_text() == "{ not json at all"
+
+
+def test_gemini_not_installed_means_not_offered(tmp_path):
+    (tmp_path / ".claude").mkdir()
+    (tmp_path / ".claude/settings.json").write_text("{}")
+    names = {a["name"] for a in wiring.state(tmp_path)["agents"]}
+    assert "Gemini CLI" not in names

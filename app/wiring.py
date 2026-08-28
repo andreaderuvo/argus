@@ -25,10 +25,16 @@ WHERE_MARK = "argus-where"
 
 CLAUDE_SETTINGS = ".claude/settings.json"
 CODEX_CONFIG = ".codex/config.toml"
+GEMINI_SETTINGS = ".gemini/settings.json"
 
 # Claude Code fires Stop at the end of a turn and Notification when it wants you. Codex
 # calls one program at the end of a turn, and appends its own JSON as a last argument.
 CLAUDE_EVENTS = {"Stop": "done", "Notification": "asking"}
+# Gemini CLI's own names for the same two moments — AfterAgent once a turn's answer is
+# in, Notification when it is waiting on you (a tool permission, today the only kind it
+# raises). Same nested shape as Claude's, `{"hooks": [{"type": "command", "command": …}]}`,
+# so the same helper functions read and write both.
+GEMINI_EVENTS = {"AfterAgent": "done", "Notification": "asking"}
 
 
 def script_home(home: Path) -> Path:
@@ -145,20 +151,13 @@ def state(home: Path) -> dict:
         "agents": [],
     }
 
-    settings = home / CLAUDE_SETTINGS
-    if settings.exists() or (home / ".claude").is_dir():
-        try:
-            hooks = json.loads(settings.read_text()).get("hooks", {}) if settings.exists() else {}
-        except (OSError, ValueError):
-            hooks = {}
-        out["agents"].append({
-            "name": "Claude Code",
-            "file": str(settings),
-            "on": all(_ours_in(hooks.get(event, [])) for event in CLAUDE_EVENTS),
-            # An event the user has already claimed is theirs; we say so instead of
-            # quietly adding a second command to it.
-            "taken": [e for e in CLAUDE_EVENTS if e in hooks and not _ours_in(hooks[e])],
-        })
+    claude = _json_hook_state(home, CLAUDE_SETTINGS, ".claude", "Claude Code", CLAUDE_EVENTS)
+    if claude:
+        out["agents"].append(claude)
+
+    gemini = _json_hook_state(home, GEMINI_SETTINGS, ".gemini", "Gemini CLI", GEMINI_EVENTS)
+    if gemini:
+        out["agents"].append(gemini)
 
     codex = home / CODEX_CONFIG
     if codex.exists() or (home / ".codex").is_dir():
@@ -175,6 +174,27 @@ def state(home: Path) -> dict:
 
 def _ours_in(groups: list) -> bool:
     return any(MARK in h.get("command", "") for g in groups if isinstance(g, dict) for h in g.get("hooks", []))
+
+
+def _json_hook_state(home: Path, settings_rel: str, marker_dir: str, label: str, events: dict) -> dict | None:
+    """Claude Code and Gemini CLI read the identical shape — `{"hooks": {Event:
+    [{"hooks": [{"type": "command", "command": …}]}]}}` — in a settings file at a
+    different path with different event names. One reader for both."""
+    settings = home / settings_rel
+    if not settings.exists() and not (home / marker_dir).is_dir():
+        return None
+    try:
+        hooks = json.loads(settings.read_text()).get("hooks", {}) if settings.exists() else {}
+    except (OSError, ValueError):
+        hooks = {}
+    return {
+        "name": label,
+        "file": str(settings),
+        "on": all(_ours_in(hooks.get(event, [])) for event in events),
+        # An event the user has already claimed is theirs; we say so instead of quietly
+        # adding a second command to it.
+        "taken": [e for e in events if e in hooks and not _ours_in(hooks[e])],
+    }
 
 
 def _notify_line(text: str) -> str | None:
@@ -209,14 +229,18 @@ def wire(home: Path, on: bool) -> dict:
         script.unlink()
         done.append(f"removed {script}")
 
-    done += _wire_claude(home, on, script)
+    done += _wire_json_hooks(home, CLAUDE_SETTINGS, ".claude", CLAUDE_EVENTS, on, script)
+    done += _wire_json_hooks(home, GEMINI_SETTINGS, ".gemini", GEMINI_EVENTS, on, script)
     done += _wire_codex(home, on, script)
     return {"changed": done, "state": state(home)}
 
 
-def _wire_claude(home: Path, on: bool, script: Path) -> list[str]:
-    settings = home / CLAUDE_SETTINGS
-    if not settings.exists() and not (home / ".claude").is_dir():
+def _wire_json_hooks(home: Path, settings_rel: str, marker_dir: str, events: dict,
+                      on: bool, script: Path) -> list[str]:
+    """Add or remove the hooks in a Claude-Code-shaped settings file — shared with Gemini
+    CLI, which reads the identical shape at its own path under its own event names."""
+    settings = home / settings_rel
+    if not settings.exists() and not (home / marker_dir).is_dir():
         return []
     try:
         data = json.loads(settings.read_text()) if settings.exists() else {}
@@ -225,7 +249,7 @@ def _wire_claude(home: Path, on: bool, script: Path) -> list[str]:
 
     hooks = data.setdefault("hooks", {})
     said = []
-    for event, why in CLAUDE_EVENTS.items():
+    for event, why in events.items():
         here = hooks.get(event, [])
         if on:
             if here and not _ours_in(here):
