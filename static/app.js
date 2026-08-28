@@ -39,12 +39,33 @@ const bar = {
   where: document.getElementById('docwhere'),
   about: document.getElementById('about'),
   keys: document.getElementById('keys'),
+  drops: document.getElementById('drops'),
 };
 
 // The bottom bar is for the places you go; settings are not one of them.
 bar.settings.onclick = () => go('#/settings');
 
 bar.keys.onclick = () => keyHelp();
+
+/* One tap to the folder a drop or a big paste actually lands in.
+ *
+ *  The desk's own "Browser" button opens *this* desk's folder, which is a different thing:
+ *  a screenshot pasted from Settings, or a file dropped on a session in another desk
+ *  entirely, all land in one place regardless of where you happened to be — and until now
+ *  reaching it meant remembering the path and typing it in. Hidden until the server says
+ *  there is one, since asking for a folder that refuses drops is asking for nothing.
+ */
+bar.drops.onclick = () => openWindow({ kind: 'browser', id: nextWindowId(), path: server.drop_dir, fresh: true });
+
+/** Show the icon and word it, once the server has said whether there is a folder to show —
+ *  which is not yet, at boot, and might never come at all on a read-only or locked-down
+ *  install. Called again on every language switch, when `server` is already known. */
+function markDrops() {
+  if (!server?.drop_dir) return;
+  bar.drops.hidden = false;
+  bar.drops.title = t('{path} — where a dropped file or a big paste lands', { path: server.drop_dir });
+  bar.drops.setAttribute('aria-label', t('Drop folder'));
+}
 
 /** Where to read about this thing. Two destinations behind one mark rather than two
  *  marks: the header is the most crowded strip on a phone, and a menu that opens is at
@@ -15976,6 +15997,7 @@ function translateMarkup() {
   }
   bar.settings.title = t('Settings');
   bar.full.title = t(document.fullscreenElement ? 'Leave full screen' : 'Full screen');
+  markDrops();
   // The drawer is a copy of the bar, made once. Made again, or a phone keeps yesterday's
   // language until it is reloaded — and the counts go back into it.
   applyBottomBar();
@@ -16003,4 +16025,7 @@ function translateMarkup() {
   // Only after the first paint: the first answer sets the mark for "now" and rings
   // nothing, so this can never greet you with the morning's leftovers.
   if (token) listenForBells();
+  // Not awaited: the header icon is a nicety, not something first paint should wait on,
+  // and it is a no-op wherever `server` is already known by the time this resolves.
+  if (token) serverInfo().then(markDrops).catch(() => {});
 })();
