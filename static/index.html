@@ -12,6 +12,13 @@
 <link rel="apple-touch-icon" href="/icon-192.png">
 <link rel="stylesheet" href="/vendor/xterm-6.0.0/xterm.css">
 <link rel="stylesheet" href="/style.css">
+<!-- three.js's own addons import it by bare name — `from 'three'` — which is how the
+     project ships them and not something to rewrite by hand every time the vendored copy
+     is upgraded. An import map resolves that name to the vendored file, standards-based,
+     no bundler: the one thing a build step would otherwise be for here. -->
+<script type="importmap">
+{ "imports": { "three": "/vendor/three-0.185.1/three.module.min.js" } }
+</script>
 <script>
   // Inline and before the stylesheet paints, or a dark-theme user gets a white flash on
   // every load. The module below owns the preference; this only replays it.

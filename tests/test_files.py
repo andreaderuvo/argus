@@ -219,3 +219,79 @@ def test_the_server_says_when_it_started(tmp_path):
     said = client.get("/api/config", headers={"Authorization": f"Bearer {TOKEN}"}).json()
     assert isinstance(said["started"], float)
     assert said["started"] > 0
+
+
+def _binary_stl(triangles: int = 1) -> bytes:
+    """A minimal, valid binary STL: an 80-byte header, a triangle count, then that many
+    50-byte records (a normal, three vertices, two bytes of attribute padding — all zero
+    is a legal, if degenerate, triangle)."""
+    import struct
+
+    header = b"argus test fixture".ljust(80, b"\x00")
+    body = b"\x00" * 50 * triangles
+    return header + struct.pack("<I", triangles) + body
+
+
+def test_a_binary_stl_is_served_as_a_model_not_refused_as_binary(tmp_path):
+    """The old rule — a NUL byte in the first 8 KiB means refuse it — would catch nearly
+    every binary STL there is, since the format's own header is eighty bytes that are
+    typically all zero."""
+    from fastapi.testclient import TestClient
+    from app.config import Config
+    from app.main import create_app
+
+    (tmp_path / "root").mkdir()
+    (tmp_path / "root" / "part.stl").write_bytes(_binary_stl())
+    client = TestClient(create_app(Config(token=TOKEN, roots=[tmp_path / "root"])))
+    r = client.get("/api/file?path=" + str(tmp_path / "root" / "part.stl"),
+                   headers={"Authorization": f"Bearer {TOKEN}"})
+    assert r.status_code == 200, r.text
+    assert r.headers["content-type"].startswith("model/stl")
+    assert "inline" in r.headers["content-disposition"]
+    assert r.content == _binary_stl()
+
+
+def test_an_ascii_stl_is_served_as_a_model_too(tmp_path):
+    """Not routed to the text viewer, even though it contains no NUL byte and would pass
+    as plain text: the point is the shape it describes, not the syntax it is written in."""
+    from fastapi.testclient import TestClient
+    from app.config import Config
+    from app.main import create_app
+
+    ascii_stl = (
+        "solid test\n"
+        " facet normal 0 0 1\n"
+        "  outer loop\n"
+        "   vertex 0 0 0\n"
+        "   vertex 1 0 0\n"
+        "   vertex 0 1 0\n"
+        "  endloop\n"
+        " endfacet\n"
+        "endsolid test\n"
+    )
+    (tmp_path / "root").mkdir()
+    (tmp_path / "root" / "part.stl").write_text(ascii_stl)
+    client = TestClient(create_app(Config(token=TOKEN, roots=[tmp_path / "root"])))
+    r = client.get("/api/file?path=" + str(tmp_path / "root" / "part.stl"),
+                   headers={"Authorization": f"Bearer {TOKEN}"})
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("model/stl")
+
+
+def test_an_oversized_stl_is_refused_rather_than_sliced(tmp_path):
+    """A tail of a mesh is not a smaller mesh, it is a corrupt one — unlike a log, where the
+    tail is exactly the part anyone wants. `model/stl` has to sit in `INLINE_TYPES` for the
+    existing size guard to treat it that way."""
+    from fastapi.testclient import TestClient
+    from app.config import Config
+    from app.main import create_app
+
+    (tmp_path / "root").mkdir()
+    (tmp_path / "root" / "big.stl").write_bytes(_binary_stl(triangles=100))
+    client = TestClient(create_app(Config(
+        token=TOKEN, roots=[tmp_path / "root"], max_preview_bytes=200,
+    )))
+    r = client.get("/api/file?path=" + str(tmp_path / "root" / "big.stl"),
+                   headers={"Authorization": f"Bearer {TOKEN}"})
+    assert r.status_code == 413
+    assert "download" in r.json()["error"]

@@ -307,9 +307,11 @@ function applyTheme() {
   document.documentElement.dataset.theme = resolved;
   document.querySelector('meta[name=theme-color]')
     ?.setAttribute('content', resolved === 'light' ? '#ffffff' : '#0b0e14');
-  // Anything holding colours of its own rather than variables has to be told. So far that
-  // is one thing: a mermaid diagram, whose svg has the palette written into it.
+  // Anything holding colours of its own rather than variables has to be told. A mermaid
+  // diagram has the palette written into its svg; a mesh has it written into a
+  // WebGLRenderer's state, which is no more a CSS variable than the diagram's markup is.
   repaintDiagrams();
+  repaintMeshes();
 }
 
 matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
@@ -1170,6 +1172,7 @@ const FAMILIES = [
   [/^(gz|bz2|xz|zst|zip|tar|tgz|7z|rar|lz4)$/, '#d6b46f'],
   [/^(fa|fasta|fq|fastq|vcf|bam|sam|cram|bed|gff|gtf|gbk|nwk|phy)$/, '#9fd66f'],
   [/^(mp3|wav|flac|ogg|m4a|mp4|mkv|mov|avi|webm)$/, '#d66fa8'],
+  [/^(stl)$/, '#e0a15a'],
   [/^(yaml|yml|toml|ini|cfg|conf|env|lock|nf|mk)$/, '#8a93a3'],
   [/^(md|txt|rst|log|out|err|tex|docx?|odt)$/, '#7aa2d6'],
 ];
@@ -3231,6 +3234,153 @@ const NATIVE_FITS = {
   actual: '',
 };
 
+/** Read the app's own colours off the document, the way `termTheme` does — so a mesh sits
+ *  in the page rather than in a box some other palette drew. */
+function paletteColor(name, fallback) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+}
+
+/** Every mesh on screen, redone after the palette changed under it. Mirrors
+ *  `repaintDiagrams` — a colour baked into a drawing has to be told, a CSS one does not. */
+function repaintMeshes() {
+  for (const canvas of document.querySelectorAll('canvas.meshview')) canvas._meshRepaint?.();
+}
+
+/** A triangle mesh, orbitable.
+ *
+ *  three.js is vendored for exactly this and loaded only when a document of this kind is
+ *  opened — the same bargain mermaid and pdf.js already made. `STLLoader` takes binary or
+ *  ASCII without being told which, because the format itself does not say either; nothing
+ *  here has to guess.
+ *
+ *  Faceted on purpose: `flatShading` computes each triangle's normal from its own geometry
+ *  rather than trusting whatever the file says, which for STL is both the conventional look
+ *  — a printed or milled part has edges, not a smooth blend across them — and the safer
+ *  choice, since a bad or absent normal in the file is a real thing that happens and a
+ *  computed one cannot be wrong in the same way.
+ *
+ *  Disposal has two routes in because this is mounted from two places that dispose
+ *  differently. A window's own `dispose()` reaches it through `ctl.onDispose` — the one
+ *  reliable signal that a desk window has closed while the desk itself has not gone
+ *  anywhere, so no navigation follows for a `hashchange` to catch. The full-screen route
+ *  has no such signal of its own, so a `hashchange` listener stands in for it: leaving
+ *  `#/preview` for anywhere else fires one. Both are wired, both call the same guarded
+ *  function, and whichever fires first wins — a stray rAF loop holding a WebGL context
+ *  open on a canvas nobody can see any more is the failure mode this exists to prevent.
+ */
+async function mountMesh(host, buf, ctl) {
+  host._meshDispose?.();
+
+  let THREE, STLLoader, OrbitControls;
+  try {
+    [THREE, { STLLoader }, { OrbitControls }] = await Promise.all([
+      import('three'),
+      import('/vendor/three-0.185.1/STLLoader.js'),
+      import('/vendor/three-0.185.1/OrbitControls.js'),
+    ]);
+  } catch {
+    host.append(el('p', { className: 'error', textContent: t('the 3D viewer did not load') }));
+    return;
+  }
+
+  let geometry;
+  try {
+    geometry = new STLLoader().parse(buf);
+  } catch (e) {
+    host.append(el('p', {
+      className: 'error',
+      textContent: `${t('this file did not parse as STL')} — ${String(e.message || e).split('\n')[0]}`,
+    }));
+    return;
+  }
+  // Raw STL coordinates are wherever the part sat in whatever program exported it — often
+  // nowhere near the origin. Centred, the default camera below is guaranteed to be looking
+  // at the model rather than at the empty space beside it.
+  geometry.center();
+  geometry.computeBoundingSphere();
+  const radius = geometry.boundingSphere?.radius || 1;
+
+  const canvas = el('canvas', { className: 'meshview' });
+  host.append(canvas);
+
+  const scene = new THREE.Scene();
+  const material = new THREE.MeshStandardMaterial({ metalness: 0.15, roughness: 0.6, flatShading: true, side: THREE.DoubleSide });
+  // Both sides, because a face's winding is only a convention and plenty of real files get
+  // some of their triangles backwards — a hole in the surface would read as a bug in the
+  // viewer rather than as what it actually is.
+  scene.add(new THREE.Mesh(geometry, material));
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x30384a, 1.5));
+  const key = new THREE.DirectionalLight(0xffffff, 1.7);
+  key.position.set(radius, radius * 1.5, radius * 2);
+  scene.add(key);
+
+  const paint = () => {
+    scene.background = new THREE.Color(paletteColor('--bg', '#0b0e14'));
+    material.color = new THREE.Color(paletteColor('--accent', '#8fd6a0'));
+  };
+  paint();
+  canvas._meshRepaint = paint;
+
+  const camera = new THREE.PerspectiveCamera(45, 1, radius / 1000, radius * 100);
+  camera.position.set(radius * 1.6, radius * 1.2, radius * 1.8);
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+
+  const controls = new OrbitControls(camera, canvas);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+
+  const fit = () => {
+    const w = Math.max(1, host.clientWidth);
+    const h = Math.max(1, host.clientHeight);
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  };
+  fit();
+  const ro = new ResizeObserver(fit);
+  ro.observe(host);
+
+  let raf = requestAnimationFrame(frame);
+  function frame() {
+    controls.update();
+    renderer.render(scene, camera);
+    raf = requestAnimationFrame(frame);
+  }
+
+  let disposed = false;
+  const dispose = () => {
+    if (disposed) return;
+    disposed = true;
+    cancelAnimationFrame(raf);
+    ro.disconnect();
+    window.removeEventListener('hashchange', dispose);
+    controls.dispose();
+    geometry.dispose();
+    material.dispose();
+    renderer.dispose();
+    if (host._meshDispose === dispose) host._meshDispose = null;
+  };
+  host._meshDispose = dispose;
+  /* Two routes in, because a hash change means two different things depending on who
+   *  mounted this.
+   *
+   *  A window's `ctl.onDispose` is the precise signal: this fires only when the window
+   *  itself has closed, and a window survives navigating to Settings and back exactly as
+   *  a live terminal does, so it must NOT be torn down by an unrelated hash change — which
+   *  is what a blanket listener did the first time this was measured: opening the mesh in
+   *  a window, visiting Settings, and coming back left a dead render loop on a canvas that
+   *  looked untouched, because the hashchange fired for a navigation that had nothing to do
+   *  with this window at all.
+   *
+   *  The full-screen route has no such signal of its own — leaving `#/preview` for
+   *  anywhere else really is the whole of this viewer's lifetime ending — so the
+   *  `hashchange` fallback is kept for exactly the caller that needs it.
+   */
+  if (ctl.onDispose) ctl.onDispose(dispose);
+  else window.addEventListener('hashchange', dispose, { once: true });
+}
+
 /** The browser's viewer, for a reader who asked for it.
  *
  *  It is faster on a long document and some people simply prefer it. What is given up is
@@ -3698,6 +3848,13 @@ async function mountPreview(host, path, ctl) {
      *  again. The last reload is the finished one.
      */
     await mountPdf(host, path, versioned, download);
+    return;
+  }
+
+  if (type.startsWith('model/stl')) {
+    ctl.fill?.(true);
+    const buf = await r.arrayBuffer();
+    await mountMesh(host, buf, ctl);
     return;
   }
 
@@ -15297,8 +15454,14 @@ function attachViewer(host, path, extras) {
    *  real and will come back the first time something is shown here that cannot be restored.
    */
   let askFirst = false;
+  // A mount that owns something ongoing — so far only the mesh viewer's render loop and
+  // WebGL context — registers how to tear it down. Reassigned each `load()`, never
+  // accumulated: only one preview is ever mounted in this host at a time, and a reload
+  // replaces it rather than joining it.
+  let onDispose = null;
   const ctl = {
     askBeforeReload: (on) => { askFirst = on; },
+    onDispose: (fn) => { onDispose = fn; },
     download: (fn) => { dl.onclick = fn; },
     fill: (on) => host.classList.toggle('fill', on),
     toBottom: () => { host.scrollTop = host.scrollHeight; },
@@ -15396,7 +15559,7 @@ function attachViewer(host, path, extras) {
     relayout: () => {},
     // Closing the window that showed it: nothing is open on that file any more, so the
     // mark in the filesystem would be pointing at nothing.
-    dispose: () => { clearInterval(timer); if (current === path) setCurrent(null); },
+    dispose: () => { clearInterval(timer); onDispose?.(); if (current === path) setCurrent(null); },
   };
 }
 
