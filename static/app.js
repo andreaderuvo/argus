@@ -5721,8 +5721,9 @@ async function screenSince() {
   const stuck = (said.runs || []).filter((r) => (r.steps || [])
     .some((s) => (s.agents || []).some((a) => a.state === 'asking')));
   const over = (said.runs || []).filter((r) => r.state !== 'running');
+  const fresh = said.sessions || [];
+  const wrote = said.files || [];
 
-  const group = (name) => wrap.append(el('h2', { className: 'sincegroup', textContent: name }));
   const row = (kind, name, note, go) => {
     const line = el(go ? 'button' : 'div', { className: `row since${kind}`, type: go ? 'button' : undefined }, [
       el('span', { className: 'grow' }, [
@@ -5731,15 +5732,10 @@ async function screenSince() {
       ]),
     ]);
     if (go) line.onclick = go;
-    wrap.append(line);
     return line;
   };
 
-  /* Wanted first, and it is the only section with a claim on you.
-   *
-   *  Everything else on this screen is news you can read or not read. A question is a job
-   *  that has stopped, so it goes above the things that merely happened. */
-  /* Questions first, and they are answerable here.
+  /* Questions first within whatever they are shown under, and answerable here.
    *
    *  A bell that carries an `ask` is the same news as the question itself, so showing both
    *  would be the same sentence twice with only one of them useful. The open questions win:
@@ -5749,53 +5745,98 @@ async function screenSince() {
   const answered = new Set(open.map((o) => o.id));
   const plain = asking.filter((b) => !b.ask || !answered.has(b.ask));
 
-  if (open.length || plain.length || stuck.length) {
-    group(t('Waiting for you'));
-    for (const question of open) wrap.append(askRow(question));
-    for (const b of plain) {
-      row('asking', b.session || t('a session'), b.text || t('it is waiting for an answer'),
-        b.session ? () => go(`#/term?s=${encodeURIComponent(b.session)}`) : null);
-    }
-    for (const r of stuck) row('asking', r.name, t('an orchestration is waiting'), null);
-  }
-
-  if (ended.length || over.length) {
-    group(t('Finished'));
-    for (const b of ended) {
-      row(b.why === 'failed' ? 'failed' : 'done', b.session || t('a session'),
-        `${b.text || (b.why === 'failed' ? t('it failed') : t('it finished'))} · ${when(b.at)}`,
-        b.session ? () => go(`#/term?s=${encodeURIComponent(b.session)}`) : null);
-    }
-    for (const r of over) {
-      row(r.state === 'gone' ? 'failed' : 'done', r.name,
-        r.state === 'gone' ? t('lost touch with it') : t('the orchestration finished'), null);
-    }
-  }
-
-  const fresh = said.sessions || [];
-  if (fresh.length) {
-    group(t('Started while you were away'));
-    for (const s of fresh) {
-      row('new', s.name, when(s.created), () => go(`#/term?s=${encodeURIComponent(s.name)}`));
-    }
-  }
-
-  /* And what was written, which is the only evidence a job produced anything.
+  /* Whose desk each piece of news belongs to, so the screen can say what happened *to a
+   *  project* rather than reading four unrelated lists that happen to share a page.
    *
-   *  A bell says an agent stopped; it cannot say what came out of it. This is the half that
-   *  answers "was it worth it" — and on a phone, at breakfast, it is usually the whole
-   *  question. */
-  const wrote = said.files || [];
-  if (wrote.length) {
-    group(t('Written'));
-    for (const f of wrote) {
-      row('file', f.name,
-        `${f.fresh ? t('new') : t('written again')} · ${human(f.size)} · ${when(f.mtime)} · ${parentOf(f.path)}`,
-        () => go(`#/preview?path=${encodeURIComponent(f.path)}`));
+   *  A desk is sessions plus a folder, which is exactly the two things every kind of news
+   *  here is about — so it is also the natural unit to sort the news back into, and the
+   *  one a person already thinks in: "did anything happen with the salmonella run" is a
+   *  question about a desk, not about a category.
+   */
+  const deskOfSession = new Map();
+  const deskOfFolder = new Map();
+  for (const ws of workspaces()) {
+    const folder = deskHome(ws);
+    if (folder) deskOfFolder.set(folder, ws);
+    for (const spec of ws.desktop || []) {
+      if (spec.kind === 'term') deskOfSession.set(spec.name, ws);
     }
   }
+  const deskForFile = (path) => {
+    const dir = parentOf(path);
+    // The deepest matching folder wins, not the first: one desk's home is often a parent
+    // of another's — a workspace root above several project folders — and a file in the
+    // project folder is that project's news, not the root's.
+    let best = null;
+    for (const [folder, ws] of deskOfFolder) {
+      if ((dir === folder || under(folder, dir)) && (!best || folder.length > best.length)) best = folder;
+    }
+    return best ? deskOfFolder.get(best) : null;
+  };
+  // A run's own agents are named after the sessions they run in, so a run belongs
+  // wherever most of them do.
+  const deskForRun = (r) => {
+    const names = (r.steps || []).flatMap((s) => s.agents || []).map((a) => a.name);
+    for (const n of names) { const ws = deskOfSession.get(n); if (ws) return ws; }
+    return null;
+  };
 
-  if (!asking.length && !stuck.length && !ended.length && !over.length && !fresh.length && !wrote.length) {
+  const NOWHERE = Symbol('elsewhere');
+  const groups = new Map();       // ws (or NOWHERE) -> { open, plain, ended, stuck, over, fresh, wrote }
+  const bucket = (ws) => {
+    const key = ws || NOWHERE;
+    if (!groups.has(key)) groups.set(key, { open: [], plain: [], ended: [], stuck: [], over: [], fresh: [], wrote: [] });
+    return groups.get(key);
+  };
+  for (const q of open) bucket(deskOfSession.get(q.session)).open.push(q);
+  for (const b of plain) bucket(deskOfSession.get(b.session)).plain.push(b);
+  for (const b of ended) bucket(deskOfSession.get(b.session)).ended.push(b);
+  for (const r of stuck) bucket(deskForRun(r)).stuck.push(r);
+  for (const r of over) bucket(deskForRun(r)).over.push(r);
+  for (const s of fresh) bucket(deskOfSession.get(s.name)).fresh.push(s);
+  for (const f of wrote) bucket(deskForFile(f.path)).wrote.push(f);
+
+  // Desks with an open question float to the top — that is the one thing on this whole
+  // screen with a claim on you — then whatever else had news, in the order the desks
+  // already sit in, and finally the things that belong to no desk that exists any more.
+  const order = workspaces().slice()
+    .filter((ws) => groups.has(ws))
+    .sort((a, b) => groups.get(b).open.length - groups.get(a).open.length);
+  if (groups.has(NOWHERE)) order.push(NOWHERE);
+
+  let anything = false;
+  for (const key of order) {
+    const g = groups.get(key);
+    const lines = [];
+    for (const question of g.open) lines.push(askRow(question));
+    for (const b of g.plain) {
+      lines.push(row('asking', b.session || t('a session'), b.text || t('it is waiting for an answer'),
+        b.session ? () => go(`#/term?s=${encodeURIComponent(b.session)}`) : null));
+    }
+    for (const r of g.stuck) lines.push(row('asking', r.name, t('an orchestration is waiting'), null));
+    for (const b of g.ended) {
+      lines.push(row(b.why === 'failed' ? 'failed' : 'done', b.session || t('a session'),
+        `${b.text || (b.why === 'failed' ? t('it failed') : t('it finished'))} · ${when(b.at)}`,
+        b.session ? () => go(`#/term?s=${encodeURIComponent(b.session)}`) : null));
+    }
+    for (const r of g.over) {
+      lines.push(row(r.state === 'gone' ? 'failed' : 'done', r.name,
+        r.state === 'gone' ? t('lost touch with it') : t('the orchestration finished'), null));
+    }
+    for (const s of g.fresh) {
+      lines.push(row('new', s.name, when(s.created), () => go(`#/term?s=${encodeURIComponent(s.name)}`)));
+    }
+    for (const f of g.wrote) {
+      lines.push(row('file', f.name,
+        `${f.fresh ? t('new') : t('written again')} · ${human(f.size)} · ${when(f.mtime)} · ${parentOf(f.path)}`,
+        () => go(`#/preview?path=${encodeURIComponent(f.path)}`)));
+    }
+    if (!lines.length) continue;
+    anything = true;
+    wrap.append(el('h2', { className: 'sincegroup', textContent: key === NOWHERE ? t('Elsewhere') : key.name }), ...lines);
+  }
+
+  if (!anything) {
     // The answer, not the absence of one. Most mornings this is what you want to be told.
     wrap.append(el('p', { className: 'sincenothing', textContent: t('Nothing happened. Everything is where you left it.') }));
   }
