@@ -507,13 +507,25 @@ async function foundTheServer() {
   clearTimeout(waiting.clock);
   waiting.said.textContent = t('There it is…');
 
-  let restarted = true;                     // if it cannot be asked, starting again is safe
+  /* Only on evidence, and "I cannot tell" is not evidence.
+   *
+   *  This asked the server when it started and compared it with what the page booted
+   *  against — but `server` is filled by the first `/api/config`, which has not landed yet
+   *  while the page is still starting. A request failing in that window found no baseline,
+   *  read it as a restart, and reloaded; the fresh page reopened the same window, and the
+   *  whole thing went round. Reported as a reload loop, and it was mine.
+   *
+   *  A page that has only just booted cannot be running a stale frontend, which is the one
+   *  thing the reload is for. With nothing to compare against, the honest answer is to stay
+   *  where we are.
+   */
+  let restarted = false;
   try {
     const said = await (await fetch('/api/config', {
       headers: { Authorization: `Bearer ${token}` },
     })).json();
-    restarted = !server?.started || said.started !== server.started;
-  } catch { /* gone again already — take the reload */ }
+    restarted = Boolean(server?.started) && said.started !== server.started;
+  } catch { /* gone again already; the probe keeps trying and nothing is thrown away */ }
 
   if (!restarted) {
     waiting.veil.remove();
