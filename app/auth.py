@@ -20,6 +20,9 @@ PROXY_COOKIE = "argus_proxy"
 # purpose: a board across several machines holds one of these per machine, and the value
 # of that arrangement is entirely in how little each key is worth.
 WATCHER_PATHS = ("/api/overview",)
+# `GET /api/ask/<id>`: an agent waiting on the answer to its own question. The trailing slash
+# matters — it is what stops this from also matching `/api/asks`, which lists everybody's.
+ASK_PREFIX = "/api/ask/"
 
 # Two more doors, and only for a watcher whose entry says `may_run: true`.
 #
@@ -56,6 +59,10 @@ AGENT_ROUTES = frozenset({
     ("GET", "/api/tmux/sessions"),
     ("GET", "/api/tmux/cwd"),
     ("POST", "/api/bell"),
+    # Asking a person a question, and waiting for the answer. Answering one is *not* here and
+    # never will be: the whole value of a question is that a person answered it, and an agent
+    # that could answer its own would have invented a slower way of deciding by itself.
+    ("POST", "/api/ask"),
     ("POST", "/api/relay"),
     ("POST", "/api/tmux/launch"),
     # A worktree, because the alternative is worse. An agent that may start a second agent but
@@ -203,12 +210,18 @@ class TokenAuthMiddleware:
             if scope["type"] != "http":
                 await receive()
                 return await send({"type": "websocket.close", "code": 1008})
-            if (scope.get("method", "GET").upper(), scope["path"]) not in AGENT_ROUTES:
+            method = scope.get("method", "GET").upper()
+            # Coming back for an answer that was not there yet. A prefix, because the id is in
+            # the path — and GET only, which is what keeps `POST /api/ask/<id>/answer` out of
+            # reach: an agent may wait for a person, never speak for one.
+            waiting = method == "GET" and scope["path"].startswith(ASK_PREFIX)
+            if not waiting and (method, scope["path"]) not in AGENT_ROUTES:
                 response = PlainTextResponse(
                     "an agent key may only read what is happening (/api/who, /api/overview, "
                     "/api/tmux/sessions, /api/tmux/cwd, /api/launchers), ring the bell "
-                    "(/api/bell), pass a sentence to another session (/api/relay) and start "
-                    "something from the launcher list (/api/tmux/launch)",
+                    "(/api/bell), ask you a question and wait for the answer (/api/ask), pass "
+                    "a sentence to another session (/api/relay) and start something from the "
+                    "launcher list (/api/tmux/launch)",
                     status_code=403,
                 )
                 return await response(scope, receive, send)

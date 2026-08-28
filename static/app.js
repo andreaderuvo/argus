@@ -5454,6 +5454,55 @@ function lastLooked() {
   return at || (Date.now() / 1000) - FIRST_LOOK;
 }
 
+/** A question from an agent, with the answer as buttons.
+ *
+ *  The whole point is that answering costs one tap. Options become buttons; a question with
+ *  none gets a box, which is right for "what should I call it" and wrong for "shall I
+ *  overwrite it" — and it is the second kind that stops work.
+ *
+ *  The row goes away when it is answered rather than staying with a tick: what is left on
+ *  this screen is what still wants you, and a list where most of the entries are finished is
+ *  a list you stop reading.
+ */
+function askRow(question) {
+  const line = el('div', { className: 'row sinceasking askrow' });
+  const answers = el('div', { className: 'askbuttons' });
+
+  const send = async (said) => {
+    for (const b of answers.querySelectorAll('button, input')) b.disabled = true;
+    try {
+      await postJSON(`/api/ask/${encodeURIComponent(question.id)}/answer`, { answer: said });
+      line.remove();
+      paintSince();
+      toast(t('answered: {answer}', { answer: said }));
+    } catch (e) {
+      for (const b of answers.querySelectorAll('button, input')) b.disabled = false;
+      toast(e.message, true);
+    }
+  };
+
+  if (question.options.length) {
+    for (const option of question.options) {
+      answers.append(el('button', { className: 'winbtn wide', type: 'button', textContent: option,
+        onclick: () => send(option) }));
+    }
+  } else {
+    const box = el('input', { type: 'text', className: 'linkbox', placeholder: t('your answer') });
+    box.onkeydown = (e) => { if (e.key === 'Enter' && box.value.trim()) send(box.value.trim()); };
+    answers.append(box, el('button', { className: 'winbtn wide', type: 'button', textContent: t('Send'),
+      onclick: () => box.value.trim() && send(box.value.trim()) }));
+  }
+
+  line.append(
+    el('span', { className: 'grow' }, [
+      el('span', { className: 'name', textContent: question.session || question.who || t('a session') }),
+      el('span', { className: 'meta', textContent: question.text }),
+      answers,
+    ]),
+  );
+  return line;
+}
+
 async function screenSince() {
   setTitle(t('While you were away'));
   const wrap = el('div', { className: 'settings since' });
@@ -5512,9 +5561,20 @@ async function screenSince() {
    *
    *  Everything else on this screen is news you can read or not read. A question is a job
    *  that has stopped, so it goes above the things that merely happened. */
-  if (asking.length || stuck.length) {
+  /* Questions first, and they are answerable here.
+   *
+   *  A bell that carries an `ask` is the same news as the question itself, so showing both
+   *  would be the same sentence twice with only one of them useful. The open questions win:
+   *  they have the buttons. */
+  let open = [];
+  try { open = (await getJSON('/api/asks')).asks || []; } catch { /* then the bells alone */ }
+  const answered = new Set(open.map((o) => o.id));
+  const plain = asking.filter((b) => !b.ask || !answered.has(b.ask));
+
+  if (open.length || plain.length || stuck.length) {
     group(t('Waiting for you'));
-    for (const b of asking) {
+    for (const question of open) wrap.append(askRow(question));
+    for (const b of plain) {
       row('asking', b.session || t('a session'), b.text || t('it is waiting for an answer'),
         b.session ? () => go(`#/term?s=${encodeURIComponent(b.session)}`) : null);
     }
@@ -12266,7 +12326,11 @@ function ring(bell) {
 
   const label = session ? `${session}: ` : '';
   const said = text || (why === 'asking' ? t('is waiting for you') : why === 'failed' ? t('failed') : t('has finished'));
-  toast(label + said, why === 'failed', session ? () => showSession(session) : null);
+  /* A question is the one bell you can *answer*, so its toast goes where the answer is
+   *  rather than to the terminal that asked. Tapping a session is right for "it finished";
+   *  for "shall I overwrite it" the useful destination is the two buttons. */
+  toast(label + said, why === 'failed',
+    bell.ask ? () => go('#/since') : session ? () => showSession(session) : null);
   if (prefs.bellSound !== false) bellSound(why);
 
   // A real notification only exists on a secure origin, and only once you have allowed

@@ -3441,3 +3441,17 @@ body:not(.railwide) .railwin.raildesk .railcount { display: none; }
   margin: 2.5rem 0; text-align: center; color: var(--dim);
   padding: 1.6rem; border: 1px dashed var(--line); border-radius: .6rem;
 }
+
+/* A question, with its answers under it. The buttons wrap because two words each is the
+   normal case and a phone is narrow — and they are drawn as buttons rather than inheriting
+   the bare look a window's title bar gives them: this is the one control on the screen that
+   is meant to be hit with a thumb, and it has to say so. */
+.askrow .askbuttons { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .55rem; }
+.askrow .askbuttons .winbtn {
+  padding: .4rem .8rem; border: 1px solid var(--line); border-radius: .45rem;
+  background: var(--panel); color: var(--bright); font-size: .9rem;
+}
+.askrow .askbuttons .winbtn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.askrow .askbuttons .winbtn:disabled { opacity: .5; }
+.askrow .askbuttons .linkbox { flex: 1 1 8rem; min-width: 0; }
+.askrow .meta { white-space: normal; }

@@ -247,6 +247,188 @@
  },
  "openapi": "3.1.0",
  "paths": {
+  "/api/ask": {
+   "post": {
+    "description": "Put a question in front of whoever is holding the phone, and wait.\n\n`options` turns the answer into taps: two or three words, and answering costs no typing at\nall. Without them there is a box, which is right for \"what should I call it\" and wrong for\n\"shall I overwrite it\" \u2014 and the difference between those two is most of why this exists.\n\nThe wait is bounded and the question is not: when `wait` runs out the answer is simply not\nthere yet, and the same id can be waited on again. An agent that would rather not sit\nthere can pass `wait=0`, ask, get on with something else and come back.",
+    "operationId": "postApiAsk",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Ask Api Ask Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Ask the person a question, and wait for the answer",
+    "tags": [
+     "Notifications"
+    ]
+   }
+  },
+  "/api/ask/{ident}": {
+   "get": {
+    "description": "Come back for an answer that was not there yet. Same question, same id.",
+    "operationId": "getApiAskIdent",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "ident",
+      "required": true,
+      "schema": {
+       "title": "Ident",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "wait",
+      "required": false,
+      "schema": {
+       "default": 0,
+       "title": "Wait",
+       "type": "number"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response One Api Ask  Ident  Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Wait for an answer, or read one",
+    "tags": [
+     "Notifications"
+    ]
+   }
+  },
+  "/api/ask/{ident}/answer": {
+   "post": {
+    "description": "The tap, or the sentence.\n\nDeliberately not something an agent key can reach. The whole value of a question is that a\nperson answered it; an agent that could answer its own \u2014 or another's \u2014 would turn this\ninto a slower way of deciding by itself.",
+    "operationId": "postApiAskIdentAnswer",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "ident",
+      "required": true,
+      "schema": {
+       "title": "Ident",
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Answer Api Ask  Ident  Answer Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Answer one",
+    "tags": [
+     "Notifications"
+    ]
+   }
+  },
+  "/api/asks": {
+   "get": {
+    "description": "What is waiting on a person, oldest first \u2014 the order they should be answered in.",
+    "operationId": "getApiAsks",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Listing Api Asks Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Questions waiting for an answer",
+    "tags": [
+     "Notifications"
+    ]
+   }
+  },
   "/api/bell": {
    "post": {
     "description": "Called by an agent hook, or by anything else that knows it has finished.",

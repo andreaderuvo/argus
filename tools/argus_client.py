@@ -208,6 +208,41 @@ class Argus:
         return self.call("POST", "/api/bell",
                          {"why": why, "text": text, "session": session or os.environ.get("ARGUS_SESSION", "")})
 
+    def ask(self, text: str, options: list[str] | None = None, wait: float = 300,
+            session: str = "", patience: float = 6 * 3600) -> str | None:
+        """Ask the person a question and wait for the answer. Returns what they said, or None.
+
+        The one thing you cannot do for yourself, and the reason it is worth stopping for: the
+        alternative is guessing, or printing the question into a pane and hoping somebody is
+        looking at that pane.
+
+            if argus.ask("4 isolates are missing too many loci. Drop them?",
+                         ["drop", "keep", "stop"]) == "drop":
+
+        `options` makes answering a tap, which is most of the point — on a phone, "shall I
+        overwrite it" should not cost a keyboard. Without them the person gets a box.
+
+        One HTTP call cannot be held open for hours, so this asks and then keeps coming back
+        for the same question until `patience` runs out. None means nobody answered: decide
+        for yourself, or stop and say why — a job that hangs for ever is worse than one that
+        stopped with a reason.
+        """
+        asked = self.call("POST", "/api/ask", {
+            "text": text, "options": options or [], "wait": min(wait, 300),
+            "session": session or os.environ.get("ARGUS_SESSION", ""),
+        }, timeout=min(wait, 300) + 30)
+        if asked.get("answered"):
+            return asked.get("answer")
+
+        ident = asked["id"]
+        until = time.time() + patience
+        while time.time() < until:
+            left = min(300.0, until - time.time())
+            said = self.call("GET", f"/api/ask/{ident}?wait={left:.0f}", timeout=left + 30)
+            if said.get("answered"):
+                return said.get("answer")
+        return None
+
     def worktree(self, repo: str | Path, branch: str, to: str | Path | None = None) -> dict:
         """A second checkout of `repo`, on its own branch: how two agents work on one
         repository without editing each other's files.

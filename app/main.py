@@ -22,7 +22,7 @@ from fastapi import FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 
-from . import (announce, bells, devices, favourites, files, fsops, gitwork, journal, languages,
+from . import (announce, asks, bells, devices, favourites, files, fsops, gitwork, journal, languages,
                launch, mounts, network, paths, ports, prefs, proxy, release, runner, runs,
                system, term, tmux, todo)
 import httpx
@@ -387,6 +387,7 @@ def create_app(cfg: Config) -> FastAPI:
     app.include_router(files.router)
     app.include_router(proxy.router)
     app.include_router(bells.router)
+    app.include_router(asks.router)
     app.include_router(runs.router)
     app.include_router(fsops.router, tags=["Writing"])
     app.include_router(paths.router, tags=["Prompts"])
