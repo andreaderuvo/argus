@@ -8711,6 +8711,10 @@ function attachTerminal(container, name, { transform, onGone, onBack, onPath, on
     // their `send`, never back through their input, so a chain cannot echo round itself.
     mirror?.(out);
     if (swap) mirror?.('\x7f'.repeat(swap.erase) + swap.value);
+    // Read by the same sweep that marks a pane "might be waiting": typing into it is you
+    // addressing whatever it was, which is a stronger and more specific answer than "you
+    // looked at it" — you can look at a stuck pane and still not have dealt with it yet.
+    container.closest('.win')?.setAttribute('data-typed', String(Date.now()));
   });
 
   // tmux sizes a window for its most recently used client, so simply asking again when
@@ -12696,6 +12700,70 @@ function quieten(name) {
   if (!rung.delete(name)) return;
   paintBells();
 }
+
+/* A pane that was busy and has gone quiet.
+ *
+ *  Nothing here can tell "finished" from "waiting for you" — that is the whole reason a
+ *  hook exists, and this is not one. What it *can* honestly say is narrower and still
+ *  worth having: this pane was printing steadily a moment ago, and has now said nothing
+ *  for a while. Sometimes that is a question sitting unanswered; sometimes it is a job
+ *  that quietly finished. Either way it is a pane worth a glance sooner than one that has
+ *  been silent for an hour, which is the ordinary resting state of most terminals and
+ *  would light up right along with it if this only asked "how long since it last spoke".
+ *
+ *  So it asks a second question first: was it actually busy. `data-spoke`, already
+ *  written on every window each time output lands (`countSessions` and the desk strip
+ *  read the same attribute), is sampled every few seconds rather than watched continuously
+ *  — a value that has *changed* since the last sample means something was written in
+ *  between, and enough changed samples in a row is what "busy" means here, as opposed to
+ *  one burst that happened to land on a sample.
+ *
+ *  Deliberately not a bell: no sound, no toast, no count on any tab, and a colour no real
+ *  bell uses — glanced at or ignored, never pushed at anyone. It clears the moment the
+ *  pane speaks again, and it clears when you type into it, which is a stronger signal
+ *  than merely looking: you can look at a stuck pane and still not have dealt with it.
+ */
+const QUIET_SAMPLE = 2500;             // how often a window's data-spoke is sampled
+const QUIET_BUSY_SAMPLES = 3;          // consecutive changed samples before "busy" is earned
+const QUIET_AFTER = 9000;              // ms of silence, once busy, before the mark appears
+const QUIET_FORGET_AFTER = 6 * QUIET_AFTER;   // long idle: the streak is stale, not paused
+
+const quietWatch = new WeakMap();      // .win element -> { seen, streak, flaggedAt }
+
+function sweepQuiet() {
+  const now = Date.now();
+  for (const win of document.querySelectorAll('.win[data-kind="term"]')) {
+    const spoke = Number(win.dataset.spoke || 0);
+    const typed = Number(win.dataset.typed || 0);
+    let st = quietWatch.get(win);
+    if (!st) { st = { seen: spoke, streak: 0, flaggedAt: 0 }; quietWatch.set(win, st); }
+
+    if (spoke > st.seen) {
+      st.seen = spoke;
+      st.streak += 1;
+      if (st.flaggedAt) { st.flaggedAt = 0; win.classList.remove('maybewaiting'); }
+      continue;
+    }
+    // Typing clears the mark *and* the streak that earned it: you addressed whatever this
+    // was, and the next flag has to be earned fresh rather than firing again next sample
+    // because the pane, correctly, has not spoken again yet.
+    if (st.flaggedAt && typed > st.flaggedAt) {
+      st.flaggedAt = 0;
+      st.streak = 0;
+      win.classList.remove('maybewaiting');
+      continue;
+    }
+    if (!spoke || now - spoke > QUIET_FORGET_AFTER) {
+      st.streak = 0;                   // an ordinary idle shell should not stay primed for ever
+      continue;
+    }
+    if (!st.flaggedAt && st.streak >= QUIET_BUSY_SAMPLES && now - spoke > QUIET_AFTER) {
+      st.flaggedAt = now;
+      win.classList.add('maybewaiting');
+    }
+  }
+}
+setInterval(sweepQuiet, QUIET_SAMPLE);
 
 /** The marks: on the window that rang, and on the tab of the desk holding it. */
 /** How many sessions have rung since the last look, on the tab that explains them.
