@@ -295,3 +295,41 @@ def test_an_oversized_stl_is_refused_rather_than_sliced(tmp_path):
                    headers={"Authorization": f"Bearer {TOKEN}"})
     assert r.status_code == 413
     assert "download" in r.json()["error"]
+
+
+def test_a_step_file_is_served_as_a_model_not_as_text(tmp_path):
+    """A STEP file is plain ASCII and would pass as text/plain untouched — the point is
+    that it is routed to the model viewer regardless, not read as a document."""
+    from fastapi.testclient import TestClient
+
+    from app.config import Config
+    from app.main import create_app
+
+    step_text = "ISO-10303-21;\nHEADER;\nENDSEC;\nDATA;\nENDSEC;\nEND-ISO-10303-21;\n"
+    (tmp_path / "root").mkdir()
+    for name in ("part.step", "part.stp"):
+        (tmp_path / "root" / name).write_text(step_text)
+
+    client = TestClient(create_app(Config(token=TOKEN, roots=[tmp_path / "root"])))
+    for name in ("part.step", "part.stp"):
+        r = client.get(f"/api/file?path={tmp_path / 'root' / name}",
+                       headers={"Authorization": f"Bearer {TOKEN}"})
+        assert r.status_code == 200, r.text
+        assert r.headers["content-type"].startswith("model/step"), name
+        assert "inline" in r.headers["content-disposition"]
+
+
+def test_an_oversized_step_file_is_refused_rather_than_sliced(tmp_path):
+    from fastapi.testclient import TestClient
+
+    from app.config import Config
+    from app.main import create_app
+
+    (tmp_path / "root").mkdir()
+    (tmp_path / "root" / "big.step").write_text("ISO-10303-21;\n" + "X" * 500)
+    client = TestClient(create_app(Config(
+        token=TOKEN, roots=[tmp_path / "root"], max_preview_bytes=200,
+    )))
+    r = client.get(f"/api/file?path={tmp_path / 'root' / 'big.step'}",
+                   headers={"Authorization": f"Bearer {TOKEN}"})
+    assert r.status_code == 413
