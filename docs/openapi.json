@@ -2341,6 +2341,64 @@
     ]
    }
   },
+  "/api/since": {
+   "get": {
+    "description": "Everything that changed since a moment, in one answer.\n\nThe question this app exists for is not \"what is happening\" \u2014 a screen full of\nterminals already says that, and says it whether or not any of it is new. It is \"did\nanything happen while I was away, and does it need me\". That question can only be\nanswered by the machine: the browser was closed.\n\nFour sources, because four different things count as news. An agent that rang. A\nsession that appeared. An orchestration that ended or is stuck on a question. And\nfiles that were written \u2014 which is the only evidence there is that a job produced\nsomething, and the one thing none of the others can tell you.\n\nThe folders are the caller's business: the desks are the browser's idea, not this\nserver's, so it says which ones it cares about rather than being second-guessed. One\nthat has gone, or that points outside the roots, is skipped rather than refused \u2014\nthis is a summary, and a summary that 404s because one desk moved is no summary.",
+    "operationId": "getApiSince",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "at",
+      "required": true,
+      "schema": {
+       "title": "At",
+       "type": "number"
+      }
+     },
+     {
+      "in": "query",
+      "name": "folder",
+      "required": false,
+      "schema": {
+       "default": [],
+       "items": {
+        "type": "string"
+       },
+       "title": "Folder",
+       "type": "array"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response What Happened Api Since Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "What happened while you were not looking",
+    "tags": [
+     "Setup"
+    ]
+   }
+  },
   "/api/stat": {
    "get": {
     "description": "Just enough to notice a file has changed: a window watching a report being\nregenerated polls this rather than re-downloading the whole thing.",

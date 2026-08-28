@@ -195,7 +195,10 @@ let pushing = null;
  *  Found rather than reasoned: a second browser opened to test something quietly moved this
  *  one onto another desk, mid-sentence, because both were writing the same key.
  */
-const MINE_ONLY = new Set(['ws']);
+/* `looked` joins it for the same reason and a sharper one: "since I last looked" is a fact
+ *  about a pair of eyes, not about a machine. A phone checked at breakfast must not tell the
+ *  desk it has already seen the night's work. */
+const MINE_ONLY = new Set(['ws', 'looked']);
 
 function changedKeys() {
   const changes = {};
@@ -2275,6 +2278,7 @@ async function render() {
     if (path === '/files') return await screenFiles(q.get('path'));
     if (path === '/preview') return await screenPreview(q.get('path'));
     if (path === '/system') return await screenSystem();
+    if (path === '/since') return await screenSince();
     if (path === '/journal') return await screenJournal();
     if (path === '/todo') return await screenTodo();
     if (path === '/settings') return await screenSettings();
@@ -5424,6 +5428,144 @@ async function screenTodo() {
     wrap.append(el('p', { className: 'hint', textContent: e.message }));
   }
   paint();
+}
+
+/* ------------------------------------------------------ while you were away */
+
+/** A first visit has no watermark. A day is the honest guess: it is the shape of the gap this
+ *  screen exists for — you looked last night, you are looking now. */
+const FIRST_LOOK = 86400;
+
+/** Every folder worth asking about: where each desk lives, and where drops land.
+ *
+ *  The desks are the browser's idea and the server has no business guessing them, so they are
+ *  named in the request. Deduplicated because several desks on one project is the normal way
+ *  to work, and the same walk twice is the same answer twice.
+ */
+function watchedFolders() {
+  const all = (prefs.workspaces || []).map((ws) => deskHome(ws)).filter(Boolean);
+  if (server?.drop_dir) all.push(server.drop_dir);
+  return [...new Set(all)];
+}
+
+/** How long ago somebody last looked, and the moment to ask about. */
+function lastLooked() {
+  const at = Number(prefs.looked) || 0;
+  return at || (Date.now() / 1000) - FIRST_LOOK;
+}
+
+async function screenSince() {
+  setTitle(t('While you were away'));
+  const wrap = el('div', { className: 'settings since' });
+  view.replaceChildren(wrap);
+
+  const since = lastLooked();
+  /* Marked as seen on the way in, not on the way out.
+   *
+   *  What is on this screen is what happened before you opened it; anything that arrives
+   *  while you are reading it rings on its own, the way it always does. Waiting until you
+   *  leave would mean a bell that came in between is counted twice — once here and once in
+   *  the badge — and "you have already seen this" is the one promise this screen makes.
+   */
+  prefs.looked = Math.floor(Date.now() / 1000);
+  savePrefs();
+  paintSince();
+
+  const folders = watchedFolders();
+  const asked = folders.map((f) => `folder=${encodeURIComponent(f)}`).join('&');
+  wrap.append(el('p', { className: 'hint', textContent: t('Looking…') }));
+
+  let said;
+  try {
+    said = await getJSON(`/api/since?at=${Math.floor(since)}${asked ? `&${asked}` : ''}`);
+  } catch (e) {
+    wrap.replaceChildren(el('p', { className: 'error', textContent: e.message }));
+    return;
+  }
+
+  wrap.replaceChildren();
+  wrap.append(el('p', { className: 'sincewhen', textContent: prefs.looked && Number(prefs.looked) > since
+    ? t('since you last looked, {ago}', { ago: when(since) })
+    : t('the last day') }));
+
+  const rung = said.bells || [];
+  const asking = rung.filter((b) => b.why === 'asking');
+  const ended = rung.filter((b) => b.why !== 'asking');
+  const stuck = (said.runs || []).filter((r) => (r.steps || [])
+    .some((s) => (s.agents || []).some((a) => a.state === 'asking')));
+  const over = (said.runs || []).filter((r) => r.state !== 'running');
+
+  const group = (name) => wrap.append(el('h2', { className: 'sincegroup', textContent: name }));
+  const row = (kind, name, note, go) => {
+    const line = el(go ? 'button' : 'div', { className: `row since${kind}`, type: go ? 'button' : undefined }, [
+      el('span', { className: 'grow' }, [
+        el('span', { className: 'name', textContent: name }),
+        el('span', { className: 'meta', textContent: note }),
+      ]),
+    ]);
+    if (go) line.onclick = go;
+    wrap.append(line);
+    return line;
+  };
+
+  /* Wanted first, and it is the only section with a claim on you.
+   *
+   *  Everything else on this screen is news you can read or not read. A question is a job
+   *  that has stopped, so it goes above the things that merely happened. */
+  if (asking.length || stuck.length) {
+    group(t('Waiting for you'));
+    for (const b of asking) {
+      row('asking', b.session || t('a session'), b.text || t('it is waiting for an answer'),
+        b.session ? () => go(`#/term?s=${encodeURIComponent(b.session)}`) : null);
+    }
+    for (const r of stuck) row('asking', r.name, t('an orchestration is waiting'), null);
+  }
+
+  if (ended.length || over.length) {
+    group(t('Finished'));
+    for (const b of ended) {
+      row(b.why === 'failed' ? 'failed' : 'done', b.session || t('a session'),
+        `${b.text || (b.why === 'failed' ? t('it failed') : t('it finished'))} · ${when(b.at)}`,
+        b.session ? () => go(`#/term?s=${encodeURIComponent(b.session)}`) : null);
+    }
+    for (const r of over) {
+      row(r.state === 'gone' ? 'failed' : 'done', r.name,
+        r.state === 'gone' ? t('lost touch with it') : t('the orchestration finished'), null);
+    }
+  }
+
+  const fresh = said.sessions || [];
+  if (fresh.length) {
+    group(t('Started while you were away'));
+    for (const s of fresh) {
+      row('new', s.name, when(s.created), () => go(`#/term?s=${encodeURIComponent(s.name)}`));
+    }
+  }
+
+  /* And what was written, which is the only evidence a job produced anything.
+   *
+   *  A bell says an agent stopped; it cannot say what came out of it. This is the half that
+   *  answers "was it worth it" — and on a phone, at breakfast, it is usually the whole
+   *  question. */
+  const wrote = said.files || [];
+  if (wrote.length) {
+    group(t('Written'));
+    for (const f of wrote) {
+      row('file', f.name,
+        `${f.fresh ? t('new') : t('written again')} · ${human(f.size)} · ${when(f.mtime)} · ${parentOf(f.path)}`,
+        () => go(`#/preview?path=${encodeURIComponent(f.path)}`));
+    }
+  }
+
+  if (!asking.length && !stuck.length && !ended.length && !over.length && !fresh.length && !wrote.length) {
+    // The answer, not the absence of one. Most mornings this is what you want to be told.
+    wrap.append(el('p', { className: 'sincenothing', textContent: t('Nothing happened. Everything is where you left it.') }));
+  }
+
+  if ((said.folders || []).length) {
+    wrap.append(el('p', { className: 'hint', textContent:
+      t('Looked in {folders}', { folders: said.folders.join(', ') }) }));
+  }
 }
 
 async function screenJournal() {
@@ -12211,8 +12353,22 @@ function quieten(name) {
 }
 
 /** The marks: on the window that rang, and on the tab of the desk holding it. */
+/** How many sessions have rung since the last look, on the tab that explains them.
+ *
+ *  Counted from what this page has heard, which is what a badge can honestly claim: bells
+ *  that rang while the browser was shut live on the server and appear when the screen is
+ *  opened. A number that lies low is better than one that invents.
+ */
+function paintSince() {
+  const since = (Number(prefs.looked) || 0) * 1000;
+  let waiting = 0;
+  for (const bell of rung.values()) if (bell.at > since) waiting += 1;
+  showCount('since', waiting);
+}
+
 function paintBells() {
   countSessions();
+  paintSince();
   // A desk that has been put away has to say so too, and this is the only place that runs
   // when a bell arrives. Without it `put away` quietly means `mute`: the strip and the window
   // list both light up, the parked desk sits there plain, and you find out in the morning.
