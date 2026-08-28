@@ -179,6 +179,10 @@ class Config:
     prefs_store: Path | None = None
     # Where the record of what was done here is appended. Beside the config, same reasoning.
     journal_store: Path | None = None
+    # Which ports were open for proxying, so a restart is not the same as closing every
+    # one of them. `allow_proxy` still gates all of it; this only remembers a decision
+    # that was already made, the same as favourites or the browser's own preferences.
+    proxied_store: Path | None = None
 
     def attach_flags(self) -> list[str]:
         """Extra arguments for ``tmux attach-session``. `auto` is decided per attach,

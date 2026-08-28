@@ -356,7 +356,11 @@ def create_app(cfg: Config) -> FastAPI:
     app.state.config_path = None
     app.state.addresses = []
 
-    app.state.proxied = set()          # ports opened by hand, this run only
+    # Which ports were open, so a restart is not the same as closing every one of them —
+    # `allow_proxy` still gates every one of these on every request, so losing *that* on
+    # restart is exactly as it should be; this only restores what was already allowed.
+    app.state.proxied_store = getattr(cfg, "proxied_store", None) or Path("/nonexistent")
+    app.state.proxied = proxy.load(app.state.proxied_store)
     app.state.http = httpx.AsyncClient(timeout=30.0, follow_redirects=False)
     app.state.port = None
     app.state.host = None
@@ -1128,6 +1132,8 @@ def create_app(cfg: Config) -> FastAPI:
             state.proxied.add(port)
         else:
             state.proxied.discard(port)
+        # So the next restart opens the same ports rather than none of them.
+        await asyncio.to_thread(proxy.save, state.proxied_store, state.proxied)
 
         answer = JSONResponse({"open": sorted(state.proxied), "port": port})
         if body.get("open"):
@@ -1715,6 +1721,7 @@ def main(argv: list[str] | None = None) -> int:
     # it re-reads the file on every attempt so that revoking a device takes effect at once.
     cfg.devices_store = devices.default_store(config_path)
     cfg.journal_store = journal.default_store(config_path)
+    cfg.proxied_store = proxy.default_store(config_path)
 
     try:
         app = create_app(cfg)

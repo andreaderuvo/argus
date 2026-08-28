@@ -130,3 +130,88 @@ def test_the_proxy_keeps_our_credentials_to_itself(tmp_path):
     # What the callback is actually for still arrives, in one piece.
     assert "code=abc123" in seen["path"] and "state=xyz" in seen["path"]
     assert seen["path"].startswith("/auth/callback?")
+
+
+def test_an_open_port_survives_a_restart(tmp_path):
+    """The point of the whole feature: a restart is not a decision anybody made about
+    any of the ports that were open before it."""
+    from fastapi.testclient import TestClient
+
+    from app.config import Config
+    from app.main import create_app
+
+    (tmp_path / "root").mkdir()
+    token = "testtoken-0123456789abcdef"
+    store = tmp_path / "proxied.json"
+
+    first = create_app(Config(token=token, roots=[tmp_path / "root"], allow_proxy=True,
+                              proxied_store=store))
+    client = TestClient(first)
+    r = client.post("/api/ports", json={"port": 11000, "open": True},
+                    headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 200, r.text
+    assert store.exists()
+
+    # A second app built from the same store, as a restart would build one.
+    second = create_app(Config(token=token, roots=[tmp_path / "root"], allow_proxy=True,
+                               proxied_store=store))
+    said = TestClient(second).get("/api/ports", headers={"Authorization": f"Bearer {token}"}).json()
+    assert said["open"] == [11000]
+
+
+def test_closing_a_port_is_remembered_too(tmp_path):
+    import json
+
+    from fastapi.testclient import TestClient
+
+    from app.config import Config
+    from app.main import create_app
+
+    (tmp_path / "root").mkdir()
+    token = "testtoken-0123456789abcdef"
+    store = tmp_path / "proxied.json"
+    client = TestClient(create_app(Config(
+        token=token, roots=[tmp_path / "root"], allow_proxy=True, proxied_store=store,
+    )))
+    headers = {"Authorization": f"Bearer {token}"}
+    client.post("/api/ports", json={"port": 11000, "open": True}, headers=headers)
+    client.post("/api/ports", json={"port": 12000, "open": True}, headers=headers)
+    client.post("/api/ports", json={"port": 11000, "open": False}, headers=headers)
+
+    assert json.loads(store.read_text()) == [12000]
+
+
+def test_a_missing_store_is_simply_no_ports_open(tmp_path):
+    """The very first run, and every test that does not care about this at all."""
+    from app.proxy import load
+
+    assert load(tmp_path / "does-not-exist.json") == set()
+
+
+def test_a_corrupt_store_is_not_a_crash(tmp_path):
+    from app.proxy import load
+
+    broken = tmp_path / "proxied.json"
+    broken.write_text("{not json")
+    assert load(broken) == set()
+
+
+def test_allow_proxy_still_gates_a_restored_port(tmp_path):
+    """The list is restored; whether it means anything is still `allow_proxy`'s call.
+    Losing that flag on restart is exactly as it should be — only the flag was ever the
+    permission, the list is just which ports somebody had already agreed to."""
+    from fastapi.testclient import TestClient
+
+    from app.config import Config
+    from app.main import create_app
+
+    (tmp_path / "root").mkdir()
+    token = "testtoken-0123456789abcdef"
+    store = tmp_path / "proxied.json"
+    store.write_text("[11000]")
+
+    off = create_app(Config(token=token, roots=[tmp_path / "root"], allow_proxy=False,
+                            proxied_store=store))
+    r = TestClient(off).post("/api/ports", json={"port": 11000, "open": True},
+                             headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 403
