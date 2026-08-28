@@ -3420,3 +3420,24 @@ body:not(.railwide) .railwin.raildesk .railcount { display: none; }
   flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font: 11px/1.5 ui-monospace, "SF Mono", Menlo, monospace; color: var(--accent);
 }
+
+/* ---------- while you were away ---------- */
+
+.sincewhen { color: var(--dim); margin: 0 0 1rem; }
+.sincegroup {
+  font-size: .74rem; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--accent); margin: 1.6rem 0 .5rem;
+}
+/* A question has a claim on you; the rest is news. The colour says which is which, and only
+   the first one gets a warm edge — three coloured groups would be a decoration. */
+.row.sinceasking { border-left: 2px solid var(--st-warning); }
+.row.sincefailed { border-left: 2px solid var(--st-critical); }
+.row.sincedone { border-left: 2px solid color-mix(in srgb, var(--st-good) 70%, transparent); }
+.row.sincenew, .row.sincefile { border-left: 2px solid var(--line); }
+.since .row { width: 100%; text-align: left; background: none; border-radius: 0; }
+.since button.row { cursor: pointer; }
+.since button.row:hover { background: var(--panel); }
+.sincenothing {
+  margin: 2.5rem 0; text-align: center; color: var(--dim);
+  padding: 1.6rem; border: 1px dashed var(--line); border-radius: .6rem;
+}

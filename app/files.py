@@ -523,6 +523,56 @@ def walk_for(root: Path, needle: str) -> list[dict]:
     return hits
 
 
+def changed_since(root: Path, since: float, limit: int = 40) -> list[dict]:
+    """Files under `root` written after `since`, newest first.
+
+    The same walk as a search and the same brakes on it, for the same reason: a home
+    directory is millions of files and the question is worth asking only if it can be
+    answered while somebody waits. It prunes the noise (`.git`, `node_modules`, a conda
+    install), refuses to go deeper than the search does, and stops counting at the same
+    ceiling — an answer marked "there were more" is useful; a request that never returns is
+    not.
+
+    Directories are skipped. A folder's mtime changes when anything inside it is written, so
+    reporting them would say "your home directory changed" every single time, which is true
+    and says nothing.
+    """
+    found: list[dict] = []
+    visited = 0
+    root_depth = len(root.parts)
+
+    for dirpath, dirnames, filenames in os.walk(root, topdown=True, followlinks=False):
+        here = Path(dirpath)
+        if len(here.parts) - root_depth >= SEARCH_MAX_DEPTH:
+            dirnames[:] = []
+        else:
+            dirnames[:] = [d for d in dirnames if d not in SEARCH_SKIP and not d.startswith(".")]
+
+        for name in filenames:
+            visited += 1
+            if visited > SEARCH_MAX_VISITED:
+                return sorted(found, key=lambda e: -e["mtime"])[:limit]
+            if name.startswith("."):
+                continue                      # a dotfile is a tool's business, not news
+            try:
+                st = (here / name).stat()
+            except OSError:
+                continue
+            if st.st_mtime <= since:
+                continue
+            found.append({
+                "path": str(here / name),
+                "name": name,
+                "size": st.st_size,
+                "mtime": int(st.st_mtime),
+                # New, or written again. Not the same news: one is something an agent made,
+                # the other is something it is still working on.
+                "fresh": st.st_ctime > since,
+            })
+
+    return sorted(found, key=lambda e: -e["mtime"])[:limit]
+
+
 def find_pandoc() -> str | None:
     """pandoc on PATH, or next to the interpreter running us.
 

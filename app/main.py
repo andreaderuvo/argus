@@ -18,7 +18,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 import uvicorn
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 
@@ -443,6 +443,70 @@ def create_app(cfg: Config) -> FastAPI:
         """
         version, doc = prefs.load(request.app.state.prefs)
         return {"version": version, "prefs": doc}
+
+    @app.get("/api/since", tags=["Setup"], summary="What happened while you were not looking")
+    async def what_happened(request: Request, at: float, folder: list[str] = Query(default=[])) -> dict:
+        """Everything that changed since a moment, in one answer.
+
+        The question this app exists for is not "what is happening" — a screen full of
+        terminals already says that, and says it whether or not any of it is new. It is "did
+        anything happen while I was away, and does it need me". That question can only be
+        answered by the machine: the browser was closed.
+
+        Four sources, because four different things count as news. An agent that rang. A
+        session that appeared. An orchestration that ended or is stuck on a question. And
+        files that were written — which is the only evidence there is that a job produced
+        something, and the one thing none of the others can tell you.
+
+        The folders are the caller's business: the desks are the browser's idea, not this
+        server's, so it says which ones it cares about rather than being second-guessed. One
+        that has gone, or that points outside the roots, is skipped rather than refused —
+        this is a summary, and a summary that 404s because one desk moved is no summary.
+        """
+        state = request.app.state
+        now = time.time()
+        seen = max(0.0, float(at))
+
+        rung = [b for b in bells.store(request)["list"] if b["at"] >= seen]
+
+        try:
+            live = await asyncio.to_thread(tmux.list_sessions, state.socket)
+        except tmux.TmuxError:
+            live = []
+        fresh = [s for s in live if s.get("created", 0) >= seen]
+
+        # Ended while you were away, or waiting on an answer — both are reasons to look.
+        told = [runs.as_told(r, now) for r in runs.store(request).values()]
+        worth = [r for r in told if r["state"] != "running"
+                 or any(a.get("state") == "asking" for step in r.get("steps", [])
+                        for a in step.get("agents", []))]
+
+        written: list[dict] = []
+        looked: list[str] = []
+        for raw in dict.fromkeys(folder):            # the same desk folder twice is one walk
+            try:
+                where = under_roots(request, raw)
+            except ApiError:
+                continue
+            if not where.is_dir():
+                continue
+            looked.append(str(where))
+            written.extend(await asyncio.to_thread(files.changed_since, where, seen))
+
+        # Newest first across every folder, and deduplicated: two desks in the same tree
+        # would otherwise report the same file twice.
+        unique = {f["path"]: f for f in written}
+        newest = sorted(unique.values(), key=lambda f: -f["mtime"])[:40]
+
+        return {
+            "at": seen,
+            "now": now,
+            "bells": rung,
+            "sessions": sorted(fresh, key=lambda s: -s.get("created", 0)),
+            "runs": sorted(worth, key=lambda r: -r.get("at", 0)),
+            "files": newest,
+            "folders": looked,
+        }
 
     @app.post("/api/drops/keep", tags=["Writing"], summary="How long a dropped file is kept")
     async def set_drops_keep(request: Request, body: dict) -> dict:
