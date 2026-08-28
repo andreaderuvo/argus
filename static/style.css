@@ -2015,6 +2015,16 @@ button.winbtn.chainbtn.on { color: #2b2000; background: var(--st-warning); borde
 .win.ringing.asking .winbar { background: color-mix(in srgb, var(--st-warning) 22%, var(--panel)); }
 .wstab.ringing .tabdot { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 55%, transparent); }
 
+/* A pane that was busy and has gone quiet for a while. Deliberately weaker than a bell:
+   no outline, no accent or warning colour, nothing on the tab — a small dim dot that
+   invites a glance and never a doubletake. Clears the moment it speaks again, or you type. */
+.win.maybewaiting .winbar { background: color-mix(in srgb, var(--dim) 14%, var(--bg)); }
+.win.maybewaiting .wintitle::before {
+  content: ''; display: inline-block; flex: none;
+  width: 6px; height: 6px; margin-right: .4rem; border-radius: 50%;
+  background: var(--dim);
+}
+
 /* A line of explanation under a setting. */
 .hint { margin: .35rem 0 .7rem; padding: 0 .9rem; color: var(--dim); font-size: .78rem; line-height: 1.5; }
 
