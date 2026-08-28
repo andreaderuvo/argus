@@ -331,6 +331,19 @@ function takeTokenFromAddress() {
   const fromHash = new URLSearchParams(hash).get('token');
   const given = fromHash || new URLSearchParams(location.search).get('token');
   if (!given) return false;
+  /* Whether this is *news*, which is a different question from whether there is a token in
+   *  the address — and the only one worth a reload.
+   *
+   *  The caller below reloads on every hash change that finds one, and a hash change is what
+   *  opening anything in this app is. So an address that keeps its `?token=` — a bookmark
+   *  somebody uses every day, a link they pasted back in — turned every click into a reload
+   *  of the page instead of the thing they clicked. Reported as a PDF that reloads Argus and
+   *  never opens, which is exactly what that looks like from the outside: the reload lands
+   *  before the document can draw.
+   *
+   *  A token identical to the one already held is not an arrival. Clean it out of the bar and
+   *  carry on. */
+  const news = given !== token;
   token = given;
   localStorage.setItem(KEY, token);
   // A hash that carried nothing but the token leaves no route behind; one that carried a
@@ -339,7 +352,7 @@ function takeTokenFromAddress() {
     ? hash.split('&').filter((bit) => !bit.startsWith('token=')).join('&')
     : hash;
   history.replaceState(null, '', location.pathname + (rest ? `#${rest}` : ''));
-  return true;
+  return news;
 }
 
 takeTokenFromAddress();
