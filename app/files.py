@@ -48,7 +48,13 @@ BINARY_SNIFF_BYTES = 8192
 
 # Binary types the browser renders better than we ever could, so they go out untouched
 # with their real content type instead of being refused as "not text".
-INLINE_TYPES = ("application/pdf",)
+INLINE_TYPES = ("application/pdf", "model/stl")
+
+# Not left to `mimetypes.guess_type`, whose table differs by Python version and by whatever
+# `/etc/mime.txt` the host happens to have. A binary STL's own header is often eighty bytes
+# of zero padding — the exact signal `is_binary` uses to refuse a file — so guessing wrong
+# here does not mean a mislabelled response, it means a 415 in place of a model.
+MESH_TYPES = {".stl": "model/stl"}
 
 # An HTML file is served as HTML so it can be previewed rendered — but a page from this
 # origin could read the access token out of localStorage, and plenty of HTML on a
@@ -195,7 +201,8 @@ async def read_file(request: Request, path: str) -> Response:
     limit = request.app.state.cfg.max_preview_bytes
     stat = target.stat()
     size = stat.st_size
-    guessed = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
+    suffix = target.suffix.lower()
+    guessed = MESH_TYPES.get(suffix) or mimetypes.guess_type(target.name)[0] or "application/octet-stream"
     # A document is identified by when it was last written and how big it is. Two things
     # hang off this: a rebuilt PDF can never be served from the cache in place of the new
     # one, and the viewer downloads it once rather than twice — the preview fetches the
@@ -205,7 +212,6 @@ async def read_file(request: Request, path: str) -> Response:
 
     # Office documents: rendered as a document where the machine can, unzipped into plain
     # text where it cannot, and never a download-only blob.
-    suffix = target.suffix.lower()
     if suffix in PANDOC_FORMATS or suffix in ZIPPED_DOCS:
         rendered = None
         if suffix in PANDOC_FORMATS and size <= limit:

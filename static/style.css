@@ -462,6 +462,11 @@ button.ghost {
 
 /* The browser's own viewer fills the window it is given, the same as the built-in one. */
 iframe.preview.pdfnative { width: 100%; height: 100%; border: 0; display: block; }
+/* Sized by its host, not by itself — the WebGLRenderer is told the real pixel size on
+   every resize, this just claims the box for it to fill. touch-action: none keeps a
+   one-finger drag from also scrolling the page underneath it while orbiting the model. */
+canvas.meshview { width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+canvas.meshview:active { cursor: grabbing; }
 
 /* A gutter, and a measure.
  *
