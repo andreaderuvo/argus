@@ -1,8 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Submitted by hand in Search Console. It is not a ranking signal and does not make Google
-     visit: it is the only way to *tell* Google these pages exist at all, because every link
-     GitHub draws to them — the About box and the README alike — carries rel="nofollow", so
-     nothing on the web points here in a way a crawler follows. -->
+<!-- Waiting to be submitted by hand in Search Console, which needs a Google account and so
+     cannot be done from here. It is not a ranking signal and does not make Google visit: it
+     is the only way to *tell* Google these pages exist at all, because every link GitHub
+     draws to them — the About box and the README alike — carries rel="nofollow", so nothing
+     on the web points here in a way a crawler follows.
+
+     Until that is done this file is a note to ourselves. It said it had been submitted, which
+     was wrong, and a comment claiming a thing was done is worse than no comment: it is how
+     the one job that mattered went a month without being noticed. -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://andreaderuvo.github.io/argus/</loc>
