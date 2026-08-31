@@ -143,6 +143,62 @@ def processes(limit: int = 6) -> list[dict]:
     return parse_ps(p.stdout)[:limit] if p.returncode == 0 else []
 
 
+def parse_ps_tree(text: str) -> dict[int, tuple[int, int]]:
+    """`ps -eo pid=,ppid=,rss=` becomes pid -> (ppid, rss bytes)."""
+    out: dict[int, tuple[int, int]] = {}
+    for line in text.splitlines():
+        parts = line.split()
+        if len(parts) != 3:
+            continue
+        try:
+            pid, ppid, rss = int(parts[0]), int(parts[1]), int(parts[2]) * 1024
+        except ValueError:
+            continue
+        out[pid] = (ppid, rss)
+    return out
+
+
+def process_tree() -> dict[int, tuple[int, int]]:
+    """pid -> (ppid, rss bytes), for every process on the machine. One `ps`, the same
+    tool and the same reasoning as `processes()`, rather than a `/proc/<pid>/status` read
+    per process."""
+    try:
+        p = subprocess.run(["ps", "-eo", "pid=,ppid=,rss="], capture_output=True, text=True, timeout=4)
+    except (OSError, subprocess.SubprocessError):
+        return {}
+    return parse_ps_tree(p.stdout) if p.returncode == 0 else {}
+
+
+def ram_by_session(tree: dict[int, tuple[int, int]], panes: dict[str, list[int]]) -> dict[str, int]:
+    """What a session actually costs, by name — not the shell sitting in each pane, which
+    stays at a few megabytes forever, but everything that shell has gone on to start: the
+    pane's own process plus every descendant, summed across every pane the session holds.
+    """
+    if not tree:
+        return {}
+    children: dict[int, list[int]] = {}
+    for pid, (ppid, _rss) in tree.items():
+        children.setdefault(ppid, []).append(pid)
+
+    def subtree(root: int) -> int:
+        total = 0
+        stack, seen = [root], set()
+        while stack:
+            pid = stack.pop()
+            if pid in seen or pid not in tree:
+                continue
+            seen.add(pid)
+            total += tree[pid][1]
+            stack.extend(children.get(pid, ()))
+        return total
+
+    return {name: sum(subtree(pid) for pid in pids) for name, pids in panes.items()}
+
+
+def session_ram(panes: dict[str, list[int]]) -> dict[str, int]:
+    return ram_by_session(process_tree(), panes)
+
+
 def disk(path: Path) -> dict | None:
     try:
         st = os.statvfs(path)

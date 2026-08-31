@@ -94,6 +94,38 @@ def test_the_exact_prefix_is_what_stops_a_neighbour_being_killed():
     assert "=claude" in kill_argv(Socket.new(None), "claude")
 
 
+def test_pane_pids_groups_by_session(monkeypatch):
+    class Done:
+        returncode = 0
+        stdout = "work\t1234\nwork\t1256\nchat\t9001\n"
+        stderr = ""
+
+    seen = []
+    monkeypatch.setattr(tmux.subprocess, "run", lambda argv, **kw: (seen.append(argv), Done())[1])
+    assert tmux.pane_pids(Socket.new("argus-test")) == {"work": [1234, 1256], "chat": [9001]}
+    assert seen[-1] == ["tmux", "-L", "argus-test", "list-panes", "-a", "-F", "#{session_name}\t#{pane_pid}"]
+
+
+def test_pane_pids_ignores_blank_and_malformed_lines(monkeypatch):
+    class Done:
+        returncode = 0
+        stdout = "\nwork\tnot-a-pid\n\twith-no-name\nwork\t42\n"
+        stderr = ""
+
+    monkeypatch.setattr(tmux.subprocess, "run", lambda argv, **kw: Done())
+    assert tmux.pane_pids(Socket.new(None)) == {"work": [42]}
+
+
+def test_pane_pids_no_server_is_an_empty_dict_not_an_error(monkeypatch):
+    class Done:
+        returncode = 1
+        stdout = ""
+        stderr = "no server running"
+
+    monkeypatch.setattr(tmux.subprocess, "run", lambda argv, **kw: Done())
+    assert tmux.pane_pids(Socket.new(None)) == {}
+
+
 def test_the_paste_buffer_is_read_with_show_buffer_not_capture_pane(monkeypatch):
     """capture-pane takes the whole tmux server down on this host; show-buffer is the
     safe way to see what was copied."""

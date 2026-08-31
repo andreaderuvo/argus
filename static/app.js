@@ -2525,7 +2525,10 @@ async function screenSessions() {
      *  difference between something you started this morning and something you have
      *  forgotten about. The exact moment is still there, on hover. */
     const age = s.created ? t('up {age}', { age: duration(Date.now() / 1000 - s.created) }) : null;
-    const meta = [`${s.windows} window${s.windows === 1 ? '' : 's'}`, s.attached ? 'attached' : null, age]
+    // Not the shell sitting in the pane, which never grows — everything it went on to
+    // start. Absent rather than "0 B" wherever the server could not work it out.
+    const ram = s.ram ? human(s.ram) : null;
+    const meta = [`${s.windows} window${s.windows === 1 ? '' : 's'}`, ram, s.attached ? 'attached' : null, age]
       .filter(Boolean).join(' · ');
     const dot = el('span', { className: 'dot' });
     dot.style.background = colorFor(s.name);
