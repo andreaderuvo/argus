@@ -191,7 +191,10 @@ def pretending() -> dict | None:
         return None
 
 
-def snapshot(paths: list[Path]) -> dict:
+def snapshot(paths: list[Path], brief: bool = False) -> dict:
+    """`brief` skips the process listing, which plays no part in any `level` and costs a
+    `ps` over the whole process table — worth avoiding for a reading nobody is looking at
+    yet, taken on a fixed timer rather than because somebody opened the System screen."""
     made_up = pretending()
     if made_up is not None:
         # Straight through, with the timestamp made now so ages and freshness still move.
@@ -230,5 +233,5 @@ def snapshot(paths: list[Path]) -> dict:
         "memory": {**mem, "level": level("memory", mem["pct"]), "swap_level": level("swap", mem["swap_pct"])},
         "disks": sorted(seen.values(), key=lambda d: -d["pct"]),
         "gpus": [{**g, "level": level("gpu", g["mem_pct"])} for g in gpus()],
-        "processes": processes(),
+        "processes": [] if brief else processes(),
     }

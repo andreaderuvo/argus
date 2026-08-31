@@ -40,12 +40,15 @@ const bar = {
   about: document.getElementById('about'),
   keys: document.getElementById('keys'),
   drops: document.getElementById('drops'),
+  vitals: document.getElementById('vitals'),
 };
 
 // The bottom bar is for the places you go; settings are not one of them.
 bar.settings.onclick = () => go('#/settings');
 
 bar.keys.onclick = () => keyHelp();
+
+bar.vitals.onclick = () => go('#/system');
 
 /* One tap to the folder a drop or a big paste actually lands in.
  *
@@ -65,6 +68,37 @@ function markDrops() {
   bar.drops.hidden = false;
   bar.drops.title = t('{path} — where a dropped file or a big paste lands', { path: server.drop_dir });
   bar.drops.setAttribute('aria-label', t('Drop folder'));
+}
+
+/** The machine's own state, glanced at from wherever you are — not only from the System
+ *  screen, and not only while you remembered to open it. Quiet by construction: reading
+ *  `good` paints nothing that a normal icon does not already look like, and only `warning`
+ *  or `critical` puts a colour on it, the same two words the System screen itself uses.
+ *  Polled here rather than pushed, because nothing on the machine's side knows to tell
+ *  us — a fixed, unhurried interval, and `brief=1` so an icon nobody is watching does not
+ *  spend a `ps` over the whole process table every time it looks. */
+const VITALS_EVERY = 30000;
+let vitalsTimer = null;
+
+function markVitals(s) {
+  const worst = worstVital(s);
+  bar.vitals.hidden = false;
+  bar.vitals.className = `icon ${worst.level === 'good' ? '' : worst.level}`.trim();
+  bar.vitals.title = t('System — {what} {word} ({pct}%)',
+    { what: worst.what, word: LEVEL_WORD[worst.level], pct: Math.round(worst.pct) });
+}
+
+function watchVitals() {
+  const read = async () => {
+    try { markVitals(await getJSON('/api/system?brief=1')); } catch { /* the last reading stands */ }
+  };
+  const setBeat = () => {
+    clearInterval(vitalsTimer);
+    vitalsTimer = setInterval(() => { if (!document.hidden) read(); }, VITALS_EVERY);
+  };
+  read();
+  setBeat();
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) read(); });
 }
 
 /** Where to read about this thing. Two destinations behind one mark rather than two
@@ -4627,6 +4661,18 @@ function writeInto(node, text) {
 
 const LEVEL_WORD = { good: 'ok', warning: 'high', critical: 'critical' };
 
+/** The single worst number on a reading, so "is it dying" is answered before anything
+ *  else is. Shared between the System screen's hero tile and the header badge — both are
+ *  the same question asked at a different distance, and they must never disagree. */
+function worstVital(s) {
+  return [
+    { what: 'cpu', pct: s.cpu.pct, level: s.cpu.level },
+    { what: 'memory', pct: s.memory.pct, level: s.memory.level },
+    ...s.disks.map((d) => ({ what: `disk ${d.path}`, pct: d.pct, level: d.level })),
+    ...s.gpus.map((g) => ({ what: 'gpu memory', pct: g.mem_pct, level: g.level })),
+  ].sort((a, b) => b.pct - a.pct)[0];
+}
+
 /** A labelled meter. The fill carries severity; the word beside it carries the same
  *  thing in text, because a status must never be colour alone. */
 function meter(label, value, pct, lvl, note = '') {
@@ -5141,14 +5187,7 @@ async function screenSystem() {
   const write = writeInto;
 
   const paint = (s) => {
-    // The single worst number on the box, so "is it dying" is answered before you read
-    // anything else.
-    const worst = [
-      { what: 'cpu', pct: s.cpu.pct, level: s.cpu.level },
-      { what: 'memory', pct: s.memory.pct, level: s.memory.level },
-      ...s.disks.map((d) => ({ what: `disk ${d.path}`, pct: d.pct, level: d.level })),
-      ...s.gpus.map((g) => ({ what: `gpu memory`, pct: g.mem_pct, level: g.level })),
-    ].sort((a, b) => b.pct - a.pct)[0];
+    const worst = worstVital(s);
 
     if (hero.className !== `hero ${worst.level}`) hero.className = `hero ${worst.level}`;
     write(heroNum, `${Math.round(worst.pct)}%`);
@@ -16362,4 +16401,5 @@ function translateMarkup() {
   // Not awaited: the header icon is a nicety, not something first paint should wait on,
   // and it is a no-op wherever `server` is already known by the time this resolves.
   if (token) serverInfo().then(markDrops).catch(() => {});
+  if (token) watchVitals();
 })();

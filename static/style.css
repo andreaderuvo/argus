@@ -1043,6 +1043,11 @@ body.term.keysnever #keybar { display: none; }
 
 button.icon.on { color: var(--accent); }
 
+/* The machine's own state, in the header, wherever you are. Quiet when it is fine — a
+   plain icon, the same as any other — and coloured only once it is actually not. */
+#vitals.warning { color: var(--st-warning); }
+#vitals.critical { color: var(--st-critical); }
+
 /* ---------- file actions ---------- */
 
 .rowwrap { display: flex; align-items: stretch; }

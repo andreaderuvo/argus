@@ -1144,9 +1144,9 @@ def create_app(cfg: Config) -> FastAPI:
         return answer
 
     @app.get("/api/system", tags=["The machine"], summary="CPU, memory, swap, GPUs, disks, uptime")
-    async def vitals(request: Request) -> dict:
+    async def vitals(request: Request, brief: bool = False) -> dict:
         # Sampling /proc/stat needs a real pause, so it goes to a thread.
-        return await asyncio.to_thread(system.snapshot, request.app.state.jail.roots)
+        return await asyncio.to_thread(system.snapshot, request.app.state.jail.roots, brief)
 
     @app.exception_handler(ApiError)
     async def api_error(_request: Request, exc: ApiError) -> JSONResponse:

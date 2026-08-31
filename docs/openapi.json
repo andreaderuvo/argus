@@ -2629,6 +2629,18 @@
   "/api/system": {
    "get": {
     "operationId": "getApiSystem",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "brief",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Brief",
+       "type": "boolean"
+      }
+     }
+    ],
     "responses": {
      "200": {
       "content": {
@@ -2641,6 +2653,16 @@
        }
       },
       "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
      }
     },
     "summary": "CPU, memory, swap, GPUs, disks, uptime",
