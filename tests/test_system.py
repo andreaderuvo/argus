@@ -1,6 +1,8 @@
 from pathlib import Path
 
-from app.system import cpu_percent, level, memory, parse_nvidia, parse_ps, parse_stat, snapshot
+from app.system import (
+    cpu_percent, level, memory, parse_nvidia, parse_ps, parse_ps_tree, parse_stat, ram_by_session, snapshot,
+)
 
 MEMINFO = """\
 MemTotal:       32780000 kB
@@ -76,6 +78,29 @@ def test_nvidia_output_becomes_gpus():
 def test_no_gpu_output_is_an_empty_list():
     assert parse_nvidia("") == []
     assert parse_nvidia("No devices were found\n") == []
+
+
+def test_ps_tree_output_becomes_pid_to_ppid_and_rss():
+    tree = parse_ps_tree("  100     1 40000\n  200   100 12000\nrubbish\n")
+    assert tree == {100: (1, 40000 * 1024), 200: (100, 12000 * 1024)}
+
+
+def test_a_session_costs_the_pane_plus_every_descendant():
+    # 100 is the pane's shell; 200 and 300 are what it went on to start; 400 belongs to a
+    # second pane in the same session, and 999 is an unrelated process elsewhere.
+    tree = {
+        100: (1, 5_000_000), 200: (100, 50_000_000), 300: (200, 200_000_000),
+        400: (1, 8_000_000), 999: (1, 999_000_000),
+    }
+    assert ram_by_session(tree, {"work": [100, 400]}) == {"work": 5_000_000 + 50_000_000 + 200_000_000 + 8_000_000}
+
+
+def test_a_pid_with_no_process_left_costs_nothing_not_a_crash():
+    assert ram_by_session({1: (0, 100)}, {"work": [12345]}) == {"work": 0}
+
+
+def test_empty_tree_is_an_empty_reading():
+    assert ram_by_session({}, {"work": [100]}) == {}
 
 
 def test_snapshot_reads_this_machine(tmp_path):

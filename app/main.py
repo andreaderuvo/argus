@@ -400,9 +400,23 @@ def create_app(cfg: Config) -> FastAPI:
     @app.get("/api/tmux/sessions", tags=["Sessions"], summary="Every tmux session on this server")
     async def sessions(request: Request) -> list[dict]:
         try:
-            return await asyncio.to_thread(tmux.list_sessions, request.app.state.socket)
+            out = await asyncio.to_thread(tmux.list_sessions, request.app.state.socket)
         except tmux.TmuxError as e:
             raise ApiError(502, str(e)) from e
+        # What each session actually costs, in RAM — one `list-panes` and one `ps`, both
+        # already paid for the whole server at once, so a screen with forty sessions on it
+        # is not forty extra readings. Best effort: a session list should never fail because
+        # this half of it could not be worked out.
+        try:
+            panes = await asyncio.to_thread(tmux.pane_pids, request.app.state.socket)
+            ram = await asyncio.to_thread(system.session_ram, panes) if panes else {}
+        except Exception:
+            ram = {}
+        for one in out:
+            rss = ram.get(one["name"])
+            if rss:
+                one["ram"] = rss
+        return out
 
     @app.get("/api/languages", tags=["Setup"], summary="The interface languages available")
     async def list_languages(request: Request) -> list[dict]:

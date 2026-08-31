@@ -141,6 +141,34 @@ def declared(sock: Socket) -> dict[str, dict]:
     return said
 
 
+def pane_pids(sock: Socket) -> dict[str, list[int]]:
+    """Every pane's own pid, by session — the root of whatever is actually running in it.
+
+    One `list-panes` for the whole server, the same shape and the same reason as
+    `declared`: asking what a session costs should cost the same whether there are two
+    panes or two hundred.
+    """
+    try:
+        p = subprocess.run(
+            ["tmux", *sock.args(), "list-panes", "-a", "-F", "#{session_name}\t#{pane_pid}"],
+            capture_output=True, text=True, timeout=4,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return {}
+    if p.returncode != 0:
+        return {}
+    out: dict[str, list[int]] = {}
+    for line in p.stdout.splitlines():
+        parts = line.rsplit("\t", 1)
+        if len(parts) != 2:
+            continue
+        name, pid = parts
+        if not name or not pid.strip().isdigit():
+            continue
+        out.setdefault(name, []).append(int(pid))
+    return out
+
+
 class BadName(Exception):
     """The name cannot be used as a tmux target."""
 
