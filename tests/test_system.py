@@ -93,3 +93,13 @@ def test_roots_on_the_same_filesystem_are_reported_once(tmp_path):
     (tmp_path / "b").mkdir()
     snap = snapshot([tmp_path / "a", tmp_path / "b"])
     assert len(snap["disks"]) == 1
+
+
+def test_brief_skips_processes_but_keeps_every_level(tmp_path):
+    """The header badge reads this every 30s from every open tab — it has no use for the
+    process list, and the whole point of asking briefly is to never spend a `ps` on it."""
+    assert snapshot([tmp_path])["processes"]
+    brief = snapshot([tmp_path], brief=True)
+    assert brief["processes"] == []
+    assert brief["memory"]["level"] in ("good", "warning", "critical")
+    assert brief["disks"] and brief["disks"][0]["total"] > 0
