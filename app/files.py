@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import errno
+import html
 import mimetypes
 import os
 import shutil
@@ -77,6 +78,17 @@ ZIPPED_DOCS = {
 # Local tag names that end a line when walking that XML.
 _BREAK_AFTER = {"p", "h", "tr"}
 _BREAK_BEFORE = {"br", "line-break"}
+
+# A spreadsheet, not routed through pandoc: pandoc lists xlsx as a reader, but on this
+# machine's build it fails on a real file — `.rels` targets written as `/xl/worksheets/…`
+# (absolute inside the package, legal OPC, and how real Excel and every file tested here
+# writes them) come back doubled to `xl//xl/worksheets/…` and the read fails outright.
+# Grid data has no use for pandoc's document model anyway: a table is what a sheet already
+# is, so this reads the same zipped XML the docx path does and builds the table directly.
+SPREADSHEET_FORMATS = {".xlsx", ".xlsm"}
+_SHEET_NS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+_DOC_REL_NS = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
+_PKG_REL_NS = "{http://schemas.openxmlformats.org/package/2006/relationships}"
 
 router = APIRouter()
 
@@ -214,10 +226,12 @@ async def read_file(request: Request, path: str) -> Response:
 
     # Office documents: rendered as a document where the machine can, unzipped into plain
     # text where it cannot, and never a download-only blob.
-    if suffix in PANDOC_FORMATS or suffix in ZIPPED_DOCS:
+    if suffix in PANDOC_FORMATS or suffix in ZIPPED_DOCS or suffix in SPREADSHEET_FORMATS:
         rendered = None
         if suffix in PANDOC_FORMATS and size <= limit:
             rendered = await asyncio.to_thread(pandoc_html, target, PANDOC_FORMATS[suffix])
+        elif suffix in SPREADSHEET_FORMATS and size <= limit:
+            rendered = await asyncio.to_thread(spreadsheet_html, target)
         if rendered:
             return Response(
                 content=rendered,
@@ -677,6 +691,140 @@ def _collect(node, out: list[str]) -> None:
         out.append("\n")
     if tail := _content(node.tail):
         out.append(tail)
+
+
+def _rel_targets(z: zipfile.ZipFile, rels_member: str) -> dict[str, str]:
+    """rId -> member path, from a `.rels` part. A target is package-absolute if it starts
+    with `/` (real Excel writes worksheet targets this way) and otherwise relative to `xl/`
+    — both are legal OPC and this is exactly the distinction pandoc's own xlsx reader gets
+    wrong on files written this way, which is the reason this exists at all."""
+    try:
+        root = ElementTree.fromstring(z.read(rels_member))
+    except KeyError:
+        return {}
+    out = {}
+    for rel in root.findall(f"{_PKG_REL_NS}Relationship"):
+        rid, target = rel.get("Id"), rel.get("Target") or ""
+        if rid and target:
+            out[rid] = target[1:] if target.startswith("/") else f"xl/{target}"
+    return out
+
+
+def _sheet_targets(z: zipfile.ZipFile) -> list[tuple[str, str]]:
+    """[(sheet name, member path), ...] in the workbook's own tab order."""
+    root = ElementTree.fromstring(z.read("xl/workbook.xml"))
+    rels = _rel_targets(z, "xl/_rels/workbook.xml.rels")
+    sheets = root.find(f"{_SHEET_NS}sheets")
+    if sheets is None:
+        return []
+    out = []
+    for sh in sheets.findall(f"{_SHEET_NS}sheet"):
+        name, rid = sh.get("name"), sh.get(f"{_DOC_REL_NS}id")
+        target = rels.get(rid or "")
+        if name and target:
+            out.append((name, target))
+    return out
+
+
+def _shared_strings(z: zipfile.ZipFile) -> list[str]:
+    root = ElementTree.fromstring(z.read("xl/sharedStrings.xml"))
+    # A shared string is one <t>, or several <r><t>…</t></r> runs for rich text — either
+    # way, every <t> under one <si> concatenates into that string.
+    return ["".join(t.text or "" for t in si.iter(f"{_SHEET_NS}t")) for si in root.findall(f"{_SHEET_NS}si")]
+
+
+def _col_index(ref: str) -> int:
+    """"AB12" -> the zero-based index of column "AB"."""
+    n = 0
+    for ch in ref:
+        if not ch.isalpha():
+            break
+        n = n * 26 + (ord(ch.upper()) - ord("A") + 1)
+    return n - 1
+
+
+def _cell_text(c, shared: list[str]) -> str:
+    if c.get("t") == "inlineStr":
+        is_el = c.find(f"{_SHEET_NS}is")
+        return "".join(t.text or "" for t in is_el.iter(f"{_SHEET_NS}t")) if is_el is not None else ""
+    v = c.find(f"{_SHEET_NS}v")
+    raw = v.text or "" if v is not None else ""
+    kind = c.get("t")
+    if kind == "s":
+        try:
+            return shared[int(raw)]
+        except (ValueError, IndexError):
+            return ""
+    if kind == "b":
+        return "TRUE" if raw == "1" else "FALSE"
+    return raw
+
+
+def _sheet_rows(xml: bytes, shared: list[str]) -> list[list[str]]:
+    """A sheet's own cell grid, as text — no number formats and no dates decoded from
+    their serial, the same trade `document_text` already makes for a paragraph."""
+    data = ElementTree.fromstring(xml).find(f"{_SHEET_NS}sheetData")
+    if data is None:
+        return []
+    rows = []
+    for row in data.findall(f"{_SHEET_NS}row"):
+        cells: dict[int, str] = {}
+        width = 0
+        for i, c in enumerate(row.findall(f"{_SHEET_NS}c")):
+            ref = c.get("r") or ""
+            idx = _col_index(ref) if ref else i
+            cells[idx] = _cell_text(c, shared)
+            width = max(width, idx + 1)
+        rows.append([cells.get(i, "") for i in range(width)])
+    return rows
+
+
+def spreadsheet_html(path: Path) -> bytes | None:
+    """A spreadsheet as one HTML table per sheet, read straight out of its own zipped XML.
+
+    See `SPREADSHEET_FORMATS` for why this bypasses pandoc entirely. `None` on anything
+    that does not parse — the same contract `pandoc_html` has — so the caller falls back
+    to a plain 415: there is no meaningful *plain-text* form of a grid to fall back to.
+    """
+    try:
+        with zipfile.ZipFile(path) as z:
+            names = set(z.namelist())
+            shared = _shared_strings(z) if "xl/sharedStrings.xml" in names else []
+            tables = [
+                (name, _sheet_rows(z.read(member), shared))
+                for name, member in _sheet_targets(z)
+                if member in names
+            ]
+    except (KeyError, OSError, zipfile.BadZipFile, ElementTree.ParseError):
+        return None
+    if not tables:
+        return None
+
+    out = [
+        "<!doctype html><meta charset=utf-8><style>",
+        "body{font:14px/1.4 -apple-system,BlinkMacSystemFont,system-ui,sans-serif;"
+        "margin:0;padding:1rem;color:#222;background:#fff;}",
+        "h2{font-size:.85rem;font-weight:600;color:#666;margin:1.5rem 0 .5rem;}",
+        "h2:first-child{margin-top:0;}",
+        "table{border-collapse:collapse;width:max-content;max-width:100%;}",
+        "td{border:1px solid #ddd;padding:.3rem .6rem;white-space:pre-wrap;vertical-align:top;}",
+        "tr:first-child td{font-weight:600;background:#f2f2f2;position:sticky;top:0;}",
+        "tr:nth-child(even) td{background:#fafafa;}",
+        "p.empty{color:#888;}",
+        "</style>",
+    ]
+    multi = len(tables) > 1
+    for name, rows in tables:
+        if multi:
+            out.append(f"<h2>{html.escape(name)}</h2>")
+        if not rows:
+            out.append("<p class=empty>empty sheet</p>")
+            continue
+        out.append("<table>")
+        out += [f"<tr>{''.join(f'<td>{html.escape(v)}</td>' for v in row)}</tr>" for row in rows]
+        out.append("</table>")
+    rendered = "".join(out).encode("utf-8")
+    return rendered if len(rendered) <= PANDOC_MAX_HTML else None
 
 
 def content_disposition(name: str, inline: bool = False) -> str:
