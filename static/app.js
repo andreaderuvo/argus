@@ -680,6 +680,25 @@ const patchJSON = (p, body) => api(p, {
 
 const withToken = (p) => p + (p.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token);
 
+/** A same-tab download that can never navigate the app away, whatever the response turns
+ *  out to carry.
+ *
+ *  `location.href = …` used to do this, and it worked almost always — the moment the
+ *  response comes back with `Content-Disposition: attachment` a browser abandons the
+ *  navigation on its own. Almost always was the problem: it is still a real navigation
+ *  attempt on the document Argus is running in until that header is seen, and a phone
+ *  browser, a slow connection or two downloads started close together is exactly where
+ *  "almost" shows up — as the whole app reloading from a click that was only ever meant
+ *  to save one file. An `<a download>`, clicked in script, downloads without ever being a
+ *  navigation in the first place: nothing here can un-load the page, because nothing here
+ *  ever asked to. */
+function triggerDownload(url) {
+  const a = el('a', { href: url, download: '' });
+  document.body.append(a);
+  a.click();
+  a.remove();
+}
+
 async function serverInfo() {
   if (!server) server = await getJSON('/api/config');
   return server;
@@ -1646,7 +1665,7 @@ function fileActions(entry, refresh, dest, favGroup = 'main') {
   if (!dir) {
     body.append(el('button', {
       className: 'ghost block',
-      onclick: () => { sheet.close(); location.href = withToken(`/api/download?path=${encodeURIComponent(entry.path)}`); },
+      onclick: () => { sheet.close(); triggerDownload(withToken(`/api/download?path=${encodeURIComponent(entry.path)}`)); },
     }, [icon('download'), el('span', { textContent: t('Download') })]));
   }
 
@@ -3801,7 +3820,7 @@ async function mountPdf(host, path, address, download) {
 async function mountPreview(host, path, ctl) {
   host.textContent = '';
   const src = withToken(`/api/file?path=${encodeURIComponent(path)}`);
-  const download = () => { location.href = withToken(`/api/download?path=${encodeURIComponent(path)}`); };
+  const download = () => { triggerDownload(withToken(`/api/download?path=${encodeURIComponent(path)}`)); };
   ctl.download?.(download);
 
   /* The address of this exact version of the document.
@@ -7418,10 +7437,9 @@ async function screenTmuxConf() {
   let text = '';
   let mtime = 0;
   try {
-    // A `fetch` can carry the header, so it does. `withToken` exists for `<img src>`, for a
-    // download the browser navigates to, and for a websocket — the three places where no
-    // header is possible — and using it anywhere else puts the token in a request line for
-    // nothing.
+    // A `fetch` can carry the header, so it does. `withToken` exists for `<img src>`, for
+    // `triggerDownload`'s `<a>`, and for a websocket — the three places where no header is
+    // possible — and using it anywhere else puts the token in a request line for nothing.
     const r = await fetch(`/api/file?path=${encodeURIComponent(path)}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -12153,10 +12171,9 @@ async function wearLook(look) {
   let text = '';
   let mtime = 0;
   try {
-    // A `fetch` can carry the header, so it does. `withToken` exists for `<img src>`, for a
-    // download the browser navigates to, and for a websocket — the three places where no
-    // header is possible — and using it anywhere else puts the token in a request line for
-    // nothing.
+    // A `fetch` can carry the header, so it does. `withToken` exists for `<img src>`, for
+    // `triggerDownload`'s `<a>`, and for a websocket — the three places where no header is
+    // possible — and using it anywhere else puts the token in a request line for nothing.
     const r = await fetch(`/api/file?path=${encodeURIComponent(path)}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
