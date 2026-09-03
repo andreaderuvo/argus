@@ -14681,14 +14681,24 @@ function deskLinks(id) {
   return (prefs.links[id] = prefs.links[id] || []);
 }
 
-/** Newest first, no repeats: a path an agent mentions in every message earns one line,
- *  and it is the line at the top. */
+/** Most-mentioned first: a path an agent prints in every message is the one worth seeing
+ *  without scrolling, more than whichever happened to come up last. A repeat does not earn
+ *  a second line — the harvester's own per-session `seen` set already keeps one output from
+ *  echoing the same line into a flood of "new" mentions — it counts against the one line
+ *  the path already has, which is what moves it up. A tie (every count of 1, the common
+ *  case) breaks by recency, so the tray still reads newest-first until something repeats. */
 function noteLinks(id, found) {
   const have = deskLinks(id);
-  const known = new Set(have.map((l) => l.text));
-  const fresh = found.filter((l) => !known.has(l.text)).map((l) => ({ ...l, at: Date.now() }));
-  if (!fresh.length) return;
-  have.unshift(...fresh.reverse());
+  const byText = new Map(have.map((l) => [l.text, l]));
+  for (const one of found) {
+    const already = byText.get(one.text);
+    if (already) { already.count = (already.count || 1) + 1; already.at = Date.now(); continue; }
+    const fresh = { ...one, at: Date.now(), count: 1 };
+    have.push(fresh);
+    byText.set(one.text, fresh);
+  }
+  if (!found.length) return;
+  have.sort((a, b) => (b.count || 1) - (a.count || 1) || b.at - a.at);
   if (have.length > LINK_CAP) have.length = LINK_CAP;
   savePrefs();
   trayWatch.get(id)?.();
@@ -14948,6 +14958,10 @@ function attachTray(host, wsId, extras, deliver) {
         el('span', { className: 'trayhead' }, bidi(cut > 0 ? item.text.slice(0, cut + 1) : '')),
         el('span', { className: 'trayleaf' }, bidi(cut >= 0 ? item.text.slice(cut + 1) : item.text)),
       ]);
+      // Silent at 1 — a badge on every row would just be noise reporting the default. It
+      // is the reason a row is ahead of another one, so it earns a spot before `.verb`,
+      // which is about where a link came from rather than why it is where it is.
+      if (item.count > 1) row.append(el('span', { className: 'verb', textContent: `×${item.count}` }));
       if (item.from) row.append(el('span', { className: 'verb', textContent: item.from }));
       dragLink(row, item, deliver.find, deliver.drop);
       // Ctrl/Cmd+click here means the same thing it means on the terminal link this tray
