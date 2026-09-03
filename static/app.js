@@ -8035,8 +8035,10 @@ async function locatePaths(tokens, session) {
  *  right machine, so a loopback address is opened *through* it instead — the same reverse
  *  proxy the System screen offers, opened on demand.
  */
+const normalizeUrl = (raw) => (/^www\./i.test(raw) ? `https://${raw}` : raw);
+
 async function openUrl(raw) {
-  const url = /^www\./i.test(raw) ? `https://${raw}` : raw;
+  const url = normalizeUrl(raw);
   let parsed;
   try { parsed = new URL(url); } catch { return; }
 
@@ -8118,7 +8120,14 @@ function linkPaths(term, container, session, open, following = () => {}) {
       const urls = cands.filter((c) => c.url).map((c) => ({
         text: c.text,
         range: { start: at(c.start, first), end: at(c.end - 1, first) },
-        activate: () => { following(); openUrl(c.text); },
+        // Ctrl/Cmd+click means one thing everywhere on the web — this exact address, in a
+        // new tab, no interpretation — so it skips the loopback-through-Argus proxying a
+        // plain click does: that is a helpful guess for the common case, and a guess is
+        // the one thing a modifier key is asking to be spared from.
+        activate: (event) => {
+          if (event.ctrlKey || event.metaKey) { window.open(normalizeUrl(c.text), '_blank', 'noopener'); return; }
+          following(); openUrl(c.text);
+        },
       }));
       const paths = cands.filter((c) => !c.url);
       if (!paths.length) return done(urls.length ? urls : undefined);
@@ -8134,7 +8143,18 @@ function linkPaths(term, container, session, open, following = () => {}) {
         const links = paths.filter((c) => found[c.text] || (joined && c === tail && found[joined])).map((c) => ({
           text: c.text,
           range: { start: at(c.start, first), end: at(c.end - 1, first) },
-          activate: () => { following(); open((c === tail && joined && found[joined]) || found[c.text]); },
+          activate: (event) => {
+            const hit = (c === tail && joined && found[joined]) || found[c.text];
+            // Same escape hatch as a URL: the raw file, in a new tab, none of Argus's own
+            // chrome around it. Not offered for a directory — there is no raw file behind
+            // one to hand the browser, only the same in-app browser a plain click already
+            // opens.
+            if ((event.ctrlKey || event.metaKey) && hit?.type !== 'directory') {
+              window.open(withToken(`/api/file?path=${encodeURIComponent(hit.path)}`), '_blank', 'noopener');
+              return;
+            }
+            following(); open(hit);
+          },
         }));
         done(urls.concat(links).length ? urls.concat(links) : undefined);
       }).catch(() => done(urls.length ? urls : undefined));
