@@ -990,6 +990,16 @@
        "title": "Path",
        "type": "string"
       }
+     },
+     {
+      "in": "query",
+      "name": "raw",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Raw",
+       "type": "boolean"
+      }
      }
     ],
     "responses": {

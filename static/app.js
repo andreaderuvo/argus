@@ -692,6 +692,11 @@ const withToken = (p) => p + (p.includes('?') ? '&' : '?') + 'token=' + encodeUR
  *  to save one file. An `<a download>`, clicked in script, downloads without ever being a
  *  navigation in the first place: nothing here can un-load the page, because nothing here
  *  ever asked to. */
+/** The real file, exactly as it is on disk, in a new tab — none of Argus's own preview
+ *  around it, and `raw=1` so the server skips `max_preview_bytes` too: a file too big for
+ *  the in-app viewer is not too big to hand the browser directly. */
+const openFileRaw = (path) => window.open(withToken(`/api/file?path=${encodeURIComponent(path)}&raw=1`), '_blank', 'noopener');
+
 function triggerDownload(url) {
   const a = el('a', { href: url, download: '' });
   document.body.append(a);
@@ -8150,7 +8155,7 @@ function linkPaths(term, container, session, open, following = () => {}) {
             // one to hand the browser, only the same in-app browser a plain click already
             // opens.
             if ((event.ctrlKey || event.metaKey) && hit?.type !== 'directory') {
-              window.open(withToken(`/api/file?path=${encodeURIComponent(hit.path)}`), '_blank', 'noopener');
+              openFileRaw(hit.path);
               return;
             }
             following(); open(hit);
@@ -14936,14 +14941,20 @@ function attachTray(host, wsId, extras, deliver) {
       ]);
       if (item.from) row.append(el('span', { className: 'verb', textContent: item.from }));
       dragLink(row, item, deliver.find, deliver.drop);
-      row.onclick = () => {
+      // Ctrl/Cmd+click here means the same thing it means on the terminal link this tray
+      // is a record of: the real thing, in a new tab, none of Argus's own chrome around it.
+      row.onclick = (event) => {
         if (row.dataset.dragged) return;               // that was the end of a drag
-        if (item.url) return openUrl(item.text);
+        if (item.url) {
+          if (event.ctrlKey || event.metaKey) { window.open(normalizeUrl(item.text), '_blank', 'noopener'); return; }
+          return openUrl(item.text);
+        }
         // It was there when it was caught; it may not be now.
         locatePaths([item.text], item.from).then((found) => {
           const hit = found[item.text];
-          if (hit) openLocated('wall', hit, host.closest('.win'));
-          else toast(t('No file at {path}', { path: item.text }), true);
+          if (!hit) return toast(t('No file at {path}', { path: item.text }), true);
+          if ((event.ctrlKey || event.metaKey) && hit.type !== 'directory') { openFileRaw(hit.path); return; }
+          openLocated('wall', hit, host.closest('.win'));
         });
       };
       const grab = el('button', { className: 'winbtn', title: t('Copy the path') }, icon('copy'));

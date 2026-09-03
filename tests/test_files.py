@@ -297,6 +297,68 @@ def test_an_oversized_stl_is_refused_rather_than_sliced(tmp_path):
     assert "download" in r.json()["error"]
 
 
+def test_raw_skips_the_preview_cap_that_would_otherwise_refuse_it(tmp_path):
+    """Ctrl/Cmd+click on a terminal link asks for the real file, not a preview — the whole
+    point is being spared the guess a plain click makes, and `max_preview_bytes` is exactly
+    that kind of guess."""
+    from fastapi.testclient import TestClient
+    from app.config import Config
+    from app.main import create_app
+
+    (tmp_path / "root").mkdir()
+    body = _binary_stl(triangles=100)
+    (tmp_path / "root" / "big.stl").write_bytes(body)
+    client = TestClient(create_app(Config(
+        token=TOKEN, roots=[tmp_path / "root"], max_preview_bytes=200,
+    )))
+    r = client.get(f"/api/file?path={tmp_path / 'root' / 'big.stl'}&raw=1",
+                   headers={"Authorization": f"Bearer {TOKEN}"})
+    assert r.status_code == 200
+    assert r.content == body
+    assert "inline" in r.headers["content-disposition"]
+
+
+def test_raw_serves_the_real_bytes_not_a_rendered_document(tmp_path):
+    """A `.docx` opened raw is the actual zip, with its own mimetype — not pandoc's HTML.
+    Opening the *rendered* document a second time in a new tab would be pointless: it is
+    already one tap away, in the app."""
+    import zipfile
+
+    from fastapi.testclient import TestClient
+    from app.config import Config
+    from app.main import create_app
+
+    (tmp_path / "root").mkdir()
+    doc = tmp_path / "root" / "relazione.docx"
+    with zipfile.ZipFile(doc, "w") as z:
+        z.writestr("word/document.xml", "<w:document/>")
+    client = TestClient(create_app(Config(token=TOKEN, roots=[tmp_path / "root"])))
+    r = client.get(f"/api/file?path={doc}&raw=1", headers={"Authorization": f"Bearer {TOKEN}"})
+    assert r.status_code == 200
+    assert r.content == doc.read_bytes()
+    assert "html" not in r.headers["content-type"]
+    assert "x-rendered" not in r.headers
+
+
+def test_raw_serves_a_binary_file_that_a_preview_would_refuse(tmp_path):
+    from fastapi.testclient import TestClient
+    from app.config import Config
+    from app.main import create_app
+
+    (tmp_path / "root").mkdir()
+    (tmp_path / "root" / "data.bin").write_bytes(b"\x00\x01\x02not text\x00")
+    client = TestClient(create_app(Config(token=TOKEN, roots=[tmp_path / "root"])))
+
+    plain = client.get(f"/api/file?path={tmp_path / 'root' / 'data.bin'}",
+                        headers={"Authorization": f"Bearer {TOKEN}"})
+    assert plain.status_code == 415
+
+    raw = client.get(f"/api/file?path={tmp_path / 'root' / 'data.bin'}&raw=1",
+                      headers={"Authorization": f"Bearer {TOKEN}"})
+    assert raw.status_code == 200
+    assert raw.content == b"\x00\x01\x02not text\x00"
+
+
 def test_a_step_file_is_served_as_a_model_not_as_text(tmp_path):
     """A STEP file is plain ASCII and would pass as text/plain untouched — the point is
     that it is routed to the model viewer regardless, not read as a document."""
