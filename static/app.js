@@ -695,7 +695,16 @@ const withToken = (p) => p + (p.includes('?') ? '&' : '?') + 'token=' + encodeUR
 /** The real file, exactly as it is on disk, in a new tab — none of Argus's own preview
  *  around it, and `raw=1` so the server skips `max_preview_bytes` too: a file too big for
  *  the in-app viewer is not too big to hand the browser directly. */
-const openFileRaw = (path) => window.open(withToken(`/api/file?path=${encodeURIComponent(path)}&raw=1`), '_blank', 'noopener');
+/** `noopener` on a `window.open` also throws away the reference — the return value is
+ *  `null` — which is the right trade for a URL somebody else's page might control (an
+ *  opener it can navigate is a phishing trick waiting to happen) and the wrong one here:
+ *  this is always our own server answering with a file, so there is nothing in it that
+ *  could abuse `window.opener`, and keeping the reference is what lets the tab be put in
+ *  front rather than left to whatever the browser felt like doing with a script-opened one. */
+const openFileRaw = (path) => {
+  const win = window.open(withToken(`/api/file?path=${encodeURIComponent(path)}&raw=1`), '_blank');
+  win?.focus();
+};
 
 function triggerDownload(url) {
   const a = el('a', { href: url, download: '' });
