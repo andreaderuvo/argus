@@ -207,7 +207,7 @@ async def list_dir(request: Request, path: str) -> list[dict]:
 
 
 @router.get("/api/file", tags=["Files"], summary="Read a file, or its tail if it is large")
-async def read_file(request: Request, path: str) -> Response:
+async def read_file(request: Request, path: str, raw: bool = False) -> Response:
     target = _resolve(request, path)
     if target.is_dir():
         raise ApiError(400, "path is a directory")
@@ -217,6 +217,16 @@ async def read_file(request: Request, path: str) -> Response:
     size = stat.st_size
     suffix = target.suffix.lower()
     guessed = MESH_TYPES.get(suffix) or mimetypes.guess_type(target.name)[0] or "application/octet-stream"
+
+    if raw:
+        # Ctrl/Cmd+click on a terminal link: the whole point is the real file, exactly as
+        # it is on disk — not a preview, so none of `max_preview_bytes`, the tail-instead-
+        # of-refusing fallback, or the pandoc/spreadsheet rendering below apply. Streamed
+        # rather than read into memory, so a file too big to preview is not too big to open.
+        return FileResponse(
+            target, media_type=guessed,
+            headers={"content-disposition": content_disposition(target.name, inline=True)},
+        )
     # A document is identified by when it was last written and how big it is. Two things
     # hang off this: a rebuilt PDF can never be served from the cache in place of the new
     # one, and the viewer downloads it once rather than twice — the preview fetches the
