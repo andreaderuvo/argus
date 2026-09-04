@@ -1,4 +1,4 @@
-from app.files import content_disposition, walk_for
+from app.files import content_disposition, preview_kind, walk_for
 
 TOKEN = "testtoken-0123456789abcdef"
 
@@ -357,6 +357,138 @@ def test_raw_serves_a_binary_file_that_a_preview_would_refuse(tmp_path):
                       headers={"Authorization": f"Bearer {TOKEN}"})
     assert raw.status_code == 200
     assert raw.content == b"\x00\x01\x02not text\x00"
+
+
+def test_preview_kind_matches_the_dispatch_it_stands_in_for():
+    assert preview_kind(".pdf", "application/pdf") == "pdf"
+    assert preview_kind(".stl", "model/stl") == "mesh"
+    assert preview_kind(".step", "model/step") == "mesh"
+    assert preview_kind(".xlsx", "application/octet-stream") == "spreadsheet"
+    assert preview_kind(".docx", "application/octet-stream") == "document"
+    assert preview_kind(".odt", "application/octet-stream") == "document"
+    assert preview_kind(".png", "image/png") == "image"
+    assert preview_kind(".txt", "text/plain") == "default"
+
+
+def test_a_per_kind_cap_lets_a_bigger_pdf_through_where_the_global_one_would_refuse(tmp_path):
+    from fastapi.testclient import TestClient
+    from app.config import Config
+    from app.main import create_app
+
+    (tmp_path / "root").mkdir()
+    body = b"%PDF-1.4\n" + b"x" * 500
+    (tmp_path / "root" / "big.pdf").write_bytes(body)
+    cfg = Config(token=TOKEN, roots=[tmp_path / "root"], max_preview_bytes=200)
+    client = TestClient(create_app(cfg))
+    refused = client.get(f"/api/file?path={tmp_path / 'root' / 'big.pdf'}",
+                          headers={"Authorization": f"Bearer {TOKEN}"})
+    assert refused.status_code == 413
+
+    cfg2 = Config(token=TOKEN, roots=[tmp_path / "root"], max_preview_bytes=200,
+                  viewers={"max_bytes": {"pdf": 10_000}})
+    client2 = TestClient(create_app(cfg2))
+    allowed = client2.get(f"/api/file?path={tmp_path / 'root' / 'big.pdf'}",
+                           headers={"Authorization": f"Bearer {TOKEN}"})
+    assert allowed.status_code == 200
+    assert allowed.headers["content-type"].startswith("application/pdf")
+
+
+def test_viewers_force_treats_an_odd_extension_as_a_pdf(tmp_path):
+    from fastapi.testclient import TestClient
+    from app.config import Config
+    from app.main import create_app
+
+    (tmp_path / "root").mkdir()
+    (tmp_path / "root" / "report.dat").write_bytes(b"%PDF-1.4\nnot a real pdf but that is not the point\n")
+    cfg = Config(token=TOKEN, roots=[tmp_path / "root"], viewers={"force": {"dat": "pdf"}})
+    client = TestClient(create_app(cfg))
+    r = client.get(f"/api/file?path={tmp_path / 'root' / 'report.dat'}",
+                    headers={"Authorization": f"Bearer {TOKEN}"})
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("application/pdf")
+    assert "inline" in r.headers["content-disposition"]
+
+
+def test_viewers_force_treats_an_odd_extension_as_a_spreadsheet(tmp_path):
+    import zipfile
+
+    from fastapi.testclient import TestClient
+    from app.config import Config
+    from app.main import create_app
+
+    (tmp_path / "root").mkdir()
+    with zipfile.ZipFile(tmp_path / "root" / "export.rpt", "w") as z:
+        z.writestr("xl/workbook.xml",
+                    '<?xml version="1.0"?><workbook xmlns="http://schemas.openxmlformats.org/'
+                    'spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/'
+                    'officeDocument/2006/relationships"><sheets><sheet name="S" sheetId="1" '
+                    'r:id="rId1"/></sheets></workbook>')
+        z.writestr("xl/_rels/workbook.xml.rels",
+                    '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/'
+                    'package/2006/relationships"><Relationship Id="rId1" '
+                    'Target="worksheets/sheet1.xml" '
+                    'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet"/>'
+                    '</Relationships>')
+        z.writestr("xl/worksheets/sheet1.xml",
+                    '<?xml version="1.0"?><worksheet xmlns="http://schemas.openxmlformats.org/'
+                    'spreadsheetml/2006/main"><sheetData><row r="1"><c r="A1" t="inlineStr">'
+                    '<is><t>hello</t></is></c></row></sheetData></worksheet>')
+    cfg = Config(token=TOKEN, roots=[tmp_path / "root"], viewers={"force": {"rpt": "spreadsheet"}})
+    client = TestClient(create_app(cfg))
+    r = client.get(f"/api/file?path={tmp_path / 'root' / 'export.rpt'}",
+                    headers={"Authorization": f"Bearer {TOKEN}"})
+    assert r.status_code == 200
+    assert r.headers["x-rendered"] == "document"
+    assert "hello" in r.text
+
+
+def test_viewers_force_text_still_refuses_something_genuinely_binary(tmp_path):
+    from fastapi.testclient import TestClient
+    from app.config import Config
+    from app.main import create_app
+
+    (tmp_path / "root").mkdir()
+    (tmp_path / "root" / "data.dat").write_bytes(b"\x00\x01\x02binary\x00")
+    cfg = Config(token=TOKEN, roots=[tmp_path / "root"], viewers={"force": {"dat": "text"}})
+    client = TestClient(create_app(cfg))
+    r = client.get(f"/api/file?path={tmp_path / 'root' / 'data.dat'}",
+                    headers={"Authorization": f"Bearer {TOKEN}"})
+    assert r.status_code == 415, "forcing text is not a promise to render binary garbage as text"
+
+
+def test_viewers_force_text_skips_the_document_rendering_for_something_that_really_is_text(tmp_path):
+    from fastapi.testclient import TestClient
+    from app.config import Config
+    from app.main import create_app
+
+    (tmp_path / "root").mkdir()
+    # Named like an office document, but it is plain text — the case forcing exists for.
+    (tmp_path / "root" / "notes.docx").write_text("just plain text, misnamed")
+    cfg = Config(token=TOKEN, roots=[tmp_path / "root"], viewers={"force": {"docx": "text"}})
+    client = TestClient(create_app(cfg))
+    r = client.get(f"/api/file?path={tmp_path / 'root' / 'notes.docx'}",
+                    headers={"Authorization": f"Bearer {TOKEN}"})
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/plain")
+    assert "x-rendered" not in r.headers
+    assert r.text == "just plain text, misnamed"
+
+
+def test_viewers_force_never_applies_to_a_raw_request(tmp_path):
+    from fastapi.testclient import TestClient
+    from app.config import Config
+    from app.main import create_app
+
+    (tmp_path / "root").mkdir()
+    (tmp_path / "root" / "report.dat").write_text("plain text data")
+    cfg = Config(token=TOKEN, roots=[tmp_path / "root"], viewers={"force": {"dat": "pdf"}})
+    client = TestClient(create_app(cfg))
+    r = client.get(f"/api/file?path={tmp_path / 'root' / 'report.dat'}&raw=1",
+                    headers={"Authorization": f"Bearer {TOKEN}"})
+    assert r.status_code == 200
+    assert not r.headers["content-type"].startswith("application/pdf"), (
+        "raw means the real file, not the forced interpretation of it"
+    )
 
 
 def test_a_step_file_is_served_as_a_model_not_as_text(tmp_path):
