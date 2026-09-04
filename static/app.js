@@ -5788,6 +5788,24 @@ function lastLooked() {
   return at || (Date.now() / 1000) - FIRST_LOOK;
 }
 
+/** A session's own colour, as the small dot every other list in this app already leads
+ *  with — Sessions, Files, the desk's own window list. The same session reads as the same
+ *  dot everywhere, which is the recognition a name alone does not give as quickly. */
+const sessionDot = (name) => {
+  const dot = el('span', { className: 'dot' });
+  dot.style.background = colorFor(name);
+  return dot;
+};
+
+/** The mark for news with no single session to point at — an orchestration spanning
+ *  several. `tint` is one of the status colours, or `'dim'` for nothing in particular to
+ *  say about it. */
+const runIcon = (tint) => {
+  const mark = icon('relay');
+  mark.style.color = `var(--${tint})`;
+  return mark;
+};
+
 /** A question from an agent, with the answer as buttons.
  *
  *  The whole point is that answering costs one tap. Options become buttons; a question with
@@ -5828,6 +5846,7 @@ function askRow(question) {
   }
 
   line.append(
+    question.session ? sessionDot(question.session) : runIcon('st-warning'),
     el('span', { className: 'grow' }, [
       el('span', { className: 'name', textContent: question.session || question.who || t('a session') }),
       el('span', { className: 'meta', textContent: question.text }),
@@ -5880,8 +5899,15 @@ async function screenSince() {
   const fresh = said.sessions || [];
   const wrote = said.files || [];
 
-  const row = (kind, name, note, go) => {
+  /* Every other list in this app leads with something coloured — a session's dot, a
+   *  file's own badge — and this one led with nothing, which is most of why a screen about
+   *  four different kinds of news read as one undifferentiated column of identical lines.
+   *  `lead` is that mark, chosen by the caller because only the caller knows what the row
+   *  is actually about: a session, a file, or an orchestration with no single session to
+   *  point at. */
+  const row = (kind, name, note, go, lead) => {
     const line = el(go ? 'button' : 'div', { className: `row since${kind}`, type: go ? 'button' : undefined }, [
+      lead || runIcon('dim'),
       el('span', { className: 'grow' }, [
         el('span', { className: 'name', textContent: name }),
         el('span', { className: 'meta', textContent: note }),
@@ -5967,25 +5993,30 @@ async function screenSince() {
     for (const question of g.open) lines.push(askRow(question));
     for (const b of g.plain) {
       lines.push(row('asking', b.session || t('a session'), b.text || t('it is waiting for an answer'),
-        b.session ? () => go(`#/term?s=${encodeURIComponent(b.session)}`) : null));
+        b.session ? () => go(`#/term?s=${encodeURIComponent(b.session)}`) : null,
+        b.session ? sessionDot(b.session) : runIcon('st-warning')));
     }
-    for (const r of g.stuck) lines.push(row('asking', r.name, t('an orchestration is waiting'), null));
+    for (const r of g.stuck) lines.push(row('asking', r.name, t('an orchestration is waiting'), null, runIcon('st-warning')));
     for (const b of g.ended) {
       lines.push(row(b.why === 'failed' ? 'failed' : 'done', b.session || t('a session'),
         `${b.text || (b.why === 'failed' ? t('it failed') : t('it finished'))} · ${when(b.at)}`,
-        b.session ? () => go(`#/term?s=${encodeURIComponent(b.session)}`) : null));
+        b.session ? () => go(`#/term?s=${encodeURIComponent(b.session)}`) : null,
+        b.session ? sessionDot(b.session) : runIcon(b.why === 'failed' ? 'st-critical' : 'st-good')));
     }
     for (const r of g.over) {
       lines.push(row(r.state === 'gone' ? 'failed' : 'done', r.name,
-        r.state === 'gone' ? t('lost touch with it') : t('the orchestration finished'), null));
+        r.state === 'gone' ? t('lost touch with it') : t('the orchestration finished'), null,
+        runIcon(r.state === 'gone' ? 'st-critical' : 'st-good')));
     }
     for (const s of g.fresh) {
-      lines.push(row('new', s.name, when(s.created), () => go(`#/term?s=${encodeURIComponent(s.name)}`)));
+      lines.push(row('new', s.name, when(s.created), () => go(`#/term?s=${encodeURIComponent(s.name)}`),
+        sessionDot(s.name)));
     }
     for (const f of g.wrote) {
       lines.push(row('file', f.name,
         `${f.fresh ? t('new') : t('written again')} · ${human(f.size)} · ${when(f.mtime)} · ${parentOf(f.path)}`,
-        () => go(`#/preview?path=${encodeURIComponent(f.path)}`)));
+        () => go(`#/preview?path=${encodeURIComponent(f.path)}`),
+        fileIcon({ type: 'file', name: f.name })));
     }
     if (!lines.length) continue;
     anything = true;
