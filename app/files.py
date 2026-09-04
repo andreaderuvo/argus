@@ -59,6 +59,28 @@ INLINE_TYPES = ("application/pdf", "model/stl", "model/step")
 # model, not a document, and a tail of one is a corrupt assembly rather than a smaller one.
 MESH_TYPES = {".stl": "model/stl", ".step": "model/step", ".stp": "model/step"}
 
+# What `viewers.force` in the config may call an extension, and the representative suffix
+# that gets it there: setting `suffix` to one already in MESH_TYPES/SPREADSHEET_FORMATS
+# and `guessed` to its content type sends a forced extension down the exact branch a real
+# one of that kind would take, rather than duplicating the dispatch below a second time.
+FORCE_SUFFIX = {"stl": ".stl", "step": ".step", "spreadsheet": ".xlsx"}
+
+
+def preview_kind(suffix: str, guessed: str) -> str:
+    """Which `viewers.max_bytes` entry governs this file — worked out the same way
+    `read_file` itself branches, so the two can never disagree about what a file is."""
+    if suffix in SPREADSHEET_FORMATS:
+        return "spreadsheet"
+    if suffix in PANDOC_FORMATS or suffix in ZIPPED_DOCS:
+        return "document"
+    if guessed in ("model/stl", "model/step"):
+        return "mesh"
+    if guessed == "application/pdf":
+        return "pdf"
+    if guessed.startswith("image/"):
+        return "image"
+    return "default"
+
 # An HTML file is served as HTML so it can be previewed rendered — but a page from this
 # origin could read the access token out of localStorage, and plenty of HTML on a
 # bioinformatics box came from somewhere else. The CSP sandbox directive drops it into an
@@ -212,7 +234,6 @@ async def read_file(request: Request, path: str, raw: bool = False) -> Response:
     if target.is_dir():
         raise ApiError(400, "path is a directory")
 
-    limit = request.app.state.cfg.max_preview_bytes
     stat = target.stat()
     size = stat.st_size
     suffix = target.suffix.lower()
@@ -220,13 +241,30 @@ async def read_file(request: Request, path: str, raw: bool = False) -> Response:
 
     if raw:
         # Ctrl/Cmd+click on a terminal link: the whole point is the real file, exactly as
-        # it is on disk — not a preview, so none of `max_preview_bytes`, the tail-instead-
-        # of-refusing fallback, or the pandoc/spreadsheet rendering below apply. Streamed
-        # rather than read into memory, so a file too big to preview is not too big to open.
+        # it is on disk — not a preview, so none of `max_preview_bytes`, `viewers.force`,
+        # the tail-instead-of-refusing fallback, or the pandoc/spreadsheet rendering below
+        # apply. Streamed rather than read into memory, so a file too big to preview is not
+        # too big to open.
         return FileResponse(
             target, media_type=guessed,
             headers={"content-disposition": content_disposition(target.name, inline=True)},
         )
+
+    # `viewers.force` in the config: this extension is to be treated as a different kind
+    # entirely, not guessed from its name. Remapping `suffix` and `guessed` together sends
+    # it down the exact branch a real file of that kind would take, with no dispatch logic
+    # duplicated here to keep in sync with the real thing.
+    forced = request.app.state.cfg.viewer_force(suffix)
+    if forced == "pdf":
+        suffix, guessed = "", "application/pdf"
+    elif forced == "text":
+        suffix, guessed = "", "text/plain"
+    elif forced in FORCE_SUFFIX:
+        suffix = FORCE_SUFFIX[forced]
+        guessed = MESH_TYPES.get(suffix, guessed)
+
+    limit = request.app.state.cfg.preview_limit(preview_kind(suffix, guessed))
+
     # A document is identified by when it was last written and how big it is. Two things
     # hang off this: a rebuilt PDF can never be served from the cache in place of the new
     # one, and the viewer downloads it once rather than twice — the preview fetches the

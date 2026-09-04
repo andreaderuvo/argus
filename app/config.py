@@ -13,6 +13,13 @@ import yaml
 DEFAULT_LISTEN = "127.0.0.1:8080"
 DEFAULT_MAX_PREVIEW = 2 * 1024 * 1024
 RESIZE_POLICIES = ("adapt", "preserve", "auto")
+# The kinds `viewers.max_bytes` may name — every category `read_file` treats differently,
+# plus `default` for everything that falls into none of them (plain text, unrecognised
+# binary). Kept here rather than worked out from files.py, which this module must not
+# import: a config file is validated before anything about how a file is served exists.
+VIEWER_KINDS = ("default", "image", "pdf", "mesh", "spreadsheet", "document")
+# What an extension in `viewers.force` may be told it actually is.
+FORCE_KINDS = ("pdf", "stl", "step", "spreadsheet", "text")
 # A runnable's name becomes a tmux session name and appears in a URL path, so it is kept to
 # the characters that are unambiguous in both.
 RUNNABLE_NAME = re.compile(r"[A-Za-z0-9._-]{1,64}")
@@ -52,6 +59,22 @@ def _drop_dir(raw: dict) -> Path | None:
     return Path(os.path.expanduser(written)) if written else None
 
 
+def _viewers(raw: dict) -> dict:
+    """`viewers.max_bytes` (kind -> a size in bytes) and `viewers.force` (extension -> a
+    kind), normalised enough that `validate` can check values rather than shapes: a leading
+    dot on an extension is forgiven, since `.dat` is what is actually on the file and `dat`
+    is what every other place here already strips it down to."""
+    v = raw.get("viewers")
+    if not isinstance(v, dict):
+        return {}
+    out: dict = {}
+    if isinstance(v.get("max_bytes"), dict):
+        out["max_bytes"] = {str(k): x for k, x in v["max_bytes"].items()}
+    if isinstance(v.get("force"), dict):
+        out["force"] = {str(k).lstrip("."): str(x) for k, x in v["force"].items()}
+    return out
+
+
 @dataclass
 class Config:
     token: str
@@ -67,6 +90,15 @@ class Config:
     # all is the only real lever.
     resize_policy: str = "adapt"
     max_preview_bytes: int = DEFAULT_MAX_PREVIEW
+    # Per-kind overrides of the line above, and per-extension overrides of *what kind a
+    # file is treated as* — empty by default, because one global cap and a guess from the
+    # name are the right answer until something concrete says otherwise: a lab whose PDFs
+    # run past the default cap, a report generated with an extension that does not say
+    # what it actually is.
+    #
+    # {"max_bytes": {"pdf": 31457280, "default": 2097152}, "force": {"dat": "pdf"}}
+    # See VIEWER_KINDS and FORCE_KINDS for what each half may name.
+    viewers: dict = field(default_factory=dict)
     # Which tmux server to drive: a socket name (`-L`) or, with a `/`, a socket path
     # (`-S`). Unset means tmux's default socket — the sessions you already have open.
     # Set it to something disposable when testing: a tmux server can and does crash,
@@ -195,6 +227,22 @@ class Config:
             return None
         return self.drop_dir if self.drop_dir.is_absolute() else self.roots[0] / self.drop_dir
 
+    def preview_limit(self, kind: str) -> int:
+        """The size cap for this kind of file: an override if `viewers.max_bytes` sets
+        one, that section's own `default` if it sets one instead, and `max_preview_bytes`
+        — the setting from before any of this existed — if neither does."""
+        by_kind = self.viewers.get("max_bytes") or {}
+        if kind in by_kind:
+            return int(by_kind[kind])
+        if "default" in by_kind:
+            return int(by_kind["default"])
+        return self.max_preview_bytes
+
+    def viewer_force(self, suffix: str) -> str | None:
+        """What this extension is to be treated as, overriding the guess from its name —
+        or None, the ordinary case. `suffix` may carry its leading dot or not."""
+        return (self.viewers.get("force") or {}).get(suffix.lstrip("."))
+
     def tls(self) -> tuple[Path, Path] | None:
         if self.tls_cert and self.tls_key:
             return self.tls_cert, self.tls_key
@@ -283,6 +331,19 @@ class Config:
                 f"`resize_policy` must be one of {' | '.join(RESIZE_POLICIES)}, "
                 f"not {self.resize_policy!r}"
             )
+        for kind, cap in (self.viewers.get("max_bytes") or {}).items():
+            if kind != "default" and kind not in VIEWER_KINDS:
+                raise ConfigError(
+                    f"`viewers.max_bytes` names {kind!r}, not `default` or one of "
+                    f"{', '.join(VIEWER_KINDS)}"
+                )
+            if not isinstance(cap, int) or isinstance(cap, bool) or cap < 0:
+                raise ConfigError(f"`viewers.max_bytes.{kind}` must be a non-negative number of bytes")
+        for ext, kind in (self.viewers.get("force") or {}).items():
+            if kind not in FORCE_KINDS:
+                raise ConfigError(
+                    f"`viewers.force.{ext}` names {kind!r}, not one of {', '.join(FORCE_KINDS)}"
+                )
         if bool(self.tls_cert) != bool(self.tls_key):
             missing = "tls_key" if self.tls_cert else "tls_cert"
             have = "tls_cert" if self.tls_cert else "tls_key"
@@ -302,6 +363,7 @@ class Config:
             listen=str(raw.get("listen", DEFAULT_LISTEN)),
             resize_policy=str(raw.get("resize_policy", "adapt")).lower(),
             max_preview_bytes=int(raw.get("max_preview_bytes", DEFAULT_MAX_PREVIEW)),
+            viewers=_viewers(raw),
             tmux_socket=raw.get("tmux_socket") or None,
             allow_write=bool(raw.get("allow_write", False)),
             include_mounts=bool(raw.get("include_mounts", False)),
@@ -349,6 +411,7 @@ class Config:
             "roots": [str(r) for r in self.roots],
             "resize_policy": self.resize_policy,
             "max_preview_bytes": self.max_preview_bytes,
+            "viewers": self.viewers,
             "tmux_socket": self.tmux_socket,
             "check_releases": self.check_releases,
             "report_to": self.report_to,

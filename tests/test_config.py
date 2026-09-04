@@ -74,6 +74,71 @@ def test_preserve_is_the_only_policy_that_adds_ignore_size():
     assert mk(resize_policy="preserve").attach_flags() == ["-f", "ignore-size"]
 
 
+def test_no_viewers_section_is_the_ordinary_global_cap():
+    cfg = mk()
+    assert cfg.preview_limit("pdf") == cfg.max_preview_bytes
+    assert cfg.preview_limit("mesh") == cfg.max_preview_bytes
+    assert cfg.viewer_force(".pdf") is None
+
+
+def test_a_kind_override_wins_over_the_global_cap():
+    cfg = mk(viewers={"max_bytes": {"pdf": 30_000_000}})
+    assert cfg.preview_limit("pdf") == 30_000_000
+    # Everything else still falls back to max_preview_bytes, not to the pdf override.
+    assert cfg.preview_limit("mesh") == cfg.max_preview_bytes
+
+
+def test_the_section_s_own_default_wins_over_max_preview_bytes_but_not_a_named_kind():
+    cfg = mk(viewers={"max_bytes": {"default": 1000, "pdf": 30_000_000}})
+    assert cfg.preview_limit("pdf") == 30_000_000
+    assert cfg.preview_limit("image") == 1000
+    assert cfg.preview_limit("default") == 1000
+
+
+def test_viewer_force_reads_an_extension_with_or_without_its_dot():
+    cfg = mk(viewers={"force": {"dat": "pdf"}})
+    assert cfg.viewer_force(".dat") == "pdf"
+    assert cfg.viewer_force("dat") == "pdf"
+    assert cfg.viewer_force(".txt") is None
+
+
+def test_from_dict_strips_a_leading_dot_written_by_hand():
+    cfg = Config.from_dict(yaml.safe_load(
+        "token: 0123456789abcdef0123\nroots: [/tmp]\n"
+        "viewers:\n  force:\n    .dat: pdf\n"
+    ))
+    assert cfg.viewer_force("dat") == "pdf"
+
+
+def test_round_trips_viewers_through_yaml():
+    cfg = mk(viewers={"max_bytes": {"pdf": 30_000_000, "default": 1_000_000}, "force": {"dat": "spreadsheet"}})
+    back = Config.from_dict(yaml.safe_load(yaml.safe_dump(cfg.to_dict())))
+    assert back.preview_limit("pdf") == 30_000_000
+    assert back.preview_limit("default") == 1_000_000
+    assert back.viewer_force("dat") == "spreadsheet"
+
+
+def test_refuses_an_unknown_kind_in_max_bytes():
+    with pytest.raises(ConfigError):
+        mk(viewers={"max_bytes": {"nonsense": 100}}).validate()
+
+
+def test_refuses_a_negative_or_non_integer_cap():
+    with pytest.raises(ConfigError):
+        mk(viewers={"max_bytes": {"pdf": -1}}).validate()
+    with pytest.raises(ConfigError):
+        mk(viewers={"max_bytes": {"pdf": "big"}}).validate()
+
+
+def test_refuses_an_unknown_forced_kind():
+    with pytest.raises(ConfigError):
+        mk(viewers={"force": {"dat": "nonsense"}}).validate()
+
+
+def test_default_is_always_an_accepted_max_bytes_kind():
+    mk(viewers={"max_bytes": {"default": 5}}).validate()
+
+
 def test_first_run_creates_a_private_file_with_a_fresh_token(tmp_path):
     path = tmp_path / "sub" / "config.yaml"
     cfg, created = Config.load_or_create(path)
