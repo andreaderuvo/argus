@@ -3379,6 +3379,10 @@ body:not(.railwide) .railwin.raildesk .railcount { display: none; }
    two, and they must not look like the same decision. */
 .tabclose.tabaway:hover { color: var(--st-warning); }
 
+/* Put the others away — the same reversible move as .tabaway, aimed the other direction,
+   so it wears the app's own accent rather than either close's red or away's amber. */
+.tabclose.tabfocus:hover { color: var(--accent); }
+
 /* A folder as a tile.
  *
  *  Sized so a name of ordinary length fits on two lines and a long one is cut rather than
