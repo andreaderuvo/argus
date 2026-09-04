@@ -6020,7 +6020,13 @@ async function screenSince() {
     }
     if (!lines.length) continue;
     anything = true;
-    wrap.append(el('h2', { className: 'sincegroup', textContent: key === NOWHERE ? t('Elsewhere') : key.name }), ...lines);
+    // A card per desk, the same shape the System screen's own tiles use, rather than a
+    // label sitting directly over a flat list: the news belongs to the desk, and looking
+    // like it visually is most of what a heading in small caps did not do.
+    const head = el('h2', { className: 'sincegroup' },
+      [el('span', { className: 'dot' }), el('span', { textContent: key === NOWHERE ? t('Elsewhere') : key.name })]);
+    head.firstChild.style.background = key === NOWHERE ? 'var(--dim)' : colorFor(`ws:${key.id}`);
+    wrap.append(el('div', { className: 'sincecard' }, [head, ...lines]));
   }
 
   if (!anything) {

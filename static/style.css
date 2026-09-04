@@ -3447,23 +3447,41 @@ body:not(.railwide) .railwin.raildesk .railcount { display: none; }
 
 /* ---------- while you were away ---------- */
 
-.sincewhen { color: var(--dim); margin: 0 0 1rem; }
-.sincegroup {
-  font-size: .74rem; text-transform: uppercase; letter-spacing: .06em;
-  color: var(--accent); margin: 1.6rem 0 .5rem;
+.sincewhen { color: var(--dim); margin: 0 0 1.2rem; font-size: .9rem; }
+
+/* One card per desk — the same recipe the System screen's own tiles use (border, radius,
+   panel fill) — rather than a small-caps label sitting directly over a flat list. The news
+   belongs to the desk, and a card is what makes that true to the eye and not only in the
+   grouping logic underneath it. */
+.sincecard {
+  border: 1px solid var(--line);
+  border-radius: .7rem;
+  background: var(--panel);
+  overflow: hidden;
+  margin: 0 0 1.1rem;
 }
-/* A question has a claim on you; the rest is news. The colour says which is which, and only
-   the first one gets a warm edge — three coloured groups would be a decoration. */
-.row.sinceasking { border-left: 2px solid var(--st-warning); }
-.row.sincefailed { border-left: 2px solid var(--st-critical); }
-.row.sincedone { border-left: 2px solid color-mix(in srgb, var(--st-good) 70%, transparent); }
-.row.sincenew, .row.sincefile { border-left: 2px solid var(--line); }
-.since .row { width: 100%; text-align: left; background: none; border-radius: 0; }
+.sincegroup {
+  display: flex; align-items: center; gap: .55rem;
+  margin: 0; padding: .85rem 1.1rem .7rem;
+  font-size: .92rem; font-weight: 600; color: var(--text);
+}
+.sincegroup .dot { width: 9px; height: 9px; }
+
+/* Every row already leads with its own mark — a session's dot, a file's badge, a tinted
+   relay glyph — so the coloured left edge this used to carry as well was the same fact
+   said twice. One signal, not two, and more room to breathe: a card's own boundary is the
+   only line separating one desk's news from the next, not a rule under every single row. */
+.sincecard .row {
+  width: 100%; text-align: left; background: none; border-radius: 0;
+  border: 0; border-top: 1px solid var(--line);
+  padding: .7rem 1.1rem;
+}
+.sincegroup + .row { border-top: 0; }
 .since button.row { cursor: pointer; }
-.since button.row:hover { background: var(--panel); }
+.since button.row:hover { background: color-mix(in srgb, var(--accent) 6%, transparent); }
 .sincenothing {
   margin: 2.5rem 0; text-align: center; color: var(--dim);
-  padding: 1.6rem; border: 1px dashed var(--line); border-radius: .6rem;
+  padding: 1.6rem; border: 1px dashed var(--line); border-radius: .7rem;
 }
 
 /* A question, with its answers under it. The buttons wrap because two words each is the
