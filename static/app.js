@@ -4254,6 +4254,25 @@ function putDeskAway(ws, spaces, activate, drawTabs) {
   toast(t('{name} is in the rail now', { name: ws.name }));
 }
 
+/** Focus one desk: every other one open in the strip goes to the rail at once — the same
+ *  place "Put it away" sends one, applied to everything except the desk you are looking
+ *  at, and in one motion rather than one press per desk you want gone.
+ *
+ *  Not built on `putDeskAway` in a loop: that would draw the tabs and toast once per desk
+ *  parked, which for six desks is five redraws and five messages saying the same thing.
+ *  Here it is one save, one redraw, one toast that counts.
+ */
+function focusDesk(ws, spaces, activate, drawTabs) {
+  activate(ws.id);
+  const parked = spaces.filter((w) => w.id !== ws.id && !w.hidden);
+  if (!parked.length) return;
+  for (const other of parked) other.hidden = true;
+  savePrefs();
+  drawTabs();
+  paintRailDesks();
+  toast(t('{n} desks moved to the rail — {name} on its own now', { n: parked.length, name: ws.name }));
+}
+
 function toggleStrips() {
   prefs.docWhere = !strips();
   savePrefs();
@@ -10313,6 +10332,7 @@ async function screenWall() {
      */
     if (!ws.hidden && spaces.filter((w) => !w.hidden).length > 1) {
       item('away', t('Put it away'), () => putDeskAway(ws, spaces, activate, drawTabs));
+      item('maximise', t('Put the others away'), () => focusDesk(ws, spaces, activate, drawTabs));
     }
     item('pin', ws.pinned ? t('Unpin') : t('Pin to the front'), () => {
       ws.pinned = !ws.pinned;
@@ -10543,6 +10563,11 @@ async function screenWall() {
         const away = el('button', { className: 'tabclose tabaway', title: t('Put it away') }, icon('away'));
         away.onclick = (e) => { e.stopPropagation(); putDeskAway(ws, spaces, activate, drawTabs); };
         tab.append(away);
+        // The other way round: everything *except* this one goes to the rail, for the
+        // moment eight desks is seven too many and only this one is the point right now.
+        const focus = el('button', { className: 'tabclose tabfocus', title: t('Put the others away') }, icon('maximise'));
+        focus.onclick = (e) => { e.stopPropagation(); focusDesk(ws, spaces, activate, drawTabs); };
+        tab.append(focus);
       }
       if (on && spaces.length > 1 && !ws.pinned) {
         const x = el('button', { className: 'tabclose', title: t('Close this workspace') }, icon('close'));
