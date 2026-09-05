@@ -4389,9 +4389,19 @@ function putStrip(into, path) {
    *
    *  The buttons go on the document's own row when it has one, because two toolbars in a
    *  column read as two toolbars disagreeing about which is the toolbar.
+   *
+   *  Idempotent, not merely additive: this runs again on every reload, and a race between
+   *  two overlapping loads — a watcher's own reload landing beside a manual one, two
+   *  reload triggers close together — must replace what is already here rather than stack
+   *  a second copy beside it. Reported as two bars, sometimes, in the PDF viewer: exactly
+   *  what stacking looks like. `docwherebtns` is `display: contents` — a marker to find
+   *  and remove, invisible to the flex row it sits in.
    */
+  into.querySelector(':scope > .docfacts')?.remove();
+  into.querySelector(':scope > .prevwhere')?.remove();
+  into.querySelector('.pdfbar > .docwherebtns')?.remove();
   const own = into.querySelector('.pdfbar');
-  if (own) own.append(...whereButtons(path));
+  if (own) own.append(el('span', { className: 'docwherebtns' }, whereButtons(path)));
   else into.prepend(el('div', { className: 'prevwhere' }, [...wholeButtons(into), ...whereButtons(path)]));
   into.prepend(whereFacts(path));
 }

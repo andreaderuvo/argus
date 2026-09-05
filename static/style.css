@@ -2840,6 +2840,9 @@ audio.preview.sound {
   background: var(--panel);
   border-bottom: 1px solid var(--line);
 }
+/* A marker `putStrip` can find and remove on a re-call, not a layout of its own: its
+   buttons sit in the bar's own flex row exactly as if there were no wrapper at all. */
+.pdfbar .docwherebtns { display: contents; }
 .pdfcount, .pdfzoom {
   color: var(--dim);
   font-size: .74rem;
