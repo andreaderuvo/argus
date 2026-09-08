@@ -131,6 +131,7 @@ between minor releases; the tmux sessions and files being observed remain indepe
 Argus.
 
 - [Changelog](CHANGELOG.md)
+- [0.2 adoption roadmap](https://github.com/andreaderuvo/argus/milestone/1)
 - [Full documentation](https://github.com/andreaderuvo/argus/wiki)
 - [OpenAPI reference](https://andreaderuvo.github.io/argus/api.html)
 - [Report a bug](https://github.com/andreaderuvo/argus/issues/new?template=bug_report.yml)
