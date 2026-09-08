@@ -220,6 +220,45 @@ def test_a_bell_needs_a_reason_it_knows(client):
     assert fine.status_code == 200 and fine.json()["session"] is None and fine.json()["why"] == "done"
 
 
+def test_ntfy_delivery_is_small_authenticated_and_prioritised():
+    import asyncio
+    import httpx
+    from app.bells import deliver_ntfy
+
+    seen = {}
+
+    async def receive(request):
+        seen["request"] = request
+        return httpx.Response(200, json={"id": "notice"})
+
+    sent = asyncio.run(deliver_ntfy(
+        {"server": "https://notify.example/", "topic": "private/topic", "token": "ntfy-key"},
+        {"why": "asking", "session": "review", "text": "May I change the schema?"},
+        transport=httpx.MockTransport(receive),
+    ))
+    request = seen["request"]
+    assert sent
+    assert str(request.url) == "https://notify.example/private%2Ftopic"
+    assert request.headers["authorization"] == "Bearer ntfy-key"
+    assert request.headers["priority"] == "5"
+    assert request.content == b"review: May I change the schema?"
+
+
+def test_an_ntfy_outage_never_breaks_a_bell():
+    import asyncio
+    import httpx
+    from app.bells import deliver_ntfy
+
+    async def unavailable(_request):
+        return httpx.Response(503)
+
+    assert not asyncio.run(deliver_ntfy(
+        {"server": "https://notify.example", "topic": "private"},
+        {"why": "done", "session": None, "text": ""},
+        transport=httpx.MockTransport(unavailable),
+    ))
+
+
 def test_bells_are_behind_the_token(client):
     assert client.get("/api/bells").status_code == 401
     assert client.post("/api/bell", json={"why": "done"}).status_code == 401

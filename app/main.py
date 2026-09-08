@@ -32,8 +32,12 @@ from .config import Config, ConfigError, default_path
 from .errors import ApiError
 from .safepath import Jail, PathError
 
-VERSION = "0.0.1"
-STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+VERSION = "0.1.0"
+# In a checkout the assets live beside ``app``. Wheels put them inside it so the package is
+# self-contained; accepting both keeps the source tree pleasantly flat without shipping a
+# wheel whose server starts with "Frontend missing".
+_HERE = Path(__file__).resolve().parent
+STATIC_DIR = _HERE / "static" if (_HERE / "static").is_dir() else _HERE.parent / "static"
 BUILTIN_LANG = STATIC_DIR / "lang"
 
 # Not every system's mime database knows these two, and getting them wrong is fatal:
