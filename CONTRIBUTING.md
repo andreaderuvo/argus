@@ -4,6 +4,8 @@ Thanks for helping make Argus useful outside the machine it was built on. Bug re
 documentation corrections and small focused changes are especially valuable while the
 interfaces are still settling.
 
+Participation in this project is governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## Before writing code
 
 - Search the issues first and open one for a substantial change.
