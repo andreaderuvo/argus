@@ -41,7 +41,25 @@ def test_omitted_fields_fall_back_to_defaults():
     assert cfg.resize_policy == "adapt"
     assert cfg.max_preview_bytes == 2 * 1024 * 1024
     assert cfg.tmux_socket is None, "omitted means tmux's default socket"
+    assert cfg.ntfy == {}
     cfg.validate()
+
+
+def test_ntfy_round_trips_and_is_validated():
+    cfg = mk(ntfy={
+        "server": "https://notify.example", "topic": "argus-a8f72d",
+        "token": "secret", "on": ["asking", "failed"],
+    })
+    back = Config.from_dict(yaml.safe_load(yaml.safe_dump(cfg.to_dict())))
+    assert back.ntfy == cfg.ntfy
+    back.validate()
+
+    with pytest.raises(ConfigError, match="ntfy.server"):
+        mk(ntfy={"server": "file:///tmp/out", "topic": "x"}).validate()
+    with pytest.raises(ConfigError, match="ntfy.topic"):
+        mk(ntfy={"topic": "two words"}).validate()
+    with pytest.raises(ConfigError, match="ntfy.on"):
+        mk(ntfy={"topic": "private-topic", "on": ["everything"]}).validate()
 
 
 def test_refuses_weak_or_missing_tokens():

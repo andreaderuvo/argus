@@ -13,6 +13,44 @@ breaking changes go.
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.1.0] — 2026-09-08
+
+The first release meant for people outside the machine Argus was built on. The theme is not
+"more terminal": it is the workspace around long-running agents, packaged so a stranger can
+install it and know exactly what they received.
+
+### Added
+
+- **Agent launchers and git worktrees.** Start Claude Code, Codex, Gemini or any configured
+  command in a folder or an isolated branch, with its first prompt ready.
+- **Agent-to-agent work.** Restricted agent keys, questions that wait for a human answer,
+  relays between sessions and small observable orchestration scripts.
+- **While you were away.** Bells, new sessions, changed files and orchestrations grouped by
+  desk, with blocked work first.
+- **Notifications with the browser closed.** Optional ntfy delivery for asking, failed and
+  completed work; relay outages never block the agent hook.
+- **A real document workspace.** Spreadsheet tables, Mermaid diagrams, STL and STEP models,
+  live PDF reloads, per-kind preview limits and extension overrides.
+- **Phone workflows.** Paste or drop a file into a session, upload it once and type its path
+  at the cursor; persistent drafts and a terminal keyboard designed for touch.
+- **Packaged releases.** A Python wheel and source distribution, SHA-256 checksums, a
+  multi-architecture GHCR image and a release-aware installer.
+- **A contributor surface.** Private vulnerability reporting, contribution guidance, issue
+  forms, pull-request checks and dependency updates.
+
+### Changed
+
+- Argus is positioned as the agent workspace built around existing tmux sessions; Panoptes is
+  presented as the optional Argus Fleet board rather than a separate product to learn first.
+- Workspace preferences now live on the machine, so desks and prompt libraries follow you
+  between browsers while the currently selected desk remains a per-device choice.
+- The installer can install a specific release, verifies packaged release checksums, and has
+  an explicit local-source mode so CI genuinely tests the proposed checkout.
+- Dependencies now have upper compatibility bounds and the distributable Python packages use
+  collision-free namespaces.
+
 ### Fixed
 
 - **Holding a cursor key moved the cursor one position and stopped.** The filter that
@@ -76,5 +114,6 @@ The first tagged version. Argus has been in daily use for three weeks before thi
 - A **watcher** token that opens exactly one door, `GET /api/overview`, and nothing else.
   [Panoptes](https://github.com/andreaderuvo/panoptes) is the board that uses it.
 
-[Unreleased]: https://github.com/andreaderuvo/argus/compare/v0.0.1...HEAD
+[Unreleased]: https://github.com/andreaderuvo/argus/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/andreaderuvo/argus/compare/v0.0.1...v0.1.0
 [0.0.1]: https://github.com/andreaderuvo/argus/releases/tag/v0.0.1

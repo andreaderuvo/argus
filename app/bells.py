@@ -6,10 +6,9 @@ Claude Code has `Stop`, `SubagentStop` and `Notification` — and a hook knows t
 thing no amount of watching can tell you apart: whether it *finished* or whether it is
 *waiting for you*. So the hook posts here and the browser rings.
 
-Nothing is stored on disk and nothing is delivered anywhere: this is a short list the
-browsers read from. Notifications that leave the machine (a phone with the tab closed)
-need either HTTPS for Web Push or a relay like ntfy, and that is deliberately not decided
-here.
+Nothing is stored on disk: this is a short list the browsers read from. When ``ntfy`` is
+configured, a deliberately small copy of a bell can also go to that server so a locked phone
+or a closed browser still hears it.
 """
 
 from __future__ import annotations
@@ -20,7 +19,9 @@ import time
 from collections import deque
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
+import httpx
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 
@@ -92,7 +93,64 @@ def rung(request: Request, why: str, session: str | None = None, text: str = "",
             ear.put_nowait(bell)
         except asyncio.QueueFull:
             kept["ears"].discard(ear)
+    dispatch_ntfy(request, bell)
     return bell
+
+
+def dispatch_ntfy(request: Request, bell: dict) -> None:
+    """Send without holding up the hook that rang.
+
+    A notification relay is useful precisely when it is somewhere else, so it must not turn
+    a slow network or an ntfy outage into a slow agent hook. Delivery is best-effort; the
+    in-memory bell and every open browser remain independent of it.
+    """
+    config = getattr(request.app.state.cfg, "ntfy", {})
+    if not config or bell["why"] not in config.get("on", ["asking", "failed", "done"]):
+        return
+    task = asyncio.create_task(deliver_ntfy(config, bell))
+    # Keep a reference until completion: event loops only hold weak references to tasks.
+    pending = getattr(request.app.state, "notification_tasks", None)
+    if pending is None:
+        pending = request.app.state.notification_tasks = set()
+    pending.add(task)
+    task.add_done_callback(pending.discard)
+
+
+async def deliver_ntfy(config: dict, bell: dict, *, transport=None) -> bool:
+    """Deliver one privacy-minimised message. False means the relay was unavailable."""
+    server = str(config.get("server") or "https://ntfy.sh").rstrip("/")
+    url = f"{server}/{quote(str(config['topic']), safe='')}"
+    why = bell["why"]
+    session = bell.get("session")
+    title = {
+        "asking": "Argus - an agent needs you",
+        "failed": "Argus - a run failed",
+        "done": "Argus - work finished",
+        "note": "Argus",
+    }[why]
+    fallback = {
+        "asking": "Waiting for an answer",
+        "failed": "A run failed",
+        "done": "Work finished",
+        "note": "New notification",
+    }[why]
+    message = str(bell.get("text") or fallback)[:MAX_TEXT]
+    if session:
+        message = f"{session}: {message}"
+    headers = {
+        "Title": title,
+        "Priority": "5" if why in {"asking", "failed"} else "3",
+        "Tags": "question" if why == "asking" else "warning" if why == "failed" else "white_check_mark",
+    }
+    if config.get("token"):
+        headers["Authorization"] = f"Bearer {config['token']}"
+    try:
+        async with httpx.AsyncClient(timeout=10, transport=transport) as client:
+            answer = await client.post(url, content=message.encode("utf-8"), headers=headers)
+            answer.raise_for_status()
+        return True
+    except httpx.HTTPError:
+        return False
 
 
 def announce(request: Request, said: dict) -> None:

@@ -10,9 +10,9 @@ name: install
 on:
   push:
     branches: [master, main]
-    paths: ['install.sh', 'Dockerfile', 'docker-compose.yml', 'requirements.txt', '.github/workflows/install.yml']
+    paths: ['install.sh', 'Dockerfile', 'docker-compose.yml', 'requirements.txt', 'pyproject.toml', '.github/workflows/install.yml']
   pull_request:
-    paths: ['install.sh', 'Dockerfile', 'docker-compose.yml', 'requirements.txt', '.github/workflows/install.yml']
+    paths: ['install.sh', 'Dockerfile', 'docker-compose.yml', 'requirements.txt', 'pyproject.toml', '.github/workflows/install.yml']
   workflow_dispatch:
 
 jobs:
@@ -42,7 +42,7 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/home/.config"
           env -i HOME="$RUNNER_TEMP/home" XDG_CONFIG_HOME="$RUNNER_TEMP/home/.config" \
-                 PATH="$PATH" USER="$USER" bash install.sh
+                 PATH="$PATH" USER="$USER" bash install.sh --source "$GITHUB_WORKSPACE"
 
       - name: it starts, answers, and knows its own version
         run: |
@@ -74,7 +74,8 @@ jobs:
         run: |
           export HOME="$RUNNER_TEMP/home"
           before=$(sed -n 's/^token: *//p' "$HOME/.config/argus/config.yaml")
-          env -i HOME="$HOME" XDG_CONFIG_HOME="$HOME/.config" PATH="$PATH" USER="$USER" bash install.sh
+          env -i HOME="$HOME" XDG_CONFIG_HOME="$HOME/.config" PATH="$PATH" USER="$USER" \
+                 bash install.sh --source "$GITHUB_WORKSPACE"
           after=$(sed -n 's/^token: *//p' "$HOME/.config/argus/config.yaml")
           [ "$before" = "$after" ] || { echo "the update changed the token"; exit 1; }
 

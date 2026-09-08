@@ -21,12 +21,17 @@
 #
 #   ... | bash -s -- --service     also install a systemd user service and start it
 #   ... | bash -s -- --dir ~/opt   somewhere else
+#   ... | bash -s -- --version v0.1.0  install one release exactly
+#   ... | bash -s -- --branch next  install an unreleased branch (development only)
+#   bash install.sh --source .       install this checkout (development and CI)
 #   ... | bash -s -- uninstall     take it all back out
 #
 set -euo pipefail
 
 REPO=${ARGUS_REPO:-andreaderuvo/argus}
-BRANCH=${ARGUS_BRANCH:-master}
+VERSION=${ARGUS_VERSION:-latest}
+BRANCH=${ARGUS_BRANCH:-}
+INSTALL_SOURCE=${ARGUS_SOURCE:-}
 DIR=${ARGUS_DIR:-$HOME/.local/share/argus}
 BIN=${ARGUS_BIN:-$HOME/.local/bin}
 SERVICE=no
@@ -45,7 +50,9 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --service) SERVICE=yes ;;
     --dir) DIR=${2:?--dir wants a path}; shift ;;
+    --version) VERSION=${2:?--version wants a tag such as v0.1.0}; shift ;;
     --branch) BRANCH=${2:?--branch wants a name}; shift ;;
+    --source) INSTALL_SOURCE=${2:?--source wants a checkout directory}; shift ;;
     uninstall|--uninstall) ACTION=uninstall ;;
     -h|--help) sed -n '2,30p' "$0" | sed 's/^#\{1,2\} \{0,1\}//'; exit 0 ;;
     *) die "I do not know what --$1 means. --help lists what there is." ;;
@@ -118,11 +125,67 @@ fi
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
-step "downloading $REPO ($BRANCH)…"
-curl -fsSL "https://codeload.github.com/$REPO/tar.gz/refs/heads/$BRANCH" \
-  | tar xz -C "$TMP" || die "the download failed. Is $REPO/$BRANCH the right place?"
+if [ -n "$INSTALL_SOURCE" ]; then
+  FRESH=$(cd "$INSTALL_SOURCE" && pwd) || die "cannot read source directory $INSTALL_SOURCE"
+  step "installing local checkout $FRESH…"
+elif [ -n "$BRANCH" ]; then
+  warn "installing unreleased branch $BRANCH; release checksums do not cover branches"
+  step "downloading $REPO ($BRANCH)…"
+  curl -fsSL "https://codeload.github.com/$REPO/tar.gz/refs/heads/$BRANCH" \
+    -o "$TMP/source.tar.gz" || die "the download failed. Is $REPO/$BRANCH the right place?"
+else
+  if [ "$VERSION" = latest ]; then
+    API="https://api.github.com/repos/$REPO/releases/latest"
+  else
+    API="https://api.github.com/repos/$REPO/releases/tags/$VERSION"
+  fi
+  META=$(curl -fsSL "$API") || die "cannot find release $VERSION for $REPO"
+  TAG=$(printf '%s' "$META" | "$PY" -c 'import json,sys; print(json.load(sys.stdin)["tag_name"])')
+  ASSET=$(printf '%s' "$META" | "$PY" -c '
+import json, sys
+for asset in json.load(sys.stdin).get("assets", []):
+    name = asset.get("name", "")
+    if name.endswith(".tar.gz") and name.startswith("argus_agent_workspace-"):
+        print(asset["browser_download_url"])
+        break
+')
+  SUMS=$(printf '%s' "$META" | "$PY" -c '
+import json, sys
+for asset in json.load(sys.stdin).get("assets", []):
+    if asset.get("name") == "SHA256SUMS":
+        print(asset["browser_download_url"])
+        break
+')
+  step "downloading $REPO $TAG…"
+  if [ -n "$ASSET" ]; then
+    ARCHIVE=${ASSET##*/}
+    curl -fsSL "$ASSET" -o "$TMP/$ARCHIVE" || die "downloading the release archive failed"
+    [ -n "$SUMS" ] || die "release $TAG has an archive but no SHA256SUMS"
+    curl -fsSL "$SUMS" -o "$TMP/SHA256SUMS" || die "downloading release checksums failed"
+    "$PY" - "$TMP/$ARCHIVE" "$TMP/SHA256SUMS" <<'PY' \
+      || die "the release checksum does not match"
+import hashlib, pathlib, sys
+archive, sums = map(pathlib.Path, sys.argv[1:])
+wanted = {line.split(None, 1)[1].lstrip("* "): line.split(None, 1)[0]
+          for line in sums.read_text().splitlines() if len(line.split(None, 1)) == 2}
+actual = hashlib.sha256(archive.read_bytes()).hexdigest()
+raise SystemExit(0 if wanted.get(archive.name) == actual else 1)
+PY
+    step "checksum verified"
+    mv "$TMP/$ARCHIVE" "$TMP/source.tar.gz"
+  else
+    # Releases before 0.1.0 only have GitHub's automatic source archive. This fallback lets
+    # an old installation update once; every new release carries verified assets.
+    warn "release $TAG predates verified assets; using GitHub's source archive"
+    curl -fsSL "https://codeload.github.com/$REPO/tar.gz/refs/tags/$TAG" \
+      -o "$TMP/source.tar.gz" || die "downloading release $TAG failed"
+  fi
+fi
 
-FRESH=$(find "$TMP" -maxdepth 1 -mindepth 1 -type d | head -1)
+if [ -z "$INSTALL_SOURCE" ]; then
+  tar xzf "$TMP/source.tar.gz" -C "$TMP" || die "the downloaded archive is not valid"
+  FRESH=$(find "$TMP" -maxdepth 1 -mindepth 1 -type d | head -1)
+fi
 [ -f "$FRESH/app/main.py" ] || die "that tarball is not Argus — no app/main.py in it."
 
 mkdir -p "$DIR" "$BIN"

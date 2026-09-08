@@ -2,6 +2,9 @@ __pycache__/
 *.py[co]
 .pytest_cache/
 .venv/
+dist/
+build/
+*.egg-info/
 
 # Never: the config holds the access token.
 config.yaml
