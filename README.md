@@ -93,6 +93,9 @@ docker compose logs argus
 The container is packaging, not a sandbox: to reach the host's tmux sessions it needs the
 host tmux socket, matching user ID, process namespace and home-directory path. Read the
 [container notes](docker-compose.yml) before deploying it.
+Versioned `amd64`/`arm64` images are public at
+[`ghcr.io/andreaderuvo/argus`](https://github.com/andreaderuvo/argus/pkgs/container/argus);
+the Compose file shows how to switch from a local build to the released image.
 
 The first run prints a URL containing a fresh 64-character token. `--qr` prints a QR code for
 opening it on a phone.

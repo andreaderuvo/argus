@@ -513,6 +513,9 @@ argus --allow-write                      # prints a URL with a token in it</pre>
       program and has no native Windows build:</p>
 <pre>git clone https://github.com/andreaderuvo/argus &amp;&amp; cd argus
 ARGUS_UID=$(id -u) ARGUS_GID=$(id -g) docker compose up -d</pre>
+    <p>Versioned <code>amd64</code>/<code>arm64</code> images are also published at
+      <a href="https://github.com/andreaderuvo/argus/pkgs/container/argus"><code>ghcr.io/andreaderuvo/argus</code></a>;
+      the Compose file documents the one-line switch from a local build.</p>
     <p>Or the old way, <code>git clone</code> and <code>pip install -r requirements.txt</code>.
       All three are checked on every change, on Linux and macOS: installed into an empty home,
       started, a real tmux session listed through the API, updated, removed — and the image is
