@@ -1,119 +1,142 @@
 <div align="center">
 
-<img src="static/icon-512.png" width="128" alt="Argus — the hundred-eyed watchman">
+<img src="static/icon-512.png" width="112" alt="Argus — the hundred-eyed watchman">
 
 # Argus
 
-**Watch your AI agents work. From anywhere.**
+### The workspace around your existing AI agents
 
-They already run in tmux — Claude Code, Codex, Gemini, a script that takes two hours.
-Argus puts those sessions, the files they are writing and the report they just produced in
-one browser tab, and the same thing on your phone. Nothing to install inside the agent: if
-it runs in a terminal, it works.
+**Any CLI. Any tmux session. Terminal, files, reports and hand-offs together — on your
+desktop or your phone.**
 
-![Three agents on one desk — a frontend Claude, a backend Codex and a Claude running the tests — with a file browser beside them, then two more desks](docs/img/desks.gif)
+Argus does not replace tmux or wrap your agent in a new runtime. It attaches to the sessions
+you already run, whether they contain Claude Code, Codex, Gemini, a test suite or a long shell
+script. Stop Argus and every session carries on.
 
-*Three agents on one job: a Claude on the frontend, a Codex on the API, a Claude running
-the tests — and the tester has found what the other two missed. The files they are writing
-sit beside them, and the next desk is one press away.*
+![Three agents working on one job, with their files beside them](docs/img/desks.gif)
 
 [![tests](https://github.com/andreaderuvo/argus/actions/workflows/tests.yml/badge.svg)](https://github.com/andreaderuvo/argus/actions/workflows/tests.yml)
 [![install](https://github.com/andreaderuvo/argus/actions/workflows/install.yml/badge.svg)](https://github.com/andreaderuvo/argus/actions/workflows/install.yml)
-[![python](https://img.shields.io/badge/python-3.11%2B-3776ab?logo=python&logoColor=white)](https://www.python.org/)
-[![status](https://img.shields.io/badge/status-early%20%C2%B7%20interfaces%20may%20change-d6b46f)](#)
-[![licence](https://img.shields.io/badge/licence-MIT-blue)](LICENSE)
-[![no build step](https://img.shields.io/badge/build%20step-none-8fd6a0)](https://github.com/andreaderuvo/argus/wiki/Getting-started)
-[![tmux](https://img.shields.io/badge/tmux-real%20PTY-1bb91f)](https://github.com/andreaderuvo/argus/wiki/Sessions-and-the-terminal)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776ab?logo=python&logoColor=white)](https://www.python.org/)
+[![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**[See it in one page →](https://andreaderuvo.github.io/argus/)**  ·  **[Read the
-wiki →](https://github.com/andreaderuvo/argus/wiki)**
+**[See the product tour](https://andreaderuvo.github.io/argus/)** ·
+**[Install](#install)** · **[Documentation](https://github.com/andreaderuvo/argus/wiki)**
 
 </div>
 
-## Run it
+## Why Argus
+
+Coding agents increasingly work for minutes or hours while your job becomes supervising,
+unblocking and reviewing. An editor is excellent while you write code; it is a poor control
+room for several terminals and the artifacts they produce.
+
+Argus keeps tmux as the source of truth and adds the missing workspace around it:
+
+- attach to real, already-running sessions through a PTY;
+- see which agent is working, finished or waiting for you, with optional ntfy delivery when
+  the browser is closed;
+- open a path printed in the terminal with one click;
+- inspect Markdown, PDF, Word, logs, images and source beside the session;
+- launch agents in a folder or isolated git worktree with the first prompt ready;
+- hand work between different agents without requiring a shared SDK;
+- arrange sessions and files into persistent desks;
+- use the same workspace from a phone, including a mobile terminal keyboard;
+- expose no repository, prompt or session to a hosted control plane.
+
+| | Argus | Agent-specific remote control | Browser terminal |
+|---|---|---|---|
+| Existing tmux sessions | Yes | Usually no | Sometimes |
+| Claude, Codex, Gemini and any CLI | Yes | One ecosystem | Yes |
+| Files and rendered reports beside the terminal | Yes | Limited | No |
+| Multi-agent hand-offs and worktrees | Yes | No | No |
+| Self-hosted, no account or cloud relay | Yes | No | Varies |
+
+## Install
+
+Argus needs Python 3.11+ and tmux. Linux and macOS run it natively; Windows runs it inside
+WSL.
+
+### Installer
+
+Inspect the script, then run it:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/andreaderuvo/argus/master/install.sh | bash
-argus --allow-write        # prints a URL with a token in it
+curl -fsSLO https://raw.githubusercontent.com/andreaderuvo/argus/master/install.sh
+less install.sh
+bash install.sh
+argus --allow-write
 ```
 
-Into `~/.local/share/argus`, with a launcher at `~/.local/bin/argus`. No `sudo`, no system
-package, nothing outside your home; the same line again updates it, `-s -- uninstall` removes
-it, `-s -- --service` also installs a systemd user service. Or `docker compose up -d`, or
-`git clone` and `pip install -r requirements.txt` — [all three, and what the container
-needs](https://github.com/andreaderuvo/argus/wiki/Getting-started).
+It installs under `~/.local/share/argus`, uses no `sudo`, and leaves configuration in
+`~/.config/argus`. Run it again to update, add `--service` for a systemd user service, or run
+`bash install.sh uninstall` to remove the application.
 
-Python 3.11+, tmux, five dependencies, no build step and no database; `--qr` prints a code to
-photograph with a phone. The first run writes `~/.config/argus/config.yaml` with a fresh
-64-character token, which is the only credential there is.
+### From source
 
-Linux and macOS natively — Windows inside WSL, because tmux is a Unix program and has no
-native Windows build. The browser side is any operating system with a browser, which is the
-point.
+```bash
+git clone https://github.com/andreaderuvo/argus.git
+cd argus
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -r requirements.txt
+python -m app.main --allow-write
+```
 
-> [!NOTE]
-> **Early, and moving.** Argus is a few weeks old and in daily use by one person — the tests
-> are real (400+, on Linux and macOS, every push) and so is the churn. Concretely: **config
-> keys, API shapes and the layout of what the browser remembers can change between commits**,
-> there is no upgrade path promised yet, and a version number is a marker rather than a
-> contract until 1.0.
->
-> What is *not* at risk is your work: Argus owns no data. It attaches to tmux sessions that
-> outlive it, reads files it did not create, and the one switch that lets it change anything is
-> `--allow-write`. Kill it and everything carries on.
->
-> **Feedback is the most useful thing you can send** — especially "this broke", "this was
-> confusing", or "I expected X". [Open an issue](https://github.com/andreaderuvo/argus/issues)
-> with what you did, what happened, and which OS; a screenshot of a wrong-looking screen is
-> worth a paragraph.
+### Container
+
+```bash
+ARGUS_UID=$(id -u) ARGUS_GID=$(id -g) docker compose up -d
+docker compose logs argus
+```
+
+The container is packaging, not a sandbox: to reach the host's tmux sessions it needs the
+host tmux socket, matching user ID, process namespace and home-directory path. Read the
+[container notes](docker-compose.yml) before deploying it.
+
+The first run prints a URL containing a fresh 64-character token. `--qr` prints a QR code for
+opening it on a phone.
+
+## Safe by default
 
 > [!WARNING]
-> **This is remote shell access wearing a browser.** Anyone holding the token can run
-> anything you can. Put it on a LAN, behind a VPN, or through an SSH tunnel — never on the
-> open internet. [Security](https://github.com/andreaderuvo/argus/wiki/Security) says what
-> protects it and what does not, and [Reaching it from
-> outside](https://github.com/andreaderuvo/argus/wiki/Reaching-it-from-outside) has the
-> ways in that are safe.
+> Argus is remote shell access in a browser. Anyone holding a full access token can act as the
+> account running it. Keep it on loopback, a trusted LAN, behind a VPN such as Tailscale, or
+> behind an SSH tunnel. Never expose its HTTP port directly to the public internet.
 
-## Where everything else is
+Argus starts on `127.0.0.1`, file writes and the local-port proxy are disabled by default,
+paths are confined to configured roots, and phones can receive individually revocable device
+tokens. Separate restricted tokens let agents ring, ask questions and hand off work without
+receiving browser or shell authority.
 
-The [wiki](https://github.com/andreaderuvo/argus/wiki) is the documentation. It used to all
-be in this file, which meant the answer to "what is this" arrived a thousand lines before
-you could read it.
+Read the [security model](https://github.com/andreaderuvo/argus/wiki/Security) and the
+[private vulnerability policy](SECURITY.md) before making it reachable from another machine.
 
-| | |
-|---|---|
-| [Getting started](https://github.com/andreaderuvo/argus/wiki/Getting-started) | installing, the config file, running it as a service |
-| [Starting an agent](https://github.com/andreaderuvo/argus/wiki/Starting-an-agent) | a shell or an agent, in a folder or a fresh git worktree, with its first instruction typed in |
-| [Sessions and the terminal](https://github.com/andreaderuvo/argus/wiki/Sessions-and-the-terminal) | attaching, typing, copying, prompts, placeholders |
-| [Files](https://github.com/andreaderuvo/argus/wiki/Files) and [Documents](https://github.com/andreaderuvo/argus/wiki/Documents) | browsing, editing, uploading; markdown, PDF, Word, logs |
-| [Desks and windows](https://github.com/andreaderuvo/argus/wiki/Desks-and-windows) | workspaces, arrangements, the link tray |
-| [Two agents on one job](https://github.com/andreaderuvo/argus/wiki/Two-agents) | the two patterns, the bridge file, the review loop |
-| [Orchestrating several agents](https://github.com/andreaderuvo/argus/wiki/Orchestrating-several-agents) | the framework, and three worked orchestrators of twenty lines each |
-| [The API](https://github.com/andreaderuvo/argus/wiki/The-API#the-workspace) | the workspace lives on the machine: a desk made at the desk is on the phone, and a script can read the prompt library |
-| [Notifications](https://github.com/andreaderuvo/argus/wiki/Notifications) | being told when it has finished, or when it wants you |
-| [Keyboard shortcuts](https://github.com/andreaderuvo/argus/wiki/Keyboard) | the keys, and how to change them |
-| [What each agent can do](https://github.com/andreaderuvo/argus/wiki/Agents) | who rings, who can say which folder and model it is on |
-| [Security](https://github.com/andreaderuvo/argus/wiki/Security) | the token, the file jail, per-device keys, the journal |
-| [An agent driving Argus](https://github.com/andreaderuvo/argus/wiki/An-agent-driving-Argus) | a key that can do five things, so your agents can hand work to each other |
-| [Orchestrating several agents](https://github.com/andreaderuvo/argus/wiki/Orchestrating-several-agents) | three worked examples: N attempts and a judge, N referees and an editor, three roles on one repo |
-| [The API](https://github.com/andreaderuvo/argus/wiki/The-API) | everything the app does, a script can do — and Swagger on your own machine |
-| [Everything it does](https://github.com/andreaderuvo/argus/wiki/Everything-it-does) | the whole catalogue, one page, searchable |
-| [FAQ](https://github.com/andreaderuvo/argus/wiki/FAQ) and [Troubleshooting](https://github.com/andreaderuvo/argus/wiki/Troubleshooting) | the questions people actually ask |
-| [Development](https://github.com/andreaderuvo/argus/wiki/Development) | the tests, the three scripts, the vendored code |
+## Argus Fleet, powered by Panoptes
 
-## Licence
+Argus is the workspace for one machine. **[Panoptes](https://github.com/andreaderuvo/panoptes)**
+is its fleet board: every Argus machine on one page, ordered by which one needs you. It holds
+restricted watcher keys and never sends a machine key to the browser.
 
-MIT — see [LICENSE](LICENSE). Vendored under `static/vendor/`, unmodified: xterm.js, marked,
-qrcode-generator and mermaid (MIT), highlight.js (BSD-3-Clause), pdf.js and swagger-ui
-(Apache-2.0), each keeping its own licence beside it.
+Use Argus alone first. Add Panoptes when opening one tab per machine stops scaling.
 
----
+## Project status
 
-<div align="center">
+Argus is pre-1.0 and used daily, with 500+ tests across supported Python versions plus
+installer checks on Linux and macOS. Configuration keys and API shapes may still change
+between minor releases; the tmux sessions and files being observed remain independent of
+Argus.
 
-**Argus** is one machine. **[Panoptes](https://github.com/andreaderuvo/panoptes)** is the
-board over several of them: every machine on one page, which sessions are on each, and
-which one is waiting for you.
+- [Changelog](CHANGELOG.md)
+- [Full documentation](https://github.com/andreaderuvo/argus/wiki)
+- [OpenAPI reference](https://andreaderuvo.github.io/argus/api.html)
+- [Report a bug](https://github.com/andreaderuvo/argus/issues/new?template=bug_report.yml)
+- [Contribute](CONTRIBUTING.md)
 
-</div>
+If Argus improves your workflow, a GitHub star helps other people find it. More importantly,
+tell us what was confusing or broke on your machine.
+
+## License
+
+MIT. Vendored browser libraries retain their upstream MIT, BSD-3-Clause or Apache-2.0
+licenses under `static/vendor/`.

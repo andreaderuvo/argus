@@ -1,0 +1,46 @@
+name: Bug report
+description: Something broke or behaved differently from what you expected
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for reporting it. Please do not put access tokens or private paths in screenshots or logs.
+  - type: input
+    id: version
+    attributes:
+      label: Argus version
+      description: Output of `argus --version`, or the commit hash.
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Server operating system
+      options: [Linux, macOS, Windows through WSL, Other]
+    validations:
+      required: true
+  - type: textarea
+    id: happened
+    attributes:
+      label: What happened?
+      description: Tell us what you did, what you expected and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction steps
+      placeholder: "1. Start Argus with…\n2. Open…\n3. Press…"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      render: shell
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety check
+      options:
+        - label: I removed access tokens, private hostnames and sensitive file contents.
+          required: true

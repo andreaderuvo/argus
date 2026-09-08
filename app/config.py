@@ -20,6 +20,7 @@ RESIZE_POLICIES = ("adapt", "preserve", "auto")
 VIEWER_KINDS = ("default", "image", "pdf", "mesh", "spreadsheet", "document")
 # What an extension in `viewers.force` may be told it actually is.
 FORCE_KINDS = ("pdf", "stl", "step", "spreadsheet", "text")
+NOTIFY_REASONS = ("asking", "done", "failed", "note")
 # A runnable's name becomes a tmux session name and appears in a URL path, so it is kept to
 # the characters that are unambiguous in both.
 RUNNABLE_NAME = re.compile(r"[A-Za-z0-9._-]{1,64}")
@@ -184,6 +185,12 @@ class Config:
     # Ask github.com once a day whether a newer tag exists. It sends nothing — not even
     # which version is running — and it never updates anything. Off is a supported answer.
     check_releases: bool = True
+    # Optional delivery to an ntfy server, for the case an open browser cannot cover: the
+    # phone is locked or the tab has been closed. The topic is effectively a password on a
+    # public ntfy server, so the generated config leaves this empty and the documentation
+    # tells people to use an unguessable one or a self-hosted authenticated server.
+    # {server, topic, token, on}; token and on are optional.
+    ntfy: dict = field(default_factory=dict)
     # Where this machine announces itself, for a board it cannot be reached *from*.
     # {url, token, name, reach, every}. Empty means it announces itself nowhere, which is
     # the default: a machine that phones a board you did not set up is a surprise.
@@ -259,6 +266,16 @@ class Config:
                     raise ConfigError(f"`report_to` needs a {needed}")
             if not str(self.report_to["url"]).startswith(("http://", "https://")):
                 raise ConfigError("`report_to.url` must start with http:// or https://")
+        if self.ntfy:
+            server = str(self.ntfy.get("server") or "https://ntfy.sh")
+            topic = str(self.ntfy.get("topic") or "").strip()
+            if not server.startswith(("http://", "https://")):
+                raise ConfigError("`ntfy.server` must start with http:// or https://")
+            if not topic or any(c.isspace() for c in topic) or len(topic) > 128:
+                raise ConfigError("`ntfy.topic` must be 1–128 characters without spaces")
+            events = self.ntfy.get("on", ["asking", "failed", "done"])
+            if not isinstance(events, list) or any(x not in NOTIFY_REASONS for x in events):
+                raise ConfigError(f"`ntfy.on` may only contain {', '.join(NOTIFY_REASONS)}")
         for w in self.watchers:
             if len(w["token"]) < 16:
                 raise ConfigError(
@@ -377,6 +394,7 @@ class Config:
             drop_dir=_drop_dir(raw),
             drop_keep_days=int(raw.get("drop_keep_days", 0) or 0),
             check_releases=bool(raw.get("check_releases", True)),
+            ntfy=dict(raw.get("ntfy") or {}),
             report_to=dict(raw.get("report_to") or {}),
             obey_board=bool(raw.get("obey_board", False)),
             board_may_stop_argus=bool(raw.get("board_may_stop_argus", False)),
@@ -414,6 +432,7 @@ class Config:
             "viewers": self.viewers,
             "tmux_socket": self.tmux_socket,
             "check_releases": self.check_releases,
+            "ntfy": self.ntfy,
             "report_to": self.report_to,
             "allow_write": self.allow_write,
             "include_mounts": self.include_mounts,

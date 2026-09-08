@@ -1,0 +1,69 @@
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "argus-agent-workspace"
+version = "0.1.0"
+description = "The self-hosted workspace around your existing AI agents and tmux sessions"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [{ name = "Andrea de Ruvo" }]
+keywords = [
+  "ai-agents", "claude-code", "codex", "gemini-cli", "tmux",
+  "web-terminal", "self-hosted", "developer-tools",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Framework :: FastAPI",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: MacOS",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development",
+]
+dependencies = [
+  "fastapi>=0.115,<1",
+  "uvicorn[standard]>=0.30,<1",
+  "pyyaml>=6,<7",
+  "python-multipart>=0.0.9,<1",
+  "httpx>=0.27,<1",
+  "segno>=1.6,<2",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8,<10"]
+
+[project.scripts]
+argus = "argus_workspace.main:main"
+argus-say = "argus_tools.argus_client:main"
+
+[project.urls]
+Homepage = "https://andreaderuvo.github.io/argus/"
+Documentation = "https://github.com/andreaderuvo/argus/wiki"
+Repository = "https://github.com/andreaderuvo/argus"
+Issues = "https://github.com/andreaderuvo/argus/issues"
+Changelog = "https://github.com/andreaderuvo/argus/blob/master/CHANGELOG.md"
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/app",
+  "/static",
+  "/tools",
+  "/LICENSE",
+  "/README.md",
+  "/CHANGELOG.md",
+  "/requirements.txt",
+]
+
+[tool.hatch.build.targets.wheel.force-include]
+"app" = "argus_workspace"
+"tools" = "argus_tools"
+"static" = "argus_workspace/static"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
