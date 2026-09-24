@@ -4810,6 +4810,28 @@ function whereSection() {
       ));
     }
 
+    /* Reaching Argus itself over a tunnel, not a port behind it.
+     *
+     *  `said.ssh` already existed — the ports screen has been reading `OpenSSH` out of it
+     *  and substituting a different port number into the line for months, to reach a
+     *  *service* through a tunnel. Argus's own address sits behind the same firewall as
+     *  that service, on a box with nothing routed to it at all, and there was no button
+     *  for that: the ssh line for Argus itself was computed on every request and shown
+     *  nowhere. Asked for in those words, on a machine where the LAN address is real and
+     *  still unreachable from outside it — a firewall is invisible from here, so this is
+     *  offered unconditionally rather than guessed at from the address's own kind.
+     *
+     *  The address underneath carries the token, the same as any other handoff link: once
+     *  the tunnel exists, 127.0.0.1 on *your* machine is a plain loopback address like any
+     *  other, and pasting one without the token only hands you the token screen again.
+     */
+    const openssh = (said.ssh || []).find((x) => x.name === 'OpenSSH');
+    if (openssh) {
+      body.append(commandLine(t('tunnel to it'), openssh.line, t('run this on your own machine')));
+      body.append(addressLine(t('then open'), withToken(`${location.protocol}//127.0.0.1:${said.port}/`),
+        t('works once the tunnel above is up')));
+    }
+
     if (said.you) {
       // Behind a reverse proxy the socket says 127.0.0.1 and the header says who really asked.
       // Both, and which is which: one is a fact, the other is a claim.
