@@ -1757,6 +1757,10 @@ def main(argv: list[str] | None = None) -> int:
     app.state.host = host
     app.state.addresses = reachable_addresses()
     banner(config_path, created, host, port, cfg, app.state.socket)
+    # What can be started, and at which version, asked while nobody is waiting: otherwise the
+    # first "New session" after a restart pays a login shell for the choices and another for
+    # the versions. Here and not in the lifespan, so the tests do not start login shells.
+    launch.warm(cfg)
     tls = cfg.tls()
     uvicorn.run(
         app,

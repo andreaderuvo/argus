@@ -26,6 +26,7 @@ import os
 import re
 import shutil
 import subprocess
+import threading
 import time
 from dataclasses import dataclass
 
@@ -100,6 +101,41 @@ def unknowable(line: str) -> bool:
 _seen: dict[str, tuple[float, bool]] = {}
 REMEMBER_FOR = 60.0
 
+# What is being asked again right now, so a second box opening during the refresh does not start
+# a second shell for the same question.
+_refreshing: set[tuple[str, str]] = set()
+_refreshing_lock = threading.Lock()
+
+
+def _later(kind: str, words: list[str], ask) -> None:
+    """Ask again in the background, and answer from what is already known meanwhile.
+
+    The cache used to be a wall: fresh for a minute, and after that the next box to open waited
+    the whole login shell again — 0.85s for the choices, 1.75s for the versions, measured. Which
+    tools are installed changes about as often as somebody installs one, so the answer from a
+    minute ago is almost always the answer, and the box can have it at once. Only a word never
+    asked about waits.
+    """
+    with _refreshing_lock:
+        todo = [w for w in words if (kind, w) not in _refreshing]
+        _refreshing.update((kind, w) for w in todo)
+    if not todo:
+        return
+
+    def run() -> None:
+        try:
+            ask(todo)
+        finally:
+            with _refreshing_lock:
+                _refreshing.difference_update((kind, w) for w in todo)
+
+    threading.Thread(target=run, name=f"argus-{kind}", daemon=True).start()
+
+
+def warm(cfg) -> None:
+    """Ask everything once, at startup, in the background — so the first box is not the slow one."""
+    threading.Thread(target=describe, args=(cfg, True), name="argus-warm", daemon=True).start()
+
 
 def probe(firsts: list[str]) -> dict[str, bool]:
     """Which of these words the login shell can find — **all of them in one shell**.
@@ -113,20 +149,32 @@ def probe(firsts: list[str]) -> dict[str, bool]:
 
     And then asking it four times cost four shells: `/api/launchers` took **2.9 seconds**, which
     is a button that appears to do nothing and then, later, does something. One shell asks about
-    the lot in a single pass, which is 0.9s once and nothing at all for the next minute.
+    the lot in a single pass, which is 0.9s once — and, past the first time, never on the way to
+    an answer: a stale one is returned and refreshed behind it (`_later`).
     """
     now = time.monotonic()
     answer: dict[str, bool] = {}
     ask: list[str] = []
+    stale: list[str] = []
     for word in firsts:
         got = _seen.get(word)
-        if got and now - got[0] < REMEMBER_FOR:
+        if got:
             answer[word] = got[1]
+            if now - got[0] >= REMEMBER_FOR:
+                stale.append(word)
         else:
             ask.append(word)
-    if not ask:
-        return answer
+    if stale:
+        _later("probe", stale, _ask_probe)
+    if ask:
+        answer.update(_ask_probe(ask))
+    return answer
 
+
+def _ask_probe(ask: list[str]) -> dict[str, bool]:
+    """The login shell itself, for these words; what it says is remembered in `_seen`."""
+    now = time.monotonic()
+    answer: dict[str, bool] = {}
     script = (
         'for c in ' + " ".join(shell_quote(w) for w in ask) + '; do '
         'if command -v "$c" >/dev/null 2>&1; then printf "%s\t1\n" "$c"; '
@@ -173,15 +221,26 @@ def versions(firsts: list[str]) -> dict[str, str]:
     now = time.monotonic()
     answer: dict[str, str] = {}
     ask: list[str] = []
+    stale: list[str] = []
     for word in firsts:
         got = _versions.get(word)
-        if got and now - got[0] < VERSION_REMEMBER_FOR:
+        if got:
             answer[word] = got[1]
+            if now - got[0] >= VERSION_REMEMBER_FOR:
+                stale.append(word)
         else:
             ask.append(word)
-    if not ask:
-        return answer
+    if stale:
+        _later("versions", stale, _ask_versions)
+    if ask:
+        answer.update(_ask_versions(ask))
+    return answer
 
+
+def _ask_versions(ask: list[str]) -> dict[str, str]:
+    """`--version` for these, in one login shell; what they say is remembered in `_versions`."""
+    now = time.monotonic()
+    answer: dict[str, str] = {}
     script = "; ".join(
         f'printf "%s\\t" {shell_quote(w)}; {shell_quote(w)} --version </dev/null 2>/dev/null | head -1 || printf "\\n"'
         for w in ask

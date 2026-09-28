@@ -56,6 +56,45 @@ def test_available_says_true_false_or_it_cannot_tell():
     assert launch.Launcher("shell", "").available is True
 
 
+def test_a_stale_answer_is_given_at_once_and_asked_again_behind_it(monkeypatch):
+    """Past its minute the cache used to make the next box wait a whole login shell (0.85s for
+    the choices, 1.75s for the versions). Now the last answer comes back immediately, one
+    refresh runs in the background however many ask meanwhile, and only a word never seen
+    waits for the shell."""
+    import threading
+
+    asked: list[list[str]] = []
+    release = threading.Event()
+
+    def slow(words):
+        asked.append(list(words))
+        release.wait(5)
+        for w in words:
+            launch._seen[w] = (time.monotonic(), True)
+        return {w: True for w in words}
+
+    monkeypatch.setattr(launch, "_ask_probe", slow)
+    monkeypatch.setattr(launch, "_seen", {"old-tool": (time.monotonic() - 10 * launch.REMEMBER_FOR, False)})
+    monkeypatch.setattr(launch, "_refreshing", set())
+
+    started = time.monotonic()
+    assert launch.probe(["old-tool"]) == {"old-tool": False}      # the stale answer, not a wait
+    assert launch.probe(["old-tool"]) == {"old-tool": False}      # a second box, same refresh
+    assert time.monotonic() - started < 0.5
+    assert asked == [["old-tool"]]
+
+    release.set()
+    for _ in range(50):
+        if not launch._refreshing:
+            break
+        time.sleep(0.02)
+    assert launch.probe(["old-tool"]) == {"old-tool": True}       # what the refresh found
+
+    # A word nobody has asked about yet has no answer to give early, so it waits.
+    assert launch.probe(["new-tool"]) == {"new-tool": True}
+    assert asked[-1] == ["new-tool"]
+
+
 def test_the_wrapped_line_keeps_the_pane_after_the_agent_exits():
     line = launch.wrap("claude")
     assert line.startswith("claude;")
