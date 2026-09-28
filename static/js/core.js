@@ -1,8 +1,9 @@
 // <imports> generated from what this file uses; edit the code, not this list
 import { modal, toast } from '/js/dialogs.js';
 import { icon } from '/js/icons.js';
-import { LEVEL_WORD, applyRail, go, keyHelp, nextWindowId, openWindow, worstVital } from '/js/main.js';
+import { LEVEL_WORD, applyRail, keyHelp, nextWindowId, openWindow, worstVital } from '/js/main.js';
 import { getJSON, patchJSON } from '/js/reconnect.js';
+import { go } from '/js/router.js';
 import { CAN_FULLSCREEN, MINE_ONLY, PREFS_KEY, VITALS_EVERY, bar, changedKeys, prefs, pushing, railToggle, server, setBaseline, setPrefsVersion, setPushing, setVitalsTimer, vitalsTimer } from '/js/state.js';
 import { api, el, t } from '/js/words.js';
 // </imports>
