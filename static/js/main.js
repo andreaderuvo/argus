@@ -1,334 +1,8 @@
 import { Terminal } from '/vendor/xterm-6.0.0/xterm.mjs';
 import { FitAddon } from '/vendor/xterm-6.0.0/addon-fit.mjs';
-
-const KEY = 'argus.token';
-const PREFS_KEY = 'argus.prefs';
-const SIDE_PATH_KEY = 'argus.sidepath';
-
-// The project was called tmux-companion until it got a name. Carry the stored token and
-// preferences across rather than logging everyone out and resetting their colours.
-for (const [now, before] of [[KEY, 'tmuxc.token'], [PREFS_KEY, 'tmuxc.prefs'], [SIDE_PATH_KEY, 'tmuxc.sidepath']]) {
-  const old = localStorage.getItem(before);
-  if (old !== null && localStorage.getItem(now) === null) localStorage.setItem(now, old);
-}
-
-const view = document.getElementById('view');
-const keep = document.getElementById('keep');
-const side = document.getElementById('side');
-const nav = document.getElementById('nav');
-const railToggle = document.getElementById('railtoggle');
-const moreBtn = document.getElementById('more');
-const hamburger = document.getElementById('hamburger');
-const railWins = document.getElementById('railwins');
-const railDesks = document.getElementById('raildesks');
-railToggle.onclick = () => {
-  prefs.railWide = !prefs.railWide;
-  savePrefs();
-  applyRail();
-  // Every terminal and every PDF measures its own box; the rail just changed all of them.
-  window.dispatchEvent(new Event('resize'));
-};
-const sideToggle = document.getElementById('sidetoggle');
-const bar = {
-  back: document.getElementById('back'),
-  title: document.getElementById('title'),
-  action: document.getElementById('action'),
-  alt: document.getElementById('alt'),
-  settings: document.getElementById('settings'),
-  full: document.getElementById('fullscreen'),
-  where: document.getElementById('docwhere'),
-  about: document.getElementById('about'),
-  keys: document.getElementById('keys'),
-  drops: document.getElementById('drops'),
-  vitals: document.getElementById('vitals'),
-};
-
-// The bottom bar is for the places you go; settings are not one of them.
-bar.settings.onclick = () => go('#/settings');
-
-bar.keys.onclick = () => keyHelp();
-
-bar.vitals.onclick = () => go('#/system');
-
-/* One tap to the folder a drop or a big paste actually lands in.
- *
- *  The desk's own "Browser" button opens *this* desk's folder, which is a different thing:
- *  a screenshot pasted from Settings, or a file dropped on a session in another desk
- *  entirely, all land in one place regardless of where you happened to be — and until now
- *  reaching it meant remembering the path and typing it in. Hidden until the server says
- *  there is one, since asking for a folder that refuses drops is asking for nothing.
- */
-bar.drops.onclick = () => openWindow({ kind: 'browser', id: nextWindowId(), path: server.drop_dir, fresh: true });
-
-/** Show the icon and word it, once the server has said whether there is a folder to show —
- *  which is not yet, at boot, and might never come at all on a read-only or locked-down
- *  install. Called again on every language switch, when `server` is already known. */
-function markDrops() {
-  if (!server?.drop_dir) return;
-  bar.drops.hidden = false;
-  bar.drops.title = t('{path} — where a dropped file or a big paste lands', { path: server.drop_dir });
-  bar.drops.setAttribute('aria-label', t('Drop folder'));
-}
-
-/** The machine's own state, glanced at from wherever you are — not only from the System
- *  screen, and not only while you remembered to open it. Quiet by construction: reading
- *  `good` paints nothing that a normal icon does not already look like, and only `warning`
- *  or `critical` puts a colour on it, the same two words the System screen itself uses.
- *  Polled here rather than pushed, because nothing on the machine's side knows to tell
- *  us — a fixed, unhurried interval, and `brief=1` so an icon nobody is watching does not
- *  spend a `ps` over the whole process table every time it looks. */
-const VITALS_EVERY = 30000;
-let vitalsTimer = null;
-
-function markVitals(s) {
-  const worst = worstVital(s);
-  bar.vitals.hidden = false;
-  bar.vitals.className = `icon ${worst.level === 'good' ? '' : worst.level}`.trim();
-  bar.vitals.title = t('System — {what} {word} ({pct}%)',
-    { what: worst.what, word: LEVEL_WORD[worst.level], pct: Math.round(worst.pct) });
-}
-
-function watchVitals() {
-  const read = async () => {
-    try { markVitals(await getJSON('/api/system?brief=1')); } catch { /* the last reading stands */ }
-  };
-  const setBeat = () => {
-    clearInterval(vitalsTimer);
-    vitalsTimer = setInterval(() => { if (!document.hidden) read(); }, VITALS_EVERY);
-  };
-  read();
-  setBeat();
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) read(); });
-}
-
-/** Where to read about this thing. Two destinations behind one mark rather than two
- *  marks: the header is the most crowded strip on a phone, and a menu that opens is at
- *  least something you can find — unlike a gesture. */
-bar.about.onclick = () => {
-  const body = el('div', { className: 'sheetbody actions' });
-  let sheet;
-  const place = (glyph, label, hint, url) => body.append(el('a', {
-    className: 'ghost block', href: url, target: '_blank', rel: 'noopener',
-    onclick: () => sheet.close(),
-  }, [icon(glyph), el('span', { className: 'grow' }, [
-    el('span', { className: 'name', textContent: label }),
-    el('span', { className: 'meta', textContent: hint }),
-  ])]));
-  place('github', t('The repository'), 'github.com/andreaderuvo/argus', 'https://github.com/andreaderuvo/argus');
-  place('layers', t('How it all works'), t('every feature, written out'), 'https://github.com/andreaderuvo/argus/wiki');
-  place('activity', t('The landing page'), 'andreaderuvo.github.io/argus', 'https://andreaderuvo.github.io/argus/');
-  sheet = modal('Argus', body, [
-    el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),
-  ]);
-};
-
-/* Full screen — what F11 does, for the times a keyboard is not in the room.
- *
- *  On a phone this is the difference between a terminal with three rows of browser
- *  furniture around it and a terminal. The button is hidden where the browser has no
- *  Fullscreen API to offer (an iPhone, notably), rather than sitting there doing nothing.
- */
-const CAN_FULLSCREEN = !!document.documentElement.requestFullscreen;
-if (CAN_FULLSCREEN) {
-  bar.full.hidden = false;
-  bar.full.onclick = () => {
-    if (document.fullscreenElement) document.exitFullscreen();
-    // A browser may refuse (a permissions policy, an iframe, a gesture it did not like).
-    // Silence would read as a broken button, so say what happened.
-    else document.documentElement.requestFullscreen({ navigationUI: 'hide' })
-      .catch(() => toast(t('the browser would not go full screen'), true));
-  };
-  // Leaving by Esc or by F11 never passes through the button, so the icon follows the
-  // browser rather than what we last asked for.
-  document.addEventListener('fullscreenchange', () => {
-    const on = !!document.fullscreenElement;
-    document.body.classList.toggle('fullscreen', on);
-    bar.full.replaceChildren(icon(on ? 'compress' : 'expand'));
-    bar.full.title = t(on ? 'Leave full screen' : 'Full screen');
-    // Nothing to tell the terminal: the viewport changing size resizes its container,
-    // and its own observer sends the new grid to tmux.
-  });
-}
-
-const DEFAULTS = {
-  hidden: false,     // dotfiles are noise until you ask for them
-  sidebar: true,     // only ever visible where there is room; see the CSS
-  tree: false,       // expand folders in place instead of navigating into them
-  theme: 'dark',     // 'dark' | 'light' | 'auto'
-  wallLayout: 'grid', // 'grid' | 'cols' | 'rows' | 'float'
-  workspaces: null,  // tabs, each with its own set of windows
-  ws: 1,             // the active tab
-  wsSeq: 1,
-  desktop: [],       // pre-workspace desktops, migrated on first load
-  home: '',          // where the home button lands; empty means the first root
-  lang: '',          // interface language; empty means whatever the browser asks for
-  split: false,      // two file panes side by side
-  path2: '',         // where the second pane is
-  winGeom: {},       // session name -> free-window geometry
-  wsLayout: {},      // desk id -> the one arrangement of it you asked to keep
-  colors: {},        // session name -> palette index, when you override the default
-  fontSize: 13,
-  wrap: true,
-  openInDesk: true,  // a file opened from a window in a desk stays in the desk
-  pdfFit: 'page',    // 'page' | 'width' | 'actual' — a document you have not read before
-  pdfNative: false,  // hand PDFs to the browser's own viewer instead of drawing them here
-};
-
-const THEMES = ['dark', 'light', 'auto'];
-
-// Eight hues that stay legible on both themes.
-const WIN_COLORS = [
-  '#e5786d', '#d6a25f', '#9fd66f', '#5fc9a3',
-  '#6fc7d6', '#7aa2d6', '#b98fd6', '#d66fa8',
-];
-
-let token = localStorage.getItem(KEY) || '';
-let prefs = { ...DEFAULTS, ...readJSON(PREFS_KEY) };
-let sidePath = localStorage.getItem(SIDE_PATH_KEY) || '';
-let server = null;    // /api/config, fetched once
-let favs = {};        // group -> pinned paths, kept on the server so both devices see them
-let favsLoaded = false;
-let leaving = null;   // teardown for the screen being replaced
-
-/** The terminal screens outlive navigation.
- *
- *  Tearing a terminal down when you glance at another tab means detaching from tmux and
- *  attaching again on the way back: the scrollback is redrawn from scratch and anything
- *  that scrolled past in between is gone. Instead the nodes are moved into a hidden
- *  holder, sockets and all, and moved back when you return.
- */
-let live = null;   // { key, mounts: [[node, () => parent]], dispose, resume, parked }
-
-function parkLive() {
-  if (!live || live.parked) return;
-  for (const [node] of live.mounts) keep.append(node);
-  live.parked = true;
-}
-
-function resumeLive() {
-  for (const [node, parent] of live.mounts) parent().append(node);
-  live.parked = false;
-  requestAnimationFrame(() => live?.resume?.());
-}
-
-function killLive() {
-  if (!live) return;
-  live.dispose();
-  for (const [node] of live.mounts) node.remove();
-  live = null;
-}
-
-function readJSON(key) {
-  try { return JSON.parse(localStorage.getItem(key) || '{}'); } catch { return {}; }
-}
-
-/* The same document, in two places, and which one is in charge.
- *
- *  It lived only in this browser's storage: sixty keys — the desks, where every window sits,
- *  the prompt library, the placeholder sets, the shortcuts. Two things were impossible because
- *  of that, and they are the two people ask for: a desk you made at the desk did not exist on
- *  the phone, and nothing outside a browser could read any of it, so an agent that had just
- *  started three jobs could not lay out a desk to watch them in.
- *
- *  So the machine holds it and this holds a copy. localStorage stays as the *cache*: it is what
- *  paints the first frame, and what the app runs on when the server cannot be reached. The
- *  server is the truth, read once at boot.
- */
-let prefsVersion = 0;
-let baseline = {};
-let pushing = null;
-
-/** What this browser has changed since it last agreed with the server. */
-/* Kept in this browser and never sent to the machine.
- *
- *  Everything else in here is deliberately shared: a desk made at the desk should be on the
- *  phone, and that is the whole reason the workspace moved off `localStorage`. *Which desk you
- *  are looking at right now* is the opposite kind of fact. Two devices are never on the same
- *  one — the phone is watching a build while the laptop is reading a paper — so sharing it
- *  means whichever moved last drags the other one with it.
- *
- *  Found rather than reasoned: a second browser opened to test something quietly moved this
- *  one onto another desk, mid-sentence, because both were writing the same key.
- */
-/* `looked` joins it for the same reason and a sharper one: "since I last looked" is a fact
- *  about a pair of eyes, not about a machine. A phone checked at breakfast must not tell the
- *  desk it has already seen the night's work. */
-const MINE_ONLY = new Set(['ws', 'looked']);
-
-function changedKeys() {
-  const changes = {};
-  for (const [key, value] of Object.entries(prefs)) {
-    if (MINE_ONLY.has(key)) continue;
-    if (JSON.stringify(baseline[key]) !== JSON.stringify(value)) changes[key] = value;
-  }
-  // A key this browser has dropped is a key to remove, not one to leave behind: null says so.
-  for (const key of Object.keys(baseline)) {
-    if (!MINE_ONLY.has(key) && !(key in prefs)) changes[key] = null;
-  }
-  return changes;
-}
-
-function savePrefs() {
-  localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
-  /* Pushed as *changed keys*, not as the whole document.
-   *
-   *  Sending everything means the last device to save wins everything, which loses the desk
-   *  made on the phone the moment this laptop saves an older copy of it. Sending the three keys
-   *  this browser actually touched lets two devices edit different things without either of
-   *  them noticing the other.
-   *
-   *  Coalesced: dragging a window calls this on every frame of the drop, and a request per
-   *  frame is a request per frame.
-   */
-  clearTimeout(pushing);
-  pushing = setTimeout(async () => {
-    const changes = changedKeys();
-    if (!Object.keys(changes).length) return;
-    try {
-      const said = await patchJSON('/api/prefs', { changes });
-      prefsVersion = said.version;
-      baseline = JSON.parse(JSON.stringify(prefs));
-    } catch (e) {
-      // Offline, or a server too old to have this: the browser goes on working from its own
-      // copy and tries again on the next save. Not a toast — this happens in the background and
-      // nothing the person did has failed.
-      console.warn(`argus: preferences not saved to the machine — ${e.message}`);
-    }
-  }, 500);
-}
-
-/** Read what the machine has, once, before the first paint. */
-async function syncPrefs() {
-  try {
-    const said = await getJSON('/api/prefs');
-    const theirs = said.prefs || {};
-    if (said.version > 0 && Object.keys(theirs).length) {
-      // The machine has a workspace: this browser adopts it, cache and all. Replacing the keys
-      // in place rather than the object, because everything else in here closes over it.
-      // Except this browser's own — see MINE_ONLY: adopting the machine's idea of which desk
-      // is open would land you wherever the last device to look happened to be.
-      const mine = {};
-      for (const key of MINE_ONLY) if (key in prefs) mine[key] = prefs[key];
-      for (const key of Object.keys(prefs)) delete prefs[key];
-      Object.assign(prefs, theirs, mine);
-      localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
-    } else if (Object.keys(prefs).length) {
-      // Nothing there and something here: this browser's copy becomes the machine's. That is
-      // the migration, and it happens once, silently, on whichever device opens it first.
-      const toSend = { ...prefs };
-      for (const key of MINE_ONLY) delete toSend[key];
-      await api('/api/prefs', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ version: said.version, prefs: toSend }),
-      });
-    }
-    prefsVersion = said.version;
-    baseline = JSON.parse(JSON.stringify(prefs));
-  } catch (e) {
-    console.warn(`argus: the machine's preferences could not be read — ${e.message}`);
-  }
-}
+// <imports> generated from what this file uses; edit the code, not this list
+import { CAN_FULLSCREEN, KEY, SIDE_PATH_KEY, THEMES, WIN_COLORS, assignSidePath, bar, favs, favsLoaded, hamburger, killLive, leaving, live, markDrops, moreBtn, nav, parkLive, prefs, railDesks, railToggle, railWins, resumeLive, savePrefs, server, setFavs, setFavsLoaded, setLeaving, setLive, setServer, setToken, side, sidePath, sideToggle, syncPrefs, token, view, watchVitals } from '/js/core.js';
+// </imports>
 
 /* ------------------------------------------------------------------- theme */
 
@@ -404,7 +78,7 @@ function takeTokenFromAddress() {
    *  A token identical to the one already held is not an arrival. Clean it out of the bar and
    *  carry on. */
   const news = given !== token;
-  token = given;
+  setToken(given);
   localStorage.setItem(KEY, token);
   // A hash that carried nothing but the token leaves no route behind; one that carried a
   // route keeps it, so `#token=…&/wall` lands on the desk it names.
@@ -438,7 +112,7 @@ let strings = {};
 // stored we follow the browser, and the Settings row has to say the truth either way.
 let activeLang = 'en';
 
-function t(text, vars) {
+export function t(text, vars) {
   let out = strings[text] || text;
   if (vars) for (const [k, v] of Object.entries(vars)) out = out.split(`{${k}}`).join(String(v));
   return out;
@@ -468,7 +142,7 @@ function preferredLanguage(available) {
 const enc = new TextEncoder();
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
-const el = (tag, props = {}, kids = []) => {
+export const el = (tag, props = {}, kids = []) => {
   const n = Object.assign(document.createElement(tag), props);
   for (const k of [].concat(kids)) n.append(k);
   return n;
@@ -481,7 +155,7 @@ const svg = (tag, attrs = {}, kids = []) => {
   return n;
 };
 
-async function api(path, init) {
+export async function api(path, init) {
   const headers = { Authorization: `Bearer ${token}`, ...(init?.headers || {}) };
   let r;
   try {
@@ -662,7 +336,7 @@ function lostTheServer() {
   wait();
 }
 
-const getJSON = (p) => api(p).then((r) => r.json());
+export const getJSON = (p) => api(p).then((r) => r.json());
 
 const postJSON = (p, body) => api(p, {
   method: 'POST',
@@ -672,7 +346,7 @@ const postJSON = (p, body) => api(p, {
 
 const delJSON = (p) => api(p, { method: 'DELETE' }).then((r) => r.json());
 
-const patchJSON = (p, body) => api(p, {
+export const patchJSON = (p, body) => api(p, {
   method: 'PATCH',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify(body),
@@ -714,13 +388,13 @@ function triggerDownload(url) {
 }
 
 async function serverInfo() {
-  if (!server) server = await getJSON('/api/config');
+  if (!server) setServer(await getJSON('/api/config'));
   return server;
 }
 
 async function loadFavourites() {
-  try { favs = await getJSON('/api/favourites'); } catch { favs = {}; }
-  favsLoaded = true;   // an empty list is an answer, not a reason to keep asking
+  try { setFavs(await getJSON('/api/favourites')); } catch { setFavs({}); }
+  setFavsLoaded(true);   // an empty list is an answer, not a reason to keep asking
 }
 
 // The sidebar, the panes and a window are three different tools; each keeps its own
@@ -731,7 +405,7 @@ const isFavourite = (path, group) => favsIn(group).some((f) => f.path === path);
 async function toggleFavourite(path, group) {
   try {
     const r = await postJSON('/api/favourites', { path, group });
-    favs = r.favourites;
+    setFavs(r.favourites);
     toast(r.pinned ? t('pinned in {group}', { group: r.group }) : t('unpinned from {group}', { group: r.group }));
     refreshAllBrowsers();
   } catch (e) { toast(e.message, true); }
@@ -742,8 +416,8 @@ async function toggleFavourite(path, group) {
 let bellStream = null;
 
 function signOut() {
-  token = '';
-  server = null;
+  setToken('');
+  setServer(null);
   localStorage.removeItem(KEY);
   // The bell stream outlived a sign-out before this, because an EventSource was never closed
   // — it sat there reconnecting with a token that had just been thrown away.
@@ -896,7 +570,7 @@ const visible = (entries) => (prefs.hidden ? entries : entries.filter((e) => !e.
 /* ------------------------------------------------------------------ dialogs */
 
 /** A native <dialog>, so Escape and the focus trap come for free. */
-function modal(title, body, buttons) {
+export function modal(title, body, buttons) {
   const d = el('dialog', { className: 'sheet' });
   const foot = el('div', { className: 'sheetfoot' });
   for (const b of buttons) foot.append(b);
@@ -1085,7 +759,7 @@ window.addEventListener('resize', measureFurniture);
 /** A message at the bottom of the screen. With `onTap` it is also a button — which is
  *  the only reliable way to reach the clipboard, since a browser grants that to a gesture
  *  and an upload finishing is not one. */
-function toast(message, bad = false, onTap = null, lasts = null) {
+export function toast(message, bad = false, onTap = null, lasts = null) {
   measureFurniture();
   // An upload bar sits in this exact corner. Stack above it rather than on top of it:
   // two messages covering each other is how the last attempt at feedback went wrong.
@@ -1210,7 +884,7 @@ const FILLED = new Set(['github']);
  *  It was there. It was one pixel. Dots get a weight of their own. */
 const ONLY_DOTS = /^(?:M[\d.]+ [\d.]+[hv]\.01)+$/;
 
-function icon(name, extra = '') {
+export function icon(name, extra = '') {
   const solid = FILLED.has(name);
   const d = ICONS[name] || '';
   const path = svg('path', {
@@ -2293,10 +1967,10 @@ function parseRoute() {
   return { path, q: new URLSearchParams(qs || '') };
 }
 
-const go = (hash) => { location.hash = hash; };
+export const go = (hash) => { location.hash = hash; };
 
 async function render() {
-  if (leaving) { leaving(); leaving = null; }
+  if (leaving) { leaving(); setLeaving(null); }
 
   const route = parseRoute();
   const wanted = route.path === '/term' ? `term:${route.q.get('s')}`
@@ -2450,15 +2124,15 @@ function screenLogin() {
   const input = el('input', { type: 'password', placeholder: t('access token'), autocomplete: 'current-password' });
   const err = el('p', { className: 'error' });
   const submit = async () => {
-    token = input.value.trim();
+    setToken(input.value.trim());
     if (!token) return;
     try {
-      server = await getJSON('/api/config');
+      setServer(await getJSON('/api/config'));
       localStorage.setItem(KEY, token);
       render();
       applySidebar();
     } catch {
-      token = '';
+      setToken('');
       err.textContent = t('token refused');
     }
   };
@@ -4743,12 +4417,12 @@ function writeInto(node, text) {
   if (node.textContent !== text) node.textContent = text;
 }
 
-const LEVEL_WORD = { good: 'ok', warning: 'high', critical: 'critical' };
+export const LEVEL_WORD = { good: 'ok', warning: 'high', critical: 'critical' };
 
 /** The single worst number on a reading, so "is it dying" is answered before anything
  *  else is. Shared between the System screen's hero tile and the header badge — both are
  *  the same question asked at a different distance, and they must never disagree. */
-function worstVital(s) {
+export function worstVital(s) {
   return [
     { what: 'cpu', pct: s.cpu.pct, level: s.cpu.level },
     { what: 'memory', pct: s.memory.pct, level: s.memory.level },
@@ -5418,12 +5092,12 @@ async function screenSystem() {
   const ageing = setInterval(sayWhen, 1000);
   const wake = () => { if (!document.hidden && beatNow()) tick(); };
   document.addEventListener('visibilitychange', wake);
-  leaving = () => {
+  setLeaving(() => {
     clearInterval(timer);
     clearInterval(ageing);
     document.removeEventListener('visibilitychange', wake);
     ports.stop?.();
-  };
+  });
 }
 
 /** The token is 64 hex characters. Nobody should ever type that on a phone, and the
@@ -7779,7 +7453,7 @@ function paintRailWindows() {
 
 /** Wide rail or narrow. Remembered, because it is a preference about your screen rather
  *  than about what you are doing, and re-choosing it every visit would be a tax. */
-function applyRail() {
+export function applyRail() {
   document.body.classList.toggle('railwide', !!prefs.railWide);
   const wide = !!prefs.railWide;
   // The label names the thing, the tooltip names the action. "Collapse" as a label described
@@ -7962,7 +7636,7 @@ function applySidebar() {
 }
 
 function setSidePath(p) {
-  sidePath = p;
+  assignSidePath(p);
   localStorage.setItem(SIDE_PATH_KEY, p);
   renderSidebar();
 }
@@ -9332,7 +9006,7 @@ async function screenTerm(name) {
 
   setTimeout(() => { relayout(); handle.focus(); }, 50);
 
-  live = {
+  setLive({
     key: `term:${name}`,
     mounts: [[wrap, () => view], [keys, () => ({ append: (n) => document.body.insertBefore(n, nav) })]],
     decorate: () => decorateTerm(name),
@@ -9344,7 +9018,7 @@ async function screenTerm(name) {
       document.body.style.height = '';
       handle.dispose();
     },
-  };
+  });
 }
 
 /* ------------------------------------------------------------------- wall */
@@ -11787,7 +11461,7 @@ async function screenWall() {
    *  changing directory and faster than they will look away and back. */
   const whereBeat = setInterval(() => { if (!document.hidden) readWhere(); }, 10000);
   const wasLeaving = leaving;
-  leaving = () => { clearInterval(whereBeat); wasLeaving?.(); };
+  setLeaving(() => { clearInterval(whereBeat); wasLeaving?.(); });
 
   // A brand new desktop starts as one window per session.
   const first = activeSpace();
@@ -11831,7 +11505,7 @@ async function screenWall() {
   });
   wallRO.observe(wall);
 
-  live = {
+  setLive({
     key: 'wall',
     mounts: [[tabs, () => view], [tools, () => view], [wall, () => view]],
     decorate: decorateWall,
@@ -11867,7 +11541,7 @@ async function screenWall() {
       for (const deck of decks.values()) deck.open.forEach((o) => o.handle.dispose());
       decks.clear();
     },
-  };
+  });
 }
 
 /** Free-window geometry survives leaving the screen: the DOM is rebuilt on every
@@ -12639,7 +12313,7 @@ window.addEventListener('keydown', (e) => {
 });
 
 /** The list of them, and the way to change one. */
-function keyHelp() {
+export function keyHelp() {
   if (document.querySelector('dialog.keyhelp[open]')) return;
   const body = el('div', { className: 'sheetbody keylist' });
   let sheet;
@@ -15156,7 +14830,7 @@ const specId = (spec) => (spec.kind === 'links' ? (spec.from ? `links:${spec.fro
     : spec.kind === 'browser' && spec.id ? `browser:${spec.id}`
       : `${spec.kind}:${spec.path}`);
 
-function nextWindowId() {
+export function nextWindowId() {
   prefs.winSeq = (prefs.winSeq || 0) + 1;
   savePrefs();
   return prefs.winSeq;
@@ -15532,7 +15206,7 @@ function chooseDesk(spec, label) {
   ]);
 }
 
-function openWindow(spec, geom, { jump = true } = {}) {
+export function openWindow(spec, geom, { jump = true } = {}) {
   const id = specId(spec);
   const ws = currentSpace();
   if (!ws.desktop.some((x) => specId(x) === id)) {
