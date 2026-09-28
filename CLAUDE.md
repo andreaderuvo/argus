@@ -46,7 +46,7 @@ app/`). This is also why the product does a real PTY instead of capture-pane pol
 
 ```bash
 python3 -m pytest -q -m "not browser"      # the quick loop: Python only, ~35s
-python3 -m pytest -q                       # everything, including the browser suite (~5 min)
+python3 -m pytest -q                       # everything, including the browser suite (~2.5 min)
 npm ci                                     # once, for ESLint (development only)
 python3 -m app.main --help
 python3 -m app.main --listen 0.0.0.0:8090  # config auto-created on first run
@@ -363,9 +363,13 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
 ## Where it stands
 
 `python -m pytest -q` is the truth; the count changes most days. Everything asked for so
-far is built, and the frontend has no tests of its own — every one is Python, so anything
-about the browser is checked by driving a real Chromium over CDP and reading a measurement
-back, not by asserting on a screenshot.
+far is built. The frontend is tested from Python too, by driving a real Chromium over CDP
+against a real Argus (`tests/browser/`, above) and reading a measurement back — never by
+asserting on a screenshot.
+
+Known and recorded, not yet fixed: on a phone the header is 424px wide, so any screen
+narrower than that overflows and is shrunk to fit (strict xfail in `tests/browser/test_layout.py`,
+which turns red the day it is fixed). Which buttons a phone does without is a design call.
 
 Two long-standing gaps, both about the same thing: no TLS, which is what would unlock an
 installable PWA, real push notifications and an in-app QR scanner; and no per-device
