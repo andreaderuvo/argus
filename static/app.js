@@ -2484,15 +2484,37 @@ function screenLogin() {
 async function screenSessions() {
   setTitle(t('Sessions'));
   const sessions = await getJSON('/api/tmux/sessions');
+
+  /* Starting one, from the screen that lists them.
+   *
+   *  It was only the + in the bar, and only once a session existed: an empty list returned
+   *  before the button was made — which is exactly the moment after a tmux server has died,
+   *  when starting a shell is the one thing you came here to do. Now it is a row with words
+   *  on it, first, whatever the list holds, and it lands you in the terminal it made. The
+   *  shell is the choice already made, because that is what "a new session" means here; the
+   *  agents are one tap away in the same box.
+   */
+  const start = async () => {
+    const name = await createSession({ path: homePath(server?.roots || ['/']), shell: true });
+    if (name) go(`#/term?s=${encodeURIComponent(name)}`);
+  };
+  bar.alt.hidden = false;
+  bar.alt.replaceChildren(icon('plus'));
+  bar.alt.title = t('Start a new session');
+  bar.alt.onclick = start;
+  const fresh = el('button', { className: 'ghost block', type: 'button', onclick: start }, [
+    icon('plus'),
+    el('span', { className: 'grow' }, [
+      el('span', { className: 'name', textContent: t('New session') }),
+      el('span', { className: 'meta', textContent: t('a shell, or an agent, in a folder you pick') }),
+    ]),
+  ]);
+  view.append(fresh);
+
   if (!sessions.length) {
     view.append(el('p', { className: 'empty', textContent: t('No tmux sessions on this server.') }));
     return;
   }
-
-  bar.alt.hidden = false;
-  bar.alt.replaceChildren(icon('plus'));
-  bar.alt.title = t('Start a new session');
-  bar.alt.onclick = async () => { if (await createSession()) render(); };
 
   // Something is still attached in the background: the list is the default, but going
   // back to it must be one tap, not a hunt through the list.
@@ -15187,7 +15209,7 @@ function placeIn(ws, spec) {
  *  changed is that the box that asked for a name now also asks what to run in it, what to say
  *  to it first, and whether to make a git worktree to do it in.
  */
-async function createSession({ path, suggest = 'shell', wsId = null } = {}) {
+async function createSession({ path, suggest = 'shell', wsId = null, shell = false } = {}) {
   let sheet;
   const body = el('div', { className: 'sheetbody startbody' });
 
@@ -15230,7 +15252,7 @@ async function createSession({ path, suggest = 'shell', wsId = null } = {}) {
         icon(off ? 'close' : (one.command ? 'relay' : 'terminal')),
         el('span', { className: 'grow' }, [
           el('span', { className: 'name', textContent: one.name }),
-          el('span', { className: 'meta', textContent: one.command || t('a plain terminal') }),
+          el('span', { className: 'meta', textContent: one.command ? [one.command, one.version].filter(Boolean).join(' · ') : t('a plain terminal') }),
         ]),
         off ? el('span', { className: 'verb', textContent: t('not here') }) : null,
       ].filter(Boolean));
@@ -15412,7 +15434,9 @@ async function createSession({ path, suggest = 'shell', wsId = null } = {}) {
       const r = await getJSON('/api/launchers');
       const list = r.launchers || [];
       window.__lastLaunchers = list;
-      chosen = (list.find((x) => x.available !== false) || list[0])?.name || null;
+      // `shell`: the plain terminal (the launcher with no command) when the config has one.
+      const plain = shell ? list.find((x) => !x.command && x.available !== false) : null;
+      chosen = (plain || list.find((x) => x.available !== false) || list[0])?.name || null;
       drawPicks(list);
       const first = list.find((x) => x.name === chosen);
       if (first) sayName(first);
@@ -15422,18 +15446,16 @@ async function createSession({ path, suggest = 'shell', wsId = null } = {}) {
        *
        *  Asking three CLIs what version they are means starting three of them, which is about
        *  two seconds — so it is not allowed to hold up the box. The rows are already there and
-       *  usable; each one's command line grows its version when the answer lands. */
+       *  usable; each one's command line grows its version when the answer lands.
+       *
+       *  Into the list, not into the rows: a pick redraws every row from the list, and versions
+       *  written only into the DOM vanished at the first press on Claude or Codex. */
       try {
         const more = await getJSON('/api/launchers?versions=1');
         const said = new Map((more.launchers || []).map((x) => [x.name, x.version]));
-        window.__lastLaunchers = more.launchers || list;
-        for (const row of picks.querySelectorAll('.startpick')) {
-          const who = row.querySelector('.name')?.textContent;
-          const version = said.get(who);
-          if (!version) continue;
-          const meta = row.querySelector('.meta');
-          if (meta) meta.textContent = `${meta.textContent} · ${version}`;
-        }
+        for (const one of list) one.version = said.get(one.name) || one.version;
+        window.__lastLaunchers = list;
+        drawPicks(list);
       } catch { /* the list is the useful half; a version is a nicety */ }
     } catch (e) {
       picks.replaceChildren(el('p', { className: 'error', textContent: e.message }));
