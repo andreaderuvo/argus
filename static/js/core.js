@@ -1,11 +1,14 @@
 // <imports> generated from what this file uses; edit the code, not this list
 import { modal, toast } from '/js/dialogs.js';
+import { el } from '/js/dom.js';
 import { icon } from '/js/icons.js';
-import { LEVEL_WORD, applyRail, keyHelp, nextWindowId, openWindow, worstVital } from '/js/main.js';
-import { getJSON, patchJSON } from '/js/reconnect.js';
+import { keyHelp, nextWindowId, openWindow } from '/js/main.js';
+import { api, getJSON, patchJSON } from '/js/reconnect.js';
 import { go } from '/js/router.js';
+import { applyRail } from '/js/sidebar.js';
 import { CAN_FULLSCREEN, MINE_ONLY, PREFS_KEY, VITALS_EVERY, bar, changedKeys, prefs, pushing, railToggle, server, setBaseline, setPrefsVersion, setPushing, setVitalsTimer, vitalsTimer } from '/js/state.js';
-import { api, el, t } from '/js/words.js';
+import { LEVEL_WORD, worstVital } from '/js/vitals.js';
+import { t } from '/js/words.js';
 // </imports>
 
 railToggle.onclick = () => {

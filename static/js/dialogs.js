@@ -1,7 +1,8 @@
 // <imports> generated from what this file uses; edit the code, not this list
+import { el } from '/js/dom.js';
 import { icon } from '/js/icons.js';
 import { nav } from '/js/state.js';
-import { el, t } from '/js/words.js';
+import { t } from '/js/words.js';
 // </imports>
 /* ------------------------------------------------------------------ dialogs */
 

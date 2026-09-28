@@ -1,5 +1,5 @@
 // <imports> generated from what this file uses; edit the code, not this list
-import { svg } from '/js/words.js';
+import { svg } from '/js/dom.js';
 // </imports>
 /* ------------------------------------------------------------------- icons */
 

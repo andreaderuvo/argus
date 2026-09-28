@@ -1,11 +1,12 @@
 // <imports> generated from what this file uses; edit the code, not this list
 import { savePrefs } from '/js/core.js';
 import { modal, toast } from '/js/dialogs.js';
+import { el } from '/js/dom.js';
 import { allVars, fillBaton, rung } from '/js/main.js';
 import { render } from '/js/router.js';
 import { refreshAllBrowsers } from '/js/screens.js';
 import { KEY, WIN_COLORS, bar, favs, prefs, server, setFavs, setFavsLoaded, setServer, setToken, side, token } from '/js/state.js';
-import { api, el, t } from '/js/words.js';
+import { t } from '/js/words.js';
 // </imports>
 /* ------------------------------------------------------- when it stops answering
 
@@ -396,3 +397,26 @@ export function setHome(path) {
 export const bidi = (text) => el('bdi', { textContent: text });
 export const setTitle = (text) => bar.title.replaceChildren(bidi(text));
 export const visible = (entries) => (prefs.hidden ? entries : entries.filter((e) => !e.name.startsWith('.')));
+
+export async function api(path, init) {
+  const headers = { Authorization: `Bearer ${token}`, ...(init?.headers || {}) };
+  let r;
+  try {
+    r = await fetch(path, { ...init, headers });
+  } catch (e) {
+    // No answer at all — not a refusal, an absence. The machine is off, the service has
+    // stopped, the wifi has gone, the laptop has been shut. Every one of those looks like
+    // an app that has quietly stopped working, so it says so instead.
+    if (e.name !== 'AbortError') maybeLost();
+    throw e;
+  }
+  // Anything that came back means it is there, whatever it said.
+  if (waiting) foundTheServer();
+  if (r.status === 401) { signOut(); throw new Error('unauthorized'); }
+  if (!r.ok) {
+    let msg = `HTTP ${r.status}`;
+    try { msg = (await r.json()).error || msg; } catch { /* not JSON */ }
+    const e = new Error(msg); e.status = r.status; throw e;
+  }
+  return r;
+}

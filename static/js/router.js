@@ -1,11 +1,16 @@
 // <imports> generated from what this file uses; edit the code, not this list
 import { savePrefs } from '/js/core.js';
 import { measureFurniture } from '/js/dialogs.js';
-import { paintRailWindows, screenJournal, screenMessages, screenPreview, screenSettings, screenSince, screenSystem, screenTerm, screenTmuxConf, screenTodo, screenWall } from '/js/main.js';
+import { el } from '/js/dom.js';
+import { screenWall } from '/js/main.js';
 import { loadFavourites, serverInfo } from '/js/reconnect.js';
 import { screenFiles, screenLogin, screenSessions } from '/js/screens.js';
+import { paintRailWindows, screenMessages, screenTmuxConf } from '/js/sidebar.js';
+import { screenJournal, screenSettings, screenSince } from '/js/since.js';
 import { CAN_FULLSCREEN, bar, favsLoaded, killLive, leaving, live, nav, parkLive, prefs, resumeLive, setLeaving, side, sideToggle, token, view } from '/js/state.js';
-import { el } from '/js/words.js';
+import { screenTerm } from '/js/termpaths.js';
+import { screenPreview } from '/js/viewers.js';
+import { screenSystem, screenTodo } from '/js/vitals.js';
 // </imports>
 /* ------------------------------------------------------------------ router */
 

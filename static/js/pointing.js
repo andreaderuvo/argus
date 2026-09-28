@@ -1,10 +1,11 @@
 // <imports> generated from what this file uses; edit the code, not this list
+import { el } from '/js/dom.js';
 import { treeNode } from '/js/filerows.js';
-import { sideBrowser } from '/js/main.js';
 import { getJSON, parentOf, visible } from '/js/reconnect.js';
 import { browsers } from '/js/screens.js';
+import { sideBrowser } from '/js/sidebar.js';
 import { prefs } from '/js/state.js';
-import { el, t } from '/js/words.js';
+import { t } from '/js/words.js';
 // </imports>
 /* --------------------------------------------------- pointing at one file */
 

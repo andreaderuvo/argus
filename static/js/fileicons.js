@@ -1,6 +1,6 @@
 // <imports> generated from what this file uses; edit the code, not this list
+import { svg } from '/js/dom.js';
 import { ICONS } from '/js/icons.js';
-import { svg } from '/js/words.js';
 // </imports>
 /* --------------------------------------------------------------- file icons */
 
