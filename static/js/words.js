@@ -1,6 +1,6 @@
 // <imports> generated from what this file uses; edit the code, not this list
-import { prefs, token } from '/js/core.js';
 import { foundTheServer, maybeLost, signOut, waiting } from '/js/reconnect.js';
+import { prefs, token } from '/js/state.js';
 // </imports>
 /* ------------------------------------------------------------------- words */
 

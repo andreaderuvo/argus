@@ -1,6 +1,6 @@
 // <imports> generated from what this file uses; edit the code, not this list
-import { prefs } from '/js/core.js';
 import { repaintDiagrams, repaintMeshes } from '/js/main.js';
+import { prefs } from '/js/state.js';
 // </imports>
 /* ------------------------------------------------------------------- theme */
 

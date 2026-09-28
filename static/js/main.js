@@ -5,11 +5,12 @@ import { FitAddon } from '/vendor/xterm-6.0.0/addon-fit.mjs';
 // before anything else asks for it.
 import '/js/plumbing.js';
 // <imports> generated from what this file uses; edit the code, not this list
-import { CAN_FULLSCREEN, KEY, SIDE_PATH_KEY, THEMES, assignSidePath, bar, favsLoaded, hamburger, killLive, leaving, live, markDrops, moreBtn, nav, parkLive, prefs, railDesks, railToggle, railWins, resumeLive, savePrefs, server, setLeaving, setLive, setServer, setToken, side, sidePath, sideToggle, syncPrefs, token, view, watchVitals } from '/js/core.js';
+import { markDrops, savePrefs, syncPrefs, watchVitals } from '/js/core.js';
 import { ask, askPrompt, confirmBox, copies, copyPath, copyText, measureFurniture, modal, showText, ticked, toast, undoToast } from '/js/dialogs.js';
 import { fileIcon } from '/js/fileicons.js';
 import { icon } from '/js/icons.js';
 import { bellStream, bidi, colorFor, delJSON, deskHome, favsIn, getJSON, homePath, human, isFavourite, loadFavourites, openFileRaw, parentOf, patchJSON, pickColor, postJSON, renamedSession, serverInfo, setBellStream, setHome, setTitle, signOut, toggleFavourite, triggerDownload, visible, when, withToken } from '/js/reconnect.js';
+import { CAN_FULLSCREEN, KEY, SIDE_PATH_KEY, THEMES, assignSidePath, bar, favsLoaded, hamburger, killLive, leaving, live, moreBtn, nav, parkLive, prefs, railDesks, railToggle, railWins, resumeLive, server, setLeaving, setLive, setServer, setToken, side, sidePath, sideToggle, token, view } from '/js/state.js';
 import { applyTheme, redressTerminals, termTheme, termThemeWatch } from '/js/theme.js';
 import { activeLang, api, el, enc, loadLanguage, preferredLanguage, t } from '/js/words.js';
 // </imports>

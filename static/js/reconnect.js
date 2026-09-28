@@ -1,7 +1,8 @@
 // <imports> generated from what this file uses; edit the code, not this list
-import { KEY, WIN_COLORS, bar, favs, prefs, savePrefs, server, setFavs, setFavsLoaded, setServer, setToken, side, token } from '/js/core.js';
+import { savePrefs } from '/js/core.js';
 import { modal, toast } from '/js/dialogs.js';
 import { allVars, fillBaton, refreshAllBrowsers, render, rung } from '/js/main.js';
+import { KEY, WIN_COLORS, bar, favs, prefs, server, setFavs, setFavsLoaded, setServer, setToken, side, token } from '/js/state.js';
 import { api, el, t } from '/js/words.js';
 // </imports>
 /* ------------------------------------------------------- when it stops answering

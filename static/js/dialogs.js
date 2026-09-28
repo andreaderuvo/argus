@@ -1,6 +1,6 @@
 // <imports> generated from what this file uses; edit the code, not this list
-import { nav } from '/js/core.js';
 import { icon } from '/js/icons.js';
+import { nav } from '/js/state.js';
 import { el, t } from '/js/words.js';
 // </imports>
 /* ------------------------------------------------------------------ dialogs */

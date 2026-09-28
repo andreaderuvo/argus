@@ -122,3 +122,21 @@ def test_eslint_finds_nothing():
     done = subprocess.run([str(found), "--max-warnings=0", "static"], cwd=ROOT,
                           capture_output=True, text=True, timeout=120)
     assert done.returncode == 0, "eslint:\n" + done.stdout + done.stderr
+
+
+def test_code_that_runs_at_load_reads_other_modules_only_if_they_are_leaves():
+    """The sections import each other in circles, so evaluation order is no longer file order.
+    Top-level code that reads a const/let of a module that imports things of ours may run before
+    that module has initialised it — "Cannot access 'prefs' before initialization", and a page
+    that never starts. Reads at load are only safe from a leaf (static/js/state.js), which is
+    evaluated completely the first time anything reaches it. See tests/js/loadorder.mjs."""
+    node = shutil.which("node")
+    if not node or not (ROOT / "node_modules" / "espree").exists():
+        if os.environ.get("ARGUS_BROWSER_REQUIRED") == "1" or os.environ.get("ARGUS_LINT_REQUIRED") == "1":
+            pytest.fail("the load-order check is required here: run `npm ci`")
+        pytest.skip("needs node and `npm ci` (espree), development only")
+    done = subprocess.run([node, str(ROOT / "tests" / "js" / "loadorder.mjs"), str(STATIC)],
+                          capture_output=True, text=True, timeout=60)
+    assert done.returncode == 0, (
+        "top-level code reads another module's binding while modules are still loading — move "
+        "the binding into a leaf module (state.js) or read it inside a function:\n" + done.stdout + done.stderr)

@@ -211,3 +211,16 @@ def test_the_first_visit_is_not_reloaded_by_the_service_worker(make_page, argus)
     time.sleep(4)                           # long enough for the install and the claim
     assert page.eval("performance.timeOrigin") == origin, "the page reloaded itself after opening"
     assert page.eval("!!navigator.serviceWorker.controller") is True, "the worker did take the page"
+
+
+def test_a_token_saved_under_the_old_name_still_signs_in(make_page, argus):
+    """The project was tmux-companion once; a phone that has not opened it since keeps its token
+    under `tmuxc.token`. The migration has to run before the token is read — an order the split
+    into modules could silently break, since the two now live in different statements of
+    state.js and used to sit in one file."""
+    from .conftest import TOKEN
+    page = make_page(login=False, route=None)
+    page.eval(f"localStorage.clear(); localStorage.setItem('tmuxc.token', {json.dumps(TOKEN)})")
+    page.goto(argus.url + "/")
+    page.wait("!document.getElementById('nav').hidden", what="signed in from the old key")
+    assert page.eval("localStorage.getItem('argus.token')") == TOKEN

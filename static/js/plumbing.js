@@ -1,5 +1,5 @@
 // <imports> generated from what this file uses; edit the code, not this list
-import { KEY, setToken, token } from '/js/core.js';
+import { KEY, setToken, token } from '/js/state.js';
 // </imports>
 /* ---------------------------------------------------------------- plumbing */
 
