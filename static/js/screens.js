@@ -5,13 +5,13 @@ import { el } from '/js/dom.js';
 import { fileIcon } from '/js/fileicons.js';
 import { dropOnSession, entryRow, entryTile, fetchHere, placePicker, searchBox, takesDrops, uploadTo } from '/js/filerows.js';
 import { icon } from '/js/icons.js';
-import { chooseDesk, createSession, nextWindowId, openWindow } from '/js/main.js';
 import { applyPointed, drawTree, markCurrent, pointAt, setPointed, under } from '/js/pointing.js';
 import { bidi, colorFor, favsIn, getJSON, homePath, human, isFavourite, parentOf, pickColor, postJSON, renamedSession, serverInfo, setTitle, toggleFavourite, visible } from '/js/reconnect.js';
 import { go, render } from '/js/router.js';
 import { applySidebar, renderSidebar } from '/js/sidebar.js';
 import { KEY, bar, live, prefs, server, setServer, setToken, sidePath, token, view } from '/js/state.js';
 import { openLocated } from '/js/termpaths.js';
+import { chooseDesk, createSession, nextWindowId, openWindow } from '/js/tray.js';
 import { duration } from '/js/vitals.js';
 import { t } from '/js/words.js';
 // </imports>

@@ -4,10 +4,10 @@ import { ask, confirmBox, copyPath, copyText, modal, toast } from '/js/dialogs.j
 import { el } from '/js/dom.js';
 import { fileIcon } from '/js/fileicons.js';
 import { icon } from '/js/icons.js';
-import { chooseDesk, createSession, nextWindowId } from '/js/main.js';
 import { bidi, getJSON, homePath, human, isFavourite, parentOf, postJSON, setHome, toggleFavourite, triggerDownload, visible, when, withToken } from '/js/reconnect.js';
 import { refreshAllBrowsers } from '/js/screens.js';
 import { prefs, server, token } from '/js/state.js';
+import { chooseDesk, createSession, nextWindowId } from '/js/tray.js';
 import { t } from '/js/words.js';
 // </imports>
 /* --------------------------------------------------------------- file rows */

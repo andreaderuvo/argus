@@ -2,11 +2,12 @@
 import { modal, toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { icon } from '/js/icons.js';
-import { keyHelp, nextWindowId, openWindow } from '/js/main.js';
 import { api, getJSON, patchJSON } from '/js/reconnect.js';
 import { go } from '/js/router.js';
+import { keyHelp } from '/js/shortcuts.js';
 import { applyRail } from '/js/sidebar.js';
 import { CAN_FULLSCREEN, MINE_ONLY, PREFS_KEY, VITALS_EVERY, bar, changedKeys, prefs, pushing, railToggle, server, setBaseline, setPrefsVersion, setPushing, setVitalsTimer, vitalsTimer } from '/js/state.js';
+import { nextWindowId, openWindow } from '/js/tray.js';
 import { LEVEL_WORD, worstVital } from '/js/vitals.js';
 import { t } from '/js/words.js';
 // </imports>

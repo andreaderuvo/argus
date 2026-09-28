@@ -3,13 +3,13 @@ import { savePrefs } from '/js/core.js';
 import { copies, copyText, showText, ticked, toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { icon } from '/js/icons.js';
-import { chooseDesk, nextWindowId, openWindow, watchers } from '/js/main.js';
 import { setCurrent } from '/js/pointing.js';
 import { getJSON, human, parentOf, postJSON, setTitle, signOut, triggerDownload, when, withToken } from '/js/reconnect.js';
 import { go } from '/js/router.js';
 import { keepMyPlace, playedTo } from '/js/screens.js';
 import { paintRailDesks } from '/js/sidebar.js';
 import { bar, prefs, server, view } from '/js/state.js';
+import { chooseDesk, nextWindowId, openWindow, watchers } from '/js/tray.js';
 import { t } from '/js/words.js';
 // </imports>
 /* ------------------------------------------------------------- the PDF viewer */

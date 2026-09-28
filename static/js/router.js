@@ -2,7 +2,6 @@
 import { savePrefs } from '/js/core.js';
 import { measureFurniture } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
-import { screenWall } from '/js/main.js';
 import { loadFavourites, serverInfo } from '/js/reconnect.js';
 import { screenFiles, screenLogin, screenSessions } from '/js/screens.js';
 import { paintRailWindows, screenMessages, screenTmuxConf } from '/js/sidebar.js';
@@ -11,6 +10,7 @@ import { CAN_FULLSCREEN, bar, favsLoaded, killLive, leaving, live, nav, parkLive
 import { screenTerm } from '/js/termpaths.js';
 import { screenPreview } from '/js/viewers.js';
 import { screenSystem, screenTodo } from '/js/vitals.js';
+import { screenWall } from '/js/wall.js';
 // </imports>
 /* ------------------------------------------------------------------ router */
 

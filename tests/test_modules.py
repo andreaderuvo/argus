@@ -140,3 +140,13 @@ def test_code_that_runs_at_load_reads_other_modules_only_if_they_are_leaves():
     assert done.returncode == 0, (
         "top-level code reads another module's binding while modules are still loading — move "
         "the binding into a leaf module (state.js) or read it inside a function:\n" + done.stdout + done.stderr)
+
+
+def test_the_boot_module_is_imported_by_the_entry_point_and_nothing_else():
+    """js/main.js is the boot: its body runs last, after every section, which is what lets it
+    read anything at load. A section importing from it would put it back inside the import
+    cycles — and anything it declares would be read by modules evaluated before it."""
+    boot = STATIC / "js" / "main.js"
+    for here, targets in graph().items():
+        if boot in targets:
+            assert here == STATIC / "app.js", f"{here.relative_to(ROOT)} imports from the boot module js/main.js"

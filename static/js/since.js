@@ -1,17 +1,21 @@
 // <imports> generated from what this file uses; edit the code, not this list
+import { paintSince } from '/js/bells.js';
 import { savePrefs } from '/js/core.js';
 import { confirmBox, modal, toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { fileIcon } from '/js/fileicons.js';
 import { keepDropsRow, whereWiringRow } from '/js/filerows.js';
+import { MARKS, mark, pastePause } from '/js/handover.js';
 import { icon } from '/js/icons.js';
-import { MARKS, installHere, installOffer, installed, keyFor, keyHelp, mark, paintSince, pastePause, workspaces } from '/js/main.js';
+import { installHere, installOffer, installed } from '/js/installing.js';
 import { under } from '/js/pointing.js';
 import { colorFor, delJSON, deskHome, getJSON, homePath, human, parentOf, postJSON, serverInfo, setTitle, signOut, when, withToken } from '/js/reconnect.js';
 import { go, render } from '/js/router.js';
+import { keyFor, keyHelp } from '/js/shortcuts.js';
 import { applyBottomBar, applyKeyBar, applySidebar, renderSidebar, versionRow, viewersRow } from '/js/sidebar.js';
 import { THEMES, prefs, server, view } from '/js/state.js';
 import { applyTheme } from '/js/theme.js';
+import { workspaces } from '/js/tray.js';
 import { repaintDiagrams } from '/js/viewers.js';
 import { deviceRows, handoffSheet, languageSheet } from '/js/vitals.js';
 import { activeLang, t } from '/js/words.js';

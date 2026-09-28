@@ -1,18 +1,21 @@
 import { Terminal } from '/vendor/xterm-6.0.0/xterm.mjs';
 import { FitAddon } from '/vendor/xterm-6.0.0/addon-fit.mjs';
 // <imports> generated from what this file uses; edit the code, not this list
+import { ring } from '/js/bells.js';
 import { savePrefs } from '/js/core.js';
 import { copyText, toast } from '/js/dialogs.js';
 import { el, enc } from '/js/dom.js';
 import { dropOnSession, takesDrops } from '/js/filerows.js';
+import { allVars, fillBaton, mark, markRe, situationOf, typeInto, valueFor } from '/js/handover.js';
 import { icon } from '/js/icons.js';
-import { allVars, beside, currentSpace, fillBaton, linkHarvester, mark, markRe, nextWindowId, noteLinks, openWindow, ring, situationOf, typeInto, valueFor } from '/js/main.js';
 import { pointAt } from '/js/pointing.js';
 import { deskHome, getJSON, openFileRaw, postJSON, setTitle, withToken } from '/js/reconnect.js';
 import { go } from '/js/router.js';
 import { bar, killLive, live, nav, prefs, server, setLive, token, view } from '/js/state.js';
 import { READABLE, RECONNECT_CAP, copyButton, sizeButtons } from '/js/terminal.js';
 import { termTheme, termThemeWatch } from '/js/theme.js';
+import { currentSpace, linkHarvester, nextWindowId, noteLinks, openWindow } from '/js/tray.js';
+import { beside } from '/js/wall.js';
 import { t } from '/js/words.js';
 // </imports>
 /* ------------------------------------------------- paths printed in a terminal */

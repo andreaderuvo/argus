@@ -1,12 +1,14 @@
 // <imports> generated from what this file uses; edit the code, not this list
 import { savePrefs } from '/js/core.js';
+import { showCount } from '/js/counts.js';
 import { ask, confirmBox, copyPath, copyText, modal, toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { icon } from '/js/icons.js';
-import { openWindow, showCount, translateMarkup } from '/js/main.js';
+import { translateMarkup } from '/js/markup.js';
 import { delJSON, getJSON, human, patchJSON, postJSON, serverInfo, setTitle, when, withToken } from '/js/reconnect.js';
 import { render } from '/js/router.js';
 import { prefs, setLeaving, view } from '/js/state.js';
+import { openWindow } from '/js/tray.js';
 import { activeLang, loadLanguage, t } from '/js/words.js';
 // </imports>
 /* ------------------------------------------------------------------ vitals */

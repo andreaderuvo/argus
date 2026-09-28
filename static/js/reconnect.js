@@ -1,8 +1,9 @@
 // <imports> generated from what this file uses; edit the code, not this list
+import { rung } from '/js/bells.js';
 import { savePrefs } from '/js/core.js';
 import { modal, toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
-import { allVars, fillBaton, rung } from '/js/main.js';
+import { allVars, fillBaton } from '/js/handover.js';
 import { render } from '/js/router.js';
 import { refreshAllBrowsers } from '/js/screens.js';
 import { KEY, WIN_COLORS, bar, favs, prefs, server, setFavs, setFavsLoaded, setServer, setToken, side, token } from '/js/state.js';
