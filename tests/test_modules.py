@@ -150,3 +150,17 @@ def test_the_boot_module_is_imported_by_the_entry_point_and_nothing_else():
     for here, targets in graph().items():
         if boot in targets:
             assert here == STATIC / "app.js", f"{here.relative_to(ROOT)} imports from the boot module js/main.js"
+
+
+def test_every_import_block_is_what_the_generator_would_write():
+    """The `// <imports>` blocks are generated (scripts/modules.mjs). One edited by hand, or
+    left behind after a move, is stale: a name imported from where it no longer lives fails at
+    load, and one nothing uses is noise that hides the next real change."""
+    node = shutil.which("node")
+    if not node or not (ROOT / "node_modules" / "espree").exists():
+        if os.environ.get("ARGUS_BROWSER_REQUIRED") == "1" or os.environ.get("ARGUS_LINT_REQUIRED") == "1":
+            pytest.fail("the import-block check is required here: run `npm ci`")
+        pytest.skip("needs node and `npm ci`, development only")
+    done = subprocess.run([node, str(ROOT / "scripts" / "modules.mjs"), "relink", "--check"],
+                          cwd=ROOT, capture_output=True, text=True, timeout=120)
+    assert done.returncode == 0, done.stdout + done.stderr

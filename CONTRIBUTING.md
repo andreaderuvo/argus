@@ -27,7 +27,11 @@ python -m app.main
 ```
 
 Python 3.11 is the compatibility floor. The frontend uses browser-native JavaScript and CSS;
-there is no Node build step. See the
+there is no Node build step. Node is used for checks only: `npm ci` installs ESLint and the
+parser behind `npm run relink`, which regenerates the import block at the top of each module in
+`static/js/` — run it after using a name from another module. With Chromium available (or
+`ARGUS_CHROMIUM` set), `python -m pytest -q` also drives the real app in a browser;
+`-m "not browser"` skips that part. See the
 [development guide](https://github.com/andreaderuvo/argus/wiki/Development) for the demo and
 browser probes.
 

@@ -97,10 +97,51 @@ app/fsops.py      mkdir / rename / move / copy / delete — refused unless allow
 app/tmux.py       Socket (-L/-S) + list-sessions parsing
 app/term.py       PTY ↔ WebSocket bridge
 static/           index.html, app.js, style.css, sw.js, vendor/{xterm-6.0.0,marked-18.0.7}
+static/js/        the frontend, one module per section of what used to be app.js
+scripts/modules.mjs  regenerates the import blocks; moves code between modules safely
 ```
 
-The frontend is one ES module, no bundler and no build step. Editing `static/` and
+The frontend is plain ES modules, no bundler and no build step. Editing `static/` and
 reloading is the whole loop — only Python changes need the server restarted.
+
+**The modules** (`static/js/`, split from a 16,600-line app.js on 2026-09-28, behaviour
+unchanged and the browser suite green at every step):
+
+```
+app.js         the entry point: one import. Kept by name (index.html, sw.js, PWAs know it)
+js/main.js     the boot. Imported by app.js alone; its body runs after every section
+js/state.js    storage keys, the tmuxc.* migration, DOM handles, DEFAULTS, prefs, token,
+               server, live and the other shared lets + their setters. Imports NOTHING.
+js/dom.js      el(), svg() — the builders. Imports nothing.
+js/words.js    t(), the language catalogue.        js/icons.js   the icon set
+js/core.js     prefs sync, the header's wiring     js/reconnect.js  api(), getJSON…, the veil
+js/router.js   render(), go()                      js/screens.js the ordinary screens
+js/filerows.js file rows and the browser           js/viewers.js PDF, images, markdown, …
+js/sidebar.js  sidebar, drawer, rail               js/wall.js    desks and windows (3,000 lines)
+js/termpaths.js clickable paths in a terminal      js/tray.js    the link tray
+js/handover.js prompts, placeholders, pairs        js/since.js   while you were away
+js/vitals.js · bells.js · shortcuts.js · counts.js · markup.js · theme.js · plumbing.js ·
+js/pointing.js · fileicons.js · dialogs.js · terminal.js · chains.js · installing.js
+```
+
+Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way during the split:
+
+- **Imports are generated.** Each file has one `// <imports>` block; never edit it — write the
+  code, then `npm run relink`. A stale block fails the tests. ESLint's `no-undef` says a name
+  is missing, `no-import-assign` that an imported `let` is being assigned: give it a setter in
+  its own module (`node scripts/modules.mjs setters /js/state.js name`), because an ES import
+  is read-only.
+- **Load order is not file order.** The sections import each other in circles, so a module's
+  top-level code may run before a module it reads from. Reading another module's `const`/`let`
+  *at load* — directly or through a function called at load — is only allowed from a module in
+  no import cycle (state.js, dom.js, words.js, icons.js…). `tests/js/loadorder.mjs` follows the
+  calls and names the chain. It found `buildDrawer → icon → svg` reading `SVG_NS` before
+  words.js had run, which is why dom.js exists. Functions are hoisted; helpers written as
+  `const f = () => …` are not (`node scripts/modules.mjs hoist`).
+- **A module run for its effect needs an import for it** (`import '/js/plumbing.js'` in
+  main.js): nothing uses its exports, and without that line the token in the banner link would
+  never be read. Unreachable modules fail the tests.
+- Every module is in `sw.js`'s SHELL (tested); bump `CACHE` when the set changes.
 
 ## Frontend notes
 
