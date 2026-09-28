@@ -67,3 +67,6 @@ include = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+  "browser: drives a real Chromium against a real Argus (tests/browser); `-m 'not browser'` for the quick loop",
+]

@@ -17,11 +17,12 @@ and after: ten keydowns produced one `\x1b[D` in the pane, then ten.
 
 from pathlib import Path
 
-APP = Path(__file__).resolve().parent.parent / "static" / "app.js"
+from frontend_source import frontend_source
+
 
 
 def the_filter() -> str:
-    body = APP.read_text(encoding="utf-8")
+    body = frontend_source()
     start = body.index("const duplicated = (data) =>")
     return body[start:body.index("\n  };", start)]
 

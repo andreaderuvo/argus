@@ -17,15 +17,16 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from frontend_source import frontend_source
+
 ROOT = Path(__file__).resolve().parent.parent
-APP = ROOT / "static" / "app.js"
 CSS = ROOT / "static" / "style.css"
 
 
 def test_document_strip_does_not_wear_the_terminal_class() -> None:
     """The one line that builds a document's strip must not say `winfacts`."""
     built = [
-        line for line in APP.read_text(encoding="utf-8").splitlines()
+        line for line in frontend_source().splitlines()
         if "className: 'docfacts" in line or 'className: "docfacts' in line
     ]
     assert built, "the document strip is no longer built with a `docfacts` class"
@@ -38,7 +39,7 @@ def test_document_strip_does_not_wear_the_terminal_class() -> None:
 
 def test_the_terminal_painters_only_reach_terminals() -> None:
     """Nothing that rebuilds a strip's contents may select the document's class."""
-    source = APP.read_text(encoding="utf-8")
+    source = frontend_source()
     for hit in re.findall(r"querySelectorAll\((['\"`])([^'\"`]*docfacts[^'\"`]*)\1\)", source):
         selector = hit[1]
         assert "winfacts" not in selector, (

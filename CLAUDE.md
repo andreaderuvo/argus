@@ -45,7 +45,9 @@ app/`). This is also why the product does a real PTY instead of capture-pane pol
 ## Run & test
 
 ```bash
-python3 -m pytest -q                       # 62 tests, no tmux server required
+python3 -m pytest -q -m "not browser"      # the quick loop: Python only, ~35s
+python3 -m pytest -q                       # everything, including the browser suite (~5 min)
+npm ci                                     # once, for ESLint (development only)
 python3 -m app.main --help
 python3 -m app.main --listen 0.0.0.0:8090  # config auto-created on first run
 python3 -m app.main --print-url            # the URL including the token
@@ -53,6 +55,35 @@ python3 -m app.main --print-url            # the URL including the token
 
 Dependencies are already in the conda base env (fastapi, uvicorn, pyyaml, pytest, httpx);
 `requirements.txt` lists them for anywhere else.
+
+**The browser harness** (`tests/browser/`) is how the frontend is tested, since it has no
+build step to catch anything. A real Argus is started as a subprocess with a temp config, a
+temp root full of sample files, its own `HOME` and a tmux socket `argus-t-<pid>-<n>` — never the
+default one — and a headless Chromium drives it over CDP (`cdp.py`, on `websockets`). Things
+worth knowing before adding a test:
+
+- **Any problem fails the test by itself**: an uncaught exception, a console error, a 4xx/5xx or
+  failed request of ours, a `.js` answered with HTML (a missing module — `serve_static` falls
+  back to the index). The one expected 404 is the wall probing for `PLAN/BRIDGE.argus.md`.
+- Every test gets a fresh browser **context** (own localStorage) and the server's `/api/prefs`
+  is emptied around it — preferences live on the server too, and would leak between tests.
+- Desktop means a **mouse**: headless Chromium reports no hover and no fine pointer, so it is
+  started with `--blink-settings` declaring one. Never call `setTouchEmulationEnabled(false)` —
+  it resets to "no pointer", not to the mouse. Phone pages get touch emulation and real taps.
+- Taps are converted from layout to screen pixels, because the page is wider than a phone
+  (the header is 424px — see the strict xfail in `test_layout.py`) and a phone shrinks it.
+- The terminal is checked by **effect** (a typed command writes a file): xterm draws on a
+  canvas, and reading the pane back is never an option here (see the crash above).
+- `tests/test_modules.py` checks the module graph without a browser: every import resolves,
+  every module is reachable from `app.js` and listed in `sw.js`'s SHELL, nothing imports
+  `app.js` back, and ESLint (`eslint.config.js`: `no-undef`, `no-import-assign`, correctness
+  only) is clean. `tests/frontend_source.py` is how a test reads the JS as text — all of it,
+  however many modules it is split into.
+- Chromium: `$ARGUS_CHROMIUM`, else Playwright's cache, else the PATH; missing → skip, unless
+  `ARGUS_BROWSER_REQUIRED=1` (CI), which makes it a failure.
+- The suite was checked against itself: seven deliberate bugs (a misspelt name in a rare path,
+  a screen that throws, a console error, kill without confirmation, a broken figure URL, the
+  versions wiped on pick) — every one fails it.
 
 ## Layout
 

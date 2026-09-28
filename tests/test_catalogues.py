@@ -15,8 +15,9 @@ import json
 import re
 from pathlib import Path
 
+from frontend_source import frontend_source
+
 ROOT = Path(__file__).resolve().parent.parent
-APP = ROOT / "static" / "app.js"
 LANG = ROOT / "static" / "lang"
 
 # Literals that reach `t()` but are not text: `kind` values compared inside a ternary, as in
@@ -49,7 +50,7 @@ def keys_in_source() -> set[str]:
     a comma in it — and then reports the catalogue as having entries nothing asks for, when
     the truth is the opposite.
     """
-    body = APP.read_text(encoding="utf-8")
+    body = frontend_source()
     found: set[str] = set()
     for call in re.finditer(r"\bt\(", body):
         i, depth = call.end(), 1

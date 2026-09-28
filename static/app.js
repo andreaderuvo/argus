@@ -1143,7 +1143,6 @@ const ICONS = {
   move: 'M4.5 12h13M12.5 6.5 18 12l-5.5 5.5',
   layers: 'M12 3.6 3.4 8 12 12.4 20.6 8zM3.4 12.4 12 16.8l8.6-4.4M3.4 16.6 12 21l8.6-4.4',
   pin: 'M9.5 3.5h5l-.8 5.2 3.3 3.1H7l3.3-3.1zM12 11.8V20.5',
-  copy: 'M9 8.5h10.5V20H9zM5 15.5V4h10.5',
   clipboard: 'M9.5 4.5h5v2.6h-5zM8 5.6H5.5v14h13v-14H16',
   trash: 'M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 12.5h9L17.5 7M10 10.5v6M14 10.5v6',
   split: 'M4 4.5h16v15H4zM12 4.5v15',
@@ -1180,8 +1179,6 @@ const ICONS = {
   save: 'M5.5 4.5h10L18.5 7.5v12h-13zM8.5 4.5v5h6M8.5 19.5v-6h7v6',
   phone: 'M7.5 3.5h9v17h-9zM10.5 17.8h3',
   camera: 'M4 7.5h3.2l1.4-2h6.8l1.4 2H20v11H4zM12 10.2a3.3 3.3 0 1 1 0 6.6 3.3 3.3 0 0 1 0-6.6z',
-  layers: 'M12 3.6 3.4 8 12 12.4 20.6 8zM3.4 12.4 12 16.8l8.6-4.4M3.4 16.6 12 21l8.6-4.4',
-  pin: 'M9.5 3.5h5l-.8 5.2 3.3 3.1H7l3.3-3.1zM12 11.8V20.5',
   copy: 'M9 9h10.5v10.5H9zM15 9V4.5H4.5V15H9',
   search: 'M10.8 4.6a6.2 6.2 0 1 1 0 12.4 6.2 6.2 0 0 1 0-12.4zM15.4 15.4 20 20',
   usage: 'M12 3.6a8.4 8.4 0 1 0 8.4 8.4H12z',
@@ -15771,6 +15768,9 @@ function attachWeb(host, spec, setLabel) {
     frame = el('iframe', { className: 'preview', src: spec.url });
     host.append(frame);
   };
+  // Assigning src to itself is how a cross-origin frame is reloaded: contentWindow.location is
+  // not ours to touch.
+  // eslint-disable-next-line no-self-assign
   reload.onclick = () => { if (frame) frame.src = frame.src; };
   draw();
   setLabel?.(spec.label || spec.url, spec.url);

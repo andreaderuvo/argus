@@ -30,6 +30,30 @@ jobs:
       # together, so here is where the drift has to be caught.
       - name: the wiki, for the documentation check
         run: git clone --depth 1 https://github.com/andreaderuvo/argus.wiki.git "$RUNNER_TEMP/wiki" || true
-      - run: python -m pytest -q
+      # The browser suite runs once, in its own job below — not three times here.
+      - run: python -m pytest -q -m "not browser"
         env:
           ARGUS_WIKI: ${{ runner.temp }}/wiki
+
+  frontend:
+    # The frontend has no build step, so this is its compiler: ESLint for names used but never
+    # declared or imported, the module graph against the service worker's list, and a real
+    # Chromium driving a real Argus on a tmux socket of its own. REQUIRED=1 turns "no browser
+    # here" from a skip into a failure: a runner that lost Chrome must not pass by testing
+    # nothing.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: pip install -r requirements.txt
+      - run: npm ci
+      - run: sudo apt-get update && sudo apt-get install -y tmux poppler-utils
+      - run: python -m pytest -q tests/test_modules.py tests/browser
+        env:
+          ARGUS_BROWSER_REQUIRED: '1'
+          ARGUS_CHROMIUM: /usr/bin/google-chrome
