@@ -1,948 +1,18 @@
 import { Terminal } from '/vendor/xterm-6.0.0/xterm.mjs';
 import { FitAddon } from '/vendor/xterm-6.0.0/addon-fit.mjs';
+// Modules imported for what they *do* at load, not for anything they export. First, so that
+// they run in the order the single file ran them: the token is taken from the address
+// before anything else asks for it.
+import '/js/plumbing.js';
 // <imports> generated from what this file uses; edit the code, not this list
-import { CAN_FULLSCREEN, KEY, SIDE_PATH_KEY, THEMES, WIN_COLORS, assignSidePath, bar, favs, favsLoaded, hamburger, killLive, leaving, live, markDrops, moreBtn, nav, parkLive, prefs, railDesks, railToggle, railWins, resumeLive, savePrefs, server, setFavs, setFavsLoaded, setLeaving, setLive, setServer, setToken, side, sidePath, sideToggle, syncPrefs, token, view, watchVitals } from '/js/core.js';
+import { CAN_FULLSCREEN, KEY, SIDE_PATH_KEY, THEMES, assignSidePath, bar, favsLoaded, hamburger, killLive, leaving, live, markDrops, moreBtn, nav, parkLive, prefs, railDesks, railToggle, railWins, resumeLive, savePrefs, server, setLeaving, setLive, setServer, setToken, side, sidePath, sideToggle, syncPrefs, token, view, watchVitals } from '/js/core.js';
+import { ask, askPrompt, confirmBox, copies, copyPath, copyText, measureFurniture, modal, showText, ticked, toast, undoToast } from '/js/dialogs.js';
+import { fileIcon } from '/js/fileicons.js';
+import { icon } from '/js/icons.js';
+import { bellStream, bidi, colorFor, delJSON, deskHome, favsIn, getJSON, homePath, human, isFavourite, loadFavourites, openFileRaw, parentOf, patchJSON, pickColor, postJSON, renamedSession, serverInfo, setBellStream, setHome, setTitle, signOut, toggleFavourite, triggerDownload, visible, when, withToken } from '/js/reconnect.js';
+import { applyTheme, redressTerminals, termTheme, termThemeWatch } from '/js/theme.js';
+import { activeLang, api, el, enc, loadLanguage, preferredLanguage, t } from '/js/words.js';
 // </imports>
-
-/* ------------------------------------------------------------------- theme */
-
-/** Resolve `auto` here rather than in a media query, so the stylesheet only ever deals
- *  with a concrete `data-theme`. */
-function applyTheme() {
-  const resolved = prefs.theme === 'auto'
-    ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
-    : prefs.theme;
-  document.documentElement.dataset.theme = resolved;
-  document.querySelector('meta[name=theme-color]')
-    ?.setAttribute('content', resolved === 'light' ? '#ffffff' : '#0b0e14');
-  // Anything holding colours of its own rather than variables has to be told. A mermaid
-  // diagram has the palette written into its svg; a mesh has it written into a
-  // WebGLRenderer's state, which is no more a CSS variable than the diagram's markup is.
-  repaintDiagrams();
-  repaintMeshes();
-}
-
-matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
-  if (prefs.theme === 'auto') applyTheme();
-});
-
-/** The terminal takes its colours from the same palette, read off the document. */
-function termTheme(session = null) {
-  const cs = getComputedStyle(document.documentElement);
-  const v = (name, fallback) => cs.getPropertyValue(name).trim() || fallback;
-  // A chosen look dresses the terminal here as well: tmux paints its own status line, but
-  // the paper it sits on belongs to the browser. A session dressed on its own wins.
-  const look = (session && prefs.termLookBy?.[session]) || prefs.termLook || null;
-  return {
-    background: look?.background || v('--term-bg', '#000000'),
-    foreground: look?.foreground || v('--term-fg', '#c5cad3'),
-    cursor: look?.cursor || v('--accent', '#8fd6a0'),
-    selectionBackground: '#3a4657',
-  };
-}
-
-/** Every terminal on screen, redressed without reattaching anything. */
-function redressTerminals() {
-  for (const paint of termThemeWatch) paint();
-}
-const termThemeWatch = new Set();
-
-/* ---------------------------------------------------------------- plumbing */
-
-/* The banner URL carries the token. Take it, then scrub it out of the address bar.
- *
- *  Two forms, and the difference matters more than it looks. `#token=` is a **fragment**:
- *  the browser never sends it to the server, so it cannot appear in an access log, in the
- *  log of any proxy along the way, or in a `Referer`. `?token=` is in the request line and
- *  therefore in all three. The banner prints the hash form now; the query form is still
- *  accepted, because links and QR codes already in people's phones must keep working.
- *
- *  Neither form saves it from the browser's own history, which is why it is scrubbed out
- *  of the bar either way.
- */
-function takeTokenFromAddress() {
-  const hash = location.hash.replace(/^#/, '');
-  const fromHash = new URLSearchParams(hash).get('token');
-  const given = fromHash || new URLSearchParams(location.search).get('token');
-  if (!given) return false;
-  /* Whether this is *news*, which is a different question from whether there is a token in
-   *  the address — and the only one worth a reload.
-   *
-   *  The caller below reloads on every hash change that finds one, and a hash change is what
-   *  opening anything in this app is. So an address that keeps its `?token=` — a bookmark
-   *  somebody uses every day, a link they pasted back in — turned every click into a reload
-   *  of the page instead of the thing they clicked. Reported as a PDF that reloads Argus and
-   *  never opens, which is exactly what that looks like from the outside: the reload lands
-   *  before the document can draw.
-   *
-   *  A token identical to the one already held is not an arrival. Clean it out of the bar and
-   *  carry on. */
-  const news = given !== token;
-  setToken(given);
-  localStorage.setItem(KEY, token);
-  // A hash that carried nothing but the token leaves no route behind; one that carried a
-  // route keeps it, so `#token=…&/wall` lands on the desk it names.
-  const rest = fromHash
-    ? hash.split('&').filter((bit) => !bit.startsWith('token=')).join('&')
-    : hash;
-  history.replaceState(null, '', location.pathname + (rest ? `#${rest}` : ''));
-  return news;
-}
-
-takeTokenFromAddress();
-
-/* And again if one arrives later.
- *
- *  Changing only the fragment is a same-document navigation: the browser does not reload, so
- *  a `#token=` link pasted into a tab that is already open would do nothing at all — where
- *  `?token=` forces a reload and works. Found by a test that navigated between the two forms
- *  and was quietly measuring the first one twice.
- */
-window.addEventListener('hashchange', () => {
-  if (takeTokenFromAddress()) location.reload();
-});
-
-/* ------------------------------------------------------------------- words */
-
-// The English text is its own key. A catalogue is therefore readable by whoever
-// translates it, a missing entry falls back to English instead of showing a code, and
-// the source keeps saying what it means.
-let strings = {};
-// What is on screen right now, which is not the same as what was chosen: with no choice
-// stored we follow the browser, and the Settings row has to say the truth either way.
-let activeLang = 'en';
-
-export function t(text, vars) {
-  let out = strings[text] || text;
-  if (vars) for (const [k, v] of Object.entries(vars)) out = out.split(`{${k}}`).join(String(v));
-  return out;
-}
-
-async function loadLanguage(code) {
-  activeLang = code || 'en';
-  if (!code || code === 'en') { strings = {}; return; }
-  try {
-    const r = await fetch(`/api/language/${encodeURIComponent(code)}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    strings = r.ok ? (await r.json()).strings || {} : {};
-  } catch { strings = {}; }
-}
-
-/** Whatever the browser asks for, if we have it. */
-function preferredLanguage(available) {
-  if (prefs.lang) return prefs.lang;
-  for (const want of navigator.languages || [navigator.language || 'en']) {
-    const code = want.toLowerCase().split('-')[0];
-    if (available.includes(code)) return code;
-  }
-  return 'en';
-}
-
-const enc = new TextEncoder();
-const SVG_NS = 'http://www.w3.org/2000/svg';
-
-export const el = (tag, props = {}, kids = []) => {
-  const n = Object.assign(document.createElement(tag), props);
-  for (const k of [].concat(kids)) n.append(k);
-  return n;
-};
-
-const svg = (tag, attrs = {}, kids = []) => {
-  const n = document.createElementNS(SVG_NS, tag);
-  for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
-  for (const c of [].concat(kids)) n.append(c);
-  return n;
-};
-
-export async function api(path, init) {
-  const headers = { Authorization: `Bearer ${token}`, ...(init?.headers || {}) };
-  let r;
-  try {
-    r = await fetch(path, { ...init, headers });
-  } catch (e) {
-    // No answer at all — not a refusal, an absence. The machine is off, the service has
-    // stopped, the wifi has gone, the laptop has been shut. Every one of those looks like
-    // an app that has quietly stopped working, so it says so instead.
-    if (e.name !== 'AbortError') maybeLost();
-    throw e;
-  }
-  // Anything that came back means it is there, whatever it said.
-  if (waiting) foundTheServer();
-  if (r.status === 401) { signOut(); throw new Error('unauthorized'); }
-  if (!r.ok) {
-    let msg = `HTTP ${r.status}`;
-    try { msg = (await r.json()).error || msg; } catch { /* not JSON */ }
-    const e = new Error(msg); e.status = r.status; throw e;
-  }
-  return r;
-}
-
-/* ------------------------------------------------------- when it stops answering
-
-   An app that has lost its server looks exactly like an app that is broken: buttons that do
-   nothing, a list that will not refresh, a spinner that never ends. It is worth saying which
-   of the two it is, because the answer changes what you do — nothing, usually, since a tmux
-   session outlives all of this and the work carries on without a browser attached.
-
-   So it says so, and then it does the thing you would do: try again. Spaced out rather than
-   hammering — a machine that is rebooting is not helped by sixty requests a minute, and the
-   gaps are how long a reboot actually takes. A handful of tries, then it stops and waits for
-   you, because something that retries for ever is something you stop believing.
-
-   The probe is an ordinary authenticated request. Anything that comes back at all means the
-   server is there, and then the page reloads: whatever went stale while it was away — a
-   listing, a session that has gone, a token that was rotated — is settled by starting again
-   rather than by guessing which parts survived.
-*/
-const RETRY_AFTER = [3, 5, 8, 13, 21, 34];
-let waiting = null;
-
-/* One failed request is not a lost server.
- *
- *  `fetch` rejects for a great many ordinary reasons that have nothing to do with the machine
- *  being gone: a request the browser cancelled because whatever asked for it went away, a tab
- *  coming back from sleep, a connection the network dropped and would hand back on the next
- *  try. Any one of them used to mean "the server is down" — and because *the next successful
- *  request reloads the page*, a single dropped request threw the whole app away. Silently:
- *  the two happen within milliseconds of each other, so nothing has time to appear on screen
- *  and all anybody sees is the application restarting under them. Reported as exactly that,
- *  after opening a PDF, which over a network is the heaviest thing this app does and so the
- *  likeliest moment for one request to be dropped.
- *
- *  So it asks a second time before believing it. One small request, and only its answer
- *  decides.
- */
-async function maybeLost() {
-  if (waiting || !token) return;
-  const stop = new AbortController();
-  const giveUp = setTimeout(() => stop.abort(), 4000);
-  try {
-    await fetch('/api/config', { headers: { Authorization: `Bearer ${token}` }, signal: stop.signal });
-  } catch {
-    lostTheServer();                        // asked twice, answered neither time
-  } finally {
-    clearTimeout(giveUp);
-  }
-}
-
-/* And coming back is not always a reason to start again.
- *
- *  The reload is there for what a *restart* leaves behind: a frontend that has changed under
- *  a page that is still running the old one, a rotated token, a listing describing a world
- *  that has moved on. None of that is true of a server that was unreachable for two seconds
- *  and is the same process it always was — and a reload costs whatever was on screen, which
- *  by now includes half-typed text in a note window and the page somebody had reached in a
- *  document. So it asks which of the two happened, and the server's start time is the answer.
- */
-async function foundTheServer() {
-  if (!waiting || waiting.done) return;
-  waiting.done = true;                      // whichever of the two callers arrives first
-  clearTimeout(waiting.clock);
-  waiting.said.textContent = t('There it is…');
-
-  /* Only on evidence, and "I cannot tell" is not evidence.
-   *
-   *  This asked the server when it started and compared it with what the page booted
-   *  against — but `server` is filled by the first `/api/config`, which has not landed yet
-   *  while the page is still starting. A request failing in that window found no baseline,
-   *  read it as a restart, and reloaded; the fresh page reopened the same window, and the
-   *  whole thing went round. Reported as a reload loop, and it was mine.
-   *
-   *  A page that has only just booted cannot be running a stale frontend, which is the one
-   *  thing the reload is for. With nothing to compare against, the honest answer is to stay
-   *  where we are.
-   */
-  let restarted = false;
-  try {
-    const said = await (await fetch('/api/config', {
-      headers: { Authorization: `Bearer ${token}` },
-    })).json();
-    restarted = Boolean(server?.started) && said.started !== server.started;
-  } catch { /* gone again already; the probe keeps trying and nothing is thrown away */ }
-
-  if (!restarted) {
-    waiting.veil.remove();
-    waiting = null;
-    return;
-  }
-  waiting.said.textContent = t('There it is. Reloading…');
-  location.reload();
-}
-
-function lostTheServer() {
-  if (waiting || !token) return;
-
-  const said = el('p', { className: 'lostsaid' });
-  const now = el('button', { className: 'primary inline', textContent: t('Try now') });
-  // The button you would want anyway. The countdown is doing the same thing on its own, but
-  // waiting for a machine you have just watched come back is its own small annoyance — and
-  // this one does not care what the probe thinks.
-  const again = el('button', {
-    className: 'ghost', textContent: t('Reload the page'), onclick: () => location.reload(),
-  });
-  const box = el('div', { className: 'lostbox' }, [
-    el('h2', { textContent: t('Argus is not answering') }),
-    el('p', { className: 'hint', textContent: t('The machine, the service or the network — from here they look the same. Your tmux sessions are not affected: they run on the machine, not in this page.') }),
-    said,
-    el('div', { className: 'lostrow' }, [again, now]),
-  ]);
-  const veil = el('div', { className: 'lostveil' }, [box]);
-  document.body.append(veil);
-  waiting = { veil, said, clock: null, tries: 0, done: false };
-
-  const probe = async () => {
-    said.textContent = t('Trying…');
-    const stop = new AbortController();
-    const giveUp = setTimeout(() => stop.abort(), 5000);
-    try {
-      await fetch('/api/config', { headers: { Authorization: `Bearer ${token}` }, signal: stop.signal });
-      foundTheServer();                     // anything at all, even an error status
-    } catch {
-      wait();
-    } finally {
-      clearTimeout(giveUp);
-    }
-  };
-
-  const wait = () => {
-    if (!waiting || waiting.done) return;
-    // Whatever was counting down before this, stop it. One clock, or two of them read the
-    // same counter and the sentence stops matching the wait.
-    clearTimeout(waiting.clock);
-    const attempt = waiting.tries + 1;
-    const gap = RETRY_AFTER[attempt - 1];
-    if (gap === undefined) {
-      said.textContent = t('Still nothing, after {n} tries.', { n: RETRY_AFTER.length });
-      now.textContent = t('Try again');
-      now.onclick = () => { waiting.tries = 0; now.textContent = t('Try now'); probe(); };
-      return;
-    }
-    waiting.tries = attempt;
-    let left = gap;
-    const tick = () => {
-      if (!waiting || waiting.done) return;
-      // `attempt`, not `waiting.tries`: the number in the sentence and the number of seconds
-      // being counted have to be the same round.
-      said.textContent = t('Trying again in {n}s — attempt {i} of {all}', { n: left, i: attempt, all: RETRY_AFTER.length });
-      if (left <= 0) return probe();
-      left -= 1;
-      waiting.clock = setTimeout(tick, 1000);
-    };
-    tick();
-  };
-
-  now.onclick = () => { clearTimeout(waiting.clock); probe(); };
-  wait();
-}
-
-export const getJSON = (p) => api(p).then((r) => r.json());
-
-const postJSON = (p, body) => api(p, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify(body),
-}).then((r) => r.json());
-
-const delJSON = (p) => api(p, { method: 'DELETE' }).then((r) => r.json());
-
-export const patchJSON = (p, body) => api(p, {
-  method: 'PATCH',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify(body),
-}).then((r) => r.json());
-
-const withToken = (p) => p + (p.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token);
-
-/** A same-tab download that can never navigate the app away, whatever the response turns
- *  out to carry.
- *
- *  `location.href = …` used to do this, and it worked almost always — the moment the
- *  response comes back with `Content-Disposition: attachment` a browser abandons the
- *  navigation on its own. Almost always was the problem: it is still a real navigation
- *  attempt on the document Argus is running in until that header is seen, and a phone
- *  browser, a slow connection or two downloads started close together is exactly where
- *  "almost" shows up — as the whole app reloading from a click that was only ever meant
- *  to save one file. An `<a download>`, clicked in script, downloads without ever being a
- *  navigation in the first place: nothing here can un-load the page, because nothing here
- *  ever asked to. */
-/** The real file, exactly as it is on disk, in a new tab — none of Argus's own preview
- *  around it, and `raw=1` so the server skips `max_preview_bytes` too: a file too big for
- *  the in-app viewer is not too big to hand the browser directly. */
-/** `noopener` on a `window.open` also throws away the reference — the return value is
- *  `null` — which is the right trade for a URL somebody else's page might control (an
- *  opener it can navigate is a phishing trick waiting to happen) and the wrong one here:
- *  this is always our own server answering with a file, so there is nothing in it that
- *  could abuse `window.opener`, and keeping the reference is what lets the tab be put in
- *  front rather than left to whatever the browser felt like doing with a script-opened one. */
-const openFileRaw = (path) => {
-  const win = window.open(withToken(`/api/file?path=${encodeURIComponent(path)}&raw=1`), '_blank');
-  win?.focus();
-};
-
-function triggerDownload(url) {
-  const a = el('a', { href: url, download: '' });
-  document.body.append(a);
-  a.click();
-  a.remove();
-}
-
-async function serverInfo() {
-  if (!server) setServer(await getJSON('/api/config'));
-  return server;
-}
-
-async function loadFavourites() {
-  try { setFavs(await getJSON('/api/favourites')); } catch { setFavs({}); }
-  setFavsLoaded(true);   // an empty list is an answer, not a reason to keep asking
-}
-
-// The sidebar, the panes and a window are three different tools; each keeps its own
-// shortcuts rather than sharing one list that suits none of them.
-const favsIn = (group) => favs[group] || [];
-const isFavourite = (path, group) => favsIn(group).some((f) => f.path === path);
-
-async function toggleFavourite(path, group) {
-  try {
-    const r = await postJSON('/api/favourites', { path, group });
-    setFavs(r.favourites);
-    toast(r.pinned ? t('pinned in {group}', { group: r.group }) : t('unpinned from {group}', { group: r.group }));
-    refreshAllBrowsers();
-  } catch (e) { toast(e.message, true); }
-}
-
-// Declared here rather than beside the bell code below: `signOut` closes it, and a `let` is
-// not readable before its own line has run.
-let bellStream = null;
-
-function signOut() {
-  setToken('');
-  setServer(null);
-  localStorage.removeItem(KEY);
-  // The bell stream outlived a sign-out before this, because an EventSource was never closed
-  // — it sat there reconnecting with a token that had just been thrown away.
-  bellStream?.abort?.();
-  bellStream = null;
-  side.innerHTML = '';
-  render();
-}
-
-const human = (n) => {
-  if (n < 1024) return `${n} B`;
-  const u = ['KB', 'MB', 'GB', 'TB'];
-  let i = -1;
-  do { n /= 1024; i++; } while (n >= 1024 && i < u.length - 1);
-  return `${n < 10 ? n.toFixed(1) : Math.round(n)} ${u[i]}`;
-};
-
-const when = (secs) => {
-  if (!secs) return '';
-  const d = new Date(secs * 1000);
-  return (Date.now() - d) / 86400000 < 1
-    ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    : d.toLocaleDateString([], { day: '2-digit', month: 'short' });
-};
-
-/** A session has been renamed: move everything that was filed under the old name.
- *
- *  The name is the identifier here — of a window in a desk, of a geometry, of a colour, of a
- *  chain, of a silence, of one half of a pair — which is the price of a scheme where you can
- *  read every key. So a rename is not one write, it is this list, and the list is in one
- *  place so the next thing keyed by name has somewhere obvious to be added.
- */
-function renamedSession(from, to) {
-  const wasId = `term:${from}`;
-  const nowId = `term:${to}`;
-
-  for (const ws of prefs.workspaces || []) {
-    for (const spec of ws.desktop || []) {
-      if (spec.kind === 'term' && spec.name === from) spec.name = to;
-      // A Links window pinned to a desk keys on the desk, not the session: nothing to do.
-    }
-  }
-
-  const geom = prefs.winGeom || {};
-  for (const key of Object.keys(geom)) {
-    const [wsId, ...rest] = key.split(':');
-    if (rest.join(':') === wasId) {
-      geom[`${wsId}:${nowId}`] = geom[key];
-      delete geom[key];
-    }
-  }
-
-  // Two spellings, because the wall keys a colour by `term:name` and the session list keys
-  // it by the bare name. Both move, rather than picking one and losing the other.
-  for (const colours of [prefs.colors]) {
-    if (!colours) continue;
-    if (wasId in colours) { colours[nowId] = colours[wasId]; delete colours[wasId]; }
-    if (from in colours) { colours[to] = colours[from]; delete colours[from]; }
-  }
-
-  for (const [wsId, chained] of Object.entries(prefs.chain || {})) {
-    if (Array.isArray(chained) && chained.includes(from)) {
-      prefs.chain[wsId] = chained.map((one) => (one === from ? to : one));
-    }
-  }
-
-  if (Array.isArray(prefs.mute) && prefs.mute.includes(from)) {
-    prefs.mute = prefs.mute.map((one) => (one === from ? to : one));
-  }
-
-  for (const loop of Object.values(prefs.pairLoop || {})) {
-    if (loop.builds === from) loop.builds = to;
-    if (loop.reviews === from) loop.reviews = to;
-  }
-
-  // The bell that is ringing right now belongs to the same session it belonged to a second
-  // ago; losing it would leave a mark nothing can clear.
-  if (rung.has(from)) { rung.set(to, rung.get(from)); rung.delete(from); }
-
-  savePrefs();
-}
-
-/** A session's colour. Derived from the name by default, so it is stable across reloads
- *  and identical on every device without anyone configuring anything — and overridable
- *  when two sessions happen to collide or you just want a different one. */
-function colorFor(name) {
-  const chosen = prefs.colors?.[name];
-  if (Number.isInteger(chosen)) return WIN_COLORS[chosen % WIN_COLORS.length];
-  let h = 0;
-  for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  return WIN_COLORS[h % WIN_COLORS.length];
-}
-
-function pickColor(name, onPicked) {
-  const body = el('div', { className: 'sheetbody swatches' });
-  const sheet = modal(t('Colour for {name}', { name }), body, [
-    el('button', { className: 'ghost', textContent: t('Reset'), onclick: () => {
-      const { [name]: _drop, ...rest } = prefs.colors || {};
-      prefs.colors = rest;
-      savePrefs();
-      sheet.close();
-      onPicked();
-    } }),
-    el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),
-  ]);
-  WIN_COLORS.forEach((c, i) => {
-    const b = el('button', { className: 'swatch', type: 'button', title: `colour ${i + 1}` });
-    b.style.background = c;
-    b.onclick = () => {
-      prefs.colors = { ...(prefs.colors || {}), [name]: i };
-      savePrefs();
-      sheet.close();
-      onPicked();
-    };
-    body.append(b);
-  });
-}
-
-const parentOf = (p) => p.replace(/\/[^/]*$/, '') || '/';
-
-/** The home button's destination. Kept per device on purpose: the folder you want to
- *  land in from the phone is rarely the one you want at the desk. */
-const homePath = (roots) => prefs.home || roots[0];
-
-/** Where a desk starts, as a path.
- *
- *  What is stored may be written with placeholders — `{folder}`, `{paper}` — so that a
- *  desk pointed at a project does not repeat what its placeholder set already says. If
- *  one of them has nothing to fill it, the desk falls back to the home directory rather
- *  than sending a browser to a folder with a brace in its name. */
-function deskHome(ws) {
-  const raw = ws?.home;
-  if (!raw) return homePath(server?.roots || ['/']);
-  const filled = fillBaton(raw, allVars(ws.id));
-  return /\{[\w.-]+\}/.test(filled) ? homePath(server?.roots || ['/']) : filled;
-}
-
-function setHome(path) {
-  prefs.home = path;
-  savePrefs();
-  toast(t('home is now {path}', { path }));
-  refreshAllBrowsers();
-}
-
-/** Wrap a path so bidi reordering leaves it alone. */
-const bidi = (text) => el('bdi', { textContent: text });
-const setTitle = (text) => bar.title.replaceChildren(bidi(text));
-const visible = (entries) => (prefs.hidden ? entries : entries.filter((e) => !e.name.startsWith('.')));
-
-/* ------------------------------------------------------------------ dialogs */
-
-/** A native <dialog>, so Escape and the focus trap come for free. */
-export function modal(title, body, buttons) {
-  const d = el('dialog', { className: 'sheet' });
-  const foot = el('div', { className: 'sheetfoot' });
-  for (const b of buttons) foot.append(b);
-  /* A cross in the corner as well as a button at the foot.
-   *
-   *  Escape has always closed these and the foot has always had the word, but a sheet with
-   *  a long body puts that word below the fold, and the corner is where a hand goes because
-   *  it is where every window in this app — and every window anywhere — keeps it.
-   *
-   *  `cancel` and not `close`: a sheet that asks something resolves its promise on cancel,
-   *  the way Escape does, so the cross means "never mind" rather than a silent nothing.
-   */
-  const shut = el('button', {
-    className: 'sheetx', type: 'button', title: t('Close'), 'aria-label': t('Close'),
-    onclick: () => { d.dispatchEvent(new Event('cancel')); d.close(); },
-  }, icon('close'));
-  d.append(el('h2', {}, [el('span', { className: 'grow', textContent: title }), shut]), body, foot);
-  document.body.append(d);
-  d.addEventListener('close', () => d.remove());
-  d.showModal();
-  return d;
-}
-
-/** Name it and write it, in one sheet.
- *
- *  Adding a prompt used to ask for the name and stop there, leaving an empty one in the list
- *  for you to find, open and fill in — three more presses to finish a thing you had already
- *  decided on. A prompt is a name and some words; both are asked for at once, and the
- *  ↵ that decides whether it sends itself is here too, since that is the third thing you
- *  know at the moment you write it and the third trip you would otherwise make.
- */
-function askPrompt(title, has = {}) {
-  return new Promise((resolve) => {
-    const name = el('input', { type: 'text', value: has.name || '', spellcheck: false, placeholder: t('a short name') });
-    const text = el('textarea', { rows: 7, spellcheck: false, placeholder: t('what it says — {placeholders} are filled in when you send it') });
-    text.value = has.text || '';
-    const run = el('input', { type: 'checkbox' });
-    run.checked = !!has.run;
-    const done = (v) => { resolve(v); d.close(); };
-    const save = el('button', {
-      className: 'primary inline',
-      textContent: has.name ? t('Save') : t('Create'),
-      onclick: () => {
-        if (!name.value.trim()) return name.focus();
-        done({ name: name.value.trim(), text: text.value, run: run.checked });
-      },
-    });
-    const d = modal(title, el('div', { className: 'sheetbody promptmake' }, [
-      name,
-      text,
-      el('label', { className: 'runline' }, [run, el('span', { textContent: t('sends itself — press Enter after it') })]),
-    ]), [
-      el('button', { className: 'ghost', textContent: t('Cancel'), onclick: () => done(null) }),
-      save,
-    ]);
-    d.addEventListener('cancel', () => resolve(null));
-    // Enter finishes the name and moves on; in the body it is a new line, which is what a
-    // prompt of several paragraphs needs.
-    name.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); text.focus(); } });
-    name.focus();
-  });
-}
-
-function ask(title, value = '', label = 'OK') {
-  return new Promise((resolve) => {
-    const input = el('input', { type: 'text', value, spellcheck: false });
-    const done = (v) => { resolve(v); d.close(); };
-    const ok = el('button', { className: 'primary inline', textContent: label, onclick: () => done(input.value) });
-    const d = modal(title, el('div', { className: 'sheetbody' }, input), [
-      el('button', { className: 'ghost', textContent: t('Cancel'), onclick: () => done(null) }),
-      ok,
-    ]);
-    d.addEventListener('cancel', () => resolve(null));
-    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); done(input.value); } });
-    input.focus();
-    input.select();
-  });
-}
-
-/** The text itself, when the browser will not take it.
- *
- *  A phone on a plain-http address has no clipboard API, and the old execCommand path can
- *  still be refused. Rather than "copy failed", hand over the text already selected: a
- *  long press and "Copy" is two taps, and it always works.
- */
-function showText(title, text) {
-  const area = el('textarea', { className: 'copybox', value: text, readOnly: true, spellcheck: false });
-  const again = el('button', {
-    className: 'primary inline',
-    textContent: t('Copy'),
-    onclick: async () => {
-      area.select();
-      if (await copyText(text)) { toast(t('copied')); d.close(); }
-      else toast(t('select it and copy it by hand'), true);
-    },
-  });
-  const d = modal(title, el('div', { className: 'sheetbody' }, area), [
-    el('button', { className: 'ghost', textContent: t('Close'), onclick: () => d.close() }),
-    again,
-  ]);
-  area.focus();
-  area.select();
-  return d;
-}
-
-function confirmBox(title, message, label = 'Delete') {
-  return new Promise((resolve) => {
-    const done = (v) => { resolve(v); d.close(); };
-    const d = modal(title, el('div', { className: 'sheetbody' }, el('p', { textContent: message })), [
-      el('button', { className: 'ghost', textContent: t('Cancel'), onclick: () => done(false) }),
-      el('button', { className: 'primary inline danger', textContent: label, onclick: () => done(true) }),
-    ]);
-    d.addEventListener('cancel', () => resolve(false));
-  });
-}
-
-/** Copy to the clipboard, including over plain http where the async clipboard API does
- *  not exist — which is exactly how this app is reached from a phone on the LAN. */
-async function copyText(text) {
-  if (navigator.clipboard && window.isSecureContext) {
-    try {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch { /* fall through to the old way */ }
-  }
-  const ta = el('textarea', { value: text, readOnly: true });
-  Object.assign(ta.style, { position: 'fixed', top: '0', left: '-9999px' });
-  document.body.append(ta);
-  ta.select();
-  let ok = false;
-  try { ok = document.execCommand('copy'); } catch { ok = false; }
-  ta.remove();
-  return ok;
-}
-
-/** The tick on the button you just pressed.
- *
- *  Eleven things in here copy something. Nine said so with a toast at the other end of the
- *  screen and two with a tick on the button itself, which is the one you are looking at — you
- *  pressed it, your eye is on it, and a message somewhere else is a message you may miss. So
- *  every *button* that copies now ticks; the toast stays where it carries something a tick
- *  cannot, like how many characters went.
- */
-/** A button that copies something and says so, which is every button here that copies.
- *
- *  `what` is a function rather than a string because what is worth copying is often not known
- *  when the button is made — the path of a file that has not been saved yet, a link built from
- *  wherever the document has got to.
- */
-function copies(what, glyph, title) {
-  return el('button', {
-    className: 'winbtn', type: 'button', title,
-    onclick: async function copied() { if (await copyText(what())) ticked(this, glyph); },
-  }, icon(glyph));
-}
-
-function ticked(button, glyph = 'clipboard') {
-  button.replaceChildren(icon('tick'));
-  button.classList.add('done');
-  setTimeout(() => { button.replaceChildren(icon(glyph)); button.classList.remove('done'); }, 1200);
-}
-
-async function copyPath(path) {
-  const ok = await copyText(path);
-  // Says so in words as well: the tick is on the button you just pressed, and by then you may
-  // be looking at the terminal you are about to paste into.
-  toast(ok ? t('copied: {path}', { path }) : t('could not reach the clipboard'), !ok);
-  return ok;
-}
-
-/** How much furniture is stacked at the bottom of the screen right now.
- *
- *  The key bar comes and goes with the terminal screen and the nav disappears on the login
- *  form, so anything that floats above them has to be told how high they are — a fixed
- *  offset lands on top of the buttons on one screen and floats in mid-air on another.
- */
-function measureFurniture() {
-  const bars = [document.getElementById('keys'), nav]
-    .filter((n) => n && !n.hidden && n.getClientRects().length);
-  const total = bars.reduce((sum, n) => sum + n.getBoundingClientRect().height, 0);
-  document.documentElement.style.setProperty('--furniture', `${Math.round(total)}px`);
-}
-
-window.addEventListener('resize', measureFurniture);
-
-/** A message at the bottom of the screen. With `onTap` it is also a button — which is
- *  the only reliable way to reach the clipboard, since a browser grants that to a gesture
- *  and an upload finishing is not one. */
-export function toast(message, bad = false, onTap = null, lasts = null) {
-  measureFurniture();
-  // An upload bar sits in this exact corner. Stack above it rather than on top of it:
-  // two messages covering each other is how the last attempt at feedback went wrong.
-  const bar = document.querySelector('.uploading');
-  const lift = bar?.getClientRects().length ? Math.round(bar.getBoundingClientRect().height) + 8 : 0;
-  const t = el(onTap ? 'button' : 'div', { className: `toast ${bad ? 'bad' : ''}${onTap ? ' tappable' : ''}`, textContent: message });
-  if (lift) t.style.bottom = `calc(var(--furniture) + .7rem + ${lift}px)`;
-  if (onTap) t.onclick = () => { onTap(); t.remove(); };
-  document.body.append(t);
-  // A message you are meant to act on has to outlast the glance that notices it.
-  setTimeout(() => t.remove(), lasts ?? (bad ? 5000 : onTap ? 6000 : 2200));
-  return t;
-}
-
-/** Something happened that you might not have meant. Six seconds, one tap to undo — the
- *  same bargain the prompt list makes, rather than a dialog asked every time in advance.
- *
- *  Only ever one of these on screen. Two arrangements restored in quick succession left
- *  two identical offers stacked up, and the one you reached for was the older — which
- *  would have put back a desk from two steps ago. */
-function undoToast(message, back) {
-  for (const old of document.querySelectorAll('.toast.undo')) old.remove();
-  toast(`${message} · ${t('Undo')}`, false, back, 6000).classList.add('undo');
-}
-
-/* ------------------------------------------------------------------- icons */
-
-// One flat line set for the whole interface, drawn on a 24 grid and inheriting
-// currentColor. Unicode glyphs were a different weight and baseline in every font,
-// which is what made the action sheet look like its icons were missing.
-const ICONS = {
-  back: 'M15 4.5 7.5 12 15 19.5',
-  up: 'M12 19.5v-14M5.5 12 12 5.5 18.5 12',
-  down: 'M12 4.5v14M18.5 12 12 18.5 5.5 12',
-  // Put away. A line along the bottom, which is what the underscore on every window
-  // manager's minimise button has meant for thirty years.
-  away: 'M5 18.5h14',
-  // Select all: a dashed box round everything, which is what a marquee round a whole page
-  // looks like the moment before you let go.
-  selectall: 'M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16M8.5 12h7',
-  // A circle, a stem and a dot: three subpaths in one string, the way `grip` does it.
-  info: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0M12 11v5.5M12 7.6h.01',
-  // A piece with a knob and a socket: the arrangement that is yours rather than one of the
-  // three the machine cuts.
-  puzzle: 'M4.8 4.8h5.4a1.9 1.9 0 1 1 3.6 0h5.4v5.4a1.9 1.9 0 1 0 0 3.6v5.4H4.8z',
-  home: 'M3.5 11 12 4l8.5 7M6 9.6V20h12V9.6',
-  folderPlus: 'M3.5 6.8A1.8 1.8 0 0 1 5.3 5h3.4l1.8 2h8.2a1.8 1.8 0 0 1 1.8 1.8v8.4a1.8 1.8 0 0 1-1.8 1.8H5.3a1.8 1.8 0 0 1-1.8-1.8zM12 10.8v4.8M9.6 13.2h4.8',
-  upload: 'M12 16.5v-12M7 9.5 12 4.5l5 5M4.5 19.5h15',
-  download: 'M12 4.5v12M7 11.5l5 5 5-5M4.5 19.5h15',
-  more: 'M12 6.2v.01M12 12v.01M12 17.8v.01',
-  // The three sliders of the settings icon in the header, so the drawer's last row wears
-  // the same mark as the place it goes to.
-  sliders: 'M4 7h9M17 7h3M4 17h3M11 17h9M15 4.6v4.8M8 14.6v4.8',
-  rename: 'M4.5 19.5h4L18 10l-4-4-9.5 9.5zM13 7l4 4',
-  move: 'M4.5 12h13M12.5 6.5 18 12l-5.5 5.5',
-  layers: 'M12 3.6 3.4 8 12 12.4 20.6 8zM3.4 12.4 12 16.8l8.6-4.4M3.4 16.6 12 21l8.6-4.4',
-  pin: 'M9.5 3.5h5l-.8 5.2 3.3 3.1H7l3.3-3.1zM12 11.8V20.5',
-  clipboard: 'M9.5 4.5h5v2.6h-5zM8 5.6H5.5v14h13v-14H16',
-  trash: 'M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 12.5h9L17.5 7M10 10.5v6M14 10.5v6',
-  split: 'M4 4.5h16v15H4zM12 4.5v15',
-  grid: 'M4 4.5h7v7H4zM13 4.5h7v7h-7zM4 13.5h7v6H4zM13 13.5h7v6h-7z',
-  columns: 'M4 4.5h7v15H4zM13 4.5h7v15h-7z',
-  rows: 'M4 4.5h16v7H4zM4 13.5h16v6H4z',
-  close: 'M6.5 6.5l11 11M17.5 6.5l-11 11',
-  maximise: 'M5 5h14v14H5z',
-  folder: 'M3.5 6.8A1.8 1.8 0 0 1 5.3 5h3.4l1.8 2h8.2a1.8 1.8 0 0 1 1.8 1.8v8.4a1.8 1.8 0 0 1-1.8 1.8H5.3a1.8 1.8 0 0 1-1.8-1.8z',
-  terminal: 'M3.5 5.5h17v13h-17zM7 10l2.6 2L7 14M12.8 14.3H17',
-  // Six dots, the handle everything draggable has had since the first list you could
-  // rearrange. Drawn rather than typed: ⠿ was there first and is a braille character, so on
-  // any machine whose fonts do not carry that block it is an eighteen-pixel box of nothing —
-  // which is precisely how it arrived, and how "I cannot work out how to reorder them" was
-  // the honest reaction.
-  grip: 'M8.5 5h.01M8.5 12h.01M8.5 19h.01M15.5 5h.01M15.5 12h.01M15.5 19h.01',
-  // Just a plus. A terminal-with-a-plus was drawn first and it is a lot of lines for a
-  // 15-pixel square: three glyphs fighting for the same corner. The word beside it already
-  // says what is being made.
-  plus: 'M12 5.5v13M5.5 12h13',
-  // Copied. Shown for a moment in place of whatever was there: an action with no visible
-  // result is an action you do twice.
-  tick: 'M5 12.8l4.4 4.2L19 7.5',
-  activity: 'M3 12.5h3.8L9.4 5l4.4 14 2.4-6.5H21',
-  journal: 'M5.5 4.5h13v15h-13zM8.5 8.5h7M8.5 12h7M8.5 15.5h4',
-  settings: 'M4 7.5h6M14.5 7.5H20M4 16.5h3.5M12 16.5h8M12 5.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4zM9.5 14.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4z',
-  keyboard: 'M3.5 6.5h17v11h-17zM7 10v.01M10.5 10v.01M14 10v.01M17 10v.01M7.5 14h9',
-  sidebar: 'M4 4.5h16v15H4zM9.5 4.5v15',
-  refresh: 'M19.5 12a7.5 7.5 0 1 1-2.4-5.5M19.5 4.5V10h-5.5',
-  file: 'M6 3.5h7l5 5V20.5H6zM13 3.5V9h5',
-  code: 'M9 7.2 4.4 12 9 16.8M15 7.2 19.6 12 15 16.8',
-  eye: 'M2.8 12S6.6 5.8 12 5.8 21.2 12 21.2 12 17.4 18.2 12 18.2 2.8 12 2.8 12zM12 9.4a2.6 2.6 0 1 1 0 5.2 2.6 2.6 0 0 1 0-5.2z',
-  tree: 'M4.8 5.5h5.5M4.8 5.5v12.5M4.8 11.8h5.5M4.8 18h5.5M14 5.5h5.2M14 11.8h5.2M14 18h5.2',
-  save: 'M5.5 4.5h10L18.5 7.5v12h-13zM8.5 4.5v5h6M8.5 19.5v-6h7v6',
-  phone: 'M7.5 3.5h9v17h-9zM10.5 17.8h3',
-  camera: 'M4 7.5h3.2l1.4-2h6.8l1.4 2H20v11H4zM12 10.2a3.3 3.3 0 1 1 0 6.6 3.3 3.3 0 0 1 0-6.6z',
-  copy: 'M9 9h10.5v10.5H9zM15 9V4.5H4.5V15H9',
-  search: 'M10.8 4.6a6.2 6.2 0 1 1 0 12.4 6.2 6.2 0 0 1 0-12.4zM15.4 15.4 20 20',
-  usage: 'M12 3.6a8.4 8.4 0 1 0 8.4 8.4H12z',
-  expand: 'M14.5 4.5h5v5M9.5 19.5h-5v-5M19.5 4.5l-6.2 6.2M4.5 19.5l6.2-6.2',
-  compress: 'M20 4l-6.2 6.2M13.8 10.2h5M13.8 10.2v-5M4 20l6.2-6.2M10.2 13.8h-5M10.2 13.8v5',
-  fit: 'M4.5 9V4.5H9M15 4.5h4.5V9M19.5 15v4.5H15M9 19.5H4.5V15',
-  lock: 'M6.5 10.5h11v9h-11zM9 10.5V7.6a3 3 0 0 1 6 0v2.9',
-  relay: 'M6.5 8.5h11M14.5 5.5l3 3-3 3M17.5 15.5h-11M9.5 12.5l-3 3 3 3',
-  palette: 'M12 3.5a8.5 8.5 0 0 0 0 17c1.4 0 2.5-1.1 2.5-2.5 0-.7-.3-1.3-.7-1.7-.4-.5-.7-1-.7-1.7 0-1.4 1.1-2.5 2.5-2.5h1.4a5 5 0 0 0 5-5c0-2-2.4-3.6-5.5-3.6M7.5 9v.01M11 6.5v.01M15.5 7.5v.01M6.5 13.5v.01',
-  bell: 'M12 3.5a5.5 5.5 0 0 0-5.5 5.5c0 4-1.5 5.2-1.5 6.2 0 .5.4.8 1 .8h12c.6 0 1-.3 1-.8 0-1-1.5-2.2-1.5-6.2A5.5 5.5 0 0 0 12 3.5zM10 19a2 2 0 0 0 4 0',
-  bellOff: 'M12 3.5a5.5 5.5 0 0 0-5.5 5.5c0 4-1.5 5.2-1.5 6.2 0 .5.4.8 1 .8h12c.6 0 1-.3 1-.8 0-1-1.5-2.2-1.5-6.2A5.5 5.5 0 0 0 12 3.5zM10 19a2 2 0 0 0 4 0M4 4l16 16',
-  github: 'M12 1.3a10.7 10.7 0 0 0-3.4 20.9c.54.1.73-.24.73-.52v-1.83c-2.98.65-3.6-1.44-3.6-1.44-.49-1.24-1.19-1.57-1.19-1.57-.97-.66.08-.65.08-.65 1.07.07 1.64 1.1 1.64 1.1.95 1.64 2.5 1.17 3.11.89.1-.69.37-1.16.68-1.43-2.38-.27-4.88-1.19-4.88-5.29 0-1.17.42-2.13 1.1-2.88-.11-.27-.48-1.36.1-2.83 0 0 .9-.29 2.94 1.1a10.2 10.2 0 0 1 5.36 0c2.04-1.39 2.94-1.1 2.94-1.1.58 1.47.21 2.56.1 2.83.69.75 1.1 1.71 1.1 2.88 0 4.11-2.5 5.02-4.89 5.28.38.33.72.98.72 1.98v2.93c0 .28.19.62.74.52A10.7 10.7 0 0 0 12 1.3z',
-  menu: 'M4 7.5h16M4 12h16M4 16.5h16',
-  newtab: 'M14 4.5h5.5V10M19.5 4.5 12 12M16.5 13v5.5a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1v-11a1 1 0 0 1 1-1H10',
-  link: 'M10.5 13.5a3.6 3.6 0 0 0 5.2 0l2.6-2.6a3.6 3.6 0 0 0-5.1-5.1l-1.3 1.3M13.5 10.5a3.6 3.6 0 0 0-5.2 0l-2.6 2.6a3.6 3.6 0 0 0 5.1 5.1l1.3-1.3',
-  star: 'M12 3.8l2.6 5.3 5.8.85-4.2 4.1 1 5.75L12 17.1l-5.2 2.7 1-5.75-4.2-4.1 5.8-.85z',
-};
-
-// Two marks are somebody's logo rather than a drawing of ours: they are filled shapes
-// and come out as scribble if stroked like the rest.
-const FILLED = new Set(['github']);
-
-/** An inline icon. Stroked unless it is a logo, so one colour rule covers every state. */
-/** A glyph made of nothing but zero-length segments — the ⋯ menu, the drag grip.
- *
- *  There is no line to draw: every dot is the round linecap and nothing else, so a dot is
- *  exactly as wide as the stroke. At the 1.6 every other icon uses that is one pixel on a
- *  15px button, which is why the ⋯ on a window title bar kept being reported as not there.
- *  It was there. It was one pixel. Dots get a weight of their own. */
-const ONLY_DOTS = /^(?:M[\d.]+ [\d.]+[hv]\.01)+$/;
-
-export function icon(name, extra = '') {
-  const solid = FILLED.has(name);
-  const d = ICONS[name] || '';
-  const path = svg('path', {
-    d,
-    fill: solid ? 'currentColor' : 'none',
-    stroke: solid ? 'none' : 'currentColor',
-    'stroke-width': ONLY_DOTS.test(d) ? '4' : '1.6',
-    'stroke-linecap': 'round',
-    'stroke-linejoin': 'round',
-  });
-  return svg('svg', { viewBox: '0 0 24 24', class: `ico ${extra}`.trim(), 'aria-hidden': 'true' }, path);
-}
-
-/* --------------------------------------------------------------- file icons */
-
-// Colour by family, label by actual extension: `PDF` reads as a PDF at a glance, and an
-// unknown `.fq` still gets a sensible badge instead of a generic blank sheet.
-const FAMILIES = [
-  [/^(pdf)$/, '#e5786d'],
-  [/^(png|jpe?g|gif|webp|svg|bmp|tiff?|ico|heic|avif)$/, '#c78fd6'],
-  [/^(py|rs|js|mjs|cjs|ts|tsx|jsx|go|c|h|cc|cpp|hpp|java|rb|sh|bash|zsh|pl|r|jl|lua|php|swift|kt)$/, '#8fd6a0'],
-  [/^(csv|tsv|xlsx?|xlsm|parquet|json|jsonl|ndjson|db|sqlite3?|arrow|feather)$/, '#6fc7d6'],
-  [/^(gz|bz2|xz|zst|zip|tar|tgz|7z|rar|lz4)$/, '#d6b46f'],
-  [/^(fa|fasta|fq|fastq|vcf|bam|sam|cram|bed|gff|gtf|gbk|nwk|phy)$/, '#9fd66f'],
-  [/^(mp3|wav|flac|ogg|m4a|mp4|mkv|mov|avi|webm)$/, '#d66fa8'],
-  [/^(stl|step|stp)$/, '#e0a15a'],
-  [/^(yaml|yml|toml|ini|cfg|conf|env|lock|nf|mk)$/, '#8a93a3'],
-  [/^(md|txt|rst|log|out|err|tex|docx?|odt)$/, '#7aa2d6'],
-];
-
-function badge(name) {
-  const dot = name.lastIndexOf('.');
-  const ext = dot > 0 ? name.slice(dot + 1).toLowerCase() : '';
-  if (!ext || ext.length > 8) return { label: '', color: '#6b7484' };
-  const family = FAMILIES.find(([re]) => re.test(ext));
-  return { label: ext.slice(0, 4).toUpperCase(), color: family ? family[1] : '#6b7484' };
-}
-
-function fileIcon(entry) {
-  const stroke = { fill: 'none', 'stroke-width': '1.6', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' };
-  if (entry.type === 'directory') {
-    return svg('svg', { viewBox: '0 0 24 24', class: 'ficon' }, [
-      svg('path', { d: ICONS.folder, stroke: '#7aa2d6', ...stroke }),
-    ]);
-  }
-  const { label, color } = badge(entry.name);
-  const kids = [svg('path', { d: ICONS.file, stroke: color, ...stroke })];
-  if (label) {
-    const t = svg('text', {
-      x: '12', y: '17.6', 'text-anchor': 'middle', fill: color,
-      'font-size': label.length > 3 ? '5.4' : '6.6', 'font-weight': '700',
-      'font-family': 'ui-monospace, monospace',
-    });
-    t.textContent = label;
-    kids.push(t);
-  }
-  return svg('svg', { viewBox: '0 0 24 24', class: 'ficon' }, kids);
-}
 
 /* --------------------------------------------------------------- file rows */
 
@@ -1969,7 +1039,7 @@ function parseRoute() {
 
 export const go = (hash) => { location.hash = hash; };
 
-async function render() {
+export async function render() {
   if (leaving) { leaving(); setLeaving(null); }
 
   const route = parseRoute();
@@ -2802,7 +1872,7 @@ let lastPane = null;
 // Windows register here too, which is why the Files screen only ever removes its own.
 const browsers = new Set();
 let screenBrowsers = [];
-function refreshAllBrowsers() {
+export function refreshAllBrowsers() {
   for (const b of browsers) b.reload();
   renderSidebar();
 }
@@ -3005,7 +2075,7 @@ function paletteColor(name, fallback) {
 
 /** Every mesh on screen, redone after the palette changed under it. Mirrors
  *  `repaintDiagrams` — a colour baked into a drawing has to be told, a CSS one does not. */
-function repaintMeshes() {
+export function repaintMeshes() {
   for (const canvas of document.querySelectorAll('canvas.meshview')) canvas._meshRepaint?.();
 }
 
@@ -4389,7 +3459,7 @@ async function drawDiagrams(container) {
 }
 
 /** Redraw what is on screen after the palette changed under it. */
-function repaintDiagrams() {           // a declaration: applyTheme runs long before this line
+export function repaintDiagrams() {           // a declaration: applyTheme runs long before this line
   // Every box that has drawn something, wherever it lives: a run window is a diagram outside
   // any document, and the first version of this only knew how to find the ones in `.md`.
   for (const box of document.querySelectorAll('.diagram')) {
@@ -12477,7 +11547,7 @@ function muteSession(name) {
   savePrefs();
   return at < 0;
 }
-const rung = new Map();          // session -> the last bell from it
+export const rung = new Map();          // session -> the last bell from it
 let heardUpTo = null;            // null until the first answer says where "now" is
 let bellClock = null;
 
@@ -12809,7 +11879,7 @@ function openStream() {
   if (bellStream || !window.ReadableStream) return pollForBells();
 
   const stop = new AbortController();
-  bellStream = stop;
+  setBellStream(stop);
 
   (async () => {
     try {
@@ -12849,12 +11919,12 @@ function openStream() {
       }
       // The server closed it. Come back, unless we are the ones who hung up.
       if (bellStream === stop) {
-        bellStream = null;
+        setBellStream(null);
         setTimeout(() => { if (token) openStream(); }, 2000);
       }
     } catch (e) {
       if (stop.signal.aborted) return;      // signed out, or a new stream took over
-      bellStream = null;
+      setBellStream(null);
       // One awkward proxy, or a browser that will not stream, must not make the app deaf.
       pollForBells();
     }
@@ -13361,7 +12431,7 @@ function chooseDeskSet(wsId, name) {
 }
 
 /** Everything a desk can fill in: the ground truth, with its own set laid over it. */
-function allVars(wsId) {
+export function allVars(wsId) {
   const chosen = deskSetName(wsId);
   return { ...groundVars(), ...(chosen === GROUND ? {} : varSetNamed(chosen)?.vars || {}) };
 }
@@ -13730,7 +12800,7 @@ function typeInto(handle, text, run) {
   }, pastePause());
 }
 
-function fillBaton(text, known) {
+export function fillBaton(text, known) {
   // Both forms in a prompt: the text there is a template and nothing else, so `{paper}`
   // is unambiguous. `{{paper}}` is the form to use in a terminal — see below — and it
   // works here too, so one wording can serve both places.
@@ -16088,6 +15158,9 @@ async function installHere() {
 
 /* -------------------------------------------------------------------- boot */
 
+// Read before anything registers: whether this page was already served by a worker.
+const BOOTED_WITH_WORKER = !!navigator.serviceWorker?.controller;
+
 if ('serviceWorker' in navigator && window.isSecureContext) {
   // `isSecureContext` rather than a protocol check: http://localhost counts as secure, so
   // the PWA installs when you open it on the machine itself. Over plain http to a LAN
@@ -16099,13 +15172,23 @@ if ('serviceWorker' in navigator && window.isSecureContext) {
  *  Never automatically: reloading under someone typing in a terminal is hostile. */
 function watchForUpdates(reg) {
   let reloading = false;
+  /* A change of controller is only an update if there was a controller to change.
+   *
+   *  On the very first visit the worker installs, `clients.claim()` takes the page, and
+   *  that fires `controllerchange` too — which reloaded the page a second after it opened,
+   *  under whoever had started typing. It used to be hidden by timing: with little to
+   *  precache the claim landed before this listener existed. Split into modules there is
+   *  more to cache, the claim came later, and the browser tests caught the reload.
+   *  So: reload for a worker replacing another, or because the update bar was pressed. */
+  const hadController = BOOTED_WITH_WORKER;
+  let asked = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (reloading) return;
+    if (reloading || (!hadController && !asked)) return;
     reloading = true;
     location.reload();
   });
 
-  const offer = (worker) => updateBar(() => worker.postMessage({ type: 'SKIP_WAITING' }));
+  const offer = (worker) => updateBar(() => { asked = true; worker.postMessage({ type: 'SKIP_WAITING' }); });
 
   // Already waiting from a previous visit.
   if (reg.waiting && navigator.serviceWorker.controller) offer(reg.waiting);

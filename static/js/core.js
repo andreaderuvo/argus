@@ -1,5 +1,9 @@
 // <imports> generated from what this file uses; edit the code, not this list
-import { LEVEL_WORD, api, applyRail, el, getJSON, go, icon, keyHelp, modal, nextWindowId, openWindow, patchJSON, t, toast, worstVital } from '/js/main.js';
+import { modal, toast } from '/js/dialogs.js';
+import { icon } from '/js/icons.js';
+import { LEVEL_WORD, applyRail, go, keyHelp, nextWindowId, openWindow, worstVital } from '/js/main.js';
+import { getJSON, patchJSON } from '/js/reconnect.js';
+import { api, el, t } from '/js/words.js';
 // </imports>
 export const KEY = 'argus.token';
 const PREFS_KEY = 'argus.prefs';

@@ -201,3 +201,13 @@ def test_the_login_token_is_kept_across_a_reload(make_page, argus):
     page.goto(argus.url + "/")
     page.wait("!document.getElementById('nav').hidden", what="still signed in after reload")
     assert "token" not in page.eval("location.hash"), "the token must not stay in the address bar"
+
+
+def test_the_first_visit_is_not_reloaded_by_the_service_worker(make_page, argus):
+    """The worker's first install claims the page and fires controllerchange; that is not an
+    update and must not reload what somebody has started using."""
+    page = make_page(route=None)
+    origin = page.eval("performance.timeOrigin")
+    time.sleep(4)                           # long enough for the install and the claim
+    assert page.eval("performance.timeOrigin") == origin, "the page reloaded itself after opening"
+    assert page.eval("!!navigator.serviceWorker.controller") is True, "the worker did take the page"
