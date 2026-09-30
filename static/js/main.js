@@ -5,7 +5,7 @@ import '/js/plumbing.js';
 // <imports> generated from what this file uses; edit the code, not this list
 import { listenForBells } from '/js/bells.js';
 import { markDrops, syncPrefs, watchVitals } from '/js/core.js';
-import { SESSION_COUNT_EVERY, countSessions, countTodo } from '/js/counts.js';
+import { AGENT_STATES_EVERY, SESSION_COUNT_EVERY, countSessions, countTodo, readAgentStates } from '/js/counts.js';
 import { el } from '/js/dom.js';
 import { icon } from '/js/icons.js';
 import { translateMarkup } from '/js/markup.js';
@@ -88,7 +88,8 @@ for (const node of document.querySelectorAll('[data-icon]')) node.replaceChildre
 
 
 setInterval(() => { if (!document.hidden) { countSessions(); countTodo(); } }, SESSION_COUNT_EVERY);
-document.addEventListener('visibilitychange', () => { if (!document.hidden) { countSessions(); countTodo(); } });
+setInterval(() => { if (!document.hidden) readAgentStates(); }, AGENT_STATES_EVERY);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { countSessions(); countTodo(); readAgentStates(); } });
 
 
 
@@ -111,6 +112,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) { co
   applyBottomBar();
   countSessions();
   countTodo();
+  readAgentStates();
   // Only after the first paint: the first answer sets the mark for "now" and rings
   // nothing, so this can never greet you with the morning's leftovers.
   if (token) listenForBells();

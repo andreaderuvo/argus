@@ -3161,6 +3161,30 @@
     ]
    }
   },
+  "/api/tmux/states": {
+   "get": {
+    "description": "`{states: {session: {agent, state, since}}}` for every session with an agent in it.\n\nWorked out, not declared: an agent is `working` while its pane keeps drawing (its\nspinner) and `waiting` once it has stopped \u2014 answered, or asking. Nothing to install in\nthe agent. Cheap to call often \u2014 the browser does every few seconds while it is looking,\nand that is also what keeps the sampler awake (app/agentstate.py).",
+    "operationId": "getApiTmuxStates",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Tmux States Api Tmux States Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Which agents are working and which are waiting for you",
+    "tags": [
+     "Sessions"
+    ]
+   }
+  },
   "/api/tmux/style": {
    "post": {
     "description": "Put a look on one session, live.\n\nA look in the config file belongs to the server and dresses everything; this\ndresses the session named and leaves the rest alone. Only style options are\naccepted, from a fixed list \u2014 see tmux.STYLE_OPTIONS.",

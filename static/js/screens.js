@@ -1,5 +1,6 @@
 // <imports> generated from what this file uses; edit the code, not this list
 import { savePrefs } from '/js/core.js';
+import { agentStates, paintState } from '/js/counts.js';
 import { ask, confirmBox, copyPath, copyText, modal, toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { fileIcon } from '/js/fileicons.js';
@@ -215,12 +216,17 @@ export async function screenSessions() {
     const dot = el('span', { className: 'dot' });
     dot.style.background = colorFor(s.name);
     const running = live?.key === `term:${s.name}`;
+    // Working or waiting for you, when there is an agent in it: kept current by counts.js.
+    const pill = el('span', { className: 'agentstate', hidden: true });
+    pill.dataset.session = s.name;
+    paintState(pill, agentStates.get(s.name) || (s.state ? { agent: s.agent, state: s.state, since: s.state_since } : null));
     const row = el('a', { className: `row dir${running ? ' running' : ''}`, href: `#/term?s=${encodeURIComponent(s.name)}` }, [
       dot,
       el('span', { className: 'grow', title: s.created ? t('started {when}', { when: new Date(s.created * 1000).toLocaleString() }) : '' }, [
         el('span', { className: 'name', textContent: s.name }),
         el('span', { className: 'meta', textContent: running ? `${meta} · open here` : meta }),
       ]),
+      pill,
       running ? el('span', { className: 'livedot' }) : el('span', { className: 'chev', textContent: '›' }),
     ]);
     // The same swatch opens the picker here as on a window, so a colour can be set

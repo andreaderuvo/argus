@@ -3505,3 +3505,17 @@ body:not(.railwide) .railwin.raildesk .railcount { display: none; }
 .askrow .askbuttons .winbtn:disabled { opacity: .5; }
 .askrow .askbuttons .linkbox { flex: 1 1 8rem; min-width: 0; }
 .askrow .meta { white-space: normal; }
+
+/* ---------- whether an agent is working or waiting (worked out on the server) ---------- */
+
+.agentstate { flex: none; font-size: .7rem; padding: .1rem .5rem; border-radius: 999px; white-space: nowrap;
+  border: 1px solid var(--line); color: var(--dim); }
+.agentstate.working { color: var(--st-good); border-color: color-mix(in srgb, var(--st-good) 55%, transparent); }
+.agentstate.waiting { color: #2b2000; background: var(--st-warning); border-color: var(--st-warning); font-weight: 600; }
+.agentstate.working::before, .win.agent-working .wintitle::before, .win.agent-waiting .wintitle::before {
+  content: ''; display: inline-block; width: .5rem; height: .5rem; border-radius: 50%;
+  margin-right: .35rem; vertical-align: .05rem; background: var(--st-good); }
+.agentstate.working::before, .win.agent-working .wintitle::before { animation: agentbeat 1.2s ease-in-out infinite; }
+.win.agent-waiting .wintitle::before { background: var(--st-warning); }
+@keyframes agentbeat { 50% { opacity: .25; } }
+@media (prefers-reduced-motion: reduce) { .agentstate.working::before, .win.agent-working .wintitle::before { animation: none; } }

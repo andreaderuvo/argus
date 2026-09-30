@@ -3,6 +3,7 @@ import { rung } from '/js/bells.js';
 import { el } from '/js/dom.js';
 import { getJSON } from '/js/reconnect.js';
 import { hamburger, nav, token } from '/js/state.js';
+import { t } from '/js/words.js';
 // </imports>
 /** How many tmux sessions there are, on the Sessions tab.
  *
@@ -38,6 +39,63 @@ export async function countTodo() {
 export let lastSessionCount = 0;
 export let lastTodoCount = 0;
 
+/** Which agents are working and which are waiting for you, worked out on the server.
+ *
+ *  No hook needed in the agent: the server watches whether each agent's pane is still drawing
+ *  (app/agentstate.py). Asked every few seconds while the tab is visible — which is also what
+ *  keeps the server's sampler awake, so nothing is sampled when nobody is looking — and painted
+ *  wherever a session shows: its row on the Sessions screen, its window on a desk, and the amber
+ *  on the counts.
+ */
+export const AGENT_STATES_EVERY = 3000;
+export const agentStates = new Map();       // session -> { agent, state, since }
+
+export async function readAgentStates() {
+  if (!token) return;
+  try {
+    const said = await getJSON('/api/tmux/states');
+    applyAgentStates(said.states || {});
+  } catch { /* asked again in a moment */ }
+}
+
+export function applyAgentStates(states) {
+  agentStates.clear();
+  for (const [name, st] of Object.entries(states)) if (st && st.state) agentStates.set(name, st);
+  for (const win of document.querySelectorAll('.win[data-session]')) {
+    const st = agentStates.get(win.dataset.session);
+    win.classList.toggle('agent-working', st?.state === 'working');
+    win.classList.toggle('agent-waiting', st?.state === 'waiting');
+    const title = win.querySelector('.wintitle');
+    if (title) title.dataset.agent = st ? `${st.agent || t('agent')}: ${stateWord(st)}` : '';
+  }
+  for (const pill of document.querySelectorAll('.agentstate[data-session]')) paintState(pill, agentStates.get(pill.dataset.session));
+  // The amber follows too: an agent that stopped is somebody waiting, whether or not it rang.
+  showCount('sessions', lastSessionCount);
+}
+
+/** "working", or "waiting for you · 4m" — how long it has been waiting is the useful part. */
+export function stateWord(st) {
+  if (!st) return '';
+  if (st.state === 'working') return t('working');
+  const waited = st.since ? Math.max(0, Date.now() / 1000 - st.since) : 0;
+  return waited >= 60 ? t('waiting for you · {age}', { age: shortAge(waited) }) : t('waiting for you');
+}
+
+function shortAge(seconds) {
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
+  return `${Math.floor(seconds / 86400)}d`;
+}
+
+export function paintState(pill, st) {
+  pill.hidden = !st;
+  pill.classList.toggle('working', st?.state === 'working');
+  pill.classList.toggle('waiting', st?.state === 'waiting');
+  const word = stateWord(st);
+  if (pill.textContent !== word) pill.textContent = word;
+  pill.title = st ? t('{agent}, worked out from whether its pane is still drawing', { agent: st.agent || t('agent') }) : '';
+}
+
 /** Which counts turn amber when an agent is waiting.
  *
  *  The amber means "one of these has stopped and wants you", which is a fact about sessions —
@@ -50,7 +108,8 @@ const RINGS = new Set(['sessions', 'wall']);
 export function showCount(tab, n) {
   if (tab === 'sessions') lastSessionCount = n;
   if (tab === 'todo') lastTodoCount = n;
-  const wants = RINGS.has(tab) && [...rung.values()].some((b) => b.why === 'asking');
+  const wants = RINGS.has(tab) && ([...rung.values()].some((b) => b.why === 'asking')
+    || [...agentStates.values()].some((st) => st.state === 'waiting'));
   // The same two facts wherever the navigation happens to be living: how many, and whether
   // one of them has stopped and is waiting.
   for (const spot of document.querySelectorAll(`.drawertally[data-for="${tab}"]`)) {

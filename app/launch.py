@@ -412,14 +412,20 @@ def wait_until_settled(sock: tmux.Socket, session: str,
     """
     began = time.monotonic()
     last, still_since = None, None
+    # Still is only ready once it has *moved*. A pane nothing has drawn in yet is still too —
+    # and on a loaded machine (load average 78, measured) the login shell alone takes longer
+    # than `quiet` to start, so an empty pane read as "finished starting" before the agent had
+    # begun, and the prompt went into a shell still reading its profile.
+    moved = False
     deadline = began + timeout
     while time.monotonic() < deadline:
         now = _pulse(sock, session)
         if now is None:
             return False
         if now != last:
+            moved = moved or last is not None
             last, still_since = now, time.monotonic()
-        elif (still_since and time.monotonic() - still_since >= quiet
+        elif (moved and still_since and time.monotonic() - still_since >= quiet
               and time.monotonic() - began >= NEVER_BEFORE):
             return True
         time.sleep(LOOK_EVERY)

@@ -253,6 +253,8 @@ export async function screenWall() {
       const body = el('div', { className: `winbody${isFile || isBrowser ? ' filebody' : ''}${isBrowser ? ' browserbody' : ''}${isTray ? ' traybody' : ''}` });
       const win = el('div', { className: 'win' });
       win.dataset.kind = spec.kind;
+      // Which session it holds, so the agent's state can be painted on it (counts.js).
+      if (spec.kind === 'term') win.dataset.session = spec.name;
       win.style.setProperty('--wc', colorFor(id));
 
       const swatch = el('button', { className: 'winbtn swatchbtn', title: t('Change colour') });

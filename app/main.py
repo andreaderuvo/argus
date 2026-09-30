@@ -22,7 +22,7 @@ from fastapi import FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 
-from . import (announce, asks, bells, devices, favourites, files, fsops, gitwork, journal, labels,
+from . import (agentstate, announce, asks, bells, devices, favourites, files, fsops, gitwork, journal, labels,
                languages, launch, mounts, network, paths, ports, prefs, proxy, release, runner, runs,
                system, term, tmux, todo)
 import httpx
@@ -355,6 +355,9 @@ def create_app(cfg: Config) -> FastAPI:
     # Where process labels are kept; set by main() beside the config. None: labels are read as
     # none and cannot be written, rather than written somewhere nobody chose.
     app.state.labels = None
+    # Whether each agent is working or waiting, worked out from tmux and /proc; it samples only
+    # while somebody reads it (app/agentstate.py).
+    app.state.agents = agentstate.Watch(app.state.socket, [one.command for one in launch.configured(cfg)])
     app.state.todo = getattr(cfg, "todo_store", None) or Path("/nonexistent")
     app.state.prefs = getattr(cfg, "prefs_store", None) or Path("/nonexistent")
     app.state.devices = cfg.devices_store or Path("/nonexistent")
@@ -423,7 +426,36 @@ def create_app(cfg: Config) -> FastAPI:
             rss = ram.get(one["name"])
             if rss:
                 one["ram"] = rss
+        # And whether the agent in it is working or waiting for you — absent for a session with
+        # no agent in it. Best effort, like the RAM.
+        try:
+            for name, st in (await agent_states(request)).items():
+                for one in out:
+                    if one["name"] == name:
+                        one.update(agent=st["agent"], state=st["state"], state_since=st["since"])
+        except Exception:
+            pass
         return out
+
+    @app.get("/api/tmux/states", tags=["Sessions"], summary="Which agents are working and which are waiting for you")
+    async def tmux_states(request: Request) -> dict:
+        """`{states: {session: {agent, state, since}}}` for every session with an agent in it.
+
+        Worked out, not declared: an agent is `working` while its pane keeps drawing (its
+        spinner) and `waiting` once it has stopped — answered, or asking. Nothing to install in
+        the agent. Cheap to call often — the browser does every few seconds while it is looking,
+        and that is also what keeps the sampler awake (app/agentstate.py)."""
+        try:
+            return {"states": await agent_states(request)}
+        except Exception:
+            return {"states": {}}
+
+    async def agent_states(request: Request) -> dict[str, dict]:
+        watch = request.app.state.agents
+        if watch.task is None:
+            # Asleep: take one reading now, so this answer is not empty while the sampler wakes.
+            await asyncio.to_thread(watch.tick)
+        return watch.states()
 
     @app.get("/api/languages", tags=["Setup"], summary="The interface languages available")
     async def list_languages(request: Request) -> list[dict]:
@@ -866,18 +898,28 @@ def create_app(cfg: Config) -> FastAPI:
                 waiting.add(bell["session"])
             else:
                 waiting.discard(bell["session"])
+        try:
+            seen = await agent_states(request)
+        except Exception:
+            seen = {}
         out = []
         for one in sessions:
             name = one["name"]
             told = said.get(name) or {}
+            looked = seen.get(name) or {}
             out.append({
                 "name": name,
                 "windows": one.get("windows"),
                 "attached": bool(one.get("attached")),
-                "agent": told.get("agent"),
+                # What a hook declared wins; otherwise what is visibly running there.
+                "agent": told.get("agent") or looked.get("agent"),
                 "model": told.get("model"),
                 "folder": told.get("cwd"),
                 "wants_you": name in waiting,
+                # working | waiting | None (no agent seen), and since when — worked out from the
+                # pane, so it needs no hook: see app/agentstate.py.
+                "state": looked.get("state"),
+                "state_since": looked.get("since"),
             })
         return {
             "machine": os.uname().nodename,

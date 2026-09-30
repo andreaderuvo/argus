@@ -285,6 +285,18 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   picks the side that *covers least*, not the widest one — on a full desk the widest side
   is usually where another window already is. Off with `openInDesk` in Settings.
 
+- **Whether an agent is working or waiting is worked out, not declared** (`app/agentstate.py`,
+  `GET /api/tmux/states`). An agent is a process named `claude`/`codex`/`gemini`/… (or a
+  launcher's program; argv[1] after node/python) under the pane. Measured on Claude Code: while
+  it works the pane redraws continuously — the spinner, ~700 bytes per half second, *including*
+  while a tool runs — and goes quiet the moment it answers or asks, bar one small redraw every
+  ~10s. So a 1 Hz sampler reads `#{window_activity}` and "working" means it advanced in most of
+  the last few seconds; one lone advance is not enough. The sampler runs only while something
+  reads the states (the browser asks every 3s while visible) and stops a minute after. `ps` is
+  run with **`-ww`**: without it the command line is cut to `$COLUMNS` and an agent installed
+  under a long path is never recognised (found by the tests, under pytest). Never probe this
+  with a real agent and blind keystrokes: a dialog it shows can change the user's settings.
+
 - **A process can carry a label of your own** (System screen: the pencil on a process or a
   port). Kept on the server in `labels.json` beside the config, keyed by **pid and start
   time** (field 22 of `/proc/<pid>/stat`, read after the *last* `)` because the command name

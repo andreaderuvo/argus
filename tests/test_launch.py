@@ -159,14 +159,32 @@ def test_it_waits_for_a_launcher_that_starts_slowly_and_pauses_in_the_middle(soc
                       "sleep 1.2\nprintf '> '\nread x\n")
     script.chmod(0o755)
 
-    launch.start(sock, "slow", str(tmp_path), str(script))
+    # From before the start, not after it: the script begins to live *during* start(), and on
+    # a loaded machine start() alone took over half a second — measured from its return, the
+    # test ate into the script's own 2.2s and failed with the code right (load average 78).
     began = time.monotonic()
+    launch.start(sock, "slow", str(tmp_path), str(script))
     settled = launch.wait_until_settled(sock, "slow", timeout=20)
     took = time.monotonic() - began
     assert settled is True
     # It cannot have settled before the script's last write, which is at about 2.2s of its own
     # life plus however long a login shell takes to start.
     assert took > 2.2, f"settled after {took:.2f}s, which is inside the startup"
+
+
+@pytest.mark.skipif(not HAS_TMUX, reason="no tmux here")
+def test_a_pane_nothing_has_drawn_in_yet_is_not_ready(sock, tmp_path):
+    """Stillness before the first stroke is not readiness. A launcher that takes three seconds
+    to print anything — a slow login shell, a busy machine, a cold cache — must not be declared
+    settled in the silence before it starts."""
+    script = tmp_path / "late"
+    script.write_text("#!/bin/sh\nsleep 3\nprintf 'banner\\n> '\nread x\n")
+    script.chmod(0o755)
+    began = time.monotonic()
+    launch.start(sock, "late", str(tmp_path), str(script))
+    assert launch.wait_until_settled(sock, "late", timeout=20) is True
+    took = time.monotonic() - began
+    assert took > 3.0, f"settled after {took:.2f}s, before the program had drawn anything"
 
 
 @pytest.mark.skipif(not HAS_TMUX, reason="no tmux here")
