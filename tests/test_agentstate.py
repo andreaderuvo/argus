@@ -59,12 +59,15 @@ def test_a_spinner_is_working_and_one_lone_redraw_is_not():
     assert moving([100, 101, 101, 102]) is True
 
 
-def test_a_window_too_new_for_a_history_goes_by_recency():
+def test_a_window_too_new_for_a_history_has_no_state_yet():
+    """Not a guess from the last activity: on a real machine every idle agent had redrawn
+    something in the last two seconds of the first reading, and all came out "working"."""
     now = 1000.0
-    assert decide([999], now) == "working"
-    assert decide([990], now) == "waiting"
-    assert decide([], now) == "waiting"
-    assert decide([990, 991, 992, 993], now) == "working", "a history wins over recency"
+    assert decide([999], now) is None
+    assert decide([990, 999], now) is None
+    assert decide([], now) is None
+    assert decide([990, 991, 992, 993], now) == "working"
+    assert decide([990, 990, 990], now) == "waiting"
 
 
 # ------------------------------------------------------------------ the sampler's bookkeeping

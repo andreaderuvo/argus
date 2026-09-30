@@ -113,12 +113,15 @@ def moving(readings: list[int]) -> bool:
     return advances >= MOVING
 
 
-def decide(readings: list[int], now: float) -> str:
-    """working or waiting, for a window that holds an agent."""
-    if len(readings) >= 3:
-        return "working" if moving(readings) else "waiting"
-    # Too new to have a history: only a very recent activity counts as working.
-    return "working" if readings and now - readings[-1] < 2 else "waiting"
+def decide(readings: list[int], now: float) -> str | None:
+    """working or waiting, for a window that holds an agent — or None while there are too few
+    readings to tell. Guessing from the last activity alone was tried and was wrong: on the
+    first reading of a real machine every idle agent had redrawn something in the last two
+    seconds, and all of them came out "working". Three seconds without a state is better than
+    three seconds of a false one."""
+    if len(readings) < 3:
+        return None
+    return "working" if moving(readings) else "waiting"
 
 
 class Watch:
@@ -195,6 +198,8 @@ class Watch:
                 continue
             s = self.windows[w]
             verdict = decide(list(self.readings.get(w, ())), now)
+            if verdict is None:
+                continue
             if verdict == "waiting" or by_session.get(s) != "waiting":
                 by_session[s] = verdict
         for s, verdict in by_session.items():
