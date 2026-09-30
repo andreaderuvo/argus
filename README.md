@@ -26,8 +26,6 @@ which is waiting for you, open what it wrote in one click, and answer from your 
 
 </div>
 
-<sub><code>1:why*</code></sub>
-
 ## Agents work for minutes. Then they stop and wait for you.
 
 You find out forty minutes later, over ssh, squinting at a pane. Argus takes care of the part
@@ -48,8 +46,6 @@ of the job that is not typing: knowing, seeing, answering.
 </picture>
 </p>
 
-<sub><code>2:how*</code></sub>
-
 ## It attaches to the sessions you already have.
 
 Argus is one more client of your tmux server. It does not wrap your agent or move your work,
@@ -67,8 +63,6 @@ and closing the browser never stops anything. Stop Argus itself and every sessio
   <img src="docs/img/sketch-how-light.png" width="560" alt="A sketch of how it fits: on your machine, tmux holds the agent sessions and Argus sits beside it; a laptop and a phone reach Argus with a token; nothing goes to a cloud.">
 </picture>
 </p>
-
-<sub><code>3:hand-offs*</code></sub>
 
 ## Pass work from one agent to the next.
 
@@ -88,8 +82,6 @@ session and it is typed there; the Enter is left for you.
 </picture>
 </p>
 
-<sub><code>4:more*</code></sub>
-
 ## Everything an agent's work points at.
 
 | | Argus | Agent-specific remote control | Browser terminal |
@@ -105,8 +97,6 @@ Also: a file browser that updates when a job writes into a folder; the machine's
 GPUs, disks and biggest processes, which you can label; local ports reachable from the phone if
 you allow it; and an API that lets scripts and agents do what the page does.
 [Everything it does, in detail.](https://github.com/andreaderuvo/argus/wiki/Everything-it-does)
-
-<sub><code>5:install*</code></sub>
 
 ## Install
 
@@ -146,8 +136,6 @@ tmux socket, the matching user ID, the process namespace and the home-directory 
 [container notes](docker-compose.yml) first. Versioned `amd64`/`arm64` images are public at
 [`ghcr.io/andreaderuvo/argus`](https://github.com/andreaderuvo/argus/pkgs/container/argus).
 
-<sub><code>6:safe*</code></sub>
-
 ## Safe by default
 
 > [!WARNING]
@@ -163,16 +151,12 @@ browser or shell access. Nothing is sent to a cloud.
 Read the [security model](https://github.com/andreaderuvo/argus/wiki/Security) and the
 [vulnerability policy](SECURITY.md) before making it reachable from another machine.
 
-<sub><code>7:fleet*</code></sub>
-
 ## Several machines: Panoptes
 
 Argus is the workspace for one machine. **[Panoptes](https://github.com/andreaderuvo/panoptes)**
 is one page over all of them, ordered by which one needs you. It holds restricted watcher keys
 and never sends a machine key to the browser. Use Argus alone first; add Panoptes when one tab
 per machine stops scaling.
-
-<sub><code>8:status*</code></sub>
 
 ## Project status
 
