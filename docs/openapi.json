@@ -431,7 +431,7 @@
   },
   "/api/bell": {
    "post": {
-    "description": "Called by an agent hook, or by anything else that knows it has finished.",
+    "description": "Called by an agent hook, or by anything else that knows it has finished.\n\nA second \"done\" or \"asking\" about a turn that has already rung is answered with that bell\nand `repeat: true`, and rings nothing: see NEEDS.",
     "operationId": "postApiBell",
     "requestBody": {
      "content": {

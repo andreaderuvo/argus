@@ -47,7 +47,8 @@ let bellClock = null;
 export function ring(bell) {
   const { session, why = 'note', text = '' } = bell;
   if (session && muted(session)) return;
-  if (session) rung.set(session, { why, text, at: Date.now() });
+  // `said` is the server's clock, which is the one the agents' states are measured on.
+  if (session) rung.set(session, { why, text, at: Date.now(), said: Number(bell.at) || Date.now() / 1000 });
   paintBells();
 
   markTitle(session, why);
@@ -421,7 +422,9 @@ async function pollForBells() {
   clearTimeout(bellClock);
   bellClock = null;
   if (!token) return;
-  if (!document.hidden) {
+  // Hidden too: a background tab is exactly when a bell is needed. The browser slows this
+  // timer down there, which is late, and late is still better than deaf until you look.
+  {
     try {
       const answer = await getJSON(`/api/bells?since=${heardUpTo ?? 0}`);
       if (heardUpTo === null) heardUpTo = answer.seq;

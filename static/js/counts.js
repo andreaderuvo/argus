@@ -1,5 +1,5 @@
 // <imports> generated from what this file uses; edit the code, not this list
-import { rung } from '/js/bells.js';
+import { quieten, rung } from '/js/bells.js';
 import { el } from '/js/dom.js';
 import { getJSON } from '/js/reconnect.js';
 import { hamburger, nav, prefs, token } from '/js/state.js';
@@ -70,6 +70,12 @@ export function applyAgentStates(states) {
   }
   for (const pill of document.querySelectorAll('.agentstate[data-session]')) paintState(pill, agentStates.get(pill.dataset.session));
   paintDeskStates();
+  // A bell's mark lasts until its agent is back at work: it said "your turn", and your turn is
+  // over once the agent is working again, whether you answered from this page or another.
+  for (const [name, bell] of rung) {
+    const st = agentStates.get(name);
+    if (st?.state === 'working' && st.since > (bell.said || 0)) quieten(name);
+  }
   // The amber follows too: an agent that stopped is somebody waiting, whether or not it rang.
   showCount('sessions', lastSessionCount);
 }

@@ -39,6 +39,16 @@ MAX_TEXT = 300
 # different treatment: one is news, the other is a block on the work.
 REASONS = {"done", "asking", "failed", "note"}
 
+# "It stopped and it is your turn", however it is said. An interactive agent that has finished a
+# turn is waiting for you exactly as much as one that asked, so these are one event per turn:
+# the first to arrive rings, the rest of that turn are repeats. Measured before this existed:
+# Claude Code's Stop hook said `done`, and its idle notification said `asking` exactly sixty
+# seconds later, about a turn that had already rung — two tones, twice, for one thing.
+NEEDS = {"done", "asking"}
+# How long a turn the server noticed by itself (the sampler) waits for the hook that will say the
+# same thing with more words, before the hook counts as a turn of its own.
+HOOK_LATE = 15
+
 
 # A page in a background tab has its timers throttled to about once a minute, so polling
 # is the wrong shape for the one case that matters: you are in another tab, which is
@@ -51,19 +61,58 @@ LISTENERS = 32
 def store(request: Request) -> dict[str, Any]:
     state = request.app.state
     if not hasattr(state, "bells"):
-        state.bells = {"seq": 0, "list": deque(maxlen=KEEP), "ears": set()}
+        # `open`: session -> (seq, at, source) of the bell that said its current turn is over.
+        state.bells = {"seq": 0, "list": deque(maxlen=KEEP), "ears": set(), "open": {}}
     return state.bells
+
+
+def is_agent(request, session: str | None) -> bool:
+    """Whether the sampler knows this session as an agent. Only then is "its turn is over"
+    something that ends: it ends when the sampler sees it working again. A session it does not
+    know rings every time, as it always has."""
+    watch = getattr(request.app.state, "agents", None)
+    return bool(session and watch is not None and session in getattr(watch, "state", {}))
+
+
+def repeat_of(request, why: str, session: str | None, source: str) -> dict | None:
+    """The bell this one would repeat, or None if it is news."""
+    if why not in NEEDS or not session or not is_agent(request, session):
+        return None
+    kept = store(request)
+    opened = kept["open"].get(session)
+    if not opened:
+        return None
+    seq, at, by = opened
+    # The one exception: the sampler noticed first, and this is the hook arriving a moment later
+    # to say the same thing. Still a repeat — but a hook that turns up long after is a new turn
+    # the sampler missed (a turn too short to see it working).
+    if source == "hook" and why == "done" and by == "hook":
+        return None
+    if source == "hook" and why == "done" and time.time() - at > HOOK_LATE:
+        return None
+    return next((b for b in kept["list"] if b["seq"] == seq), {"seq": seq})
+
+
+def turn_began(request, session: str) -> None:
+    """The sampler saw this session working again: its next stop is news."""
+    store(request)["open"].pop(session, None)
 
 
 @router.post("/api/bell", tags=["Notifications"], summary="Ring: something finished, or wants you")
 async def ring(request: Request, body: dict) -> dict:
-    """Called by an agent hook, or by anything else that knows it has finished."""
+    """Called by an agent hook, or by anything else that knows it has finished.
+
+    A second "done" or "asking" about a turn that has already rung is answered with that bell
+    and `repeat: true`, and rings nothing: see NEEDS."""
     why = str(body.get("why") or "done")
     if why not in REASONS:
         raise ApiError(400, f"why must be one of {', '.join(sorted(REASONS))}")
-    return rung(request, why,
-                session=str(body.get("session") or "").strip() or None,
-                text=str(body.get("text") or ""))
+    session = str(body.get("session") or "").strip() or None
+    text = str(body.get("text") or "")
+    earlier = repeat_of(request, why, session, "hook")
+    if earlier is not None:
+        return {**earlier, "repeat": True}
+    return rung(request, why, session=session, text=text, source="hook")
 
 
 def rung(request: Request, why: str, session: str | None = None, text: str = "", **extra) -> dict:
@@ -87,6 +136,8 @@ def rung(request: Request, why: str, session: str | None = None, text: str = "",
         **extra,
     }
     kept["list"].append(bell)
+    if why in NEEDS and session:
+        kept["open"][session] = (bell["seq"], time.time(), extra.get("source", "hook"))
     for ear in list(kept["ears"]):
         # A listener that has stopped reading must not hold up the hook that is ringing.
         try:

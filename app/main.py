@@ -14,6 +14,7 @@ import signal
 import subprocess
 import sys
 import time
+import types
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -304,12 +305,27 @@ async def sweeping_the_drops(app: FastAPI) -> None:
         await asyncio.sleep(DAY)
 
 
+def agent_changed(app: FastAPI, session: str, was: str | None, now: str, agent: str | None) -> None:
+    """An agent's state changed. Stopping after working is its turn ending: that rings, unless
+    its own hook already said so (bells.NEEDS). Starting again opens the next turn."""
+    request = types.SimpleNamespace(app=app)
+    if now == "working":
+        bells.turn_began(request, session)
+    elif now == "waiting" and was == "working" and bells.repeat_of(request, "asking", session, "watch") is None:
+        bells.rung(request, "asking", session=session, source="watch", agent=agent)
+
+
 @contextlib.asynccontextmanager
 async def announcing(app: FastAPI):
     """Announce this machine to a board, if it has been told about one."""
     cfg = app.state.cfg
     sweeper = asyncio.create_task(sweeping_the_journal(app.state.journal))
     drops = asyncio.create_task(sweeping_the_drops(app))
+    # Sampling agents with nobody looking is what lets one that stops ring a phone through ntfy
+    # with every browser shut. Only when the server is really running (main sets `always`): the
+    # tests build apps by the dozen and must not start a watcher for each.
+    if app.state.agents.always:
+        app.state.agents.wake()
     task = None
     if getattr(cfg, "report_to", None):
         async def mine() -> dict:
@@ -358,6 +374,7 @@ def create_app(cfg: Config) -> FastAPI:
     # Whether each agent is working or waiting, worked out from tmux and /proc; it samples only
     # while somebody reads it (app/agentstate.py).
     app.state.agents = agentstate.Watch(app.state.socket, [one.command for one in launch.configured(cfg)])
+    app.state.agents.on_change = lambda *change: agent_changed(app, *change)
     app.state.todo = getattr(cfg, "todo_store", None) or Path("/nonexistent")
     app.state.prefs = getattr(cfg, "prefs_store", None) or Path("/nonexistent")
     app.state.devices = cfg.devices_store or Path("/nonexistent")
@@ -1843,6 +1860,7 @@ def main(argv: list[str] | None = None) -> int:
     # first "New session" after a restart pays a login shell for the choices and another for
     # the versions. Here and not in the lifespan, so the tests do not start login shells.
     launch.warm(cfg)
+    app.state.agents.always = True
     tls = cfg.tls()
     uvicorn.run(
         app,

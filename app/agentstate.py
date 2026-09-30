@@ -15,8 +15,12 @@ So an agent is **working** while its window's activity keeps moving, and **waiti
 has stopped. `#{window_activity}` has one-second resolution, so a single glance cannot tell a
 spinner from that lone redraw: the window is sampled once a second and "working" means the
 activity advanced in most of the last few seconds. The sampler runs only while somebody is
-looking — each read of the states keeps it alive for a minute — and never reads the screen
-(no capture-pane: see CLAUDE.md).
+looking — each read of the states keeps it alive for a minute — unless it is `always` on, which
+is how the server runs it so that an agent that stops can ring with no browser open. It never
+reads the screen (no capture-pane: see CLAUDE.md).
+
+Each change of state is also queued as an event, `(session, was, now, agent)`, for whoever
+drains `changes()`: that is how "it stopped" becomes a notification (bells.py).
 """
 
 from __future__ import annotations
@@ -41,6 +45,7 @@ SAMPLE_EVERY = 1.0          # seconds between readings of window activity
 WINDOW = 4                  # readings considered
 MOVING = 2                  # advances within them that mean "still drawing"
 AGENTS_EVERY = 5.0          # the process tree is dearer than a list-windows: less often
+AGENTS_UNWATCHED = 15.0     # …and less often still while no browser is reading the states
 KEEP_ALIVE = 60.0           # the sampler stops this long after the last reader
 
 
@@ -137,6 +142,9 @@ class Watch:
         self.agents_read = 0.0
         self.asked = 0.0
         self.task: asyncio.Task | None = None
+        self.always = False                         # keep sampling with nobody reading
+        self.events: deque = deque(maxlen=256)      # (session, was, now, agent) changes
+        self.on_change = None                       # called in the loop with each change
 
     # ------------------------------------------------------------ reading tmux and /proc
 
@@ -183,7 +191,8 @@ class Watch:
     def tick(self, now: float | None = None) -> None:
         now = time.time() if now is None else now
         windows = self.read_windows()
-        if now - self.agents_read >= AGENTS_EVERY or set(windows) - set(self.windows):
+        every = AGENTS_EVERY if now - self.asked < KEEP_ALIVE else AGENTS_UNWATCHED
+        if now - self.agents_read >= every or set(windows) - set(self.windows):
             self.agents = self.read_agents()
             self.agents_read = now
         self.windows = {w: s for w, (s, _a) in windows.items()}
@@ -203,20 +212,40 @@ class Watch:
             if verdict == "waiting" or by_session.get(s) != "waiting":
                 by_session[s] = verdict
         for s, verdict in by_session.items():
-            if self.state.get(s, ("", 0))[0] != verdict:
+            was = self.state.get(s, ("", 0))[0]
+            if was != verdict:
                 self.state[s] = (verdict, now)
+                agent = next((a for w, a in self.agents.items() if self.windows.get(w) == s), None)
+                self.events.append((s, was or None, verdict, agent))
         for s in set(self.state) - set(by_session):
             del self.state[s]
 
     # ------------------------------------------------------------ the loop, and reading it
 
+    def changes(self) -> list[tuple]:
+        """The changes of state since the last call, oldest first."""
+        out = list(self.events)
+        self.events.clear()
+        return out
+
     async def _loop(self) -> None:
         try:
-            while time.time() - self.asked < KEEP_ALIVE:
-                await asyncio.to_thread(self.tick)
+            while self.always or time.time() - self.asked < KEEP_ALIVE:
+                try:
+                    await asyncio.to_thread(self.tick)
+                    if self.on_change:
+                        for change in self.changes():
+                            self.on_change(*change)
+                except Exception:
+                    pass                             # one bad reading must not stop the watch
                 await asyncio.sleep(SAMPLE_EVERY)
         finally:
             self.task = None
+
+    def wake(self) -> None:
+        """Start the sampler if it is asleep. Needs a running event loop."""
+        if self.task is None:
+            self.task = asyncio.get_running_loop().create_task(self._loop())
 
     def states(self) -> dict[str, dict]:
         """{session: {agent, state, since}}; starts the sampler if it was asleep."""

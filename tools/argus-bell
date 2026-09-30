@@ -31,6 +31,22 @@ print(' '.join(str(said).split())[:200])
     ;;
 esac
 
+# Claude Code and Gemini CLI hand a hook its event as JSON on stdin, and for a notification
+# that JSON holds the sentence worth reading — "Claude needs your permission to use Bash".
+# Read only if something arrives within half a second: a program that leaves its own stdin
+# attached and never writes must not hang the hook.
+if [ -z "$TEXT" ] && [ ! -t 0 ]; then
+  TEXT="$(python3 -c "
+import json, select, sys
+if select.select([sys.stdin], [], [], 0.5)[0]:
+    try:
+        d = json.loads(sys.stdin.read() or '{}')
+    except Exception:
+        sys.exit()
+    print(' '.join(str(d.get('message') or '').split())[:200])
+" 2>/dev/null || true)"
+fi
+
 SESSION="$(tmux display -p '#S' 2>/dev/null || true)"
 
 # Quote for JSON the small way: these fields are a session name and a short sentence.

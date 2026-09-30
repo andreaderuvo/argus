@@ -297,6 +297,16 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   under a long path is never recognised (found by the tests, under pytest). Never probe this
   with a real agent and blind keystrokes: a dialog it shows can change the user's settings.
 
+- **One ring per turn** (`bells.NEEDS`, `tests/test_turns.py`). `done` and `asking` both mean
+  "your turn" and fold into one bell per turn: a turn opens when the sampler sees the agent
+  working, and the first of hook-or-sampler to say it stopped rings; the rest are answered
+  `repeat: true` and ring nothing. Measured before: every Claude turn rang `done` (Stop) and
+  then `asking` exactly 60 s later (its idle Notification). An agent with no hook now rings
+  when the sampler sees it stop. The server runs the sampler **always** (`main` sets it, the
+  tests' apps do not), so ntfy can reach a phone with every tab shut. A window's mark clears
+  when its agent is working again. `argus-bell` now reads the notification text Claude and
+  Gemini send on stdin ("needs your permission to use Bash"), with a 0.5 s limit.
+
 - **A process can carry a label of your own** (System screen: the pencil on a process or a
   port). Kept on the server in `labels.json` beside the config, keyed by **pid and start
   time** (field 22 of `/proc/<pid>/stat`, read after the *last* `)` because the command name
