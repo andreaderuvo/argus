@@ -3,10 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Argus</title>
-<meta name="description" content="A self-hosted web workspace for the coding agents you already run in tmux — Claude Code, Codex, Gemini or any CLI. See which one is working and which is waiting for you, open what it wrote in one click, and answer from your phone.">
+<title>Argus — self-hosted workspace for AI coding agents in tmux</title>
+<meta name="description" content="See which AI coding agent is working and which is waiting for you, open what it wrote, and answer from your phone. Self-hosted, for any CLI in tmux.">
 <link rel="canonical" href="https://andreaderuvo.github.io/argus/">
 <link rel="icon" href="img/mark-192.png">
+<link rel="apple-touch-icon" href="img/mark.png">
+<link rel="preload" href="fonts/bricolage-grotesque.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/ibm-plex-sans.woff2" as="font" type="font/woff2" crossorigin>
 <meta name="theme-color" content="#f4f7f6" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0f1820" media="(prefers-color-scheme: dark)">
 <meta property="og:type" content="website">
@@ -15,16 +18,22 @@
 <meta property="og:title" content="Argus — a hundred eyes on your AI agents">
 <meta property="og:description" content="Every tmux session, the files your agents write and the reports they produce, in one browser tab, on your desk or your phone. Self-hosted, works with any agent.">
 <meta property="og:image" content="https://andreaderuvo.github.io/argus/img/social-preview.png">
+<meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="A sketch of Argus: two agent sessions, one working and one waiting for you, the report one of them wrote, and the same session on a phone.">
 <meta property="og:url" content="https://andreaderuvo.github.io/argus/">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Argus — a hundred eyes on your AI agents">
+<meta name="twitter:description" content="Every tmux session, the files your agents write and the reports they produce, in one browser tab, on your desk or your phone.">
+<meta name="twitter:image" content="https://andreaderuvo.github.io/argus/img/social-preview.png">
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"SoftwareApplication","name":"Argus","applicationCategory":"DeveloperApplication",
  "operatingSystem":"Linux, macOS (Windows through WSL or Docker)","license":"https://opensource.org/licenses/MIT",
  "offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"url":"https://andreaderuvo.github.io/argus/",
  "codeRepository":"https://github.com/andreaderuvo/argus",
+ "image":"https://andreaderuvo.github.io/argus/img/social-preview.png",
+ "author":{"@type":"Person","name":"Andrea de Ruvo"},
  "description":"A self-hosted web workspace for the AI coding agents you already run in tmux."}
 </script>
 <style>
