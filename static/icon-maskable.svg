@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <title>Argus</title>
+  <rect width="512" height="512" fill="#0f1820"/>
+  <circle cx="256.00" cy="124.00" r="13.86" fill="#1f7f79"/>
+  <circle cx="322.00" cy="141.68" r="13.86" fill="#1f7f79"/>
+  <circle cx="370.32" cy="190.00" r="17.16" fill="#e3a93b"/>
+  <circle cx="388.00" cy="256.00" r="13.86" fill="#1f7f79"/>
+  <circle cx="370.32" cy="322.00" r="13.86" fill="#1f7f79"/>
+  <circle cx="322.00" cy="370.32" r="13.86" fill="#1f7f79"/>
+  <circle cx="256.00" cy="388.00" r="13.86" fill="#1f7f79"/>
+  <circle cx="190.00" cy="370.32" r="13.86" fill="#1f7f79"/>
+  <circle cx="141.68" cy="322.00" r="13.86" fill="#1f7f79"/>
+  <circle cx="124.00" cy="256.00" r="13.86" fill="#1f7f79"/>
+  <circle cx="141.68" cy="190.00" r="13.86" fill="#1f7f79"/>
+  <circle cx="190.00" cy="141.68" r="13.86" fill="#1f7f79"/>
+  <circle cx="256.00" cy="256.00" r="82.50" fill="#9fe2c6"/>
+  <circle cx="256.00" cy="256.00" r="46.20" fill="#0a1117"/>
+  <circle cx="239.50" cy="239.50" r="11.22" fill="#f4f7f6"/>
+</svg>

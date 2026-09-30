@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <title>Argus</title>
+  <circle cx="50.00" cy="10.00" r="4.20" fill="#1f7f79"/>
+  <circle cx="70.00" cy="15.36" r="4.20" fill="#1f7f79"/>
+  <circle cx="84.64" cy="30.00" r="5.20" fill="#e3a93b"/>
+  <circle cx="90.00" cy="50.00" r="4.20" fill="#1f7f79"/>
+  <circle cx="84.64" cy="70.00" r="4.20" fill="#1f7f79"/>
+  <circle cx="70.00" cy="84.64" r="4.20" fill="#1f7f79"/>
+  <circle cx="50.00" cy="90.00" r="4.20" fill="#1f7f79"/>
+  <circle cx="30.00" cy="84.64" r="4.20" fill="#1f7f79"/>
+  <circle cx="15.36" cy="70.00" r="4.20" fill="#1f7f79"/>
+  <circle cx="10.00" cy="50.00" r="4.20" fill="#1f7f79"/>
+  <circle cx="15.36" cy="30.00" r="4.20" fill="#1f7f79"/>
+  <circle cx="30.00" cy="15.36" r="4.20" fill="#1f7f79"/>
+  <circle cx="50.00" cy="50.00" r="25.00" fill="#9fe2c6"/>
+  <circle cx="50.00" cy="50.00" r="14.00" fill="#15232d"/>
+  <circle cx="45.00" cy="45.00" r="3.40" fill="#f4f7f6"/>
+</svg>
