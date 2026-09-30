@@ -1,7 +1,7 @@
 // <imports> generated from what this file uses; edit the code, not this list
 import { rung } from '/js/bells.js';
 import { savePrefs } from '/js/core.js';
-import { lastSessionCount, lastTodoCount, showCount } from '/js/counts.js';
+import { lastSessionCount, lastTodoCount, paintDeskStates, showCount } from '/js/counts.js';
 import { ask, askPrompt, confirmBox, toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { BATONS, GROUND, LOOSE, PAIR_BATONS, SITUATIONAL, batonGroups, batonTemplates, bridgePath, deskSetName, fillBaton, groundVars, messagesChanged, pairEvery, pairLimit, pairTries, planPath, saidAs, unknownVars, varSetNamed, varSets, whyEmpty } from '/js/handover.js';
@@ -1028,8 +1028,10 @@ export function paintRailDesks() {
     if ((ws.desktop || []).length) {
       button.append(el('span', { className: 'railcount', textContent: String(ws.desktop.length) }));
     }
+    button.dataset.ws = ws.id;
     railDesks.append(button);
   }
+  paintDeskStates();
 }
 
 export function paintRailWindows() {

@@ -2,7 +2,7 @@
 import { rung } from '/js/bells.js';
 import { el } from '/js/dom.js';
 import { getJSON } from '/js/reconnect.js';
-import { hamburger, nav, token } from '/js/state.js';
+import { hamburger, nav, prefs, token } from '/js/state.js';
 import { t } from '/js/words.js';
 // </imports>
 /** How many tmux sessions there are, on the Sessions tab.
@@ -69,8 +69,39 @@ export function applyAgentStates(states) {
     if (title) title.dataset.agent = st ? `${st.agent || t('agent')}: ${stateWord(st)}` : '';
   }
   for (const pill of document.querySelectorAll('.agentstate[data-session]')) paintState(pill, agentStates.get(pill.dataset.session));
+  paintDeskStates();
   // The amber follows too: an agent that stopped is somebody waiting, whether or not it rang.
   showCount('sessions', lastSessionCount);
+}
+
+/** The dot on each desk tab: amber and steady while an agent in it waits for you, pulsing
+ *  while one works, plain otherwise. Waiting wins over working, because it is the one that
+ *  needs a person.
+ *
+ *  Read off the desk's stored list of windows rather than the live deck, so a desk you have
+ *  not opened this visit, or one sitting in the rail, answers too: the one you are not looking
+ *  at is the one this exists for. Called on every reading and whenever the tabs are rebuilt.
+ */
+export function paintDeskStates() {
+  const desks = new Map((prefs.workspaces || []).map((ws) => [String(ws.id), ws]));
+  for (const tab of document.querySelectorAll('.wstab[data-ws], .raildesk[data-ws]')) {
+    const ws = desks.get(tab.dataset.ws);
+    let working = 0;
+    let waiting = 0;
+    for (const x of ws?.desktop || []) {
+      if (x.kind !== 'term') continue;
+      const st = agentStates.get(x.name)?.state;
+      if (st === 'working') working += 1;
+      if (st === 'waiting') waiting += 1;
+    }
+    tab.classList.toggle('agents-waiting', waiting > 0);
+    tab.classList.toggle('agents-working', working > 0 && !waiting);
+    const said = [waiting && t('{n} waiting for you', { n: waiting }), working && t('{n} working', { n: working })]
+      .filter(Boolean).join(' · ');
+    if (said) tab.dataset.agents = said; else delete tab.dataset.agents;
+    const dot = tab.querySelector('.tabdot, .raildot');
+    if (dot) dot.title = said || (tab.classList.contains('raildesk') ? '' : t('Change colour'));
+  }
 }
 
 /** "working", or "waiting for you · 4m" — how long it has been waiting is the useful part. */

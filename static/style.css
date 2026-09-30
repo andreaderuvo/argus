@@ -3110,13 +3110,15 @@ dialog.sheet:has(.promptmake) { width: min(38rem, calc(100vw - 2rem)); }
 .winfacts .fact.lost, .docfacts .fact.lost { border-color: color-mix(in srgb, var(--st-critical) 45%, var(--line)); }
 .winfacts .fact.lost .factvalue, .docfacts .fact.lost .factvalue { color: var(--st-critical); }
 
-/* A desk with something moving in it. Not the bell — that one means "finished, or wants
-   you", and it keeps the accent to itself. This is quieter and it breathes: a slow pulse on
-   the tab's own dot, so a desk where an agent is working looks different from one where
-   nothing has happened since lunch. */
+/* What the agents in a desk are doing, on the tab's own dot (counts.js, paintDeskStates).
+   Waiting is steady and amber — the one thing on the strip that means "a person is needed" —
+   and it is a ring round the desk's colour rather than a new colour, so the desk stays
+   recognisable. Working is quieter: the dot breathes. */
 @keyframes atwork { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
-.wstab.working .tabdot { animation: atwork 1.4s ease-in-out infinite; }
-@media (prefers-reduced-motion: reduce) { .wstab.working .tabdot { animation: none; box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent); } }
+.wstab.agents-working .tabdot, .raildesk.agents-working .raildot { animation: atwork 1.4s ease-in-out infinite; }
+.wstab.agents-waiting .tabdot, .raildesk.agents-waiting .raildot { box-shadow: 0 0 0 3px var(--st-warning); }
+.wstab.agents-waiting:not(.on) .tabname { color: var(--st-warning); }
+@media (prefers-reduced-motion: reduce) { .wstab.agents-working .tabdot, .raildesk.agents-working .raildot { animation: none; box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent); } }
 
 /* Wide enough for two columns, so the list is a page you read rather than a well you scroll.
    Fourteen rows in one column on a 1400px screen is a lot of vertical travel for a sheet

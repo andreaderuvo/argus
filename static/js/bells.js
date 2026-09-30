@@ -1,6 +1,6 @@
 // <imports> generated from what this file uses; edit the code, not this list
 import { savePrefs } from '/js/core.js';
-import { countSessions, showCount } from '/js/counts.js';
+import { agentStates, countSessions, showCount } from '/js/counts.js';
 import { toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { bellStream, getJSON, setBellStream } from '/js/reconnect.js';
@@ -176,6 +176,13 @@ const quietWatch = new WeakMap();      // .win element -> { seen, streak, flagge
 function sweepQuiet() {
   const now = Date.now();
   for (const win of document.querySelectorAll('.win[data-kind="term"]')) {
+    // An agent's window says working or waiting from the server's reading; this guess would
+    // only argue with it, in the same spot on the title.
+    if (agentStates.has(win.dataset.session)) {
+      if (win.classList.contains('maybewaiting')) win.classList.remove('maybewaiting');
+      quietWatch.delete(win);
+      continue;
+    }
     const spoke = Number(win.dataset.spoke || 0);
     const typed = Number(win.dataset.typed || 0);
     let st = quietWatch.get(win);
@@ -243,27 +250,13 @@ export function paintBells() {
   }
 }
 
-/* Which desks have something moving in them.
- *
- *  A bell says "it has finished, or it wants you". This is the other half: an agent that is
- *  *working*, which you cannot tell from a tab that looks exactly like the tab of a desk
- *  where nothing has happened since lunch. Every terminal already knows when its session
- *  last printed something — the paint path stamps it — so this asks, once a second, and
- *  lights the tab of any desk whose sessions have printed in the last two.
- *
- *  Only desks whose windows have been built: one you have never opened this visit has no
- *  connection to be quiet or loud, and inventing an answer for it would be worse than the
- *  honest nothing.
+/* Which desks have something moving in them is painted from the agents' states, in
+ *  counts.js (`paintDeskStates`). It used to be worked out here from bytes arriving: any
+ *  terminal of the desk that had printed in the last two seconds made its tab pulse. That lit
+ *  for everything that is not work — an idle agent's redraw every ten seconds, the clock on
+ *  tmux's status line, the echo of your own typing — never lit a desk not opened this visit,
+ *  and had no way to say "waiting" at all.
  */
-function paintWorking() {
-  for (const tab of document.querySelectorAll('.wstab[data-ws]')) {
-    const deck = document.querySelector(`.deck[data-ws="${tab.dataset.ws}"]`);
-    const busy = !!deck && [...deck.querySelectorAll('.win[data-kind="term"]')]
-      .some((win) => win.dataset.spoke && Date.now() - Number(win.dataset.spoke) < 2000);
-    tab.classList.toggle('working', busy);
-  }
-}
-setInterval(() => { if (!document.hidden) paintWorking(); }, 1000);
 
 /** Two short tones, made rather than fetched: one asset fewer, and it works offline.
  *

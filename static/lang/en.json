@@ -938,6 +938,8 @@
   "“{name}” holds {count} message(s); they move to {ground}.": "“{name}” holds {count} message(s); they move to {ground}.",
   "“{name}” holds {count} prompt(s); they move to {ground}.": "“{name}” holds {count} prompt(s); they move to {ground}.",
   "“{name}” is empty.": "“{name}” is empty.",
-  "→ {path} · not there yet": "→ {path} · not there yet"
+  "→ {path} · not there yet": "→ {path} · not there yet",
+  "{n} waiting for you": "{n} waiting for you",
+  "{n} working": "{n} working"
  }
 }

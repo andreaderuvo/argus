@@ -66,3 +66,21 @@ def test_a_desk_window_shows_the_state_of_its_agent(make_page, argus, tmp_path):
     page.wait("document.querySelector('.win[data-session=\"asking\"]')?.classList.contains('agent-waiting')",
               timeout=15, what="the window of the waiting agent to say so")
     assert not page.eval("document.querySelector('.win[data-session=\"asking\"]').classList.contains('agent-working')")
+
+
+def test_the_desk_tabs_say_which_desk_has_an_agent_waiting(make_page, argus, tmp_path):
+    """The tab's dot follows the agents' states, not bytes arriving: amber and steady while one
+    waits, pulsing while one works — including on a desk not opened since the page loaded,
+    which has no windows in the document and is exactly the desk you are not looking at."""
+    agents(tmp_path, argus, spin_for=60)
+    argus.api("/api/prefs", "PATCH", {"changes": {"ws": 1, "wsSeq": 2, "workspaces": [
+        {"id": 1, "name": "Here", "desktop": [{"kind": "term", "name": "busy"}]},
+        {"id": 2, "name": "Elsewhere", "desktop": [{"kind": "term", "name": "asking"}]},
+    ]}})
+    page = make_page(route="#/wall")
+    tab = lambda ws: f"document.querySelector('.wstab[data-ws=\"{ws}\"]')"
+    page.wait(f"{tab(2)}?.classList.contains('agents-waiting')", timeout=20, what="the unopened desk to say someone waits")
+    page.wait(f"{tab(1)}?.classList.contains('agents-working')", timeout=20, what="the open desk to say its agent works")
+    assert not page.eval("!!document.querySelector('.deck[data-ws=\"2\"] .win')"), "desk 2 must not have been built"
+    assert "waiting for you" in page.eval(f"{tab(2)}.dataset.agents")
+    assert not page.eval(f"{tab(1)}.classList.contains('agents-waiting')")

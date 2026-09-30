@@ -2,6 +2,7 @@
 import { muteSession, muted, paintBells, quieten, ring, rung } from '/js/bells.js';
 import { chained, deskChain, toggleChain } from '/js/chains.js';
 import { savePrefs } from '/js/core.js';
+import { paintDeskStates } from '/js/counts.js';
 import { ask, confirmBox, copyText, modal, showText, toast, undoToast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { holdFor } from '/js/filerows.js';
@@ -1244,6 +1245,7 @@ export async function screenWall() {
       // Tabs are rebuilt from scratch on every change; without this a bell mark would
       // vanish the moment anything else on the strip moved.
       if (rung.size) requestAnimationFrame(paintBells);
+      requestAnimationFrame(paintDeskStates);
       reorderTab(tab, tabs, saveTabOrder);
 
       const rename = async () => {
