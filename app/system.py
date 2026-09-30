@@ -82,17 +82,30 @@ def cpu_percent(sample_a: tuple[int, int], sample_b: tuple[int, int]) -> float:
 
 
 def parse_ps(text: str) -> list[dict]:
-    """`ps -eo rss=,pcpu=,comm=` — biggest resident processes first."""
+    """`ps -eo pid=,rss=,pcpu=,comm=` — biggest resident processes first.
+
+    The pid is what a label hangs on (app/labels.py); the name alone — `java`, `python3` — is
+    exactly what made people ask what a process was."""
     rows = []
     for line in text.splitlines():
-        parts = line.split(None, 2)
-        if len(parts) < 3:
+        parts = line.split(None, 3)
+        if len(parts) < 4:
             continue
         try:
-            rows.append({"rss": int(parts[0]) * 1024, "cpu": float(parts[1]), "name": parts[2].strip()})
+            rows.append({"pid": int(parts[0]), "rss": int(parts[1]) * 1024, "cpu": float(parts[2]),
+                         "name": parts[3].strip()})
         except ValueError:
             continue
     return rows
+
+
+def command_of(pid: int) -> str:
+    """The full command line, which is what tells one `python3` from another."""
+    try:
+        raw = Path(f"/proc/{pid}/cmdline").read_bytes()
+    except OSError:
+        return ""
+    return " ".join(raw.decode("utf-8", "replace").split("\0")).strip()
 
 
 def parse_nvidia(text: str) -> list[dict]:
@@ -135,12 +148,15 @@ def gpus() -> list[dict]:
 def processes(limit: int = 6) -> list[dict]:
     try:
         p = subprocess.run(
-            ["ps", "-eo", "rss=,pcpu=,comm=", "--sort=-rss"],
+            ["ps", "-eo", "pid=,rss=,pcpu=,comm=", "--sort=-rss"],
             capture_output=True, text=True, timeout=4,
         )
     except (OSError, subprocess.SubprocessError):
         return []
-    return parse_ps(p.stdout)[:limit] if p.returncode == 0 else []
+    rows = parse_ps(p.stdout)[:limit] if p.returncode == 0 else []
+    for row in rows:
+        row["command"] = command_of(row["pid"])[:300]
+    return rows
 
 
 def parse_ps_tree(text: str) -> dict[int, tuple[int, int]]:

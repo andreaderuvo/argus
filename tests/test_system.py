@@ -61,9 +61,10 @@ def test_thresholds_name_the_state():
 
 
 def test_ps_output_becomes_processes():
-    rows = parse_ps(" 2048000 12.5 python3\n  512000  0.0 tmux: server\nrubbish\n")
-    assert rows[0] == {"rss": 2048000 * 1024, "cpu": 12.5, "name": "python3"}
-    assert rows[1]["name"] == "tmux: server"
+    rows = parse_ps(" 4242 2048000 12.5 python3\n  17  512000  0.0 tmux: server\nrubbish\n")
+    assert rows[0] == {"pid": 4242, "rss": 2048000 * 1024, "cpu": 12.5, "name": "python3"}
+    # A name with a space in it survives: the name is the last field and keeps the rest.
+    assert rows[1]["name"] == "tmux: server" and rows[1]["pid"] == 17
     assert len(rows) == 2, "a malformed line is skipped, not fatal"
 
 

@@ -28,6 +28,35 @@ function writeInto(node, text) {
   if (node.textContent !== text) node.textContent = text;
 }
 
+/** The pencil that puts a word of your own on a process.
+ *
+ *  "java, 2.2 GB" is where the question comes from: which java, doing what, and can it go.
+ *  The label is kept on the server against that one process — its pid and the moment it
+ *  started — so it follows the process to the phone and dies with it (app/labels.py).
+ *  `current()` is read at click time, because the row it sits on is reused as the list moves.
+ */
+function labelButton(current, after) {
+  return el('button', {
+    className: 'more labelpen', type: 'button', title: t('Label this process'),
+    'aria-label': t('Label this process'),
+    onclick: async (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const { pid, label, name } = current();
+      if (!pid) return;
+      const text = await ask(t('What is {name}?', { name: name || `pid ${pid}` }), label || '', t('Save'));
+      if (text === null) return;
+      try {
+        const done = await postJSON('/api/labels', { pid, label: text });
+        toast(done.label ? t('labelled: {label}', { label: done.label }) : t('label removed'));
+      } catch (e) {
+        toast(e.message, true);
+      }
+      after();
+    },
+  }, icon('rename'));
+}
+
 export const LEVEL_WORD = { good: 'ok', warning: 'high', critical: 'critical' };
 
 /** The single worst number on a reading, so "is it dying" is answered before anything
@@ -340,14 +369,19 @@ function portsSection(where) {
       const direct = `${location.protocol}//${location.hostname}:${p.port}/`;
       const through = withToken(`/proxy/${p.port}/`);
 
-      const row = el('div', { className: 'portrow' }, [
+      // Your label first when there is one; what the machine calls it moves underneath.
+      const said = p.label
+        ? [p.process, p.command.slice(0, 90)].filter(Boolean).join(' · ')
+        : p.command.slice(0, 90) || p.address;
+      const row = el('div', { className: `portrow${p.label ? ' labelled' : ''}` }, [
         el('span', { className: 'portnum', textContent: String(p.port) }),
         el('span', { className: 'grow' }, [
-          el('span', { className: 'name', textContent: p.process || 'unknown' }),
-          el('span', { className: 'meta', textContent: p.command.slice(0, 90) || p.address }),
+          el('span', { className: 'name', textContent: p.label || p.process || 'unknown' }),
+          el('span', { className: 'meta', textContent: said }),
         ]),
+        p.pid ? labelButton(() => ({ pid: p.pid, label: p.label, name: p.process }), () => paint()) : null,
         el('span', { className: `state ${p.loopback ? 'warning' : 'good'}`, textContent: p.loopback ? 'local only' : 'on the network' }),
-      ]);
+      ].filter(Boolean));
 
       if (!p.loopback) {
         // Nothing to proxy: the phone can dial this itself.
@@ -640,17 +674,34 @@ export async function screenSystem() {
     // row changes — the row is the shape, the text is the reading.
     while (rows.length > s.processes.length) rows.pop().node.remove();
     while (rows.length < s.processes.length) {
-      const name = el('span', { className: 'procname' });
+      /* Two lines now: the name alone — `java`, `python3` — is what made people ask what a
+       * process was. Under it the full command, or, once you have labelled it, your label on
+       * top and the name and command underneath. */
+      const title = el('span', { className: 'proctitle' });
+      const sub = el('span', { className: 'procsub' });
+      const name = el('span', { className: 'procname' }, [title, sub]);
       const rss = el('span', { className: 'procnum' });
       const cpu = el('span', { className: 'procnum dim' });
-      const node = el('div', { className: 'procrow' }, [name, rss, cpu]);
-      rows.push({ node, name, rss, cpu });
+      const row = { pid: null, label: '', proc: '' };
+      const pen = labelButton(() => ({ pid: row.pid, label: row.label, name: row.proc }), () => tick());
+      const node = el('div', { className: 'procrow' }, [name, rss, cpu, pen]);
+      Object.assign(row, { node, name, title, sub, rss, cpu, pen });
+      rows.push(row);
       procs.append(node);
     }
     s.processes.forEach((p, i) => {
-      write(rows[i].name, p.name);
-      write(rows[i].rss, human(p.rss));
-      write(rows[i].cpu, `${p.cpu}%`);
+      const r = rows[i];
+      r.pid = typeof p.pid === 'number' ? p.pid : null;
+      r.label = p.label || '';
+      r.proc = p.name;
+      write(r.title, p.label || p.name);
+      write(r.sub, p.label ? [p.name, p.command].filter(Boolean).join(' · ') : (p.command || ''));
+      r.sub.hidden = !r.sub.textContent;
+      r.name.title = [p.label, p.command || p.name, r.pid ? `pid ${r.pid}` : ''].filter(Boolean).join('\n');
+      r.node.classList.toggle('labelled', !!p.label);
+      r.pen.hidden = !r.pid;
+      write(r.rss, human(p.rss));
+      write(r.cpu, `${p.cpu}%`);
     });
   };
 

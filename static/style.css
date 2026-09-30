@@ -1727,8 +1727,13 @@ video.scanner { width: 100%; border-radius: .6rem; background: #000; aspect-rati
 .portrow .ghost.dup { min-height: 32px; }
 .portrow .ghost.dup.on { color: var(--accent); border-color: var(--accent); }
 
-.procrow { display: flex; gap: .6rem; align-items: baseline; padding: .22rem 0; font-size: .82rem; }
-.procname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: ui-monospace, monospace; }
+.procrow { display: flex; gap: .6rem; align-items: center; padding: .22rem 0; font-size: .82rem; }
+.procname { flex: 1; min-width: 0; font-family: ui-monospace, monospace; }
+.proctitle, .procsub { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.procsub { font-size: .7rem; color: var(--dim); }
+/* A label is your word, not the machine's: ordinary type, in the accent, above the name. */
+.procrow.labelled .proctitle, .portrow.labelled .name { font-family: inherit; color: var(--accent); font-weight: 600; }
+.labelpen { flex: none; }
 .procnum { flex: none; font-variant-numeric: tabular-nums; color: var(--text); }
 .procnum.dim { color: var(--dim); width: 3.4rem; text-align: right; }
 

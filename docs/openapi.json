@@ -1795,6 +1795,74 @@
     ]
    }
   },
+  "/api/labels": {
+   "get": {
+    "description": "Every label whose process is still running, by pid.\n\nA label belongs to one process \u2014 its pid *and* the moment it started \u2014 so a pid the\nkernel has handed to something new does not inherit the note, and a label for a\nprocess that has ended is gone (and written out of the file) the next time this is\nread.",
+    "operationId": "getApiLabels",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response List Labels Api Labels Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Your notes on running processes",
+    "tags": [
+     "The machine"
+    ]
+   },
+   "post": {
+    "description": "`{\"pid\": 4242, \"label\": \"cgDist rerun, Listeria batch\"}` \u2014 an empty label clears it.\nAt most 80 characters, one line.",
+    "operationId": "postApiLabels",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Set Label Api Labels Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Label a process, or clear its label",
+    "tags": [
+     "The machine"
+    ]
+   }
+  },
   "/api/language": {
    "post": {
     "description": "Anyone can translate the catalogue and add it here; it is a flat JSON object\nkeyed by the English strings, so it needs no tooling to produce.",

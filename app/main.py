@@ -22,8 +22,8 @@ from fastapi import FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 
-from . import (announce, asks, bells, devices, favourites, files, fsops, gitwork, journal, languages,
-               launch, mounts, network, paths, ports, prefs, proxy, release, runner, runs,
+from . import (announce, asks, bells, devices, favourites, files, fsops, gitwork, journal, labels,
+               languages, launch, mounts, network, paths, ports, prefs, proxy, release, runner, runs,
                system, term, tmux, todo)
 import httpx
 
@@ -352,6 +352,9 @@ def create_app(cfg: Config) -> FastAPI:
     app.state.jail = Jail(cfg.roots)
     app.state.socket = tmux.Socket.new(cfg.tmux_socket)
     app.state.favourites = getattr(cfg, "favourites_store", None) or Path("/nonexistent")
+    # Where process labels are kept; set by main() beside the config. None: labels are read as
+    # none and cannot be written, rather than written somewhere nobody chose.
+    app.state.labels = None
     app.state.todo = getattr(cfg, "todo_store", None) or Path("/nonexistent")
     app.state.prefs = getattr(cfg, "prefs_store", None) or Path("/nonexistent")
     app.state.devices = cfg.devices_store or Path("/nonexistent")
@@ -1127,10 +1130,12 @@ def create_app(cfg: Config) -> FastAPI:
     @app.get("/api/ports", tags=["Ports"], summary="What is listening, and what is holding it")
     async def list_ports(request: Request) -> dict:
         state = request.app.state
+        found = await asyncio.to_thread(ports.listening, state.port)
+        named = labels.by_pid(await asyncio.to_thread(labels.current, state.labels))
         return {
             "allow_proxy": state.cfg.allow_proxy,
             "open": sorted(state.proxied),
-            "ports": await asyncio.to_thread(ports.listening, state.port),
+            "ports": labels.attach(found, named),
         }
 
     @app.post("/api/ports", tags=["Ports"], summary="Open or close a port for proxying")
@@ -1164,7 +1169,41 @@ def create_app(cfg: Config) -> FastAPI:
     @app.get("/api/system", tags=["The machine"], summary="CPU, memory, swap, GPUs, disks, uptime")
     async def vitals(request: Request, brief: bool = False) -> dict:
         # Sampling /proc/stat needs a real pause, so it goes to a thread.
-        return await asyncio.to_thread(system.snapshot, request.app.state.jail.roots, brief)
+        snap = await asyncio.to_thread(system.snapshot, request.app.state.jail.roots, brief)
+        if isinstance(snap.get("processes"), list):
+            named = labels.by_pid(await asyncio.to_thread(labels.current, request.app.state.labels))
+            labels.attach(snap["processes"], named)
+        return snap
+
+    @app.get("/api/labels", tags=["The machine"], summary="Your notes on running processes")
+    async def list_labels(request: Request) -> dict:
+        """Every label whose process is still running, by pid.
+
+        A label belongs to one process — its pid *and* the moment it started — so a pid the
+        kernel has handed to something new does not inherit the note, and a label for a
+        process that has ended is gone (and written out of the file) the next time this is
+        read."""
+        alive = await asyncio.to_thread(labels.current, request.app.state.labels)
+        return {"labels": [{"pid": pid, "label": text} for pid, text in sorted(labels.by_pid(alive).items())]}
+
+    @app.post("/api/labels", tags=["The machine"], summary="Label a process, or clear its label")
+    async def set_label(request: Request, body: dict) -> dict:
+        """`{"pid": 4242, "label": "cgDist rerun, Listeria batch"}` — an empty label clears it.
+        At most 80 characters, one line."""
+        store = request.app.state.labels
+        if store is None:
+            raise ApiError(503, "labels are not kept by this server (no config directory)")
+        try:
+            pid = int(body.get("pid"))
+        except (TypeError, ValueError):
+            raise ApiError(400, "send {pid: number, label: text}") from None
+        if pid <= 0:
+            raise ApiError(400, "send {pid: number, label: text}")
+        command = await asyncio.to_thread(system.command_of, pid)
+        done = await asyncio.to_thread(labels.put, store, pid, body.get("label", ""), command)
+        if done is None:
+            raise ApiError(404, f"no process {pid} is running")
+        return done
 
     @app.exception_handler(ApiError)
     async def api_error(_request: Request, exc: ApiError) -> JSONResponse:
@@ -1750,6 +1789,7 @@ def main(argv: list[str] | None = None) -> int:
     # So the one setting the UI may change can be written back to the file it came from.
     app.state.config_path = config_path
     app.state.favourites = favourites.default_store(config_path)
+    app.state.labels = labels.default_store(config_path)
     app.state.todo = todo.default_store(config_path)
     app.state.prefs = prefs.default_store(config_path)
     app.state.lang = config_path.parent / "lang"

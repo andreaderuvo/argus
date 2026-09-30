@@ -285,6 +285,15 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   picks the side that *covers least*, not the widest one — on a full desk the widest side
   is usually where another window already is. Off with `openInDesk` in Settings.
 
+- **A process can carry a label of your own** (System screen: the pencil on a process or a
+  port). Kept on the server in `labels.json` beside the config, keyed by **pid and start
+  time** (field 22 of `/proc/<pid>/stat`, read after the *last* `)` because the command name
+  may contain spaces and parentheses) — so a recycled pid never inherits somebody else's
+  note, and a label is dropped, and written out of the file, once its process has ended.
+  `/api/system` and `/api/ports` carry `label` on every row (always present, "" when none);
+  the process rows now also carry `pid` and the full `command`, since `java` alone is what
+  made people ask. `POST /api/labels {pid, label}`; empty clears. Not an agent route.
+
 - **Folder sizes are never computed on their own.** `/api/fs/usage` walks a tree only when
   the button on that row is pressed — a listing still reports directories as size 0, and
   nothing runs on hover, paint or scroll. The walk does not follow symlinks (a cycle would
