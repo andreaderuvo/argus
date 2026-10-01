@@ -32,8 +32,9 @@ You find out forty minutes later, over ssh, squinting at a pane. Argus takes car
 of the job that is not typing: knowing, seeing, answering.
 
 - **Know when one needs you.** Every session says *working* or *waiting for you*, worked out
-  from the pane itself. There is nothing to install in the agent; an optional one-line hook
-  lets it ring you as well, with ntfy delivery when the browser is closed.
+  from the pane itself, and the tab of each desk shows it. There is nothing to install in the
+  agent; it rings once per turn, and an optional one-line hook adds what it wants in words,
+  with ntfy delivery when the browser is closed.
 - **See what it produced.** Every path an agent prints is a link. Markdown, PDF, Word, images,
   logs and source open beside the session that made them, already rendered.
 - **Answer from anywhere.** The same sessions, still running, on your phone, with a key bar for
@@ -93,7 +94,8 @@ session and it is typed there; the Enter is left for you.
 | Hand-offs between agents, git worktrees | Yes | No | No |
 | Self-hosted, no account or cloud relay | Yes | No | Varies |
 
-Also: a file browser that updates when a job writes into a folder; the machine's CPU, memory,
+Also: agents brought back after a reboot, each in its folder and its own conversation; a file
+browser that updates when a job writes into a folder; the machine's CPU, memory,
 GPUs, disks and biggest processes, which you can label; local ports reachable from the phone if
 you allow it; and an API that lets scripts and agents do what the page does.
 [Everything it does, in detail.](https://github.com/andreaderuvo/argus/wiki/Everything-it-does)

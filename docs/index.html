@@ -521,6 +521,8 @@ details p { color: var(--ink2); margin-top: 10px; max-width: 68ch; }
       <div><b>Local ports</b><span>A dev server on localhost, reachable from your phone through Argus, only if you allow it.</span></div>
       <div><b>An API for all of it</b><span>Scripts and agents can do what the page does: start sessions, send prompts, ask you a question.</span></div>
       <div><b>Several machines</b><span>Panoptes is one page over every Argus you run.</span></div>
+      <div><b>Back after a reboot</b><span>The agents a reboot took with it are offered back, each in its folder and its own conversation.</span></div>
+      <div><b>One ring per turn</b><span>Finished or asking, from a hook or from the pane going quiet: one bell. Seen it? Got it, on every device.</span></div>
     </div>
     <p class="note"><a href="https://github.com/andreaderuvo/argus/wiki/Everything-it-does">Everything it does, in detail</a></p>
   </div>
@@ -587,6 +589,10 @@ python3 -m app.main          <span class="c"># prints a URL with a token in it</
       <details><summary>Does it need a plugin in my agent?</summary>
         <p>No. It reads what the session prints and types into it, the way you do, and it works out working and
         waiting from the pane. An optional one-line hook lets an agent ring you on its own.</p></details>
+      <details><summary>What happens when the machine reboots?</summary>
+        <p>The processes die with tmux, as they would anyway. Argus keeps a note of which agent ran in
+        which folder and which conversation it was in, and offers them back on the Sessions screen:
+        <code>claude --resume</code> and <code>codex resume</code> pick up where they were.</p></details>
       <details><summary>Is it safe to reach from outside?</summary>
         <p>It gives shell access behind a token, so treat it that way: keep it on a LAN, a VPN or Tailscale.
         Tailscale also gives you a certificate for free.</p></details>
