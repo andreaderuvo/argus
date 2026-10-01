@@ -185,6 +185,10 @@ class Argus:
         doc = self.api("/api/prefs")["prefs"]
         if doc:
             self.api("/api/prefs", "PATCH", {"changes": {k: None for k in doc}})
+        # And agents "lost" when a previous test killed its tmux server are not this test's.
+        lost = [x["name"] for x in self.api("/api/resume")["lost"]]
+        if lost:
+            self.api("/api/resume/forget", "POST", {"names": lost})
 
 
 @pytest.fixture(scope="session")
@@ -221,6 +225,8 @@ def argus(tmp_path_factory) -> Argus:
     env = {k: v for k, v in os.environ.items() if k not in ("TMUX", "TMUX_PANE")}
     env["PYTHONUNBUFFERED"] = "1"
     env["HOME"] = str(home)
+    # The tests kill their tmux server all the time; the register has to keep up with them.
+    env["ARGUS_REGISTER_EVERY"] = "1"
     log = (base / "argus.log").open("w")
     proc = subprocess.Popen(
         [sys.executable, "-m", "app.main", "--config", str(config), "--socket", socket_name,

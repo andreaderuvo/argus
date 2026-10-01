@@ -307,6 +307,20 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   when its agent is working again. `argus-bell` now reads the notification text Claude and
   Gemini send on stdin ("needs your permission to use Bash"), with a 0.5 s limit.
 
+- **Agents come back after a reboot** (`app/resume.py`, `tests/test_resume.py`). Every 30 s the
+  server records which sessions hold an agent: folder, agent, the flags worth keeping, and the
+  conversation — Claude's from its hook (`argus-bell` reads `session_id` from stdin; **not**
+  `$CLAUDE_CODE_SESSION_ID`, which leaks into every pane of a tmux server started from a Claude
+  shell), Codex's from the `rollout-…-<uuid>.jsonl` it holds open. Lost means *the tmux server
+  changed* (pid:start_time, read with `list-sessions`, which needs no client), never just "the
+  session is gone": one closed on a live server was closed on purpose. A tmux call that times
+  out is not a dead server. The Sessions screen offers them back (`claude --resume <id>`,
+  `codex resume <id>`, else a fresh agent in the same folder, said so). Kept in
+  `agents-seen.json` beside the config; the browser harness runs it every second
+  (`ARGUS_REGISTER_EVERY`) and forgets losses between tests.
+- **A screen that awaits before appending checks `renderSeq`** (router.js): two overlapping
+  renders both emptied the view first and both appended, and Sessions showed twice.
+
 - **A process can carry a label of your own** (System screen: the pencil on a process or a
   port). Kept on the server in `labels.json` beside the config, keyed by **pid and start
   time** (field 22 of `/proc/<pid>/stat`, read after the *last* `)` because the command name

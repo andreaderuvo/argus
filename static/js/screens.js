@@ -8,7 +8,7 @@ import { dropOnSession, entryRow, entryTile, fetchHere, placePicker, searchBox, 
 import { icon } from '/js/icons.js';
 import { applyPointed, drawTree, markCurrent, pointAt, setPointed, under } from '/js/pointing.js';
 import { bidi, colorFor, favsIn, getJSON, homePath, human, isFavourite, parentOf, pickColor, postJSON, renamedSession, serverInfo, setTitle, toggleFavourite, visible } from '/js/reconnect.js';
-import { go, render } from '/js/router.js';
+import { go, render, renderSeq } from '/js/router.js';
 import { applySidebar, renderSidebar } from '/js/sidebar.js';
 import { KEY, bar, live, prefs, server, setServer, setToken, sidePath, token, view } from '/js/state.js';
 import { openLocated } from '/js/termpaths.js';
@@ -111,7 +111,9 @@ export function screenLogin() {
 
 export async function screenSessions() {
   setTitle(t('Sessions'));
+  const drawing = renderSeq;
   const sessions = await getJSON('/api/tmux/sessions');
+  if (drawing !== renderSeq) return;          // a newer render owns the view now
 
   /* Starting one, from the screen that lists them.
    *
@@ -138,6 +140,9 @@ export async function screenSessions() {
     ]),
   ]);
   view.append(fresh);
+  // Above the list, and shown when the list is empty — which is exactly what it looks like
+  // after a reboot.
+  view.append(lostAgents());
 
   if (!sessions.length) {
     view.append(el('p', { className: 'empty', textContent: t('No tmux sessions on this server.') }));
@@ -786,6 +791,62 @@ async function renameSession(session) {
     toast(t('now called {name}', { name: to }));
     render();
   } catch (e) { toast(e.message, true); }
+}
+
+/** Agents lost with the tmux server that held them — a reboot, or the server dying — offered
+ *  back. Each returns under its old name, in its old folder, in the conversation it was in when
+ *  that is known (app/resume.py); a desk window waiting for that name reattaches by itself. An
+ *  empty placeholder when nothing was lost, which is nearly always. */
+function lostAgents() {
+  const box = el('div', { className: 'lostagents' });
+  const draw = (lost) => {
+    box.replaceChildren();
+    if (!lost?.length) return;
+    const when = Math.min(...lost.map((x) => x.lost_at || Date.now() / 1000));
+    const back = async (names) => {
+      for (const b of box.querySelectorAll('button')) b.disabled = true;
+      try {
+        const said = await postJSON('/api/resume', { names });
+        const n = said.started?.length || 0;
+        if (n) toast(n === 1 ? t('{name} is back', { name: said.started[0].name }) : t('{n} sessions are back', { n }));
+        for (const one of said.skipped || []) toast(`${one.name}: ${one.why}`, true);
+        render();
+      } catch (e) {
+        toast(e.message || String(e), true);
+        draw(lost);
+      }
+    };
+    const forget = async (names) => {
+      try { draw((await postJSON('/api/resume/forget', { names })).lost); } catch { /* left as it was */ }
+    };
+    const head = el('div', { className: 'losthead' }, [
+      icon('refresh'),
+      el('span', { className: 'grow' }, [
+        el('span', { className: 'name', textContent: lost.length === 1 ? t('An agent stopped with tmux')
+          : t('{n} agents stopped with tmux', { n: lost.length }) }),
+        el('span', { className: 'meta', textContent: Date.now() / 1000 - when < 60
+          ? t('the tmux server went away just now — a reboot, or it crashed')
+          : t('the tmux server went away {age} ago — a reboot, or it crashed', { age: duration(Date.now() / 1000 - when) }) }),
+      ]),
+    ]);
+    if (lost.length > 1) head.append(el('button', { className: 'primary', type: 'button', textContent: t('Bring them all back'), onclick: () => back(lost.map((x) => x.name)) }));
+    box.append(head);
+    for (const one of lost) {
+      const where = one.cwd || '';
+      box.append(el('div', { className: 'lostrow' }, [
+        el('span', { className: 'grow' }, [
+          el('span', { className: 'name', textContent: one.name }),
+          el('span', { className: 'meta', textContent: [one.agent, where].filter(Boolean).join(' · ') }),
+          el('span', { className: `lostwhat ${one.how}`, title: one.command,
+            textContent: one.how === 'resume' ? t('picks up its conversation') : t('a new conversation — which one it was is not known') }),
+        ]),
+        el('button', { className: 'ghost', type: 'button', textContent: t('Bring back'), onclick: () => back([one.name]) }),
+        el('button', { className: 'ghost lostforget', type: 'button', title: t('Stop offering this one'), onclick: () => forget([one.name]) }, icon('close')),
+      ]));
+    }
+  };
+  getJSON('/api/resume').then((said) => draw(said.lost)).catch(() => {});
+  return box;
 }
 
 export async function killSession(session, then = null) {

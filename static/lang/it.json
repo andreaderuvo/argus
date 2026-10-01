@@ -945,6 +945,17 @@
   "Nothing needs doing in any of them: stop asking until they have worked again": "Non c’è niente da fare in nessuno: smetti di segnalarli finché non avranno lavorato di nuovo",
   "Got it": "Visto",
   "Seen, nothing to do: stop asking until it has worked again": "Visto, niente da fare: smetti di segnalarlo finché non avrà lavorato di nuovo",
-  "seen — nothing to do": "visto, niente da fare"
+  "seen — nothing to do": "visto, niente da fare",
+  "{name} is back": "{name} è tornata",
+  "{n} sessions are back": "{n} sessioni sono tornate",
+  "An agent stopped with tmux": "Un agente si è fermato con tmux",
+  "{n} agents stopped with tmux": "{n} agenti si sono fermati con tmux",
+  "the tmux server went away {age} ago — a reboot, or it crashed": "il server tmux è sparito {age} fa: un riavvio, o un crash",
+  "Bring them all back": "Riaprili tutti",
+  "picks up its conversation": "riprende la sua conversazione",
+  "a new conversation — which one it was is not known": "una conversazione nuova: quale fosse non si sa",
+  "Bring back": "Riapri",
+  "Stop offering this one": "Non proporla più",
+  "the tmux server went away just now \u2014 a reboot, or it crashed": "il server tmux è appena sparito: un riavvio, o un crash"
  }
 }

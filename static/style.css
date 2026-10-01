@@ -3554,3 +3554,21 @@ body:not(.railwide) .railwin.raildesk .railcount { display: none; }
 .win.agent-seen .wintitle::before { background: var(--dim); }   /* seen and set aside: still there, no longer asking */
 @keyframes agentbeat { 50% { opacity: .25; } }
 @media (prefers-reduced-motion: reduce) { .agentstate.working::before, .win.agent-working .wintitle::before { animation: none; } }
+
+/* ---------- agents lost with their tmux server, offered back (screens.js lostAgents) ---------- */
+.lostagents:empty { display: none; }
+.lostagents { margin: .6rem 0 .9rem; border: 1px solid color-mix(in srgb, var(--st-warning) 45%, var(--line));
+  border-radius: .7rem; background: color-mix(in srgb, var(--st-warning) 7%, var(--panel)); overflow: hidden; }
+.losthead, .lostrow { display: flex; align-items: center; gap: .7rem; padding: .7rem .9rem; }
+.losthead { border-bottom: 1px solid color-mix(in srgb, var(--st-warning) 25%, var(--line)); }
+.losthead > .ico { color: var(--st-warning); flex: none; }
+.losthead .grow, .lostrow .grow { display: flex; flex-direction: column; align-items: flex-start; flex: 1; min-width: 0; gap: .1rem; }
+.lostrow .meta { max-width: 100%; }
+.losthead .name { font-weight: 600; color: var(--bright); }
+.lostrow + .lostrow { border-top: 1px solid var(--line); }
+.lostrow .name { font-weight: 600; color: var(--bright); }
+.lostrow .meta, .losthead .meta { color: var(--dim); font-size: .8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lostwhat { font-size: .78rem; color: var(--dim); }
+.lostwhat.resume { color: var(--st-good); }
+.lostforget { padding: .35rem; }
+@media (max-width: 520px) { .losthead { flex-wrap: wrap; } .losthead .primary { width: 100%; } }

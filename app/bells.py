@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import time
 from collections import deque
 from pathlib import Path
@@ -48,6 +49,7 @@ NEEDS = {"done", "asking"}
 # How long a turn the server noticed by itself (the sampler) waits for the hook that will say the
 # same thing with more words, before the hook counts as a turn of its own.
 HOOK_LATE = 15
+UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 
 
 # A page in a background tab has its timers throttled to about once a minute, so polling
@@ -62,7 +64,7 @@ def store(request: Request) -> dict[str, Any]:
     state = request.app.state
     if not hasattr(state, "bells"):
         # `open`: session -> (seq, at, source) of the bell that said its current turn is over.
-        state.bells = {"seq": 0, "list": deque(maxlen=KEEP), "ears": set(), "open": {}}
+        state.bells = {"seq": 0, "list": deque(maxlen=KEEP), "ears": set(), "open": {}, "conversations": {}}
     return state.bells
 
 
@@ -109,6 +111,11 @@ async def ring(request: Request, body: dict) -> dict:
         raise ApiError(400, f"why must be one of {', '.join(sorted(REASONS))}")
     session = str(body.get("session") or "").strip() or None
     text = str(body.get("text") or "")
+    # Which conversation the agent is in, for bringing it back after a reboot (resume.py).
+    # Kept even for a repeat: it is the freshest word on it, and it rings nothing.
+    conversation = str(body.get("conversation") or "").strip().lower()
+    if session and UUID.fullmatch(conversation):
+        store(request)["conversations"][session] = conversation
     earlier = repeat_of(request, why, session, "hook")
     if earlier is not None:
         return {**earlier, "repeat": True}

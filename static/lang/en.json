@@ -945,6 +945,17 @@
   "Nothing needs doing in any of them: stop asking until they have worked again": "Nothing needs doing in any of them: stop asking until they have worked again",
   "Got it": "Got it",
   "Seen, nothing to do: stop asking until it has worked again": "Seen, nothing to do: stop asking until it has worked again",
-  "seen — nothing to do": "seen — nothing to do"
+  "seen — nothing to do": "seen — nothing to do",
+  "{name} is back": "{name} is back",
+  "{n} sessions are back": "{n} sessions are back",
+  "An agent stopped with tmux": "An agent stopped with tmux",
+  "{n} agents stopped with tmux": "{n} agents stopped with tmux",
+  "the tmux server went away {age} ago — a reboot, or it crashed": "the tmux server went away {age} ago — a reboot, or it crashed",
+  "Bring them all back": "Bring them all back",
+  "picks up its conversation": "picks up its conversation",
+  "a new conversation — which one it was is not known": "a new conversation — which one it was is not known",
+  "Bring back": "Bring back",
+  "Stop offering this one": "Stop offering this one",
+  "the tmux server went away just now \u2014 a reboot, or it crashed": "the tmux server went away just now — a reboot, or it crashed"
  }
 }

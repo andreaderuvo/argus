@@ -2372,6 +2372,119 @@
     ]
    }
   },
+  "/api/resume": {
+   "get": {
+    "description": "`{lost: [{name, agent, cwd, conversation, how, command, lost_at}]}`: sessions that held an\nagent when their tmux server went away \u2014 a reboot, or the server dying. A session that\nended while its server stayed up is not here: that one was closed on purpose. `how` is\n`resume` (the same conversation) or `fresh` (a new one in the same folder, because which\nconversation it was is not known).",
+    "operationId": "getApiResume",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Resume List Api Resume Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Agents lost with the tmux server that held them",
+    "tags": [
+     "Sessions"
+    ]
+   },
+   "post": {
+    "description": "`{names: [...]}`. Each comes back under its old name, in its old folder, resuming its\nconversation where that is known \u2014 only names on the lost list, with the command this\nserver recorded, never one sent in the request.",
+    "operationId": "postApiResume",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Resume Start Api Resume Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Bring lost agents back",
+    "tags": [
+     "Sessions"
+    ]
+   }
+  },
+  "/api/resume/forget": {
+   "post": {
+    "operationId": "postApiResumeForget",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Resume Forget Api Resume Forget Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Stop offering lost agents back",
+    "tags": [
+     "Sessions"
+    ]
+   }
+  },
   "/api/runnable": {
    "get": {
     "description": "The names, and whether each is up right now. Not the commands.\n\nA board needs to know what it may ask for and what is already happening; it has no\nuse for the shell line, and every extra thing on the wire is one more thing a leaked\nboard leaks.",

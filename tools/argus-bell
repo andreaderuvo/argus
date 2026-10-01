@@ -31,20 +31,28 @@ print(' '.join(str(said).split())[:200])
     ;;
 esac
 
-# Claude Code and Gemini CLI hand a hook its event as JSON on stdin, and for a notification
-# that JSON holds the sentence worth reading — "Claude needs your permission to use Bash".
+# Claude Code and Gemini CLI hand a hook its event as JSON on stdin. For a notification that
+# JSON holds the sentence worth reading — "Claude needs your permission to use Bash" — and it
+# always holds the id of the conversation, which is what lets Argus resume it after a reboot.
 # Read only if something arrives within half a second: a program that leaves its own stdin
 # attached and never writes must not hang the hook.
-if [ -z "$TEXT" ] && [ ! -t 0 ]; then
-  TEXT="$(python3 -c "
+# Not from $CLAUDE_CODE_SESSION_ID: that leaks into everything a Claude shell starts — a tmux
+# server started from one hands it to every pane — and would pin a Codex to a Claude's thread.
+CONVERSATION=""
+if [ ! -t 0 ]; then
+  SAID="$(python3 -c "
 import json, select, sys
 if select.select([sys.stdin], [], [], 0.5)[0]:
     try:
         d = json.loads(sys.stdin.read() or '{}')
     except Exception:
         sys.exit()
+    print(str(d.get('session_id') or ''))
     print(' '.join(str(d.get('message') or '').split())[:200])
 " 2>/dev/null || true)"
+  FROM_STDIN="$(printf '%s\n' "$SAID" | sed -n 1p)"
+  [ -n "$FROM_STDIN" ] && CONVERSATION="$FROM_STDIN"
+  [ -z "$TEXT" ] && TEXT="$(printf '%s\n' "$SAID" | sed -n 2p)"
 fi
 
 SESSION="$(tmux display -p '#S' 2>/dev/null || true)"
@@ -55,4 +63,4 @@ esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr -d '\000-\037'; }
 curl -s -m 5 -o /dev/null -X POST "$URL/api/bell" \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
-  -d "{\"session\":\"$(esc "$SESSION")\",\"why\":\"$(esc "$WHY")\",\"text\":\"$(esc "$TEXT")\"}" || true
+  -d "{\"session\":\"$(esc "$SESSION")\",\"why\":\"$(esc "$WHY")\",\"text\":\"$(esc "$TEXT")\",\"conversation\":\"$(esc "$CONVERSATION")\"}" || true

@@ -22,7 +22,13 @@ export function parseRoute() {
 
 export const go = (hash) => { location.hash = hash; };
 
+/** How many times the screen has been drawn. A screen that awaits before it appends checks it
+ *  afterwards: the view is emptied at the start of each render, so two that overlap would both
+ *  append, and the screen would show twice. */
+export let renderSeq = 0;
+
 export async function render() {
+  renderSeq += 1;
   if (leaving) { leaving(); setLeaving(null); }
 
   const route = parseRoute();

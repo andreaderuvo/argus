@@ -23,7 +23,7 @@ from fastapi import FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 
-from . import (agentstate, announce, asks, bells, devices, favourites, files, fsops, gitwork, journal, labels,
+from . import (agentstate, resume, announce, asks, bells, devices, favourites, files, fsops, gitwork, journal, labels,
                languages, launch, mounts, network, paths, ports, prefs, proxy, release, runner, runs,
                system, term, tmux, todo)
 import httpx
@@ -315,6 +315,27 @@ def agent_changed(app: FastAPI, session: str, was: str | None, now: str, agent: 
         bells.rung(request, "asking", session=session, source="watch", agent=agent)
 
 
+REGISTER_EVERY = float(os.environ.get("ARGUS_REGISTER_EVERY", "30"))   # the browser tests shorten it
+
+
+async def keeping_the_register(app: FastAPI) -> None:
+    """Every half minute, which agents are running where, and whether the server that held the
+    last lot is still the one running. The first reading is the one that matters most: after a
+    reboot, Argus is up before anybody has started tmux, and that is when the loss is seen."""
+    while True:
+        try:
+            told = dict(bells.store(types.SimpleNamespace(app=app))["conversations"])
+            answered, server, now, alive = await asyncio.to_thread(
+                resume.read_now, app.state.socket, app.state.agents.names, told)
+            if answered:
+                lost = app.state.resume.observe(server, resume.boot_id(), now, alive)
+                if lost:
+                    bells.announce(types.SimpleNamespace(app=app), {"what": "lost", "sessions": lost})
+        except Exception:
+            pass                                 # the register is a convenience; never a crash
+        await asyncio.sleep(REGISTER_EVERY)
+
+
 @contextlib.asynccontextmanager
 async def announcing(app: FastAPI):
     """Announce this machine to a board, if it has been told about one."""
@@ -326,6 +347,9 @@ async def announcing(app: FastAPI):
     # tests build apps by the dozen and must not start a watcher for each.
     if app.state.agents.always:
         app.state.agents.wake()
+        registering = asyncio.create_task(keeping_the_register(app))
+    else:
+        registering = None
     task = None
     if getattr(cfg, "report_to", None):
         async def mine() -> dict:
@@ -338,10 +362,11 @@ async def announcing(app: FastAPI):
             one.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await one
-        if task:
-            task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await task
+        for one in (task, registering):
+            if one:
+                one.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await one
 
 
 def create_app(cfg: Config) -> FastAPI:
@@ -375,6 +400,9 @@ def create_app(cfg: Config) -> FastAPI:
     # while somebody reads it (app/agentstate.py).
     app.state.agents = agentstate.Watch(app.state.socket, [one.command for one in launch.configured(cfg)])
     app.state.agents.on_change = lambda *change: agent_changed(app, *change)
+    # The register of agents, for bringing them back after the tmux server is gone (resume.py).
+    # In memory here; `main` gives it its file.
+    app.state.resume = resume.Ledger(None)
     app.state.todo = getattr(cfg, "todo_store", None) or Path("/nonexistent")
     app.state.prefs = getattr(cfg, "prefs_store", None) or Path("/nonexistent")
     app.state.devices = cfg.devices_store or Path("/nonexistent")
@@ -466,6 +494,55 @@ def create_app(cfg: Config) -> FastAPI:
             return {"states": await agent_states(request)}
         except Exception:
             return {"states": {}}
+
+    @app.get("/api/resume", tags=["Sessions"], summary="Agents lost with the tmux server that held them")
+    async def resume_list(request: Request) -> dict:
+        """`{lost: [{name, agent, cwd, conversation, how, command, lost_at}]}`: sessions that held an
+        agent when their tmux server went away — a reboot, or the server dying. A session that
+        ended while its server stayed up is not here: that one was closed on purpose. `how` is
+        `resume` (the same conversation) or `fresh` (a new one in the same folder, because which
+        conversation it was is not known)."""
+        return {"lost": request.app.state.resume.lost()}
+
+    @app.post("/api/resume", tags=["Sessions"], summary="Bring lost agents back")
+    async def resume_start(request: Request, body: dict) -> dict:
+        """`{names: [...]}`. Each comes back under its old name, in its old folder, resuming its
+        conversation where that is known — only names on the lost list, with the command this
+        server recorded, never one sent in the request."""
+        names = body.get("names")
+        if not isinstance(names, list) or not all(isinstance(n, str) for n in names):
+            raise ApiError(400, "names must be a list of session names")
+        ledger = request.app.state.resume
+        lost = ledger.data["lost"]
+        started, skipped = [], []
+        home = str(Path.home())
+        for name in names[:resume.MAX_AT_ONCE]:
+            record = lost.get(name)
+            if record is None:
+                skipped.append({"name": name, "why": "not on the lost list"})
+                continue
+            if await asyncio.to_thread(tmux.session_exists, request.app.state.socket, name):
+                skipped.append({"name": name, "why": "a session of that name is already running"})
+                continue
+            try:
+                how = await asyncio.to_thread(resume.bring_back, request.app.state.socket, record, name, home)
+            except (tmux.TmuxError, ValueError) as e:
+                skipped.append({"name": name, "why": str(e)})
+                continue
+            started.append({"name": name, "how": how})
+            del lost[name]
+            # On the register again straight away, so the next reading does not call it new.
+            ledger.data["sessions"][name] = {**record, "seen": time.time()}
+        ledger.save()
+        return {"started": started, "skipped": skipped, "lost": ledger.lost()}
+
+    @app.post("/api/resume/forget", tags=["Sessions"], summary="Stop offering lost agents back")
+    async def resume_forget(request: Request, body: dict) -> dict:
+        names = body.get("names")
+        if not isinstance(names, list) or not all(isinstance(n, str) for n in names):
+            raise ApiError(400, "names must be a list of session names")
+        request.app.state.resume.forget(names)
+        return {"lost": request.app.state.resume.lost()}
 
     @app.post("/api/tmux/seen", tags=["Sessions"], summary="Say you have seen an agent waiting, and nothing needs doing")
     async def tmux_seen(request: Request, body: dict) -> dict:
@@ -1862,6 +1939,7 @@ def main(argv: list[str] | None = None) -> int:
     app.state.config_path = config_path
     app.state.favourites = favourites.default_store(config_path)
     app.state.labels = labels.default_store(config_path)
+    app.state.resume = resume.Ledger(resume.default_store(config_path))
     app.state.todo = todo.default_store(config_path)
     app.state.prefs = prefs.default_store(config_path)
     app.state.lang = config_path.parent / "lang"
