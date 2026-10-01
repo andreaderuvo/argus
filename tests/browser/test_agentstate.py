@@ -84,3 +84,18 @@ def test_the_desk_tabs_say_which_desk_has_an_agent_waiting(make_page, argus, tmp
     assert not page.eval("!!document.querySelector('.deck[data-ws=\"2\"] .win')"), "desk 2 must not have been built"
     assert "waiting for you" in page.eval(f"{tab(2)}.dataset.agents")
     assert not page.eval(f"{tab(1)}.classList.contains('agents-waiting')")
+    # Hovering the tab opens a card naming the agent, its session and how long it has waited.
+    x, y = page._center(tab(2))
+    page.send("Input.dispatchMouseEvent", {"type": "mouseMoved", "x": x, "y": y, "button": "none"})
+    page.wait("document.querySelector('.deskcard')?.isConnected", timeout=5, what="the card under the tab")
+    rows = page.eval("JSON.stringify([...document.querySelectorAll('.deskcardrow')].map(r => [r.className, r.textContent]))")
+    rows = json.loads(rows)
+    assert len(rows) == 1 and "waiting" in rows[0][0] and "asking" in rows[0][1] and "codex" in rows[0][1], rows
+    assert page.eval(f"{tab(2)}.title") == "", "the native hint must not open on top of the card"
+    import os
+    if os.environ.get("ARGUS_SHOT"):           # a picture to look at, never asserted on
+        time.sleep(0.5)
+        page.screenshot(os.environ["ARGUS_SHOT"])
+    page.send("Input.dispatchMouseEvent", {"type": "mouseMoved", "x": 5, "y": 400, "button": "none"})
+    page.wait("!document.querySelector('.deskcard')?.isConnected", timeout=5, what="the card to go")
+    assert page.eval(f"{tab(2)}.title") != "", "and the hint comes back"

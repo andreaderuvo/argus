@@ -3120,6 +3120,26 @@ dialog.sheet:has(.promptmake) { width: min(38rem, calc(100vw - 2rem)); }
 .wstab.agents-waiting:not(.on) .tabname { color: var(--st-warning); }
 @media (prefers-reduced-motion: reduce) { .wstab.agents-working .tabdot, .raildesk.agents-working .raildot { animation: none; box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent); } }
 
+/* The card under a desk tab: which agent, in which session, and for how long. */
+.deskcard {
+  position: fixed; z-index: 60; min-width: 15rem; max-width: min(26rem, calc(100vw - 16px));
+  background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: .6rem;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, .35); padding: .55rem .25rem .35rem; pointer-events: none;
+  font-size: .82rem; animation: deskcardin .12s ease-out;
+}
+@keyframes deskcardin { from { opacity: 0; transform: translateY(-3px); } }
+.deskcardhead { color: var(--dim); font-size: .7rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; padding: 0 .65rem .35rem; }
+.deskcardrow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: .55rem; align-items: center; padding: .35rem .65rem; border-radius: .4rem; }
+.deskcardrow.waiting { background: color-mix(in srgb, var(--st-warning) 12%, transparent); }
+.deskcarddot { width: 8px; height: 8px; border-radius: 50%; grid-row: span 2; background: var(--accent); }
+.deskcardrow.working .deskcarddot { animation: atwork 1.4s ease-in-out infinite; }
+.deskcardrow.waiting .deskcarddot { background: var(--st-warning); box-shadow: 0 0 0 3px color-mix(in srgb, var(--st-warning) 30%, transparent); }
+.deskcardname { color: var(--bright); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.deskcardagent { color: var(--dim); font-size: .74rem; text-align: right; }
+.deskcardstate { grid-column: 2 / 4; color: var(--dim); font-variant-numeric: tabular-nums; }
+.deskcardrow.waiting .deskcardstate { color: var(--st-warning); font-weight: 600; }
+@media (prefers-reduced-motion: reduce) { .deskcard, .deskcardrow.working .deskcarddot { animation: none; } }
+
 /* Wide enough for two columns, so the list is a page you read rather than a well you scroll.
    Fourteen rows in one column on a 1400px screen is a lot of vertical travel for a sheet
    that exists to answer "what was the key for…". The headings span, so the groups stay

@@ -105,10 +105,73 @@ export function paintDeskStates() {
     const said = [waiting && t('{n} waiting for you', { n: waiting }), working && t('{n} working', { n: working })]
       .filter(Boolean).join(' · ');
     if (said) tab.dataset.agents = said; else delete tab.dataset.agents;
+    // The card below says it better; a native tooltip on top of it would say it twice.
     const dot = tab.querySelector('.tabdot, .raildot');
-    if (dot) dot.title = said || (tab.classList.contains('raildesk') ? '' : t('Change colour'));
+    if (dot) dot.title = (said || tab.classList.contains('raildesk')) ? '' : t('Change colour');
+  }
+  if (deskCard.for) {
+    if (deskCard.for.isConnected) fillDeskCard(deskCard.for); else hideDeskCard();
   }
 }
+
+/** What the agents in a desk are doing, in a card under its tab while the pointer is on it.
+ *
+ *  The tab's dot can only say "someone waits" or "someone works"; which agent, in which session,
+ *  and for how long is what you want before switching desk. One card for the whole page,
+ *  filled from the same states the dot is painted from, and refilled on every reading so the
+ *  minutes move while you look. A pointer only: on a phone the tab's hold is its menu.
+ */
+const deskCard = { el: null, for: null, title: '' };
+
+function fillDeskCard(tab) {
+  const ws = (prefs.workspaces || []).find((one) => String(one.id) === tab.dataset.ws);
+  const rows = [];
+  for (const x of ws?.desktop || []) {
+    const st = x.kind === 'term' && agentStates.get(x.name);
+    if (st) rows.push({ name: x.name, st });
+  }
+  if (!rows.length) return hideDeskCard();
+  // Who needs you first, then the longest at it.
+  rows.sort((a, b) => (a.st.state === 'waiting' ? 0 : 1) - (b.st.state === 'waiting' ? 0 : 1) || a.st.since - b.st.since);
+  const card = deskCard.el || (deskCard.el = el('div', { className: 'deskcard', role: 'tooltip' }));
+  card.replaceChildren(
+    el('div', { className: 'deskcardhead', textContent: ws.name }),
+    ...rows.map(({ name, st }) => el('div', { className: `deskcardrow ${st.state}` }, [
+      el('span', { className: 'deskcarddot' }),
+      el('span', { className: 'deskcardname', textContent: name }),
+      el('span', { className: 'deskcardagent', textContent: st.agent || t('agent') }),
+      el('span', { className: 'deskcardstate', textContent: stateWord(st) }),
+    ])),
+  );
+  if (!card.isConnected) document.body.append(card);
+  const r = tab.getBoundingClientRect();
+  const w = card.offsetWidth;
+  card.style.left = `${Math.max(8, Math.min(r.left, innerWidth - w - 8))}px`;
+  card.style.top = `${r.bottom + 6}px`;
+  deskCard.for = tab;
+}
+
+function hideDeskCard() {
+  if (deskCard.for && deskCard.title) deskCard.for.title = deskCard.title;
+  deskCard.for = null;
+  deskCard.title = '';
+  deskCard.el?.remove();
+}
+
+document.addEventListener('pointerover', (e) => {
+  if (e.pointerType === 'touch') return;
+  const tab = e.target.closest?.('.wstab[data-ws], .raildesk[data-ws]');
+  if (tab === deskCard.for) return;
+  hideDeskCard();
+  if (!tab?.dataset.agents) return;
+  // The tab's own hint ("Double-click to rename") would open on top of the card.
+  deskCard.title = tab.title;
+  tab.title = '';
+  fillDeskCard(tab);
+});
+document.addEventListener('pointerdown', hideDeskCard, true);
+window.addEventListener('scroll', hideDeskCard, true);
+window.addEventListener('blur', hideDeskCard);
 
 /** "working", or "waiting for you · 4m" — how long it has been waiting is the useful part. */
 export function stateWord(st) {
