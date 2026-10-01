@@ -340,7 +340,29 @@ def wrap(command: str) -> str | None:
     line = command.strip()
     if not line:
         return None
-    return f'{line}; exec "${{SHELL:-sh}}"'
+    return f'{wait_for(line)}{line}; exec "${{SHELL:-sh}}"'
+
+
+WAIT_FOR_PROGRAM = 10        # seconds a session waits for its program to be there
+
+
+def wait_for(line: str) -> str:
+    """A pause, in shell, until the program is there — at most WAIT_FOR_PROGRAM seconds.
+
+    Measured on 2026-10-01: every running Claude Code checks for updates, sees that it is older
+    than what is installed, and runs `npm install --global` of the version that is *already*
+    installed — with fifteen of them open, about every thirty seconds. Each install takes the
+    package away and puts it back, and a session started in those two seconds died with
+    `claude: command not found` on the machine it was installed on. So the line waits a moment
+    for it; a program that really is not there fails exactly as before, ten seconds later.
+    """
+    from .agentflags import program_of
+    program = program_of(line)
+    if not program or not re.fullmatch(r"[A-Za-z0-9._/+-]+", program):
+        return ""
+    q = shell_quote(program)
+    return (f"i=0; while ! command -v {q} >/dev/null 2>&1 && [ $i -lt {WAIT_FOR_PROGRAM * 2} ]; "
+            f"do sleep 0.5; i=$((i+1)); done; ")
 
 
 def start(sock: tmux.Socket, name: str, folder: str | None, command: str) -> None:

@@ -60,26 +60,28 @@ def test_a_stale_answer_is_given_at_once_and_asked_again_behind_it(monkeypatch):
     """Past its minute the cache used to make the next box wait a whole login shell (0.85s for
     the choices, 1.75s for the versions). Now the last answer comes back immediately, one
     refresh runs in the background however many ask meanwhile, and only a word never seen
-    waits for the shell."""
+    waits for the shell. (A stale *find*: a miss is asked again at once — test_launch_probe.)"""
     import threading
 
     asked: list[list[str]] = []
     release = threading.Event()
 
+    there = {"old-tool": False, "new-tool": True}          # old-tool was uninstalled meanwhile
+
     def slow(words):
         asked.append(list(words))
         release.wait(5)
         for w in words:
-            launch._seen[w] = (time.monotonic(), True)
-        return {w: True for w in words}
+            launch._seen[w] = (time.monotonic(), there[w])
+        return {w: there[w] for w in words}
 
     monkeypatch.setattr(launch, "_ask_probe", slow)
-    monkeypatch.setattr(launch, "_seen", {"old-tool": (time.monotonic() - 10 * launch.REMEMBER_FOR, False)})
+    monkeypatch.setattr(launch, "_seen", {"old-tool": (time.monotonic() - 10 * launch.REMEMBER_FOR, True)})
     monkeypatch.setattr(launch, "_refreshing", set())
 
     started = time.monotonic()
-    assert launch.probe(["old-tool"]) == {"old-tool": False}      # the stale answer, not a wait
-    assert launch.probe(["old-tool"]) == {"old-tool": False}      # a second box, same refresh
+    assert launch.probe(["old-tool"]) == {"old-tool": True}       # the stale answer, not a wait
+    assert launch.probe(["old-tool"]) == {"old-tool": True}       # a second box, same refresh
     assert time.monotonic() - started < 0.5
     assert asked == [["old-tool"]]
 
@@ -88,7 +90,7 @@ def test_a_stale_answer_is_given_at_once_and_asked_again_behind_it(monkeypatch):
         if not launch._refreshing:
             break
         time.sleep(0.02)
-    assert launch.probe(["old-tool"]) == {"old-tool": True}       # what the refresh found
+    assert launch.probe(["old-tool"]) == {"old-tool": False}      # what the refresh found
 
     # A word nobody has asked about yet has no answer to give early, so it waits.
     assert launch.probe(["new-tool"]) == {"new-tool": True}
@@ -97,7 +99,7 @@ def test_a_stale_answer_is_given_at_once_and_asked_again_behind_it(monkeypatch):
 
 def test_the_wrapped_line_keeps_the_pane_after_the_agent_exits():
     line = launch.wrap("claude")
-    assert line.startswith("claude;")
+    assert "; claude; exec" in line
     # Without this the session dies with the command and takes its own scrollback with it —
     # what you would find is a window marked gone where the answer used to be.
     assert "exec" in line and "SHELL" in line
@@ -213,3 +215,21 @@ def test_the_prompt_arrives_exactly_as_written_and_the_return_is_separate(sock, 
 def test_typing_into_a_session_that_is_not_there_says_so(sock):
     with pytest.raises(tmux.TmuxError):
         launch.seed(sock, "never-existed", "hello", False)
+
+
+def test_a_session_waits_a_moment_for_a_program_that_is_being_reinstalled(tmp_path):
+    """Claude Code reinstalls itself about every thirty seconds when many are open; a session
+    started in those two seconds used to die with `claude: command not found`."""
+    import subprocess, threading, time as _time
+    prog = tmp_path / "agent-being-reinstalled"
+    def appear():
+        _time.sleep(1.5)
+        prog.write_text("#!/bin/sh\necho started\n")
+        prog.chmod(0o755)
+    threading.Thread(target=appear).start()
+    line = launch.wait_for(str(prog)) + f"{prog}"
+    done = subprocess.run(["sh", "-c", line], capture_output=True, text=True, timeout=20)
+    assert done.stdout.strip() == "started", done.stderr
+    # And one that is simply not there fails, after the wait, as it always did.
+    assert launch.wait_for("ls -la") .startswith("i=0;")
+    assert launch.wait_for("") == ""
