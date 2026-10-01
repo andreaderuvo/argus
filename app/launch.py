@@ -100,6 +100,12 @@ def unknowable(line: str) -> bool:
 # was written on, and the answer changes about as often as somebody installs a tool.
 _seen: dict[str, tuple[float, bool]] = {}
 REMEMBER_FOR = 60.0
+# "Not here" is believed for much less. A program can be missing for a moment — Claude Code
+# replaces its own binary when it updates, and on 2026-10-01 it did so in the same two seconds
+# as Argus started and asked: Claude Code was greyed out as "not here", on the machine it was
+# running on, for as long as the answer was remembered. A miss is asked again, and waited for,
+# after a few seconds; a find is still remembered for a minute.
+MISSING_FOR = 5.0
 
 # What is being asked again right now, so a second box opening during the refresh does not start
 # a second shell for the same question.
@@ -158,7 +164,9 @@ def probe(firsts: list[str]) -> dict[str, bool]:
     stale: list[str] = []
     for word in firsts:
         got = _seen.get(word)
-        if got:
+        if got and not got[1] and now - got[0] >= MISSING_FOR:
+            ask.append(word)                 # a miss is not worth handing back: ask again now
+        elif got:
             answer[word] = got[1]
             if now - got[0] >= REMEMBER_FOR:
                 stale.append(word)
