@@ -111,6 +111,12 @@ def agent_under(root: int, tree: dict[int, tuple[int, list[str]]], names: frozen
     return None
 
 
+def busy(readings: list[int]) -> bool:
+    """Drawing that goes on: the activity advanced at every one of the last four readings."""
+    recent = readings[-WINDOW:]
+    return len(recent) >= WINDOW and all(b > a for a, b in zip(recent, recent[1:]))
+
+
 def moving(readings: list[int]) -> bool:
     """Whether a window's activity kept advancing: a spinner, not one lone redraw."""
     recent = readings[-WINDOW:]
@@ -146,6 +152,9 @@ class Watch:
         self.events: deque = deque(maxlen=256)      # (session, was, now, agent) changes
         self.on_change = None                       # called in the loop with each change
         self.seen: dict[str, float] = {}            # session -> `since` of the wait you dismissed
+        # What an agent's own hooks said: session -> (state, when). Believed over the pane, which
+        # can sit still for minutes while a long command runs. Present = this agent has hooks.
+        self.told: dict[str, tuple[str, float]] = {}
 
     # ------------------------------------------------------------ reading tmux and /proc
 
@@ -207,7 +216,17 @@ class Watch:
             if w not in self.windows:
                 continue
             s = self.windows[w]
-            verdict = decide(list(self.readings.get(w, ())), now)
+            readings = list(self.readings.get(w, ()))
+            said = self.told.get(s)
+            if said and said[0] == "working":
+                verdict = "working"                  # it said it started, and has not said it stopped
+            elif said:
+                # It said it stopped. Only drawing that goes on — not one redraw, not a command's
+                # output landing — means it is back at work (an answered permission prompt, or a
+                # prompt typed into a Claude whose hooks predate the start hook).
+                verdict = "working" if (now - said[1] > 5 and busy(readings)) else "waiting"
+            else:
+                verdict = decide(readings, now)
             if verdict is None:
                 continue
             if verdict == "waiting" or by_session.get(s) != "waiting":

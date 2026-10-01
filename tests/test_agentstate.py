@@ -163,3 +163,27 @@ def test_against_a_real_tmux_a_spinning_agent_works_and_a_quiet_one_waits(tmp_pa
         assert "plain" not in got, "a bare shell is not an agent"
     finally:
         tm("kill-server")
+
+
+# ------------------------------------------------------------------ the agent's own word
+
+def test_an_agent_that_said_it_started_is_working_however_still_its_pane():
+    """Measured: a Claude in a long command left its pane still for minutes and read as waiting."""
+    w = Scripted([{"@1": ("api", 100)} for _ in range(6)], {"@1": "claude"})
+    w.told["api"] = ("working", 0.0)
+    for t in range(6):
+        w.tick(now=200 + t)
+    assert w.states()["api"]["state"] == "working"
+
+
+def test_after_it_said_it_stopped_one_redraw_is_not_work_but_drawing_that_goes_on_is():
+    frames = [{"@1": ("api", 100)}] * 4 + [{"@1": ("api", 101)}, {"@1": ("api", 101)}]   # a lone redraw
+    frames += [{"@1": ("api", 102 + i)} for i in range(5)]                               # it works again
+    w = Scripted(frames, {"@1": "claude"})
+    w.told["api"] = ("waiting", 190.0)
+    for t in range(6):
+        w.tick(now=200 + t)
+    assert w.states()["api"]["state"] == "waiting", "a command's output landing is not a new turn"
+    for t in range(6, 11):
+        w.tick(now=200 + t)
+    assert w.states()["api"]["state"] == "working"

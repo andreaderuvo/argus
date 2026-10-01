@@ -23,7 +23,7 @@ from fastapi import FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 
-from . import (agentflags, agentstate, resume, announce, asks, bells, devices, favourites, files, fsops, gitwork, journal, labels,
+from . import (agentflags, wiring, agentstate, resume, announce, asks, bells, devices, favourites, files, fsops, gitwork, journal, labels,
                languages, launch, mounts, network, paths, ports, prefs, proxy, release, runner, runs,
                system, term, tmux, todo)
 import httpx
@@ -311,7 +311,12 @@ def agent_changed(app: FastAPI, session: str, was: str | None, now: str, agent: 
     request = types.SimpleNamespace(app=app)
     if now == "working":
         bells.turn_began(request, session)
-    elif now == "waiting" and was == "working" and bells.repeat_of(request, "asking", session, "watch") is None:
+    elif (now == "waiting" and was == "working" and session not in app.state.agents.told
+          and agent not in app.state.hooked_agents
+          and bells.repeat_of(request, "asking", session, "watch") is None):
+        # Only for an agent with no hooks: one that has them says when it stops, in words, and
+        # the pane going quiet is a much worse witness of the same thing (a long command's
+        # output landing looked exactly like a turn ending).
         bells.rung(request, "asking", session=session, source="watch", agent=agent)
 
 
@@ -403,6 +408,9 @@ def create_app(cfg: Config) -> FastAPI:
     # The register of agents, for bringing them back after the tmux server is gone (resume.py).
     # In memory here; `main` gives it its file.
     app.state.resume = resume.Ledger(None)
+    # Agents whose hooks are wired on this machine, so they say themselves when they stop. Filled
+    # by `main` from the wiring (the tests' apps have none, and so watch every agent the old way).
+    app.state.hooked_agents = set()
     app.state.todo = getattr(cfg, "todo_store", None) or Path("/nonexistent")
     app.state.prefs = getattr(cfg, "prefs_store", None) or Path("/nonexistent")
     app.state.devices = cfg.devices_store or Path("/nonexistent")
@@ -1966,6 +1974,10 @@ def main(argv: list[str] | None = None) -> int:
     # the versions. Here and not in the lifespan, so the tests do not start login shells.
     launch.warm(cfg)
     app.state.agents.always = True
+    try:
+        app.state.hooked_agents = wiring.ringing_agents(Path.home())
+    except Exception:
+        pass
     tls = cfg.tls()
     uvicorn.run(
         app,

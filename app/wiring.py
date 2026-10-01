@@ -29,7 +29,11 @@ GEMINI_SETTINGS = ".gemini/settings.json"
 
 # Claude Code fires Stop at the end of a turn and Notification when it wants you. Codex
 # calls one program at the end of a turn, and appends its own JSON as a last argument.
-CLAUDE_EVENTS = {"Stop": "done", "Notification": "asking"}
+# And UserPromptSubmit, which is not a bell at all: it says a turn has *started*. Watching the
+# pane cannot tell — measured on 2026-10-01, a Claude in a long command left its pane still for
+# minutes and read as "waiting", then rang each time the command's output landed. With the start
+# and the end both said by the agent, its state is the agent's word, not a guess (agentstate.py).
+CLAUDE_EVENTS = {"UserPromptSubmit": "start", "Stop": "done", "Notification": "asking"}
 # Gemini CLI's own names for the same two moments — AfterAgent once a turn's answer is
 # in, Notification when it is waiting on you (a tool permission, today the only kind it
 # raises). Same nested shape as Claude's, `{"hooks": [{"type": "command", "command": …}]}`,
@@ -169,6 +173,21 @@ def state(home: Path) -> dict:
             "on": bool(line) and MARK in line,
             "taken": ["notify"] if line and MARK not in line else [],
         })
+    return out
+
+
+def ringing_agents(home: Path) -> set[str]:
+    """The agents whose end-of-turn hook here is ours, so they say themselves when they stop.
+    Claude Code and Gemini also say when they ask; Codex does not (its notify is end-of-turn
+    only), so it is left out: the pane is still the witness of a Codex stopping for approval."""
+    out = set()
+    for rel, end, name in ((CLAUDE_SETTINGS, "Stop", "claude"), (GEMINI_SETTINGS, "AfterAgent", "gemini")):
+        try:
+            hooks = json.loads((home / rel).read_text()).get("hooks", {})
+        except (OSError, ValueError):
+            continue
+        if _ours_in(hooks.get(end, [])):
+            out.add(name)
     return out
 
 

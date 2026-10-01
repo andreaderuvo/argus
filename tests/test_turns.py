@@ -149,3 +149,22 @@ def test_got_it_sets_a_wait_aside_until_the_agent_has_worked_again(app, client):
 
 def test_got_it_wants_a_list(client):
     assert client.post("/api/tmux/seen", json={"sessions": "api"}).status_code == 400
+
+
+def test_a_turn_starting_rings_nothing_and_says_working(app, client):
+    said = client.post("/api/bell", json={"session": "api", "why": "start"}).json()
+    assert said == {"started": True, "session": "api"}
+    assert bells(client) == []
+    assert app.state.agents.told["api"][0] == "working"
+
+
+def test_an_agent_with_hooks_is_not_rung_for_by_the_pane(app, client):
+    """Its hooks say when it stops; the pane going quiet rang for every command's output."""
+    client.post("/api/bell", json={"session": "api", "why": "start"})
+    agent(app, "api", "working")
+    agent(app, "api", "waiting")                       # the pane went quiet mid-turn
+    assert bells(client) == []
+    app.state.hooked_agents = {"claude"}               # and so for any claude, once wired
+    agent(app, "other", "working")
+    agent(app, "other", "waiting")
+    assert bells(client) == []

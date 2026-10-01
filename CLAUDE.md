@@ -297,6 +297,16 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   under a long path is never recognised (found by the tests, under pytest). Never probe this
   with a real agent and blind keystrokes: a dialog it shows can change the user's settings.
 
+- **An agent with hooks is believed over its pane.** Measured 2026-10-01: a Claude in a long
+  command left its pane still for minutes (read as *waiting*), then rang every time the
+  command's output landed — the "LED a caso". So Claude is wired with a third hook,
+  `UserPromptSubmit` → `argus-bell start` (rings nothing, `bells.told`): from it until Stop or
+  Notification the agent is *working*, whatever the pane does; after it stopped, only drawing at
+  every one of four readings (`agentstate.busy`), 5 s on, counts as back at work. The pane never
+  rings for a session that has told anything, nor for an agent whose end-of-turn hook is ours
+  (`wiring.ringing_agents`, read by `main`; the tests' apps have none). Codex stays pane-watched:
+  its notify is end-of-turn only. `wiring.wire()` wires *every* agent present — on 2026-10-01
+  it added hooks to a Gemini nobody had wired; that was undone by hand.
 - **One ring per turn** (`bells.NEEDS`, `tests/test_turns.py`). `done` and `asking` both mean
   "your turn" and fold into one bell per turn: a turn opens when the sampler sees the agent
   working, and the first of hook-or-sampler to say it stopped rings; the rest are answered

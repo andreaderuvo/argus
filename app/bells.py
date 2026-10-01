@@ -38,7 +38,7 @@ MAX_TEXT = 300
 
 # What a hook is saying. "done" and "asking" are the two that matter and they earn
 # different treatment: one is news, the other is a block on the work.
-REASONS = {"done", "asking", "failed", "note"}
+REASONS = {"done", "asking", "failed", "note", "start"}
 
 # "It stopped and it is your turn", however it is said. An interactive agent that has finished a
 # turn is waiting for you exactly as much as one that asked, so these are one event per turn:
@@ -95,6 +95,13 @@ def repeat_of(request, why: str, session: str | None, source: str) -> dict | Non
     return next((b for b in kept["list"] if b["seq"] == seq), {"seq": seq})
 
 
+def told(request, session: str, state: str) -> None:
+    """What the agent itself said about its state, for the watch to believe over the pane."""
+    watch = getattr(request.app.state, "agents", None)
+    if watch is not None:
+        watch.told[session] = (state, time.time())
+
+
 def turn_began(request, session: str) -> None:
     """The sampler saw this session working again: its next stop is news."""
     store(request)["open"].pop(session, None)
@@ -116,6 +123,15 @@ async def ring(request: Request, body: dict) -> dict:
     conversation = str(body.get("conversation") or "").strip().lower()
     if session and UUID.fullmatch(conversation):
         store(request)["conversations"][session] = conversation
+    # "A turn has started" is not news for anybody: it rings nothing, and only tells the watch
+    # that this agent is at work until it says otherwise.
+    if why == "start":
+        if session:
+            told(request, session, "working")
+            turn_began(request, session)
+        return {"started": True, "session": session}
+    if why in NEEDS and session:
+        told(request, session, "waiting")
     earlier = repeat_of(request, why, session, "hook")
     if earlier is not None:
         return {**earlier, "repeat": True}
