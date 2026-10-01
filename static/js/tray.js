@@ -489,7 +489,7 @@ export async function createSession({ path, suggest = 'shell', wsId = null, shel
         className: `ghost block startpick${off ? ' missing' : ''}${chosen === one.name ? ' on' : ''}`,
         type: 'button',
         title: off ? t('{command} is not on this machine\u2019s PATH', { command: one.command }) : (one.command || t('just a shell')),
-        onclick: () => { chosen = one.name; drawPicks(list); sayName(one); },
+        onclick: () => { chosen = one.name; drawPicks(list); sayName(one); drawOptions(); },
       }, [
         icon(off ? 'close' : (one.command ? 'relay' : 'terminal')),
         el('span', { className: 'grow' }, [
@@ -637,10 +637,87 @@ export async function createSession({ path, suggest = 'shell', wsId = null, shel
     if (one) sayName(one);
   };
 
+  /* The options an agent takes, in words — nobody remembers `--dangerously-skip-permissions`.
+   *
+   *  Offered by the server from the agent's own --help (app/agentflags.py), so only what the
+   *  installed version accepts; sent back as names and values, never as a command line. What
+   *  you chose last time for this launcher is chosen again, and the line it makes is shown. */
+  const opts = el('div', { className: 'startopts', hidden: true });
+  let picked = {};
+  const launcher = () => (window.__lastLaunchers || []).find((x) => x.name === chosen);
+  const drawOptions = () => {
+    const one = launcher();
+    opts.replaceChildren();
+    opts.hidden = !one?.agent && !(one?.command && one.options === undefined && one.available);
+    if (opts.hidden) return;
+    if (one.options === undefined) {
+      opts.append(el('div', { className: 'startwait' }, [
+        el('span', { className: 'ico spinner' }, icon('refresh')),
+        el('span', { textContent: t('looking at the options it takes…') }),
+      ]));
+      return;
+    }
+    if (!one.options.length) { opts.hidden = true; return; }
+    // What was chosen last time for this launcher, kept only where it is still on offer.
+    const kept = (prefs.launchOptions || {})[one.name] || {};
+    picked = {};
+    for (const o of one.options) {
+      const v = kept[o.id];
+      if (o.kind === 'choice' && o.choices.some((c) => c.value === v)) picked[o.id] = v;
+      if (o.kind === 'toggle' && v === true) picked[o.id] = true;
+      if (o.kind === 'text' && typeof v === 'string') picked[o.id] = v;
+    }
+    const line = el('code', { className: 'startcmd' });
+    const warn = el('p', { className: 'startdanger', hidden: true });
+    const say = () => {
+      const flags = [];
+      let danger = false;
+      for (const o of one.options) {
+        const v = picked[o.id];
+        if (o.kind === 'choice') {
+          const c = o.choices.find((x) => x.value === (v ?? o.choices[0].value));
+          flags.push(...(c?.flags || []));
+          danger ||= !!c?.danger;
+        } else if (o.kind === 'toggle' && v) flags.push(...o.flags);
+        else if (o.kind === 'text' && v) flags.push(o.flag, v);
+      }
+      line.textContent = [one.command, ...flags].join(' ');
+      warn.hidden = !danger;
+      warn.textContent = danger ? t('It will run commands and change files without asking you first. Use it where you would let it loose anyway.') : '';
+    };
+    for (const o of one.options) {
+      if (o.kind === 'choice' && o.id === 'permissions') {
+        // The one that matters most gets every choice spelled out, not a dropdown to open.
+        const group = el('div', { className: 'startradio', role: 'radiogroup', 'aria-label': t(o.label) });
+        for (const c of o.choices) {
+          const input = el('input', { type: 'radio', name: `opt-${o.id}`, checked: (picked[o.id] ?? o.choices[0].value) === c.value });
+          input.onchange = () => { picked[o.id] = c.value; say(); };
+          group.append(el('label', { className: `startchoice${c.danger ? ' danger' : ''}` }, [input, el('span', { textContent: t(c.label) })]));
+        }
+        opts.append(el('div', { className: 'startopt' }, [el('span', { className: 'startoptname', textContent: t(o.label) }), group]));
+      } else if (o.kind === 'choice') {
+        const sel = el('select', { className: 'setpick' });
+        for (const c of o.choices) sel.append(el('option', { value: c.value, textContent: t(c.label), selected: (picked[o.id] ?? '') === c.value }));
+        sel.onchange = () => { picked[o.id] = sel.value; say(); };
+        opts.append(el('label', { className: 'startopt inline' }, [el('span', { className: 'startoptname', textContent: t(o.label) }), sel]));
+      } else if (o.kind === 'toggle') {
+        const box = el('input', { type: 'checkbox', checked: !!picked[o.id] });
+        box.onchange = () => { picked[o.id] = box.checked; say(); };
+        opts.append(el('label', { className: 'startsend' }, [box, el('span', { className: 'name', textContent: t(o.label) })]));
+      } else {
+        const input = el('input', { type: 'text', className: 'startoptext', value: picked[o.id] || '', placeholder: t(o.placeholder || ''), spellcheck: false, autocapitalize: 'off' });
+        input.oninput = () => { picked[o.id] = input.value.trim(); say(); };
+        opts.append(el('label', { className: 'startopt inline' }, [el('span', { className: 'startoptname', textContent: t(o.label) }), input]));
+      }
+    }
+    opts.append(warn, line);
+    say();
+  };
+
   body.append(
     el('label', { className: 'startlabel', textContent: t('name') }), name, nameWhy,
     el('label', { className: 'startlabel', textContent: t('in') }), where,
-    el('label', { className: 'startlabel', textContent: t('what to start') }), picks,
+    el('label', { className: 'startlabel', textContent: t('what to start') }), picks, opts,
     el('label', { className: 'startlabel', textContent: t('first instruction') }),
     el('div', { className: 'startpromptrow' }, [fromLibrary]),
     prompt, sendRow, wtBox,
@@ -680,6 +757,7 @@ export async function createSession({ path, suggest = 'shell', wsId = null, shel
       const plain = shell ? list.find((x) => !x.command && x.available !== false) : null;
       chosen = (plain || list.find((x) => x.available !== false) || list[0])?.name || null;
       drawPicks(list);
+      drawOptions();
       const first = list.find((x) => x.name === chosen);
       if (first) sayName(first);
       // Only now: with nothing to start, Start is a button that can only fail.
@@ -694,10 +772,16 @@ export async function createSession({ path, suggest = 'shell', wsId = null, shel
        *  written only into the DOM vanished at the first press on Claude or Codex. */
       try {
         const more = await getJSON('/api/launchers?versions=1');
-        const said = new Map((more.launchers || []).map((x) => [x.name, x.version]));
-        for (const one of list) one.version = said.get(one.name) || one.version;
+        const said = new Map((more.launchers || []).map((x) => [x.name, x]));
+        for (const one of list) {
+          const got = said.get(one.name);
+          one.version = got?.version || one.version;
+          one.agent = got?.agent;
+          one.options = got?.options || [];
+        }
         window.__lastLaunchers = list;
         drawPicks(list);
+        drawOptions();
       } catch { /* the list is the useful half; a version is a nicety */ }
     } catch (e) {
       picks.replaceChildren(el('p', { className: 'error', textContent: e.message }));
@@ -715,9 +799,15 @@ export async function createSession({ path, suggest = 'shell', wsId = null, shel
         folder = made.path;
         toast(t('worktree {branch} at {path}', { branch: made.branch, path: made.path }));
       }
+      const one = launcher();
+      const options = one?.options?.length ? Object.fromEntries(Object.entries(picked).filter(([, v]) => v !== '' && v !== false && v != null)) : {};
+      if (one?.options?.length) {
+        prefs.launchOptions = { ...(prefs.launchOptions || {}), [one.name]: options };
+        savePrefs();
+      }
       const r = await postJSON('/api/tmux/launch', {
         launcher: chosen, name: name.value.trim(), path: folder,
-        prompt: prompt.value, run: alsoSend.checked, wait: true,
+        prompt: prompt.value, run: alsoSend.checked, wait: true, options,
       });
       sheet.close();
       // Said as it happened rather than as it was asked for: "typed in, not sent" is the case

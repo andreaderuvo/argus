@@ -62,13 +62,13 @@ def test_a_shell_from_an_empty_sessions_list(make_page, argus, size):
 def test_the_launcher_box_says_what_is_missing_and_keeps_its_rows(make_page, argus):
     page = make_page(route="#/sessions")
     page.click_text("New session", within="#view button")
-    page.wait("document.querySelectorAll('.startpick').length === 3", what="three launchers")
+    page.wait("document.querySelectorAll('.startpick').length === 4", what="four launchers")
     rows = lambda: page.eval(
         "[...document.querySelectorAll('.startpick')].map(r => [r.querySelector('.name').textContent,"
         " r.querySelector('.meta').textContent, r.classList.contains('missing')])")
     page.settle()
     before = rows()
-    assert [r[0] for r in before] == ["A shell", "Echo", "Missing tool"]
+    assert [r[0] for r in before] == ["A shell", "Echo", "Missing tool", "Claude"]
     assert before[2][2] is True, "a launcher whose command is not on the PATH is marked missing"
     assert before[0][2] is False and before[1][2] is False
     page.click_text("Echo", within=".startpick")

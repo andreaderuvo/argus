@@ -286,6 +286,18 @@ def describe(cfg, with_versions: bool = False) -> list[dict]:
         first = line.split()[0] if line and not unknowable(line) else ""
         out.append({"name": one.name, "command": one.command, "available": available,
                     "version": told.get(first) or None})
+    if with_versions:
+        # The options an agent takes, from its own --help: with the versions, because it is the
+        # same kind of question at the same price, and remembered per version (agentflags.py).
+        from . import agentflags
+        from concurrent.futures import ThreadPoolExecutor
+        wanted = [(row, agentflags.program_of(row["command"])) for row in out
+                  if row["available"] and agentflags.agent_of(row["command"])]
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            helps = list(pool.map(lambda rp: agentflags.help_of(rp[1], told.get(rp[1], "")), wanted))
+        for (row, _program), text in zip(wanted, helps):
+            row["agent"] = agentflags.agent_of(row["command"])
+            row["options"] = agentflags.options_for(row["command"], text)
     return out
 
 

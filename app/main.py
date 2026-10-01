@@ -23,7 +23,7 @@ from fastapi import FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 
-from . import (agentstate, resume, announce, asks, bells, devices, favourites, files, fsops, gitwork, journal, labels,
+from . import (agentflags, agentstate, resume, announce, asks, bells, devices, favourites, files, fsops, gitwork, journal, labels,
                languages, launch, mounts, network, paths, ports, prefs, proxy, release, runner, runs,
                system, term, tmux, todo)
 import httpx
@@ -1137,8 +1137,22 @@ def create_app(cfg: Config) -> FastAPI:
             raise ApiError(429, f"more than {STARTS_A_MINUTE} launches in a minute — nothing was "
                                 "started. A machine fills up quietly; raise `launches_a_minute` "
                                 "in the config if this is a fan-out you meant.")
+        # Options chosen in the box, by name: the flags are made here, from agentflags' table,
+        # and only from what this agent's own --help says it takes.
+        command = chosen.command
+        options = body.get("options") or {}
+        if options:
+            program = agentflags.program_of(chosen.command) or ""
+            version = (await asyncio.to_thread(launch.versions, [program])).get(program, "") if program else ""
+            text = await asyncio.to_thread(agentflags.help_of, program, version) if program else ""
+            try:
+                flags = agentflags.flags_for(chosen.command, text, options)
+            except ValueError as e:
+                raise ApiError(400, str(e)) from e
+            if flags:
+                command = " ".join([chosen.command.rstrip(), *(launch.shell_quote(f) for f in flags)])
         try:
-            await asyncio.to_thread(launch.start, state.socket, name, where, chosen.command)
+            await asyncio.to_thread(launch.start, state.socket, name, where, command)
         except tmux.TmuxError as e:
             raise ApiError(502, str(e)) from e
 
@@ -1174,7 +1188,7 @@ def create_app(cfg: Config) -> FastAPI:
             "name": name,
             "path": where,
             "launcher": chosen.name,
-            "command": chosen.command,
+            "command": command,
             "seeded": bool(prompt),
             "ready": settled,
             "sent": bool(prompt) and wants_return and bool(settled),

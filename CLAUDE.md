@@ -368,6 +368,13 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
 
 ## Design notes
 
+- **An agent's options, in words** (`app/agentflags.py`, `tests/test_agentflags.py`). The New
+  session box offers permissions / model / effort / continue for Claude, Codex and Gemini, from
+  a table here — filtered by the agent's own `--help` (login shell, ~2 s, asked with the
+  versions and remembered per version), because flags change: Codex 0.153 has no `--full-auto`.
+  The browser sends option names; the server builds the flags and 400s anything off the table.
+  The browser harness has a stand-in `claude` launcher (conftest `FAKE_CLAUDE`) that answers
+  `--help`; the launcher list there is four long.
 - **A browser is remembered by the server too** (`/api/remember`, in the auth gate, `tests/test_remember.py`).
   localStorage is the page's copy, and a phone loses it (Safari clears script storage after
   seven days away; a link opened from a chat lands in that app's own browser). After a token

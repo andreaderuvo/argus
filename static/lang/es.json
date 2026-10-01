@@ -956,6 +956,25 @@
   "a new conversation — which one it was is not known": "una conversación nueva: no se sabe cuál era",
   "Bring back": "Recuperar",
   "Stop offering this one": "No ofrecerla más",
-  "the tmux server went away just now \u2014 a reboot, or it crashed": "el servidor tmux acaba de desaparecer: un reinicio, o un fallo"
+  "the tmux server went away just now \u2014 a reboot, or it crashed": "el servidor tmux acaba de desaparecer: un reinicio, o un fallo",
+  "looking at the options it takes…": "buscando las opciones que acepta…",
+  "It will run commands and change files without asking you first. Use it where you would let it loose anyway.": "Ejecutará comandos y cambiará archivos sin preguntarte. Úsalo donde lo dejarías suelto de todos modos.",
+  "What it may do without asking": "Qué puede hacer sin preguntar",
+  "ask before acting": "pregunta antes de actuar",
+  "edit files freely, ask before running commands": "edita archivos libremente, pregunta antes de ejecutar comandos",
+  "plan only: read and propose, change nothing": "solo plan: lee y propone, no cambia nada",
+  "decide for itself what is safe to do": "decide por sí mismo qué es seguro",
+  "everything, no questions (--dangerously-skip-permissions)": "todo, sin preguntas (--dangerously-skip-permissions)",
+  "Model": "Modelo",
+  "its default": "el suyo por defecto",
+  "How hard it thinks": "Cuánto piensa",
+  "Continue the last conversation in this folder": "Continuar la última conversación en esta carpeta",
+  "ask when it wants to": "pregunta cuando quiere",
+  "write in this folder, ask for anything beyond": "escribe en esta carpeta, pregunta por lo demás",
+  "have its approvals reviewed automatically": "sus aprobaciones se revisan automáticamente",
+  "work without asking, inside the sandbox": "trabaja sin preguntar, dentro del sandbox",
+  "everything, no approvals and no sandbox (--dangerously-bypass-approvals-and-sandbox)": "todo, sin aprobaciones ni sandbox (--dangerously-bypass-approvals-and-sandbox)",
+  "Let it search the web": "Puede buscar en la web",
+  "everything, no questions (--yolo)": "todo, sin preguntas (--yolo)"
  }
 }

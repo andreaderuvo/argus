@@ -191,6 +191,21 @@ class Argus:
             self.api("/api/resume/forget", "POST", {"names": lost})
 
 
+FAKE_CLAUDE = """#!/usr/bin/env python3
+import sys, time
+if "--help" in sys.argv:
+    print("  --dangerously-skip-permissions   Bypass all permission checks.")
+    print('  --permission-mode <mode>         (choices: "acceptEdits", "auto", "plan")')
+    print("  --model <model>                  an alias (e.g. 'fable', 'opus', or 'sonnet')")
+    print("  -c, --continue                   Continue the most recent conversation")
+elif "--version" in sys.argv:
+    print("9.9.9 (stand-in)")
+else:
+    print("stand-in agent, waiting", flush=True)
+    time.sleep(600)
+"""
+
+
 @pytest.fixture(scope="session")
 def argus(tmp_path_factory) -> Argus:
     base = tmp_path_factory.mktemp("argus-browser")
@@ -202,6 +217,12 @@ def argus(tmp_path_factory) -> Argus:
     home = root / "home"
     home.mkdir()
     (home / ".tmux.conf").write_text("set -g history-limit 5000\n", encoding="utf-8")
+    # A stand-in for Claude Code: answers --help with the flags the New session box offers, and
+    # otherwise sits there like an agent waiting.
+    (home / "bin").mkdir()
+    fake = home / "bin" / "claude"
+    fake.write_text(FAKE_CLAUDE, encoding="utf-8")
+    fake.chmod(0o755)
     cfg_dir = base / "config"
     cfg_dir.mkdir()
     config = cfg_dir / "config.yaml"
@@ -217,6 +238,7 @@ def argus(tmp_path_factory) -> Argus:
             {"name": "A shell", "command": ""},
             {"name": "Echo", "command": "echo argus-launched"},
             {"name": "Missing tool", "command": "argus-no-such-binary-anywhere"},
+            {"name": "Claude", "command": str(fake)},
         ],
     }), encoding="utf-8")
     config.chmod(0o600)

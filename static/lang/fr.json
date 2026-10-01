@@ -956,6 +956,25 @@
   "a new conversation — which one it was is not known": "une nouvelle conversation : on ne sait pas laquelle c’était",
   "Bring back": "Rouvrir",
   "Stop offering this one": "Ne plus la proposer",
-  "the tmux server went away just now \u2014 a reboot, or it crashed": "le serveur tmux vient de disparaître : un redémarrage, ou un plantage"
+  "the tmux server went away just now \u2014 a reboot, or it crashed": "le serveur tmux vient de disparaître : un redémarrage, ou un plantage",
+  "looking at the options it takes…": "je cherche les options qu’il accepte…",
+  "It will run commands and change files without asking you first. Use it where you would let it loose anyway.": "Il exécutera des commandes et modifiera des fichiers sans te demander. À utiliser là où tu le laisserais faire de toute façon.",
+  "What it may do without asking": "Ce qu’il peut faire sans demander",
+  "ask before acting": "demande avant d’agir",
+  "edit files freely, ask before running commands": "modifie les fichiers librement, demande avant d’exécuter des commandes",
+  "plan only: read and propose, change nothing": "plan seulement : lit et propose, ne change rien",
+  "decide for itself what is safe to do": "décide lui-même ce qui est sûr",
+  "everything, no questions (--dangerously-skip-permissions)": "tout, sans questions (--dangerously-skip-permissions)",
+  "Model": "Modèle",
+  "its default": "son réglage par défaut",
+  "How hard it thinks": "À quel point il réfléchit",
+  "Continue the last conversation in this folder": "Reprendre la dernière conversation dans ce dossier",
+  "ask when it wants to": "demande quand il veut",
+  "write in this folder, ask for anything beyond": "écrit dans ce dossier, demande pour le reste",
+  "have its approvals reviewed automatically": "ses approbations sont revues automatiquement",
+  "work without asking, inside the sandbox": "travaille sans demander, dans le bac à sable",
+  "everything, no approvals and no sandbox (--dangerously-bypass-approvals-and-sandbox)": "tout, sans approbation ni bac à sable (--dangerously-bypass-approvals-and-sandbox)",
+  "Let it search the web": "Peut chercher sur le web",
+  "everything, no questions (--yolo)": "tout, sans questions (--yolo)"
  }
 }

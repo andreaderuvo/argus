@@ -3572,3 +3572,21 @@ body:not(.railwide) .railwin.raildesk .railcount { display: none; }
 .lostwhat.resume { color: var(--st-good); }
 .lostforget { padding: .35rem; }
 @media (max-width: 520px) { .losthead { flex-wrap: wrap; } .losthead .primary { width: 100%; } }
+
+/* ---------- the options an agent takes, in the New session box (tray.js, agentflags.py) ---------- */
+.startopts { display: grid; gap: .55rem; margin: .5rem 0 .2rem; padding: .7rem .8rem; border: 1px solid var(--line); border-radius: .6rem; background: color-mix(in srgb, var(--panel) 60%, var(--bg)); }
+.startopt { display: grid; gap: .3rem; }
+.startopt.inline { grid-template-columns: minmax(8rem, auto) minmax(0, 1fr); align-items: center; gap: .6rem; }
+.startoptname { font-size: .78rem; font-weight: 600; color: var(--dim); }
+.startradio { display: grid; gap: .1rem; }
+.startchoice { display: flex; align-items: flex-start; gap: .5rem; padding: .3rem .4rem; border-radius: .4rem; cursor: pointer; font-size: .86rem; }
+.startchoice:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.startchoice input { margin-top: .2rem; flex: none; }
+.startchoice.danger { color: var(--st-warning); }
+.startchoice:has(input:checked) { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--bright); }
+.startchoice.danger:has(input:checked) { background: color-mix(in srgb, var(--st-warning) 16%, transparent); color: var(--st-warning); font-weight: 600; }
+.startoptext { min-width: 0; }
+.startdanger { margin: 0; font-size: .8rem; color: var(--st-warning); }
+.startcmd { display: block; font: .8rem/1.45 ui-monospace, "SF Mono", Menlo, monospace; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: .4rem; padding: .45rem .6rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 520px) { .startopt.inline { grid-template-columns: minmax(0, 1fr); } }
+

@@ -956,6 +956,25 @@
   "a new conversation — which one it was is not known": "a new conversation — which one it was is not known",
   "Bring back": "Bring back",
   "Stop offering this one": "Stop offering this one",
-  "the tmux server went away just now \u2014 a reboot, or it crashed": "the tmux server went away just now — a reboot, or it crashed"
+  "the tmux server went away just now \u2014 a reboot, or it crashed": "the tmux server went away just now — a reboot, or it crashed",
+  "looking at the options it takes…": "looking at the options it takes…",
+  "It will run commands and change files without asking you first. Use it where you would let it loose anyway.": "It will run commands and change files without asking you first. Use it where you would let it loose anyway.",
+  "What it may do without asking": "What it may do without asking",
+  "ask before acting": "ask before acting",
+  "edit files freely, ask before running commands": "edit files freely, ask before running commands",
+  "plan only: read and propose, change nothing": "plan only: read and propose, change nothing",
+  "decide for itself what is safe to do": "decide for itself what is safe to do",
+  "everything, no questions (--dangerously-skip-permissions)": "everything, no questions (--dangerously-skip-permissions)",
+  "Model": "Model",
+  "its default": "its default",
+  "How hard it thinks": "How hard it thinks",
+  "Continue the last conversation in this folder": "Continue the last conversation in this folder",
+  "ask when it wants to": "ask when it wants to",
+  "write in this folder, ask for anything beyond": "write in this folder, ask for anything beyond",
+  "have its approvals reviewed automatically": "have its approvals reviewed automatically",
+  "work without asking, inside the sandbox": "work without asking, inside the sandbox",
+  "everything, no approvals and no sandbox (--dangerously-bypass-approvals-and-sandbox)": "everything, no approvals and no sandbox (--dangerously-bypass-approvals-and-sandbox)",
+  "Let it search the web": "Let it search the web",
+  "everything, no questions (--yolo)": "everything, no questions (--yolo)"
  }
 }
