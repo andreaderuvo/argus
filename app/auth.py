@@ -114,6 +114,34 @@ def presented_token(scope: dict) -> str | None:
     return None
 
 
+# Remembering a browser, the way Jupyter does after its ?token= link: the page keeps the token in
+# localStorage, but a phone loses that more often than one would think — Safari deletes what a
+# script stored after seven days without a visit, and a link opened from a chat lands in that
+# app's own browser. A cookie the *server* sets, HttpOnly, is kept far better. It is not a second
+# way in: it is read at one path only, which hands the token back to this same origin so the page
+# can go on as before, and every other request still carries the token in its header.
+REMEMBER_PATH = "/api/remember"
+REMEMBER_FOR = 400 * 86400          # the longest a browser will keep a cookie (Chrome's cap)
+
+
+def remember_cookie(scope: dict) -> str:
+    """One cookie per port: cookies ignore the port, and two Argus on one machine must not
+    overwrite each other's."""
+    server = scope.get("server") or ("", 0)
+    return f"argus_keep_{server[1] or 0}"
+
+
+def cookie_value(scope: dict, name: str) -> str | None:
+    for raw_key, raw_val in scope.get("headers") or []:
+        if raw_key.lower() != b"cookie":
+            continue
+        for part in raw_val.decode("latin-1").split(";"):
+            key, _, value = part.strip().partition("=")
+            if key == name:
+                return value
+    return None
+
+
 def matches(presented: str, expected: str) -> bool:
     """Constant-time comparison. ``compare_digest`` also returns false on a length
     mismatch, so the wire never learns how long the real token is."""
@@ -176,9 +204,46 @@ class TokenAuthMiddleware:
                 found = w
         return found
 
+    async def recall(self, scope, receive, send) -> None:
+        """`/api/remember`. GET answers the remembered token, if it still opens this server;
+        POST remembers the token the request carries; DELETE forgets. Only a full key or a
+        device's key is ever remembered — a watcher's or an agent's is not a browser's."""
+        import json
+        method = scope.get("method", "GET").upper()
+        name = remember_cookie(scope)
+        secure = "; Secure" if scope.get("scheme") == "https" else ""
+        base = f"{name}=%s; Path={REMEMBER_PATH}; HttpOnly; SameSite=Strict{secure}"
+        keep = lambda tok: (base % tok + f"; Max-Age={REMEMBER_FOR}").encode("latin-1")
+        drop = (base % "" + "; Max-Age=0").encode("latin-1")
+        valid = lambda tok: bool(tok) and (matches(tok, self.token) or self.device_for(tok) is not None)
+
+        async def answer(status: int, body: dict | None, cookie: bytes | None) -> None:
+            headers = [(b"content-type", b"application/json"), (b"cache-control", b"no-store")]
+            if cookie:
+                headers.append((b"set-cookie", cookie))
+            await send({"type": "http.response.start", "status": status, "headers": headers})
+            await send({"type": "http.response.body", "body": json.dumps(body or {}).encode()})
+
+        if method == "GET":
+            kept = cookie_value(scope, name)
+            if valid(kept):
+                return await answer(200, {"token": kept}, keep(kept))      # and it rolls on
+            # Not an error: most browsers have nothing remembered, and asking is how they find out.
+            return await answer(200, {"token": None}, drop if kept else None)
+        if method == "DELETE":
+            return await answer(200, {"forgotten": True}, drop)
+        if method == "POST":
+            given = presented_token(scope)
+            if not valid(given):
+                return await answer(401, {"detail": "only a working token can be remembered"}, None)
+            return await answer(200, {"remembered": True}, keep(given))
+        return await answer(405, {"detail": "GET, POST or DELETE"}, None)
+
     async def __call__(self, scope, receive, send):
         if scope["type"] not in ("http", "websocket") or not is_protected(scope["path"]):
             return await self.app(scope, receive, send)
+        if scope["type"] == "http" and scope["path"] == REMEMBER_PATH:
+            return await self.recall(scope, receive, send)
 
         token = presented_token(scope)
         if token is not None and matches(token, self.token):

@@ -247,7 +247,41 @@ export async function toggleFavourite(path, group) {
 export let bellStream = null;
 export function setBellStream(value) { bellStream = value; }
 
+/** The token this browser was told to remember, if the page lost its own copy.
+ *
+ *  localStorage is the copy the page uses; a phone loses it more often than one would think —
+ *  Safari deletes what a script stored after seven days without a visit — so the server also
+ *  keeps one, in an HttpOnly cookie it set itself (app/auth.py, `/api/remember`), which a
+ *  browser keeps far better. Asked once, before the token screen is shown. */
+export async function recallToken() {
+  try {
+    const r = await fetch('/api/remember', { credentials: 'same-origin', cache: 'no-store' });
+    if (!r.ok) return false;
+    const said = await r.json();
+    if (!said.token) return false;
+    setToken(said.token);
+    localStorage.setItem(KEY, said.token);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Ask the server to remember the token that works, for a year. Once per visit, which also
+ *  rolls the year on; never awaited — remembering is a convenience, not a step of signing in. */
+export function rememberToken() {
+  if (!token) return;
+  fetch('/api/remember', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, credentials: 'same-origin' })
+    .catch(() => {});
+  // And ask the browser to keep this origin's storage when it is short of space. Only granted in
+  // a secure context; elsewhere a no-op.
+  navigator.storage?.persist?.().catch?.(() => {});
+}
+
 export function signOut() {
+  // The remembered copy goes too: a token that was refused, or that you signed out of, must not
+  // come back by itself on the next visit.
+  fetch('/api/remember', { method: 'DELETE', credentials: 'same-origin' }).catch(() => {});
   setToken('');
   setServer(null);
   localStorage.removeItem(KEY);

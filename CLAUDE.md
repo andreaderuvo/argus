@@ -368,6 +368,16 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
 
 ## Design notes
 
+- **A browser is remembered by the server too** (`/api/remember`, in the auth gate, `tests/test_remember.py`).
+  localStorage is the page's copy, and a phone loses it (Safari clears script storage after
+  seven days away; a link opened from a chat lands in that app's own browser). After a token
+  works, the page POSTs it and the server sets `argus_keep_<port>` — HttpOnly, SameSite=Strict,
+  Path=/api/remember, 400 days, rolled on every visit. With no token, the page GETs it back
+  before showing the token screen. The cookie opens nothing else; only a full or a device key
+  is kept, never a watcher's or an agent's; a key that stopped working is dropped, and sign-out
+  forgets it. "Nothing remembered" answers 200 `{token: null}`, not 401 (the harness counts
+  every 401 as a problem). Different addresses (IP, hostname, Tailscale) are still different
+  sites to a browser: each remembers on its own.
 - **Auth must be raw ASGI.** Starlette's `BaseHTTPMiddleware` never sees WebSocket
   connections, and the terminal is a WebSocket. Closing before accept makes the handshake
   fail with an HTTP error instead of upgrading.

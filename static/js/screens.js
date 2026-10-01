@@ -7,7 +7,7 @@ import { fileIcon } from '/js/fileicons.js';
 import { dropOnSession, entryRow, entryTile, fetchHere, placePicker, searchBox, takesDrops, uploadTo } from '/js/filerows.js';
 import { icon } from '/js/icons.js';
 import { applyPointed, drawTree, markCurrent, pointAt, setPointed, under } from '/js/pointing.js';
-import { bidi, colorFor, favsIn, getJSON, homePath, human, isFavourite, parentOf, pickColor, postJSON, renamedSession, serverInfo, setTitle, toggleFavourite, visible } from '/js/reconnect.js';
+import { bidi, colorFor, favsIn, getJSON, homePath, human, isFavourite, parentOf, pickColor, postJSON, rememberToken, renamedSession, serverInfo, setTitle, toggleFavourite, visible } from '/js/reconnect.js';
 import { go, render, renderSeq } from '/js/router.js';
 import { applySidebar, renderSidebar } from '/js/sidebar.js';
 import { KEY, bar, live, prefs, server, setServer, setToken, sidePath, token, view } from '/js/state.js';
@@ -86,6 +86,7 @@ export function screenLogin() {
     try {
       setServer(await getJSON('/api/config'));
       localStorage.setItem(KEY, token);
+      rememberToken();
       render();
       applySidebar();
     } catch {

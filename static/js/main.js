@@ -9,7 +9,7 @@ import { AGENT_STATES_EVERY, SESSION_COUNT_EVERY, countSessions, countTodo, read
 import { el } from '/js/dom.js';
 import { icon } from '/js/icons.js';
 import { translateMarkup } from '/js/markup.js';
-import { getJSON, loadFavourites, serverInfo } from '/js/reconnect.js';
+import { getJSON, loadFavourites, recallToken, rememberToken, serverInfo } from '/js/reconnect.js';
 import { render } from '/js/router.js';
 import { applyBottomBar, applyKeyBar, applyRail, applySidebar } from '/js/sidebar.js';
 import { token } from '/js/state.js';
@@ -95,7 +95,10 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) { co
 
 // The pins have to arrive before the first paint, or the sidebar draws without them.
 (async () => {
+  // No token here, but this browser may have been told to remember one.
+  if (!token) await recallToken();
   if (token) {
+    rememberToken();
     let list = [];
     try { list = await getJSON('/api/languages'); } catch { /* English then */ }
     await loadLanguage(preferredLanguage(list.map((l) => l.code)));
