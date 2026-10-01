@@ -940,6 +940,11 @@
   "“{name}” is empty.": "«{name}» è vuoto.",
   "→ {path} · not there yet": "→ {path} · non c’è ancora",
   "{n} waiting for you": "{n} ti aspettano",
-  "{n} working": "{n} in corso"
+  "{n} working": "{n} in corso",
+  "All seen": "Visti tutti",
+  "Nothing needs doing in any of them: stop asking until they have worked again": "Non c’è niente da fare in nessuno: smetti di segnalarli finché non avranno lavorato di nuovo",
+  "Got it": "Visto",
+  "Seen, nothing to do: stop asking until it has worked again": "Visto, niente da fare: smetti di segnalarlo finché non avrà lavorato di nuovo",
+  "seen — nothing to do": "visto, niente da fare"
  }
 }

@@ -145,6 +145,7 @@ class Watch:
         self.always = False                         # keep sampling with nobody reading
         self.events: deque = deque(maxlen=256)      # (session, was, now, agent) changes
         self.on_change = None                       # called in the loop with each change
+        self.seen: dict[str, float] = {}            # session -> `since` of the wait you dismissed
 
     # ------------------------------------------------------------ reading tmux and /proc
 
@@ -219,6 +220,9 @@ class Watch:
                 self.events.append((s, was or None, verdict, agent))
         for s in set(self.state) - set(by_session):
             del self.state[s]
+        # A dismissal is for one wait: once that one is over, so is the dismissal.
+        for s in [s for s, since in self.seen.items() if self.state.get(s) != ("waiting", since)]:
+            del self.seen[s]
 
     # ------------------------------------------------------------ the loop, and reading it
 
@@ -262,5 +266,18 @@ class Watch:
             s = self.windows.get(w)
             if s and s not in agents_by_session:
                 agents_by_session[s] = agent
-        return {s: {"agent": agents_by_session.get(s), "state": st, "since": since}
+        return {s: {"agent": agents_by_session.get(s), "state": st, "since": since,
+                    "seen": st == "waiting" and self.seen.get(s) == since}
                 for s, (st, since) in self.state.items()}
+
+    def dismiss(self, sessions: list[str]) -> list[str]:
+        """You have seen these waits and nothing needs doing: they stop asking for you until
+        the agent has worked and stopped again. Returns the sessions it applied to — only one
+        that is waiting can be dismissed."""
+        done = []
+        for s in sessions:
+            st = self.state.get(s)
+            if st and st[0] == "waiting":
+                self.seen[s] = st[1]
+                done.append(s)
+        return done

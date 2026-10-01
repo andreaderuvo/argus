@@ -3089,6 +3089,52 @@
     ]
    }
   },
+  "/api/tmux/seen": {
+   "post": {
+    "description": "`{sessions: [...]}`. Each agent that is waiting stops asking for you \u2014 no amber on its\ndesk, its window or the counts \u2014 until it has worked and stopped again. Kept on the\nserver, so every device agrees. A session that is not waiting is left alone.",
+    "operationId": "postApiTmuxSeen",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Tmux Seen Api Tmux Seen Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Say you have seen an agent waiting, and nothing needs doing",
+    "tags": [
+     "Sessions"
+    ]
+   }
+  },
   "/api/tmux/sessions": {
    "get": {
     "operationId": "getApiTmuxSessions",

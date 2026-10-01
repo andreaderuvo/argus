@@ -96,7 +96,7 @@ def test_states_change_with_the_activity_and_say_since_when():
     for t in range(5, 9):
         w.tick(now=200 + t)
     got = w.states()["work"]
-    assert got == {"agent": "claude", "state": "waiting", "since": got["since"]}
+    assert got == {"agent": "claude", "state": "waiting", "since": got["since"], "seen": False}
     assert 205 <= got["since"] <= 208, "since is when it changed, not when it was last read"
 
 

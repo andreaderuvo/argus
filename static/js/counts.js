@@ -1,7 +1,7 @@
 // <imports> generated from what this file uses; edit the code, not this list
 import { quieten, rung } from '/js/bells.js';
 import { el } from '/js/dom.js';
-import { getJSON } from '/js/reconnect.js';
+import { getJSON, postJSON } from '/js/reconnect.js';
 import { hamburger, nav, prefs, token } from '/js/state.js';
 import { t } from '/js/words.js';
 // </imports>
@@ -64,7 +64,8 @@ export function applyAgentStates(states) {
   for (const win of document.querySelectorAll('.win[data-session]')) {
     const st = agentStates.get(win.dataset.session);
     win.classList.toggle('agent-working', st?.state === 'working');
-    win.classList.toggle('agent-waiting', st?.state === 'waiting');
+    win.classList.toggle('agent-waiting', st?.state === 'waiting' && !st.seen);
+    win.classList.toggle('agent-seen', st?.state === 'waiting' && !!st.seen);
     const title = win.querySelector('.wintitle');
     if (title) title.dataset.agent = st ? `${st.agent || t('agent')}: ${stateWord(st)}` : '';
   }
@@ -75,6 +76,7 @@ export function applyAgentStates(states) {
   for (const [name, bell] of rung) {
     const st = agentStates.get(name);
     if (st?.state === 'working' && st.since > (bell.said || 0)) quieten(name);
+    else if (st?.seen) quieten(name);
   }
   // The amber follows too: an agent that stopped is somebody waiting, whether or not it rang.
   showCount('sessions', lastSessionCount);
@@ -96,9 +98,9 @@ export function paintDeskStates() {
     let waiting = 0;
     for (const x of ws?.desktop || []) {
       if (x.kind !== 'term') continue;
-      const st = agentStates.get(x.name)?.state;
-      if (st === 'working') working += 1;
-      if (st === 'waiting') waiting += 1;
+      const one = agentStates.get(x.name);
+      if (one?.state === 'working') working += 1;
+      if (one?.state === 'waiting' && !one.seen) waiting += 1;
     }
     tab.classList.toggle('agents-waiting', waiting > 0);
     tab.classList.toggle('agents-working', working > 0 && !waiting);
@@ -121,7 +123,7 @@ export function paintDeskStates() {
  *  filled from the same states the dot is painted from, and refilled on every reading so the
  *  minutes move while you look. A pointer only: on a phone the tab's hold is its menu.
  */
-const deskCard = { el: null, for: null, title: '' };
+const deskCard = { el: null, for: null, title: '', leaving: null };
 
 function fillDeskCard(tab) {
   const ws = (prefs.workspaces || []).find((one) => String(one.id) === tab.dataset.ws);
@@ -131,27 +133,55 @@ function fillDeskCard(tab) {
     if (st) rows.push({ name: x.name, st });
   }
   if (!rows.length) return hideDeskCard();
-  // Who needs you first, then the longest at it.
-  rows.sort((a, b) => (a.st.state === 'waiting' ? 0 : 1) - (b.st.state === 'waiting' ? 0 : 1) || a.st.since - b.st.since);
-  const card = deskCard.el || (deskCard.el = el('div', { className: 'deskcard', role: 'tooltip' }));
-  card.replaceChildren(
-    el('div', { className: 'deskcardhead', textContent: ws.name }),
-    ...rows.map(({ name, st }) => el('div', { className: `deskcardrow ${st.state}` }, [
+  // Who needs you first, then who is at work, then what you have already seen; the longest first.
+  const rank = (st) => (st.state === 'waiting' && !st.seen ? 0 : st.state === 'working' ? 1 : 2);
+  rows.sort((a, b) => rank(a.st) - rank(b.st) || a.st.since - b.st.since);
+  const unseen = rows.filter((r) => rank(r.st) === 0).map((r) => r.name);
+  const card = deskCard.el || (deskCard.el = el('div', { className: 'deskcard', role: 'dialog' }));
+  const head = el('div', { className: 'deskcardhead' }, [el('span', { textContent: ws.name })]);
+  if (unseen.length > 1) {
+    head.append(el('button', { className: 'deskcardall', type: 'button', textContent: t('All seen'),
+      title: t('Nothing needs doing in any of them: stop asking until they have worked again'),
+      onclick: () => dismissWaits(unseen) }));
+  }
+  card.replaceChildren(head, ...rows.map(({ name, st }) => {
+    const kind = rank(st) === 0 ? 'waiting' : st.state === 'working' ? 'working' : 'seen';
+    const row = el('div', { className: `deskcardrow ${kind}` }, [
       el('span', { className: 'deskcarddot' }),
       el('span', { className: 'deskcardname', textContent: name }),
       el('span', { className: 'deskcardagent', textContent: st.agent || t('agent') }),
       el('span', { className: 'deskcardstate', textContent: stateWord(st) }),
-    ])),
-  );
+    ]);
+    if (kind === 'waiting') {
+      row.append(el('button', { className: 'deskcardok', type: 'button', textContent: t('Got it'),
+        title: t('Seen, nothing to do: stop asking until it has worked again'),
+        onclick: () => dismissWaits([name]) }));
+    }
+    return row;
+  }));
   if (!card.isConnected) document.body.append(card);
   const r = tab.getBoundingClientRect();
-  const w = card.offsetWidth;
-  card.style.left = `${Math.max(8, Math.min(r.left, innerWidth - w - 8))}px`;
-  card.style.top = `${r.bottom + 6}px`;
+  card.style.left = `${Math.max(8, Math.min(r.left, innerWidth - card.offsetWidth - 8))}px`;
+  card.style.top = `${r.bottom + 4}px`;
   deskCard.for = tab;
 }
 
+/** "I have seen it, nothing needs doing." Kept on the server, so every device stops asking; it
+ *  lasts for this wait only — the next time the agent works and stops, it asks again. */
+async function dismissWaits(names) {
+  try {
+    const said = await postJSON('/api/tmux/seen', { sessions: names });
+    applyAgentStates(said.states || {});
+  } catch { /* the card stays as it was: nothing was dismissed */ }
+}
+
+function stay() {
+  clearTimeout(deskCard.leaving);
+  deskCard.leaving = null;
+}
+
 function hideDeskCard() {
+  stay();
   if (deskCard.for && deskCard.title) deskCard.for.title = deskCard.title;
   deskCard.for = null;
   deskCard.title = '';
@@ -160,23 +190,31 @@ function hideDeskCard() {
 
 document.addEventListener('pointerover', (e) => {
   if (e.pointerType === 'touch') return;
+  // Into the card itself is staying, not leaving: it has buttons now.
+  if (e.target.closest?.('.deskcard')) { stay(); return; }
   const tab = e.target.closest?.('.wstab[data-ws], .raildesk[data-ws]');
-  if (tab === deskCard.for) return;
+  if (tab && tab === deskCard.for) { stay(); return; }
+  if (!tab) {
+    // A moment's grace, to cross from the tab to the card without it vanishing on the way.
+    if (deskCard.for && !deskCard.leaving) deskCard.leaving = setTimeout(hideDeskCard, 250);
+    return;
+  }
   hideDeskCard();
-  if (!tab?.dataset.agents) return;
+  if (!tab.dataset.agents) return;
   // The tab's own hint ("Double-click to rename") would open on top of the card.
   deskCard.title = tab.title;
   tab.title = '';
   fillDeskCard(tab);
 });
-document.addEventListener('pointerdown', hideDeskCard, true);
-window.addEventListener('scroll', hideDeskCard, true);
+document.addEventListener('pointerdown', (e) => { if (!e.target.closest?.('.deskcard')) hideDeskCard(); }, true);
+window.addEventListener('scroll', (e) => { if (!e.target.closest?.('.deskcard')) hideDeskCard(); }, true);
 window.addEventListener('blur', hideDeskCard);
 
 /** "working", or "waiting for you · 4m" — how long it has been waiting is the useful part. */
 export function stateWord(st) {
   if (!st) return '';
   if (st.state === 'working') return t('working');
+  if (st.seen) return t('seen — nothing to do');
   const waited = st.since ? Math.max(0, Date.now() / 1000 - st.since) : 0;
   return waited >= 60 ? t('waiting for you · {age}', { age: shortAge(waited) }) : t('waiting for you');
 }
@@ -190,7 +228,8 @@ function shortAge(seconds) {
 export function paintState(pill, st) {
   pill.hidden = !st;
   pill.classList.toggle('working', st?.state === 'working');
-  pill.classList.toggle('waiting', st?.state === 'waiting');
+  pill.classList.toggle('waiting', st?.state === 'waiting' && !st.seen);
+  pill.classList.toggle('seen', !!st?.seen);
   const word = stateWord(st);
   if (pill.textContent !== word) pill.textContent = word;
   pill.title = st ? t('{agent}, worked out from whether its pane is still drawing', { agent: st.agent || t('agent') }) : '';
@@ -209,7 +248,7 @@ export function showCount(tab, n) {
   if (tab === 'sessions') lastSessionCount = n;
   if (tab === 'todo') lastTodoCount = n;
   const wants = RINGS.has(tab) && ([...rung.values()].some((b) => b.why === 'asking')
-    || [...agentStates.values()].some((st) => st.state === 'waiting'));
+    || [...agentStates.values()].some((st) => st.state === 'waiting' && !st.seen));
   // The same two facts wherever the navigation happens to be living: how many, and whether
   // one of them has stopped and is waiting.
   for (const spot of document.querySelectorAll(`.drawertally[data-for="${tab}"]`)) {

@@ -940,6 +940,11 @@
   "“{name}” is empty.": "“{name}” is empty.",
   "→ {path} · not there yet": "→ {path} · not there yet",
   "{n} waiting for you": "{n} waiting for you",
-  "{n} working": "{n} working"
+  "{n} working": "{n} working",
+  "All seen": "All seen",
+  "Nothing needs doing in any of them: stop asking until they have worked again": "Nothing needs doing in any of them: stop asking until they have worked again",
+  "Got it": "Got it",
+  "Seen, nothing to do: stop asking until it has worked again": "Seen, nothing to do: stop asking until it has worked again",
+  "seen — nothing to do": "seen — nothing to do"
  }
 }

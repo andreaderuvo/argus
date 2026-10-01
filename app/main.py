@@ -467,6 +467,19 @@ def create_app(cfg: Config) -> FastAPI:
         except Exception:
             return {"states": {}}
 
+    @app.post("/api/tmux/seen", tags=["Sessions"], summary="Say you have seen an agent waiting, and nothing needs doing")
+    async def tmux_seen(request: Request, body: dict) -> dict:
+        """`{sessions: [...]}`. Each agent that is waiting stops asking for you — no amber on its
+        desk, its window or the counts — until it has worked and stopped again. Kept on the
+        server, so every device agrees. A session that is not waiting is left alone."""
+        names = body.get("sessions")
+        if not isinstance(names, list) or not all(isinstance(n, str) for n in names):
+            raise ApiError(400, "sessions must be a list of session names")
+        seen = request.app.state.agents.dismiss(names)
+        # The bell that rang for that wait is answered too, on every page.
+        bells.announce(request, {"what": "seen", "sessions": seen})
+        return {"seen": seen, "states": await agent_states(request)}
+
     async def agent_states(request: Request) -> dict[str, dict]:
         watch = request.app.state.agents
         if watch.task is None:

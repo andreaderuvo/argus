@@ -1,6 +1,6 @@
 // <imports> generated from what this file uses; edit the code, not this list
 import { savePrefs } from '/js/core.js';
-import { agentStates, countSessions, showCount } from '/js/counts.js';
+import { agentStates, countSessions, readAgentStates, showCount } from '/js/counts.js';
 import { toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { bellStream, getJSON, setBellStream } from '/js/reconnect.js';
@@ -355,6 +355,12 @@ function aside(said) {
       openWindow({ kind: 'run', id: said.run.id }, undefined, { jump: false });
       toast(t('{name} is running — it is on your desk', { name: said.run.name }));
     }
+    return;
+  }
+  // Somebody, on this page or another device, said they have seen these waits.
+  if (said.what === 'seen') {
+    for (const name of said.sessions || []) quieten(name);
+    readAgentStates();
     return;
   }
   if (said.what !== 'started' || !said.name) return;

@@ -99,3 +99,13 @@ def test_the_desk_tabs_say_which_desk_has_an_agent_waiting(make_page, argus, tmp
     page.send("Input.dispatchMouseEvent", {"type": "mouseMoved", "x": 5, "y": 400, "button": "none"})
     page.wait("!document.querySelector('.deskcard')?.isConnected", timeout=5, what="the card to go")
     assert page.eval(f"{tab(2)}.title") != "", "and the hint comes back"
+    # "Got it": seen, nothing to do. The desk stops asking, the amber leaves the counts, and the
+    # card says it was seen rather than forgetting the agent.
+    x, y = page._center(tab(2))
+    page.send("Input.dispatchMouseEvent", {"type": "mouseMoved", "x": x, "y": y, "button": "none"})
+    page.wait("!!document.querySelector('.deskcardok')", timeout=5, what="the Got it button")
+    page.click_at(*page._center("document.querySelector('.deskcardok')"))
+    page.wait(f"!{tab(2)}.classList.contains('agents-waiting')", timeout=5, what="the desk to stop asking")
+    page.wait("![...document.querySelectorAll('.tally, .drawertally, #hamburger')].some(e => e.classList.contains('wants'))",
+              timeout=5, what="the amber to leave the counts")
+    assert argus.api("/api/tmux/states")["states"]["asking"]["seen"] is True

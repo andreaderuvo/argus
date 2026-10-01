@@ -3124,12 +3124,21 @@ dialog.sheet:has(.promptmake) { width: min(38rem, calc(100vw - 2rem)); }
 .deskcard {
   position: fixed; z-index: 60; min-width: 15rem; max-width: min(26rem, calc(100vw - 16px));
   background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: .6rem;
-  box-shadow: 0 12px 34px rgba(0, 0, 0, .35); padding: .55rem .25rem .35rem; pointer-events: none;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, .35); padding: .55rem .25rem .35rem;
   font-size: .82rem; animation: deskcardin .12s ease-out;
 }
 @keyframes deskcardin { from { opacity: 0; transform: translateY(-3px); } }
-.deskcardhead { color: var(--dim); font-size: .7rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; padding: 0 .65rem .35rem; }
-.deskcardrow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: .55rem; align-items: center; padding: .35rem .65rem; border-radius: .4rem; }
+.deskcard::before { content: ""; position: absolute; left: 0; right: 0; top: -8px; height: 8px; }   /* a bridge from the tab */
+.deskcardhead { display: flex; align-items: center; gap: .6rem; color: var(--dim); font-size: .7rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; padding: 0 .65rem .35rem; }
+.deskcardhead span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.deskcardok, .deskcardall {
+  font: 600 .74rem/1 inherit; letter-spacing: 0; text-transform: none; cursor: pointer; border-radius: 999px; padding: .32rem .7rem;
+  border: 1px solid color-mix(in srgb, var(--st-warning) 55%, var(--line)); background: transparent; color: var(--st-warning);
+}
+.deskcardok:hover, .deskcardall:hover { background: var(--st-warning); color: #1b1300; border-color: var(--st-warning); }
+.deskcardok:focus-visible, .deskcardall:focus-visible { outline: 2px solid var(--st-warning); outline-offset: 2px; }
+.deskcardok { grid-column: 4; grid-row: 1 / span 2; align-self: center; }
+.deskcardrow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; column-gap: .55rem; align-items: center; padding: .35rem .65rem; border-radius: .4rem; }
 .deskcardrow.waiting { background: color-mix(in srgb, var(--st-warning) 12%, transparent); }
 .deskcarddot { width: 8px; height: 8px; border-radius: 50%; grid-row: span 2; background: var(--accent); }
 .deskcardrow.working .deskcarddot { animation: atwork 1.4s ease-in-out infinite; }
@@ -3138,6 +3147,9 @@ dialog.sheet:has(.promptmake) { width: min(38rem, calc(100vw - 2rem)); }
 .deskcardagent { color: var(--dim); font-size: .74rem; text-align: right; }
 .deskcardstate { grid-column: 2 / 4; color: var(--dim); font-variant-numeric: tabular-nums; }
 .deskcardrow.waiting .deskcardstate { color: var(--st-warning); font-weight: 600; }
+.deskcardrow.seen .deskcarddot { background: var(--dim); }
+.deskcardrow.seen .deskcardname { color: var(--text); font-weight: 500; }
+/* A wait you have seen and set aside: still there, no longer asking. */
 @media (prefers-reduced-motion: reduce) { .deskcard, .deskcardrow.working .deskcarddot { animation: none; } }
 
 /* Wide enough for two columns, so the list is a page you read rather than a well you scroll.
@@ -3534,10 +3546,11 @@ body:not(.railwide) .railwin.raildesk .railcount { display: none; }
   border: 1px solid var(--line); color: var(--dim); }
 .agentstate.working { color: var(--st-good); border-color: color-mix(in srgb, var(--st-good) 55%, transparent); }
 .agentstate.waiting { color: #2b2000; background: var(--st-warning); border-color: var(--st-warning); font-weight: 600; }
-.agentstate.working::before, .win.agent-working .wintitle::before, .win.agent-waiting .wintitle::before {
+.agentstate.working::before, .win.agent-working .wintitle::before, .win.agent-waiting .wintitle::before, .win.agent-seen .wintitle::before {
   content: ''; display: inline-block; width: .5rem; height: .5rem; border-radius: 50%;
   margin-right: .35rem; vertical-align: .05rem; background: var(--st-good); }
 .agentstate.working::before, .win.agent-working .wintitle::before { animation: agentbeat 1.2s ease-in-out infinite; }
 .win.agent-waiting .wintitle::before { background: var(--st-warning); }
+.win.agent-seen .wintitle::before { background: var(--dim); }   /* seen and set aside: still there, no longer asking */
 @keyframes agentbeat { 50% { opacity: .25; } }
 @media (prefers-reduced-motion: reduce) { .agentstate.working::before, .win.agent-working .wintitle::before { animation: none; } }

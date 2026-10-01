@@ -132,3 +132,20 @@ def test_a_running_server_keeps_watching_with_no_browser_open(app):
     app.state.agents.tick = lambda now=None: None      # no tmux here: the loop, not the reading
     with TestClient(app):
         assert app.state.agents.task is not None
+
+
+def test_got_it_sets_a_wait_aside_until_the_agent_has_worked_again(app, client):
+    app.state.agents.tick = lambda now=None: None      # no tmux: the readings are written by hand
+    agent(app, "api", "working")
+    agent(app, "api", "waiting")
+    said = client.post("/api/tmux/seen", json={"sessions": ["api", "not-waiting"]}).json()
+    assert said["seen"] == ["api"], "only a session that is waiting can be set aside"
+    assert said["states"]["api"]["seen"] is True
+    # It lasts for this wait only: the agent works and stops, and asks again.
+    agent(app, "api", "working")
+    agent(app, "api", "waiting")
+    assert client.get("/api/tmux/states").json()["states"]["api"]["seen"] is False
+
+
+def test_got_it_wants_a_list(client):
+    assert client.post("/api/tmux/seen", json={"sessions": "api"}).status_code == 400
