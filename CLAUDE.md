@@ -248,6 +248,16 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   drifted past the edge. Raising one also drags it back inside, and flashes it, because
   raising a window that was already on top would otherwise answer with nothing.
 
+- **A selection is offered to the desk's other sessions** (`showSelectionOffer` in wall.js,
+  `handle.onSelected` in termpaths.js, `tests/browser/test_seloffer.py`). Select text in one
+  terminal and a button appears where the mouse let go; it types the text into another
+  session of the desk, not sent. Two sources: xterm's own selection, read on the release, and
+  tmux's — with `mouse on` + `set-clipboard on` the browser never sees a selection, the copy
+  arrives as OSC 52 just after the release. Either counts only within 2 s of a release *in that
+  window* (tmux sends the copy to every client). In CDP a drag needs `buttons: 1` on each move,
+  and a fitted terminal has many more rows than the session was created with.
+- **Each `.deck` is `isolation: isolate`.** A window's z-index grows by one per raise with no
+  ceiling, and outranked the desk card and every overlay on the page; contained, it cannot.
 - **Desk tabs drag to reorder, and pin.** `reorderTab()` starts only once the pointer has
   travelled 8px, which leaves a tap (activate), a double-click (rename) and a hold (menu)
   alone; `slideInto()` FLIP-animates the neighbours so you can see what moved. The click

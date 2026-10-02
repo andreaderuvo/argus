@@ -2,7 +2,7 @@
 import { muteSession, muted, paintBells, quieten, ring, rung } from '/js/bells.js';
 import { chained, deskChain, toggleChain } from '/js/chains.js';
 import { savePrefs } from '/js/core.js';
-import { paintDeskStates } from '/js/counts.js';
+import { agentStates, paintDeskStates } from '/js/counts.js';
 import { ask, confirmBox, copyText, modal, showText, toast, undoToast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { holdFor } from '/js/filerows.js';
@@ -208,6 +208,41 @@ export async function screenWall() {
       const n = deskChain(ws.id).filter((name) => open.some((o) => o.name === `term:${name}`)).length;
       chainNote.hidden = n < 2;
       chainNote.querySelector('.count').textContent = String(n);
+    }
+
+    /** Text selected in one terminal, offered to the other sessions of this desk.
+     *
+     *  A worker says something the reviewer needs to see, or the other way round: select it, and
+     *  a button appears where the mouse let go. It lists the desk's other sessions, agents first
+     *  with what they are doing, and the one you pick gets the text typed in — not sent: the
+     *  Enter is yours, the same rule every hand-off here keeps. Nothing appears in a desk with
+     *  one terminal, where there is nobody to hand it to.
+     */
+    function offerSelection(from, text, x, y) {
+      const others = open.filter((o) => o !== from && o.name.startsWith('term:'));
+      if (!others.length) return;
+      // What a terminal selection carries that nobody wants pasted: the padding each line gets,
+      // and the newline after the last one, which an agent's box would take as Enter.
+      const clean = text.replace(/[ \t]+$/gm, '').replace(/\n+$/, '');
+      if (!clean.trim()) return;
+      const rank = (o) => {
+        const st = agentStates.get(o.name.slice(5));
+        return st?.state === 'waiting' ? 0 : st ? 1 : 2;
+      };
+      others.sort((a, b) => rank(a) - rank(b));
+      showSelectionOffer(clean, x, y, others.map((o) => ({
+        name: o.name.slice(5),
+        state: agentStates.get(o.name.slice(5)),
+        give: () => {
+          typeInto(o.handle, clean, false);
+          o.win.style.zIndex = ++top;
+          o.win.classList.remove('raised');
+          void o.win.offsetWidth;                      // restart the animation if it was running
+          o.win.classList.add('raised');
+          o.handle.focus();
+          toast(t('put into {session}', { session: o.name.slice(5) }));
+        },
+      })));
     }
 
     /** A path dropped on a window. A terminal is told about it, a browser goes there. */
@@ -550,6 +585,7 @@ export async function screenWall() {
         };
       }
       const entry = { win, handle, name: id, chainBtn: chain };
+      if (spec.kind === 'term') handle.onSelected?.((text, x, y) => offerSelection(entry, text, x, y));
       if (spec.kind === 'term') extras.append(copyButton(handle, 'winbtn'), relabel, doom, quiet, dress, chain, ...sizeButtons(handle, 'winbtn'));
       open.push(entry);
       if (chain) paintChain();
@@ -2685,6 +2721,52 @@ function dragBy(grabber, win, bounds, onDone, ignore = [], peers = () => [], onT
  *  having windows at all is the terminal on one side and what it is talking about on the
  *  other. When neither side has room, this says so and the window lands where any other
  *  new window would. */
+/** The one floating offer on the page: a button where the mouse let go, then the sessions to
+ *  give the selection to. Gone on the next press anywhere else, on Esc, on a scroll, or after
+ *  twelve seconds of being ignored. */
+let selectionOffer = null;
+function hideSelectionOffer() {
+  selectionOffer?.el.remove();
+  clearTimeout(selectionOffer?.timer);
+  selectionOffer = null;
+}
+function showSelectionOffer(text, x, y, targets) {
+  hideSelectionOffer();
+  const box = el('div', { className: 'seloffer', role: 'dialog' });
+  const lines = text.split('\n').length;
+  const what = lines > 1 ? t('{n} lines', { n: lines }) : t('{n} characters', { n: text.length });
+  const place = () => {
+    const w = box.offsetWidth;
+    const h = box.offsetHeight;
+    box.style.left = `${Math.max(8, Math.min(x + 10, innerWidth - w - 8))}px`;
+    box.style.top = `${Math.max(8, Math.min(y + 12, innerHeight - h - 8))}px`;
+  };
+  const list = () => {
+    box.replaceChildren(el('div', { className: 'selofferhead', textContent: t('Type it into…') }), ...targets.map((one) =>
+      el('button', { className: `seloffertarget${one.state?.state ? ` ${one.state.state}` : ''}`, type: 'button',
+        onclick: () => { hideSelectionOffer(); one.give(); } }, [
+        el('span', { className: 'seloffdot' }),
+        el('span', { className: 'grow', textContent: one.name }),
+        el('span', { className: 'meta', textContent: one.state ? `${one.state.agent || t('agent')} · ${one.state.state === 'working' ? t('working') : t('waiting')}` : '' }),
+      ])), el('div', { className: 'selofferfoot', textContent: t('typed in, not sent — the Enter is yours') }));
+    place();
+  };
+  const pill = el('button', { className: 'selofferpill', type: 'button',
+    title: t('Type the selection ({what}) into another session of this desk', { what }) }, [
+    icon('relay'), el('span', { textContent: targets.length === 1 ? t('to {session}', { session: targets[0].name }) : t('Send to…') }),
+  ]);
+  pill.onclick = () => (targets.length === 1 ? (hideSelectionOffer(), targets[0].give()) : list());
+  box.append(pill);
+  document.body.append(box);
+  place();
+  selectionOffer = { el: box, timer: setTimeout(hideSelectionOffer, 12000) };
+}
+document.addEventListener('pointerdown', (e) => {
+  if (selectionOffer && !e.target.closest?.('.seloffer')) hideSelectionOffer();
+}, true);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideSelectionOffer(); });
+window.addEventListener('wheel', () => hideSelectionOffer(), { passive: true, capture: true });
+
 export function beside(win) {
   const deck = win.parentElement?.getBoundingClientRect();
   if (!deck?.width) return null;

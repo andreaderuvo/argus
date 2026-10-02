@@ -977,6 +977,12 @@
   "Let it search the web": "Puede buscar en la web",
   "everything, no questions (--yolo)": "todo, sin preguntas (--yolo)",
   "About Argus": "Acerca de Argus",
-  "the repository, the documentation and the site": "el repositorio, la documentación y el sitio"
+  "the repository, the documentation and the site": "el repositorio, la documentación y el sitio",
+  "Type it into…": "Escríbelo en…",
+  "typed in, not sent — the Enter is yours": "escrito, no enviado: el Enter es tuyo",
+  "Type the selection ({what}) into another session of this desk": "Escribe la selección ({what}) en otra sesión de este escritorio",
+  "to {session}": "a {session}",
+  "Send to…": "Enviar a…",
+  "{n} lines": "{n} líneas"
  }
 }

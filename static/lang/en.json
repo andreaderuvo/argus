@@ -977,6 +977,12 @@
   "Let it search the web": "Let it search the web",
   "everything, no questions (--yolo)": "everything, no questions (--yolo)",
   "About Argus": "About Argus",
-  "the repository, the documentation and the site": "the repository, the documentation and the site"
+  "the repository, the documentation and the site": "the repository, the documentation and the site",
+  "Type it into…": "Type it into…",
+  "typed in, not sent — the Enter is yours": "typed in, not sent — the Enter is yours",
+  "Type the selection ({what}) into another session of this desk": "Type the selection ({what}) into another session of this desk",
+  "to {session}": "to {session}",
+  "Send to…": "Send to…",
+  "{n} lines": "{n} lines"
  }
 }

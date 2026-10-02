@@ -1349,7 +1349,11 @@ button.ghost.dup:hover { color: var(--accent); border-color: var(--accent); }
 #wall { flex: 1; min-height: 0; position: relative; }
 
 /* One deck per workspace: the inactive ones keep running, out of sight. */
-.deck { position: absolute; inset: 0; display: none; }
+/* `isolation`: a window's z-index goes up by one every time it is raised, with no ceiling, so
+   after enough clicks it out-ranked everything drawn over the page — the card under a desk tab
+   opened *behind* the agents' windows. Each desk is now its own stacking context: windows only
+   compete with each other, and whatever floats over the page stays over them. */
+.deck { position: absolute; inset: 0; display: none; isolation: isolate; }
 .deck.on { display: block; }
 
 /* a session that went away while its window stayed open */
@@ -3598,4 +3602,25 @@ body:not(.railwide) .railwin.raildesk .railcount { display: none; }
 .startdanger { margin: 0; font-size: .8rem; color: var(--st-warning); }
 .startcmd { display: block; font: .8rem/1.45 ui-monospace, "SF Mono", Menlo, monospace; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: .4rem; padding: .45rem .6rem; white-space: pre-wrap; overflow-wrap: anywhere; }
 @media (max-width: 520px) { .startopt.inline { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- a selection offered to the desk's other sessions (wall.js showSelectionOffer) ---------- */
+.seloffer { position: fixed; z-index: 70; display: grid; gap: .15rem; min-width: 12rem; max-width: min(22rem, calc(100vw - 16px));
+  background: var(--panel); border: 1px solid var(--line); border-radius: .6rem; box-shadow: 0 12px 34px rgba(0, 0, 0, .35);
+  padding: .25rem; animation: deskcardin .12s ease-out; font-size: .84rem; }
+.seloffer:has(.selofferpill) { min-width: 0; padding: 0; border-radius: 999px; }
+.selofferpill { display: inline-flex; align-items: center; gap: .4rem; border: 0; background: var(--accent); color: var(--bg);
+  font: 600 .8rem/1 inherit; padding: .45rem .75rem .45rem .6rem; border-radius: 999px; cursor: pointer; }
+.selofferpill .ico { width: 16px; height: 16px; }
+.selofferpill:hover { filter: brightness(1.08); }
+.selofferhead { color: var(--dim); font-size: .7rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; padding: .4rem .55rem .2rem; }
+.seloffertarget { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: .5rem; text-align: left;
+  border: 0; background: none; color: var(--bright); padding: .45rem .55rem; border-radius: .4rem; cursor: pointer; font: inherit; }
+.seloffertarget:hover, .seloffertarget:focus-visible { background: color-mix(in srgb, var(--accent) 14%, transparent); outline: none; }
+.seloffertarget .grow { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.seloffertarget .meta { color: var(--dim); font-size: .74rem; }
+.seloffdot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); }
+.seloffertarget.working .seloffdot { background: var(--st-good); animation: agentbeat 1.2s ease-in-out infinite; }
+.seloffertarget.waiting .seloffdot { background: var(--st-warning); }
+.selofferfoot { color: var(--dim); font-size: .72rem; padding: .3rem .55rem .35rem; border-top: 1px solid var(--line); margin-top: .15rem; }
+@media (prefers-reduced-motion: reduce) { .seloffer, .seloffertarget.working .seloffdot { animation: none; } }
 

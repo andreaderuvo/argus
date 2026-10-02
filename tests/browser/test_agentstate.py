@@ -109,3 +109,20 @@ def test_the_desk_tabs_say_which_desk_has_an_agent_waiting(make_page, argus, tmp
     page.wait("![...document.querySelectorAll('.tally, .drawertally, #hamburger')].some(e => e.classList.contains('wants'))",
               timeout=5, what="the amber to leave the counts")
     assert argus.api("/api/tmux/states")["states"]["asking"]["seen"] is True
+
+
+def test_the_desk_card_opens_over_windows_however_often_they_were_raised(make_page, argus, tmp_path):
+    agents(tmp_path, argus, spin_for=60)
+    argus.api("/api/prefs", "PATCH", {"changes": {"ws": 1, "wsSeq": 1, "workspaces": [
+        {"id": 1, "name": "Here", "desktop": [{"kind": "term", "name": "busy"}, {"kind": "term", "name": "asking"}]},
+    ]}})
+    page = make_page(route="#/wall")
+    page.wait("document.querySelector('.wstab[data-ws=\"1\"]')?.dataset.agents", timeout=20, what="the tab to know its agents")
+    # A window raised a thousand times, the way a long day of clicking leaves it.
+    page.eval("for (const w of document.querySelectorAll('.win')) w.style.zIndex = 100000")
+    x, y = page._center("document.querySelector('.wstab[data-ws=\"1\"]')")
+    page.send("Input.dispatchMouseEvent", {"type": "mouseMoved", "x": x, "y": y, "button": "none"})
+    page.wait("!!document.querySelector('.deskcard')", timeout=5, what="the card")
+    cx, cy = page._center("document.querySelector('.deskcard .deskcardrow')")
+    on_top = page.eval(f"!!document.elementFromPoint({cx}, {cy})?.closest('.deskcard')")
+    assert on_top, "the card is drawn over the windows, not behind them"

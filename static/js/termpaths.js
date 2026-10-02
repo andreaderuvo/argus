@@ -459,9 +459,31 @@ export function attachTerminal(container, name, { transform, onGone, onBack, onP
     try {
       const text = new TextDecoder().decode(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)));
       copyText(text).then((ok) => ok && toast(t('copied {count} characters', { count: text.length })));
+      selected(text);                          // a tmux mouse selection, as it is copied
     } catch { /* not base64 we can use */ }
     return true;
   });
+
+  /* "You have just selected this, here." For whoever wants to offer something to do with it —
+   *  the desk, which can hand it to another session (wall.js).
+   *
+   *  Two kinds of selection end up here. xterm's own (a Shift-drag when tmux has the mouse), read
+   *  on the release; and tmux's, which never reaches the browser as a selection at all: with
+   *  `mouse on` and `set-clipboard on` it arrives a moment after the release as the OSC 52 copy
+   *  above. Either counts only right after a release *in this window*: tmux sends that copy to
+   *  every client of the session, and only the one where the mouse was should offer anything. */
+  const onSelected = [];
+  let released = null;
+  const selected = (text) => {
+    if (!text?.trim() || !released || Date.now() - released.at > 2000) return;
+    for (const cb of onSelected) cb(text, released.x, released.y);
+    released = null;
+  };
+  container.addEventListener('mouseup', (e) => {
+    if (e.button !== 0) return;
+    released = { x: e.clientX, y: e.clientY, at: Date.now() };
+    setTimeout(() => selected(term.getSelection()), 30);
+  }, true);
 
   // OSC 9 and OSC 777 are what a program prints to say "tell the user". Every modern
   // terminal implements them — iTerm2, WezTerm, Windows Terminal, foot — and being a
@@ -1055,6 +1077,8 @@ export function attachTerminal(container, name, { transform, onGone, onBack, onP
     relayout,
     /** Whatever is highlighted in this terminal right now. */
     selection: () => term.getSelection(),
+    /** Called with (text, x, y) when something is selected here with the mouse. */
+    onSelected: (cb) => { onSelected.push(cb); },
     /** Ask tmux to make this client the one the window is sized for. */
     claim: claimSize,
     /** Stop this client from ever resizing the window — look without touching. */
