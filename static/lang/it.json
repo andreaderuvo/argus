@@ -983,6 +983,7 @@
   "Type the selection ({what}) into another session of this desk": "Scrivi la selezione ({what}) in un’altra sessione di questo desk",
   "to {session}": "a {session}",
   "Send to…": "Manda a…",
-  "{n} lines": "{n} righe"
+  "{n} lines": "{n} righe",
+  "Put away": "Messi da parte"
  }
 }

@@ -57,7 +57,9 @@ def find_chromium() -> str | None:
         return said if os.access(said, os.X_OK) else None
     home = Path.home()
     for pattern in (
-        str(home / ".cache/ms-playwright/chromium-*/chrome-linux/chrome"),
+        # chrome-linux64 since Playwright's chromium-1243 (2026-10); chrome-linux before it. Found
+        # the day the new one landed: every browser test here was skipped, quietly, as missing.
+        str(home / ".cache/ms-playwright/chromium-*/chrome-linux*/chrome"),
         str(home / "Library/Caches/ms-playwright/chromium-*/chrome-mac/Chromium.app/Contents/MacOS/Chromium"),
     ):
         found = sorted(glob.glob(pattern))

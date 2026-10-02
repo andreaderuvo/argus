@@ -3408,6 +3408,17 @@ a.addrtext:hover { text-decoration: underline; }
  *  long list of everything. */
 #raildesks { display: flex; flex-direction: column; border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line); margin: .3rem 0; padding: .3rem 0; }
+/* Only where the rail exists, like #railwins: below that the rail is the bottom bar, and the
+   parked desks are in the drawer instead (#drawerdesks). */
+@media (max-width: 899px) { #raildesks { display: none !important; } }
+#drawerdesks { display: grid; gap: .1rem; border-top: 1px solid var(--line); margin-top: .4rem; padding-top: .4rem; }
+#drawerdesks[hidden] { display: none; }
+#drawerdesks .drawerhead { color: var(--dim); font-size: .72rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; padding: .3rem 1rem; }
+#drawerdesks .railwin { display: flex; align-items: center; gap: .7rem; width: 100%; text-align: left; border: 0; background: none;
+  color: var(--text); font: inherit; padding: .65rem 1rem; border-radius: .5rem; cursor: pointer; }
+#drawerdesks .railwin:hover { background: var(--line); color: var(--bright); }
+#drawerdesks .railname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#drawerdesks .railcount { display: inline; margin-left: auto; font-size: .75rem; color: var(--dim); }
 #raildesks:empty { display: none; }
 .railwin.raildesk .raildot { width: 10px; height: 10px; border-radius: 50%; flex: none;
   margin: 0 3px; box-shadow: 0 0 0 1px var(--bg); }

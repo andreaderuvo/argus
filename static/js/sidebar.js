@@ -999,6 +999,12 @@ export function paintRailDesks() {
   const away = (prefs.workspaces || []).filter((w) => w.hidden);
   railDesks.replaceChildren();
   railDesks.hidden = !away.length || !token;
+  // And in the drawer, which is where a phone keeps them: the rail is a desktop thing, and on a
+  // phone this list landed in the bottom bar as a stack of unstyled grey buttons.
+  const drawerDesks = document.getElementById('drawerdesks');
+  drawerDesks?.replaceChildren();
+  if (drawerDesks) drawerDesks.hidden = !away.length || !token;
+  if (drawerDesks && away.length) drawerDesks.append(el('div', { className: 'drawerhead', textContent: t('Put away') }));
   for (const ws of away) {
     /* Worked out from the stored list rather than from live windows.
      *
@@ -1030,6 +1036,11 @@ export function paintRailDesks() {
     }
     button.dataset.ws = ws.id;
     railDesks.append(button);
+    if (drawerDesks) {
+      const row = button.cloneNode(true);
+      row.onclick = () => { openDrawer(false); button.onclick(); };
+      drawerDesks.append(row);
+    }
   }
   paintDeskStates();
 }
@@ -1220,9 +1231,14 @@ function buildDrawer() {
   }
   // No Settings row: the sliders are two icons away in the header, on every screen, and a
   // menu that repeats the header is a menu with one more thing to read.
+  // The desks you put away, filled by paintRailDesks: on a phone this is the only place they are.
+  panel.append(el('div', { id: 'drawerdesks', hidden: true }));
 
   const veil = el('div', { id: 'drawerveil', onclick: () => openDrawer(false) });
   document.body.append(veil, panel);
+  // #drawerdesks is filled by paintRailDesks — not from here: this runs while the modules are
+  // still loading, and that reads the agents' states (tests/js/loadorder.mjs). applyBottomBar
+  // calls it right after rebuilding the drawer, and every bell and desk change calls it again.
 }
 
 /** The bottom bar, or not: with it off the drawer holds everything and the header's

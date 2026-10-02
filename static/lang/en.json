@@ -983,6 +983,7 @@
   "Type the selection ({what}) into another session of this desk": "Type the selection ({what}) into another session of this desk",
   "to {session}": "to {session}",
   "Send to…": "Send to…",
-  "{n} lines": "{n} lines"
+  "{n} lines": "{n} lines",
+  "Put away": "Put away"
  }
 }
