@@ -2400,7 +2400,16 @@ input.groupbox:focus { border-style: solid; border-color: var(--accent); color: 
 /* A phone has no keyboard to take a shortcut with, and the header has no room for the
    icon: measured, it was what pushed the bar past the width of the screen. This is the
    header's button — the bar under a terminal is `#keybar`, and used to share this id. */
-@media (max-width: 560px) { #bar #keys { display: none; } }
+/* A phone's header holds what you reach for there. The keyboard's shortcuts need a keyboard;
+   the repository is in Settings (About Argus). System is in the menu, so its button only stays
+   while it is an alarm — a disk or memory going amber or red — which is the part a phone must
+   not lose. At 424px every phone narrower than that was shown the whole page shrunk to fit
+   (tests/browser/test_layout.py); now 324px, or 350px with the alarm showing, on a 360px phone. */
+@media (max-width: 560px) {
+  #bar #keys, #bar #about { display: none !important; }
+  #bar #vitals:not(.warning):not(.critical) { display: none !important; }
+}
+@media (max-width: 400px) { #bar > button.icon { width: 42px; min-width: 42px; } }
 
 /* Keys, and the list of them. */
 kbd {

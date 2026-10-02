@@ -72,7 +72,7 @@ export function watchVitals() {
 /** Where to read about this thing. Two destinations behind one mark rather than two
  *  marks: the header is the most crowded strip on a phone, and a menu that opens is at
  *  least something you can find — unlike a gesture. */
-bar.about.onclick = () => {
+export function aboutSheet() {
   const body = el('div', { className: 'sheetbody actions' });
   let sheet;
   const place = (glyph, label, hint, url) => body.append(el('a', {
@@ -88,7 +88,8 @@ bar.about.onclick = () => {
   sheet = modal('Argus', body, [
     el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),
   ]);
-};
+}
+bar.about.onclick = aboutSheet;
 
 if (CAN_FULLSCREEN) {
   bar.full.hidden = false;

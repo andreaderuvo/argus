@@ -16,14 +16,11 @@ WIDTHS = [360, 390, 412]
 SCREENS = ["#/sessions", "#/files", "#/settings", "#/system", "#/todo", "#/prompts"]
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "known bug, predates the refactor: the header is 424px wide on every screen — seven 46px "
-    "icon buttons, the title and the gaps — so on any phone narrower than 424px the page "
-    "overflows and is shrunk to fit. Fixing it means choosing which buttons a phone does "
-    "without, which is a design decision. strict: the day it is fixed this turns red, and the "
-    "xfail comes off so it can never come back."))
 @pytest.mark.parametrize("width", WIDTHS)
 def test_the_header_fits_a_phone(make_page, width):
+    """It was 424px — seven 46px buttons, the title, the gaps — so every phone narrower than that
+    was shown the page shrunk to fit. A phone does without the keyboard's shortcuts, System (in
+    the menu) and the repository (in Settings)."""
     page = make_page(viewport={**PHONE, "width": width}, route="#/sessions")
     wide = page.eval("Math.round(document.querySelector('#bar').scrollWidth)")
     assert wide <= width, f"the header needs {wide}px on a {width}px phone"
@@ -51,3 +48,21 @@ def test_nothing_else_makes_the_page_wider(make_page, argus, width, hash_):
           .map(([e, b]) => e.tagName + (typeof e.className === 'string' && e.className ? '.' + e.className.trim().split(/\\s+/).join('.') : '') + ' right=' + Math.round(b.right) + ' page=' + page);
     })())""")
     assert culprits == "[]", f"{hash_} at {width}px: {culprits}"
+
+
+@pytest.mark.parametrize("width", WIDTHS)
+def test_the_header_still_fits_with_the_system_alarm_showing(make_page, width):
+    """System's button stays on a phone while it is an alarm (a disk or memory amber or red)."""
+    page = make_page(viewport={**PHONE, "width": width}, route="#/sessions")
+    page.eval("const v = document.querySelector('#vitals'); v.hidden = false; v.className = 'icon critical'")
+    assert page.eval("getComputedStyle(document.querySelector('#vitals')).display") != "none", "the alarm is shown"
+    wide = page.eval("Math.round(document.querySelector('#bar').scrollWidth)")
+    assert wide <= width, f"the header needs {wide}px on a {width}px phone"
+    page.eval("document.querySelector('#vitals').className = 'icon'")
+    assert page.eval("getComputedStyle(document.querySelector('#vitals')).display") == "none", "and only then"
+
+
+def test_the_repository_is_in_settings_where_the_header_has_no_room(make_page):
+    page = make_page(viewport={**PHONE, "width": 360}, route="#/settings")
+    page.wait("[...document.querySelectorAll('.row.setting')].some(r => r.textContent.includes('About Argus'))",
+              timeout=10, what="About Argus in Settings")

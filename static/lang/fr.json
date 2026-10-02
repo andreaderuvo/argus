@@ -975,6 +975,8 @@
   "work without asking, inside the sandbox": "travaille sans demander, dans le bac à sable",
   "everything, no approvals and no sandbox (--dangerously-bypass-approvals-and-sandbox)": "tout, sans approbation ni bac à sable (--dangerously-bypass-approvals-and-sandbox)",
   "Let it search the web": "Peut chercher sur le web",
-  "everything, no questions (--yolo)": "tout, sans questions (--yolo)"
+  "everything, no questions (--yolo)": "tout, sans questions (--yolo)",
+  "About Argus": "À propos d’Argus",
+  "the repository, the documentation and the site": "le dépôt, la documentation et le site"
  }
 }

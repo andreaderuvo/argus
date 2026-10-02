@@ -1,6 +1,6 @@
 // <imports> generated from what this file uses; edit the code, not this list
 import { paintSince } from '/js/bells.js';
-import { savePrefs } from '/js/core.js';
+import { aboutSheet, savePrefs } from '/js/core.js';
 import { confirmBox, modal, toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { fileIcon } from '/js/fileicons.js';
@@ -828,6 +828,14 @@ export async function screenSettings() {
   wrap.append(group(t('Devices')), deviceRows());
 
   wrap.append(group(t('This copy')), versionRow());
+  // The repository, the documentation and the site: on a phone the header has no room for the
+  // button that opens them, so they are here as well, where Settings is always one tap away.
+  wrap.append(el('button', { className: 'row setting', type: 'button', onclick: aboutSheet }, [
+    el('span', { className: 'grow' }, [
+      el('span', { className: 'name', textContent: t('About Argus') }),
+      el('span', { className: 'meta', textContent: t('the repository, the documentation and the site') }),
+    ]),
+  ]));
 
   // Font size: a stepper rather than a toggle, applied the next time a session opens.
   const size = el('span', { className: 'sw', textContent: `${prefs.fontSize} px` });

@@ -70,8 +70,8 @@ worth knowing before adding a test:
 - Desktop means a **mouse**: headless Chromium reports no hover and no fine pointer, so it is
   started with `--blink-settings` declaring one. Never call `setTouchEmulationEnabled(false)` —
   it resets to "no pointer", not to the mouse. Phone pages get touch emulation and real taps.
-- Taps are converted from layout to screen pixels, because the page is wider than a phone
-  (the header is 424px — see the strict xfail in `test_layout.py`) and a phone shrinks it.
+- Taps are converted from layout to screen pixels, in case a page is wider than the phone and
+  the phone shrinks it (the header was 424px until 2026-10-02; `test_layout.py` keeps it ≤ 360).
 - The terminal is checked by **effect** (a typed command writes a file): xterm draws on a
   canvas, and reading the pane back is never an option here (see the crash above).
 - `tests/test_modules.py` checks the module graph without a browser: every import resolves,
@@ -439,9 +439,10 @@ far is built. The frontend is tested from Python too, by driving a real Chromium
 against a real Argus (`tests/browser/`, above) and reading a measurement back — never by
 asserting on a screenshot.
 
-Known and recorded, not yet fixed: on a phone the header is 424px wide, so any screen
-narrower than that overflows and is shrunk to fit (strict xfail in `tests/browser/test_layout.py`,
-which turns red the day it is fixed). Which buttons a phone does without is a design call.
+The header fits a phone (it was 424px, so every phone narrower than that was shown the page
+shrunk to fit): below 560px it does without the keyboard's shortcuts and the repository (in
+Settings → About Argus), and keeps System only while it is an alarm; below 400px its buttons are
+42px. `test_layout.py` holds it at 360, 390 and 412px, with the alarm showing too.
 
 Two long-standing gaps, both about the same thing: no TLS, which is what would unlock an
 installable PWA, real push notifications and an in-app QR scanner; and no per-device
