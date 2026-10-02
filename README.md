@@ -72,8 +72,12 @@ session and it is typed there; the Enter is left for you.
 
 - **Desks, not tabs**: terminals, folders and documents side by side, one desk per project,
   kept between visits.
+- **Select, and hand it over**: select text in one agent's terminal and a button offers the
+  other sessions of the desk; the one you pick gets it typed in, and the Enter is yours.
 - **Start an agent from the page**: a shell or an agent from your own list, in a folder, with its
   first instruction, and if you want in a fresh git worktree so two agents never edit one tree.
+  Its options are in words, from its own `--help`: what it may do without asking (including
+  `--dangerously-skip-permissions`), the model, the effort, with the command line shown.
 - **Two agents on one job**: a worker and a reviewer, talking through a file you can read.
 
 <p align="center">
