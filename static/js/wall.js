@@ -248,11 +248,13 @@ export async function screenWall() {
     /** "Also →": the prompt you are writing to one agent, sent to another one of this desk too.
      *
      *  While you type into an agent with other agents on the desk, a small button at the foot of
-     *  its window offers the next one — your Two agents partner first. Press it and the Enter you
-     *  are about to give this one is given to that one as well, with the same line. Missed it?
-     *  For a few seconds after the Enter it offers to send what you just sent. One prompt at a
-     *  time: it disarms after each. Only for a line known exactly (termpaths.js `typed`), and not
-     *  in a chained session, where everything typed already goes to the others.
+     *  its window offers the next one — your Two agents partner first, ▾ for another. Pressing it
+     *  sends the line there **now**, typed and with its Enter; the Enter in the window you are
+     *  writing in stays yours. It used to arm and wait for that Enter, and a trace of a real use
+     *  showed the misunderstanding exactly: armed, disarmed, armed again, and no Enter — a button
+     *  that seemed to do nothing. Missed it? For a few seconds after an Enter it offers to send
+     *  what you just sent, unless that line already went. Only for a line known exactly
+     *  (typedline.js), and not to a session that shares the desk's chain with this one.
      */
     function alsoTargets(from) {
       const name = from.name.slice(5);
@@ -272,7 +274,7 @@ export async function screenWall() {
       if (from.also) return from.also;
       const box = el('div', { className: 'alsochip', hidden: true });
       from.win.append(box);
-      from.also = { box, armed: false, pick: 0, after: null, timer: null };
+      from.also = { box, pick: 0, gave: null, after: null, timer: null };
       return from.also;
     }
 
@@ -280,34 +282,33 @@ export async function screenWall() {
       const targets = alsoTargets(from);
       const chip = alsoChip(from);
       if (chip.after) return;                         // showing "send it too" for the last one
-      if (chip.armed && targets.length && line === null) {
-        // Armed, and then the line stopped being known (an arrow, a history recall): the Enter
-        // will not be repeated, and saying so beats a button that quietly disappears.
-        chip.box.replaceChildren(el('span', { className: 'alsolost',
-          textContent: t('the line was edited — it will not go to {session}', { session: targets[chip.pick % targets.length].name.slice(5) }) }));
-        chip.box.hidden = false;
-        return;
-      }
       if (!targets.length || !line?.trim()) {
         chip.box.hidden = true;
-        chip.armed = false;
         return;
       }
       chip.pick %= targets.length;
       const target = targets[chip.pick];
-      const main = el('button', { className: `alsomain${chip.armed ? ' on' : ''}`, type: 'button',
-        title: chip.armed ? t('This prompt will also go to {session}. Press to cancel.', { session: target.name.slice(5) })
-          : t('Send this prompt to {session} too, when you press Enter', { session: target.name.slice(5) }) }, [
-        icon(chip.armed ? 'tick' : 'relay'),
-        el('span', { textContent: t('also → {session}', { session: target.name.slice(5) }) }),
+      const sent = chip.gave === line;
+      const main = el('button', { className: `alsomain${sent ? ' on' : ''}`, type: 'button',
+        title: sent ? t('Sent to {session}', { session: target.name.slice(5) })
+          : t('Send this prompt to {session} now; the Enter here is still yours', { session: target.name.slice(5) }) }, [
+        icon(sent ? 'tick' : 'relay'),
+        el('span', { textContent: sent ? t('sent to {session}', { session: target.name.slice(5) }) : t('also → {session}', { session: target.name.slice(5) }) }),
       ]);
       main.onmousedown = (e) => e.preventDefault();   // keep the focus, and the typing, in the terminal
-      main.onclick = () => { chip.armed = !chip.armed; paintAlso(from, line); from.handle.focus(); };
+      main.onclick = () => {
+        if (chip.gave !== line) {
+          giveAlso(target, line);
+          chip.gave = line;
+        }
+        paintAlso(from, line);
+        from.handle.focus();
+      };
       const parts = [main];
       if (targets.length > 1) {
         const next = el('button', { className: 'alsonext', type: 'button', title: t('Another agent') }, icon('down'));
         next.onmousedown = (e) => e.preventDefault();
-        next.onclick = () => { chip.pick += 1; paintAlso(from, line); from.handle.focus(); };
+        next.onclick = () => { chip.pick += 1; chip.gave = null; paintAlso(from, line); from.handle.focus(); };
         parts.push(next);
       }
       chip.box.replaceChildren(...parts);
@@ -325,23 +326,14 @@ export async function screenWall() {
     function submittedAlso(from, line) {
       const targets = alsoTargets(from);
       const chip = alsoChip(from);
-      if (!targets.length) return;
+      const gave = chip.gave;
+      chip.gave = null;
+      if (!targets.length || line === null || line === gave) {
+        chip.box.hidden = true;                      // nothing known to repeat, or it already went
+        return;
+      }
       const target = targets[chip.pick % targets.length];
-      if (line === null) {
-        // An Enter on a line that was not known. Nothing to repeat — but if it was asked for,
-        // say why it did not happen.
-        if (chip.armed) toast(t('not sent to {session}: the line was edited with the arrows or history, so it is not known exactly', { session: target.name.slice(5) }), true);
-        chip.armed = false;
-        chip.box.hidden = true;
-        return;
-      }
-      if (chip.armed) {
-        chip.armed = false;
-        chip.box.hidden = true;
-        giveAlso(target, line);
-        return;
-      }
-      // Not asked for before the Enter: offered for a moment after it.
+      // Not sent before the Enter: offered for a moment after it.
       clearTimeout(chip.timer);
       chip.after = line;
       const send = el('button', { className: 'alsomain', type: 'button' }, [

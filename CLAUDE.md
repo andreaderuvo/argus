@@ -257,7 +257,11 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   window* (tmux sends the copy to every client). In CDP a drag needs `buttons: 1` on each move,
   and a fitted terminal has many more rows than the session was created with.
 - **"Also →": a prompt typed to one agent, given to another of the desk** (wall.js
-  `paintAlso`/`submittedAlso`, termpaths.js `typed`, `tests/browser/test_also.py`). The line is
+  `paintAlso`/`submittedAlso`, termpaths.js `typed`, `tests/browser/test_also.py`). A press
+  **sends it now** (typed, with its Enter). It first armed and waited for the Enter in the
+  source window; a server-side trace of a real use (since removed) showed armed, disarmed, armed
+  again and no Enter — the button looked dead. When something only fails in the user's real
+  setup, a short-lived trace to the server finds it faster than more guesses. The line is
   rebuilt from the keystrokes, never read off the screen (`static/js/typedline.js`, a leaf module
   tested in Node by `tests/test_typedline.py`). The rule is by exclusion: only keys that move the
   cursor or edit (arrows in both ESC [ and application ESC O forms, the ESC [ n ~ family, Alt-,

@@ -47,18 +47,24 @@ def chip(page):
     return "document.querySelector('.win[data-session=\"writer\"] .alsochip')"
 
 
-def test_armed_before_enter_the_prompt_goes_to_both(make_page, argus, tmp_path):
+def test_a_press_sends_it_to_the_other_agent_now(make_page, argus, tmp_path):
+    """A press sends, there and then. It used to arm and wait for the Enter, and a trace of a real
+    use showed what that looked like: armed, disarmed, armed again, no Enter — nothing happened."""
     a, b = desk(argus, tmp_path)
     page = make_page(route="#/wall")
     into_writer(page)
-    page.type("touch armed")
+    page.type("touch pressed")
     page.wait(f"{chip(page)} && !{chip(page)}.hidden", timeout=5, what="the also button while typing")
     assert "checker" in page.eval(f"{chip(page)}.textContent")
     page.click_at(*page._center(f"{chip(page)}.querySelector('.alsomain')"))
-    page.wait(f"{chip(page)}.querySelector('.alsomain.on')", timeout=3, what="it to be armed")
+    eventually(lambda: (b / "pressed").exists(), timeout=10, what="the checker to have it, on the press")
+    assert not (a / "pressed").exists(), "the Enter here is still the person's"
+    assert "sent" in page.eval(f"{chip(page)}.textContent"), "and the button says it went"
     page.key("Enter", "Enter", text="\r")
-    eventually(lambda: (a / "armed").exists(), timeout=10, what="the writer to run it")
-    eventually(lambda: (b / "armed").exists(), timeout=10, what="the checker to have been given it too")
+    eventually(lambda: (a / "pressed").exists(), timeout=10, what="the writer to run it on its own Enter")
+    import time as _t
+    _t.sleep(0.5)
+    assert page.eval(f"{chip(page)}.hidden"), "no offer to send again what already went"
     for s in ("writer", "checker"):
         argus.tmux("kill-session", "-t", s, check=False)
 

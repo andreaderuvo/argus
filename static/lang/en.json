@@ -995,6 +995,9 @@
   "Seen, nothing to do: stop asking for every agent waiting, on every desk": "Seen, nothing to do: stop asking for every agent waiting, on every desk",
   "seen, nothing to do — each asks again once it has worked": "seen, nothing to do — each asks again once it has worked",
   "the line was edited — it will not go to {session}": "the line was edited — it will not go to {session}",
-  "not sent to {session}: the line was edited with the arrows or history, so it is not known exactly": "not sent to {session}: the line was edited with the arrows or history, so it is not known exactly"
+  "not sent to {session}: the line was edited with the arrows or history, so it is not known exactly": "not sent to {session}: the line was edited with the arrows or history, so it is not known exactly",
+  "Sent to {session}": "Sent to {session}",
+  "Send this prompt to {session} now; the Enter here is still yours": "Send this prompt to {session} now; the Enter here is still yours",
+  "sent to {session}": "sent to {session}"
  }
 }

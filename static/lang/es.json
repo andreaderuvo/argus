@@ -995,6 +995,9 @@
   "Seen, nothing to do: stop asking for every agent waiting, on every desk": "Vistos, nada que hacer: deja de avisar de todos los agentes en espera, en cada escritorio",
   "seen, nothing to do — each asks again once it has worked": "vistos, nada que hacer: cada uno vuelve a avisar tras trabajar",
   "the line was edited — it will not go to {session}": "la línea se editó: no irá a {session}",
-  "not sent to {session}: the line was edited with the arrows or history, so it is not known exactly": "no enviado a {session}: la línea se editó con las flechas o el historial, así que no se sabe con exactitud"
+  "not sent to {session}: the line was edited with the arrows or history, so it is not known exactly": "no enviado a {session}: la línea se editó con las flechas o el historial, así que no se sabe con exactitud",
+  "Sent to {session}": "Enviado a {session}",
+  "Send this prompt to {session} now; the Enter here is still yours": "Envía ahora este prompt a {session}; el Enter aquí sigue siendo tuyo",
+  "sent to {session}": "enviado a {session}"
  }
 }
