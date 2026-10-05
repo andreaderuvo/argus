@@ -15,6 +15,7 @@ import { bar, killLive, live, nav, prefs, server, setLive, token, view } from '/
 import { READABLE, RECONNECT_CAP, copyButton, sizeButtons } from '/js/terminal.js';
 import { termTheme, termThemeWatch } from '/js/theme.js';
 import { currentSpace, linkHarvester, nextWindowId, noteLinks, openWindow } from '/js/tray.js';
+import { followLine } from '/js/typedline.js';
 import { beside } from '/js/wall.js';
 import { t } from '/js/words.js';
 // </imports>
@@ -888,44 +889,9 @@ export function attachTerminal(container, name, { transform, onGone, onBack, onP
   const typed = { line: '', sure: true };
   const onTyping = [];
   const onSubmitted = [];
-  const track = (data) => {
-    // Not typing, and not to be mistaken for it. The terminal answers tmux's questions on the
-    // same channel the keys go out on — what kind of terminal it is (ESC [ ? … c, ESC [ > … c),
-    // its colours (OSC 10/11 … ST), where the cursor is (ESC [ r ; c R) — and sends focus
-    // reports (ESC [ I / O, on every click in or out) and mouse reports. Read as unknown keys,
-    // the answers sent on connecting made every line "not known", and nothing was ever offered.
-    // An arrow key is still a key: it moves the cursor, and the line is then not known.
-    let d = data
-      .replace(/\x1b\[[?>][\d;]*c/g, '')
-      .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '')
-      .replace(/\x1b\[\d+;\d+R/g, '')
-      .replace(/\x1b\[\?[\d;]*\$y/g, '')
-      .replace(/\x1b\[[IO]/g, '')
-      .replace(/\x1b\[<\d+;\d+;\d+[Mm]/g, '')
-      .replace(/\x1b\[M[\s\S]{3}/g, '');
-    if (!d) return;
-    if (d.startsWith('\x1b[200~')) {
-      typed.line += d.replace(/\x1b\[20[01]~/g, '');
-      for (const cb of onTyping) cb(typed.sure ? typed.line : null);
-      return;
-    }
-    for (const ch of d) {
-      if (ch === '\r') {
-        const done = typed.sure && typed.line.trim() ? typed.line : null;
-        typed.line = '';
-        typed.sure = true;
-        if (done) for (const cb of onSubmitted) cb(done);
-      } else if (ch === '\x7f' || ch === '\b') {
-        typed.line = typed.line.slice(0, -1);
-      } else if (ch === '\x15' || ch === '\x03') {
-        typed.line = '';                       // Ctrl-U clears the line, Ctrl-C abandons it
-        typed.sure = true;
-      } else if (ch < ' ' && ch !== '\t' && ch !== '\n') {
-        typed.sure = false;                    // an escape sequence, a control key: lost track
-      } else {
-        typed.line += ch;
-      }
-    }
+  // What was typed, rebuilt from what goes out (typedline.js, where the rules are and are tested).
+  const track = (d) => {
+    for (const done of followLine(typed, d)) for (const cb of onSubmitted) cb(done);
     for (const cb of onTyping) cb(typed.sure ? typed.line : null);
   };
 

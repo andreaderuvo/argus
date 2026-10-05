@@ -256,10 +256,15 @@ export async function screenWall() {
      */
     function alsoTargets(from) {
       const name = from.name.slice(5);
-      if (!agentStates.has(name) || chained(ws.id, name)) return [];
+      if (!agentStates.has(name)) return [];
+      // Left out: a session that already gets everything typed here, because both are in the
+      // desk's chain. Only both — a chain of one sends nothing anywhere, and a desk whose chain
+      // held just the session being typed into used to offer nothing at all.
+      const mirrored = (other) => chained(ws.id, name) && chained(ws.id, other);
       const pair = prefs.pairLoop?.[ws.id];
       const partner = pair ? (pair.builds === name ? pair.reviews : pair.reviews === name ? pair.builds : null) : null;
-      return open.filter((o) => o !== from && o.name.startsWith('term:') && agentStates.has(o.name.slice(5)))
+      return open.filter((o) => o !== from && o.name.startsWith('term:') && agentStates.has(o.name.slice(5))
+        && !mirrored(o.name.slice(5)))
         .sort((a, b) => (a.name.slice(5) === partner ? -1 : 0) - (b.name.slice(5) === partner ? -1 : 0));
     }
 

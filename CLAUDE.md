@@ -258,11 +258,14 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   and a fitted terminal has many more rows than the session was created with.
 - **"Also →": a prompt typed to one agent, given to another of the desk** (wall.js
   `paintAlso`/`submittedAlso`, termpaths.js `typed`, `tests/browser/test_also.py`). The line is
-  rebuilt from the keystrokes, never read off the screen, and trusted only while it is printable
-  keys, backspace and pastes; an arrow, history or Ctrl- key loses it until the next Enter. What
-  the terminal *sends by itself* is not typing and is stripped first: its answers to tmux's
-  queries on connecting (ESC [ ? … c, ESC [ > … c, OSC 10/11, cursor reports), focus reports
-  (ESC [ I/O on every click) and mouse reports — read as keys they made every line unknown.
+  rebuilt from the keystrokes, never read off the screen (`static/js/typedline.js`, a leaf module
+  tested in Node by `tests/test_typedline.py`). The rule is by exclusion: only keys that move the
+  cursor or edit (arrows in both ESC [ and application ESC O forms, the ESC [ n ~ family, Alt-,
+  other control keys) make the line unknown; every other escape sequence — the terminal's answers
+  to tmux and the program (DA, the DCS version string, OSC colours, cursor reports), focus and
+  mouse reports — is skipped whole. Listing the replies instead missed some, and on a real
+  Claude the button never appeared. A target is left out only if it shares the desk's chain with
+  the source: a chain of one sends nothing, and hid the button on a real desk.
 - **"Got it, all"** (counts.js `seeEverything`): the tab strip and the Sessions screen, shown
   only while an agent waits or a bell is up; one POST /api/tmux/seen for every waiting agent.
 - **A session made again under the same name is a new session** (agentstate `held`): keyed by

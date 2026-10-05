@@ -92,3 +92,16 @@ def test_a_line_it_cannot_be_sure_of_is_not_offered(make_page, argus, tmp_path):
     assert page.eval(f"{chip(page)}.hidden"), "and no offer after an Enter on a line it lost"
     for s in ("writer", "checker"):
         argus.tmux("kill-session", "-t", s, check=False)
+
+
+def test_a_chain_of_one_does_not_hide_it(make_page, argus, tmp_path):
+    """Found on a real desk: the session typed into was the only one in the desk's chain. A
+    chain of one sends nothing anywhere, and the button never appeared."""
+    a, b = desk(argus, tmp_path)
+    argus.api("/api/prefs", "PATCH", {"changes": {"chain": {"1": ["writer"]}}})
+    page = make_page(route="#/wall")
+    into_writer(page)
+    page.type("touch chained")
+    page.wait(f"{chip(page)} && !{chip(page)}.hidden", timeout=5, what="the also button, chain of one or not")
+    for s in ("writer", "checker"):
+        argus.tmux("kill-session", "-t", s, check=False)
