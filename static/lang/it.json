@@ -993,6 +993,8 @@
   "send it to {session} too": "mandalo anche a {session}",
   "Got it, all ({n})": "Visti tutti ({n})",
   "Seen, nothing to do: stop asking for every agent waiting, on every desk": "Visti, niente da fare: smetti di segnalare tutti gli agenti in attesa, su ogni desk",
-  "seen, nothing to do — each asks again once it has worked": "visti, niente da fare: ognuno torna a segnalare dopo aver lavorato"
+  "seen, nothing to do — each asks again once it has worked": "visti, niente da fare: ognuno torna a segnalare dopo aver lavorato",
+  "the line was edited — it will not go to {session}": "riga modificata: non andrà a {session}",
+  "not sent to {session}: the line was edited with the arrows or history, so it is not known exactly": "non inviato a {session}: la riga è stata modificata con le frecce o la cronologia, quindi non si sa con esattezza cosa contiene"
  }
 }

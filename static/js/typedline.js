@@ -57,7 +57,9 @@ export function followLine(state, d) {
       continue;
     }
     if (ch === '\r') {
+      // null: an Enter on a line that was not known — sent, but what it said is not known here.
       if (state.sure && state.line.trim()) sent.push(state.line);
+      else if (!state.sure) sent.push(null);
       state.line = '';
       state.sure = true;
     } else if (ch === '\x7f' || ch === '\b') {

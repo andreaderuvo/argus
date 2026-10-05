@@ -35,7 +35,7 @@ CASES = [
     ("abc\x1bOD", "abc", False, []),
     ("abc\x1b[3~", "abc", False, []),
     ("abc\x1b\r", "abc", False, []),            # Alt-Enter, a newline in an agent's box
-    ("abc\x1b[Ddef\r", "", True, []),          # an Enter on a line it lost sends nothing
+    ("abc\x1b[Ddef\r", "", True, [None]),      # an Enter on a line it lost: said, as unknown
     # Ctrl-U and Ctrl-C start the line afresh, known
     ("abc\x1b[D\x15ok\r", "", True, ["ok"]),
 ]

@@ -891,7 +891,7 @@ export function attachTerminal(container, name, { transform, onGone, onBack, onP
   const onSubmitted = [];
   // What was typed, rebuilt from what goes out (typedline.js, where the rules are and are tested).
   const track = (d) => {
-    for (const done of followLine(typed, d)) for (const cb of onSubmitted) cb(done);
+    for (const done of followLine(typed, d)) for (const cb of onSubmitted) cb(done);   // null: not known
     for (const cb of onTyping) cb(typed.sure ? typed.line : null);
   };
 

@@ -3663,4 +3663,6 @@ body:not(.railwide) .railwin.raildesk .railcount { display: none; }
 .deskallseen[hidden], button.allseen[hidden] { display: none; }
 button.block.allseen .ico { color: var(--st-warning); }
 button.block.allseen .name { color: var(--st-warning); font-weight: 600; }
+.alsochip .alsolost { font-size: .72rem; color: var(--st-warning); background: color-mix(in srgb, var(--panel) 92%, transparent);
+  border: 1px solid color-mix(in srgb, var(--st-warning) 40%, var(--line)); border-radius: 999px; padding: .35rem .65rem; }
 

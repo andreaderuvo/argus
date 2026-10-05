@@ -280,6 +280,14 @@ export async function screenWall() {
       const targets = alsoTargets(from);
       const chip = alsoChip(from);
       if (chip.after) return;                         // showing "send it too" for the last one
+      if (chip.armed && targets.length && line === null) {
+        // Armed, and then the line stopped being known (an arrow, a history recall): the Enter
+        // will not be repeated, and saying so beats a button that quietly disappears.
+        chip.box.replaceChildren(el('span', { className: 'alsolost',
+          textContent: t('the line was edited — it will not go to {session}', { session: targets[chip.pick % targets.length].name.slice(5) }) }));
+        chip.box.hidden = false;
+        return;
+      }
       if (!targets.length || !line?.trim()) {
         chip.box.hidden = true;
         chip.armed = false;
@@ -319,6 +327,14 @@ export async function screenWall() {
       const chip = alsoChip(from);
       if (!targets.length) return;
       const target = targets[chip.pick % targets.length];
+      if (line === null) {
+        // An Enter on a line that was not known. Nothing to repeat — but if it was asked for,
+        // say why it did not happen.
+        if (chip.armed) toast(t('not sent to {session}: the line was edited with the arrows or history, so it is not known exactly', { session: target.name.slice(5) }), true);
+        chip.armed = false;
+        chip.box.hidden = true;
+        return;
+      }
       if (chip.armed) {
         chip.armed = false;
         chip.box.hidden = true;
