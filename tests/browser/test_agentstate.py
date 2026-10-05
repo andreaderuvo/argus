@@ -137,7 +137,7 @@ def test_got_it_all_sets_every_desk_aside_at_once(make_page, argus, tmp_path):
         {"id": 2, "name": "Two", "desktop": [{"kind": "term", "name": "asking"}]},
     ]}})
     page = make_page(route="#/wall")
-    button = "document.querySelector('.wstab.allseen')"
+    button = "document.querySelector('.deskallseen')"
     page.wait(f"{button} && !{button}.hidden && {button}.textContent.includes('(2)')", timeout=25,
               what="the button, counting both desks")
     # Both waits settled — a wait that begins after the press is a new one, and asks again.

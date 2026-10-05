@@ -3651,10 +3651,16 @@ body:not(.railwide) .railwin.raildesk .railcount { display: none; }
 @media (prefers-reduced-motion: reduce) { .alsochip { animation: none; } }
 
 /* ---------- "Got it, all": every waiting agent set aside at once (counts.js seeEverything) ---------- */
-.wstab.allseen { margin-left: auto; color: var(--st-warning); border-color: color-mix(in srgb, var(--st-warning) 45%, var(--line)); gap: .35rem; }
-.wstab.allseen .ico { width: 14px; height: 14px; }
-.wstab.allseen:hover { background: var(--st-warning); color: #1b1300; border-color: var(--st-warning); }
-.wstab.allseen[hidden], button.allseen[hidden] { display: none; }
+/* A small pill right after the desks, not a tab of its own at the far end: it is about the
+   amber ones it sits beside. */
+.deskallseen { align-self: center; display: inline-flex; align-items: center; gap: .3rem; flex: none;
+  margin-left: .35rem; padding: .22rem .6rem .22rem .45rem; border-radius: 999px; cursor: pointer;
+  font: 600 .72rem/1 inherit; white-space: nowrap; color: var(--st-warning);
+  background: color-mix(in srgb, var(--st-warning) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--st-warning) 40%, transparent); }
+.deskallseen .ico { width: 13px; height: 13px; }
+.deskallseen:hover { background: var(--st-warning); color: #1b1300; border-color: var(--st-warning); }
+.deskallseen[hidden], button.allseen[hidden] { display: none; }
 button.block.allseen .ico { color: var(--st-warning); }
 button.block.allseen .name { color: var(--st-warning); font-weight: 600; }
 

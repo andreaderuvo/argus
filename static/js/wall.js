@@ -1492,7 +1492,7 @@ export async function screenWall() {
     };
     tabs.append(add);
     // After days away, half the desks asking: one press sets every wait aside (counts.js).
-    tabs.append(el('button', { className: 'wstab allseen', type: 'button', hidden: true, onclick: seeEverything },
+    tabs.append(el('button', { className: 'deskallseen allseen', type: 'button', hidden: true, onclick: seeEverything },
       [icon('tick'), el('span', { className: 'allseenlabel' })]));
     paintAllSeen();
   }
