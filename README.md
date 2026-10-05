@@ -74,6 +74,7 @@ session and it is typed there; the Enter is left for you.
   kept between visits.
 - **Select, and hand it over**: select text in one agent's terminal and a button offers the
   other sessions of the desk; the one you pick gets it typed in, and the Enter is yours.
+- **Also →**: while you write a prompt to one agent, one press sends it to another as well.
 - **Start an agent from the page**: a shell or an agent from your own list, in a folder, with its
   first instruction, and if you want in a fresh git worktree so two agents never edit one tree.
   Its options are in words, from its own `--help`: what it may do without asking (including
