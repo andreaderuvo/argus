@@ -111,6 +111,7 @@ export function paintDeskStates() {
     const dot = tab.querySelector('.tabdot, .raildot');
     if (dot) dot.title = (said || tab.classList.contains('raildesk')) ? '' : t('Change colour');
   }
+  paintAllSeen();
   if (deskCard.for) {
     if (deskCard.for.isConnected) fillDeskCard(deskCard.for); else hideDeskCard();
   }
@@ -164,6 +165,34 @@ function fillDeskCard(tab) {
   card.style.left = `${Math.max(8, Math.min(r.left, innerWidth - card.offsetWidth - 8))}px`;
   card.style.top = `${r.bottom + 4}px`;
   deskCard.for = tab;
+}
+
+/** Every agent waiting for you, on every desk: the ones "Got it, all" sets aside. */
+export function waitingAgents() {
+  return [...agentStates].filter(([, st]) => st.state === 'waiting' && !st.seen).map(([name]) => name);
+}
+
+/** "Got it" for everything at once — after days away, with half the desks asking. Sets every
+ *  wait aside on the server, and answers every bell this page is still showing, including those
+ *  of sessions that are not agents. Each agent asks again when it has worked and stopped. */
+export async function seeEverything() {
+  const names = waitingAgents();
+  try {
+    if (names.length) applyAgentStates((await postJSON('/api/tmux/seen', { sessions: names })).states || {});
+  } catch { /* nothing was set aside */ }
+  for (const name of [...rung.keys()]) quieten(name);
+  paintAllSeen();
+}
+
+/** The "Got it, all" buttons, wherever they are: shown only while something is waiting. */
+export function paintAllSeen() {
+  const n = new Set([...waitingAgents(), ...rung.keys()]).size;
+  for (const b of document.querySelectorAll('.allseen')) {
+    b.hidden = !n;
+    const label = b.querySelector('.allseenlabel');
+    if (label) label.textContent = t('Got it, all ({n})', { n });
+    b.title = t('Seen, nothing to do: stop asking for every agent waiting, on every desk');
+  }
 }
 
 /** "I have seen it, nothing needs doing." Kept on the server, so every device stops asking; it

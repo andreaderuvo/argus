@@ -299,7 +299,7 @@ class Page(Session):
         self.send("Input.insertText", {"text": text})
 
     def key(self, key: str, code: str | None = None, modifiers: int = 0, text: str | None = None) -> None:
-        vk = {"Enter": 13, "Escape": 27, "Tab": 9, "Backspace": 8, "ArrowDown": 40, "ArrowUp": 38}
+        vk = {"Enter": 13, "Escape": 27, "Tab": 9, "Backspace": 8, "ArrowDown": 40, "ArrowUp": 38, "ArrowLeft": 37, "ArrowRight": 39}
         base = {"key": key, "code": code or key, "modifiers": modifiers,
                 "windowsVirtualKeyCode": vk.get(key, ord(key.upper()) if len(key) == 1 else 0)}
         down = {**base, "type": "keyDown"}

@@ -155,6 +155,10 @@ class Watch:
         # What an agent's own hooks said: session -> (state, when). Believed over the pane, which
         # can sit still for minutes while a long command runs. Present = this agent has hooks.
         self.told: dict[str, tuple[str, float]] = {}
+        # Which windows each session's state was read from. A session of the same name with other
+        # windows is another session — killed and made again between two readings — and must not
+        # inherit the old one's wait, or a dismissal of it.
+        self.held: dict[str, frozenset] = {}
 
     # ------------------------------------------------------------ reading tmux and /proc
 
@@ -167,13 +171,15 @@ class Watch:
             return ""
         return p.stdout if p.returncode == 0 else ""
 
-    def read_windows(self) -> dict[str, tuple[str, int]]:
+    def read_windows(self) -> dict[str, tuple[str, int, str]]:
         out = {}
         for line in self._tmux("list-windows", "-a", "-F",
-                               "#{window_id}\t#{window_activity}\t#{session_name}").splitlines():
-            parts = line.split("\t", 2)
-            if len(parts) == 3 and parts[1].isdigit():
-                out[parts[0]] = (parts[2], int(parts[1]))
+                               "#{window_id}\t#{window_activity}\t#{session_created}\t#{session_name}").splitlines():
+            parts = line.split("\t", 3)
+            if len(parts) == 4 and parts[1].isdigit():
+                # When the session was made, too: a new tmux server numbers its windows from @0
+                # again, so the window id alone cannot tell a session from its successor.
+                out[parts[0]] = (parts[3], int(parts[1]), parts[2])
         return out
 
     def read_agents(self) -> dict[str, str]:
@@ -205,8 +211,10 @@ class Watch:
         if now - self.agents_read >= every or set(windows) - set(self.windows):
             self.agents = self.read_agents()
             self.agents_read = now
-        self.windows = {w: s for w, (s, _a) in windows.items()}
-        for w, (_s, activity) in windows.items():
+        self.windows = {w: v[0] for w, v in windows.items()}
+        made = {w: (v[2] if len(v) > 2 else None) for w, v in windows.items()}
+        for w, v in windows.items():
+            activity = v[1]
             self.readings.setdefault(w, deque(maxlen=WINDOW + 2)).append(activity)
         for gone in set(self.readings) - set(windows):
             del self.readings[gone]
@@ -231,6 +239,18 @@ class Watch:
                 continue
             if verdict == "waiting" or by_session.get(s) != "waiting":
                 by_session[s] = verdict
+        holding: dict[str, set] = {}
+        for w, s in self.windows.items():
+            if w in self.agents:
+                holding.setdefault(s, set()).add((w, made.get(w)))
+        for s, ws in holding.items():
+            if s in self.held and self.held[s] != frozenset(ws):
+                self.state.pop(s, None)
+                self.seen.pop(s, None)
+                self.told.pop(s, None)
+            self.held[s] = frozenset(ws)
+        for s in set(self.held) - set(holding):
+            del self.held[s]
         for s, verdict in by_session.items():
             was = self.state.get(s, ("", 0))[0]
             if was != verdict:

@@ -187,3 +187,17 @@ def test_after_it_said_it_stopped_one_redraw_is_not_work_but_drawing_that_goes_o
     for t in range(6, 11):
         w.tick(now=200 + t)
     assert w.states()["api"]["state"] == "working"
+
+
+def test_a_session_made_again_under_the_same_name_is_a_new_session():
+    """Killed and made again between two readings: other windows, so its old wait — and a
+    dismissal of that wait — are not its own."""
+    frames = [{"@1": ("api", 100)}] * 4 + [{"@9": ("api", 100)}] * 4
+    w = Scripted(frames, {"@1": "claude", "@9": "claude"})
+    for t in range(4):
+        w.tick(now=200 + t)
+    w.dismiss(["api"])
+    assert w.states()["api"]["seen"] is True
+    for t in range(4, 8):
+        w.tick(now=200 + t)
+    assert w.states()["api"]["seen"] is False

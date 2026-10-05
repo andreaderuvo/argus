@@ -1,6 +1,6 @@
 // <imports> generated from what this file uses; edit the code, not this list
 import { savePrefs } from '/js/core.js';
-import { agentStates, paintState } from '/js/counts.js';
+import { agentStates, paintAllSeen, paintState, seeEverything } from '/js/counts.js';
 import { ask, confirmBox, copyPath, copyText, modal, toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { fileIcon } from '/js/fileicons.js';
@@ -144,6 +144,16 @@ export async function screenSessions() {
   // Above the list, and shown when the list is empty — which is exactly what it looks like
   // after a reboot.
   view.append(lostAgents());
+  // Every agent waiting, set aside at once: shown only while one is (counts.js paintAllSeen).
+  const allSeen = el('button', { className: 'ghost block allseen', type: 'button', hidden: true, onclick: seeEverything }, [
+    icon('tick'),
+    el('span', { className: 'grow' }, [
+      el('span', { className: 'name allseenlabel' }),
+      el('span', { className: 'meta', textContent: t('seen, nothing to do — each asks again once it has worked') }),
+    ]),
+  ]);
+  view.append(allSeen);
+  paintAllSeen();
 
   if (!sessions.length) {
     view.append(el('p', { className: 'empty', textContent: t('No tmux sessions on this server.') }));

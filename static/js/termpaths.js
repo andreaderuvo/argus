@@ -880,6 +880,55 @@ export function attachTerminal(container, name, { transform, onGone, onBack, onP
     return { erase: hit[0].length, value };
   };
 
+  /* The line being typed here, rebuilt from the keystrokes — for offering it to another agent
+   *  as well (wall.js, "also →"). The screen is never read (see CLAUDE.md), so this is what was
+   *  *typed*, and it is only trusted while it is all there is: printable keys, backspace, a
+   *  paste. An arrow, a history recall, a Ctrl- anything, and what is on the line is no longer
+   *  known — nothing is offered until the next Enter starts a line afresh. */
+  const typed = { line: '', sure: true };
+  const onTyping = [];
+  const onSubmitted = [];
+  const track = (data) => {
+    // Not typing, and not to be mistaken for it. The terminal answers tmux's questions on the
+    // same channel the keys go out on — what kind of terminal it is (ESC [ ? … c, ESC [ > … c),
+    // its colours (OSC 10/11 … ST), where the cursor is (ESC [ r ; c R) — and sends focus
+    // reports (ESC [ I / O, on every click in or out) and mouse reports. Read as unknown keys,
+    // the answers sent on connecting made every line "not known", and nothing was ever offered.
+    // An arrow key is still a key: it moves the cursor, and the line is then not known.
+    let d = data
+      .replace(/\x1b\[[?>][\d;]*c/g, '')
+      .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '')
+      .replace(/\x1b\[\d+;\d+R/g, '')
+      .replace(/\x1b\[\?[\d;]*\$y/g, '')
+      .replace(/\x1b\[[IO]/g, '')
+      .replace(/\x1b\[<\d+;\d+;\d+[Mm]/g, '')
+      .replace(/\x1b\[M[\s\S]{3}/g, '');
+    if (!d) return;
+    if (d.startsWith('\x1b[200~')) {
+      typed.line += d.replace(/\x1b\[20[01]~/g, '');
+      for (const cb of onTyping) cb(typed.sure ? typed.line : null);
+      return;
+    }
+    for (const ch of d) {
+      if (ch === '\r') {
+        const done = typed.sure && typed.line.trim() ? typed.line : null;
+        typed.line = '';
+        typed.sure = true;
+        if (done) for (const cb of onSubmitted) cb(done);
+      } else if (ch === '\x7f' || ch === '\b') {
+        typed.line = typed.line.slice(0, -1);
+      } else if (ch === '\x15' || ch === '\x03') {
+        typed.line = '';                       // Ctrl-U clears the line, Ctrl-C abandons it
+        typed.sure = true;
+      } else if (ch < ' ' && ch !== '\t' && ch !== '\n') {
+        typed.sure = false;                    // an escape sequence, a control key: lost track
+      } else {
+        typed.line += ch;
+      }
+    }
+    for (const cb of onTyping) cb(typed.sure ? typed.line : null);
+  };
+
   term.onData((d) => {
     if (duplicated(d)) return;
     let out = transform ? transform(d) : d;
@@ -893,6 +942,8 @@ export function attachTerminal(container, name, { transform, onGone, onBack, onP
     // their `send`, never back through their input, so a chain cannot echo round itself.
     mirror?.(out);
     if (swap) mirror?.('\x7f'.repeat(swap.erase) + swap.value);
+    track(out);
+    if (swap) track('\x7f'.repeat(swap.erase) + swap.value);
     // Read by the same sweep that marks a pane "might be waiting": typing into it is you
     // addressing whatever it was, which is a stronger and more specific answer than "you
     // looked at it" — you can look at a stuck pane and still not have dealt with it yet.
@@ -1079,6 +1130,10 @@ export function attachTerminal(container, name, { transform, onGone, onBack, onP
     selection: () => term.getSelection(),
     /** Called with (text, x, y) when something is selected here with the mouse. */
     onSelected: (cb) => { onSelected.push(cb); },
+    /** Called with the line as typed so far, or null once it can no longer be known. */
+    onTyping: (cb) => { onTyping.push(cb); },
+    /** Called with the line when Enter sends it — only a line that was known throughout. */
+    onSubmitted: (cb) => { onSubmitted.push(cb); },
     /** Ask tmux to make this client the one the window is sized for. */
     claim: claimSize,
     /** Stop this client from ever resizing the window — look without touching. */

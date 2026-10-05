@@ -2,7 +2,7 @@
 import { muteSession, muted, paintBells, quieten, ring, rung } from '/js/bells.js';
 import { chained, deskChain, toggleChain } from '/js/chains.js';
 import { savePrefs } from '/js/core.js';
-import { agentStates, paintDeskStates } from '/js/counts.js';
+import { agentStates, paintAllSeen, paintDeskStates, seeEverything } from '/js/counts.js';
 import { ask, confirmBox, copyText, modal, showText, toast, undoToast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { holdFor } from '/js/filerows.js';
@@ -243,6 +243,95 @@ export async function screenWall() {
           toast(t('put into {session}', { session: o.name.slice(5) }));
         },
       })));
+    }
+
+    /** "Also →": the prompt you are writing to one agent, sent to another one of this desk too.
+     *
+     *  While you type into an agent with other agents on the desk, a small button at the foot of
+     *  its window offers the next one — your Two agents partner first. Press it and the Enter you
+     *  are about to give this one is given to that one as well, with the same line. Missed it?
+     *  For a few seconds after the Enter it offers to send what you just sent. One prompt at a
+     *  time: it disarms after each. Only for a line known exactly (termpaths.js `typed`), and not
+     *  in a chained session, where everything typed already goes to the others.
+     */
+    function alsoTargets(from) {
+      const name = from.name.slice(5);
+      if (!agentStates.has(name) || chained(ws.id, name)) return [];
+      const pair = prefs.pairLoop?.[ws.id];
+      const partner = pair ? (pair.builds === name ? pair.reviews : pair.reviews === name ? pair.builds : null) : null;
+      return open.filter((o) => o !== from && o.name.startsWith('term:') && agentStates.has(o.name.slice(5)))
+        .sort((a, b) => (a.name.slice(5) === partner ? -1 : 0) - (b.name.slice(5) === partner ? -1 : 0));
+    }
+
+    function alsoChip(from) {
+      if (from.also) return from.also;
+      const box = el('div', { className: 'alsochip', hidden: true });
+      from.win.append(box);
+      from.also = { box, armed: false, pick: 0, after: null, timer: null };
+      return from.also;
+    }
+
+    function paintAlso(from, line) {
+      const targets = alsoTargets(from);
+      const chip = alsoChip(from);
+      if (chip.after) return;                         // showing "send it too" for the last one
+      if (!targets.length || !line?.trim()) {
+        chip.box.hidden = true;
+        chip.armed = false;
+        return;
+      }
+      chip.pick %= targets.length;
+      const target = targets[chip.pick];
+      const main = el('button', { className: `alsomain${chip.armed ? ' on' : ''}`, type: 'button',
+        title: chip.armed ? t('This prompt will also go to {session}. Press to cancel.', { session: target.name.slice(5) })
+          : t('Send this prompt to {session} too, when you press Enter', { session: target.name.slice(5) }) }, [
+        icon(chip.armed ? 'tick' : 'relay'),
+        el('span', { textContent: t('also → {session}', { session: target.name.slice(5) }) }),
+      ]);
+      main.onmousedown = (e) => e.preventDefault();   // keep the focus, and the typing, in the terminal
+      main.onclick = () => { chip.armed = !chip.armed; paintAlso(from, line); from.handle.focus(); };
+      const parts = [main];
+      if (targets.length > 1) {
+        const next = el('button', { className: 'alsonext', type: 'button', title: t('Another agent') }, icon('down'));
+        next.onmousedown = (e) => e.preventDefault();
+        next.onclick = () => { chip.pick += 1; paintAlso(from, line); from.handle.focus(); };
+        parts.push(next);
+      }
+      chip.box.replaceChildren(...parts);
+      chip.box.hidden = false;
+    }
+
+    function giveAlso(target, line) {
+      typeInto(target.handle, line, true);
+      target.win.classList.remove('raised');
+      void target.win.offsetWidth;
+      target.win.classList.add('raised');
+      toast(t('also sent to {session}', { session: target.name.slice(5) }));
+    }
+
+    function submittedAlso(from, line) {
+      const targets = alsoTargets(from);
+      const chip = alsoChip(from);
+      if (!targets.length) return;
+      const target = targets[chip.pick % targets.length];
+      if (chip.armed) {
+        chip.armed = false;
+        chip.box.hidden = true;
+        giveAlso(target, line);
+        return;
+      }
+      // Not asked for before the Enter: offered for a moment after it.
+      clearTimeout(chip.timer);
+      chip.after = line;
+      const send = el('button', { className: 'alsomain', type: 'button' }, [
+        icon('relay'), el('span', { textContent: t('send it to {session} too', { session: target.name.slice(5) }) }),
+      ]);
+      send.onmousedown = (e) => e.preventDefault();
+      send.onclick = () => { done(); giveAlso(target, line); from.handle.focus(); };
+      const done = () => { clearTimeout(chip.timer); chip.after = null; chip.box.hidden = true; };
+      chip.box.replaceChildren(send);
+      chip.box.hidden = false;
+      chip.timer = setTimeout(done, 8000);
     }
 
     /** A path dropped on a window. A terminal is told about it, a browser goes there. */
@@ -586,6 +675,14 @@ export async function screenWall() {
       }
       const entry = { win, handle, name: id, chainBtn: chain };
       if (spec.kind === 'term') handle.onSelected?.((text, x, y) => offerSelection(entry, text, x, y));
+      if (spec.kind === 'term') {
+        handle.onTyping?.((line) => {
+          // Typing again ends the "send it too" offer for the line before.
+          if (entry.also?.after && line) { clearTimeout(entry.also.timer); entry.also.after = null; }
+          paintAlso(entry, line);
+        });
+        handle.onSubmitted?.((line) => submittedAlso(entry, line));
+      }
       if (spec.kind === 'term') extras.append(copyButton(handle, 'winbtn'), relabel, doom, quiet, dress, chain, ...sizeButtons(handle, 'winbtn'));
       open.push(entry);
       if (chain) paintChain();
@@ -1394,6 +1491,10 @@ export async function screenWall() {
       await sessionSheet();
     };
     tabs.append(add);
+    // After days away, half the desks asking: one press sets every wait aside (counts.js).
+    tabs.append(el('button', { className: 'wstab allseen', type: 'button', hidden: true, onclick: seeEverything },
+      [icon('tick'), el('span', { className: 'allseenlabel' })]));
+    paintAllSeen();
   }
 
   const applyLayout = (mode) => {

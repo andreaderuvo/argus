@@ -256,6 +256,18 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   arrives as OSC 52 just after the release. Either counts only within 2 s of a release *in that
   window* (tmux sends the copy to every client). In CDP a drag needs `buttons: 1` on each move,
   and a fitted terminal has many more rows than the session was created with.
+- **"Also →": a prompt typed to one agent, given to another of the desk** (wall.js
+  `paintAlso`/`submittedAlso`, termpaths.js `typed`, `tests/browser/test_also.py`). The line is
+  rebuilt from the keystrokes, never read off the screen, and trusted only while it is printable
+  keys, backspace and pastes; an arrow, history or Ctrl- key loses it until the next Enter. What
+  the terminal *sends by itself* is not typing and is stripped first: its answers to tmux's
+  queries on connecting (ESC [ ? … c, ESC [ > … c, OSC 10/11, cursor reports), focus reports
+  (ESC [ I/O on every click) and mouse reports — read as keys they made every line unknown.
+- **"Got it, all"** (counts.js `seeEverything`): the tab strip and the Sessions screen, shown
+  only while an agent waits or a bell is up; one POST /api/tmux/seen for every waiting agent.
+- **A session made again under the same name is a new session** (agentstate `held`): keyed by
+  window id *and* `#{session_created}`, because a new tmux server numbers windows from @0 again.
+  Without it a recreated session inherited the old one's wait and its dismissal.
 - **Each `.deck` is `isolation: isolate`.** A window's z-index grows by one per raise with no
   ceiling, and outranked the desk card and every overlay on the page; contained, it cannot.
 - **Desk tabs drag to reorder, and pin.** `reorderTab()` starts only once the pointer has

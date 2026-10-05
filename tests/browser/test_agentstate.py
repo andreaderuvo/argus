@@ -126,3 +126,29 @@ def test_the_desk_card_opens_over_windows_however_often_they_were_raised(make_pa
     cx, cy = page._center("document.querySelector('.deskcard .deskcardrow')")
     on_top = page.eval(f"!!document.elementFromPoint({cx}, {cy})?.closest('.deskcard')")
     assert on_top, "the card is drawn over the windows, not behind them"
+
+
+def test_got_it_all_sets_every_desk_aside_at_once(make_page, argus, tmp_path):
+    """After days away, half the desks asking: one press, not one per desk."""
+    argus.kill_sessions()                                  # the button counts every agent waiting
+    agents(tmp_path, argus, spin_for=2)                    # both end up waiting
+    argus.api("/api/prefs", "PATCH", {"changes": {"ws": 1, "wsSeq": 2, "workspaces": [
+        {"id": 1, "name": "One", "desktop": [{"kind": "term", "name": "busy"}]},
+        {"id": 2, "name": "Two", "desktop": [{"kind": "term", "name": "asking"}]},
+    ]}})
+    page = make_page(route="#/wall")
+    button = "document.querySelector('.wstab.allseen')"
+    page.wait(f"{button} && !{button}.hidden && {button}.textContent.includes('(2)')", timeout=25,
+              what="the button, counting both desks")
+    # Both waits settled — a wait that begins after the press is a new one, and asks again.
+    import time as _t
+    def settled():
+        st = argus.api("/api/tmux/states")["states"]
+        return all(st.get(n, {}).get("state") == "waiting" and _t.time() - st[n]["since"] > 4 for n in ("busy", "asking"))
+    from .test_flows import eventually
+    eventually(settled, timeout=25, what="both waits to settle")
+    page.click_at(*page._center(button))
+    page.wait(f"{button}.hidden", timeout=5, what="the button to go once nothing waits")
+    states = argus.api("/api/tmux/states")["states"]
+    assert states["busy"]["seen"] and states["asking"]["seen"]
+    assert not page.eval("!!document.querySelector('.wstab.agents-waiting')"), "no desk asks any more"

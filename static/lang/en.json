@@ -984,6 +984,15 @@
   "to {session}": "to {session}",
   "Send to…": "Send to…",
   "{n} lines": "{n} lines",
-  "Put away": "Put away"
+  "Put away": "Put away",
+  "This prompt will also go to {session}. Press to cancel.": "This prompt will also go to {session}. Press to cancel.",
+  "Send this prompt to {session} too, when you press Enter": "Send this prompt to {session} too, when you press Enter",
+  "also → {session}": "also → {session}",
+  "Another agent": "Another agent",
+  "also sent to {session}": "also sent to {session}",
+  "send it to {session} too": "send it to {session} too",
+  "Got it, all ({n})": "Got it, all ({n})",
+  "Seen, nothing to do: stop asking for every agent waiting, on every desk": "Seen, nothing to do: stop asking for every agent waiting, on every desk",
+  "seen, nothing to do — each asks again once it has worked": "seen, nothing to do — each asks again once it has worked"
  }
 }

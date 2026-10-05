@@ -3635,3 +3635,26 @@ body:not(.railwide) .railwin.raildesk .railcount { display: none; }
 .selofferfoot { color: var(--dim); font-size: .72rem; padding: .3rem .55rem .35rem; border-top: 1px solid var(--line); margin-top: .15rem; }
 @media (prefers-reduced-motion: reduce) { .seloffer, .seloffertarget.working .seloffdot { animation: none; } }
 
+/* ---------- "also →": the prompt being typed, offered to another agent of the desk (wall.js) ---------- */
+.alsochip { position: absolute; right: 14px; bottom: 14px; z-index: 5; display: flex; gap: 2px;
+  animation: deskcardin .12s ease-out; }
+.alsochip[hidden] { display: none; }
+.alsochip button { display: inline-flex; align-items: center; gap: .35rem; border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel) 92%, transparent); color: var(--text); font: 600 .74rem/1 inherit;
+  padding: .35rem .6rem; cursor: pointer; box-shadow: 0 4px 14px rgba(0, 0, 0, .3); }
+.alsochip .alsomain { border-radius: 999px; }
+.alsochip .alsomain:has(+ .alsonext) { border-radius: 999px 0 0 999px; }
+.alsochip .alsonext { border-radius: 0 999px 999px 0; padding: .35rem .4rem; }
+.alsochip .ico { width: 14px; height: 14px; }
+.alsochip button:hover { color: var(--bright); border-color: var(--accent); }
+.alsochip .alsomain.on { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+@media (prefers-reduced-motion: reduce) { .alsochip { animation: none; } }
+
+/* ---------- "Got it, all": every waiting agent set aside at once (counts.js seeEverything) ---------- */
+.wstab.allseen { margin-left: auto; color: var(--st-warning); border-color: color-mix(in srgb, var(--st-warning) 45%, var(--line)); gap: .35rem; }
+.wstab.allseen .ico { width: 14px; height: 14px; }
+.wstab.allseen:hover { background: var(--st-warning); color: #1b1300; border-color: var(--st-warning); }
+.wstab.allseen[hidden], button.allseen[hidden] { display: none; }
+button.block.allseen .ico { color: var(--st-warning); }
+button.block.allseen .name { color: var(--st-warning); font-weight: 600; }
+

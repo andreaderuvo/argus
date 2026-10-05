@@ -984,6 +984,15 @@
   "to {session}": "a {session}",
   "Send to…": "Enviar a…",
   "{n} lines": "{n} líneas",
-  "Put away": "Guardados"
+  "Put away": "Guardados",
+  "This prompt will also go to {session}. Press to cancel.": "Este prompt irá también a {session}. Pulsa para cancelar.",
+  "Send this prompt to {session} too, when you press Enter": "Envía este prompt también a {session} al pulsar Enter",
+  "also → {session}": "también → {session}",
+  "Another agent": "Otro agente",
+  "also sent to {session}": "enviado también a {session}",
+  "send it to {session} too": "envíalo también a {session}",
+  "Got it, all ({n})": "Vistos todos ({n})",
+  "Seen, nothing to do: stop asking for every agent waiting, on every desk": "Vistos, nada que hacer: deja de avisar de todos los agentes en espera, en cada escritorio",
+  "seen, nothing to do — each asks again once it has worked": "vistos, nada que hacer: cada uno vuelve a avisar tras trabajar"
  }
 }
