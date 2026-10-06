@@ -1098,6 +1098,14 @@
   "{name} started, in the desk {desk}": "{name} started, in the desk {desk}",
   "also end its {n} session(s) — {names} — and everything running in them": "also end its {n} session(s) — {names} — and everything running in them",
   "could not end {names}": "could not end {names}",
-  "{n} session(s) ended": "{n} session(s) ended"
+  "{n} session(s) ended": "{n} session(s) ended",
+  "{pack}: {n} roles and models taken in": "{pack}: {n} roles and models taken in",
+  "yours kept: {names}": "yours kept: {names}",
+  "refused: {what}": "refused: {what}",
+  "Import a pack…": "Import a pack…",
+  "Roles and models from a file — yours to keep, never a default": "Roles and models from a file — yours to keep, never a default",
+  "Export mine": "Export mine",
+  "Your roles and models, as a pack to share": "Your roles and models, as a pack to share",
+  "my team pack": "my team pack"
  }
 }

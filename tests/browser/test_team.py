@@ -136,3 +136,26 @@ def test_a_role_of_your_own_is_saved_and_offered_again(make_page, argus):
     page.wait("document.querySelector('.teamnode .teamduty')?.value === 'Use your /security-review skill on the diff.'", timeout=5,
               what="its duty, filled in")
     clean(argus, project)
+
+
+def test_a_pack_is_imported_from_a_file_and_keeps_your_own(make_page, argus):
+    """Import a pack…: the example trading pack lands in your roles and models; a role you already
+    had under the same name is kept as yours."""
+    from pathlib import Path
+    project = desk(argus)
+    argus.api("/api/prefs", "PATCH", {"changes": {"teamRoles": {"strategist": {"duty": "mine, not the pack's", "judge": False}}}})
+    page = make_page(route="#/wall")
+    open_sheet(page, argus, "a strategy for the euro")
+    pack = Path(__file__).resolve().parents[2] / "examples" / "team-packs" / "trading.json"
+    root = page.send("DOM.getDocument")["root"]["nodeId"]
+    node = page.send("DOM.querySelector", {"nodeId": root, "selector": "input.teampackfile"})["nodeId"]
+    page.send("DOM.setFileInputFiles", {"nodeId": node, "files": [str(pack)]})
+    page.wait("[...document.querySelectorAll('.teamcard.mine')].some(c => c.textContent.includes('Trading strategy'))", timeout=10,
+              what="the pack's model, as a card of yours")
+    eventually(lambda: "risk manager" in (argus.api("/api/prefs")["prefs"].get("teamRoles") or {}), timeout=10,
+               what="saved with the preferences")
+    roles = argus.api("/api/prefs")["prefs"]["teamRoles"]
+    assert roles["strategist"]["duty"] == "mine, not the pack's", "a name you had stays yours"
+    assert roles["risk manager"]["judge"] is True and "market analyst" in roles
+    assert "Trading strategy" in argus.api("/api/prefs")["prefs"]["teamModels"]
+    clean(argus, project)

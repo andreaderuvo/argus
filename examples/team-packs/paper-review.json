@@ -1,0 +1,82 @@
+{
+ "argus_team_pack": 1,
+ "name": "Paper review",
+ "description": "A writer and two reviewers in parallel, one for the methods, one for the reader.",
+ "roles": {
+  "methods reviewer": {
+   "duty": "Judge the methods and the numbers: is every claim supported by a result, every statistic right, every figure reproducible from the data described? You do not rewrite the text.",
+   "judge": true
+  },
+  "reader": {
+   "duty": "Read it as a busy scientist from a neighbouring field: where did you get lost, what is said twice, what is missing to follow the argument? Say where, in a list. You do not rewrite the text.",
+   "judge": false
+  }
+ },
+ "models": {
+  "Paper review": {
+   "nodes": [
+    {
+     "id": "writer",
+     "kind": "agent",
+     "role": "writer"
+    },
+    {
+     "id": "methods",
+     "kind": "agent",
+     "role": "methods reviewer",
+     "judge": true,
+     "duty": "Judge the methods and the numbers: is every claim supported by a result, every statistic right, every figure reproducible from the data described? You do not rewrite the text."
+    },
+    {
+     "id": "reader",
+     "kind": "agent",
+     "role": "reader",
+     "duty": "Read it as a busy scientist from a neighbouring field: where did you get lost, what is said twice, what is missing to follow the argument? Say where, in a list. You do not rewrite the text."
+    },
+    {
+     "id": "join",
+     "kind": "join"
+    },
+    {
+     "id": "end",
+     "kind": "end"
+    }
+   ],
+   "edges": [
+    {
+     "from": "writer",
+     "to": "methods",
+     "when": "always"
+    },
+    {
+     "from": "writer",
+     "to": "reader",
+     "when": "always"
+    },
+    {
+     "from": "methods",
+     "to": "join",
+     "when": "always"
+    },
+    {
+     "from": "reader",
+     "to": "join",
+     "when": "always"
+    },
+    {
+     "from": "join",
+     "to": "writer",
+     "when": "always"
+    },
+    {
+     "from": "methods",
+     "to": "end",
+     "when": "DONE"
+    }
+   ],
+   "start": [
+    "writer"
+   ]
+  }
+ }
+}

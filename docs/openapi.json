@@ -2975,6 +2975,52 @@
     ]
    }
   },
+  "/api/teams/pack": {
+   "post": {
+    "description": "A team pack (roles and models in one file) read and judged: what can be taken in, and\nwhat is refused with the reason. Nothing is stored \u2014 the page puts what passed into your\nown preferences, beside what you made yourself.",
+    "operationId": "postApiTeamsPack",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Check Team Pack Api Teams Pack Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Check a team pack before taking it in",
+    "tags": [
+     "Teams"
+    ]
+   }
+  },
   "/api/teams/suggest": {
    "get": {
     "description": "The template a goal reads like, and the checks a folder offers (looked for, never run).",

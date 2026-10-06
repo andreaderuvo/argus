@@ -558,6 +558,16 @@ def create_app(cfg: Config) -> FastAPI:
         except Exception:
             return {"states": {}}
 
+    @app.post("/api/teams/pack", tags=["Teams"], summary="Check a team pack before taking it in")
+    async def check_team_pack(body: dict) -> dict:
+        """A team pack (roles and models in one file) read and judged: what can be taken in, and
+        what is refused with the reason. Nothing is stored — the page puts what passed into your
+        own preferences, beside what you made yourself."""
+        try:
+            return teams.read_pack(body)
+        except ValueError as e:
+            raise ApiError(400, str(e)) from e
+
     @app.get("/api/teams", tags=["Teams"], summary="The teams of agents, and what each is doing")
     async def teams_list(request: Request) -> dict:
         return {"teams": request.app.state.teams.public(), "templates": teams.TEMPLATES,

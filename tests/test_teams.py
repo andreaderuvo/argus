@@ -562,3 +562,33 @@ def test_a_role_of_your_own_is_a_name_and_a_duty(setup):
     long = dict(graph, nodes=[dict(n, duty="x" * 4001) if n["id"] == "executor" else n for n in graph["nodes"]])
     with pytest.raises(ValueError, match="at most 4000"):
         check_graph(long)
+
+
+# ------------------------------------------------------------------ packs
+
+def test_the_example_packs_are_taken_in_whole():
+    """examples/team-packs/: every role and model in them passes, so a download never half-works."""
+    from app.teams import read_pack
+    import json
+    folder = Path(__file__).resolve().parent.parent / "examples" / "team-packs"
+    packs = sorted(folder.glob("*.json"))
+    assert {p.stem for p in packs} >= {"trading", "security-review", "paper-review"}
+    for p in packs:
+        said = read_pack(json.loads(p.read_text()))
+        assert said["refused"] == [], (p.name, said["refused"])
+        assert said["roles"] and said["models"], p.name
+
+
+def test_a_pack_is_judged_entry_by_entry():
+    from app.teams import read_pack
+    with pytest.raises(ValueError, match="not an Argus team pack"):
+        read_pack({"roles": {}})
+    said = read_pack({"argus_team_pack": 1, "name": "mixed", "roles": {
+        "Quant  Analyst": {"duty": "Look at the numbers."}, "x" * 40: {"duty": "too long a name"},
+        "lazy": {"duty": ""}}, "models": {
+        "loops": {"nodes": [{"id": "a", "kind": "agent"}], "edges": [{"from": "a", "to": "a", "when": "always"}], "start": ["a"]},
+        "ok": {"nodes": [{"id": "a", "kind": "agent", "session": "old-a"}, {"id": "end", "kind": "end"}],
+               "edges": [{"from": "a", "to": "end", "when": "DONE"}], "start": ["a"]}}})
+    assert list(said["roles"]) == ["quant analyst"], "names cleaned to the form the sheet uses"
+    assert list(said["models"]) == ["ok"] and "session" not in said["models"]["ok"]["nodes"][0]
+    assert sorted(r["what"] for r in said["refused"]) == ["model loops", "role lazy", f"role {'x' * 40}"]

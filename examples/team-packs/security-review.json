@@ -1,0 +1,82 @@
+{
+ "argus_team_pack": 1,
+ "name": "Security review",
+ "description": "An auditor finds, a fixer fixes, the tests check, the auditor judges again.",
+ "roles": {
+  "security auditor": {
+   "duty": "Review the code named in the goal for security problems: unvalidated input, path traversal, injection, secrets in the code, unsafe defaults. List each finding with file, line and severity in FINDINGS.md. If your agent has a security-review skill, use it. You do not edit the code.",
+   "judge": true
+  },
+  "fixer": {
+   "duty": "Fix the findings in FINDINGS.md, most severe first, one per round, each with a test that fails before the fix. Mark what you fixed in the file.",
+   "judge": false
+  }
+ },
+ "models": {
+  "Security review": {
+   "nodes": [
+    {
+     "id": "auditor",
+     "kind": "agent",
+     "role": "security auditor",
+     "judge": true,
+     "reads": [
+      "fixer"
+     ],
+     "duty": "Review the code named in the goal for security problems: unvalidated input, path traversal, injection, secrets in the code, unsafe defaults. List each finding with file, line and severity in FINDINGS.md. If your agent has a security-review skill, use it. You do not edit the code."
+    },
+    {
+     "id": "fixer",
+     "kind": "agent",
+     "role": "fixer",
+     "worktree": true,
+     "duty": "Fix the findings in FINDINGS.md, most severe first, one per round, each with a test that fails before the fix. Mark what you fixed in the file."
+    },
+    {
+     "id": "tests",
+     "kind": "check",
+     "of": "fixer"
+    },
+    {
+     "id": "end",
+     "kind": "end"
+    }
+   ],
+   "edges": [
+    {
+     "from": "auditor",
+     "to": "fixer",
+     "when": "OK"
+    },
+    {
+     "from": "auditor",
+     "to": "fixer",
+     "when": "REDO"
+    },
+    {
+     "from": "auditor",
+     "to": "end",
+     "when": "DONE"
+    },
+    {
+     "from": "fixer",
+     "to": "tests",
+     "when": "always"
+    },
+    {
+     "from": "tests",
+     "to": "auditor",
+     "when": "PASS"
+    },
+    {
+     "from": "tests",
+     "to": "fixer",
+     "when": "FAIL"
+    }
+   ],
+   "start": [
+    "auditor"
+   ]
+  }
+ }
+}

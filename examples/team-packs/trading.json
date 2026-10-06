@@ -1,0 +1,97 @@
+{
+ "argus_team_pack": 1,
+ "name": "Trading research",
+ "description": "An analyst, a strategist and a risk manager working a strategy on historical data, with a backtest deciding between turns. Paper trading only: keep real account keys away from the agents.",
+ "roles": {
+  "market analyst": {
+   "duty": "Study the instrument and the period named in the goal: trend, volatility, regime changes, events. Write the hypotheses worth testing, with the data behind each, in research.md. You do not write strategy code.",
+   "judge": false
+  },
+  "strategist": {
+   "duty": "Turn the hypotheses into a strategy in strategy.py: entries, exits, position sizing, costs and slippage included. One change per round, and say why. Never look at the out-of-sample period while designing.",
+   "judge": false
+  },
+  "risk manager": {
+   "duty": "Read the backtest output and the change. OK only if the out-of-sample Sharpe is above 1 and the maximum drawdown below 15%; REDO with the reason; BLOCKED if the result smells of overfitting (too many parameters, in-sample far better than out-of-sample).",
+   "judge": true
+  }
+ },
+ "models": {
+  "Trading strategy": {
+   "nodes": [
+    {
+     "id": "analyst",
+     "kind": "agent",
+     "role": "market analyst",
+     "duty": "Study the instrument and the period named in the goal: trend, volatility, regime changes, events. Write the hypotheses worth testing, with the data behind each, in research.md. You do not write strategy code."
+    },
+    {
+     "id": "strategist",
+     "kind": "agent",
+     "role": "strategist",
+     "duty": "Turn the hypotheses into a strategy in strategy.py: entries, exits, position sizing, costs and slippage included. One change per round, and say why. Never look at the out-of-sample period while designing."
+    },
+    {
+     "id": "backtest",
+     "kind": "check",
+     "of": "strategist",
+     "command": "python backtest.py --out-of-sample"
+    },
+    {
+     "id": "risk",
+     "kind": "agent",
+     "role": "risk manager",
+     "judge": true,
+     "reads": [
+      "strategist"
+     ],
+     "duty": "Read the backtest output and the change. OK only if the out-of-sample Sharpe is above 1 and the maximum drawdown below 15%; REDO with the reason; BLOCKED if the result smells of overfitting (too many parameters, in-sample far better than out-of-sample)."
+    },
+    {
+     "id": "end",
+     "kind": "end"
+    }
+   ],
+   "edges": [
+    {
+     "from": "analyst",
+     "to": "strategist",
+     "when": "always"
+    },
+    {
+     "from": "strategist",
+     "to": "backtest",
+     "when": "always"
+    },
+    {
+     "from": "backtest",
+     "to": "risk",
+     "when": "PASS"
+    },
+    {
+     "from": "backtest",
+     "to": "strategist",
+     "when": "FAIL"
+    },
+    {
+     "from": "risk",
+     "to": "strategist",
+     "when": "OK"
+    },
+    {
+     "from": "risk",
+     "to": "strategist",
+     "when": "REDO"
+    },
+    {
+     "from": "risk",
+     "to": "end",
+     "when": "DONE"
+    }
+   ],
+   "start": [
+    "analyst"
+   ]
+  }
+ }
+}

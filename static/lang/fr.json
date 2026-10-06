@@ -1098,6 +1098,14 @@
   "{name} started, in the desk {desk}": "{name} démarré, dans le bureau {desk}",
   "also end its {n} session(s) — {names} — and everything running in them": "terminer aussi ses {n} sessions — {names} — et tout ce qui y tourne",
   "could not end {names}": "impossible de terminer {names}",
-  "{n} session(s) ended": "{n} sessions terminées"
+  "{n} session(s) ended": "{n} sessions terminées",
+  "{pack}: {n} roles and models taken in": "{pack} : {n} rôles et modèles repris",
+  "yours kept: {names}": "les tiens gardés : {names}",
+  "refused: {what}": "refusés : {what}",
+  "Import a pack…": "Importer un paquet…",
+  "Roles and models from a file — yours to keep, never a default": "Rôles et modèles depuis un fichier — à toi, jamais par défaut",
+  "Export mine": "Exporter les miens",
+  "Your roles and models, as a pack to share": "Tes rôles et modèles, en paquet à partager",
+  "my team pack": "mon paquet d’équipe"
  }
 }

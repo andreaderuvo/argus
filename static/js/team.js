@@ -257,6 +257,50 @@ export async function teamSheet({ wsId, home, onStarted }) {
     toast(t('saved as {name}', { name: name.trim() }));
   };
 
+  /* Packs: roles and models in one file, to share or to download (examples/team-packs/ in the
+   *  repository). Taken in only when you choose one, into your own preferences; a name you
+   *  already have is kept as yours, and what the server refused is said with its reason. */
+  const picker = el('input', { type: 'file', accept: '.json,application/json', hidden: true, className: 'teampackfile' });
+  picker.onchange = async () => {
+    const file = picker.files[0];
+    picker.value = '';
+    if (!file) return;
+    try {
+      const said = await postJSON('/api/teams/pack', JSON.parse(await file.text()));
+      const roles = myRoles();
+      const models = mine();
+      const kept = [];
+      let took = 0;
+      for (const [name, role] of Object.entries(said.roles)) {
+        if (roles[name]) kept.push(name); else { roles[name] = role; took++; }
+      }
+      for (const [name, g] of Object.entries(said.models)) {
+        if (models[name]) kept.push(name); else { models[name] = g; took++; }
+      }
+      prefs.teamRoles = roles;
+      prefs.teamModels = models;
+      savePrefs();
+      drawAll();
+      const parts = [t('{pack}: {n} roles and models taken in', { pack: said.name, n: took })];
+      if (kept.length) parts.push(t('yours kept: {names}', { names: kept.join(', ') }));
+      if (said.refused.length) parts.push(t('refused: {what}', { what: said.refused.map((r) => `${r.what} (${r.why})`).join('; ') }));
+      toast(parts.join(' · '), !!said.refused.length);
+    } catch (e) {
+      toast(e instanceof SyntaxError ? t('that file is not JSON') : e.message, true);
+    }
+  };
+  const importPack = el('button', { className: 'ghost', type: 'button', textContent: t('Import a pack…'),
+    title: t('Roles and models from a file — yours to keep, never a default'), onclick: () => picker.click() });
+  const exportPack = el('button', { className: 'ghost', type: 'button', textContent: t('Export mine'),
+    title: t('Your roles and models, as a pack to share'), onclick: () => {
+      const pack = { argus_team_pack: 1, name: t('my team pack'), description: '', roles: myRoles(), models: mine() };
+      const blob = new Blob([JSON.stringify(pack, null, 1)], { type: 'application/json' });
+      const a = el('a', { href: URL.createObjectURL(blob), download: 'argus-team-pack.json' });
+      document.body.append(a);
+      a.click();
+      a.remove();
+    } });
+
   // What the goal and the folder suggest, asked as they change and never overriding a choice made by hand.
   let asking = 0;
   const suggest = async () => {
@@ -280,7 +324,8 @@ export async function teamSheet({ wsId, home, onStarted }) {
     el('label', { className: 'startlabel', textContent: t('what should the team get done?') }), goal,
     cards,
     el('div', { className: 'teampicturehead' }, [
-      el('label', { className: 'startlabel', textContent: t('the team — click a step to change it') }), saveModel]),
+      el('label', { className: 'startlabel', textContent: t('the team — click a step to change it') }),
+      el('span', { className: 'teampackbtns' }, [saveModel, importPack, exportPack, picker])]),
     picture, panel,
     el('label', { className: 'startlabel', textContent: t('in') }), where,
     el('label', { className: 'startlabel', textContent: t('who does what') }), roles,

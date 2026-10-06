@@ -708,6 +708,57 @@ def first_line(text: str) -> str:
 
 # --------------------------------------------------------------------------- what a folder suggests
 
+# --------------------------------------------------------------------------- packs
+
+PACK_MARK = "argus_team_pack"
+ROLE_NAME = re.compile(r"[a-z0-9][a-z0-9 -]{0,29}")
+
+
+def read_pack(doc) -> dict:
+    """A team pack — roles and models in one JSON file, to share or to download — checked
+    before any of it is taken in.
+
+    `{"argus_team_pack": 1, "name", "description", "roles": {name: {duty, judge}}, "models":
+    {name: graph}}`. Nothing in a pack is a default: it is imported by a person, into their
+    own preferences, and can be removed like anything they made themselves. Each role and model
+    is judged on its own, so one broken model does not lose the rest; what is refused comes
+    back with the reason. ValueError only when the file is not a pack at all.
+    """
+    if not isinstance(doc, dict) or doc.get(PACK_MARK) != 1:
+        raise ValueError(f"not an Argus team pack: it needs \"{PACK_MARK}\": 1")
+    out = {"name": str(doc.get("name") or "a team pack")[:60],
+           "description": str(doc.get("description") or "")[:500],
+           "roles": {}, "models": {}, "refused": []}
+    roles, models = doc.get("roles") or {}, doc.get("models") or {}
+    if not isinstance(roles, dict) or not isinstance(models, dict):
+        raise ValueError("roles and models are each an object, name -> what it is")
+    for raw, role in list(roles.items())[:50]:
+        name = " ".join(str(raw).lower().split())
+        if not ROLE_NAME.fullmatch(name):
+            out["refused"].append({"what": f"role {raw}", "why": "a role's name is letters, digits, spaces and dashes, at most 30"})
+            continue
+        duty = role.get("duty") if isinstance(role, dict) else None
+        if not isinstance(duty, str) or not duty.strip() or len(duty) > 4000:
+            out["refused"].append({"what": f"role {name}", "why": "a role needs a duty, at most 4000 characters"})
+            continue
+        out["roles"][name] = {"duty": duty.strip(), "judge": bool(role.get("judge"))}
+    for raw, graph in list(models.items())[:30]:
+        name = " ".join(str(raw).split())[:60]
+        try:
+            if not isinstance(graph, dict):
+                raise ValueError("a model is a graph: nodes, edges, start")
+            g = json.loads(json.dumps(graph))
+            for n in g.get("nodes") or []:
+                for key in ("session", "folder", "state", "outcome"):
+                    n.pop(key, None)
+            check_graph(g)
+        except (ValueError, TypeError, KeyError) as e:
+            out["refused"].append({"what": f"model {name}", "why": str(e)})
+            continue
+        out["models"][name] = g
+    return out
+
+
 def suggest_check(folder: str) -> list[str]:
     """Commands a folder suggests as its check, most likely first. Looked for, never run."""
     p = Path(folder)
