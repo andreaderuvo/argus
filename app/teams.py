@@ -466,6 +466,11 @@ class Director:
             self.save()
         return team
 
+    def sessions_of(self, team_id: str) -> list[str]:
+        """Every session the team has: its agents (started or not yet) and its checks."""
+        team = self.teams[team_id]
+        return [n["session"] for n in team["graph"]["nodes"] if n.get("session")]
+
     def forget(self, team_id: str) -> None:
         self.teams.pop(team_id, None)
         self.save()
@@ -567,7 +572,14 @@ class Director:
             self._start_check(team, nid)
             return
         team["running"][nid] = {"since": self.io.now(), "nudged": False, "seen": len(self._turns(team))}
-        self.io.send(n["session"], prompt_for(team, nid))
+        text = prompt_for(team, nid)
+        # An agent starts when its turn first comes, with that first prompt on its command line
+        # (io.launch): typed into a session still asking "trust this folder?", it was lost.
+        if n.get("launch") and nid not in team.setdefault("launched", []):
+            team["launched"].append(nid)
+            self.io.launch(team, n, text)
+        else:
+            self.io.send(n["session"], text)
         team.setdefault("introduced", {})[nid] = True
         self._note(team, f"round {team['round']}: {nid}'s turn")
 

@@ -3443,7 +3443,7 @@
   },
   "/api/tmux/copymode": {
    "get": {
-    "description": "Is this session showing history rather than the live end?",
+    "description": "Is this session showing history rather than the live end? `missing_ok=1`: a window's\nown poll, for a session that may have been ended elsewhere \u2014 `{gone: true}`, not a 404.",
     "operationId": "getApiTmuxCopymode",
     "parameters": [
      {
@@ -3453,6 +3453,16 @@
       "schema": {
        "title": "Session",
        "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "missing_ok",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Missing Ok",
+       "type": "boolean"
       }
      }
     ],

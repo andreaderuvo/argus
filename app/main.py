@@ -23,7 +23,7 @@ from fastapi import FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 
-from . import build, pluginstate
+from . import build, pluginstate, trust
 from . import (agentflags, teams, wiring, agentstate, resume, announce, asks, bells, devices, favourites, files, fsops, gitwork, journal, labels,
                languages, launch, mounts, network, paths, ports, prefs, proxy, release, runner, runs,
                system, term, tmux, todo)
@@ -332,6 +332,31 @@ class TeamIO:
     def send(self, session: str, text: str) -> None:
         launch.seed(self.app.state.socket, session, text, press_return=True)
 
+    def launch(self, team: dict, n: dict, prompt: str) -> None:
+        """Start an agent for its first turn: its folder trusted in the agent first (what you would
+        answer), and the prompt on its command line, so it runs once the agent is ready whatever it
+        asks first. An agent with no such argument (a script, a shell) is started and typed into."""
+        sock = self.app.state.socket
+        folder = n.get("folder") or team["folder"]
+        program = agentflags.program_of(n["launch"]) or ""
+        trust.trust(folder, program)
+        line = trust.with_first_prompt(n["launch"], program, prompt)
+        launch.start(sock, n["session"], folder, line or n["launch"])
+        if line is None:
+            launch.wait_until_settled(sock, n["session"])
+            launch.seed(sock, n["session"], prompt, press_return=True)
+        # Its window, in the team's desk, on every open page.
+        said = {"what": "started", "name": n["session"], "launcher": "team"}
+        if team.get("ws") is not None:
+            said["desk_id"] = team["ws"]
+            said["desk"] = ""
+        loop = getattr(self.app.state, "loop", None)
+        req = types.SimpleNamespace(app=self.app)
+        if loop is not None:
+            loop.call_soon_threadsafe(bells.announce, req, said)
+        else:
+            bells.announce(req, said)
+
     def state(self, session: str):
         st = self.app.state.agents.states().get(session)
         return (st["state"], st["since"]) if st else None
@@ -397,6 +422,8 @@ async def keeping_the_register(app: FastAPI) -> None:
 async def announcing(app: FastAPI):
     """Announce this machine to a board, if it has been told about one."""
     cfg = app.state.cfg
+    # The loop, for work done in threads (the team director) to tell the open pages something.
+    app.state.loop = asyncio.get_running_loop()
     sweeper = asyncio.create_task(sweeping_the_journal(app.state.journal))
     drops = asyncio.create_task(sweeping_the_drops(app))
     # Sampling agents with nobody looking is what lets one that stops ring a phone through ntfy
@@ -798,13 +825,16 @@ def create_app(cfg: Config) -> FastAPI:
                 except gitwork.GitError as e:
                     raise ApiError(409, str(e)) from e
                 folders[nid] = made["path"]
+        # No agent is started here: each starts when its turn first comes, with that prompt on its
+        # command line (TeamIO.launch) — not typed into a session that may be asking a question.
         sessions: dict[str, str] = {}
-        for nid, session, command, _w in plans:
+        for nid, _session, _command, _w in plans:
             folders.setdefault(nid, str(folder))
-            sessions[nid] = session
-            await asyncio.to_thread(launch.start, state.socket, session, folders[nid], command)
-        await asyncio.gather(*(asyncio.to_thread(launch.wait_until_settled, state.socket, s) for s in sessions.values()))
         filled = teams.fill_graph(graph, base, folders, commands, default_check)
+        for n in filled["nodes"]:
+            for nid, _session, command, _w in plans:
+                if n["id"] == nid:
+                    n["launch"] = command
         # Every check's session now, so its window opens with the others, where the check will run.
         for n in filled["nodes"]:
             if n["kind"] == "check" and not await asyncio.to_thread(tmux.session_exists, state.socket, n["session"]):
@@ -812,11 +842,16 @@ def create_app(cfg: Config) -> FastAPI:
                 await asyncio.to_thread(tmux.run, tmux.new_argv(state.socket, n["session"], of.get("folder") or str(folder)))
                 sessions[n["id"]] = n["session"]
         try:
-            team = state.teams.create(name=base, goal=str(body.get("goal", "")), folder=str(folder), graph=filled,
-                                      template=template, gate=str(body.get("gate") or "ask"),
-                                      max_rounds=int(body.get("max_rounds") or 10), ws=body.get("ws"))
+            team = await asyncio.to_thread(lambda: state.teams.create(
+                name=base, goal=str(body.get("goal", "")), folder=str(folder), graph=filled,
+                template=template, gate=str(body.get("gate") or "ask"),
+                max_rounds=int(body.get("max_rounds") or 10), ws=body.get("ws")))
         except ValueError as e:
             raise ApiError(400, str(e)) from e
+        # The agents that started with it (the first steps), beside the checks.
+        for n in filled["nodes"]:
+            if n.get("launch") and n["id"] in team.get("launched", []):
+                sessions[n["id"]] = n["session"]
         return {"team": next(t for t in state.teams.public() if t["id"] == team["id"]), "sessions": sessions,
                 "worktrees": {k: v for k, v in folders.items() if v != str(folder)}}
 
@@ -829,7 +864,23 @@ def create_app(cfg: Config) -> FastAPI:
         if act is None:
             raise ApiError(400, "action is go, pause or stop")
         await asyncio.to_thread(act, team_id)
-        return {"team": next(t for t in director.public() if t["id"] == team_id)}
+        # Stop `{kill: true}`: and end every session of the team — its agents and its checks —
+        # with everything running in them. What it wrote (the log, the files, any worktree) stays.
+        ended = []
+        if action == "stop":
+            try:
+                body = await request.json()
+            except Exception:
+                body = {}
+            if isinstance(body, dict) and body.get("kill"):
+                for name in director.sessions_of(team_id):
+                    if await asyncio.to_thread(tmux.session_exists, request.app.state.socket, name):
+                        try:
+                            await asyncio.to_thread(tmux.run, tmux.kill_argv(request.app.state.socket, name))
+                            ended.append(name)
+                        except tmux.TmuxError:
+                            pass
+        return {"team": next(t for t in director.public() if t["id"] == team_id), "ended": ended}
 
     @app.delete("/api/teams/{team_id}", tags=["Teams"], summary="Forget a finished team")
     async def teams_forget(request: Request, team_id: str) -> dict:
@@ -1251,10 +1302,14 @@ def create_app(cfg: Config) -> FastAPI:
         """
         # `missing_ok=1`: a window asking about its own session, which may have been ended from
         # elsewhere a moment ago — `{gone: true}`, not a 404 in the console of every open page.
-        if missing_ok and not await asyncio.to_thread(tmux.session_exists, request.app.state.socket, str(session or "")):
-            return {"session": session, "gone": True}
-        name = await _known(request, session)
-        found = await asyncio.to_thread(paths.pane_where, request.app.state.socket, name)
+        try:
+            name = await _known(request, session)
+            found = await asyncio.to_thread(paths.pane_where, request.app.state.socket, name)
+        except (ApiError, tmux.TmuxError):
+            # Gone between two questions to tmux: the same answer as gone before the first.
+            if missing_ok:
+                return {"session": session, "gone": True}
+            raise
         # Where the answer came from travels with it. A directory the agent declared, one
         # read off the process holding the terminal, one tmux observed, and the one the pane
         # was made in are four different degrees of true, and a browser that is told which
@@ -1277,10 +1332,16 @@ def create_app(cfg: Config) -> FastAPI:
         }
 
     @app.get("/api/tmux/copymode", tags=["Sessions"], summary="Is this session showing history rather than the live end")
-    async def read_copy_mode(request: Request, session: str) -> dict:
-        """Is this session showing history rather than the live end?"""
-        name = await _known(request, session)
-        return await asyncio.to_thread(tmux.copy_mode, request.app.state.socket, name)
+    async def read_copy_mode(request: Request, session: str, missing_ok: bool = False) -> dict:
+        """Is this session showing history rather than the live end? `missing_ok=1`: a window's
+        own poll, for a session that may have been ended elsewhere — `{gone: true}`, not a 404."""
+        try:
+            name = await _known(request, session)
+            return await asyncio.to_thread(tmux.copy_mode, request.app.state.socket, name)
+        except (ApiError, tmux.TmuxError):
+            if missing_ok:
+                return {"session": session, "gone": True, "in_mode": False}
+            raise
 
     @app.post("/api/tmux/copymode", tags=["Sessions"], summary="Back to the live end")
     async def exit_copy_mode(request: Request, body: dict) -> dict:

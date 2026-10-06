@@ -62,7 +62,13 @@ def test_a_team_is_started_from_the_desk_and_shows_on_it_as_a_graph(make_page, a
 
     # Stop is one press, and a stopped team can be forgotten.
     page.click_at(*page._center("[...document.querySelectorAll('.teamline button')].find(b => b.textContent === 'Stop')"))
+    # It asks whether to end the team's sessions too; ticked, they go.
+    page.wait("!!document.querySelector('.confirmcheck')", timeout=5, what="the question")
+    assert "Fix-a-bug-executor" in page.eval("document.querySelector('.confirmcheck').textContent")
+    page.click_at(*page._center("document.querySelector('.confirmcheck input')"))
+    page.click_at(*page._center("[...document.querySelectorAll('dialog.sheet button')].find(b => b.textContent === 'Stop')"))
     eventually(lambda: argus.api("/api/teams")["teams"][0]["status"] == "stopped", timeout=10, what="the team to stop")
+    eventually(lambda: not any(s.startswith("Fix-a-bug-") for s in argus.sessions()), timeout=10, what="its sessions ended")
     page.wait("document.querySelector('.teamline')?.textContent.includes('stopped')", timeout=10, what="the line to say so")
     page.click_at(*page._center("[...document.querySelectorAll('.teamline button')].find(b => b.title === 'Forget this team')"))
     eventually(lambda: argus.api("/api/teams")["teams"] == [], timeout=10, what="the team to be forgotten")

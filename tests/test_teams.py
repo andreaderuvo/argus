@@ -35,6 +35,11 @@ class FakeIO:
     def send(self, session, text):
         self.sent.append((session, text))
 
+    def launch(self, team, n, prompt):
+        """An agent's first turn starts its session; recorded as a send to it, which it is."""
+        self.launched = getattr(self, "launched", []) + [n["session"]]
+        self.sent.append((n["session"], prompt))
+
     def state(self, session):
         return self.states.get(session)
 
@@ -491,7 +496,8 @@ def test_a_whole_optimise_team_through_the_api(tmp_path, monkeypatch):
             "check": "test -f made-by-executor", "gate": "goal", "max_rounds": 3})
         assert r.status_code == 200, r.text
         said = r.json()
-        assert said["sessions"] == {"executor": "speed-executor", "reviewer": "speed-reviewer", "check": "speed-check"}
+        # The reviewer is not started yet: an agent starts when its turn first comes.
+        assert said["sessions"] == {"executor": "speed-executor", "check": "speed-check"}
         team = run_until_settled(app, said["team"]["id"])
         assert team["status"] == "done", team["history"]
         log = (project / "TEAM.argus.md").read_text()

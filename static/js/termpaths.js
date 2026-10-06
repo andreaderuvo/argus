@@ -550,7 +550,7 @@ export function attachTerminal(container, name, { transform, onGone, onBack, onP
     if (!onScreen()) return;
     let inMode = false;
     try {
-      const where = await getJSON(`/api/tmux/copymode?session=${encodeURIComponent(name)}`);
+      const where = await getJSON(`/api/tmux/copymode?session=${encodeURIComponent(name)}&missing_ok=1`);
       inMode = where.in_mode;
       // Which program owns the screen. Asked of tmux, because the browser cannot tell:
       // tmux itself lives in the alternate buffer, so xterm says "alternate" always.
@@ -980,7 +980,7 @@ export function attachTerminal(container, name, { transform, onGone, onBack, onP
     // the answer come out differently every time.
     if (perWheel || !sentWheels || wasAt === null || !wasBack) return;
     try {
-      const now = await getJSON(`/api/tmux/copymode?session=${encodeURIComponent(name)}`);
+      const now = await getJSON(`/api/tmux/copymode?session=${encodeURIComponent(name)}&missing_ok=1`);
       const moved = Math.abs((now.position ?? 0) - wasAt);
       if (!moved) return;
       perWheel = Math.min(10, Math.max(1, Math.round(moved / sentWheels)));
@@ -996,7 +996,7 @@ export function attachTerminal(container, name, { transform, onGone, onBack, onP
     wasAt = null;
     // Only while we still have to find out; afterwards this costs nothing.
     if (!perWheel && touchY !== null) {
-      getJSON(`/api/tmux/copymode?session=${encodeURIComponent(name)}`)
+      getJSON(`/api/tmux/copymode?session=${encodeURIComponent(name)}&missing_ok=1`)
         .then((where) => { wasAt = where.position ?? 0; wasBack = !!where.in_mode; })
         .catch(() => {});
     }

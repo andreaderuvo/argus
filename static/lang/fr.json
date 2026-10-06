@@ -1177,6 +1177,8 @@
   "Edit as text": "Modifier en texte",
   "This team as YAML: change it by hand and apply it": "Cette équipe en YAML : modifie-la à la main et applique-la",
   "Apply": "Appliquer",
-  "applied — save it as a model to keep it": "appliqué — enregistre-le comme modèle pour le garder"
+  "applied — save it as a model to keep it": "appliqué — enregistre-le comme modèle pour le garder",
+  "Stop the team": "Arrêter l’équipe",
+  "{name} stops: nothing new starts. Its log and files stay.": "{name} s’arrête : plus rien ne démarre. Le journal et les fichiers restent."
  }
 }

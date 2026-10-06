@@ -1,7 +1,7 @@
 // <imports> generated from what this file uses; edit the code, not this list
 import { savePrefs } from '/js/core.js';
 import { agentStates } from '/js/counts.js';
-import { ask, confirmBox, modal, toast } from '/js/dialogs.js';
+import { ask, confirmBox, confirmWithCheck, modal, toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { icon } from '/js/icons.js';
 import { delJSON, getJSON, postJSON, serverInfo } from '/js/reconnect.js';
@@ -603,6 +603,21 @@ export function teamStrip({ wsId, openLog }) {
   const strip = el('div', { className: 'teamstrip', hidden: true });
   const open = new Set();               // teams whose story is unfolded
 
+  // Stop, and — ticked — end every session of the team, agents and checks, with what runs in them.
+  // What it wrote stays: the log, the files, any worktree.
+  const stopTeam = async (team) => {
+    const names = team.nodes.filter((n) => n.session).map((n) => n.session);
+    const said = await confirmWithCheck(t('Stop the team'),
+      t('{name} stops: nothing new starts. Its log and files stay.', { name: team.name }),
+      t('also end its {n} session(s) — {names} — and everything running in them', { n: names.length, names: names.join(', ') }),
+      t('Stop'));
+    if (!said.ok) return;
+    try {
+      const done = await postJSON(`/api/teams/${team.id}/stop`, { kill: said.checked });
+      if (done.ended?.length) toast(t('{n} session(s) ended', { n: done.ended.length }));
+    } catch (e) { toast(e.message, true); }
+    refresh();
+  };
   const act = async (id, action) => {
     try { await postJSON(`/api/teams/${id}/${action}`, {}); } catch (e) { toast(e.message, true); }
     refresh();
@@ -630,7 +645,7 @@ export function teamStrip({ wsId, openLog }) {
       buttons.push(el('button', { className: 'teamgo', type: 'button', textContent: t('Continue'), onclick: () => act(team.id, 'go') }));
     }
     if (team.status === 'running') buttons.push(el('button', { type: 'button', textContent: t('Pause'), onclick: () => act(team.id, 'pause') }));
-    if (live) buttons.push(el('button', { type: 'button', textContent: t('Stop'), onclick: () => act(team.id, 'stop') }));
+    if (live) buttons.push(el('button', { type: 'button', textContent: t('Stop'), onclick: () => stopTeam(team) }));
     buttons.push(el('button', { type: 'button', textContent: t('Log'), title: team.log, onclick: () => openLog(team.log) }));
     buttons.push(el('button', { type: 'button', className: open.has(team.id) ? 'on' : '', textContent: t('Story'),
       onclick: () => { if (open.has(team.id)) open.delete(team.id); else open.add(team.id); refresh(); } }));

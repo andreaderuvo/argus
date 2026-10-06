@@ -1177,6 +1177,8 @@
   "Edit as text": "Edit as text",
   "This team as YAML: change it by hand and apply it": "This team as YAML: change it by hand and apply it",
   "Apply": "Apply",
-  "applied — save it as a model to keep it": "applied — save it as a model to keep it"
+  "applied — save it as a model to keep it": "applied — save it as a model to keep it",
+  "Stop the team": "Stop the team",
+  "{name} stops: nothing new starts. Its log and files stay.": "{name} stops: nothing new starts. Its log and files stay."
  }
 }
