@@ -79,6 +79,8 @@ session and it is typed there; the Enter is left for you.
   first instruction, and if you want in a fresh git worktree so two agents never edit one tree.
   Its options are in words, from its own `--help`: what it may do without asking (including
   `--dangerously-skip-permissions`), the model, the effort, with the command line shown.
+- **Teams**: agents taking turns on one goal (optimise a tool, fix a bug, write a report), with
+  tests or a benchmark run between turns to decide, directed by Argus even with the browser shut.
 - **Two agents on one job**: a worker and a reviewer, talking through a file you can read.
 
 <p align="center">
