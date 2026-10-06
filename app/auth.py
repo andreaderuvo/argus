@@ -306,8 +306,9 @@ class TokenAuthMiddleware:
                     "wait for the answer (/api/ask), pass a sentence to another session "
                     "(/api/relay), start something from the launcher list (/api/tmux/launch), "
                     "make a worktree (/api/git/worktree), report a run (/api/runs), make or "
-                    "rename a desk (/api/desks) and read, add to and move along the to-do list "
-                    "(/api/todo)",
+                    "rename a desk (/api/desks), read, add to and move along the to-do list "
+                    "(/api/todo), and in a team read its task and report its turn "
+                    "(/api/teams/task, /api/teams/done)",
                     status_code=403,
                 )
                 return await response(scope, receive, send)
