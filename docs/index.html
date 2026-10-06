@@ -477,6 +477,9 @@ details p { color: var(--ink2); margin-top: 10px; max-width: 68ch; }
         <p>It is the session that was already running, not a copy of it. You get a key bar for the keys a phone
           has not got, a long press to open a path, and a box to write a line in when the keyboard fights the
           terminal.</p>
+        <p>And it reaches you with the browser closed. Point Argus at <a href="https://ntfy.sh">ntfy</a>, the
+          public server or one of your own, and the phone buzzes when an agent finishes or asks: "cgdist: needs your
+          permission to use Bash", on the lock screen, with the tab long shut.</p>
       </div>
       <svg class="sketch" viewBox="0 0 520 440" role="img" aria-labelledby="s5t" style="max-width:480px;justify-self:center">
         <title id="s5t">A phone showing an agent asking a question, with a key bar of Ctrl, Esc, Tab and arrows under it.</title>
@@ -590,6 +593,12 @@ python3 -m app.main          <span class="c"># prints a URL with a token in it</
       <details><summary>Does it need a plugin in my agent?</summary>
         <p>No. It reads what the session prints and types into it, the way you do, and it works out working and
         waiting from the pane. An optional one-line hook lets an agent ring you on its own.</p></details>
+      <details><summary>Will my phone tell me when an agent is done?</summary>
+        <p>Yes, even with every tab shut. The server watches the agents on its own and, with three lines of
+        config, sends each ring to <a href="https://ntfy.sh">ntfy</a>: install its app, subscribe to your topic,
+        and a finished turn or a question arrives as a notification. On a public server the topic is the
+        password, so pick one nobody can guess, or run ntfy yourself and nothing leaves your network. Off
+        until you set it.</p></details>
       <details><summary>What happens when the machine reboots?</summary>
         <p>The processes die with tmux, as they would anyway. Argus keeps a note of which agent ran in
         which folder and which conversation it was in, and offers them back on the Sessions screen:

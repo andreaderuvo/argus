@@ -34,7 +34,8 @@ of the job that is not typing: knowing, seeing, answering.
 - **Know when one needs you.** Every session says *working* or *waiting for you*, worked out
   from the pane itself, and the tab of each desk shows it. There is nothing to install in the
   agent; it rings once per turn, and an optional one-line hook adds what it wants in words,
-  with ntfy delivery when the browser is closed.
+  and with [ntfy](https://ntfy.sh) the phone buzzes on the lock screen when an agent finishes or
+  asks, with every tab closed (off until you give it a topic).
 - **See what it produced.** Every path an agent prints is a link. Markdown, PDF, Word, images,
   logs and source open beside the session that made them, already rendered.
 - **Answer from anywhere.** The same sessions, still running, on your phone, with a key bar for
