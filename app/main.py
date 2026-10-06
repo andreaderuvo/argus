@@ -23,6 +23,7 @@ from fastapi import FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 
+from . import build
 from . import (agentflags, teams, wiring, agentstate, resume, announce, asks, bells, devices, favourites, files, fsops, gitwork, journal, labels,
                languages, launch, mounts, network, paths, ports, prefs, proxy, release, runner, runs,
                system, term, tmux, todo)
@@ -468,6 +469,7 @@ def create_app(cfg: Config) -> FastAPI:
     app.state.teams = teams.Director(None, TeamIO(app))
     app.state.todo = getattr(cfg, "todo_store", None) or Path("/nonexistent")
     app.state.prefs = getattr(cfg, "prefs_store", None) or Path("/nonexistent")
+    app.state.build = build.read()
     app.state.devices = cfg.devices_store or Path("/nonexistent")
     app.state.journal = cfg.journal_store
     app.state.lang = Path("/nonexistent")
@@ -1666,8 +1668,16 @@ def create_app(cfg: Config) -> FastAPI:
         there, which is also what it does when there is no way out to the network."""
         cfg = request.app.state.cfg
         if not cfg.check_releases:
-            return {"running": VERSION, "latest": None, "url": None, "newer": False, "checked": 0}
-        return await release.look(request.app.state, VERSION)
+            said = {"running": VERSION, "latest": None, "url": None, "newer": False, "checked": 0}
+        else:
+            said = dict(await release.look(request.app.state, VERSION))
+        # The commit, which is what tells two pulls apart; and the one on disk, when a pull has
+        # happened since this server started and a restart is what is missing.
+        running = getattr(request.app.state, "build", None)
+        said["build"] = running
+        disk = await asyncio.to_thread(build.on_disk) if running else ""
+        said["pulled"] = bool(running and disk and disk != running["commit"])
+        return said
 
     @app.get("/api/overview", tags=["The machine"],
              summary="What is happening on this machine, in one cheap call")
@@ -2140,7 +2150,8 @@ def tmux_version() -> str | None:
 
 
 def banner(config_path: Path, created: bool, host: str, port: int, cfg: Config, sock: tmux.Socket) -> None:
-    print(f"argus {VERSION}")
+    made = build.read()
+    print(f"argus {VERSION}" + (f"  ({made['describe'] or made['short']}, {made['date'][:16].replace('T', ' ')})" if made else ""))
     print(f"  created {config_path} with a fresh token" if created else f"  config  {config_path}")
     shown = [str(r) for r in cfg.roots]
     print(f"  roots   {', '.join(shown[:4])}{f' (+{len(shown) - 4} more)' if len(shown) > 4 else ''}")
@@ -2180,7 +2191,9 @@ def main(argv: list[str] | None = None) -> int:
     # have just installed, the first thing an issue report is asked for, and the banner is no
     # substitute — that only appears once the server has started, which is exactly the case
     # where you cannot ask.
-    parser.add_argument("--version", action="version", version=f"argus {VERSION}")
+    made = build.read()
+    parser.add_argument("--version", action="version",
+                        version=f"argus {VERSION}" + (f" ({made['describe'] or made['short']}, {made['date'][:10]})" if made else ""))
     parser.add_argument("-c", "--config", type=Path, help="config file (created with a fresh token on first run)")
     parser.add_argument("-l", "--listen", help="override `listen`, e.g. 0.0.0.0:8080")
     parser.add_argument("-r", "--root", action="append", default=[], type=Path, help="override `roots` (repeatable)")

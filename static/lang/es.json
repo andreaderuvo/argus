@@ -1115,6 +1115,8 @@
   "A team written as YAML, or a pack of roles and models (JSON or YAML) — yours to keep, never a default": "Un equipo escrito en YAML, o un paquete de roles y modelos (JSON o YAML) — tuyo, nunca por defecto",
   "Save as YAML": "Guardar como YAML",
   "This team as a team.yaml to keep in the project, under git": "Este equipo como team.yaml para guardar en el proyecto, bajo git",
-  "{file}: {why}": "{file}: {why}"
+  "{file}: {why}": "{file}: {why}",
+  "with changes not committed": "con cambios sin commit",
+  "a newer commit is on disk — restart Argus to run it": "hay un commit más nuevo en el disco — reinicia Argus para usarlo"
  }
 }

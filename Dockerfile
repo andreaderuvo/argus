@@ -19,6 +19,11 @@ RUN apt-get update \
 
 WORKDIR /opt/argus
 
+# The commit the image was built from, since .git stays out of it: shown beside the version in
+# Settings (app/build.py). The release workflow passes it; a local build may: --build-arg ARGUS_COMMIT=$(git rev-parse HEAD)
+ARG ARGUS_COMMIT=""
+ENV ARGUS_COMMIT=$ARGUS_COMMIT
+
 # Only the runtime block — everything under `# Tests` belongs to people working on Argus.
 COPY requirements.txt ./
 RUN sed '/^# Tests/,$d' requirements.txt > /tmp/runtime.txt \

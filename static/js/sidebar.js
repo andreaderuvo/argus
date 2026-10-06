@@ -935,7 +935,16 @@ export function versionRow() {
   const said = row.querySelector('.sw');
   getJSON('/api/version').then((news) => {
     if (!news) return;
-    said.textContent = news.running;
+    // The version, and the commit it is running from: "0.1.0" is the same for every commit
+    // between two tags, so after a pull the commit and its date are what say where you are.
+    const b = news.build;
+    const when = b?.date ? new Date(b.date).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+    said.textContent = [news.running, b?.short, when].filter(Boolean).join(' · ');
+    if (b) said.title = [b.describe, b.commit, b.dirty ? t('with changes not committed') : ''].filter(Boolean).join('\n');
+    if (news.pulled) {
+      row.querySelector('.meta').textContent = t('a newer commit is on disk — restart Argus to run it');
+      row.querySelector('.meta').classList.add('warn');
+    }
     if (!news.newer || !news.latest) return;
     said.className = 'sw on';
     said.replaceChildren(el('a', {
