@@ -805,6 +805,8 @@ def from_yaml(text: str) -> dict:
         out["goal"] = str(doc["goal"])
     if doc.get("gate") in GATES:
         out["gate"] = doc["gate"]
+    if doc.get("permissions") in ("ask", "edit", "everything"):
+        out["permissions"] = doc["permissions"]
     if isinstance(doc.get("rounds"), int):
         out["rounds"] = max(1, min(MAX_ROUNDS, doc["rounds"]))
     return out
@@ -835,7 +837,8 @@ def to_yaml(graph: dict, name: str = "") -> str:
     for e in graph.get("edges", []):
         grouped.setdefault((e["from"], "done" if e["to"] == "end" else e["to"]), []).append(e["when"])
     flow = [f"{a} -> {b}" + ("" if whens == ["always"] else " if " + ", ".join(whens)) for (a, b), whens in grouped.items()]
-    doc = {"name": name or "my team", **({"goal": graph["goal"]} if graph.get("goal") else {}), "steps": steps, "flow": flow}
+    doc = {"name": name or "my team", **({"goal": graph["goal"]} if graph.get("goal") else {}),
+           **({"permissions": graph["permissions"]} if graph.get("permissions") else {}), "steps": steps, "flow": flow}
     first = next((n["id"] for n in graph.get("nodes", []) if n["kind"] != "end"), None)
     if graph.get("start") and graph["start"] != [first]:
         doc["start"] = graph["start"]
@@ -907,6 +910,10 @@ def read_pack(doc) -> dict:
             g = json.loads(json.dumps(graph))
             if "goal" in g and not (isinstance(g["goal"], str) and len(g["goal"]) <= 2000):
                 raise ValueError("a model's goal is a sentence, at most 2000 characters")
+            # What the agents may do without asking, suggested: ask · edit · everything. Only a
+            # suggestion — the sheet shows it, warns about everything, and the person starts it.
+            if "permissions" in g and g["permissions"] not in ("ask", "edit", "everything"):
+                raise ValueError("a model's permissions are ask, edit or everything")
             for n in g.get("nodes") or []:
                 for key in ("session", "folder", "state", "outcome"):
                     n.pop(key, None)

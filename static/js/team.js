@@ -55,6 +55,12 @@ export async function teamSheet({ wsId, home, onStarted }) {
     el('option', { value: 'edit', textContent: t('edit files freely, ask for the rest'), selected: true }),
     el('option', { value: 'everything', textContent: t('everything, no questions') }),
   ]);
+  // "Everything, no questions" said in red where it is chosen — a pack may suggest it, and the
+  // person still sees it before Start.
+  const danger = el('p', { className: 'error teamdanger', hidden: true,
+    textContent: t('Everything, no questions: the agents run commands and change files without asking anyone (--dangerously-skip-permissions). Use it in a folder you can afford to lose.') });
+  const paintDanger = () => { danger.hidden = alone.value !== 'everything'; };
+  alone.addEventListener('change', paintDanger);
   const checkBox = el('div', { className: 'teamcheck' });
   const check = el('input', { type: 'text', className: 'startpath', spellcheck: false, autocapitalize: 'off' });
   check.setAttribute('list', 'teamchecks');       // an attribute only: the property is read-only
@@ -99,6 +105,8 @@ export async function teamSheet({ wsId, home, onStarted }) {
     graph = clone(key.startsWith('mine:') ? mine()[key.slice(5)] : key.startsWith('file:') ? fileTeam.graph : templates[key].graph);
     // A model may come with a goal (a pack's, a team.yaml's): it fills the box when the box is
     // empty or still holds the last suggestion — never over words you typed.
+    const perm = key.startsWith('file:') ? fileTeam?.permissions : graph.permissions;
+    if (perm && ALONE[perm]) { alone.value = perm; paintDanger(); }
     const suggested = key.startsWith('file:') ? fileTeam?.goal : graph.goal;
     if (suggested && (!goal.value.trim() || goal.value === goal.dataset.suggested)) {
       goal.value = suggested;
@@ -288,7 +296,8 @@ export async function teamSheet({ wsId, home, onStarted }) {
   saveModel.onclick = async () => {
     const name = await ask(t('Save this team as a model'), '', t('Save'));
     if (!name) return;
-    prefs.teamModels = { ...mine(), [name.trim()]: bare(graph) };
+    // The model keeps what the agents may do, as chosen now: it comes back with the card.
+    prefs.teamModels = { ...mine(), [name.trim()]: { ...bare(graph), permissions: alone.value } };
     savePrefs();
     chosen = `mine:${name.trim()}`;
     drawCards();
@@ -529,6 +538,7 @@ export async function teamSheet({ wsId, home, onStarted }) {
     el('label', { className: 'startlabel', textContent: t('in') }), el('div', { className: 'folderrow' }, [where, choose_]), placeLine,
     el('label', { className: 'startlabel', textContent: t('who does what') }), roles,
     el('div', { className: 'startopt inline' }, [el('span', { className: 'startoptname', textContent: t('What they may do without asking') }), alone]),
+    danger,
     checkBox,
     el('label', { className: 'startlabel', textContent: t('how much it goes on alone') }), gate,
     el('div', { className: 'startopt inline' }, [el('span', { className: 'startoptname', textContent: t('At most, rounds') }), rounds]),

@@ -725,3 +725,12 @@ def test_suggest_says_where_the_folder_stands(tmp_path):
     c.headers.update({"authorization": "Bearer " + "m" * 64})
     state = lambda p: c.get("/api/teams/suggest", params={"path": p}).json()["place"]["state"]  # noqa: E731
     assert state(str(tmp_path)) == "exists" and state(str(tmp_path / "nope")) == "new" and state("/etc/x") == "outside"
+
+
+def test_a_model_may_suggest_permissions_and_nothing_else():
+    from app.teams import read_pack, to_yaml, from_yaml
+    g = dict(TEMPLATES["fix"]["graph"], permissions="everything")
+    assert read_pack({"argus_team_pack": 1, "models": {"m": g}})["models"]["m"]["permissions"] == "everything"
+    bad = read_pack({"argus_team_pack": 1, "models": {"m": dict(g, permissions="root")}})
+    assert bad["refused"][0]["why"] == "a model's permissions are ask, edit or everything"
+    assert from_yaml(to_yaml(g, "m"))["permissions"] == "everything"

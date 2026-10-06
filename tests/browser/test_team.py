@@ -286,3 +286,24 @@ def test_the_folder_is_guided_and_the_team_can_be_edited_as_text(make_page, argu
     page.click_at(*page._center("[...document.querySelectorAll('dialog.sheet button')].find(b => b.textContent === 'Apply')"))
     page.wait("[...document.querySelectorAll('.teampicture .tgtext')].some(t => t.textContent === 'fixer')", timeout=5, what="the edit, drawn")
     clean(argus, project)
+
+
+def test_a_pack_may_suggest_everything_and_the_sheet_says_so_in_red(make_page, argus, tmp_path):
+    import json as _json
+    project = desk(argus)
+    pack = tmp_path / "p.json"
+    g = {"nodes": [{"id": "a", "kind": "agent", "role": "executor"}, {"id": "end", "kind": "end"}],
+         "edges": [{"from": "a", "to": "end", "when": "DONE"}], "start": ["a"], "permissions": "everything"}
+    pack.write_text(_json.dumps({"argus_team_pack": 1, "name": "bold", "models": {"bold one": g}}))
+    page = make_page(route="#/wall")
+    open_sheet(page, argus, "go")
+    root = page.send("DOM.getDocument")["root"]["nodeId"]
+    node = page.send("DOM.querySelector", {"nodeId": root, "selector": "input.teampackfile"})["nodeId"]
+    page.send("DOM.setFileInputFiles", {"nodeId": node, "files": [str(pack)]})
+    card = "[...document.querySelectorAll('.teamcard')].find(c => c.querySelector('.name')?.textContent === 'bold one')"
+    page.wait(f"!!{card}", timeout=10, what="its card")
+    assert page.eval("document.querySelector('.teamdanger').hidden") is True, "not before it is chosen"
+    page.click_at(*page._center(card))
+    page.wait("[...document.querySelectorAll('select.setpick')].some(s => s.value === 'everything')", timeout=5, what="the choice made")
+    page.wait("document.querySelector('.teamdanger').hidden === false", timeout=5, what="and said in red")
+    clean(argus, project)

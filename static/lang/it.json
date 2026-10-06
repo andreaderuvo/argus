@@ -1187,6 +1187,7 @@
   "End {n} sessions": "Termina {n} sessioni",
   "{names} and everything running in them will stop. Detaching a window instead leaves a session running.": "{names} e tutto quello che ci gira dentro si fermeranno. Staccare una finestra invece lascia la sessione viva.",
   "End them": "Terminale",
-  "Select {name}": "Seleziona {name}"
+  "Select {name}": "Seleziona {name}",
+  "Everything, no questions: the agents run commands and change files without asking anyone (--dangerously-skip-permissions). Use it in a folder you can afford to lose.": "Tutto, senza domande: gli agenti eseguono comandi e cambiano file senza chiedere a nessuno (--dangerously-skip-permissions). Usalo in una cartella che puoi permetterti di perdere."
  }
 }
