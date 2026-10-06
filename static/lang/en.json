@@ -1163,6 +1163,20 @@
   "plugin {v} — restart": "plugin {v} — restart",
   "A newer Argus plugin is installed; this session still runs {v}. Press to type /reload-plugins (only if it is at its prompt).": "A newer Argus plugin is installed; this session still runs {v}. Press to type /reload-plugins (only if it is at its prompt).",
   "A newer Argus plugin is installed; this session still runs {v}. Codex takes it when the session starts again.": "A newer Argus plugin is installed; this session still runs {v}. Codex takes it when the session starts again.",
-  "not now: it is working or asking you something — try when it has finished": "not now: it is working or asking you something — try when it has finished"
+  "not now: it is working or asking you something — try when it has finished": "not now: it is working or asking you something — try when it has finished",
+  "the folder is there, in a git repository": "the folder is there, in a git repository",
+  "the folder is there": "the folder is there",
+  "it does not exist yet: it will be made when the team starts": "it does not exist yet: it will be made when the team starts",
+  "outside the folders Argus serves ({roots}) — choose one inside": "outside the folders Argus serves ({roots}) — choose one inside",
+  "Choose…": "Choose…",
+  "no folders in here": "no folders in here",
+  "a new folder here": "a new folder here",
+  "New folder here": "New folder here",
+  "The team’s folder": "The team’s folder",
+  "Use this folder": "Use this folder",
+  "Edit as text": "Edit as text",
+  "This team as YAML: change it by hand and apply it": "This team as YAML: change it by hand and apply it",
+  "Apply": "Apply",
+  "applied — save it as a model to keep it": "applied — save it as a model to keep it"
  }
 }

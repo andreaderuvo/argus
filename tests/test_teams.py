@@ -708,3 +708,14 @@ def test_no_folder_no_team_and_a_goal_travels_with_a_model(tmp_path):
     assert from_yaml(to_yaml(g, "f"))["goal"] == "fix the crash"
     bad = read_pack({"argus_team_pack": 1, "models": {"m": dict(g, goal=["not", "a", "sentence"])}})
     assert bad["refused"][0]["why"].startswith("a model's goal is a sentence")
+
+
+def test_suggest_says_where_the_folder_stands(tmp_path):
+    from fastapi.testclient import TestClient
+
+    from app.config import Config
+    from app.main import create_app
+    c = TestClient(create_app(Config(token="m" * 64, roots=[tmp_path], listen="127.0.0.1:0")))
+    c.headers.update({"authorization": "Bearer " + "m" * 64})
+    state = lambda p: c.get("/api/teams/suggest", params={"path": p}).json()["place"]["state"]  # noqa: E731
+    assert state(str(tmp_path)) == "exists" and state(str(tmp_path / "nope")) == "new" and state("/etc/x") == "outside"

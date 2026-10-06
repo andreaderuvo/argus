@@ -3815,3 +3815,12 @@ dialog.sheet.teamsheet { width: min(980px, 96vw); max-width: none; }
 .pluginold { flex: none; font: 600 .68rem/1 ui-monospace, "SF Mono", Menlo, monospace; padding: .2rem .45rem; border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--st-warning) 55%, var(--line)); color: var(--st-warning); background: none; margin: 0 .3rem; }
 .pluginold:hover { background: color-mix(in srgb, var(--st-warning) 12%, transparent); }
+.folderrow { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+.folderrow > .startpath { flex: 1 1 14rem; min-width: 0; }
+.teamplace.exists { color: var(--st-good); }
+.teamplace.new { color: var(--accent); }
+.teamplace.outside { color: var(--st-critical); }
+.folderpick { display: grid; gap: .6rem; min-width: min(30rem, 86vw); }
+.folderat { font: 600 .85rem ui-monospace, "SF Mono", Menlo, monospace; overflow-wrap: anywhere; margin: 0; }
+.folderlist { display: grid; gap: .15rem; max-height: 50vh; overflow-y: auto; }
+.teamyaml { width: 100%; font: .82rem/1.45 ui-monospace, "SF Mono", Menlo, monospace; }

@@ -4,7 +4,7 @@ import { agentStates } from '/js/counts.js';
 import { ask, confirmBox, modal, toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { icon } from '/js/icons.js';
-import { delJSON, getJSON, postJSON } from '/js/reconnect.js';
+import { delJSON, getJSON, postJSON, serverInfo } from '/js/reconnect.js';
 import { prefs } from '/js/state.js';
 import { drawGraph, edits } from '/js/teamgraph.js';
 import { t } from '/js/words.js';
@@ -406,6 +406,30 @@ export async function teamSheet({ wsId, home, onStarted }) {
         el('span', { className: 'meta', textContent: [...what.models, ...what.roles].join(', ') })])));
       const list = modal(t('Remove a pack…'), box, [el('button', { className: 'ghost', textContent: t('Close'), onclick: () => list.close() })]);
     } });
+  // The team as text: YAML, edited by hand and applied back to the picture.
+  const editText = el('button', { className: 'ghost', type: 'button', textContent: t('Edit as text'),
+    title: t('This team as YAML: change it by hand and apply it'), onclick: async () => {
+      let text = '';
+      try { text = (await postJSON('/api/teams/yaml', { graph: bare(graph), name: chosen?.split(':').pop() || 'my team' })).text; } catch (e) { toast(e.message, true); return; }
+      const box = el('textarea', { className: 'teamyaml', value: text, rows: 22, spellcheck: false });
+      const err = el('p', { className: 'error', hidden: true });
+      const sheet3 = modal(t('Edit as text'), el('div', { className: 'sheetbody' }, [box, err]), [
+        el('button', { className: 'ghost', textContent: t('Cancel'), onclick: () => sheet3.close() }),
+        el('button', { className: 'primary inline', textContent: t('Apply'), onclick: async () => {
+          try {
+            const said = await postJSON('/api/teams/yaml', { text: box.value });
+            graph = said.graph;
+            if (said.goal && !goal.value.trim()) goal.value = said.goal;
+            selected = null;
+            for (const n of graph.nodes) if (n.kind === 'agent' && copies[n.id] === undefined) copies[n.id] = !!n.worktree;
+            drawAll();
+            sheet3.close();
+            toast(t('applied — save it as a model to keep it'));
+          } catch (e) { err.textContent = e.message; err.hidden = false; }
+        } }),
+      ]);
+      sheet3.classList.add('teamsheet');
+    } });
   const exportPack = el('button', { className: 'ghost', type: 'button', textContent: t('Export mine'),
     title: t('Your roles and models, as a pack to share'), onclick: () => {
       const pack = { argus_team_pack: 1, name: t('my team pack'), description: '', roles: myRoles(), models: mine() };
@@ -418,12 +442,65 @@ export async function teamSheet({ wsId, home, onStarted }) {
 
   // What the goal and the folder suggest, asked as they change and never overriding a choice made by hand.
   let asking = 0;
+  let outside = false;
+  const placeLine = el('p', { className: 'hint teamplace none', textContent: t('Choose the folder the team works in — it is made if it does not exist.') });
+  // A folder chosen by walking to it, inside what Argus serves, or a new one under any of them.
+  const choose_ = el('button', { className: 'ghost', type: 'button', textContent: t('Choose…'), onclick: () => pickFolder() });
+  const pickFolder = async () => {
+    const info = await serverInfo().catch(() => ({}));
+    const roots = info.roots || [];
+    let at = where.value.trim() && !outside ? where.value.trim() : (home || roots[0] || '/');
+    const body = el('div', { className: 'sheetbody folderpick' });
+    let sheet2;
+    const draw = async () => {
+      let list = [];
+      try { list = (await getJSON(`/api/files?path=${encodeURIComponent(at)}`)).filter((x) => x.type === 'directory' && !x.name.startsWith('.')); } catch (e) { toast(e.message, true); }
+      const up = at.replace(/\/[^/]+\/?$/, '') || '/';
+      const inRoots = roots.some((r) => up === r || up.startsWith(r.endsWith('/') ? r : `${r}/`));
+      const nameBox = el('input', { type: 'text', className: 'startpath', placeholder: t('a new folder here'), spellcheck: false });
+      body.replaceChildren(
+        el('p', { className: 'folderat', textContent: at }),
+        el('div', { className: 'folderrow' }, [
+          inRoots ? el('button', { className: 'ghost', type: 'button', textContent: '↑ ..', onclick: () => { at = up; draw(); } }) : null,
+          ...roots.filter((r) => r !== at).map((r) => el('button', { className: 'ghost', type: 'button', textContent: r, onclick: () => { at = r; draw(); } })),
+        ].filter(Boolean)),
+        el('div', { className: 'folderlist' }, list.length ? list.map((d) => el('button', {
+          className: 'ghost block', type: 'button', textContent: `${d.name}/`, onclick: () => { at = d.path; draw(); },
+        })) : [el('p', { className: 'hint', textContent: t('no folders in here') })]),
+        el('div', { className: 'folderrow' }, [nameBox, el('button', { className: 'ghost', type: 'button', textContent: t('New folder here'),
+          onclick: () => {
+            const name = nameBox.value.trim().replace(/[/\\]/g, '');
+            if (!name) return nameBox.focus();
+            where.value = `${at.replace(/\/$/, '')}/${name}`;
+            sheet2.close();
+            suggest();
+          } })]),
+      );
+    };
+    sheet2 = modal(t('The team’s folder'), body, [
+      el('button', { className: 'ghost', textContent: t('Cancel'), onclick: () => sheet2.close() }),
+      el('button', { className: 'primary inline', textContent: t('Use this folder'), onclick: () => { where.value = at; sheet2.close(); suggest(); } }),
+    ]);
+    draw();
+  };
   const suggest = async () => {
     const mineAsk = ++asking;
     try {
       const said = await getJSON(`/api/teams/suggest?path=${encodeURIComponent(where.value.trim())}&goal=${encodeURIComponent(goal.value)}`);
       if (mineAsk !== asking) return;
       repository = said.repository;
+      // Under the folder box: there, to be made, or outside what Argus serves — said while you
+      // type rather than as a refusal at Start.
+      const p = said.place || { state: 'none' };
+      placeLine.className = `hint teamplace ${p.state}`;
+      placeLine.textContent = {
+        none: t('Choose the folder the team works in — it is made if it does not exist.'),
+        exists: said.repository ? t('the folder is there, in a git repository') : t('the folder is there'),
+        new: t('it does not exist yet: it will be made when the team starts'),
+        outside: t('outside the folders Argus serves ({roots}) — choose one inside', { roots: (p.roots || []).join(', ') }),
+      }[p.state] || '';
+      outside = p.state === 'outside';
+      needFolder();
       if (said.team_file?.graph && fileTeam?.where !== said.team_file.file) {
         takeTeam(said.team_file, said.team_file.file);
       } else if (said.team_file?.error) {
@@ -438,6 +515,8 @@ export async function teamSheet({ wsId, home, onStarted }) {
   let typing = null;
   goal.oninput = () => { clearTimeout(typing); typing = setTimeout(suggest, 450); };
   where.onchange = suggest;
+  let whereTyping = null;
+  where.addEventListener('input', () => { clearTimeout(whereTyping); whereTyping = setTimeout(suggest, 350); });
   check.oninput = () => { check.dataset.touched = '1'; };
 
   body.append(
@@ -445,9 +524,9 @@ export async function teamSheet({ wsId, home, onStarted }) {
     cards,
     el('div', { className: 'teampicturehead' }, [
       el('label', { className: 'startlabel', textContent: t('the team — click a step to change it') }),
-      el('span', { className: 'teampackbtns' }, [saveModel, saveYaml, examples, importPack, removePack, exportPack, picker])]),
+      el('span', { className: 'teampackbtns' }, [saveModel, editText, saveYaml, examples, importPack, removePack, exportPack, picker])]),
     picture, panel,
-    el('label', { className: 'startlabel', textContent: t('in') }), where,
+    el('label', { className: 'startlabel', textContent: t('in') }), el('div', { className: 'folderrow' }, [where, choose_]), placeLine,
     el('label', { className: 'startlabel', textContent: t('who does what') }), roles,
     el('div', { className: 'startopt inline' }, [el('span', { className: 'startoptname', textContent: t('What they may do without asking') }), alone]),
     checkBox,
@@ -465,7 +544,7 @@ export async function teamSheet({ wsId, home, onStarted }) {
   goal.focus();
 
   // The folder is required: the start stays off until there is one.
-  const needFolder = () => { go.disabled = !where.value.trim(); };
+  const needFolder = () => { go.disabled = !where.value.trim() || outside; };
   where.addEventListener('input', needFolder);
   needFolder();
 

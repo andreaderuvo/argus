@@ -661,8 +661,20 @@ def create_app(cfg: Config) -> FastAPI:
 
     @app.get("/api/teams/suggest", tags=["Teams"], summary="What a goal and a folder suggest for a team")
     async def teams_suggest(request: Request, path: str = "", goal: str = "") -> dict:
-        """The template a goal reads like, and the checks a folder offers (looked for, never run)."""
-        folder = str(under_roots(request, path)) if path else ""
+        """The template a goal reads like, the checks a folder offers (looked for, never run), and
+        `place`: whether the folder is there, will be made, or is outside what Argus serves —
+        said under the folder box while you type, instead of as a refusal at Start."""
+        from .safepath import Denied, NotFound
+        spot = {"state": "none"}
+        folder = ""
+        if path.strip():
+            try:
+                folder = str(request.app.state.jail.resolve(path))
+                spot = {"state": "exists", "path": folder}
+            except NotFound:
+                spot = {"state": "new", "path": os.path.expanduser(path)}
+            except (Denied, Exception):
+                spot = {"state": "outside", "roots": [str(r) for r in request.app.state.cfg.roots]}
         top = await asyncio.to_thread(gitwork.top_of, folder) if folder else None
         # The team the project keeps for itself, if it has one: team.yaml in the folder, or at the
         # top of its repository.
@@ -674,7 +686,7 @@ def create_app(cfg: Config) -> FastAPI:
         return {"template": teams.suggest_template(goal),
                 "checks": await asyncio.to_thread(teams.suggest_check, str(top or folder)) if folder else [],
                 "repository": str(top) if top else None,
-                "team_file": kept}
+                "team_file": kept, "place": spot}
 
     @app.post("/api/teams/yaml", tags=["Teams"], summary="Read a team written as YAML")
     async def teams_from_yaml(body: dict) -> dict:

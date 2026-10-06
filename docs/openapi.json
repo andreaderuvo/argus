@@ -3220,7 +3220,7 @@
   },
   "/api/teams/suggest": {
    "get": {
-    "description": "The template a goal reads like, and the checks a folder offers (looked for, never run).",
+    "description": "The template a goal reads like, the checks a folder offers (looked for, never run), and\n`place`: whether the folder is there, will be made, or is outside what Argus serves \u2014\nsaid under the folder box while you type, instead of as a refusal at Start.",
     "operationId": "getApiTeamsSuggest",
     "parameters": [
      {

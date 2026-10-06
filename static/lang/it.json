@@ -1163,6 +1163,20 @@
   "plugin {v} — restart": "plugin {v} — riavvia",
   "A newer Argus plugin is installed; this session still runs {v}. Press to type /reload-plugins (only if it is at its prompt).": "È installato un plugin di Argus più nuovo; questa sessione usa ancora la {v}. Premi per scrivere /reload-plugins (solo se è ferma al prompt).",
   "A newer Argus plugin is installed; this session still runs {v}. Codex takes it when the session starts again.": "È installato un plugin di Argus più nuovo; questa sessione usa ancora la {v}. Codex lo prende quando la sessione riparte.",
-  "not now: it is working or asking you something — try when it has finished": "non ora: sta lavorando o ti sta chiedendo qualcosa — riprova quando ha finito"
+  "not now: it is working or asking you something — try when it has finished": "non ora: sta lavorando o ti sta chiedendo qualcosa — riprova quando ha finito",
+  "the folder is there, in a git repository": "la cartella c’è, dentro un repository git",
+  "the folder is there": "la cartella c’è",
+  "it does not exist yet: it will be made when the team starts": "non esiste ancora: verrà creata all’avvio del team",
+  "outside the folders Argus serves ({roots}) — choose one inside": "fuori dalle cartelle che Argus serve ({roots}) — scegline una dentro",
+  "Choose…": "Scegli…",
+  "no folders in here": "nessuna cartella qui",
+  "a new folder here": "una cartella nuova qui",
+  "New folder here": "Nuova cartella qui",
+  "The team’s folder": "La cartella del team",
+  "Use this folder": "Usa questa cartella",
+  "Edit as text": "Modifica come testo",
+  "This team as YAML: change it by hand and apply it": "Questo team in YAML: cambialo a mano e applicalo",
+  "Apply": "Applica",
+  "applied — save it as a model to keep it": "applicato — salvalo come modello per tenerlo"
  }
 }

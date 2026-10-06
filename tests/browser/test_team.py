@@ -249,3 +249,34 @@ def test_the_folder_is_required_and_a_pack_brings_its_goal(make_page, argus):
     page.click_at(*page._center("[...document.querySelectorAll('.teamcard')].find(c => c.querySelector('.name')?.textContent === 'Optimise')"))
     page.click_at(*page._center("[...document.querySelectorAll('.teamcard')].find(c => c.querySelector('.name')?.textContent === 'Security review' && c.querySelector('.teambadge').textContent === 'Security review')"))
     assert page.eval("document.querySelector('.teamgoal').value") == "my own words", "never over what you typed"
+
+
+def test_the_folder_is_guided_and_the_team_can_be_edited_as_text(make_page, argus):
+    project = desk(argus)
+    (project / "alpha").mkdir(exist_ok=True)
+    page = make_page(route="#/wall")
+    open_sheet(page, argus, "fix the crash")
+    place = "document.querySelector('.teamplace').className"
+    start_button = "[...document.querySelectorAll('.sheetfoot button')].find(b => b.textContent === 'Start the team')"
+    setp = lambda v: page.eval(f"(() => {{ const w = document.querySelector('.startpath'); w.value = {v!r}; w.dispatchEvent(new Event('input')); }})()")
+    setp("/etc/argus-nowhere")
+    page.wait(f"{place}.includes('outside')", timeout=5, what="outside, said under the box")
+    assert page.eval(f"{start_button}.disabled") is True, "and Start off"
+    setp(str(project / "brand-new"))
+    page.wait(f"{place}.includes('new')", timeout=5, what="to be made")
+    setp(str(project))
+    page.wait(f"{place}.includes('exists')", timeout=5, what="there")
+    # Choose…: walk into alpha, use it.
+    page.click_at(*page._center("[...document.querySelectorAll('button')].find(b => b.textContent === 'Choose…')"))
+    page.wait("[...document.querySelectorAll('.folderlist button')].some(b => b.textContent === 'alpha/')", timeout=10, what="the folders")
+    page.click_at(*page._center("[...document.querySelectorAll('.folderlist button')].find(b => b.textContent === 'alpha/')"))
+    page.wait("document.querySelector('.folderat')?.textContent.endsWith('/alpha')", timeout=5, what="inside alpha")
+    page.click_at(*page._center("[...document.querySelectorAll('dialog.sheet button')].find(b => b.textContent === 'Use this folder')"))
+    page.wait(f"document.querySelector('.startpath').value === {str(project / 'alpha')!r}", timeout=5, what="the box filled")
+    # Edit as text: rename the executor, apply, see it drawn.
+    page.click_at(*page._center("[...document.querySelectorAll('.teampackbtns button')].find(b => b.textContent === 'Edit as text')"))
+    page.wait("!!document.querySelector('.teamyaml')", timeout=10, what="the YAML")
+    page.eval("(() => { const y = document.querySelector('.teamyaml'); y.value = y.value.replaceAll('executor', 'fixer'); })()")
+    page.click_at(*page._center("[...document.querySelectorAll('dialog.sheet button')].find(b => b.textContent === 'Apply')"))
+    page.wait("[...document.querySelectorAll('.teampicture .tgtext')].some(t => t.textContent === 'fixer')", timeout=5, what="the edit, drawn")
+    clean(argus, project)
