@@ -3804,6 +3804,11 @@ dialog.sheet.teamsheet { width: min(980px, 96vw); max-width: none; }
 .teambadge.argus { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
 .teambadge.mine, .teambadge.pack { color: var(--st-good); border-color: color-mix(in srgb, var(--st-good) 45%, var(--line)); }
 .teambadge.file { color: var(--st-warning); border-color: color-mix(in srgb, var(--st-warning) 45%, var(--line)); }
-.aboutargus-body { display: grid; gap: .45rem; min-width: min(26rem, 80vw); }
-.aboutrow { display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: .6rem; font-size: .88rem; }
+.aboutargus-body { display: grid; gap: .55rem; }
+/* Values like `v0.1.0-80-g26553d1-dirty` have no space to break at: they wrap anywhere rather than
+   push the dialog into a horizontal scroll. */
+.aboutrow { display: grid; grid-template-columns: minmax(6rem, 11rem) minmax(0, 1fr); gap: .6rem; font-size: .88rem; align-items: baseline; }
+.aboutrow > span { min-width: 0; overflow-wrap: anywhere; }
+.aboutval { display: flex; flex-wrap: wrap; gap: .5rem; align-items: baseline; }
+@media (max-width: 480px) { .aboutrow { grid-template-columns: minmax(0, 1fr); gap: .1rem; } }
 .aboutrow .warn { color: var(--st-warning); }

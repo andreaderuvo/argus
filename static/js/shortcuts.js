@@ -1,10 +1,10 @@
 // <imports> generated from what this file uses; edit the code, not this list
 import { savePrefs } from '/js/core.js';
 import { seeEverything } from '/js/counts.js';
-import { modal } from '/js/dialogs.js';
+import { modal, toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { icon } from '/js/icons.js';
-import { getJSON } from '/js/reconnect.js';
+import { getJSON, postJSON } from '/js/reconnect.js';
 import { go } from '/js/router.js';
 import { applySidebar } from '/js/sidebar.js';
 import { bar, prefs, token } from '/js/state.js';
@@ -274,8 +274,25 @@ export async function aboutThisArgus() {
   ]);
   sheet.classList.add('aboutargus');
   const [v, p] = await Promise.all([getJSON('/api/version').catch(() => null), getJSON('/api/plugin').catch(() => null)]);
-  const row = (label, value, warn = false) => el('div', { className: 'aboutrow' }, [
-    el('span', { className: 'meta', textContent: label }), el('span', { className: warn ? 'warn' : '', textContent: value })]);
+  const row = (label, value, warn = false, action = null) => el('div', { className: 'aboutrow' }, [
+    el('span', { className: 'meta', textContent: label }),
+    el('span', { className: `aboutval${warn ? ' warn' : ''}` }, [el('span', { textContent: value }), action].filter(Boolean))]);
+  // Install or update right here: "go to Settings" sent people looking for a row among forty.
+  const act = (a) => {
+    if (a.installed && !a.outdated) return null;
+    const b = el('button', { className: 'ghost inline', type: 'button', textContent: a.installed ? t('Update') : t('Install') });
+    b.onclick = async () => {
+      b.disabled = true;
+      b.textContent = '…';
+      try {
+        await postJSON('/api/plugin', { agent: a.agent, action: a.installed ? 'update' : 'install' });
+        toast(t('the Argus plugin is in {name} — sessions take it when they reload or start', { name: a.name }));
+        sheet.close();
+        aboutThisArgus();
+      } catch (e) { toast(e.message, true); b.disabled = false; b.textContent = a.installed ? t('Update') : t('Install'); }
+    };
+    return b;
+  };
   const b = v?.build;
   const rows = [
     row(t('Version'), v?.running || '—'),
@@ -289,7 +306,7 @@ export async function aboutThisArgus() {
       // The plugin in that agent, said as such: "Codex — not installed" read as if Codex were missing.
       row(t('The Argus plugin in {name}', { name: a.name }),
         a.installed ? (a.outdated ? t('{have} — {offered} is out', { have: a.installed, offered: p.version }) : a.installed)
-          : t('not installed — Settings → Install'), a.outdated)),
+          : t('not installed'), a.outdated || !a.installed, act(a))),
   ].filter(Boolean);
   body.replaceChildren(...rows);
 }

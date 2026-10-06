@@ -232,6 +232,10 @@ def test_alt_v_says_which_argus_is_running(make_page):
     page.wait("!!document.querySelector('dialog.aboutargus .aboutrow')", timeout=10, what="the version dialog")
     text = page.eval("document.querySelector('dialog.aboutargus').textContent")
     assert "Version" in text and "0." in text
+    # No horizontal scroll: a git describe has no space to break at, and pushed the dialog wider.
+    wide = page.eval("(() => { const d = document.querySelector('dialog.aboutargus'); "
+                     "return [...d.querySelectorAll('*')].some(e => e.scrollWidth > e.clientWidth + 1 && getComputedStyle(e).overflowX !== 'visible'); })()")
+    assert wide is False
 
 
 def test_desk_shortcuts_find_their_buttons_in_another_language(make_page, argus):
