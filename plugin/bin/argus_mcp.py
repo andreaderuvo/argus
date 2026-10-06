@@ -84,6 +84,13 @@ TOOLS = [
          "folder": {"type": "string", "description": "Where its file browsers and new sessions start"},
          "show": {"type": "boolean", "default": True}},
          "required": ["name"]}},
+    {"name": "rename_desk",
+     "description": "Rename a desk in Argus: the desk called `desk` (any case) is called `to` from now on, in every "
+                    "open page too. Refused if another desk already has that name.",
+     "inputSchema": {"type": "object", "properties": {
+         "desk": {"type": "string", "description": "Its name now"},
+         "to": {"type": "string", "description": "Its new name"}},
+         "required": ["desk", "to"]}},
     {"name": "launchers",
      "description": "What this machine can start (the launcher list in Argus's config), whether each is installed, "
                     "its version, and the options it takes by name — permissions, model, effort.",
@@ -209,6 +216,11 @@ def _open_desk(a: Argus, args: dict) -> str:
         ", and switched to it" if args.get("show", True) else "")
 
 
+def _rename_desk(a: Argus, args: dict) -> str:
+    said = a.desk(args["to"], show=False, rename=args["desk"])
+    return f"the desk {args['desk']} is now called {said['name']}"
+
+
 def _teams(a: Argus, _args: dict) -> str:
     teams = a.teams()
     if not teams:
@@ -233,7 +245,7 @@ def _prompts(a: Argus, _args: dict) -> str:
     return "\n\n".join(out) or "the prompt library is empty"
 
 
-DO = {"who": _who, "ring": _ring, "ask": _ask, "relay": _relay, "open_desk": _open_desk, "launchers": _launchers,
+DO = {"who": _who, "ring": _ring, "ask": _ask, "relay": _relay, "open_desk": _open_desk, "rename_desk": _rename_desk, "launchers": _launchers,
       "start_agent": _start, "teams": _teams, "worktree": _worktree, "prompts": _prompts}
 
 

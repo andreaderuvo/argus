@@ -270,11 +270,14 @@ class Argus:
         from urllib.parse import quote
         return self.call("GET", f"/api/git/worktrees?path={quote(str(path))}")
 
-    def desk(self, name: str, folder: str | Path | None = None, show: bool = True) -> dict:
+    def desk(self, name: str, folder: str | Path | None = None, show: bool = True, rename: str | None = None) -> dict:
         """The desk called `name` — made empty if there is none — and, with `show`, switched to in
-        every open page. `folder` is where its browsers and new sessions start. Returns
-        `{id, name, made, folder}`. Additive: nothing here removes or rearranges a desk."""
+        every open page. `folder` is where its browsers and new sessions start. `rename="Desk 11"`
+        instead gives that desk the name `name`, on every open page too. Returns
+        `{id, name, made, folder}`. Nothing here removes a desk or what is in it."""
         body = {"name": name, "show": show}
+        if rename:
+            body["rename"] = rename
         if folder:
             body["folder"] = str(folder)
         return self.call("POST", "/api/desks", body)

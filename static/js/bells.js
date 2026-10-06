@@ -366,7 +366,7 @@ function aside(said) {
   // A desk made on the machine — by an agent asked to "open a desk called pippo" — adopted here
   // and, when it asks to be shown, switched to.
   if (said.what === 'desk' && said.id) {
-    adoptDesks().then(() => { if (said.show) showDesk(said.id); });
+    adoptDesks(said.renamed ? said : null).then(() => { if (said.show) showDesk(said.id); });
     return;
   }
   if (said.what !== 'started' || !said.name) return;
@@ -394,8 +394,16 @@ function aside(said) {
  *  fetch and append on its own. Only additions — a desk this page has is left as it is, since it
  *  may be in the middle of being dragged about. */
 let adopting = Promise.resolve();
-function adoptDesks() {
+function adoptDesks(renamed = null) {
   adopting = adopting.then(async () => {
+    // A rename said by the machine is taken as said: this page keeps its desks in memory and would
+    // otherwise save the old name straight back.
+    const ws = renamed && workspaces().find((w) => w.id === renamed.id);
+    if (ws && ws.name !== renamed.desk) {
+      ws.name = renamed.desk;
+      savePrefs();
+      if (live?.key === 'wall') render();
+    }
     try {
       const said = await getJSON('/api/prefs');
       const theirs = said.prefs?.workspaces || [];

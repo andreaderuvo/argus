@@ -29,4 +29,13 @@ def test_a_desk_made_by_name_appears_and_takes_what_is_started_into_it(make_page
                            for w in d["desktop"]), timeout=10, what="and kept in that desk")
     names = [d["name"] for d in argus.api("/api/prefs")["prefs"]["workspaces"]]
     assert names == ["Work", "pippo"], "one pippo, not one per page"
+
+    # Renamed on the machine, renamed on the page — and not saved back under the old name when the
+    # page next saves its desks (it keeps them in memory, whole).
+    argus.api("/api/desks", "POST", {"rename": "Work", "name": "Pippo senior"})
+    page.wait("document.querySelector('.wstab[data-ws=\"1\"]')?.textContent.includes('Pippo senior')", timeout=10,
+              what="the tab, renamed")
+    page.eval("document.querySelector('.wstab[data-ws=\"1\"]').click()")
+    eventually(lambda: [d["name"] for d in argus.api("/api/prefs")["prefs"]["workspaces"]] == ["Pippo senior", "pippo"],
+               timeout=10, what="the new name kept after the page saved")
     argus.kill_sessions()

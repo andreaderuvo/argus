@@ -58,7 +58,7 @@ def test_the_handshake_and_the_tool_list():
     # A version it does not know is answered with the newest it does, as the spec asks.
     assert call(Fake(), "initialize", {"protocolVersion": "1999-01-01"})["result"]["protocolVersion"] == argus_mcp.VERSIONS[0]
     names = [t["name"] for t in call(Fake(), "tools/list")["result"]["tools"]]
-    assert names == ["who", "ring", "ask", "relay", "open_desk", "launchers", "start_agent", "teams", "worktree", "prompts"]
+    assert names == ["who", "ring", "ask", "relay", "open_desk", "rename_desk", "launchers", "start_agent", "teams", "worktree", "prompts"]
     assert all(t["inputSchema"]["type"] == "object" for t in call(Fake(), "tools/list")["result"]["tools"])
     assert argus_mcp.answer({"jsonrpc": "2.0", "method": "notifications/initialized"}, Fake) is None
     assert call(Fake(), "nope")["error"]["code"] == -32601
@@ -137,7 +137,7 @@ def test_an_agent_client_over_stdio(live):
     try:
         assert rpc("initialize", {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "test"}})["result"]["serverInfo"]["name"] == "argus"
         proc.stdin.write(json.dumps({"jsonrpc": "2.0", "method": "notifications/initialized"}) + "\n")
-        assert len(rpc("tools/list")["result"]["tools"]) == 10
+        assert len(rpc("tools/list")["result"]["tools"]) == 11
 
         def tool(tool_name, **args):
             return rpc("tools/call", {"name": tool_name, "arguments": args})["result"]
@@ -159,6 +159,11 @@ def test_an_agent_client_over_stdio(live):
         assert made["content"][0]["text"] == "made the desk pippo, and switched to it"
         again = tool("open_desk", name="Pippo", show=False)
         assert again["content"][0]["text"] == "the desk pippo was already there", "found by name, any case"
+        renamed = tool("rename_desk", desk="Desk 1", to="Pluto")
+        assert not renamed["isError"] and "now called Pluto" in renamed["content"][0]["text"]
+        clash = tool("rename_desk", desk="pluto", to="PIPPO")
+        assert clash["isError"] and "already a desk called" in clash["content"][0]["text"], "two of one name: refused"
+        assert tool("rename_desk", desk="Pluto", to="Desk 1")["isError"] is False
         into = tool("start_agent", launcher="Shell", name="into-pippo", folder=str(folder), desk="pippo")
         assert not into["isError"], into
         desks = json.loads((folder / "prefs.json").read_text())

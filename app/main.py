@@ -1412,7 +1412,8 @@ def create_app(cfg: Config) -> FastAPI:
 
     @app.post("/api/desks", tags=["Sessions"], summary="Make a desk, or find one by name, and show it")
     async def make_desk(request: Request, body: dict) -> dict:
-        """`{name, folder?, show?}` — what "open a desk called pippo" means to an agent.
+        """`{name, folder?, show?}` — what "open a desk called pippo" means to an agent;
+        `{rename: "Desk 11", name: "Pippo"}` renames one.
 
         Found by name (any case) if it exists, made empty if not, with `folder` as the place its
         browsers and new sessions start. `show` (default true) asks the open pages to switch to
@@ -1422,6 +1423,19 @@ def create_app(cfg: Config) -> FastAPI:
         name = " ".join(str(body.get("name") or "").split())[:40]
         if not name:
             raise ApiError(400, "a desk needs a name")
+        # `rename`: the desk called that is called `name` from now on. Done here, on the machine,
+        # and told to the pages: a page keeps its desks in memory and saves them whole, so a name
+        # changed only in the stored preferences came back the next time any page saved.
+        if body.get("rename"):
+            try:
+                desk = await asyncio.to_thread(rename_desk, request, " ".join(str(body["rename"]).split()), name)
+            except KeyError:
+                raise ApiError(404, f"no desk called {body['rename']}") from None
+            except ValueError as e:
+                raise ApiError(409, str(e)) from e
+            bells.announce(request, {"what": "desk", "id": desk["id"], "desk": desk["name"], "renamed": True,
+                                     "show": bool(body.get("show", False))})
+            return {"id": desk["id"], "name": desk["name"], "made": False, "folder": desk.get("home")}
         folder = str(under_roots(request, body["folder"])) if body.get("folder") else None
         try:
             desk, made = await asyncio.to_thread(ensure_desk, request, name, folder)
@@ -1909,6 +1923,24 @@ def ensure_desk(request: Request, name: str, folder: str | None = None) -> tuple
     spaces.append(found)
     prefs.save(store, version + 1, prefs.merge(doc, {"workspaces": spaces, "wsSeq": seq}))
     return found, True
+
+
+def rename_desk(request: Request, was: str, name: str) -> dict:
+    """The desk called `was` (any case), called `name` from now on. KeyError if there is no such
+    desk, ValueError if another one already has the new name — two desks of one name would make
+    every "the desk called …" after this a guess."""
+    store = request.app.state.prefs
+    version, doc = prefs.load(store)
+    spaces = [dict(w) for w in (doc.get("workspaces") or []) if isinstance(w, dict)]
+    same = lambda w, n: str(w.get("name", "")).strip().lower() == n.lower()       # noqa: E731
+    found = next((w for w in spaces if same(w, was)), None)
+    if found is None:
+        raise KeyError(was)
+    if any(same(w, name) and w is not found for w in spaces):
+        raise ValueError(f"there is already a desk called {name}")
+    found["name"] = name
+    prefs.save(store, version + 1, prefs.merge(doc, {"workspaces": spaces}))
+    return found
 
 
 def under_roots(request: Request, raw: str) -> Path:

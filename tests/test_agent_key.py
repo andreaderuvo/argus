@@ -127,8 +127,8 @@ def test_the_list_of_what_an_agent_may_do_is_short():
     stop stay out, and the test below checks it.
 
     Sixteen to seventeen, for `POST /api/desks` (2026-10-06): an agent asked "open a desk called
-    pippo with a Codex and a Claude in it" makes the empty desk (or finds it) and shows it. It
-    adds; nothing reachable with this key removes, renames or rearranges a desk.
+    pippo with a Codex and a Claude in it" makes the empty desk (or finds it) and shows it, and
+    renames one when asked. Nothing reachable with this key removes a desk or what is in it.
     """
     assert len(AGENT_ROUTES) <= 17
     assert ("POST", "/api/teams") not in AGENT_ROUTES
