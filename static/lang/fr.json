@@ -1179,6 +1179,14 @@
   "Apply": "Appliquer",
   "applied — save it as a model to keep it": "appliqué — enregistre-le comme modèle pour le garder",
   "Stop the team": "Arrêter l’équipe",
-  "{name} stops: nothing new starts. Its log and files stay.": "{name} s’arrête : plus rien ne démarre. Le journal et les fichiers restent."
+  "{name} stops: nothing new starts. Its log and files stay.": "{name} s’arrête : plus rien ne démarre. Le journal et les fichiers restent.",
+  "Select every session shown": "Sélectionner toutes les sessions affichées",
+  "{n} selected": "{n} sélectionnées",
+  "select sessions to end several at once": "sélectionne des sessions pour en terminer plusieurs à la fois",
+  "End {n} selected": "Terminer les {n} sélectionnées",
+  "End {n} sessions": "Terminer {n} sessions",
+  "{names} and everything running in them will stop. Detaching a window instead leaves a session running.": "{names} et tout ce qui y tourne s’arrêteront. Détacher une fenêtre laisse la session tourner.",
+  "End them": "Les terminer",
+  "Select {name}": "Sélectionner {name}"
  }
 }

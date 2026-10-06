@@ -1179,6 +1179,14 @@
   "Apply": "Apply",
   "applied — save it as a model to keep it": "applied — save it as a model to keep it",
   "Stop the team": "Stop the team",
-  "{name} stops: nothing new starts. Its log and files stay.": "{name} stops: nothing new starts. Its log and files stay."
+  "{name} stops: nothing new starts. Its log and files stay.": "{name} stops: nothing new starts. Its log and files stay.",
+  "Select every session shown": "Select every session shown",
+  "{n} selected": "{n} selected",
+  "select sessions to end several at once": "select sessions to end several at once",
+  "End {n} selected": "End {n} selected",
+  "End {n} sessions": "End {n} sessions",
+  "{names} and everything running in them will stop. Detaching a window instead leaves a session running.": "{names} and everything running in them will stop. Detaching a window instead leaves a session running.",
+  "End them": "End them",
+  "Select {name}": "Select {name}"
  }
 }

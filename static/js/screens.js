@@ -184,6 +184,42 @@ export async function screenSessions() {
   const count = el('span', { className: 'dim findcount' });
   let needle = '';
 
+  /* Several at once: a box on each row, one for every row shown, and the sessions ticked ended
+   *  together — after one question that names them all. Kill one by one was a dialog per session
+   *  when a team or a test run had left eight behind. */
+  const picked = new Set();
+  const allBox = el('input', { type: 'checkbox', className: 'sesspick', title: t('Select every session shown') });
+  const pickedSay = el('span', { className: 'dim' });
+  const endPicked = el('button', { className: 'ghost inline danger', type: 'button', hidden: true });
+  const bulk = el('div', { className: 'sessbulk' }, [allBox, pickedSay, el('span', { className: 'grow' }), endPicked]);
+  const shownNow = () => sessions.filter((one) => !needle || one.name.toLowerCase().includes(needle));
+  const sayPicked = () => {
+    for (const name of [...picked]) if (!sessions.some((s) => s.name === name)) picked.delete(name);
+    pickedSay.textContent = picked.size ? t('{n} selected', { n: picked.size }) : t('select sessions to end several at once');
+    endPicked.hidden = !picked.size;
+    endPicked.textContent = t('End {n} selected', { n: picked.size });
+    const shown = shownNow();
+    allBox.checked = shown.length > 0 && shown.every((s) => picked.has(s.name));
+    allBox.indeterminate = !allBox.checked && shown.some((s) => picked.has(s.name));
+  };
+  allBox.onchange = () => {
+    for (const s of shownNow()) { if (allBox.checked) picked.add(s.name); else picked.delete(s.name); }
+    paint();
+  };
+  endPicked.onclick = async () => {
+    const names = [...picked];
+    const sure = await confirmBox(t('End {n} sessions', { n: names.length }),
+      t('{names} and everything running in them will stop. Detaching a window instead leaves a session running.', { names: names.join(', ') }),
+      t('End them'));
+    if (!sure) return;
+    const failed = [];
+    for (const name of names) {
+      try { await postJSON('/api/tmux/kill', { name }); } catch { failed.push(name); }
+    }
+    toast(failed.length ? t('could not end {names}', { names: failed.join(', ') }) : t('{n} session(s) ended', { n: names.length }), !!failed.length);
+    render();
+  };
+
   /* "Open every session in its own window", where the sessions are.
    *
    *  It was an icon in the top right, after Settings, which is the corner where an icon
@@ -205,6 +241,7 @@ export async function screenSessions() {
       count,
     ]));
   }
+  if (sessions.length > 1) view.append(bulk);
   view.append(list);
   // Under the list, because it is about the whole list: a row of words rather than a mark
   // in a corner where marks change meaning from screen to screen.
@@ -216,6 +253,7 @@ export async function screenSessions() {
   const showing = sessions.filter((one) => !needle || one.name.toLowerCase().includes(needle));
   count.textContent = needle ? t('{n} of {total}', { n: showing.length, total: sessions.length }) : '';
   if (!showing.length) list.append(el('p', { className: 'empty', textContent: t('nothing matches {needle}', { needle }) }));
+  sayPicked();
   for (const s of showing) {
     /* How long it has been up, rather than the day it started.
      *
@@ -276,7 +314,11 @@ export async function screenSessions() {
     const menu = el('button', { className: 'more menu', title: t('Rename or kill') }, icon('more'));
     menu.onclick = (ev) => { ev.preventDefault(); ev.stopPropagation(); sessionActions(s); };
 
+    const pick = el('input', { type: 'checkbox', className: 'sesspick', checked: picked.has(s.name), title: t('Select {name}', { name: s.name }) });
+    pick.dataset.session = s.name;
+    pick.onchange = () => { if (pick.checked) picked.add(s.name); else picked.delete(s.name); sayPicked(); };
     list.append(el('div', { className: 'rowwrap sess' }, [
+      ...(sessions.length > 1 ? [pick] : []),
       row,
       toWall,
       act('rename', t('Rename…'), () => renameSession(s)),

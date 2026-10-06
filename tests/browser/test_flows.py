@@ -260,3 +260,23 @@ def test_a_window_whose_session_runs_an_old_plugin_says_so(make_page, argus):
     page.eval("import('/js/counts.js').then(m => m.applyAgentStates({oldplug: {agent: 'codex', state: 'waiting', since: 1, plugin: '0.9.9', plugin_old: false}}))")
     page.wait("!document.querySelector('.win[data-session=\"oldplug\"] .pluginold')", timeout=5, what="gone once up to date")
     argus.kill_sessions()
+
+
+def test_sessions_can_be_ticked_and_ended_together(make_page, argus):
+    argus.kill_sessions()
+    for name in ("one", "two", "three"):
+        argus.tmux("new-session", "-d", "-s", name, "-x", "80", "-y", "24")
+    page = make_page(route="#/sessions")
+    box = lambda name: f"document.querySelector('.sesspick[data-session=\"{name}\"]')"
+    page.wait(f"!!{box('two')}", timeout=10, what="a box on each row")
+    assert page.eval("document.querySelector('.sessbulk button').hidden") is True, "nothing ticked, nothing offered"
+    page.click_at(*page._center(box("one")))
+    page.click_at(*page._center(box("three")))
+    page.wait("document.querySelector('.sessbulk button').textContent === 'End 2 selected'", timeout=5, what="the bulk button")
+    page.click_at(*page._center("document.querySelector('.sessbulk button')"))
+    page.wait("!!document.querySelector('dialog.sheet[open]')", timeout=5, what="one question naming them")
+    text = page.eval("document.querySelector('dialog.sheet[open]').textContent")
+    assert "one" in text and "three" in text and "two" not in text.split("will stop")[0]
+    page.click_at(*page._center("[...document.querySelectorAll('dialog.sheet button')].find(b => b.textContent === 'End them')"))
+    eventually(lambda: set(argus.sessions()) == {"two"}, timeout=10, what="only the ticked ones ended")
+    argus.kill_sessions()
