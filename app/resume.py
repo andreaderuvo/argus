@@ -171,7 +171,8 @@ def snapshot(sock: tmux.Socket, names: frozenset[str], told: dict[str, str]) -> 
             cwd = cwd.removesuffix(" (deleted)")
             conversation = None
             if agent == "codex":
-                conversation = codex_conversation(_descendants(pid, tree))
+                # The file it holds open first; its hooks say the same id (session_id) since 0.160.
+                conversation = codex_conversation(_descendants(pid, tree)) or told.get(session)
             elif agent == "claude":
                 conversation = told.get(session)
                 if not conversation:

@@ -515,6 +515,10 @@ export async function screenSettings() {
       if (taken.length) {
         box.append(el('p', { className: 'hint', textContent: t('you already have your own hook on {what} — Argus left it alone', { what: taken.join(', ') }) }));
       }
+      // Codex runs a hook only after a person has looked at it, in Codex itself.
+      if (info.agents.some((a) => a.review)) {
+        box.append(el('p', { className: 'hint', textContent: t('Codex asks you to approve its new hooks the next time it starts — once; until then it rings only at the end of a turn') }));
+      }
       box.append(el('p', { className: 'hint', textContent: t('agents read their configuration when they start, so this counts from the next one you open') }));
     };
     getJSON('/api/bell/wiring').then(draw).catch(() => {});

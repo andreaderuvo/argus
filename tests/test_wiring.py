@@ -229,3 +229,49 @@ def test_gemini_not_installed_means_not_offered(tmp_path):
     (tmp_path / ".claude/settings.json").write_text("{}")
     names = {a["name"] for a in wiring.state(tmp_path)["agents"]}
     assert "Gemini CLI" not in names
+
+
+# ------------------------------------------------------------------ Codex's own hooks
+
+def test_codex_gets_claudes_hooks_in_its_own_file_and_keeps_notify(home):
+    """Measured on Codex 0.160: ~/.codex/hooks.json, Claude's shape and event names. notify stays,
+    because Codex runs a hook only once somebody has reviewed it in Codex."""
+    said = wiring.wire(home, True)
+    hooks = json.loads((home / wiring.CODEX_HOOKS).read_text())["hooks"]
+    assert set(hooks) == {"UserPromptSubmit", "Stop", "PermissionRequest"}
+    assert hooks["UserPromptSubmit"][0]["hooks"][0]["command"].endswith("argus-bell start")
+    assert hooks["PermissionRequest"][0]["hooks"][0]["command"].endswith("argus-bell asking")
+    assert "argus-bell" in codex(home)["notify"][0], "the end-of-turn ring while the hooks wait for review"
+    assert any(x.startswith("Codex: added the Stop hook") for x in said["changed"])
+    one = next(a for a in said["state"]["agents"] if a["name"] == "Codex")
+    assert one["on"] and one["review"] is True
+    assert "codex" not in wiring.ringing_agents(home), "not until its hooks are heard from"
+
+
+def test_codex_hooks_come_back_out_and_leave_its_own(home):
+    (home / wiring.CODEX_HOOKS).write_text(json.dumps({"hooks": {"PreToolUse": [{"hooks": [{"type": "command", "command": MINE}]}]}}))
+    wiring.wire(home, True)
+    wiring.wire(home, False)
+    hooks = json.loads((home / wiring.CODEX_HOOKS).read_text())["hooks"]
+    assert hooks == {"PreToolUse": [{"hooks": [{"type": "command", "command": MINE}]}]}
+    assert "notify" not in codex(home)
+
+
+def test_the_bell_reads_codexs_payloads(tmp_path):
+    """What a Codex hook hands over on stdin, as captured from a real one: a permission request
+    names the command, and the end of a turn carries its last words."""
+    import subprocess
+    script = Path(__file__).resolve().parent.parent / "tools" / "argus-bell"
+    seen = tmp_path / "seen"
+    curl = tmp_path / "curl"
+    curl.write_text(f'#!/bin/sh\nfor a; do case "$a" in {{*) printf "%s\\n" "$a" >> {seen};; esac; done\n')
+    curl.chmod(0o755)
+    env = {"PATH": f"{tmp_path}:/usr/bin:/bin", "ARGUS_TOKEN": "t", "HOME": str(tmp_path)}
+    asks = {"session_id": "01a1", "hook_event_name": "PermissionRequest", "tool_name": "Bash",
+            "tool_input": {"command": "rm -rf build"}}
+    stop = {"session_id": "01a1", "hook_event_name": "Stop", "last_assistant_message": "All 42 tests pass."}
+    for why, payload in (("asking", asks), ("done", stop)):
+        subprocess.run([str(script), why], input=json.dumps(payload), text=True, env=env, timeout=10)
+    sent = [json.loads(x) for x in seen.read_text().splitlines()]
+    assert sent[0]["text"] == "needs your permission to use Bash: rm -rf build" and sent[0]["conversation"] == "01a1"
+    assert sent[1]["text"] == "All 42 tests pass." and sent[1]["why"] == "done"

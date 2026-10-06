@@ -1087,6 +1087,7 @@
   "planner": "planner",
   "tester": "tester",
   "Split the work": "Split the work",
-  "one divides the files, two work at once in the same folder, the check and a reviewer decide": "one divides the files, two work at once in the same folder, the check and a reviewer decide"
+  "one divides the files, two work at once in the same folder, the check and a reviewer decide": "one divides the files, two work at once in the same folder, the check and a reviewer decide",
+  "Codex asks you to approve its new hooks the next time it starts — once; until then it rings only at the end of a turn": "Codex asks you to approve its new hooks the next time it starts — once; until then it rings only at the end of a turn"
  }
 }

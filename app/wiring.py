@@ -25,6 +25,7 @@ WHERE_MARK = "argus-where"
 
 CLAUDE_SETTINGS = ".claude/settings.json"
 CODEX_CONFIG = ".codex/config.toml"
+CODEX_HOOKS = ".codex/hooks.json"
 GEMINI_SETTINGS = ".gemini/settings.json"
 
 # Claude Code fires Stop at the end of a turn and Notification when it wants you. Codex
@@ -39,6 +40,13 @@ CLAUDE_EVENTS = {"UserPromptSubmit": "start", "Stop": "done", "Notification": "a
 # raises). Same nested shape as Claude's, `{"hooks": [{"type": "command", "command": …}]}`,
 # so the same helper functions read and write both.
 GEMINI_EVENTS = {"AfterAgent": "done", "Notification": "asking"}
+# Codex grew Claude Code's hooks (measured on 0.160, 2026-10-06): `~/.codex/hooks.json`, the same
+# shape, the same event names, the same JSON on stdin — session_id, turn_id, cwd,
+# last_assistant_message. So it now says when a turn starts and when it wants you, as Claude does,
+# instead of the pane being the witness. One difference: Codex runs a hook only once a person has
+# reviewed it (it asks at the next start, once), so `notify` stays too — it rings at the end of a
+# turn while the hooks wait for that review, and bells.NEEDS folds the two into one ring.
+CODEX_EVENTS = {"UserPromptSubmit": "start", "Stop": "done", "PermissionRequest": "asking"}
 
 
 def script_home(home: Path) -> Path:
@@ -167,19 +175,24 @@ def state(home: Path) -> dict:
     if codex.exists() or (home / ".codex").is_dir():
         text = codex.read_text() if codex.exists() else ""
         line = _notify_line(text)
+        hooks = _json_hook_state(home, CODEX_HOOKS, ".codex", "Codex", CODEX_EVENTS) or {"on": False, "taken": []}
         out["agents"].append({
             "name": "Codex",
             "file": str(codex),
-            "on": bool(line) and MARK in line,
-            "taken": ["notify"] if line and MARK not in line else [],
+            "on": bool(line) and MARK in line and hooks["on"],
+            "taken": (["notify"] if line and MARK not in line else []) + hooks["taken"],
+            # Codex runs a hook only after a person has looked at it, in Codex.
+            "review": hooks["on"],
         })
     return out
 
 
 def ringing_agents(home: Path) -> set[str]:
     """The agents whose end-of-turn hook here is ours, so they say themselves when they stop.
-    Claude Code and Gemini also say when they ask; Codex does not (its notify is end-of-turn
-    only), so it is left out: the pane is still the witness of a Codex stopping for approval."""
+    Claude Code and Gemini also say when they ask. Codex is left out even with its hooks wired:
+    they run only once a person has reviewed them in Codex, which nothing here can see, and
+    counting it as hooked before that would silence the pane for a Codex that tells nothing.
+    Once its hooks do speak, `agents.told` takes over for that session, as for any other."""
     out = set()
     for rel, end, name in ((CLAUDE_SETTINGS, "Stop", "claude"), (GEMINI_SETTINGS, "AfterAgent", "gemini")):
         try:
@@ -251,6 +264,7 @@ def wire(home: Path, on: bool) -> dict:
     done += _wire_json_hooks(home, CLAUDE_SETTINGS, ".claude", CLAUDE_EVENTS, on, script)
     done += _wire_json_hooks(home, GEMINI_SETTINGS, ".gemini", GEMINI_EVENTS, on, script)
     done += _wire_codex(home, on, script)
+    done += [f"Codex: {x}" for x in _wire_json_hooks(home, CODEX_HOOKS, ".codex", CODEX_EVENTS, on, script)]
     return {"changed": done, "state": state(home)}
 
 
@@ -291,7 +305,8 @@ def _wire_json_hooks(home: Path, settings_rel: str, marker_dir: str, events: dic
     if not hooks:
         data.pop("hooks", None)
     settings.parent.mkdir(parents=True, exist_ok=True)
-    _keep_a_copy(settings)
+    if settings.exists():                  # Codex's hooks.json is usually ours to create
+        _keep_a_copy(settings)
     settings.write_text(json.dumps(data, indent=2) + "\n")
     return said
 
