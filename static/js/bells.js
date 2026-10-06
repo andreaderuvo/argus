@@ -5,7 +5,7 @@ import { toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { bellStream, getJSON, setBellStream } from '/js/reconnect.js';
 import { go, render } from '/js/router.js';
-import { paintRailDesks, sayIfNewer } from '/js/sidebar.js';
+import { paintRailDesks, sayIfNewer, sayIfPluginOld } from '/js/sidebar.js';
 import { live, prefs, token } from '/js/state.js';
 import { openWindow, runs, watchers, workspaces } from '/js/tray.js';
 import { t } from '/js/words.js';
@@ -238,6 +238,7 @@ export function paintBells() {
   // list both light up, the parked desk sits there plain, and you find out in the morning.
   paintRailDesks();
   sayIfNewer();
+  sayIfPluginOld();
   const desks = new Set();
   for (const win of document.querySelectorAll('.win[data-kind="term"]')) {
     const name = win.querySelector('.wintitle')?.textContent;

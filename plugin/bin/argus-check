@@ -1,0 +1,25 @@
+#!/bin/sh
+# At the start of an agent's session: is a newer Argus plugin waiting? If so, say it once, in the
+# agent itself — a systemMessage is shown to you, not to the model. Asks the Argus on this machine
+# (the version in the checkout it runs from); says nothing if Argus is not there or is slow.
+set -u
+CONF="${ARGUS_CONFIG:-$HOME/.config/argus/config.yaml}"
+URL="${ARGUS_URL:-http://127.0.0.1:8090}"
+TOKEN="${ARGUS_TOKEN:-$(sed -n 's/^token:[[:space:]]*//p' "$CONF" 2>/dev/null | head -1)}"
+[ -n "$TOKEN" ] || exit 0
+HERE="$(cd "$(dirname "$0")/.." && pwd)"
+MINE="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['version'])" "$HERE/.claude-plugin/plugin.json" 2>/dev/null)"
+[ -n "$MINE" ] || exit 0
+OFFERED="$(curl -s -m 2 -H "Authorization: Bearer $TOKEN" "$URL/api/plugin/version" 2>/dev/null \
+  | python3 -c "import json,sys; print(json.load(sys.stdin).get('version',''))" 2>/dev/null)"
+[ -n "$OFFERED" ] || exit 0
+python3 - "$MINE" "$OFFERED" <<'PY'
+import json, sys
+key = lambda v: tuple(int(p) if p.isdigit() else 0 for p in v.split("."))
+mine, offered = sys.argv[1], sys.argv[2]
+if key(mine) < key(offered):
+    print(json.dumps({"systemMessage": f"Argus plugin {offered} is available (this session has {mine}): "
+                      "/plugin marketplace update argus, /plugin update argus@argus, then /reload-plugins "
+                      "— or press Update in Argus → Settings."}))
+PY
+exit 0

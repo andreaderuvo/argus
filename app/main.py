@@ -23,7 +23,7 @@ from fastapi import FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 
-from . import build
+from . import build, pluginstate
 from . import (agentflags, teams, wiring, agentstate, resume, announce, asks, bells, devices, favourites, files, fsops, gitwork, journal, labels,
                languages, launch, mounts, network, paths, ports, prefs, proxy, release, runner, runs,
                system, term, tmux, todo)
@@ -80,6 +80,7 @@ TAGS = [
     {"name": "Files", "description": "Reading the filesystem, previewing and searching it. Confined to the configured roots, canonicalised before the check, symlinks out of them refused."},
     {"name": "Writing", "description": "Making, moving, deleting, uploading. Every route here is off unless the server was started with `--allow-write`."},
     {"name": "Sessions", "description": "tmux: what exists, where it is, what it is showing, and how it looks. The terminal itself is a WebSocket."},
+    {"name": "Agents", "description": "The Argus plugin in each agent on this machine — installed, which version, installing and updating it with a press, reloading it in the sessions at their prompt."},
     {"name": "Teams", "description": "Agents working on one goal in turns, directed by the server: whose turn it is, the check between turns, and when to stop or ask you."},
     {"name": "Notifications", "description": "Something has finished, or wants you. Post to it from an agent hook; read the stream to be told as it happens."},
     {"name": "Prompts", "description": "Working out what a path in a session refers to, so it can be opened."},
@@ -559,6 +560,56 @@ def create_app(cfg: Config) -> FastAPI:
             return {"states": await agent_states(request)}
         except Exception:
             return {"states": {}}
+
+    @app.get("/api/plugin", tags=["Agents"], summary="The Argus plugin in each agent: installed, which version")
+    async def plugin_state(request: Request) -> dict:
+        """`{version, agents: [{agent, name, present, installed, outdated}], reload: [sessions]}` —
+        `reload` is the Claude sessions sitting at their prompt that would take a newer plugin with
+        `/reload-plugins` (see POST /api/plugin/reload)."""
+        found = await asyncio.to_thread(launch.versions, ["claude", "codex"])
+        said = await asyncio.to_thread(pluginstate.state, Path.home(),
+                                       {k: bool(v) for k, v in found.items()})
+        said["reload"] = at_prompt(request, "claude")
+        return said
+
+    @app.get("/api/plugin/version", tags=["Agents"], summary="The plugin version this copy offers")
+    async def plugin_version() -> dict:
+        """What `argus-check` asks at the start of every agent session: cheap, no shell, no agent."""
+        return {"version": pluginstate.repo_version()}
+
+    @app.post("/api/plugin", tags=["Agents"], summary="Install or update the Argus plugin in one agent")
+    async def plugin_install(request: Request, body: dict) -> dict:
+        """`{agent: claude|codex, action: install|update}`. Runs the agent's own plugin commands in a
+        login shell, with this checkout as the marketplace when it has none. Changes the agent's
+        configuration, so it is a press in Settings, never something done on its own."""
+        agent = str(body.get("agent") or "")
+        if agent not in ("claude", "codex"):
+            raise ApiError(400, "agent is claude or codex")
+        said = await asyncio.to_thread(pluginstate.run, agent, Path.home(), str(body.get("action") or "install"))
+        if not said["ok"]:
+            raise ApiError(502, "\n\n".join(said["said"]))
+        return {**said, "state": await plugin_state(request)}
+
+    @app.post("/api/plugin/reload", tags=["Agents"], summary="Type /reload-plugins into the Claude sessions at their prompt")
+    async def plugin_reload(request: Request) -> dict:
+        """Only into a Claude whose last word was 'done' — at its prompt, nothing half-typed by us,
+        no permission question open (an Enter there would answer it). The others are left alone and
+        listed; they take the plugin when they next start, or by hand."""
+        done, left = [], []
+        sessions = at_prompt(request, "claude")
+        for session in sessions:
+            try:
+                # Typed, not pasted: a slash command is a command when it is keys at the prompt.
+                sock = request.app.state.socket
+                await asyncio.to_thread(tmux.run, ["tmux", *sock.args(), "send-keys", "-t", f"={session}:", "-l", "/reload-plugins"])
+                await asyncio.sleep(0.3)
+                await asyncio.to_thread(tmux.run, ["tmux", *sock.args(), "send-keys", "-t", f"={session}:", "Enter"])
+                done.append(session)
+            except Exception:                              # noqa: BLE001 — say which, carry on
+                left.append(session)
+        others = [s for s, st in request.app.state.agents.states().items()
+                  if st.get("agent") == "claude" and s not in sessions]
+        return {"reloaded": done, "failed": left, "not_now": sorted(others)}
 
     @app.get("/api/teams/packs", tags=["Teams"], summary="The example team packs this copy ships")
     async def example_team_packs() -> dict:
@@ -1942,6 +1993,18 @@ def create_app(cfg: Config) -> FastAPI:
     # is recorded without anybody remembering to.
     app.add_middleware(JournalMiddleware, store_of=lambda: app.state.journal)
     return app
+
+
+def at_prompt(request: Request, agent: str) -> list[str]:
+    """Sessions of this agent waiting at their prompt: the sampler says waiting, and the last thing
+    their hook rang was 'done' — not 'asking', which may be a permission question on screen."""
+    states = request.app.state.agents.states()
+    last: dict[str, str] = {}
+    for bell in list(bells.store(request)["list"]):
+        if bell.get("session") and bell.get("source") == "hook":
+            last[bell["session"]] = bell.get("why")
+    return sorted(s for s, st in states.items()
+                  if st.get("agent") == agent and st.get("state") == "waiting" and last.get(s) == "done")
 
 
 def ensure_desk(request: Request, name: str, folder: str | None = None) -> tuple[dict, bool]:

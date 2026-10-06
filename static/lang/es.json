@@ -1120,6 +1120,20 @@
   "a newer commit is on disk — restart Argus to run it": "hay un commit más nuevo en el disco — reinicia Argus para usarlo",
   "Examples…": "Ejemplos…",
   "Ready-made packs of roles and models — taken in only if you pick one": "Paquetes listos de roles y modelos — solo si eliges uno",
-  "Example packs": "Paquetes de ejemplo"
+  "Example packs": "Paquetes de ejemplo",
+  "not installed": "no instalado",
+  "{have} — {offered} is out": "{have} — ya está la {offered}",
+  "{have}, up to date": "{have}, al día",
+  "Install": "Instalar",
+  "Update": "Actualizar",
+  "the Argus plugin is in {name} — sessions take it when they reload or start": "el plugin de Argus está en {name} — las sesiones lo toman al recargar o arrancar",
+  "The Argus plugin in {name}": "El plugin de Argus en {name}",
+  "Reload in {n} waiting": "Recargar en las {n} en espera",
+  "reloaded in {done}": "recargado en {done}",
+  "not now (working or asking): {list}": "ahora no (trabajando o preguntando): {list}",
+  "Reload the plugin in the Claude sessions at their prompt": "Recargar el plugin en las sesiones de Claude en su prompt",
+  "types /reload-plugins in {list} — never into one that is working or asking you something": "escribe /reload-plugins en {list} — nunca en una que trabaja o te pregunta algo",
+  "hooks and tools in one install: the agent says when it starts, finishes and needs you, and can ask you, open desks, start agents and work your to-dos": "hooks y herramientas en una instalación: el agente dice cuándo empieza, termina y te necesita, y puede preguntarte, abrir escritorios, iniciar agentes y trabajar tus tareas",
+  "Argus plugin {version} is out — {names} still have the older one. Update in Settings.": "Ya está el plugin de Argus {version} — {names} aún tienen el anterior. Actualízalo en Ajustes."
  }
 }

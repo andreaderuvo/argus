@@ -2197,6 +2197,122 @@
     ]
    }
   },
+  "/api/plugin": {
+   "get": {
+    "description": "`{version, agents: [{agent, name, present, installed, outdated}], reload: [sessions]}` \u2014\n`reload` is the Claude sessions sitting at their prompt that would take a newer plugin with\n`/reload-plugins` (see POST /api/plugin/reload).",
+    "operationId": "getApiPlugin",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Plugin State Api Plugin Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "The Argus plugin in each agent: installed, which version",
+    "tags": [
+     "Agents"
+    ]
+   },
+   "post": {
+    "description": "`{agent: claude|codex, action: install|update}`. Runs the agent's own plugin commands in a\nlogin shell, with this checkout as the marketplace when it has none. Changes the agent's\nconfiguration, so it is a press in Settings, never something done on its own.",
+    "operationId": "postApiPlugin",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Plugin Install Api Plugin Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Install or update the Argus plugin in one agent",
+    "tags": [
+     "Agents"
+    ]
+   }
+  },
+  "/api/plugin/reload": {
+   "post": {
+    "description": "Only into a Claude whose last word was 'done' \u2014 at its prompt, nothing half-typed by us,\nno permission question open (an Enter there would answer it). The others are left alone and\nlisted; they take the plugin when they next start, or by hand.",
+    "operationId": "postApiPluginReload",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Plugin Reload Api Plugin Reload Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Type /reload-plugins into the Claude sessions at their prompt",
+    "tags": [
+     "Agents"
+    ]
+   }
+  },
+  "/api/plugin/version": {
+   "get": {
+    "description": "What `argus-check` asks at the start of every agent session: cheap, no shell, no agent.",
+    "operationId": "getApiPluginVersion",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Plugin Version Api Plugin Version Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "The plugin version this copy offers",
+    "tags": [
+     "Agents"
+    ]
+   }
+  },
   "/api/ports": {
    "get": {
     "operationId": "getApiPorts",
@@ -4397,6 +4513,10 @@
   {
    "description": "tmux: what exists, where it is, what it is showing, and how it looks. The terminal itself is a WebSocket.",
    "name": "Sessions"
+  },
+  {
+   "description": "The Argus plugin in each agent on this machine \u2014 installed, which version, installing and updating it with a press, reloading it in the sessions at their prompt.",
+   "name": "Agents"
   },
   {
    "description": "Agents working on one goal in turns, directed by the server: whose turn it is, the check between turns, and when to stop or ask you.",

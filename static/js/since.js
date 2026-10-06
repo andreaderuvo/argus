@@ -478,6 +478,66 @@ export async function screenSettings() {
     return row;
   };
 
+  /** The Argus plugin in each agent: installed, up to date, or one press away — and, after an
+   *  update, the Claude sessions sitting at their prompt reloaded with one more. Nothing here
+   *  happens without the press: it changes the agents' configuration and types into sessions. */
+  const pluginRows = () => {
+    const box = el('div');
+    const draw = (info) => {
+      box.replaceChildren();
+      const here = (info?.agents || []).filter((a) => a.present || a.installed);
+      if (!here.length) return;
+      for (const a of here) {
+        const what = !a.installed ? t('not installed')
+          : a.outdated ? t('{have} — {offered} is out', { have: a.installed, offered: info.version })
+            : t('{have}, up to date', { have: a.installed });
+        const verb = !a.installed ? t('Install') : a.outdated ? t('Update') : null;
+        const button = verb ? el('button', { className: 'ghost inline pluginact', type: 'button', textContent: verb }) : null;
+        if (button) {
+          button.onclick = async () => {
+            button.disabled = true;
+            button.textContent = '…';
+            try {
+              const said = await postJSON('/api/plugin', { agent: a.agent, action: a.installed ? 'update' : 'install' });
+              toast(t('the Argus plugin is in {name} — sessions take it when they reload or start', { name: a.name }));
+              draw(said.state);
+            } catch (e) { toast(e.message, true); draw(info); }
+          };
+        }
+        box.append(el('div', { className: 'row setting', dataset: { agent: a.agent } }, [
+          el('span', { className: 'grow' }, [
+            el('span', { className: 'name', textContent: t('The Argus plugin in {name}', { name: a.name }) }),
+            el('span', { className: `meta${a.outdated || !a.installed ? ' warn' : ''}`, textContent: what }),
+          ]),
+          button,
+        ].filter(Boolean)));
+      }
+      if (info.reload?.length) {
+        const go = el('button', { className: 'ghost inline pluginreload', type: 'button',
+          textContent: t('Reload in {n} waiting', { n: info.reload.length }) });
+        go.onclick = async () => {
+          go.disabled = true;
+          try {
+            const said = await postJSON('/api/plugin/reload', {});
+            toast(t('reloaded in {done}', { done: said.reloaded.join(', ') || '—' })
+              + (said.not_now.length ? ` · ${t('not now (working or asking): {list}', { list: said.not_now.join(', ') })}` : ''));
+          } catch (e) { toast(e.message, true); }
+          getJSON('/api/plugin').then(draw).catch(() => {});
+        };
+        box.append(el('div', { className: 'row setting' }, [
+          el('span', { className: 'grow' }, [
+            el('span', { className: 'name', textContent: t('Reload the plugin in the Claude sessions at their prompt') }),
+            el('span', { className: 'meta', textContent: t('types /reload-plugins in {list} — never into one that is working or asking you something', { list: info.reload.join(', ') }) }),
+          ]),
+          go,
+        ]));
+      }
+      box.append(el('p', { className: 'hint', textContent: t('hooks and tools in one install: the agent says when it starts, finishes and needs you, and can ask you, open desks, start agents and work your to-dos') }));
+    };
+    getJSON('/api/plugin').then(draw).catch(() => {});
+    return box;
+  };
+
   /** The one button. Everything the wiki describes doing by hand, done here instead:
    *  the little script, and the hooks in each agent's own configuration. */
   const wiringRows = () => {
@@ -779,7 +839,7 @@ export async function screenSettings() {
     group(t('Interruptions')),
     toggle(t('Sound when something rings'), t('two short tones when an agent finishes or asks for you'),
       () => prefs.bellSound !== false, (v) => { prefs.bellSound = v; }),
-    wiringRows(), bellRow(),
+    wiringRows(), pluginRows(), bellRow(),
   );
 
   wrap.append(

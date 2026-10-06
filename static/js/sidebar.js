@@ -923,6 +923,20 @@ export async function sayIfNewer() {
     9000);
 }
 
+/** An agent whose Argus plugin is older than the one this copy offers: said once per version, and
+ *  pressing it goes to the row in Settings that updates it. */
+export async function sayIfPluginOld() {
+  if (!token) return;
+  let info;
+  try { info = await getJSON('/api/plugin'); } catch { return; }
+  const old = (info?.agents || []).filter((a) => a.outdated);
+  if (!old.length || prefs.sawPlugin === info.version) return;
+  prefs.sawPlugin = info.version;
+  savePrefs();
+  toast(t('Argus plugin {version} is out — {names} still have the older one. Update in Settings.',
+    { version: info.version, names: old.map((a) => a.name).join(', ') }), false, () => go('#/settings'), 9000);
+}
+
 /** The version, at the bottom of the settings, where you go to look for it. */
 export function versionRow() {
   const row = el('div', { className: 'row setting' }, [
