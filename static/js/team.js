@@ -90,6 +90,7 @@ export async function teamSheet({ wsId, home, onStarted }) {
   }
 
   const mine = () => prefs.teamModels || {};
+  const myRoles = () => prefs.teamRoles || {};
   const choose = (key) => {
     chosen = key;
     graph = clone(key.startsWith('mine:') ? mine()[key.slice(5)] : templates[key].graph);
@@ -161,16 +162,42 @@ export async function teamSheet({ wsId, home, onStarted }) {
     };
     const fields = [el('label', { className: 'teamfield' }, [el('span', { textContent: t('name') }), name])];
     if (n.kind === 'agent') {
-      const role = el('select', { className: 'setpick' }, roleNames.map((r) => el('option', { value: r, textContent: t(r), selected: r === n.role })));
-      role.onchange = () => { n.role = role.value; redraw(); };
+      // The roles Argus knows, then yours: a role of your own is a name and a duty (and whether it
+      // judges), kept with the preferences, so it is on offer in every team on every device.
+      const own = myRoles();
+      const role = el('select', { className: 'setpick' }, [
+        ...roleNames.map((r) => el('option', { value: r, textContent: t(r), selected: r === n.role })),
+        ...(Object.keys(own).length ? [el('optgroup', { label: t('your roles') },
+          Object.keys(own).sort().map((r) => el('option', { value: r, textContent: r, selected: r === n.role })))] : []),
+      ]);
+      role.onchange = () => {
+        n.role = role.value;
+        const mine = myRoles()[n.role];
+        if (mine) { n.duty = mine.duty; n.judge = !!mine.judge; }
+        redraw();
+      };
       const judge = el('input', { type: 'checkbox', checked: !!n.judge });
       judge.onchange = () => { n.judge = judge.checked; redraw(); };
-      const duty = el('textarea', { rows: 2, className: 'teamduty', value: n.duty || '', placeholder: t('what this one does — leave empty for the role’s usual duty') });
+      const duty = el('textarea', { rows: 3, className: 'teamduty', value: n.duty || '', placeholder: t('what this one does — leave empty for the role’s usual duty') });
       duty.oninput = () => { n.duty = duty.value.trim() || undefined; };
+      const keep = el('button', { type: 'button', className: 'ghost teamadd', textContent: t('Save as a role of mine') });
+      keep.onclick = async () => {
+        if (!n.duty) { toast(t('write what it does first, then save it as a role'), true); duty.focus(); return; }
+        const said = await ask(t('A name for this role'), n.role && !roleNames.includes(n.role) ? n.role : '', t('Save'));
+        const name = (said || '').trim().toLowerCase().replace(/[^a-z0-9 -]+/g, '').slice(0, 30).trim();
+        if (!name) return;
+        prefs.teamRoles = { ...myRoles(), [name]: { duty: n.duty, judge: !!n.judge } };
+        savePrefs();
+        n.role = name;
+        toast(t('saved as {name}', { name }));
+        redraw();
+      };
       fields.push(
         el('label', { className: 'teamfield' }, [el('span', { textContent: t('role') }), role]),
         el('label', { className: 'teamfield check' }, [judge, el('span', { textContent: t('judges: ends its turn with OK, REDO, DONE or BLOCKED') })]),
         duty,
+        el('div', { className: 'teamactions' }, [keep,
+          el('span', { className: 'hint', textContent: t('a duty can name the agent’s own skills: “use your /security-review skill on the diff”') })]),
       );
     } else if (n.kind === 'check') {
       const command = el('input', { type: 'text', className: 'startpath', value: n.command || '', spellcheck: false, placeholder: t('the team’s check') });

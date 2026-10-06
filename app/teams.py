@@ -244,6 +244,12 @@ def check_graph(graph: dict, needs_check: bool = False) -> dict:
         ids.add(nid)
         if n.get("kind") not in KINDS:
             raise ValueError(f"{nid}: a step is an agent, a check, a join or the end")
+        # A role may be one of your own (a name and a duty, kept in the preferences): any short
+        # name goes, and its duty is whatever you wrote — within reason, since it is typed in.
+        if len(str(n.get("role") or "")) > 30:
+            raise ValueError(f"{nid}: a role's name is at most 30 characters")
+        if len(str(n.get("duty") or "")) > 4000:
+            raise ValueError(f"{nid}: a duty is at most 4000 characters")
     agents = [n for n in nodes if n["kind"] == "agent"]
     if not agents:
         raise ValueError("a team needs at least one agent")

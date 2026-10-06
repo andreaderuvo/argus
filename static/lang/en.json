@@ -1089,6 +1089,11 @@
   "Split the work": "Split the work",
   "one divides the files, two work at once in the same folder, the check and a reviewer decide": "one divides the files, two work at once in the same folder, the check and a reviewer decide",
   "Codex asks you to approve its new hooks the next time it starts — once; until then it rings only at the end of a turn": "Codex asks you to approve its new hooks the next time it starts — once; until then it rings only at the end of a turn",
-  "the Argus plugin": "the Argus plugin"
+  "the Argus plugin": "the Argus plugin",
+  "your roles": "your roles",
+  "Save as a role of mine": "Save as a role of mine",
+  "write what it does first, then save it as a role": "write what it does first, then save it as a role",
+  "A name for this role": "A name for this role",
+  "a duty can name the agent’s own skills: “use your /security-review skill on the diff”": "a duty can name the agent’s own skills: “use your /security-review skill on the diff”"
  }
 }

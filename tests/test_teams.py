@@ -547,3 +547,18 @@ def test_a_team_is_not_for_an_agents_key_nor_a_read_only_server(tmp_path):
     body = {"template": "review", "path": str(tmp_path), "goal": "x"}
     assert c.post("/api/teams", json=body, headers={"authorization": "Bearer " + "a" * 64}).status_code == 403
     assert c.post("/api/teams", json=body, headers={"authorization": "Bearer " + "m" * 64}).status_code == 403
+
+
+def test_a_role_of_your_own_is_a_name_and_a_duty(setup):
+    """Roles saved from the sheet are not in DUTIES: the step carries its role's name and duty, and
+    that is what the agent is told."""
+    d, io, tmp = setup
+    graph = fill_graph(TEMPLATES["fix"]["graph"], "t", {}, default_check="true")
+    ex = next(n for n in graph["nodes"] if n["id"] == "executor")
+    ex["role"], ex["duty"] = "security auditor", "Use your /security-review skill on the diff; list every finding with its file and line."
+    d.create(name="t", goal="harden the upload", folder=str(tmp), graph=graph, template="fix", gate="goal", max_rounds=3)
+    told = io.sent[-1][1]
+    assert "You are executor (security auditor)" in told and "/security-review skill on the diff" in told
+    long = dict(graph, nodes=[dict(n, duty="x" * 4001) if n["id"] == "executor" else n for n in graph["nodes"]])
+    with pytest.raises(ValueError, match="at most 4000"):
+        check_graph(long)

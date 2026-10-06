@@ -1089,6 +1089,11 @@
   "Split the work": "Dividetevi il lavoro",
   "one divides the files, two work at once in the same folder, the check and a reviewer decide": "uno divide i file, due lavorano insieme nella stessa cartella, decidono il controllo e un revisore",
   "Codex asks you to approve its new hooks the next time it starts — once; until then it rings only at the end of a turn": "Codex ti chiede di approvare i suoi nuovi hook al prossimo avvio — una volta sola; fino ad allora suona solo a fine turno",
-  "the Argus plugin": "il plugin di Argus"
+  "the Argus plugin": "il plugin di Argus",
+  "your roles": "i tuoi ruoli",
+  "Save as a role of mine": "Salva come mio ruolo",
+  "write what it does first, then save it as a role": "scrivi prima cosa fa, poi salvalo come ruolo",
+  "A name for this role": "Un nome per questo ruolo",
+  "a duty can name the agent’s own skills: “use your /security-review skill on the diff”": "un compito può nominare le skill dell’agente: “usa la tua skill /security-review sul diff”"
  }
 }

@@ -110,3 +110,29 @@ def test_a_shape_saved_as_a_model_comes_back_as_a_card(make_page, argus):
     saved = argus.api("/api/prefs")["prefs"]["teamModels"]["my review"]
     assert all("session" not in n for n in saved["nodes"]), "the shape, not the sessions of a run"
     clean(argus, project)
+
+
+def test_a_role_of_your_own_is_saved_and_offered_again(make_page, argus):
+    project = desk(argus)
+    page = make_page(route="#/wall")
+    open_sheet(page, argus, "make the parser faster")
+    page.click_at(*page._center("[...document.querySelectorAll('.teampicture .tgnode')].find(n => n.querySelector('.tgtext')?.textContent === 'reviewer')"))
+    page.wait("!document.querySelector('.teamnode').hidden", timeout=5, what="the step's panel")
+    duty = "document.querySelector('.teamnode .teamduty')"
+    page.eval(f"{duty}.value = 'Use your /security-review skill on the diff.'; {duty}.dispatchEvent(new Event('input'))")
+    page.click_at(*page._center("[...document.querySelectorAll('.teamnode button')].find(b => b.textContent === 'Save as a role of mine')"))
+    page.wait("!!document.querySelector('dialog.sheet:last-of-type input')", timeout=5, what="the name to save it under")
+    page.eval("const i = [...document.querySelectorAll('dialog.sheet input')].pop(); i.value = 'Security Auditor!'; i.dispatchEvent(new Event('input'))")
+    page.click_at(*page._center("[...document.querySelectorAll('dialog.sheet button')].find(b => b.textContent === 'Save')"))
+    eventually(lambda: "security auditor" in (argus.api("/api/prefs")["prefs"].get("teamRoles") or {}), timeout=10,
+               what="kept with the other preferences, under a clean name")
+    saved = argus.api("/api/prefs")["prefs"]["teamRoles"]["security auditor"]
+    assert saved == {"duty": "Use your /security-review skill on the diff.", "judge": True}
+    # Another step can take it: choosing it brings its duty along.
+    page.click_at(*page._center("[...document.querySelectorAll('.teampicture .tgnode')].find(n => n.querySelector('.tgtext')?.textContent === 'executor')"))
+    page.wait("[...document.querySelectorAll('.teamnode select option')].some(o => o.value === 'security auditor')", timeout=5,
+              what="the role on offer, under your roles")
+    page.eval("const s = document.querySelector('.teamnode select'); s.value = 'security auditor'; s.dispatchEvent(new Event('change'))")
+    page.wait("document.querySelector('.teamnode .teamduty')?.value === 'Use your /security-review skill on the diff.'", timeout=5,
+              what="its duty, filled in")
+    clean(argus, project)
