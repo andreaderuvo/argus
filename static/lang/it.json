@@ -1188,6 +1188,11 @@
   "{names} and everything running in them will stop. Detaching a window instead leaves a session running.": "{names} e tutto quello che ci gira dentro si fermeranno. Staccare una finestra invece lascia la sessione viva.",
   "End them": "Terminale",
   "Select {name}": "Seleziona {name}",
-  "Everything, no questions: the agents run commands and change files without asking anyone (--dangerously-skip-permissions). Use it in a folder you can afford to lose.": "Tutto, senza domande: gli agenti eseguono comandi e cambiano file senza chiedere a nessuno (--dangerously-skip-permissions). Usalo in una cartella che puoi permetterti di perdere."
+  "Everything, no questions: the agents run commands and change files without asking anyone (--dangerously-skip-permissions). Use it in a folder you can afford to lose.": "Tutto, senza domande: gli agenti eseguono comandi e cambiano file senza chiedere a nessuno (--dangerously-skip-permissions). Usalo in una cartella che puoi permetterti di perdere.",
+  "Graph": "Grafo",
+  "The team in a window of the desk, live": "Il team in una finestra del desk, dal vivo",
+  "this team has been forgotten — close the window": "questo team è stato dimenticato — chiudi la finestra",
+  "a team": "un team",
+  "A team of agents, live": "Un team di agenti, dal vivo"
  }
 }

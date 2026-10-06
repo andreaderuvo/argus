@@ -612,32 +612,63 @@ export async function teamSheet({ wsId, home, onStarted }) {
 
 /** The team, small and live: its graph coloured by what each step is doing, the round, the last
  *  check, and the one thing to press. Asked every few seconds while the desk is on screen. */
-export function teamStrip({ wsId, openLog }) {
-  const strip = el('div', { className: 'teamstrip', hidden: true });
-  const open = new Set();               // teams whose story is unfolded
+/* A team, drawn: its line (name, round, last check, the buttons) and its graph, live. Shared by
+ *  the line over the desk (no graph — a button opens the window) and the team's own window
+ *  (the graph, large, with the story). */
 
-  // Stop, and — ticked — end every session of the team, agents and checks, with what runs in them.
-  // What it wrote stays: the log, the files, any worktree.
-  const stopTeam = async (team) => {
-    const names = team.nodes.filter((n) => n.session).map((n) => n.session);
-    const said = await confirmWithCheck(t('Stop the team'),
-      t('{name} stops: nothing new starts. Its log and files stay.', { name: team.name }),
-      t('also end its {n} session(s) — {names} — and everything running in them', { n: names.length, names: names.join(', ') }),
-      t('Stop'));
-    if (!said.ok) return;
-    try {
-      const done = await postJSON(`/api/teams/${team.id}/stop`, { kill: said.checked });
-      if (done.ended?.length) toast(t('{n} session(s) ended', { n: done.ended.length }));
-    } catch (e) { toast(e.message, true); }
+// Stop, and — ticked — end every session of the team, agents and checks, with what runs in them.
+// What it wrote stays: the log, the files, any worktree.
+async function stopTeam(team, then) {
+  const names = team.nodes.filter((n) => n.session).map((n) => n.session);
+  const said = await confirmWithCheck(t('Stop the team'),
+    t('{name} stops: nothing new starts. Its log and files stay.', { name: team.name }),
+    t('also end its {n} session(s) — {names} — and everything running in them', { n: names.length, names: names.join(', ') }),
+    t('Stop'));
+  if (!said.ok) return;
+  try {
+    const done = await postJSON(`/api/teams/${team.id}/stop`, { kill: said.checked });
+    if (done.ended?.length) toast(t('{n} session(s) ended', { n: done.ended.length }));
+  } catch (e) { toast(e.message, true); }
+  then();
+}
+
+function drawTeam(team, { graph, story, refresh, openLog, openTeam, toggleStory }) {
+  const act = async (action) => {
+    try { await postJSON(`/api/teams/${team.id}/${action}`, {}); } catch (e) { toast(e.message, true); }
     refresh();
   };
-  const act = async (id, action) => {
-    try { await postJSON(`/api/teams/${id}/${action}`, {}); } catch (e) { toast(e.message, true); }
-    refresh();
-  };
-
-  const row = (team) => {
-    const live = team.status === 'running' || team.status === 'paused' || team.status === 'waiting-you';
+  const live = team.status === 'running' || team.status === 'paused' || team.status === 'waiting-you';
+  const says = {
+    running: t('round {r} of {max}', { r: team.round, max: team.max_rounds }),
+    paused: t('paused — the current turn finishes'),
+    'waiting-you': team.phase === 'gate' ? t('round {r} done — continue?', { r: team.round - 1 }) : t('waiting for you'),
+    done: t('done'), stopped: t('stopped'),
+  }[team.status] || team.status;
+  const buttons = [];
+  if (team.status === 'waiting-you' || team.status === 'paused') {
+    buttons.push(el('button', { className: 'teamgo', type: 'button', textContent: t('Continue'), onclick: () => act('go') }));
+  }
+  if (team.status === 'running') buttons.push(el('button', { type: 'button', textContent: t('Pause'), onclick: () => act('pause') }));
+  if (live) buttons.push(el('button', { type: 'button', textContent: t('Stop'), onclick: () => stopTeam(team, refresh) }));
+  buttons.push(el('button', { type: 'button', textContent: t('Log'), title: team.log, onclick: () => openLog(team.log) }));
+  if (openTeam) buttons.push(el('button', { type: 'button', className: 'teamopen', textContent: t('Graph'), title: t('The team in a window of the desk, live'), onclick: () => openTeam(team) }));
+  if (toggleStory) buttons.push(el('button', { type: 'button', className: story ? 'on' : '', textContent: t('Story'), onclick: toggleStory }));
+  if (!live) {
+    buttons.push(el('button', { type: 'button', title: t('Forget this team'), onclick: async () => { await delJSON(`/api/teams/${team.id}`); refresh(); } }, icon('close')));
+  }
+  const check = team.last_check
+    ? el('span', { className: `teamlastcheck ${team.last_check.status === 'PASS' ? 'pass' : 'fail'}`,
+      textContent: t('{node} {status} · {s}s', { node: team.last_check.node, status: team.last_check.status, s: team.last_check.seconds }) })
+    : null;
+  const line = el('div', { className: `teamline ${team.status}` }, [
+    el('span', { className: 'teamname', textContent: team.name, title: team.goal }),
+    el('span', { className: 'teamsays', textContent: says }),
+    check,
+    el('span', { className: 'grow' }),
+    ...buttons,
+  ].filter(Boolean));
+  const out = [line];
+  if (graph) {
     const states = {};
     const outcomes = {};
     for (const n of team.nodes) {
@@ -646,47 +677,33 @@ export function teamStrip({ wsId, openLog }) {
       states[n.id] = n.state === 'running' && n.kind === 'agent' && st?.state === 'waiting' ? 'waiting' : n.state;
       if (n.outcome && n.outcome !== 'always') outcomes[n.id] = n.outcome;
     }
-    const picture = drawGraph({ nodes: team.nodes, edges: team.edges, start: team.start }, { small: true, states, outcomes });
-    const says = {
-      running: t('round {r} of {max}', { r: team.round, max: team.max_rounds }),
-      paused: t('paused — the current turn finishes'),
-      'waiting-you': team.phase === 'gate' ? t('round {r} done — continue?', { r: team.round - 1 }) : t('waiting for you'),
-      done: t('done'), stopped: t('stopped'),
-    }[team.status] || team.status;
-    const buttons = [];
-    if (team.status === 'waiting-you' || team.status === 'paused') {
-      buttons.push(el('button', { className: 'teamgo', type: 'button', textContent: t('Continue'), onclick: () => act(team.id, 'go') }));
-    }
-    if (team.status === 'running') buttons.push(el('button', { type: 'button', textContent: t('Pause'), onclick: () => act(team.id, 'pause') }));
-    if (live) buttons.push(el('button', { type: 'button', textContent: t('Stop'), onclick: () => stopTeam(team) }));
-    buttons.push(el('button', { type: 'button', textContent: t('Log'), title: team.log, onclick: () => openLog(team.log) }));
-    buttons.push(el('button', { type: 'button', className: open.has(team.id) ? 'on' : '', textContent: t('Story'),
-      onclick: () => { if (open.has(team.id)) open.delete(team.id); else open.add(team.id); refresh(); } }));
-    if (!live) {
-      buttons.push(el('button', { type: 'button', title: t('Forget this team'), onclick: async () => { await delJSON(`/api/teams/${team.id}`); refresh(); } }, icon('close')));
-    }
-    const check = team.last_check
-      ? el('span', { className: `teamlastcheck ${team.last_check.status === 'PASS' ? 'pass' : 'fail'}`,
-        textContent: t('{node} {status} · {s}s', { node: team.last_check.node, status: team.last_check.status, s: team.last_check.seconds }) })
-      : null;
-    const line = el('div', { className: `teamline ${team.status}` }, [
-      el('span', { className: 'teamname', textContent: team.name, title: team.goal }),
-      el('span', { className: 'teamsays', textContent: says }),
-      check,
-      el('span', { className: 'grow' }),
-      ...buttons,
-    ].filter(Boolean));
-    // The graph on a row of its own under the line: beside the buttons it pushed them off it.
-    const out = [line, el('div', { className: 'teamchain' }, [picture])];
-    if (open.has(team.id)) {
-      out.push(el('ol', { className: 'teamstory' }, [...team.history].reverse().map((h) => el('li', {}, [
-        el('span', { className: 'meta', textContent: new Date(h.at * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }),
-        el('span', { textContent: h.what }),
-      ]))));
-    }
-    return out;
-  };
+    out.push(el('div', { className: 'teamchain' }, [
+      drawGraph({ nodes: team.nodes, edges: team.edges, start: team.start }, { small: graph === 'small', states, outcomes })]));
+  }
+  if (story) {
+    out.push(el('ol', { className: 'teamstory' }, [...team.history].reverse().map((h) => el('li', {}, [
+      el('span', { className: 'meta', textContent: new Date(h.at * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }),
+      el('span', { textContent: h.what }),
+    ]))));
+  }
+  return out;
+}
 
+/** Every few seconds while `node` is on the page: the desk parks its parts while you are on another
+ *  screen and puts them back, so being off screen for a while is not a reason to stop for good. */
+function keepAsking(node, refresh) {
+  let away = 0;
+  const timer = setInterval(() => {
+    if (!node.isConnected) { if (++away > 400) clearInterval(timer); return; }
+    away = 0;
+    if (!document.hidden && document.contains(node) && node.closest('#view')) refresh();
+  }, 3000);
+  requestAnimationFrame(refresh);
+}
+
+/** The teams of this desk, one line each over it. The graph is in the team's window (Graph). */
+export function teamStrip({ wsId, openLog, openTeam }) {
+  const strip = el('div', { className: 'teamstrip', hidden: true });
   let busy = false;
   const refresh = async () => {
     if (busy || !strip.isConnected) return;
@@ -694,18 +711,39 @@ export function teamStrip({ wsId, openLog }) {
     try {
       const said = await getJSON('/api/teams');
       const mineOnes = (said.teams || []).filter((team) => String(team.ws) === String(wsId()));
-      strip.replaceChildren(...mineOnes.flatMap(row));
+      strip.replaceChildren(...mineOnes.flatMap((team) => drawTeam(team, { refresh, openLog, openTeam })));
       strip.hidden = !mineOnes.length;
     } catch { /* asked again in a moment */ }
     busy = false;
   };
-  // Not given up the moment it is off screen: the desk parks its parts while you are on another
-  // screen and puts them back, and a strip that had stopped asking came back frozen.
-  const timer = setInterval(() => {
-    if (!strip.isConnected) { if (strip.dataset.gone) clearInterval(timer); return; }
-    if (!document.hidden) refresh();
-  }, 3000);
   strip.refresh = refresh;
-  requestAnimationFrame(refresh);
+  keepAsking(strip, refresh);
   return strip;
+}
+
+/** A team in a window of the desk: its line, its graph large and live, and its story. Moved,
+ *  resized and tiled like any other window — a strip over the desk could only be squeezed. */
+export function attachTeam(host, spec, setLabel, { openLog }) {
+  const box = el('div', { className: 'teamwin' });
+  host.replaceChildren(box);
+  let story = true;
+  let busy = false;
+  const refresh = async () => {
+    if (busy) return;
+    busy = true;
+    try {
+      const said = await getJSON('/api/teams');
+      const team = (said.teams || []).find((x) => x.id === spec.id);
+      if (!team) {
+        box.replaceChildren(el('p', { className: 'meta', textContent: t('this team has been forgotten — close the window') }));
+      } else {
+        setLabel?.(team.name, team.goal);
+        box.replaceChildren(...drawTeam(team, { graph: 'large', story, refresh, openLog,
+          toggleStory: () => { story = !story; refresh(); } }));
+      }
+    } catch { /* asked again in a moment */ }
+    busy = false;
+  };
+  keepAsking(box, refresh);
+  return { relayout: () => {}, dispose: () => {} };
 }

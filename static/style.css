@@ -3827,3 +3827,7 @@ dialog.sheet.teamsheet { width: min(980px, 96vw); max-width: none; }
 .sessbulk { display: flex; align-items: center; gap: .6rem; padding: .35rem .9rem; font-size: .85rem; flex-wrap: wrap; }
 .rowwrap.sess > .sesspick, .sessbulk > .sesspick { flex: none; align-self: center; width: 1.05rem; height: 1.05rem; margin: 0 .2rem 0 .9rem; accent-color: var(--accent); }
 .sessbulk > .sesspick { margin-left: 0; }
+.teamwin { display: grid; gap: .6rem; padding: .6rem .7rem; overflow: auto; height: 100%; align-content: start; }
+.teamwin .teamline { flex-wrap: wrap; }
+.teamwin .teamchain { overflow: auto; }
+.teamwin .teamgraph { max-width: 100%; height: auto; }

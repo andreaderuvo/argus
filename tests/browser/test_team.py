@@ -53,7 +53,8 @@ def test_a_team_is_started_from_the_desk_and_shows_on_it_as_a_graph(make_page, a
     page.wait("!!document.querySelector('.win[data-session=\"Fix-a-bug-executor\"]')", timeout=10, what="the executor's window")
     page.wait("!!document.querySelector('.win[data-session=\"Fix-a-bug-check\"]')", timeout=10, what="the check's window")
     page.wait("document.querySelector('.teamstrip .teamline')?.textContent.includes('round 1 of 10')", timeout=10, what="the team's line")
-    page.wait("[...document.querySelectorAll('.teamstrip .tgnode')].some(n => n.classList.contains('executor') || n.textContent.startsWith('executor') && (n.classList.contains('running') || n.classList.contains('waiting')))",
+    # The graph is in the team's own window, opened with the team.
+    page.wait("[...document.querySelectorAll('.win[data-kind=\"team\"] .tgnode')].some(n => n.textContent.startsWith('executor') && (n.classList.contains('running') || n.classList.contains('waiting')))",
               timeout=10, what="the executor's step, live")
     team = argus.api("/api/teams")["teams"][0]
     assert team["template"] == "fix" and team["ws"] == 1
@@ -317,12 +318,12 @@ def test_the_team_line_survives_the_desk_being_put_back(make_page, argus):
     page.wait("!!document.querySelector('.teamrole select')", timeout=25, what="an agent")
     page.eval("(() => { const c = document.querySelector('.teamcheck input'); c.value = 'true'; c.dispatchEvent(new Event('input')); })()")
     start(page)
-    page.wait("!!document.querySelector('.teamstrip .teamline svg, .teamstrip svg')", timeout=10, what="the team's graph")
+    page.wait("!!document.querySelector('.win[data-kind=\"team\"] .teamwin svg')", timeout=10, what="the team's window, with its graph")
     page.click_at(*page._center("[...document.querySelectorAll('.teamline button')].find(b => b.textContent === 'Log')"))
-    page.wait("location.hash === '#/wall'", timeout=5)
-    page.wait("!!document.querySelector('#view .teamstrip svg')", timeout=8, what="still there after the Log")
+    page.wait("!!document.querySelector('.win[data-kind=\"file\"]')", timeout=8, what="the log, opened beside")
+    page.wait("!!document.querySelector('#view .teamstrip .teamline') && !!document.querySelector('#view .teamwin svg')", timeout=8, what="line and window still there after the Log")
     page.eval("location.hash = '#/sessions'")
     page.wait("!document.querySelector('#view .teamstrip')", timeout=5)
     page.eval("location.hash = '#/wall'")
-    page.wait("!!document.querySelector('#view .teamstrip svg')", timeout=8, what="and back from another screen")
+    page.wait("!!document.querySelector('#view .teamstrip .teamline') && !!document.querySelector('#view .teamwin svg')", timeout=8, what="and back from another screen")
     clean(argus, project)

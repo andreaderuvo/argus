@@ -1188,6 +1188,11 @@
   "{names} and everything running in them will stop. Detaching a window instead leaves a session running.": "{names} and everything running in them will stop. Detaching a window instead leaves a session running.",
   "End them": "End them",
   "Select {name}": "Select {name}",
-  "Everything, no questions: the agents run commands and change files without asking anyone (--dangerously-skip-permissions). Use it in a folder you can afford to lose.": "Everything, no questions: the agents run commands and change files without asking anyone (--dangerously-skip-permissions). Use it in a folder you can afford to lose."
+  "Everything, no questions: the agents run commands and change files without asking anyone (--dangerously-skip-permissions). Use it in a folder you can afford to lose.": "Everything, no questions: the agents run commands and change files without asking anyone (--dangerously-skip-permissions). Use it in a folder you can afford to lose.",
+  "Graph": "Graph",
+  "The team in a window of the desk, live": "The team in a window of the desk, live",
+  "this team has been forgotten — close the window": "this team has been forgotten — close the window",
+  "a team": "a team",
+  "A team of agents, live": "A team of agents, live"
  }
 }

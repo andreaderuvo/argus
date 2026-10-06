@@ -15,7 +15,7 @@ import { killSession } from '/js/screens.js';
 import { keyFor } from '/js/shortcuts.js';
 import { TMUX_LOOKS, lookOptions, paintRailWindows, withLook } from '/js/sidebar.js';
 import { bar, killLive, leaving, prefs, server, setLeaving, setLive, token, view } from '/js/state.js';
-import { teamSheet, teamStrip } from '/js/team.js';
+import { attachTeam, teamSheet, teamStrip } from '/js/team.js';
 import { copyButton, sizeButtons } from '/js/terminal.js';
 import { attachTerminal, openLocated } from '/js/termpaths.js';
 import { redressTerminals } from '/js/theme.js';
@@ -91,7 +91,9 @@ export async function screenWall() {
   // The teams of this desk, one line each, under the toolbar (team.js).
   const teams = teamStrip({
     wsId: () => prefs.ws,
-    openLog: (path) => openWindow({ kind: 'file', path }),
+    // Opened beside, without leaving the desk: jumping redrew it.
+    openLog: (path) => openWindow({ kind: 'file', path }, undefined, { jump: false }),
+    openTeam: (team) => openWindow({ kind: 'team', id: team.id, name: team.name }, undefined, { jump: false }),
   });
   view.style.overflow = 'hidden';
   view.append(tabs, tools, teams, wall);
@@ -390,6 +392,7 @@ export async function screenWall() {
           : spec.kind === 'links' ? (whoseLinks ? t('Links · {desk}', { desk: whoseLinks }) : t('Links'))
           : spec.kind === 'web' ? (spec.label || spec.url)
           : spec.kind === 'run' ? (runs.get(spec.id)?.name || t('a run'))
+          : spec.kind === 'team' ? (spec.name || t('a team'))
           : spec.kind === 'note' ? t('Text')
             : (spec.path.split('/').pop() || spec.path);
 
@@ -479,6 +482,7 @@ export async function screenWall() {
         className: 'wintitle',
         title: spec.kind === 'term' ? label
           : spec.kind === 'run' ? t('An orchestration, while it happens')
+          : spec.kind === 'team' ? t('A team of agents, live')
           : spec.kind === 'messages' ? t('What to hand to an agent')
           : spec.kind === 'note' ? t('Text into a file')
             : isTray ? t('What went past in this desk') : (spec.path || spec.url),
@@ -571,6 +575,7 @@ export async function screenWall() {
         })
         : spec.kind === 'web' ? attachWeb(body, spec, setLabel)
         : spec.kind === 'run' ? attachRun(body, spec, setLabel)
+        : spec.kind === 'team' ? attachTeam(body, spec, setLabel, { openLog: (path) => openWindow({ kind: 'file', path }, undefined, { jump: false }) })
         : spec.kind === 'note' ? attachNote(body, spec, setLabel)
         // Where a browser *lands* is the desk's business, not the folder it happened to
         // be left in: reopening a desk should put you where that desk starts.
@@ -1958,6 +1963,8 @@ export async function screenWall() {
       home: activeSpace().home || '',
       onStarted: (said) => {
         // The team's sessions on this desk: its agents, and the check you can watch.
+        // The team itself first, as a window: its graph, live, and its story.
+        if (said.team?.id) openWindow({ kind: 'team', id: said.team.id, name: said.team.name }, undefined, { jump: false });
         for (const name of [...Object.values(said.sessions || {}), said.check_session].filter(Boolean)) {
           openWindow({ kind: 'term', name }, undefined, { jump: false });
         }
