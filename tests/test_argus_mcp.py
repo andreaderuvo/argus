@@ -58,7 +58,7 @@ def test_the_handshake_and_the_tool_list():
     # A version it does not know is answered with the newest it does, as the spec asks.
     assert call(Fake(), "initialize", {"protocolVersion": "1999-01-01"})["result"]["protocolVersion"] == argus_mcp.VERSIONS[0]
     names = [t["name"] for t in call(Fake(), "tools/list")["result"]["tools"]]
-    assert names == ["who", "ring", "ask", "relay", "launchers", "start_agent", "teams", "worktree", "prompts"]
+    assert names == ["who", "ring", "ask", "relay", "open_desk", "launchers", "start_agent", "teams", "worktree", "prompts"]
     assert all(t["inputSchema"]["type"] == "object" for t in call(Fake(), "tools/list")["result"]["tools"])
     assert argus_mcp.answer({"jsonrpc": "2.0", "method": "notifications/initialized"}, Fake) is None
     assert call(Fake(), "nope")["error"]["code"] == -32601
@@ -101,6 +101,7 @@ def live(tmp_path):
     cfg.tmux_socket = sock
     cfg.allow_write = True
     cfg.launchers = [{"name": "Shell", "command": "sh"}]
+    cfg.prefs_store = tmp_path / "prefs.json"
     server = uvicorn.Server(uvicorn.Config(create_app(cfg), host="127.0.0.1", port=port, log_level="error"))
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
@@ -136,7 +137,7 @@ def test_an_agent_client_over_stdio(live):
     try:
         assert rpc("initialize", {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "test"}})["result"]["serverInfo"]["name"] == "argus"
         proc.stdin.write(json.dumps({"jsonrpc": "2.0", "method": "notifications/initialized"}) + "\n")
-        assert len(rpc("tools/list")["result"]["tools"]) == 9
+        assert len(rpc("tools/list")["result"]["tools"]) == 10
 
         def tool(tool_name, **args):
             return rpc("tools/call", {"name": tool_name, "arguments": args})["result"]
@@ -154,6 +155,16 @@ def test_an_agent_client_over_stdio(live):
         assert (folder / "by-relay").read_text().strip() == "relayed", "typed into the session, through the agent key"
         assert not tool("ring", text="finished the parser", why="done")["isError"]
         assert tool("teams")["content"][0]["text"] == "no teams", "the agent key may read the teams"
+        made = tool("open_desk", name="pippo")
+        assert made["content"][0]["text"] == "made the desk pippo, and switched to it"
+        again = tool("open_desk", name="Pippo", show=False)
+        assert again["content"][0]["text"] == "the desk pippo was already there", "found by name, any case"
+        into = tool("start_agent", launcher="Shell", name="into-pippo", folder=str(folder), desk="pippo")
+        assert not into["isError"], into
+        desks = json.loads((folder / "prefs.json").read_text())
+        desks = desks.get("prefs", desks).get("workspaces")
+        assert [d["name"] for d in desks] == ["Desk 1", "pippo"] and desks[1]["id"] == 2, \
+            "one desk, once, beside the Desk 1 a browser would have made"
         refused = tool("worktree", repo=str(folder), branch="x")
         assert refused["isError"] and "Argus refused" in refused["content"][0]["text"], "not a repository: said, not raised"
     finally:

@@ -1392,7 +1392,14 @@ def create_app(cfg: Config) -> FastAPI:
         # New-session sheet never asks for this because it has already put the window where it
         # wanted it.
         if body.get("desk"):
-            bells.announce(request, {"what": "started", "name": name, "launcher": chosen.name})
+            said = {"what": "started", "name": name, "launcher": chosen.name}
+            # A desk by name: that one, made if it is not there yet, rather than whichever desk
+            # each open page happens to be showing.
+            if isinstance(body["desk"], str) and body["desk"].strip():
+                desk, _ = await asyncio.to_thread(ensure_desk, request, " ".join(body["desk"].split())[:40])
+                said["desk"] = desk["name"]
+                said["desk_id"] = desk["id"]
+            bells.announce(request, said)
         return {
             "name": name,
             "path": where,
@@ -1402,6 +1409,27 @@ def create_app(cfg: Config) -> FastAPI:
             "ready": settled,
             "sent": bool(prompt) and wants_return and bool(settled),
         }
+
+    @app.post("/api/desks", tags=["Sessions"], summary="Make a desk, or find one by name, and show it")
+    async def make_desk(request: Request, body: dict) -> dict:
+        """`{name, folder?, show?}` — what "open a desk called pippo" means to an agent.
+
+        Found by name (any case) if it exists, made empty if not, with `folder` as the place its
+        browsers and new sessions start. `show` (default true) asks the open pages to switch to
+        it; a page that is not open sees it the next time it is. Additive only: nothing here
+        removes, renames or rearranges a desk you have.
+        """
+        name = " ".join(str(body.get("name") or "").split())[:40]
+        if not name:
+            raise ApiError(400, "a desk needs a name")
+        folder = str(under_roots(request, body["folder"])) if body.get("folder") else None
+        try:
+            desk, made = await asyncio.to_thread(ensure_desk, request, name, folder)
+        except (ValueError, OSError) as e:
+            raise ApiError(500, str(e)) from e
+        if body.get("show", True):
+            bells.announce(request, {"what": "desk", "id": desk["id"], "desk": desk["name"], "show": True})
+        return {"id": desk["id"], "name": desk["name"], "made": made, "folder": desk.get("home")}
 
     @app.get("/api/git/worktrees", tags=["Sessions"], summary="The working directories of a repository")
     async def list_worktrees(request: Request, path: str) -> dict:
@@ -1854,6 +1882,33 @@ def create_app(cfg: Config) -> FastAPI:
     # is recorded without anybody remembering to.
     app.add_middleware(JournalMiddleware, store_of=lambda: app.state.journal)
     return app
+
+
+def ensure_desk(request: Request, name: str, folder: str | None = None) -> tuple[dict, bool]:
+    """The desk called `name`, made if there is none. Returns (desk, made).
+
+    Made here rather than by the pages because there may be three of them open, and each making
+    "pippo" would give you three. The desks live in the preferences, which this server keeps, so
+    one append here is one desk everywhere. Only the empty desk: what goes in it is still placed
+    by the page (see the `started` announcement), since a window is where a person drags things.
+    """
+    store = request.app.state.prefs
+    version, doc = prefs.load(store)
+    spaces = [dict(w) for w in (doc.get("workspaces") or []) if isinstance(w, dict)]
+    found = next((w for w in spaces if str(w.get("name", "")).strip().lower() == name.lower()), None)
+    if found:
+        return found, False
+    if not spaces:
+        # A browser that has never saved a desk makes "Desk 1" (id 1) the first time it looks;
+        # give it that one now, so the new desk does not take its number.
+        spaces.append({"id": 1, "name": "Desk 1", "desktop": doc.get("desktop") or []})
+    seq = max([int(doc.get("wsSeq") or 0)] + [int(w.get("id") or 0) for w in spaces]) + 1
+    found = {"id": seq, "name": name, "desktop": []}
+    if folder:
+        found["home"] = folder
+    spaces.append(found)
+    prefs.save(store, version + 1, prefs.merge(doc, {"workspaces": spaces, "wsSeq": seq}))
+    return found, True
 
 
 def under_roots(request: Request, raw: str) -> Path:

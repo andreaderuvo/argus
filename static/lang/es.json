@@ -1094,6 +1094,7 @@
   "Save as a role of mine": "Guardar como rol mío",
   "write what it does first, then save it as a role": "escribe primero qué hace y luego guárdalo como rol",
   "A name for this role": "Un nombre para este rol",
-  "a duty can name the agent’s own skills: “use your /security-review skill on the diff”": "una tarea puede nombrar las skills del agente: “usa tu skill /security-review en el diff”"
+  "a duty can name the agent’s own skills: “use your /security-review skill on the diff”": "una tarea puede nombrar las skills del agente: “usa tu skill /security-review en el diff”",
+  "{name} started, in the desk {desk}": "{name} iniciado, en el escritorio {desk}"
  }
 }

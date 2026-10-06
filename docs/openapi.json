@@ -654,6 +654,52 @@
     ]
    }
   },
+  "/api/desks": {
+   "post": {
+    "description": "`{name, folder?, show?}` \u2014 what \"open a desk called pippo\" means to an agent.\n\nFound by name (any case) if it exists, made empty if not, with `folder` as the place its\nbrowsers and new sessions start. `show` (default true) asks the open pages to switch to\nit; a page that is not open sees it the next time it is. Additive only: nothing here\nremoves, renames or rearranges a desk you have.",
+    "operationId": "postApiDesks",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Make Desk Api Desks Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Make a desk, or find one by name, and show it",
+    "tags": [
+     "Sessions"
+    ]
+   }
+  },
   "/api/devices": {
    "get": {
     "description": "Names, when each was added and when each was last used. Never the tokens: only a\nhash of those is kept, and the plain form existed once, when it was created.",

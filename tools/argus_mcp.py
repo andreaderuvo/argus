@@ -41,7 +41,8 @@ INSTRUCTIONS = (
     "phone. Use `ask` when a decision is theirs rather than guessing, and wait for the answer; "
     "`ring` when you finish or fail, so they need not watch your pane; `who` before handing work "
     "to another session with `relay`; `start_agent` to start a second agent, in its own git "
-    "worktree when it will change code."
+    "worktree when it will change code; `open_desk` and `start_agent` with `desk` when asked to "
+    "lay agents out on a desk of their own."
 )
 
 TOOLS = [
@@ -74,6 +75,15 @@ TOOLS = [
          "text": {"type": "string"},
          "press_enter": {"type": "boolean", "default": False}},
          "required": ["to", "text"]}},
+    {"name": "open_desk",
+     "description": "Open a desk in Argus — a named workspace of windows the person sees in the browser — making it "
+                    "empty if there is none by that name, and switch the open pages to it. Use it when asked for "
+                    "\"a new desk called …\"; then start agents into it with start_agent's desk.",
+     "inputSchema": {"type": "object", "properties": {
+         "name": {"type": "string"},
+         "folder": {"type": "string", "description": "Where its file browsers and new sessions start"},
+         "show": {"type": "boolean", "default": True}},
+         "required": ["name"]}},
     {"name": "launchers",
      "description": "What this machine can start (the launcher list in Argus's config), whether each is installed, "
                     "its version, and the options it takes by name — permissions, model, effort.",
@@ -91,7 +101,8 @@ TOOLS = [
          "worktree_branch": {"type": "string"},
          "options": {"type": "object", "description": "By name, as launchers lists them: {\"permissions\": \"edits\", \"model\": \"sonnet\"}",
                      "additionalProperties": {"type": ["string", "boolean"]}},
-         "show_on_desk": {"type": "boolean", "default": True, "description": "Also open its window on the person's desk"}},
+         "show_on_desk": {"type": "boolean", "default": True, "description": "Also open its window on the person's desk"},
+         "desk": {"type": "string", "description": "Put its window in the desk of this name (made if missing) instead of the one on screen"}},
          "required": ["launcher", "name"]}},
     {"name": "teams",
      "description": "The teams of agents Argus is directing on this machine: goal, round, status, whose turn it is "
@@ -186,10 +197,16 @@ def _launchers(a: Argus, _args: dict) -> str:
 def _start(a: Argus, args: dict) -> str:
     said = a.launch(args["launcher"], args["name"], args.get("folder") or os.getcwd(), args.get("prompt", ""),
                     run=bool(args.get("press_enter", True)), worktree=args.get("worktree_branch") or None,
-                    desk=bool(args.get("show_on_desk", True)), options=args.get("options") or None)
+                    desk=(args.get("desk") or bool(args.get("show_on_desk", True))), options=args.get("options") or None)
     return f"{said.get('name', args['name'])} started" + (
         ", and the prompt was sent" if said.get("sent")
         else ", the prompt is typed in and waiting for a return" if said.get("seeded") else "")
+
+
+def _open_desk(a: Argus, args: dict) -> str:
+    said = a.desk(args["name"], args.get("folder") or None, bool(args.get("show", True)))
+    return (f"made the desk {said['name']}" if said.get("made") else f"the desk {said['name']} was already there") + (
+        ", and switched to it" if args.get("show", True) else "")
 
 
 def _teams(a: Argus, _args: dict) -> str:
@@ -216,7 +233,7 @@ def _prompts(a: Argus, _args: dict) -> str:
     return "\n\n".join(out) or "the prompt library is empty"
 
 
-DO = {"who": _who, "ring": _ring, "ask": _ask, "relay": _relay, "launchers": _launchers,
+DO = {"who": _who, "ring": _ring, "ask": _ask, "relay": _relay, "open_desk": _open_desk, "launchers": _launchers,
       "start_agent": _start, "teams": _teams, "worktree": _worktree, "prompts": _prompts}
 
 

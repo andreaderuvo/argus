@@ -125,8 +125,12 @@ def test_the_list_of_what_an_agent_may_do_is_short():
     Fifteen to sixteen, for `GET /api/teams` (2026-10-06): an agent in a team reading the round,
     whose turn it is and what the last check said. Read only — `POST /api/teams` and go / pause /
     stop stay out, and the test below checks it.
+
+    Sixteen to seventeen, for `POST /api/desks` (2026-10-06): an agent asked "open a desk called
+    pippo with a Codex and a Claude in it" makes the empty desk (or finds it) and shows it. It
+    adds; nothing reachable with this key removes, renames or rearranges a desk.
     """
-    assert len(AGENT_ROUTES) <= 16
+    assert len(AGENT_ROUTES) <= 17
     assert ("POST", "/api/teams") not in AGENT_ROUTES
     assert all(method in ("GET", "POST") for method, _ in AGENT_ROUTES)
     assert not any(path.startswith("/api/fs") or path.startswith("/api/devices")

@@ -1094,6 +1094,7 @@
   "Save as a role of mine": "Salva come mio ruolo",
   "write what it does first, then save it as a role": "scrivi prima cosa fa, poi salvalo come ruolo",
   "A name for this role": "Un nome per questo ruolo",
-  "a duty can name the agent’s own skills: “use your /security-review skill on the diff”": "un compito può nominare le skill dell’agente: “usa la tua skill /security-review sul diff”"
+  "a duty can name the agent’s own skills: “use your /security-review skill on the diff”": "un compito può nominare le skill dell’agente: “usa la tua skill /security-review sul diff”",
+  "{name} started, in the desk {desk}": "{name} avviato, nella scrivania {desk}"
  }
 }

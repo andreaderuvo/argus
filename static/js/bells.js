@@ -4,10 +4,10 @@ import { agentStates, countSessions, readAgentStates, showCount } from '/js/coun
 import { toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { bellStream, getJSON, setBellStream } from '/js/reconnect.js';
-import { go } from '/js/router.js';
+import { go, render } from '/js/router.js';
 import { paintRailDesks, sayIfNewer } from '/js/sidebar.js';
-import { prefs, token } from '/js/state.js';
-import { openWindow, runs, watchers } from '/js/tray.js';
+import { live, prefs, token } from '/js/state.js';
+import { openWindow, runs, watchers, workspaces } from '/js/tray.js';
 import { t } from '/js/words.js';
 // </imports>
 /* ------------------------------------------------------------------ bells */
@@ -363,9 +363,62 @@ function aside(said) {
     readAgentStates();
     return;
   }
+  // A desk made on the machine — by an agent asked to "open a desk called pippo" — adopted here
+  // and, when it asks to be shown, switched to.
+  if (said.what === 'desk' && said.id) {
+    adoptDesks().then(() => { if (said.show) showDesk(said.id); });
+    return;
+  }
   if (said.what !== 'started' || !said.name) return;
+  if (said.desk_id) {
+    // Into the desk it was started for, not whichever one this page has on screen.
+    adoptDesks().then(() => {
+      const ws = workspaces().find((w) => w.id === said.desk_id);
+      if (!ws || ws.id === prefs.ws) {
+        openWindow({ kind: 'term', name: said.name }, undefined, { jump: false });
+      } else {
+        const spec = { kind: 'term', name: said.name };
+        if (!ws.desktop.some((x) => x.kind === 'term' && x.name === said.name)) ws.desktop = [...ws.desktop, spec];
+        savePrefs();
+      }
+      toast(t('{name} started, in the desk {desk}', { name: said.name, desk: said.desk }));
+    });
+    return;
+  }
   openWindow({ kind: 'term', name: said.name }, undefined, { jump: false });
   toast(t('{name} started, and is on your desk', { name: said.name }));
+}
+
+/* The desks the machine has and this page does not, appended. One at a time: a desk and the
+ *  agents started into it arrive within milliseconds of each other, and each would otherwise
+ *  fetch and append on its own. Only additions — a desk this page has is left as it is, since it
+ *  may be in the middle of being dragged about. */
+let adopting = Promise.resolve();
+function adoptDesks() {
+  adopting = adopting.then(async () => {
+    try {
+      const said = await getJSON('/api/prefs');
+      const theirs = said.prefs?.workspaces || [];
+      const mine = workspaces();
+      let added = false;
+      for (const w of theirs) {
+        if (!mine.some((m) => m.id === w.id)) { mine.push(w); added = true; }
+      }
+      prefs.wsSeq = Math.max(prefs.wsSeq || 0, said.prefs?.wsSeq || 0);
+      if (added) {
+        savePrefs();
+        if (live?.key === 'wall') render();
+      }
+    } catch { /* offline for a moment: the desk is on the machine, the next load has it */ }
+  });
+  return adopting;
+}
+
+function showDesk(id) {
+  if (!workspaces().some((w) => w.id === id)) return;
+  prefs.ws = id;
+  savePrefs();
+  if (live?.key === 'wall') { live.activate?.(id); render(); } else go('#/wall');
 }
 
 function openStream() {

@@ -177,7 +177,7 @@ class Argus:
 
     def launch(self, launcher: str, name: str, where: str | Path = ".", prompt: str = "",
                run: bool = False, worktree: str | None = None, wait: bool = True,
-               wait_seconds: float | None = None, desk: bool = False, options: dict | None = None) -> dict:
+               wait_seconds: float | None = None, desk: bool | str = False, options: dict | None = None) -> dict:
         """Start something, optionally in a fresh git worktree, with its first instruction.
 
         `run=False` types the prompt in and leaves the return to a person, which is the right
@@ -186,7 +186,8 @@ class Argus:
 
         `desk=True` also puts a window on the desk of whoever has the app open, the moment it
         starts, rather than leaving you to go and find it in the session list. It reaches only
-        pages that are open right now; nothing is queued for later.
+        pages that are open right now; nothing is queued for later. `desk="pippo"` puts it in
+        the desk of that name instead, made if there is none (see `desk()`).
 
         `options` are the agent's options by name, as the New session box offers them —
         `{"permissions": "edits", "model": "sonnet", "effort": "high"}` — and become the flags
@@ -268,6 +269,15 @@ class Argus:
         an orchestration left behind, which is usually why you are asking."""
         from urllib.parse import quote
         return self.call("GET", f"/api/git/worktrees?path={quote(str(path))}")
+
+    def desk(self, name: str, folder: str | Path | None = None, show: bool = True) -> dict:
+        """The desk called `name` — made empty if there is none — and, with `show`, switched to in
+        every open page. `folder` is where its browsers and new sessions start. Returns
+        `{id, name, made, folder}`. Additive: nothing here removes or rearranges a desk."""
+        body = {"name": name, "show": show}
+        if folder:
+            body["folder"] = str(folder)
+        return self.call("POST", "/api/desks", body)
 
     def teams(self) -> list[dict]:
         """The teams on this machine: goal, round, status, and each step's state and outcome.

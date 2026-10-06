@@ -81,6 +81,9 @@ AGENT_ROUTES = frozenset({
     # The teams, read only: an agent in one wants to know the round, whose turn it is and what
     # the last check said. Starting, pausing or stopping one stays with the person.
     ("GET", "/api/teams"),
+    # Making a desk, or finding one by name, and showing it: "open a desk called pippo with two
+    # agents in it" from an agent. Additive only — no route here removes or rearranges a desk.
+    ("POST", "/api/desks"),
 })
 
 
