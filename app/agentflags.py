@@ -166,6 +166,17 @@ def options_for(command: str, help_text: str) -> list[dict]:
     return out
 
 
+def dangerous(command: str, help_text: str, chosen: dict) -> bool:
+    """Whether what was chosen includes a choice marked `danger` — everything, no questions."""
+    offered = {o["id"]: o for o in options_for(command, help_text)}
+    for key, value in (chosen or {}).items():
+        opt = offered.get(key) or {}
+        for c in opt.get("choices", []):
+            if c["value"] == value and c.get("danger"):
+                return True
+    return False
+
+
 def flags_for(command: str, help_text: str, chosen: dict) -> list[str]:
     """The flags for what was chosen. ValueError for anything not on offer."""
     if not isinstance(chosen, dict):

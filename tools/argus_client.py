@@ -177,7 +177,7 @@ class Argus:
 
     def launch(self, launcher: str, name: str, where: str | Path = ".", prompt: str = "",
                run: bool = False, worktree: str | None = None, wait: bool = True,
-               wait_seconds: float | None = None, desk: bool = False) -> dict:
+               wait_seconds: float | None = None, desk: bool = False, options: dict | None = None) -> dict:
         """Start something, optionally in a fresh git worktree, with its first instruction.
 
         `run=False` types the prompt in and leaves the return to a person, which is the right
@@ -187,6 +187,11 @@ class Argus:
         `desk=True` also puts a window on the desk of whoever has the app open, the moment it
         starts, rather than leaving you to go and find it in the session list. It reaches only
         pages that are open right now; nothing is queued for later.
+
+        `options` are the agent's options by name, as the New session box offers them —
+        `{"permissions": "edits", "model": "sonnet", "effort": "high"}` — and become the flags
+        this agent's own version takes. What a launcher offers is in `launchers()`. An agent's
+        key cannot choose "everything, no questions": that one is the person's.
         """
         where = str(where)
         if worktree:
@@ -195,6 +200,8 @@ class Argus:
                 "prompt": prompt, "run": run, "wait": wait, "desk": desk}
         if wait_seconds is not None:
             body["wait_seconds"] = wait_seconds
+        if options:
+            body["options"] = options
         # Long, because the call holds while the launcher settles.
         return self.call("POST", "/api/tmux/launch", body, timeout=120)
 
@@ -261,6 +268,11 @@ class Argus:
         an orchestration left behind, which is usually why you are asking."""
         from urllib.parse import quote
         return self.call("GET", f"/api/git/worktrees?path={quote(str(path))}")
+
+    def teams(self) -> list[dict]:
+        """The teams on this machine: goal, round, status, and each step's state and outcome.
+        Read only — starting, pausing and stopping one is the person's."""
+        return self.call("GET", "/api/teams").get("teams") or []
 
     def prefs(self) -> dict:
         """What the browser remembers, as the machine has it: the desks, the windows, and — the
@@ -332,9 +344,9 @@ class Argus:
 # ------------------------------------------------------------------------ cli
 
 def main(argv: list[str] | None = None) -> int:
-    """The command line: `who`, `relay`, `ring`, `start`.
+    """The command line: `who`, `relay`, `ring`, `start`, `teams`.
 
-    Four verbs and no more, because this is what an *agent* reaches for from inside a session —
+    Five verbs and no more, because this is what an *agent* reaches for from inside a session —
     the four things it can usefully do about the other agents on the machine. Anything larger
     is a script, and a script should import the class.
     """
@@ -365,9 +377,14 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--prompt", default="")
     s.add_argument("--run", action="store_true")
     s.add_argument("--worktree", metavar="BRANCH")
+    s.add_argument("--option", action="append", default=[], metavar="NAME=VALUE",
+                   help="an agent option by name, as `launchers` lists them: permissions=edits, "
+                        "model=sonnet, effort=high, continue=true; repeat for more")
     s.add_argument("--desk", action="store_true",
                    help="also put a window for it on the desk, in whatever browser has Argus "
                         "open right now")
+
+    subs.add_parser("teams", help="the teams Argus is directing here, and whose turn it is")
 
     args = ap.parse_args(argv)
     try:
@@ -379,7 +396,9 @@ def main(argv: list[str] | None = None) -> int:
                 return 0
             print(said.get("machine", "?"))
             for one in said.get("sessions", []):
-                marks = ["WAITING FOR A PERSON"] if one.get("wants_you") else []
+                marks = [one["state"]] if one.get("state") else []
+                if one.get("wants_you"):
+                    marks.append("WAITING FOR A PERSON")
                 if one.get("attached"):
                     marks.append("attached")
                 who = " · ".join(x for x in (one.get("agent"), one.get("model")) if x)
@@ -394,12 +413,22 @@ def main(argv: list[str] | None = None) -> int:
             said = argus.relay(args.to, text, args.run)
             print(f"{said['characters']} characters to {said['to']}"
                   + (" and the return pressed" if said.get("sent") else " — waiting for their return"))
+        elif args.what == "teams":
+            for team in argus.teams():
+                print(f"{team['name']}: {team.get('status')}, round {team.get('round')} of {team.get('max_rounds')} — {team.get('goal', '')}")
+                for n in team.get("nodes", []):
+                    if n.get("kind") in ("agent", "check"):
+                        print(f"  {n['id']:14} {n.get('state', ''):8} {n.get('outcome') or ''}")
         elif args.what == "ring":
             argus.ring(args.text, args.why, args.session)
             print("rung")
         elif args.what == "start":
+            options = {}
+            for pair in args.option:
+                key, _, value = pair.partition("=")
+                options[key.strip()] = True if value.strip().lower() in ("true", "yes", "on") else value.strip()
             said = argus.launch(args.launcher, args.name, args.where, args.prompt,
-                                run=args.run, worktree=args.worktree, desk=args.desk)
+                                run=args.run, worktree=args.worktree, desk=args.desk, options=options or None)
             print(f"{said['name']} started"
                   + (", and the prompt is on its way" if said.get("sent")
                      else " — the prompt is typed in, waiting for a return" if said.get("seeded") else ""))

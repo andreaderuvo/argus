@@ -446,6 +446,15 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   on top of the other until `drawGraph` merged them into one labelled "ok · redo". Each agent
   and each check has a session `<team>-<node>`; a worktree is per node (`team/<team>-<node>`),
   which is what lets a Tournament's two executors try different things in one repository.
+- **`argus-mcp`, Argus as MCP tools** (`tools/argus_mcp.py`, `tests/test_argus_mcp.py`). Stdio
+  JSON-RPC, standard library, every tool one call through `argus_client` on the agent key — no
+  new power. `who ring ask relay launchers start_agent teams worktree prompts`. The agent key
+  gained `GET /api/teams` (read only; the route guard in test_agent_key.py is now 16), and lost
+  something it had by accident: starting an agent with a `danger` option
+  (`--dangerously-skip-permissions`) is 403 for it (`agentflags.dangerous`). The session a ring
+  comes from is `tmux display-message -p -t $TMUX_PANE '#S'`. Checked with a real headless
+  `claude -p --strict-mcp-config --mcp-config …` against a throwaway Argus: who, relay, ring.
+  Nothing on stdout but messages, or the client breaks.
 - **Two agents was folded into Teams** (2026-10-06). Its button and `pairSheet` are gone; its
   patterns are the templates *Build and review* and *Split the work* (two executors at once in
   the same folder, each on the files the planner gave it, no worktree). What reads an existing

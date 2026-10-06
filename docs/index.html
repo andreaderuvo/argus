@@ -585,7 +585,7 @@ details p { color: var(--ink2); margin-top: 10px; max-width: 68ch; }
       <div><b>A file browser</b><span>List or tree, drag and drop, paste a screenshot into a folder. Folders update when a job writes to them.</span></div>
       <div><b>The machine at a glance</b><span>CPU, memory, GPUs, disks and the biggest processes, labelled by you so you remember what they are.</span></div>
       <div><b>Local ports</b><span>A dev server on localhost, reachable from your phone through Argus, only if you allow it.</span></div>
-      <div><b>An API for all of it</b><span>Scripts and agents can do what the page does: start sessions, send prompts, ask you a question.</span></div>
+      <div><b>An API, and MCP</b><span>Scripts can do what the page does. Agents get it as their own tools over MCP: ask you a question and wait for the tap, start another agent, see who is working.</span></div>
       <div><b>Several machines</b><span>Panoptes is one page over every Argus you run.</span></div>
       <div><b>Back after a reboot</b><span>The agents a reboot took with it are offered back, each in its folder and its own conversation.</span></div>
       <div><b>One ring per turn</b><span>Finished or asking, from a hook or from the pane going quiet: one bell. Seen it? Got it, on every device.</span></div>
@@ -654,7 +654,7 @@ python3 -m app.main          <span class="c"># prints a URL with a token in it</
         the same pane you would see over ssh, and closing the tab leaves everything running.</p></details>
       <details><summary>Does it need a plugin in my agent?</summary>
         <p>No. It reads what the session prints and types into it, the way you do, and it works out working and
-        waiting from the pane. An optional one-line hook lets an agent ring you on its own.</p></details>
+        waiting from the pane. An optional one-line hook lets an agent ring you on its own, and an optional MCP server, <code>argus-mcp</code>, gives it Argus as tools: ask you something and wait for the answer, start another agent, see who else is working.</p></details>
       <details><summary>Will my phone tell me when an agent is done?</summary>
         <p>Yes, even with every tab shut. The server watches the agents on its own and, with three lines of
         config, sends each ring to <a href="https://ntfy.sh">ntfy</a>: install its app, subscribe to your topic,

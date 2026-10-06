@@ -1353,6 +1353,11 @@ def create_app(cfg: Config) -> FastAPI:
                 flags = agentflags.flags_for(chosen.command, text, options)
             except ValueError as e:
                 raise ApiError(400, str(e)) from e
+            # An agent may start another one, not one that asks nobody anything: the choices
+            # marked dangerous (--dangerously-skip-permissions and its kind) are the person's.
+            if request.scope.get("argus_agent") and agentflags.dangerous(chosen.command, text, options):
+                raise ApiError(403, "an agent's key cannot start an agent that asks nobody before acting — "
+                                    "that choice is the person's, from the New session box")
             if flags:
                 command = " ".join([chosen.command.rstrip(), *(launch.shell_quote(f) for f in flags)])
         try:

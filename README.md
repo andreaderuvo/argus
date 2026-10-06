@@ -106,7 +106,9 @@ session and it is typed there; the Enter is left for you.
 Also: agents brought back after a reboot, each in its folder and its own conversation; a file
 browser that updates when a job writes into a folder; the machine's CPU, memory,
 GPUs, disks and biggest processes, which you can label; local ports reachable from the phone if
-you allow it; and an API that lets scripts and agents do what the page does.
+you allow it; an API that lets scripts do what the page does; and `argus-mcp`, which gives
+an agent Argus as its own MCP tools (`claude mcp add argus -- argus-mcp`): ask you something and
+wait for the tap, start another agent in its own worktree, see who else is working.
 [Everything it does, in detail.](https://github.com/andreaderuvo/argus/wiki/Everything-it-does)
 
 ## Install

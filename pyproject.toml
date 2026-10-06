@@ -41,6 +41,7 @@ test = ["pytest>=8,<10"]
 [project.scripts]
 argus = "argus_workspace.main:main"
 argus-say = "argus_tools.argus_client:main"
+argus-mcp = "argus_tools.argus_mcp:main"
 
 [project.urls]
 Homepage = "https://andreaderuvo.github.io/argus/"

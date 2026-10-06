@@ -78,6 +78,9 @@ AGENT_ROUTES = frozenset({
     # and the orchestration goes on unchanged if nobody is looking.
     ("GET", "/api/runs"),
     ("POST", "/api/runs"),
+    # The teams, read only: an agent in one wants to know the round, whose turn it is and what
+    # the last check said. Starting, pausing or stopping one stays with the person.
+    ("GET", "/api/teams"),
 })
 
 

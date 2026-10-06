@@ -74,8 +74,8 @@ if [ "$ACTION" = uninstall ]; then
     step "the service is stopped and gone"
   fi
   rm -rf "$DIR"
-  rm -f "$BIN/argus" "$BIN/argus-say"
-  step "removed $DIR, $BIN/argus and $BIN/argus-say"
+  rm -f "$BIN/argus" "$BIN/argus-say" "$BIN/argus-mcp"
+  step "removed $DIR, $BIN/argus, $BIN/argus-say and $BIN/argus-mcp"
   say ""
   say "  Your configuration is still at ${B}~/.config/argus${N} — the token, the devices, the"
   say "  journal. Delete it yourself if you mean to; an uninstaller that throws away a token"
@@ -234,6 +234,16 @@ exec "$DIR/venv/bin/python" "$DIR/tools/argus_client.py" "\$@"
 SAY
 chmod +x "$BIN/argus-say"
 step "argus-say at $BIN/argus-say"
+
+# `argus-mcp`: the same verbs as tools an agent sees for itself, over MCP. Registered by you,
+# once per agent (`claude mcp add argus -- argus-mcp`); nothing here registers it.
+cat > "$BIN/argus-mcp" <<MCP
+#!/bin/sh
+# Written by install.sh.
+exec "$DIR/venv/bin/python" "$DIR/tools/argus_mcp.py" "\$@"
+MCP
+chmod +x "$BIN/argus-mcp"
+step "argus-mcp at $BIN/argus-mcp"
 
 # ------------------------------------------------------------------ service
 
