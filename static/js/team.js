@@ -47,7 +47,8 @@ export async function teamSheet({ wsId, home, onStarted }) {
   const picture = el('div', { className: 'teampicture' });
   const panel = el('div', { className: 'teamnode', hidden: true });
   const saveModel = el('button', { className: 'ghost', type: 'button', textContent: t('Save as my model') });
-  const where = el('input', { type: 'text', className: 'startpath', value: home || '', spellcheck: false, autocapitalize: 'off' });
+  const where = el('input', { type: 'text', className: 'startpath', value: home || '', spellcheck: false, autocapitalize: 'off',
+    placeholder: t('the folder this team works in, e.g. ~/work/my-team — made if it does not exist') });
   const roles = el('div', { className: 'teamroles' });
   const alone = el('select', { className: 'setpick' }, [
     el('option', { value: 'ask', textContent: t('ask me before acting') }),
@@ -96,6 +97,13 @@ export async function teamSheet({ wsId, home, onStarted }) {
   const choose = (key) => {
     chosen = key;
     graph = clone(key.startsWith('mine:') ? mine()[key.slice(5)] : key.startsWith('file:') ? fileTeam.graph : templates[key].graph);
+    // A model may come with a goal (a pack's, a team.yaml's): it fills the box when the box is
+    // empty or still holds the last suggestion — never over words you typed.
+    const suggested = key.startsWith('file:') ? fileTeam?.goal : graph.goal;
+    if (suggested && (!goal.value.trim() || goal.value === goal.dataset.suggested)) {
+      goal.value = suggested;
+      goal.dataset.suggested = suggested;
+    }
     selected = null;
     for (const n of graph.nodes) if (n.kind === 'agent' && copies[n.id] === undefined) copies[n.id] = !!n.worktree;
     drawAll();
@@ -456,9 +464,15 @@ export async function teamSheet({ wsId, home, onStarted }) {
   sheet.classList.add('teamsheet');               // wide enough for a graph of six columns
   goal.focus();
 
+  // The folder is required: the start stays off until there is one.
+  const needFolder = () => { go.disabled = !where.value.trim(); };
+  where.addEventListener('input', needFolder);
+  needFolder();
+
   go.onclick = async () => {
     why.hidden = true;
     if (!goal.value.trim()) { why.textContent = t('Say what the team should get done.'); why.hidden = false; return goal.focus(); }
+    if (!where.value.trim()) { why.textContent = t('Choose the folder the team works in — it is made if it does not exist.'); why.hidden = false; return where.focus(); }
     const level = ALONE[alone.value];
     const agentSpec = {};
     for (const n of graph.nodes.filter((m) => m.kind === 'agent')) {

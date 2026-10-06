@@ -1952,7 +1952,9 @@ export async function screenWall() {
     title: t('Agents taking turns on one goal, with a check between turns, directed by Argus'),
     onclick: () => teamSheet({
       wsId: prefs.ws,
-      home: activeSpace().home || homePath(server?.roots || ['/']),
+      // The desk's own folder if it has one; otherwise nothing — a team's folder is chosen, never
+      // defaulted to your home, where its log and its files would land among everything else.
+      home: activeSpace().home || '',
       onStarted: (said) => {
         // The team's sessions on this desk: its agents, and the check you can watch.
         for (const name of [...Object.values(said.sessions || {}), said.check_session].filter(Boolean)) {

@@ -1145,6 +1145,8 @@
   "no pack imported": "no pack imported",
   "{name}: {n} roles and models go. Teams already started are not touched.": "{name}: {n} roles and models go. Teams already started are not touched.",
   "{name} removed": "{name} removed",
-  "from a pack": "from a pack"
+  "from a pack": "from a pack",
+  "the folder this team works in, e.g. ~/work/my-team — made if it does not exist": "the folder this team works in, e.g. ~/work/my-team — made if it does not exist",
+  "Choose the folder the team works in — it is made if it does not exist.": "Choose the folder the team works in — it is made if it does not exist."
  }
 }

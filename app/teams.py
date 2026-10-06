@@ -823,7 +823,7 @@ def to_yaml(graph: dict, name: str = "") -> str:
     for e in graph.get("edges", []):
         grouped.setdefault((e["from"], "done" if e["to"] == "end" else e["to"]), []).append(e["when"])
     flow = [f"{a} -> {b}" + ("" if whens == ["always"] else " if " + ", ".join(whens)) for (a, b), whens in grouped.items()]
-    doc = {"name": name or "my team", "steps": steps, "flow": flow}
+    doc = {"name": name or "my team", **({"goal": graph["goal"]} if graph.get("goal") else {}), "steps": steps, "flow": flow}
     first = next((n["id"] for n in graph.get("nodes", []) if n["kind"] != "end"), None)
     if graph.get("start") and graph["start"] != [first]:
         doc["start"] = graph["start"]
@@ -893,6 +893,8 @@ def read_pack(doc) -> dict:
             if not isinstance(graph, dict):
                 raise ValueError("a model is a graph: nodes, edges, start")
             g = json.loads(json.dumps(graph))
+            if "goal" in g and not (isinstance(g["goal"], str) and len(g["goal"]) <= 2000):
+                raise ValueError("a model's goal is a sentence, at most 2000 characters")
             for n in g.get("nodes") or []:
                 for key in ("session", "folder", "state", "outcome"):
                     n.pop(key, None)

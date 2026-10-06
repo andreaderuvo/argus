@@ -76,7 +76,8 @@
    ],
    "start": [
     "writer"
-   ]
+   ],
+   "goal": "Improve the manuscript in this folder (name the file here) until the methods hold and a reader from a neighbouring field can follow it."
   }
  }
 }

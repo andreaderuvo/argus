@@ -690,3 +690,21 @@ def test_a_team_folder_that_does_not_exist_yet_is_made_inside_the_roots(tmp_path
     outside = c.post("/api/teams", json={"name": "y", "goal": "g", "template": "fix", "path": "/etc/argus-should-not-exist",
                                          "agents": {}, "check": "true"})
     assert outside.status_code == 403 and not Path("/etc/argus-should-not-exist").exists()
+
+
+def test_no_folder_no_team_and_a_goal_travels_with_a_model(tmp_path):
+    from fastapi.testclient import TestClient
+
+    from app.config import Config
+    from app.main import create_app
+    from app.teams import read_pack, to_yaml, from_yaml
+    cfg = Config(token="m" * 64, roots=[tmp_path], listen="127.0.0.1:0")
+    cfg.allow_write = True
+    c = TestClient(create_app(cfg))
+    c.headers.update({"authorization": "Bearer " + "m" * 64})
+    r = c.post("/api/teams", json={"name": "x", "goal": "g", "template": "fix", "path": "  ", "agents": {}})
+    assert r.status_code == 400 and "choose the folder" in r.text
+    g = dict(TEMPLATES["fix"]["graph"], goal="fix the crash")
+    assert from_yaml(to_yaml(g, "f"))["goal"] == "fix the crash"
+    bad = read_pack({"argus_team_pack": 1, "models": {"m": dict(g, goal=["not", "a", "sentence"])}})
+    assert bad["refused"][0]["why"].startswith("a model's goal is a sentence")

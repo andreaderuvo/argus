@@ -91,7 +91,8 @@
    ],
    "start": [
     "analyst"
-   ]
+   ],
+   "goal": "Develop a strategy on the instrument and period you name here (e.g. EUR/USD daily, 2015–2024) with a backtest that includes costs; keep it only if the out-of-sample Sharpe is above 1 and the drawdown below 15%. Paper trading only."
   }
  }
 }

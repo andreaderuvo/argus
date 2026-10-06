@@ -76,7 +76,8 @@
    ],
    "start": [
     "auditor"
-   ]
+   ],
+   "goal": "Review the code in this folder for security problems, fix them most severe first, each with a test, until the auditor finds nothing serious."
   }
  }
 }

@@ -686,7 +686,9 @@ def create_app(cfg: Config) -> FastAPI:
         # A folder that is not there yet is made — inside the roots only (the jail answers NotFound
         # for a missing path inside them, Denied outside): "a new folder for this team" is the
         # ordinary way to start one, and refusing it sent people off to make it by hand.
-        raw = str(body.get("path", ""))
+        raw = str(body.get("path", "")).strip()
+        if not raw:
+            raise ApiError(400, "choose the folder the team works in — it is made if it does not exist")
         from .safepath import NotFound
         try:
             folder = request.app.state.jail.resolve(raw)

@@ -1145,6 +1145,8 @@
   "no pack imported": "aucun paquet importé",
   "{name}: {n} roles and models go. Teams already started are not touched.": "{name} : {n} rôles et modèles partent. Les équipes déjà lancées ne sont pas touchées.",
   "{name} removed": "{name} retiré",
-  "from a pack": "d’un paquet"
+  "from a pack": "d’un paquet",
+  "the folder this team works in, e.g. ~/work/my-team — made if it does not exist": "le dossier où travaille l’équipe, ex. ~/travail/mon-equipe — créé s’il n’existe pas",
+  "Choose the folder the team works in — it is made if it does not exist.": "Choisis le dossier où travaille l’équipe — il est créé s’il n’existe pas."
  }
 }

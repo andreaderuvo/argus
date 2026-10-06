@@ -222,3 +222,30 @@ def test_badges_say_where_a_team_comes_from_and_yours_can_go(make_page, argus):
     page.click_at(*page._center("[...document.querySelectorAll('dialog.sheet button')].find(b => b.textContent === 'Forget')"))
     eventually(lambda: "hand made" not in (argus.api("/api/prefs")["prefs"].get("teamModels") or {}), timeout=10, what="forgotten")
     clean(argus, project)
+
+
+def test_the_folder_is_required_and_a_pack_brings_its_goal(make_page, argus):
+    """No folder, no start: a team's folder is chosen, never defaulted to your home. And a model
+    that carries a goal fills the box when it is empty — never over words you typed."""
+    argus.kill_sessions()
+    argus.api("/api/prefs", "PATCH", {"changes": {"ws": 1, "wsSeq": 1, "workspaces": [{"id": 1, "name": "Work", "desktop": []}]}})
+    page = make_page(route="#/wall")
+    page.click_at(*page._center("[...document.querySelectorAll('#walltools button')].find(b => b.textContent.trim() === 'Team')"))
+    page.wait("!!document.querySelector('.teamcard')", timeout=20, what="the sheet")
+    assert page.eval("document.querySelector('.startpath').value") == "", "a desk with no folder suggests none"
+    start_button = "[...document.querySelectorAll('.sheetfoot button')].find(b => b.textContent === 'Start the team')"
+    assert page.eval(f"{start_button}.disabled") is True, "no folder, no start"
+    page.eval("const w = document.querySelector('.startpath'); w.value = '~/work/x'; w.dispatchEvent(new Event('input'))")
+    assert page.eval(f"{start_button}.disabled") is False
+    page.click_at(*page._center("[...document.querySelectorAll('.teampackbtns button')].find(b => b.textContent === 'Examples…')"))
+    page.wait("!!document.querySelector('.teamexample')", timeout=10, what="the examples")
+    page.click_at(*page._center("[...document.querySelectorAll('.teamexample')].find(b => b.textContent.includes('Security review'))"))
+    page.wait("[...document.querySelectorAll('.teamcard')].some(c => c.querySelector('.name')?.textContent === 'Security review' && c.querySelector('.teambadge').textContent === 'Security review')",
+              timeout=10, what="the pack's card")
+    page.click_at(*page._center("[...document.querySelectorAll('.teamcard')].find(c => c.querySelector('.name')?.textContent === 'Security review' && c.querySelector('.teambadge').textContent === 'Security review')"))
+    page.wait("document.querySelector('.teamgoal').value.startsWith('Review the code in this folder')", timeout=5,
+              what="its goal, in the empty box")
+    page.eval("const g = document.querySelector('.teamgoal'); g.value = 'my own words'; g.dispatchEvent(new Event('input'))")
+    page.click_at(*page._center("[...document.querySelectorAll('.teamcard')].find(c => c.querySelector('.name')?.textContent === 'Optimise')"))
+    page.click_at(*page._center("[...document.querySelectorAll('.teamcard')].find(c => c.querySelector('.name')?.textContent === 'Security review' && c.querySelector('.teambadge').textContent === 'Security review')"))
+    assert page.eval("document.querySelector('.teamgoal').value") == "my own words", "never over what you typed"
