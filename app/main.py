@@ -683,7 +683,19 @@ def create_app(cfg: Config) -> FastAPI:
             graph = teams.check_graph(json.loads(json.dumps(graph)))
         except (ValueError, TypeError) as e:
             raise ApiError(400, str(e)) from e
-        folder = under_roots(request, str(body.get("path", "")))
+        # A folder that is not there yet is made — inside the roots only (the jail answers NotFound
+        # for a missing path inside them, Denied outside): "a new folder for this team" is the
+        # ordinary way to start one, and refusing it sent people off to make it by hand.
+        raw = str(body.get("path", ""))
+        from .safepath import NotFound
+        try:
+            folder = request.app.state.jail.resolve(raw)
+        except NotFound:
+            made = Path(os.path.expanduser(raw))
+            await asyncio.to_thread(made.mkdir, parents=True, exist_ok=True)
+            folder = under_roots(request, str(made))
+        except Exception:
+            folder = under_roots(request, raw)
         if not folder.is_dir():
             raise ApiError(400, f"{folder} is not a folder")
         try:

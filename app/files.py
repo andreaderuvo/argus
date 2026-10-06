@@ -229,7 +229,17 @@ async def list_dir(request: Request, path: str) -> list[dict]:
 
 
 @router.get("/api/file", tags=["Files"], summary="Read a file, or its tail if it is large")
-async def read_file(request: Request, path: str, raw: bool = False) -> Response:
+async def read_file(request: Request, path: str, raw: bool = False, missing_ok: bool = False) -> Response:
+    """`missing_ok=1`: a file that is not there answers 204, not 404 — for a page that only wants
+    to know whether something exists (a desk looking for an old pair's PLAN.argus.md), which is
+    not an error and should not show as one in the browser's console."""
+    if missing_ok:
+        try:
+            request.app.state.jail.resolve(path)
+        except NotFound:
+            return Response(status_code=204)
+        except (Denied, PathError):
+            pass
     target = _resolve(request, path)
     if target.is_dir():
         raise ApiError(400, "path is a directory")

@@ -1,7 +1,7 @@
 // <imports> generated from what this file uses; edit the code, not this list
 import { savePrefs } from '/js/core.js';
 import { agentStates } from '/js/counts.js';
-import { ask, modal, toast } from '/js/dialogs.js';
+import { ask, confirmBox, modal, toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { icon } from '/js/icons.js';
 import { delJSON, getJSON, postJSON } from '/js/reconnect.js';
@@ -101,19 +101,37 @@ export async function teamSheet({ wsId, home, onStarted }) {
     drawAll();
   };
 
+  const packOf = (model) => Object.entries(prefs.teamPacks || {}).find(([, w]) => w.models.includes(model))?.[0];
+  const badgeKind = (key) => (key.startsWith('mine:') ? (packOf(key.slice(5)) ? 'pack' : 'mine') : key.startsWith('file:') ? 'file' : 'argus');
+  const badgeWord = (key) => ({ argus: 'Argus', mine: t('yours'), pack: packOf(key.slice(5)), file: 'team.yaml' }[badgeKind(key)]);
   const drawCards = () => {
     const card = (key, label, hint, g, own) => el('button', {
       type: 'button', className: `teamcard${key === chosen ? ' on' : ''}${own ? ' mine' : ''}`,
       onclick: () => { pickedByHand = true; choose(key); },
     }, [
+      // A model of yours can go: the ✕ forgets it (a template cannot, nor a team.yaml — that is a file).
+      key.startsWith('mine:') ? el('span', {
+        className: 'teamcardx', role: 'button', title: t('Forget this model'), textContent: '✕',
+        onclick: async (e) => {
+          e.stopPropagation();
+          if (!await confirmBox(t('Forget this model'), t('{name} goes from your models. Teams already started from it are not touched.', { name: label }), t('Forget'))) return;
+          const left = { ...mine() };
+          delete left[key.slice(5)];
+          prefs.teamModels = left;
+          savePrefs();
+          if (chosen === key) choose('optimise'); else drawCards();
+        },
+      }) : null,
       el('span', { className: 'name', textContent: label }),
+      // Where it comes from, at a glance: Argus's own, yours, a pack's, or the project's file.
+      el('span', { className: `teambadge ${badgeKind(key)}`, textContent: badgeWord(key) }),
       el('span', { className: 'meta', textContent: hint }),
       el('span', { className: 'teamflow', textContent: t('{n} agents', { n: g.nodes.filter((n) => n.kind === 'agent').length })
         + (g.nodes.some((n) => n.kind === 'check') ? ` · ${t('a check')}` : '') }),
-    ]);
+    ].filter(Boolean));
     cards.replaceChildren(
       ...Object.entries(templates).map(([key, tpl]) => card(key, t(tpl.label), t(tpl.hint), tpl.graph)),
-      ...Object.entries(mine()).map(([name, g]) => card(`mine:${name}`, name, t('your model'), g, true)),
+      ...Object.entries(mine()).map(([name, g]) => card(`mine:${name}`, name, packOf(name) ? t('from a pack') : t('your model'), g, true)),
       ...(fileTeam ? [card(`file:${fileTeam.name}`, fileTeam.name, fileTeam.where, fileTeam.graph, true)] : []),
     );
   };
@@ -195,11 +213,20 @@ export async function teamSheet({ wsId, home, onStarted }) {
         toast(t('saved as {name}', { name }));
         redraw();
       };
+      const forget = myRoles()[n.role] ? el('button', { type: 'button', className: 'ghost teamadd', textContent: t('Forget this role'),
+        onclick: async () => {
+          if (!await confirmBox(t('Forget this role'), t('{name} goes from your roles. Steps that use it keep their duty.', { name: n.role }), t('Forget'))) return;
+          const left = { ...myRoles() };
+          delete left[n.role];
+          prefs.teamRoles = left;
+          savePrefs();
+          redraw();
+        } }) : null;
       fields.push(
         el('label', { className: 'teamfield' }, [el('span', { textContent: t('role') }), role]),
         el('label', { className: 'teamfield check' }, [judge, el('span', { textContent: t('judges: ends its turn with OK, REDO, DONE or BLOCKED') })]),
         duty,
-        el('div', { className: 'teamactions' }, [keep,
+        el('div', { className: 'teamactions' }, [keep, forget,
           el('span', { className: 'hint', textContent: t('a duty can name the agent’s own skills: “use your /security-review skill on the diff”') })]),
       );
     } else if (n.kind === 'check') {
@@ -280,14 +307,22 @@ export async function teamSheet({ wsId, home, onStarted }) {
     const models = mine();
     const kept = [];
     let took = 0;
+    // What this pack brought, remembered, so "Remove a pack…" takes back exactly that and never
+    // a role or model you had before it (those are the `kept` ones, not recorded).
+    const brought = { roles: [], models: [] };
     for (const [name, role] of Object.entries(said.roles)) {
-      if (roles[name]) kept.push(name); else { roles[name] = role; took++; }
+      if (roles[name]) kept.push(name); else { roles[name] = role; brought.roles.push(name); took++; }
     }
     for (const [name, g] of Object.entries(said.models)) {
-      if (models[name]) kept.push(name); else { models[name] = g; took++; }
+      if (models[name]) kept.push(name); else { models[name] = g; brought.models.push(name); took++; }
     }
     prefs.teamRoles = roles;
     prefs.teamModels = models;
+    if (took) {
+      const was = (prefs.teamPacks || {})[said.name] || { roles: [], models: [] };
+      prefs.teamPacks = { ...(prefs.teamPacks || {}), [said.name]: {
+        roles: [...new Set([...was.roles, ...brought.roles])], models: [...new Set([...was.models, ...brought.models])] } };
+    }
     savePrefs();
     drawAll();
     const parts = [t('{pack}: {n} roles and models taken in', { pack: said.name, n: took })];
@@ -336,6 +371,33 @@ export async function teamSheet({ wsId, home, onStarted }) {
       }, [el('span', { className: 'name', textContent: p.name }), el('span', { className: 'meta', textContent: p.description })])));
       const list = modal(t('Example packs'), box, [el('button', { className: 'ghost', textContent: t('Close'), onclick: () => list.close() })]);
     } });
+  // Take a pack back out: the roles and models it brought, and nothing you had of your own.
+  const removePack = el('button', { className: 'ghost', type: 'button', textContent: t('Remove a pack…'),
+    title: t('Take back the roles and models a pack brought'), onclick: () => {
+      const packs = Object.entries(prefs.teamPacks || {});
+      if (!packs.length) { toast(t('no pack imported')); return; }
+      const box = el('div', { className: 'sheetbody' }, packs.map(([name, what]) => el('button', {
+        className: 'ghost block teamexample', type: 'button',
+        onclick: async () => {
+          list.close();
+          if (!await confirmBox(t('Remove a pack…'), t('{name}: {n} roles and models go. Teams already started are not touched.', { name, n: what.roles.length + what.models.length }), t('Remove'))) return;
+          const roles = { ...myRoles() };
+          const models = { ...mine() };
+          for (const r of what.roles) delete roles[r];
+          for (const m of what.models) delete models[m];
+          const packsLeft = { ...prefs.teamPacks };
+          delete packsLeft[name];
+          prefs.teamRoles = roles;
+          prefs.teamModels = models;
+          prefs.teamPacks = packsLeft;
+          savePrefs();
+          if (chosen?.startsWith('mine:') && !models[chosen.slice(5)]) choose('optimise'); else drawAll();
+          toast(t('{name} removed', { name }));
+        },
+      }, [el('span', { className: 'name', textContent: name }),
+        el('span', { className: 'meta', textContent: [...what.models, ...what.roles].join(', ') })])));
+      const list = modal(t('Remove a pack…'), box, [el('button', { className: 'ghost', textContent: t('Close'), onclick: () => list.close() })]);
+    } });
   const exportPack = el('button', { className: 'ghost', type: 'button', textContent: t('Export mine'),
     title: t('Your roles and models, as a pack to share'), onclick: () => {
       const pack = { argus_team_pack: 1, name: t('my team pack'), description: '', roles: myRoles(), models: mine() };
@@ -375,7 +437,7 @@ export async function teamSheet({ wsId, home, onStarted }) {
     cards,
     el('div', { className: 'teampicturehead' }, [
       el('label', { className: 'startlabel', textContent: t('the team — click a step to change it') }),
-      el('span', { className: 'teampackbtns' }, [saveModel, saveYaml, examples, importPack, exportPack, picker])]),
+      el('span', { className: 'teampackbtns' }, [saveModel, saveYaml, examples, importPack, removePack, exportPack, picker])]),
     picture, panel,
     el('label', { className: 'startlabel', textContent: t('in') }), where,
     el('label', { className: 'startlabel', textContent: t('who does what') }), roles,

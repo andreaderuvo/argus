@@ -101,9 +101,9 @@ class Page(Session):
         # for a desk's PLAN.argus.md / BRIDGE.argus.md to find out whether two agents are paired,
         # and "not there" is the ordinary answer (readPair/readBridge catch it). Only a 404, and
         # only for those two names — any other missing file is still a problem.
-        self.allowed: list = [
-            lambda s: s.startswith("http 404:") and ("PLAN.argus.md" in s or "BRIDGE.argus.md" in s),
-        ]
+        # None any more: the desk asks for PLAN/BRIDGE.argus.md with missing_ok and gets 204, so a
+        # 404 for them would now be a real problem.
+        self.allowed: list = []
         self._inflight: dict[str, str] = {}
         self._last_net = time.monotonic()
         self._listeners.append(self._track)

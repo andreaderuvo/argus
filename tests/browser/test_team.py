@@ -191,3 +191,34 @@ def test_an_example_pack_is_one_press_away(make_page, argus):
     page.wait("[...document.querySelectorAll('.teamcard.mine')].some(c => c.textContent.includes('Trading strategy'))", timeout=10,
               what="its model, as a card of yours")
     clean(argus, project)
+
+
+def test_badges_say_where_a_team_comes_from_and_yours_can_go(make_page, argus):
+    """Argus's own, yours, a pack's: said on the card. A pack is taken back whole by Remove a pack…;
+    a model of yours by its ✕."""
+    project = desk(argus)
+    argus.api("/api/prefs", "PATCH", {"changes": {"teamModels": {"hand made": {
+        "nodes": [{"id": "a", "kind": "agent", "role": "executor"}, {"id": "end", "kind": "end"}],
+        "edges": [{"from": "a", "to": "end", "when": "DONE"}], "start": ["a"]}}}})
+    page = make_page(route="#/wall")
+    open_sheet(page, argus, "a strategy")
+    badge = lambda name: f"[...document.querySelectorAll('.teamcard')].find(c => c.querySelector('.name')?.textContent === '{name}')?.querySelector('.teambadge')?.textContent"
+    page.wait(f"{badge('Optimise')} === 'Argus'", timeout=10, what="a template says Argus")
+    page.wait(f"{badge('hand made')} === 'yours'", timeout=5, what="yours says yours")
+    page.click_at(*page._center("[...document.querySelectorAll('.teampackbtns button')].find(b => b.textContent === 'Examples…')"))
+    page.wait("!!document.querySelector('.teamexample')", timeout=10, what="the examples")
+    page.click_at(*page._center("[...document.querySelectorAll('.teamexample')].find(b => b.textContent.includes('Security review'))"))
+    page.wait(f"{badge('Security review')} === 'Security review'", timeout=10, what="a pack's model says its pack")
+    # The pack goes back out whole.
+    page.click_at(*page._center("[...document.querySelectorAll('.teampackbtns button')].find(b => b.textContent === 'Remove a pack…')"))
+    page.wait("[...document.querySelectorAll('.teamexample')].some(b => b.textContent.includes('Security review'))", timeout=5, what="the pack, listed")
+    page.click_at(*page._center("[...document.querySelectorAll('.teamexample')].find(b => b.textContent.includes('Security review'))"))
+    page.click_at(*page._center("[...document.querySelectorAll('dialog.sheet button')].find(b => b.textContent === 'Remove')"))
+    page.wait(f"{badge('Security review')} === undefined", timeout=5, what="its model gone")
+    eventually(lambda: "security auditor" not in (argus.api("/api/prefs")["prefs"].get("teamRoles") or {}), timeout=10,
+               what="and its roles")
+    # Yours goes by its ✕.
+    page.click_at(*page._center("[...document.querySelectorAll('.teamcard')].find(c => c.textContent.includes('hand made')).querySelector('.teamcardx')"))
+    page.click_at(*page._center("[...document.querySelectorAll('dialog.sheet button')].find(b => b.textContent === 'Forget')"))
+    eventually(lambda: "hand made" not in (argus.api("/api/prefs")["prefs"].get("teamModels") or {}), timeout=10, what="forgotten")
+    clean(argus, project)

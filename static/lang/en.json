@@ -1134,6 +1134,17 @@
   "Reload the plugin in the Claude sessions at their prompt": "Reload the plugin in the Claude sessions at their prompt",
   "types /reload-plugins in {list} — never into one that is working or asking you something": "types /reload-plugins in {list} — never into one that is working or asking you something",
   "hooks and tools in one install: the agent says when it starts, finishes and needs you, and can ask you, open desks, start agents and work your to-dos": "hooks and tools in one install: the agent says when it starts, finishes and needs you, and can ask you, open desks, start agents and work your to-dos",
-  "Argus plugin {version} is out — {names} still have the older one. Update in Settings.": "Argus plugin {version} is out — {names} still have the older one. Update in Settings."
+  "Argus plugin {version} is out — {names} still have the older one. Update in Settings.": "Argus plugin {version} is out — {names} still have the older one. Update in Settings.",
+  "Forget this model": "Forget this model",
+  "{name} goes from your models. Teams already started from it are not touched.": "{name} goes from your models. Teams already started from it are not touched.",
+  "Forget": "Forget",
+  "Forget this role": "Forget this role",
+  "{name} goes from your roles. Steps that use it keep their duty.": "{name} goes from your roles. Steps that use it keep their duty.",
+  "Remove a pack…": "Remove a pack…",
+  "Take back the roles and models a pack brought": "Take back the roles and models a pack brought",
+  "no pack imported": "no pack imported",
+  "{name}: {n} roles and models go. Teams already started are not touched.": "{name}: {n} roles and models go. Teams already started are not touched.",
+  "{name} removed": "{name} removed",
+  "from a pack": "from a pack"
  }
 }

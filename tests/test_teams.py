@@ -671,3 +671,22 @@ def test_a_web_page_saved_instead_of_the_file_says_so():
         read_pack({"text": "<!DOCTYPE html>\n<html><style>--tab-size-preference: 4;</style> argus_team_pack"})
     names = {p["id"] for p in example_packs()}
     assert {"trading", "security-review", "paper-review"} <= names
+
+
+def test_a_team_folder_that_does_not_exist_yet_is_made_inside_the_roots(tmp_path):
+    from fastapi.testclient import TestClient
+
+    from app.config import Config
+    from app.main import create_app
+    cfg = Config(token="m" * 64, roots=[tmp_path], listen="127.0.0.1:0")
+    cfg.allow_write = True
+    cfg.tmux_socket = f"argus-t-teamdir-{os.getpid()}"
+    c = TestClient(create_app(cfg))
+    c.headers.update({"authorization": "Bearer " + "m" * 64})
+    # No launchers: the request stops after the folder, which is all this is about.
+    r = c.post("/api/teams", json={"name": "x", "goal": "g", "template": "fix", "path": str(tmp_path / "trading" / "kraken"),
+                                   "agents": {}, "check": "true"})
+    assert (tmp_path / "trading" / "kraken").is_dir(), r.text
+    outside = c.post("/api/teams", json={"name": "y", "goal": "g", "template": "fix", "path": "/etc/argus-should-not-exist",
+                                         "agents": {}, "check": "true"})
+    assert outside.status_code == 403 and not Path("/etc/argus-should-not-exist").exists()

@@ -3795,3 +3795,12 @@ dialog.sheet.teamsheet { width: min(980px, 96vw); max-width: none; }
 .row.setting .meta.warn { color: var(--st-warning); }
 .teamexample { display: grid; gap: .15rem; text-align: left; }
 .teamexample .meta { font-size: .8rem; color: var(--dim); white-space: normal; }
+.teamcard { position: relative; }
+.teamcardx { position: absolute; top: .3rem; right: .4rem; font-size: .75rem; color: var(--dim); padding: .1rem .3rem; border-radius: .3rem; cursor: pointer; }
+.teamcardx:hover { color: var(--st-critical); background: var(--line); }
+.teambadge { justify-self: start; font: 600 .66rem/1 ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: .03em;
+  padding: .18rem .4rem; border-radius: 999px; border: 1px solid var(--line); color: var(--dim); max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.teambadge.argus { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.teambadge.mine, .teambadge.pack { color: var(--st-good); border-color: color-mix(in srgb, var(--st-good) 45%, var(--line)); }
+.teambadge.file { color: var(--st-warning); border-color: color-mix(in srgb, var(--st-warning) 45%, var(--line)); }

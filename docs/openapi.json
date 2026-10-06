@@ -1026,6 +1026,7 @@
   },
   "/api/file": {
    "get": {
+    "description": "`missing_ok=1`: a file that is not there answers 204, not 404 \u2014 for a page that only wants\nto know whether something exists (a desk looking for an old pair's PLAN.argus.md), which is\nnot an error and should not show as one in the browser's console.",
     "operationId": "getApiFile",
     "parameters": [
      {
@@ -1044,6 +1045,16 @@
       "schema": {
        "default": false,
        "title": "Raw",
+       "type": "boolean"
+      }
+     },
+     {
+      "in": "query",
+      "name": "missing_ok",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Missing Ok",
        "type": "boolean"
       }
      }

@@ -1134,6 +1134,17 @@
   "Reload the plugin in the Claude sessions at their prompt": "Recharger le plugin dans les sessions Claude à leur invite",
   "types /reload-plugins in {list} — never into one that is working or asking you something": "tape /reload-plugins dans {list} — jamais dans une qui travaille ou te demande quelque chose",
   "hooks and tools in one install: the agent says when it starts, finishes and needs you, and can ask you, open desks, start agents and work your to-dos": "hooks et outils en une installation : l’agent dit quand il commence, finit et a besoin de toi, et peut te demander, ouvrir des bureaux, lancer des agents et traiter tes tâches",
-  "Argus plugin {version} is out — {names} still have the older one. Update in Settings.": "Le plugin Argus {version} est sorti — {names} ont encore l’ancien. Mets-le à jour dans Réglages."
+  "Argus plugin {version} is out — {names} still have the older one. Update in Settings.": "Le plugin Argus {version} est sorti — {names} ont encore l’ancien. Mets-le à jour dans Réglages.",
+  "Forget this model": "Oublier ce modèle",
+  "{name} goes from your models. Teams already started from it are not touched.": "{name} quitte tes modèles. Les équipes déjà lancées ne sont pas touchées.",
+  "Forget": "Oublier",
+  "Forget this role": "Oublier ce rôle",
+  "{name} goes from your roles. Steps that use it keep their duty.": "{name} quitte tes rôles. Les étapes qui l’utilisent gardent leur tâche.",
+  "Remove a pack…": "Retirer un paquet…",
+  "Take back the roles and models a pack brought": "Retirer les rôles et modèles apportés par un paquet",
+  "no pack imported": "aucun paquet importé",
+  "{name}: {n} roles and models go. Teams already started are not touched.": "{name} : {n} rôles et modèles partent. Les équipes déjà lancées ne sont pas touchées.",
+  "{name} removed": "{name} retiré",
+  "from a pack": "d’un paquet"
  }
 }

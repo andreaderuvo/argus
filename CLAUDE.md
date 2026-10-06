@@ -64,7 +64,7 @@ worth knowing before adding a test:
 
 - **Any problem fails the test by itself**: an uncaught exception, a console error, a 4xx/5xx or
   failed request of ours, a `.js` answered with HTML (a missing module — `serve_static` falls
-  back to the index). The one expected 404 is the wall probing for `PLAN/BRIDGE.argus.md`.
+  back to the index). There is no expected 404: the wall asks for `PLAN/BRIDGE.argus.md` with `missing_ok` and gets 204.
 - Every test gets a fresh browser **context** (own localStorage) and the server's `/api/prefs`
   is emptied around it — preferences live on the server too, and would leak between tests.
 - Desktop means a **mouse**: headless Chromium reports no hover and no fine pointer, so it is

@@ -1981,7 +1981,8 @@ export async function screenWall() {
   let lastRung = null;
   async function readBridge(folder) {
     try {
-      const r = await api(`/api/file?path=${encodeURIComponent(bridgePath(folder))}`);
+      const r = await api(`/api/file?path=${encodeURIComponent(bridgePath(folder))}&missing_ok=1`);
+      if (r.status === 204) return null;
       const turns = bridgeTurns(await r.text());
       return { turns, last: turns[turns.length - 1] || null, wrote: Number(r.headers.get('x-mtime') || 0) };
     } catch {
@@ -1995,7 +1996,10 @@ export async function screenWall() {
     let text;
     let wrote = 0;
     try {
-      const r = await api(`/api/file?path=${encodeURIComponent(path)}`);
+      // missing_ok: no plan is the ordinary state of a desk, answered 204 rather than a 404 that
+      // the console shows as an error on every desk.
+      const r = await api(`/api/file?path=${encodeURIComponent(path)}&missing_ok=1`);
+      if (r.status === 204) throw new Error('no plan');
       text = await r.text();
       wrote = Number(r.headers.get('x-mtime') || 0);
     } catch {

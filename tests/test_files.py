@@ -527,3 +527,17 @@ def test_an_oversized_step_file_is_refused_rather_than_sliced(tmp_path):
     r = client.get(f"/api/file?path={tmp_path / 'root' / 'big.step'}",
                    headers={"Authorization": f"Bearer {TOKEN}"})
     assert r.status_code == 413
+
+
+def test_missing_ok_answers_no_content_instead_of_an_error(tmp_path):
+    """A desk asking whether an old pair's plan exists: not there is 204, not a 404 in the console.
+    Outside the roots is still refused."""
+    from fastapi.testclient import TestClient
+    from app.config import Config
+    from app.main import create_app
+    client = TestClient(create_app(Config(token="m" * 64, roots=[tmp_path], listen="127.0.0.1:0")))
+    client.headers.update({"authorization": "Bearer " + "m" * 64})
+    r = client.get("/api/file", params={"path": str(tmp_path / "PLAN.argus.md"), "missing_ok": 1})
+    assert r.status_code == 204 and r.content == b""
+    assert client.get("/api/file", params={"path": str(tmp_path / "PLAN.argus.md")}).status_code == 404
+    assert client.get("/api/file", params={"path": "/etc/passwd", "missing_ok": 1}).status_code == 403
