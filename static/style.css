@@ -3720,3 +3720,60 @@ button.block.allseen .name { color: var(--st-warning); font-weight: 600; }
 .teamstory .meta { color: var(--dim); font-variant-numeric: tabular-nums; }
 @media (prefers-reduced-motion: reduce) { .teamstep.working .teamdot { animation: none; } }
 
+/* ---------- a team, drawn (teamgraph.js) ---------- */
+.teampicturehead { display: flex; align-items: center; justify-content: space-between; gap: .6rem; }
+.teampicture { overflow-x: auto; padding: .3rem 0 .2rem; border: 1px solid var(--line); border-radius: .6rem;
+  background: color-mix(in srgb, var(--panel) 60%, var(--bg)); }
+.teamgraph { display: block; margin: 0 auto; max-width: none; }
+.teamgraph .tgedge { fill: none; stroke: color-mix(in srgb, var(--dim) 70%, transparent); stroke-width: 1.4; }
+.teamgraph .tgedge.back { stroke-dasharray: 4 3; }
+.teamgraph .tgedge.FAIL, .teamgraph .tgedge.REDO, .teamgraph .tgedge.BLOCKED { stroke: color-mix(in srgb, var(--st-critical) 65%, transparent); }
+.teamgraph .tgedge.PASS, .teamgraph .tgedge.OK, .teamgraph .tgedge.DONE { stroke: color-mix(in srgb, var(--st-good) 70%, transparent); }
+.teamgraph .tgarrowhead { fill: var(--dim); }
+.teamgraph .tglabel { font: 600 9.5px/1 ui-monospace, "SF Mono", Menlo, monospace; fill: var(--dim); paint-order: stroke;
+  stroke: var(--bg); stroke-width: 3px; }
+.teamgraph .tglabel.FAIL, .teamgraph .tglabel.REDO, .teamgraph .tglabel.BLOCKED { fill: var(--st-critical); }
+.teamgraph .tglabel.PASS, .teamgraph .tglabel.OK, .teamgraph .tglabel.DONE { fill: var(--st-good); }
+.teamgraph .tgbox { fill: var(--panel); stroke: var(--line); stroke-width: 1.2; }
+.teamgraph .tgnode.check .tgbox { fill: color-mix(in srgb, var(--panel) 80%, var(--bg)); stroke-dasharray: 3 2; }
+.teamgraph .tgnode.end .tgbox { fill: color-mix(in srgb, var(--st-good) 14%, var(--panel)); stroke: color-mix(in srgb, var(--st-good) 50%, var(--line)); }
+.teamgraph .tgnode.join .tgbox { fill: color-mix(in srgb, var(--accent) 10%, var(--panel)); }
+.teamgraph .tgtext { font: 600 12px/1 inherit; fill: var(--bright); }
+.teamgraph .tgsub { font: 10px/1 ui-monospace, "SF Mono", Menlo, monospace; fill: var(--dim); }
+.teamgraph .tgstart { font: 600 9px/1 inherit; fill: var(--accent); letter-spacing: .06em; text-transform: uppercase; }
+.teamgraph .tgdot { fill: var(--line); }
+.teamgraph .tgnode[tabindex] { cursor: pointer; }
+.teamgraph .tgnode[tabindex]:hover .tgbox, .teamgraph .tgnode:focus-visible .tgbox { stroke: var(--accent); }
+.teamgraph .tgnode.selected .tgbox { stroke: var(--accent); stroke-width: 2.4; }
+.teamgraph .tgnode:focus { outline: none; }
+.teamgraph .tgnode.running .tgbox { stroke: var(--st-good); stroke-width: 2; }
+.teamgraph .tgnode.running .tgdot { fill: var(--st-good); animation: agentbeat 1.2s ease-in-out infinite; }
+.teamgraph .tgnode.waiting .tgbox { stroke: var(--st-warning); stroke-width: 2; }
+.teamgraph .tgnode.waiting .tgdot { fill: var(--st-warning); }
+.teamgraph .tgnode.ran .tgdot { fill: var(--dim); }
+.teamgraph .tgnode.out-pass .tgdot, .teamgraph .tgnode.out-ok .tgdot, .teamgraph .tgnode.out-done .tgdot { fill: var(--st-good); }
+.teamgraph .tgnode.out-fail .tgdot, .teamgraph .tgnode.out-redo .tgdot, .teamgraph .tgnode.out-blocked .tgdot { fill: var(--st-critical); }
+.teamgraph.small .tgtext { font-size: 10px; }
+.teamstrip .teamchain { overflow-x: auto; max-width: 100%; }
+@media (prefers-reduced-motion: reduce) { .teamgraph .tgnode.running .tgdot { animation: none; } }
+
+.teamnode { display: grid; gap: .45rem; padding: .7rem .8rem; border: 1px solid var(--accent); border-radius: .6rem;
+  background: color-mix(in srgb, var(--accent) 5%, var(--panel)); }
+.teamnode[hidden] { display: none; }
+.teamnodehead .name { font-weight: 600; color: var(--bright); }
+.teamfield { display: grid; grid-template-columns: 8rem minmax(0, 1fr); align-items: center; gap: .6rem; font-size: .84rem; }
+.teamfield.check { grid-template-columns: auto minmax(0, 1fr); }
+.teamfield > span { color: var(--dim); }
+.teamfield.check > span { color: var(--text); }
+.teamduty { width: 100%; font: inherit; font-size: .84rem; resize: vertical; }
+.teamarrows { display: grid; gap: .3rem; }
+.teamarrow-row { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto; align-items: center; gap: .4rem; }
+.teamactions { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; }
+.teamadd { font-size: .78rem; padding: .3rem .6rem; }
+.teamcard.mine { border-style: dashed; }
+@media (max-width: 520px) { .teamfield { grid-template-columns: minmax(0, 1fr); } .teamarrow-row { grid-template-columns: minmax(0, 1fr); } }
+dialog.sheet.teamsheet { width: min(980px, 96vw); max-width: none; }
+.teamstrip .teamchain { display: block; overflow-x: auto; padding: 0 .7rem .35rem; }
+.teamgraph .tgedge.mixed { stroke: color-mix(in srgb, var(--st-warning) 60%, transparent); }
+.teamgraph .tglabel.mixed { fill: var(--st-warning); }
+

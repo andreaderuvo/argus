@@ -434,6 +434,18 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   have passed; and the command sits in a subshell of its own, so an `exit` in it ends only that.
   Side effects go through `io`, so the state machine is tested without tmux; one test runs a
   whole team through the API with stand-in agents that answer by appending their turn.
+- **A team is a graph** (`teams.check_graph`, `static/js/teamgraph.js`, `tests/test_teamgraph.py`).
+  Nodes are `agent` / `check` / `join` / `end`; arrows carry a condition (`always`, PASS/FAIL,
+  OK/REDO/DONE/BLOCKED). Parallel branches start together, a `join` waits for every arrow in,
+  and returning to a step already run this round starts the next round — that is the whole
+  notion of "round". The six templates are just graphs (`_g`), and so is a model saved from the
+  sheet (`prefs.teamModels`, stripped of sessions by `bare()`): the server validates whatever
+  comes, so the editor can offer anything. Two traps found by the tests: removing a step wired
+  its predecessor into itself (`always` self-loop = a team that never stops; refused on both
+  sides), and arrows between the same two steps (OK *and* REDO back to the executor) drew one
+  on top of the other until `drawGraph` merged them into one labelled "ok · redo". Each agent
+  and each check has a session `<team>-<node>`; a worktree is per node (`team/<team>-<node>`),
+  which is what lets a Tournament's two executors try different things in one repository.
 - **A browser is remembered by the server too** (`/api/remember`, in the auth gate, `tests/test_remember.py`).
   localStorage is the page's copy, and a phone loses it (Safari clears script storage after
   seven days away; a link opened from a chat lands in that app's own browser). After a token

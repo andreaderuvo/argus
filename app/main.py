@@ -334,11 +334,11 @@ class TeamIO:
         st = self.app.state.agents.states().get(session)
         return (st["state"], st["since"]) if st else None
 
-    def run_check(self, team: dict, command: str, folder: str, log, exit_file) -> None:
+    def run_check(self, team: dict, command: str, folder: str, log, exit_file, session=None) -> None:
         """In a tmux session of the team's own, as if typed there: you can watch it, and stop it.
         The exit code goes to a file the director is waiting for."""
         sock = self.app.state.socket
-        name = team["check_session"]
+        name = session or team.get("check_session") or f"{team.get('name', 'team')}-check"
         if not tmux.session_exists(sock, name):
             tmux.run(tmux.new_argv(sock, name, folder))
             launch.wait_until_settled(sock, name, timeout=8)
@@ -560,9 +560,8 @@ def create_app(cfg: Config) -> FastAPI:
 
     @app.get("/api/teams", tags=["Teams"], summary="The teams of agents, and what each is doing")
     async def teams_list(request: Request) -> dict:
-        return {"teams": request.app.state.teams.public(),
-                "templates": {k: {kk: v[kk] for kk in ("label", "hint", "roles", "flow", "check")}
-                              for k, v in teams.TEMPLATES.items()}}
+        return {"teams": request.app.state.teams.public(), "templates": teams.TEMPLATES,
+                "roles": sorted(teams.DUTIES), "conditions": list(teams.WHEN)}
 
     @app.get("/api/teams/suggest", tags=["Teams"], summary="What a goal and a folder suggest for a team")
     async def teams_suggest(request: Request, path: str = "", goal: str = "") -> dict:
@@ -575,39 +574,54 @@ def create_app(cfg: Config) -> FastAPI:
 
     @app.post("/api/teams", tags=["Teams"], summary="Start a team of agents on a goal")
     async def teams_create(request: Request, body: dict) -> dict:
-        """`{name, goal, template, path, roles: {role: {launcher, options, worktree}}, check, gate, max_rounds, ws}`.
+        """`{name, goal, template, graph?, path, agents: {node: {launcher, options, worktree}}, check, checks: {node: command}, gate, max_rounds, ws}`.
 
-        Starts each role's agent in a session of its own (`<name>-<role>`) — only launchers named in
-        the config, with options by name, exactly like New session — a worktree for a role that
-        asks for one, and the team, which gives the first role its prompt. The check is a command
-        line, typed into the team's own tmux session: what the terminal could already do, which is
-        why this is not open to an agent's key."""
+        A team from a template, or from a `graph` of your own (`{nodes, edges, start}`, see
+        teams.py). Every agent starts in a session of its own (`<name>-<node>`) — only launchers
+        named in the config, with options by name, exactly like New session — and in a git
+        worktree of its own when it asks for one; every check gets its session, where it will run.
+        A check is a command line typed into that session: what the terminal could already do,
+        which is why this is not open to an agent's key."""
         state = request.app.state
         if not state.cfg.allow_write:
             raise ApiError(403, "a team writes its log into the project — start Argus with --allow-write")
-        template = str(body.get("template", ""))
-        if template not in teams.TEMPLATES:
-            raise ApiError(400, f"template is one of {', '.join(teams.TEMPLATES)}")
+        template = str(body.get("template") or "custom")
+        if body.get("graph"):
+            graph = body["graph"]
+        elif template in teams.TEMPLATES:
+            graph = teams.TEMPLATES[template]["graph"]
+        else:
+            raise ApiError(400, f"template is one of {', '.join(teams.TEMPLATES)}, or give a graph")
+        try:
+            graph = teams.check_graph(json.loads(json.dumps(graph)))
+        except (ValueError, TypeError) as e:
+            raise ApiError(400, str(e)) from e
         folder = under_roots(request, str(body.get("path", "")))
         if not folder.is_dir():
             raise ApiError(400, f"{folder} is not a folder")
         try:
-            base = tmux.check_name(str(body.get("name") or teams.TEMPLATES[template]["label"]).strip().replace(" ", "-")[:30])
+            base = tmux.check_name(str(body.get("name") or teams.TEMPLATES.get(template, {}).get("label", "Team")).strip().replace(" ", "-")[:24])
         except tmux.BadName as e:
             raise ApiError(400, str(e)) from e
-        wanted = body.get("roles") or {}
-        roles_needed = teams.TEMPLATES[template]["roles"]
-        sessions: dict[str, str] = {}
-        folders: dict[str, str] = {}
+
+        agents_spec = body.get("agents") or {}
+        commands = {k: str(v) for k, v in (body.get("checks") or {}).items()}
+        default_check = str(body.get("check") or "").strip() or None
         plans = []
-        for role in roles_needed:
-            spec = wanted.get(role) or {}
-            chosen = launch.named(state.cfg, str(spec.get("launcher", "")))
-            if not chosen or not chosen.command.strip():
-                raise ApiError(400, f"{role}: choose an agent from your launchers")
-            session = f"{base}-{role}"
+        for n in graph["nodes"]:
+            if n["kind"] not in ("agent", "check"):
+                continue
+            session = f"{base}-{n['id']}"
             if await asyncio.to_thread(tmux.session_exists, state.socket, session):
                 raise ApiError(409, f"a session called {session} is already there — give the team another name")
+            if n["kind"] == "check":
+                if not (commands.get(n["id"]) or n.get("command") or default_check):
+                    raise ApiError(400, f"{n['id']}: a check needs its command")
+                continue
+            spec = agents_spec.get(n["id"]) or {}
+            chosen = launch.named(state.cfg, str(spec.get("launcher", "")))
+            if not chosen or not chosen.command.strip():
+                raise ApiError(400, f"{n['id']}: choose an agent from your launchers")
             command = chosen.command
             if spec.get("options"):
                 program = agentflags.program_of(chosen.command) or ""
@@ -616,52 +630,54 @@ def create_app(cfg: Config) -> FastAPI:
                 try:
                     flags = agentflags.flags_for(chosen.command, text, spec["options"])
                 except ValueError as e:
-                    raise ApiError(400, f"{role}: {e}") from e
+                    raise ApiError(400, f"{n['id']}: {e}") from e
                 if flags:
                     command = " ".join([chosen.command.rstrip(), *(launch.shell_quote(f) for f in flags)])
-            plans.append((role, session, command, bool(spec.get("worktree"))))
-        check = str(body.get("check") or "").strip()
-        if teams.TEMPLATES[template]["check"] and not check:
-            raise ApiError(400, f"{teams.TEMPLATES[template]['label']} needs a check: the command whose result decides")
+            plans.append((n["id"], session, command, bool(spec.get("worktree", n.get("worktree")))))
         if too_fast("start", STARTS_A_MINUTE):
             raise ApiError(429, "too many launches in a minute — nothing was started")
 
-        # A worktree for whoever asked for one; the roles that read its work (the reviewer) go there too.
-        work = str(folder)
-        if any(w for _r, _s, _c, w in plans):
+        # A worktree for every agent that asks for one: two executors trying two ideas must not
+        # edit one checkout.
+        folders: dict[str, str] = {}
+        if any(w for *_x, w in plans):
             top = await asyncio.to_thread(gitwork.top_of, folder)
             if not top:
                 raise ApiError(400, f"{folder} is not in a git repository — a worktree needs one")
-            branch = launch.check_branch(f"team/{base}")
-            target = gitwork.suggested_path(top, branch.replace("/", "-"))
-            try:
-                state.jail.resolve(str(target.parent))
-                made = await asyncio.to_thread(gitwork.add, top, target, branch)
-            except PathError:
-                raise ApiError(403, f"{target} would be outside the configured roots") from None
-            except gitwork.GitError as e:
-                raise ApiError(409, str(e)) from e
-            work = made["path"]
-        for role, session, command, _w in plans:
-            folders[role] = work if role in ("executor", "reviewer") else str(folder)
-            sessions[role] = session
-            await asyncio.to_thread(launch.start, state.socket, session, folders[role], command)
+            for nid, _s, _c, wants in plans:
+                if not wants:
+                    continue
+                branch = launch.check_branch(f"team/{base}-{nid}")
+                target = gitwork.suggested_path(top, branch.replace("/", "-"))
+                try:
+                    state.jail.resolve(str(target.parent))
+                    made = await asyncio.to_thread(gitwork.add, top, target, branch)
+                except PathError:
+                    raise ApiError(403, f"{target} would be outside the configured roots") from None
+                except gitwork.GitError as e:
+                    raise ApiError(409, str(e)) from e
+                folders[nid] = made["path"]
+        sessions: dict[str, str] = {}
+        for nid, session, command, _w in plans:
+            folders.setdefault(nid, str(folder))
+            sessions[nid] = session
+            await asyncio.to_thread(launch.start, state.socket, session, folders[nid], command)
         await asyncio.gather(*(asyncio.to_thread(launch.wait_until_settled, state.socket, s) for s in sessions.values()))
+        filled = teams.fill_graph(graph, base, folders, commands, default_check)
+        # Every check's session now, so its window opens with the others, where the check will run.
+        for n in filled["nodes"]:
+            if n["kind"] == "check" and not await asyncio.to_thread(tmux.session_exists, state.socket, n["session"]):
+                of = next((m for m in filled["nodes"] if m["id"] == n.get("of")), {})
+                await asyncio.to_thread(tmux.run, tmux.new_argv(state.socket, n["session"], of.get("folder") or str(folder)))
+                sessions[n["id"]] = n["session"]
         try:
-            team = state.teams.create(name=base, goal=str(body.get("goal", "")), template=template, folder=str(folder),
-                                      roles=sessions, folders=folders, check=check or None,
-                                      gate=str(body.get("gate") or "ask"), max_rounds=int(body.get("max_rounds") or 10),
-                                      ws=body.get("ws"))
+            team = state.teams.create(name=base, goal=str(body.get("goal", "")), folder=str(folder), graph=filled,
+                                      template=template, gate=str(body.get("gate") or "ask"),
+                                      max_rounds=int(body.get("max_rounds") or 10), ws=body.get("ws"))
         except ValueError as e:
             raise ApiError(400, str(e)) from e
-        if team.get("check_session"):
-            # Made now, so its window opens with the others and is waiting where the check will run.
-            team["check_session"] = f"{base}-check"
-            state.teams.save()
-            if not await asyncio.to_thread(tmux.session_exists, state.socket, team["check_session"]):
-                await asyncio.to_thread(tmux.run, tmux.new_argv(state.socket, team["check_session"], folders.get("executor") or str(folder)))
         return {"team": next(t for t in state.teams.public() if t["id"] == team["id"]), "sessions": sessions,
-                "check_session": team.get("check_session"), "worktree": work if work != str(folder) else None}
+                "worktrees": {k: v for k, v in folders.items() if v != str(folder)}}
 
     @app.post("/api/teams/{team_id}/{action}", tags=["Teams"], summary="Continue, pause or stop a team")
     async def teams_act(request: Request, team_id: str, action: str) -> dict:

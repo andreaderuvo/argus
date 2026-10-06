@@ -2885,7 +2885,7 @@
     ]
    },
    "post": {
-    "description": "`{name, goal, template, path, roles: {role: {launcher, options, worktree}}, check, gate, max_rounds, ws}`.\n\nStarts each role's agent in a session of its own (`<name>-<role>`) \u2014 only launchers named in\nthe config, with options by name, exactly like New session \u2014 a worktree for a role that\nasks for one, and the team, which gives the first role its prompt. The check is a command\nline, typed into the team's own tmux session: what the terminal could already do, which is\nwhy this is not open to an agent's key.",
+    "description": "`{name, goal, template, graph?, path, agents: {node: {launcher, options, worktree}}, check, checks: {node: command}, gate, max_rounds, ws}`.\n\nA team from a template, or from a `graph` of your own (`{nodes, edges, start}`, see\nteams.py). Every agent starts in a session of its own (`<name>-<node>`) \u2014 only launchers\nnamed in the config, with options by name, exactly like New session \u2014 and in a git\nworktree of its own when it asks for one; every check gets its session, where it will run.\nA check is a command line typed into that session: what the terminal could already do,\nwhich is why this is not open to an agent's key.",
     "operationId": "postApiTeams",
     "requestBody": {
      "content": {

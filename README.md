@@ -81,6 +81,8 @@ session and it is typed there; the Enter is left for you.
   `--dangerously-skip-permissions`), the model, the effort, with the command line shown.
 - **Teams**: agents taking turns on one goal (optimise a tool, fix a bug, write a report), with
   tests or a benchmark run between turns to decide, directed by Argus even with the browser shut.
+  A team is a graph you change with clicks: two agents trying ideas in parallel, each in its
+  own worktree, and a reviewer keeping the better one.
 - **Two agents on one job**: a worker and a reviewer, talking through a file you can read.
 
 <p align="center">

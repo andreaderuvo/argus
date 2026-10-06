@@ -49,11 +49,13 @@ class Socket:
 
 def is_no_server(stderr: str) -> bool:
     """"no server running" is the normal state when nothing is open — an empty list,
-    not an error the UI should shout about."""
+    not an error the UI should shout about. So is a server caught in the act of ending
+    ("server exited unexpectedly", "lost server"): asked a moment later, it is not there."""
     s = stderr.lower()
     return any(
         m in s
-        for m in ("no server running", "error connecting", "no current client", "failed to connect to server")
+        for m in ("no server running", "error connecting", "no current client", "failed to connect to server",
+                  "server exited unexpectedly", "lost server")
     )
 
 
