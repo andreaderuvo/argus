@@ -446,6 +446,11 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   on top of the other until `drawGraph` merged them into one labelled "ok · redo". Each agent
   and each check has a session `<team>-<node>`; a worktree is per node (`team/<team>-<node>`),
   which is what lets a Tournament's two executors try different things in one repository.
+- **Two agents was folded into Teams** (2026-10-06). Its button and `pairSheet` are gone; its
+  patterns are the templates *Build and review* and *Split the work* (two executors at once in
+  the same folder, each on the files the planner gave it, no worktree). What reads an existing
+  pair stays — the desk card on `BRIDGE.argus.md`, the REDO loop, Also's "partner first" — so a
+  pair started before keeps working; there is just no way to start a new one.
 - **A browser is remembered by the server too** (`/api/remember`, in the auth gate, `tests/test_remember.py`).
   localStorage is the page's copy, and a phone loses it (Safari clears script storage after
   seven days away; a link opened from a chat lands in that app's own browser). After a token

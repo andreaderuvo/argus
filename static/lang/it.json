@@ -1085,6 +1085,8 @@
   "one plans, one codes, the tests check, one reviews, one documents": "uno pianifica, uno scrive il codice, i test controllano, uno rivede, uno documenta",
   "a researcher, a writer, and two critics in parallel": "un ricercatore, uno scrittore e due critici in parallelo",
   "planner": "pianificatore",
-  "tester": "tester"
+  "tester": "tester",
+  "Split the work": "Dividetevi il lavoro",
+  "one divides the files, two work at once in the same folder, the check and a reviewer decide": "uno divide i file, due lavorano insieme nella stessa cartella, decidono il controllo e un revisore"
  }
 }

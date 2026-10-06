@@ -100,6 +100,25 @@ TEMPLATES: dict[str, dict] = {
             ("check-a", "join", "always"), ("check-b", "join", "always"), ("join", "reviewer", "always"),
             ("reviewer", "planner", "OK"), ("reviewer", "planner", "REDO"), ("reviewer", "end", "DONE")], ["planner"]),
     },
+    "split": {
+        "label": "Split the work", "check": True,
+        "hint": "one divides the files, two work at once in the same folder, the check and a reviewer decide",
+        "graph": _g([
+            {"id": "planner", "kind": "agent", "role": "planner",
+             "duty": "You split the work between executor-a and executor-b: the next step for each, and which files each one owns. Every file that will be touched gets exactly one owner. You do not edit the code."},
+            {"id": "executor-a", "kind": "agent", "role": "executor",
+             "duty": "You do your half of the step the planner gave you. Edit only the files the planner gave to you; the other executor is editing the rest at this moment, in the same folder."},
+            {"id": "executor-b", "kind": "agent", "role": "executor",
+             "duty": "You do your half of the step the planner gave you. Edit only the files the planner gave to you; the other executor is editing the rest at this moment, in the same folder."},
+            {"id": "join", "kind": "join"},
+            {"id": "check", "kind": "check", "of": "executor-a"},
+            {"id": "reviewer", "kind": "agent", "role": "reviewer", "judge": True, "reads": ["executor-a"]},
+            {"id": "end", "kind": "end"},
+        ], [("planner", "executor-a", "always"), ("planner", "executor-b", "always"),
+            ("executor-a", "join", "always"), ("executor-b", "join", "always"), ("join", "check", "always"),
+            ("check", "reviewer", "PASS"), ("check", "planner", "FAIL"),
+            ("reviewer", "planner", "OK"), ("reviewer", "planner", "REDO"), ("reviewer", "end", "DONE")], ["planner"]),
+    },
     "fix": {
         "label": "Fix a bug", "check": True,
         "hint": "one fixes, the check (the test that shows the bug) decides",
@@ -720,6 +739,8 @@ def suggest_template(goal: str) -> str:
     g = (goal or "").lower()
     if re.search(r"two ideas|in parallel|tournament|compare|confront|due idee|in parallelo|torneo", g):
         return "tournament"
+    if re.search(r"split|divide|together|both work|share the work|dividet|dividi|insieme|a metà", g):
+        return "split"
     if re.search(r"fast|faster|speed|slow|optimi|perform|ottimizz|veloc|lent|memor|throughput|latenc", g):
         return "optimise"
     if re.search(r"\bbug|fix|crash|error|broken|fails?\b|errore|sistema|correggi|rotto", g):

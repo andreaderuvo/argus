@@ -1085,6 +1085,8 @@
   "one plans, one codes, the tests check, one reviews, one documents": "one plans, one codes, the tests check, one reviews, one documents",
   "a researcher, a writer, and two critics in parallel": "a researcher, a writer, and two critics in parallel",
   "planner": "planner",
-  "tester": "tester"
+  "tester": "tester",
+  "Split the work": "Split the work",
+  "one divides the files, two work at once in the same folder, the check and a reviewer decide": "one divides the files, two work at once in the same folder, the check and a reviewer decide"
  }
 }

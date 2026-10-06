@@ -265,6 +265,40 @@ def test_a_tournament_runs_two_branches_at_once_and_the_join_waits_for_both(setu
     assert io.to()[-1] == "t-planner" and team["round"] == 2
 
 
+def test_split_the_work_two_at_once_in_one_folder_then_one_check(setup):
+    """What Two agents' "together" did, as a team: the planner gives each one its files, both work
+    at once in the same checkout, and the check runs once, when both are done."""
+    d, io, tmp = setup
+    assert not any(n.get("worktree") for n in TEMPLATES["split"]["graph"]["nodes"]), "one folder: no copies"
+    team = make(d, tmp, "split")
+    assert io.to() == ["t-planner"]
+    assert "exactly one owner" in io.sent[-1][1]
+    turn(team, "PLANNER", "A owns parser.rs, B owns tests/parser.rs")
+    d.tick()
+    assert sorted(io.to()[1:]) == ["t-executor-a", "t-executor-b"], "both at once"
+    assert "only the files the planner gave to you" in io.sent[-1][1]
+    turn(team, "EXECUTOR-A")
+    d.tick()
+    assert io.check_order == [], "the check waits for both halves"
+    turn(team, "EXECUTOR-B")
+    d.tick()
+    assert io.check_order == ["t-check"]
+    check_exits(io, "t-check", 1, "2 failed")
+    d.tick()
+    assert io.to()[-1] == "t-planner" and team["round"] == 2, "a failure goes back to whoever divides the work"
+    turn(team, "PLANNER")
+    d.tick()
+    turn(team, "EXECUTOR-A")
+    turn(team, "EXECUTOR-B")
+    d.tick()
+    check_exits(io, "t-check", 0)
+    d.tick()
+    assert io.to()[-1] == "t-reviewer"
+    turn(team, "REVIEWER", status="DONE")
+    d.tick()
+    assert team["status"] == "done"
+
+
 def test_a_failed_branch_still_reaches_the_join_and_the_reviewer_hears_of_it(setup):
     d, io, tmp = setup
     team = make(d, tmp, "tournament")
@@ -357,6 +391,7 @@ def test_what_a_folder_and_a_goal_suggest(tmp_path):
     assert suggest_template("aggiungi l'export in CSV") == "feature"
     assert suggest_template("scrivi la bozza del paper") == "write"
     assert suggest_template("tidy the module") == "review"
+    assert suggest_template("dividetevi il lavoro sul parser e sui test") == "split"
 
 
 # ------------------------------------------------------------------ the check, for real
