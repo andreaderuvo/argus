@@ -129,10 +129,34 @@ def test_the_list_of_what_an_agent_may_do_is_short():
     Sixteen to seventeen, for `POST /api/desks` (2026-10-06): an agent asked "open a desk called
     pippo with a Codex and a Claude in it" makes the empty desk (or finds it) and shows it, and
     renames one when asked. Nothing reachable with this key removes a desk or what is in it.
+
+    Seventeen to nineteen, for `GET` and `POST /api/todo` (2026-10-06), plus `PATCH
+    /api/todo/<id or #n>` by prefix: "work on to-do #1 and mark it done when you have". Reading the
+    list, adding to it and moving one along; removing one stays with the person.
     """
-    assert len(AGENT_ROUTES) <= 17
+    assert len(AGENT_ROUTES) <= 19
     assert ("POST", "/api/teams") not in AGENT_ROUTES
     assert all(method in ("GET", "POST") for method, _ in AGENT_ROUTES)
     assert not any(path.startswith("/api/fs") or path.startswith("/api/devices")
                    for _, path in AGENT_ROUTES)
     assert ("POST", "/api/ask/{ident}/answer") not in AGENT_ROUTES
+
+
+def test_it_may_work_the_todo_list_but_not_empty_it(agent, app_with_agent):
+    """'Work on #1 and mark it done': read, add, move along — and the move is signed."""
+    from fastapi.testclient import TestClient
+    import tempfile
+    from pathlib import Path
+    app_with_agent.state.todo = Path(tempfile.mkdtemp()) / "todo.json"
+    person = TestClient(app_with_agent)
+    person.headers.update({"authorization": "Bearer " + "m" * 64})
+    first = person.post("/api/todo", json={"note": "fix the parser"}).json()
+    person.post("/api/todo", json={"note": "write the docs"})
+    listed = agent.get("/api/todo").json()["items"]
+    assert {x["n"]: x["note"] for x in listed} == {1: "fix the parser", 2: "write the docs"}, "numbers in the order written"
+    moved = agent.patch("/api/todo/%231", json={"status": "doing", "by": "pippo-claude"}).json()
+    assert moved["id"] == first["id"] and moved["status"] == "doing" and moved["by"] == "pippo-claude"
+    assert agent.patch("/api/todo/1", json={"status": "done", "by": "pippo-claude"}).json()["status"] == "done"
+    assert agent.post("/api/todo", json={"note": "found while fixing"}).json()["n"] == 3
+    assert agent.delete(f"/api/todo/{first['id']}").status_code == 403, "removing one is the person's"
+    assert person.patch("/api/todo/1", json={"status": "open", "by": "someone"}).json()["by"] == "", "only an agent signs"

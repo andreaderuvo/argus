@@ -282,6 +282,26 @@ class Argus:
             body["folder"] = str(folder)
         return self.call("POST", "/api/desks", body)
 
+    def todos(self) -> list[dict]:
+        """The to-do list kept in Argus: `{n, note, status, by, ...}` each, newest first. `n` is the
+        number shown beside it ("#3"), given once and never reused."""
+        return self.call("GET", "/api/todo").get("items") or []
+
+    def todo(self, note: str | None = None, ident: str | int | None = None, status: str | None = None,
+             by: str = "") -> dict:
+        """Add a to-do (`note` alone), or change one: `ident` is its number (3, "#3") or id,
+        `status` one of open, doing, done. `by` signs the change with your session, which the
+        list shows ("done by pippo-claude"). There is no removing one from here."""
+        if ident is None:
+            return self.call("POST", "/api/todo", {"note": note or ""})
+        body: dict = {"by": by or os.environ.get("ARGUS_SESSION", "")}
+        if note is not None:
+            body["note"] = note
+        if status is not None:
+            body["status"] = status
+        from urllib.parse import quote
+        return self.call("PATCH", f"/api/todo/{quote(str(ident))}", body)
+
     def teams(self) -> list[dict]:
         """The teams on this machine: goal, round, status, and each step's state and outcome.
         Read only — starting, pausing and stopping one is the person's."""

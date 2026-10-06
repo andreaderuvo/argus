@@ -41,7 +41,8 @@ def test_the_surface_is_small_enough_to_document():
     decided to grow the surface — and this test is the place that decision gets written down.
     """
     counted = {mod: len(names) for mod, names in surface.surface().items()}
-    assert counted["argus_client"] <= 22, counted
+    # 22 to 24 on 2026-10-06, for todos() and todo(): "work on to-do #1 and mark it done".
+    assert counted["argus_client"] <= 24, counted
     assert counted["argus_orchestra"] <= 30, counted
 
 

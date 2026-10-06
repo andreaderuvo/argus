@@ -1101,8 +1101,11 @@ export async function screenTodo() {
         },
       });
       rows.append(el('div', { className: `todorow ${one.status}` }, [
+        // The number you can say to an agent: "work on #3 and mark it done".
+        el('span', { className: 'todonum', textContent: one.n ? `#${one.n}` : '', title: t('Say this number to an agent: “work on {n} and mark it done”', { n: `#${one.n}` }) }),
         state,
         note,
+        one.by ? el('span', { className: 'todoby', textContent: t('by {who}', { who: one.by }), title: t('the agent that last moved it') }) : null,
         el('span', { className: 'todowhen', textContent: when(one.at), title: new Date(one.at * 1000).toLocaleString() }),
         el('button', {
           className: 'winbtn', title: t('Take it off the list'),

@@ -42,7 +42,8 @@ INSTRUCTIONS = (
     "`ring` when you finish or fail, so they need not watch your pane; `who` before handing work "
     "to another session with `relay`; `start_agent` to start a second agent, in its own git "
     "worktree when it will change code; `open_desk` and `start_agent` with `desk` when asked to "
-    "lay agents out on a desk of their own."
+    "lay agents out on a desk of their own; `todos` and `todo_set` when asked to work on the person's to-do "
+    "#n — mark it doing when you start and done when you finish."
 )
 
 TOOLS = [
@@ -111,6 +112,22 @@ TOOLS = [
          "show_on_desk": {"type": "boolean", "default": True, "description": "Also open its window on the person's desk"},
          "desk": {"type": "string", "description": "Put its window in the desk of this name (made if missing) instead of the one on screen"}},
          "required": ["launcher", "name"]}},
+    {"name": "todos",
+     "description": "The person's to-do list in Argus, each with its number (#1, #2…), state (open, doing, done) and "
+                    "words. When asked to \"work on to-do #3\", read it here first.",
+     "inputSchema": {"type": "object", "properties": {
+         "all": {"type": "boolean", "default": False, "description": "Include the ones already done"}}}},
+    {"name": "todo_set",
+     "description": "Move a to-do along: mark it doing when you start on it and done when it is finished, so the "
+                    "person sees it on their list. Signed with your session.",
+     "inputSchema": {"type": "object", "properties": {
+         "todo": {"type": "string", "description": "Its number, e.g. \"#3\" or \"3\""},
+         "status": {"type": "string", "enum": ["open", "doing", "done"]},
+         "note": {"type": "string", "description": "New words for it, if they should change"}},
+         "required": ["todo"]}},
+    {"name": "todo_add",
+     "description": "Add something to the person's to-do list — a follow-up you found but should not do now.",
+     "inputSchema": {"type": "object", "properties": {"note": {"type": "string"}}, "required": ["note"]}},
     {"name": "teams",
      "description": "The teams of agents Argus is directing on this machine: goal, round, status, whose turn it is "
                     "and each step's outcome. Read only.",
@@ -221,6 +238,24 @@ def _rename_desk(a: Argus, args: dict) -> str:
     return f"the desk {args['desk']} is now called {said['name']}"
 
 
+def _todos(a: Argus, args: dict) -> str:
+    items = sorted(a.todos(), key=lambda x: x.get("n", 0))
+    if not args.get("all"):
+        items = [x for x in items if x.get("status") != "done"]
+    return "\n".join(f"#{x['n']} [{x['status']}] {x['note']}" + (f"  (by {x['by']})" if x.get("by") else "")
+                     for x in items) or "nothing on the list"
+
+
+def _todo_set(a: Argus, args: dict) -> str:
+    said = a.todo(note=args.get("note"), ident=str(args["todo"]), status=args.get("status"), by=own_session())
+    return f"#{said['n']} is {said['status']}: {said['note']}"
+
+
+def _todo_add(a: Argus, args: dict) -> str:
+    said = a.todo(note=args["note"])
+    return f"added #{said['n']}: {said['note']}"
+
+
 def _teams(a: Argus, _args: dict) -> str:
     teams = a.teams()
     if not teams:
@@ -246,7 +281,7 @@ def _prompts(a: Argus, _args: dict) -> str:
 
 
 DO = {"who": _who, "ring": _ring, "ask": _ask, "relay": _relay, "open_desk": _open_desk, "rename_desk": _rename_desk, "launchers": _launchers,
-      "start_agent": _start, "teams": _teams, "worktree": _worktree, "prompts": _prompts}
+      "start_agent": _start, "todos": _todos, "todo_set": _todo_set, "todo_add": _todo_add, "teams": _teams, "worktree": _worktree, "prompts": _prompts}
 
 
 # ------------------------------------------------------------------ the wire

@@ -85,7 +85,12 @@ AGENT_ROUTES = frozenset({
     # agents in it" from an agent, and renaming one when asked to. Nothing here removes a desk or
     # what is in it.
     ("POST", "/api/desks"),
+    # The to-do list: read it, add to it, move one along ("work on #1 and mark it done"). Changing
+    # one is PATCH /api/todo/<id or number>, let through by prefix below. Removing one is not here.
+    ("GET", "/api/todo"),
+    ("POST", "/api/todo"),
 })
+TODO_PREFIX = "/api/todo/"
 
 
 def presented_token(scope: dict) -> str | None:
@@ -286,7 +291,8 @@ class TokenAuthMiddleware:
             # Coming back for an answer that was not there yet. A prefix, because the id is in
             # the path — and GET only, which is what keeps `POST /api/ask/<id>/answer` out of
             # reach: an agent may wait for a person, never speak for one.
-            waiting = method == "GET" and scope["path"].startswith(ASK_PREFIX)
+            waiting = (method == "GET" and scope["path"].startswith(ASK_PREFIX)) or (
+                method == "PATCH" and scope["path"].startswith(TODO_PREFIX))
             if not waiting and (method, scope["path"]) not in AGENT_ROUTES:
                 response = PlainTextResponse(
                     "an agent key may only read what is happening (/api/who, /api/overview, "
@@ -294,8 +300,9 @@ class TokenAuthMiddleware:
                     "/api/bells, /api/runs), ring the bell (/api/bell), ask you a question and "
                     "wait for the answer (/api/ask), pass a sentence to another session "
                     "(/api/relay), start something from the launcher list (/api/tmux/launch), "
-                    "make a worktree (/api/git/worktree), report a run (/api/runs) and make or "
-                    "rename a desk (/api/desks)",
+                    "make a worktree (/api/git/worktree), report a run (/api/runs), make or "
+                    "rename a desk (/api/desks) and read, add to and move along the to-do list "
+                    "(/api/todo)",
                     status_code=403,
                 )
                 return await response(scope, receive, send)

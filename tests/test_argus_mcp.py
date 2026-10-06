@@ -58,7 +58,7 @@ def test_the_handshake_and_the_tool_list():
     # A version it does not know is answered with the newest it does, as the spec asks.
     assert call(Fake(), "initialize", {"protocolVersion": "1999-01-01"})["result"]["protocolVersion"] == argus_mcp.VERSIONS[0]
     names = [t["name"] for t in call(Fake(), "tools/list")["result"]["tools"]]
-    assert names == ["who", "ring", "ask", "relay", "open_desk", "rename_desk", "launchers", "start_agent", "teams", "worktree", "prompts"]
+    assert names == ["who", "ring", "ask", "relay", "open_desk", "rename_desk", "launchers", "start_agent", "todos", "todo_set", "todo_add", "teams", "worktree", "prompts"]
     assert all(t["inputSchema"]["type"] == "object" for t in call(Fake(), "tools/list")["result"]["tools"])
     assert argus_mcp.answer({"jsonrpc": "2.0", "method": "notifications/initialized"}, Fake) is None
     assert call(Fake(), "nope")["error"]["code"] == -32601
@@ -102,6 +102,7 @@ def live(tmp_path):
     cfg.allow_write = True
     cfg.launchers = [{"name": "Shell", "command": "sh"}]
     cfg.prefs_store = tmp_path / "prefs.json"
+    cfg.todo_store = tmp_path / "todo.json"
     server = uvicorn.Server(uvicorn.Config(create_app(cfg), host="127.0.0.1", port=port, log_level="error"))
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
@@ -137,7 +138,7 @@ def test_an_agent_client_over_stdio(live):
     try:
         assert rpc("initialize", {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "test"}})["result"]["serverInfo"]["name"] == "argus"
         proc.stdin.write(json.dumps({"jsonrpc": "2.0", "method": "notifications/initialized"}) + "\n")
-        assert len(rpc("tools/list")["result"]["tools"]) == 11
+        assert len(rpc("tools/list")["result"]["tools"]) == 14
 
         def tool(tool_name, **args):
             return rpc("tools/call", {"name": tool_name, "arguments": args})["result"]
@@ -170,6 +171,13 @@ def test_an_agent_client_over_stdio(live):
         desks = desks.get("prefs", desks).get("workspaces")
         assert [d["name"] for d in desks] == ["Desk 1", "pippo"] and desks[1]["id"] == 2, \
             "one desk, once, beside the Desk 1 a browser would have made"
+        assert tool("todos")["content"][0]["text"] == "nothing on the list"
+        assert tool("todo_add", note="fix the parser")["content"][0]["text"] == "added #1: fix the parser"
+        tool("todo_add", note="write the docs")
+        assert tool("todo_set", todo="#1", status="doing")["content"][0]["text"] == "#1 is doing: fix the parser"
+        assert tool("todos")["content"][0]["text"] == "#1 [doing] fix the parser\n#2 [open] write the docs"
+        tool("todo_set", todo="1", status="done")
+        assert "#1" not in tool("todos")["content"][0]["text"] and "#1 [done]" in tool("todos", all=True)["content"][0]["text"]
         refused = tool("worktree", repo=str(folder), branch="x")
         assert refused["isError"] and "Argus refused" in refused["content"][0]["text"], "not a repository: said, not raised"
     finally:

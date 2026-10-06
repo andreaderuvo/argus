@@ -3861,7 +3861,7 @@
       "description": "Validation Error"
      }
     },
-    "summary": "Change one: its words or its state",
+    "summary": "Change one: its words or its state (by id or #number)",
     "tags": [
      "Setup"
     ]

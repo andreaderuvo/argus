@@ -40,6 +40,11 @@ def clean_one(raw) -> dict | None:
         # When it stopped being open, so "done today" can be told from "done in March" without
         # keeping a second history.
         "moved": float(raw.get("moved") or raw.get("at") or time.time()),
+        # A number you can say — "work on #3" — given once and never reused, so it means the same
+        # thing tomorrow. 0 until `number()` gives one to an item from before numbers existed.
+        "n": int(raw.get("n") or 0),
+        # Which session last moved it, when an agent did: "done by pippo-claude".
+        "by": str(raw.get("by") or "")[:60],
     }
 
 
@@ -59,7 +64,26 @@ def load(store: Path | None) -> list[dict]:
     if not isinstance(raw, list):
         return []
     out = [one for one in (clean_one(x) for x in raw) if one]
-    return out
+    return number(out)
+
+
+def number(items: list[dict]) -> list[dict]:
+    """Give every item without a number the next one, oldest first, so a list written before
+    numbers existed reads #1 for the first thing ever written down."""
+    top = max((x["n"] for x in items), default=0)
+    for one in sorted((x for x in items if not x["n"]), key=lambda x: x["at"]):
+        top += 1
+        one["n"] = top
+    return items
+
+
+def find(items: list[dict], ident: str) -> str | None:
+    """The id of the item `ident` names: its id, or its number as "#3" or "3"."""
+    said = str(ident).strip()
+    if said.lstrip("#").isdigit():
+        n = int(said.lstrip("#"))
+        return next((x["id"] for x in items if x["n"] == n), None)
+    return said if any(x["id"] == said for x in items) else None
 
 
 def save(store: Path, items: list[dict]) -> None:
@@ -86,11 +110,14 @@ def add(items: list[dict], note: str, status: str = "open") -> tuple[list[dict],
     made = clean_one({"note": note, "status": status})
     if not made:
         raise ValueError("a note needs some words in it")
+    made["n"] = max((x["n"] for x in number(items)), default=0) + 1
     # Newest first is the order they are read in, and the order they are written in.
     return trim([made, *items]), made
 
 
-def change(items: list[dict], ident: str, note: str | None, status: str | None) -> tuple[list[dict], dict | None]:
+def change(items: list[dict], ident: str, note: str | None, status: str | None,
+           by: str = "") -> tuple[list[dict], dict | None]:
+    ident = find(items, ident) or ident
     out, found = [], None
     for one in items:
         if one["id"] != ident:
@@ -107,6 +134,7 @@ def change(items: list[dict], ident: str, note: str | None, status: str | None) 
                 raise ValueError(f"status must be one of {', '.join(STATES)}")
             if status != edited["status"]:
                 edited["moved"] = time.time()
+                edited["by"] = by[:60]
             edited["status"] = status
         found = edited
         out.append(edited)
@@ -114,5 +142,6 @@ def change(items: list[dict], ident: str, note: str | None, status: str | None) 
 
 
 def remove(items: list[dict], ident: str) -> tuple[list[dict], bool]:
+    ident = find(items, ident) or ident
     left = [x for x in items if x["id"] != ident]
     return left, len(left) != len(items)

@@ -1106,6 +1106,9 @@
   "Roles and models from a file — yours to keep, never a default": "Roles and models from a file — yours to keep, never a default",
   "Export mine": "Export mine",
   "Your roles and models, as a pack to share": "Your roles and models, as a pack to share",
-  "my team pack": "my team pack"
+  "my team pack": "my team pack",
+  "Say this number to an agent: “work on {n} and mark it done”": "Say this number to an agent: “work on {n} and mark it done”",
+  "by {who}": "by {who}",
+  "the agent that last moved it": "the agent that last moved it"
  }
 }

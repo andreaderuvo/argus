@@ -3787,3 +3787,5 @@ dialog.sheet.teamsheet { width: min(980px, 96vw); max-width: none; }
 .teamgraph .tglabel.mixed { fill: var(--st-warning); }
 .confirmcheck { margin-top: .6rem; color: var(--st-critical); }
 .teampackbtns { display: flex; flex-wrap: wrap; gap: .35rem; justify-content: flex-end; }
+.todonum { font: 600 .78rem/1 ui-monospace, "SF Mono", Menlo, monospace; color: var(--dim); min-width: 2.4em; }
+.todoby { font-size: .75rem; color: var(--accent); white-space: nowrap; }

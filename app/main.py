@@ -987,12 +987,14 @@ def create_app(cfg: Config) -> FastAPI:
         todo.save(store, items)
         return made
 
-    @app.patch("/api/todo/{ident}", tags=["Setup"], summary="Change one: its words or its state")
+    @app.patch("/api/todo/{ident}", tags=["Setup"], summary="Change one: its words or its state (by id or #number)")
     async def edit_todo(request: Request, ident: str, body: dict) -> dict:
         store = request.app.state.todo
         try:
+            # Who moved it, when an agent did: its name in the journal, and the session it said.
+            by = str(body.get("by") or "") if request.scope.get("argus_agent") else ""
             items, found = todo.change(todo.load(store), ident,
-                                       body.get("note"), body.get("status"))
+                                       body.get("note"), body.get("status"), by)
         except ValueError as e:
             raise ApiError(400, str(e)) from e
         if not found:

@@ -1106,6 +1106,9 @@
   "Roles and models from a file — yours to keep, never a default": "Ruoli e modelli da un file — tuoi, mai un default",
   "Export mine": "Esporta i miei",
   "Your roles and models, as a pack to share": "I tuoi ruoli e modelli, come pacchetto da condividere",
-  "my team pack": "il mio pacchetto di team"
+  "my team pack": "il mio pacchetto di team",
+  "Say this number to an agent: “work on {n} and mark it done”": "Dillo a un agente: “lavora il {n} e segnalo fatto”",
+  "by {who}": "da {who}",
+  "the agent that last moved it": "l’agente che l’ha spostato per ultimo"
  }
 }
