@@ -124,6 +124,23 @@ export function confirmBox(title, message, label = 'Delete') {
   });
 }
 
+/** confirmBox with one checkbox under the message, off unless said otherwise. Resolves to
+ *  `{ ok, checked }`; `ok` false when cancelled. */
+export function confirmWithCheck(title, message, check, label = 'Delete') {
+  return new Promise((resolve) => {
+    const box = el('input', { type: 'checkbox' });
+    const done = (ok) => { resolve({ ok, checked: ok && box.checked }); d.close(); };
+    const d = modal(title, el('div', { className: 'sheetbody' }, [
+      el('p', { textContent: message }),
+      el('label', { className: 'startchoice confirmcheck' }, [box, el('span', { textContent: check })]),
+    ]), [
+      el('button', { className: 'ghost', textContent: t('Cancel'), onclick: () => done(false) }),
+      el('button', { className: 'primary inline danger', textContent: label, onclick: () => done(true) }),
+    ]);
+    d.addEventListener('cancel', () => resolve({ ok: false, checked: false }));
+  });
+}
+
 /** Copy to the clipboard, including over plain http where the async clipboard API does
  *  not exist — which is exactly how this app is reached from a phone on the LAN. */
 export async function copyText(text) {

@@ -1095,6 +1095,9 @@
   "write what it does first, then save it as a role": "escribe primero qué hace y luego guárdalo como rol",
   "A name for this role": "Un nombre para este rol",
   "a duty can name the agent’s own skills: “use your /security-review skill on the diff”": "una tarea puede nombrar las skills del agente: “usa tu skill /security-review en el diff”",
-  "{name} started, in the desk {desk}": "{name} iniciado, en el escritorio {desk}"
+  "{name} started, in the desk {desk}": "{name} iniciado, en el escritorio {desk}",
+  "also end its {n} session(s) — {names} — and everything running in them": "terminar también sus {n} sesiones — {names} — y todo lo que corre en ellas",
+  "could not end {names}": "no se pudo terminar {names}",
+  "{n} session(s) ended": "{n} sesiones terminadas"
  }
 }

@@ -1095,6 +1095,9 @@
   "write what it does first, then save it as a role": "write what it does first, then save it as a role",
   "A name for this role": "A name for this role",
   "a duty can name the agent’s own skills: “use your /security-review skill on the diff”": "a duty can name the agent’s own skills: “use your /security-review skill on the diff”",
-  "{name} started, in the desk {desk}": "{name} started, in the desk {desk}"
+  "{name} started, in the desk {desk}": "{name} started, in the desk {desk}",
+  "also end its {n} session(s) — {names} — and everything running in them": "also end its {n} session(s) — {names} — and everything running in them",
+  "could not end {names}": "could not end {names}",
+  "{n} session(s) ended": "{n} session(s) ended"
  }
 }

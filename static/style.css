@@ -3785,4 +3785,4 @@ dialog.sheet.teamsheet { width: min(980px, 96vw); max-width: none; }
 .teamstrip .teamchain { display: block; overflow-x: auto; padding: 0 .7rem .35rem; }
 .teamgraph .tgedge.mixed { stroke: color-mix(in srgb, var(--st-warning) 60%, transparent); }
 .teamgraph .tglabel.mixed { fill: var(--st-warning); }
-
+.confirmcheck { margin-top: .6rem; color: var(--st-critical); }

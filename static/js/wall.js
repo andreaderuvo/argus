@@ -3,7 +3,7 @@ import { muteSession, muted, paintBells, quieten, ring, rung } from '/js/bells.j
 import { chained, deskChain, toggleChain } from '/js/chains.js';
 import { savePrefs } from '/js/core.js';
 import { agentStates, paintAllSeen, paintDeskStates, seeEverything } from '/js/counts.js';
-import { ask, confirmBox, copyText, modal, showText, toast, undoToast } from '/js/dialogs.js';
+import { ask, confirmBox, confirmWithCheck, copyText, modal, showText, toast, undoToast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { holdFor } from '/js/filerows.js';
 import { GROUND, addTurn, allVars, attachMessages, bridgeDeadline, bridgePath, bridgeTurns, chooseDeskSet, deskSetName, fillBaton, messagesChanged, noteDeskFolder, ownSetFor, planPath, setRepaintPair, typeInto, unknownVars, varSetNamed, varSets } from '/js/handover.js';
@@ -1430,7 +1430,30 @@ export async function screenWall() {
       };
       const shut = async () => {
         if (spaces.length < 2) return toast(t('the last workspace stays'), true);
-        if (ws.desktop.length && !await confirmBox(t('Close workspace'), t('{name} holds {count} window(s). Close it?', { name: ws.name, count: ws.desktop.length }), t('Close'))) return;
+        // Its sessions keep running unless you tick the box: closing a desk closes windows onto
+        // work, and the work was usually started on purpose. A session that also has a window on
+        // another desk is not offered — that desk is still using it.
+        const elsewhere = new Set(spaces.filter((o) => o.id !== ws.id)
+          .flatMap((o) => o.desktop.filter((x) => x.kind === 'term').map((x) => x.name)));
+        const sessions = [...new Set(ws.desktop.filter((x) => x.kind === 'term').map((x) => x.name))]
+          .filter((n) => !elsewhere.has(n));
+        let endThem = false;
+        if (sessions.length) {
+          const said = await confirmWithCheck(t('Close workspace'),
+            t('{name} holds {count} window(s). Close it?', { name: ws.name, count: ws.desktop.length }),
+            t('also end its {n} session(s) — {names} — and everything running in them', { n: sessions.length, names: sessions.join(', ') }),
+            t('Close'));
+          if (!said.ok) return;
+          endThem = said.checked;
+        } else if (ws.desktop.length && !await confirmBox(t('Close workspace'), t('{name} holds {count} window(s). Close it?', { name: ws.name, count: ws.desktop.length }), t('Close'))) return;
+        if (endThem) {
+          const failed = [];
+          for (const name of sessions) {
+            try { await postJSON('/api/tmux/kill', { name }); } catch { failed.push(name); }
+          }
+          toast(failed.length ? t('could not end {names}', { names: failed.join(', ') })
+            : t('{n} session(s) ended', { n: sessions.length }), !!failed.length);
+        }
         decks.get(ws.id)?.open.forEach((o) => o.handle.dispose());
         decks.get(ws.id)?.node.remove();
         decks.delete(ws.id);
