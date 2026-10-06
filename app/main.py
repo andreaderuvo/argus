@@ -655,8 +655,11 @@ def create_app(cfg: Config) -> FastAPI:
         except ValueError as e:
             raise ApiError(400, str(e)) from e
         if team.get("check_session"):
+            # Made now, so its window opens with the others and is waiting where the check will run.
             team["check_session"] = f"{base}-check"
             state.teams.save()
+            if not await asyncio.to_thread(tmux.session_exists, state.socket, team["check_session"]):
+                await asyncio.to_thread(tmux.run, tmux.new_argv(state.socket, team["check_session"], folders.get("executor") or str(folder)))
         return {"team": next(t for t in state.teams.public() if t["id"] == team["id"]), "sessions": sessions,
                 "check_session": team.get("check_session"), "worktree": work if work != str(folder) else None}
 

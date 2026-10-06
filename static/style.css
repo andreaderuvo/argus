@@ -3666,3 +3666,57 @@ button.block.allseen .name { color: var(--st-warning); font-weight: 600; }
 .alsochip .alsolost { font-size: .72rem; color: var(--st-warning); background: color-mix(in srgb, var(--panel) 92%, transparent);
   border: 1px solid color-mix(in srgb, var(--st-warning) 40%, var(--line)); border-radius: 999px; padding: .35rem .65rem; }
 
+/* ---------- teams of agents (team.js) ---------- */
+.teambody { display: grid; gap: .45rem; }
+.teamgoal { width: 100%; font: inherit; resize: vertical; }
+.teamcards { display: grid; grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr)); gap: .4rem; margin: .2rem 0 .3rem; }
+.teamcard { display: grid; gap: .2rem; text-align: left; padding: .55rem .65rem; border-radius: .55rem; cursor: pointer;
+  border: 1px solid var(--line); background: var(--panel); color: var(--text); font: inherit; }
+.teamcard .name { font-weight: 600; color: var(--bright); }
+.teamcard .meta { font-size: .76rem; color: var(--dim); }
+.teamcard .teamflow { font: .7rem/1.3 ui-monospace, "SF Mono", Menlo, monospace; color: var(--dim); }
+.teamcard:hover { border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); }
+.teamcard.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--panel)); }
+.teamcard.on .teamflow { color: var(--accent); }
+.teamroles { display: grid; gap: .3rem; }
+.teamrole { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr) auto; align-items: center; gap: .6rem; }
+.teamrolename { font-weight: 600; text-transform: capitalize; }
+.teamcopy { display: inline-flex; align-items: center; gap: .3rem; font-size: .8rem; color: var(--dim); white-space: nowrap; }
+.teamcheck { display: grid; gap: .3rem; }
+.teamcheck[hidden] { display: none; }
+.teamgate .startchoice > span { display: grid; gap: .05rem; }
+.teamgate .meta { font-size: .74rem; color: var(--dim); }
+.teamrounds { width: 5rem; }
+@media (max-width: 520px) { .teamrole { grid-template-columns: minmax(0, 1fr); } }
+
+.teamstrip { display: grid; gap: 0; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--panel) 70%, var(--bg)); }
+.teamstrip[hidden] { display: none; }
+.teamline { display: flex; align-items: center; gap: .6rem; padding: .35rem .7rem; font-size: .82rem; flex-wrap: wrap; }
+.teamline + .teamline, .teamstory + .teamline { border-top: 1px solid var(--line); }
+.teamline.waiting-you { background: color-mix(in srgb, var(--st-warning) 10%, transparent); }
+.teamname { font-weight: 700; color: var(--bright); }
+.teamchain { display: inline-flex; align-items: center; gap: .3rem; flex-wrap: wrap; }
+.teamarrow { color: var(--dim); }
+.teamstep { display: inline-flex; align-items: center; gap: .3rem; padding: .12rem .5rem; border-radius: 999px;
+  border: 1px solid var(--line); color: var(--dim); text-transform: capitalize; }
+.teamstep.now { color: var(--bright); border-color: var(--accent); }
+.teamdot { width: 7px; height: 7px; border-radius: 50%; background: var(--line); }
+.teamstep.working .teamdot { background: var(--st-good); animation: agentbeat 1.2s ease-in-out infinite; }
+.teamstep.quiet .teamdot { background: var(--st-warning); }
+.teamstep.pass .teamdot { background: var(--st-good); }
+.teamstep.fail .teamdot { background: var(--st-critical); }
+.teamsays { color: var(--text); }
+.teamline.waiting-you .teamsays { color: var(--st-warning); font-weight: 600; }
+.teamlastcheck { font: .72rem/1 ui-monospace, "SF Mono", Menlo, monospace; padding: .2rem .45rem; border-radius: .35rem; }
+.teamlastcheck.pass { color: var(--st-good); background: color-mix(in srgb, var(--st-good) 12%, transparent); }
+.teamlastcheck.fail { color: var(--st-critical); background: color-mix(in srgb, var(--st-critical) 12%, transparent); }
+.teamline button { font: inherit; font-size: .78rem; padding: .25rem .6rem; border-radius: .4rem; border: 1px solid var(--line);
+  background: var(--panel); color: var(--text); cursor: pointer; }
+.teamline button:hover, .teamline button.on { border-color: var(--accent); color: var(--bright); }
+.teamline button.teamgo { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 600; }
+.teamline button .ico { width: 13px; height: 13px; }
+.teamstory { list-style: none; margin: 0; padding: .2rem .9rem .5rem 1.6rem; display: grid; gap: .15rem; font-size: .78rem; max-height: 12rem; overflow-y: auto; }
+.teamstory li { display: grid; grid-template-columns: 3.4rem minmax(0, 1fr); gap: .5rem; }
+.teamstory .meta { color: var(--dim); font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { .teamstep.working .teamdot { animation: none; } }
+

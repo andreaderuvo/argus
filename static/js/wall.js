@@ -15,6 +15,7 @@ import { killSession } from '/js/screens.js';
 import { keyFor } from '/js/shortcuts.js';
 import { TMUX_LOOKS, lookOptions, paintRailWindows, withLook } from '/js/sidebar.js';
 import { bar, killLive, leaving, prefs, server, setLeaving, setLive, token, view } from '/js/state.js';
+import { teamSheet, teamStrip } from '/js/team.js';
 import { copyButton, sizeButtons } from '/js/terminal.js';
 import { attachTerminal, openLocated } from '/js/termpaths.js';
 import { redressTerminals } from '/js/theme.js';
@@ -87,8 +88,13 @@ export async function screenWall() {
   const tabs = el('div', { id: 'walltabs' });
   const tools = el('div', { id: 'walltools' });
   const wall = el('div', { id: 'wall' });
+  // The teams of this desk, one line each, under the toolbar (team.js).
+  const teams = teamStrip({
+    wsId: () => prefs.ws,
+    openLog: (path) => openWindow({ kind: 'file', path }),
+  });
   view.style.overflow = 'hidden';
-  view.append(tabs, tools, wall);
+  view.append(tabs, tools, teams, wall);
 
   const spaces = workspaces();
   const decks = new Map();          // workspace id -> its live deck
@@ -2099,6 +2105,21 @@ export async function screenWall() {
     title: t('Set two sessions working on one goal'),
     onclick: pairSheet,
   }, [icon('relay'), el('span', { textContent: t('Two agents') })]));
+  tools.append(el('button', {
+    className: 'winbtn wide',
+    title: t('Agents taking turns on one goal, with a check between turns, directed by Argus'),
+    onclick: () => teamSheet({
+      wsId: prefs.ws,
+      home: activeSpace().home || homePath(server?.roots || ['/']),
+      onStarted: (said) => {
+        // The team's sessions on this desk: its agents, and the check you can watch.
+        for (const name of [...Object.values(said.sessions || {}), said.check_session].filter(Boolean)) {
+          openWindow({ kind: 'term', name }, undefined, { jump: false });
+        }
+        teams.refresh();
+      },
+    }),
+  }, [icon('layers'), el('span', { textContent: t('Team') })]));
 
   /* Whether this desk has a pair on it, and whether they are still moving.
    *
