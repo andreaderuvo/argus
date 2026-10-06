@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "argus": {
+      "command": "sh",
+      "args": ["-c", "r=\"${CLAUDE_PLUGIN_ROOT}\"; [ -x \"$r/bin/argus-mcp\" ] || r=$(ls -d \"${CODEX_HOME:-$HOME/.codex}\"/plugins/cache/argus/argus/*/ 2>/dev/null | tail -n 1); [ -x \"$r/bin/argus-mcp\" ] && exec \"$r/bin/argus-mcp\"; exec argus-mcp"]
+    }
+  }
+}

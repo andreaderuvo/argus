@@ -455,6 +455,20 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   comes from is `tmux display-message -p -t $TMUX_PANE '#S'`. Checked with a real headless
   `claude -p --strict-mcp-config --mcp-config …` against a throwaway Argus: who, relay, ring.
   Nothing on stdout but messages, or the client breaks.
+- **The Argus plugin** (`plugin/`, `.claude-plugin/marketplace.json`, `tests/test_plugin.py`).
+  Hooks (UserPromptSubmit/Stop/Notification/PermissionRequest → `argus-bell`) plus `argus-mcp`,
+  installed from the agent: `/plugin marketplace add andreaderuvo/argus`. **Codex 0.160 reads the
+  same plugin** (`.claude-plugin/plugin.json`, `hooks/hooks.json`) and has Claude's hooks
+  (`~/.codex/hooks.json`, same events and stdin JSON) — measured on an isolated `CODEX_HOME` with
+  `--dangerously-bypass-hook-trust`; without it a hook runs only after a person reviews it in
+  Codex, which is why `notify` stays wired too. Codex does **not** expand `${CLAUDE_PLUGIN_ROOT}`
+  in `.mcp.json` (it does in hooks): hence the `sh -c` that falls back to its plugin cache.
+  `plugin/bin/` holds *copies* of tools/ (an installed plugin is copied; links would dangle) —
+  tested identical. `wiring.plugin_enabled` makes Settings say "the Argus plugin". Probes of real
+  agents: `claude -p --plugin-dir`, isolated `CODEX_HOME` with a *copy* of auth.json deleted after;
+  `claude plugin init` writes into the real `~/.claude/skills/` — do not run it to "see a layout".
+  `argus-bell` signs a bell with the tmux session only inside tmux: outside, `tmux display` named
+  the most recent session of the default server.
 - **Two agents was folded into Teams** (2026-10-06). Its button and `pairSheet` are gone; its
   patterns are the templates *Build and review* and *Split the work* (two executors at once in
   the same folder, each on the files the planner gave it, no worktree). What reads an existing

@@ -275,3 +275,16 @@ def test_the_bell_reads_codexs_payloads(tmp_path):
     sent = [json.loads(x) for x in seen.read_text().splitlines()]
     assert sent[0]["text"] == "needs your permission to use Bash: rm -rf build" and sent[0]["conversation"] == "01a1"
     assert sent[1]["text"] == "All 42 tests pass." and sent[1]["why"] == "done"
+
+
+def test_the_plugin_counts_as_wired(home):
+    """`/plugin install argus@argus` carries the same hooks: Settings should not say "not wired"."""
+    s = settings(home)
+    s["enabledPlugins"] = {"argus@argus": True}
+    (home / wiring.CLAUDE_SETTINGS).write_text(json.dumps(s))
+    with open(home / wiring.CODEX_CONFIG, "a") as f:
+        f.write('\n[plugins."argus@argus"]\nenabled = true\n')
+    agents = {a["name"]: a for a in wiring.state(home)["agents"]}
+    assert agents["Claude Code"]["on"] and agents["Claude Code"]["plugin"]
+    assert agents["Codex"]["on"] and agents["Codex"]["plugin"] and agents["Codex"]["review"]
+    assert "claude" in wiring.ringing_agents(home)

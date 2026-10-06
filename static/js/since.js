@@ -493,7 +493,7 @@ export async function screenSettings() {
           el('span', { className: 'name', textContent: t('Let your agents ring') }),
           el('span', {
             className: 'meta',
-            textContent: info.agents.map((a) => `${a.name}: ${a.on ? t('wired') : t('not wired')}`).join(' · '),
+            textContent: info.agents.map((a) => `${a.name}: ${a.plugin ? t('the Argus plugin') : a.on ? t('wired') : t('not wired')}`).join(' · '),
           }),
         ]),
         state,

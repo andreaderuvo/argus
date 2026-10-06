@@ -1,0 +1,12 @@
+{
+  "name": "argus",
+  "owner": { "name": "Andrea de Ruvo" },
+  "description": "Argus, a workspace for the agents in your tmux sessions.",
+  "plugins": [
+    {
+      "name": "argus",
+      "source": "./plugin",
+      "description": "Hooks that tell Argus when this agent starts, finishes and needs you, and Argus as MCP tools."
+    }
+  ]
+}

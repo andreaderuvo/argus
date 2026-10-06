@@ -106,9 +106,11 @@ session and it is typed there; the Enter is left for you.
 Also: agents brought back after a reboot, each in its folder and its own conversation; a file
 browser that updates when a job writes into a folder; the machine's CPU, memory,
 GPUs, disks and biggest processes, which you can label; local ports reachable from the phone if
-you allow it; an API that lets scripts do what the page does; and `argus-mcp`, which gives
-an agent Argus as its own MCP tools (`claude mcp add argus -- argus-mcp`): ask you something and
-wait for the tap, start another agent in its own worktree, see who else is working.
+you allow it; an API that lets scripts do what the page does; and **the Argus plugin** for Claude
+Code and Codex (`/plugin marketplace add andreaderuvo/argus`, then `/plugin install argus@argus`):
+the agent tells Argus itself when it starts, finishes and needs you, and gets Argus as MCP tools —
+ask you something and wait for the tap, start another agent in its own worktree, see who else is
+working.
 [Everything it does, in detail.](https://github.com/andreaderuvo/argus/wiki/Everything-it-does)
 
 ## Install

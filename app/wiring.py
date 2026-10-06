@@ -154,6 +154,25 @@ def wire_where(home: Path, on: bool) -> dict:
 
 # --------------------------------------------------------------------------- reading
 
+PLUGIN_ID = "argus@argus"
+
+
+def plugin_enabled(home: Path, agent: str) -> bool:
+    """Whether the Argus plugin is installed and on in this agent — `/plugin install argus@argus`
+    in Claude Code, `codex plugin add argus@argus` in Codex. It carries the same hooks, so an
+    agent with it is as wired as one we wrote hooks for."""
+    try:
+        if agent == "claude":
+            return bool(json.loads((home / CLAUDE_SETTINGS).read_text()).get("enabledPlugins", {}).get(PLUGIN_ID))
+        if agent == "codex":
+            import tomllib
+            table = tomllib.loads((home / CODEX_CONFIG).read_text()).get("plugins", {}).get(PLUGIN_ID, {})
+            return bool(table.get("enabled", False))
+    except (OSError, ValueError):
+        return False
+    return False
+
+
 def state(home: Path) -> dict:
     """What is wired now. Reported per agent, and only for agents that exist here: an
     offer to configure something you do not have is just noise."""
@@ -165,6 +184,8 @@ def state(home: Path) -> dict:
 
     claude = _json_hook_state(home, CLAUDE_SETTINGS, ".claude", "Claude Code", CLAUDE_EVENTS)
     if claude:
+        claude["plugin"] = plugin_enabled(home, "claude")
+        claude["on"] = claude["on"] or claude["plugin"]
         out["agents"].append(claude)
 
     gemini = _json_hook_state(home, GEMINI_SETTINGS, ".gemini", "Gemini CLI", GEMINI_EVENTS)
@@ -176,13 +197,15 @@ def state(home: Path) -> dict:
         text = codex.read_text() if codex.exists() else ""
         line = _notify_line(text)
         hooks = _json_hook_state(home, CODEX_HOOKS, ".codex", "Codex", CODEX_EVENTS) or {"on": False, "taken": []}
+        plugin = plugin_enabled(home, "codex")
         out["agents"].append({
             "name": "Codex",
             "file": str(codex),
-            "on": bool(line) and MARK in line and hooks["on"],
+            "on": (bool(line) and MARK in line and hooks["on"]) or plugin,
             "taken": (["notify"] if line and MARK not in line else []) + hooks["taken"],
             # Codex runs a hook only after a person has looked at it, in Codex.
-            "review": hooks["on"],
+            "review": hooks["on"] or plugin,
+            "plugin": plugin,
         })
     return out
 
@@ -201,6 +224,8 @@ def ringing_agents(home: Path) -> set[str]:
             continue
         if _ours_in(hooks.get(end, [])):
             out.add(name)
+    if plugin_enabled(home, "claude"):
+        out.add("claude")
     return out
 
 

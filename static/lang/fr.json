@@ -1088,6 +1088,7 @@
   "tester": "testeur",
   "Split the work": "Partagez le travail",
   "one divides the files, two work at once in the same folder, the check and a reviewer decide": "l’un répartit les fichiers, deux travaillent en même temps dans le même dossier, la vérification et un relecteur décident",
-  "Codex asks you to approve its new hooks the next time it starts — once; until then it rings only at the end of a turn": "Codex te demande d’approuver ses nouveaux hooks au prochain démarrage — une seule fois ; d’ici là il ne sonne qu’en fin de tour"
+  "Codex asks you to approve its new hooks the next time it starts — once; until then it rings only at the end of a turn": "Codex te demande d’approuver ses nouveaux hooks au prochain démarrage — une seule fois ; d’ici là il ne sonne qu’en fin de tour",
+  "the Argus plugin": "le plugin Argus"
  }
 }
