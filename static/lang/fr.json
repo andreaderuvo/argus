@@ -1158,6 +1158,11 @@
   "Release": "Version publiée",
   "{version} is out": "la {version} est sortie",
   "Plugin offered": "Plugin proposé",
-  "not installed — Settings → Install": "non installé — Réglages → Installer"
+  "not installed — Settings → Install": "non installé — Réglages → Installer",
+  "plugin {v} — reload": "plugin {v} — recharger",
+  "plugin {v} — restart": "plugin {v} — redémarre",
+  "A newer Argus plugin is installed; this session still runs {v}. Press to type /reload-plugins (only if it is at its prompt).": "Un plugin Argus plus récent est installé ; cette session utilise encore la {v}. Appuie pour taper /reload-plugins (seulement si elle est à son invite).",
+  "A newer Argus plugin is installed; this session still runs {v}. Codex takes it when the session starts again.": "Un plugin Argus plus récent est installé ; cette session utilise encore la {v}. Codex le prend au redémarrage de la session.",
+  "not now: it is working or asking you something — try when it has finished": "pas maintenant : elle travaille ou te demande quelque chose — réessaie quand elle a fini"
  }
 }

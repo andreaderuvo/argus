@@ -557,9 +557,18 @@ def create_app(cfg: Config) -> FastAPI:
         the agent. Cheap to call often — the browser does every few seconds while it is looking,
         and that is also what keeps the sampler awake (app/agentstate.py)."""
         try:
-            return {"states": await agent_states(request)}
+            states = await agent_states(request)
         except Exception:
             return {"states": {}}
+        # The plugin each session said it runs, and whether that is older than the one offered:
+        # an updated plugin reaches a running session only when it reloads (Claude) or restarts.
+        offered = pluginstate.repo_version()
+        seen = bells.store(request).get("plugins", {})
+        for name, st in states.items():
+            if seen.get(name):
+                st["plugin"] = seen[name]
+                st["plugin_old"] = pluginstate.older(seen[name], offered)
+        return {"states": states, "plugin_offered": offered}
 
     @app.get("/api/plugin", tags=["Agents"], summary="The Argus plugin in each agent: installed, which version")
     async def plugin_state(request: Request) -> dict:
@@ -571,6 +580,15 @@ def create_app(cfg: Config) -> FastAPI:
                                        {k: bool(v) for k, v in found.items()})
         said["reload"] = at_prompt(request, "claude")
         return said
+
+    @app.post("/api/plugin/seen", tags=["Agents"], summary="A session says which plugin version it runs")
+    async def plugin_seen(request: Request, body: dict) -> dict:
+        """`{session, version}` — sent by the plugin's SessionStart hook (argus-check), so a session
+        is known before its first turn."""
+        session = str(body.get("session") or "").strip()
+        if session and body.get("version"):
+            bells.plugin_seen(request, session, str(body["version"]))
+        return {"ok": True}
 
     @app.get("/api/plugin/version", tags=["Agents"], summary="The plugin version this copy offers")
     async def plugin_version() -> dict:
@@ -597,6 +615,16 @@ def create_app(cfg: Config) -> FastAPI:
         listed; they take the plugin when they next start, or by hand."""
         done, left = [], []
         sessions = at_prompt(request, "claude")
+        # `{sessions: [...]}` narrows it to those (a window's own "reload" button); still only
+        # the ones at their prompt.
+        body = {}
+        try:
+            body = await request.json()
+        except Exception:
+            pass
+        if isinstance(body, dict) and body.get("sessions"):
+            wanted = {str(s) for s in body["sessions"]}
+            sessions = [s for s in sessions if s in wanted]
         for session in sessions:
             try:
                 # Typed, not pasted: a slash command is a command when it is keys at the prompt.

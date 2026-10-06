@@ -132,3 +132,43 @@ def test_a_session_start_hears_of_a_newer_plugin_and_only_then(tmp_path):
     Answer.offered = pluginstate.repo_version()
     assert subprocess.run([str(check)], capture_output=True, text=True, env=env, timeout=15).stdout == "", "up to date: silent"
     server.shutdown()
+
+
+def test_a_session_says_its_plugin_and_the_states_mark_it_old(client, monkeypatch):
+    app, c = client
+    monkeypatch.setattr(app.state.agents, "states", lambda: {
+        "old": {"agent": "claude", "state": "waiting"}, "new": {"agent": "codex", "state": "working"},
+        "quiet": {"agent": "claude", "state": "working"}})
+    c.post("/api/bell", json={"session": "old", "why": "start", "plugin": "0.0.1"})
+    c.post("/api/plugin/seen", json={"session": "new", "version": pluginstate.repo_version()})
+    said = c.get("/api/tmux/states").json()
+    assert said["plugin_offered"] == pluginstate.repo_version()
+    assert said["states"]["old"]["plugin"] == "0.0.1" and said["states"]["old"]["plugin_old"] is True
+    assert said["states"]["new"]["plugin_old"] is False
+    assert "plugin" not in said["states"]["quiet"], "a session that never said is not guessed"
+
+
+def test_reload_can_be_narrowed_to_one_window(client, monkeypatch):
+    from app import bells
+    app, c = client
+    monkeypatch.setattr(app.state.agents, "states", lambda: {
+        "a": {"agent": "claude", "state": "waiting"}, "b": {"agent": "claude", "state": "waiting"}})
+    req = type("R", (), {"app": app})()
+    for i, s in enumerate(("a", "b")):
+        bells.store(req)["list"].append({"seq": i + 1, "session": s, "why": "done", "source": "hook"})
+    typed = []
+    monkeypatch.setattr("app.tmux.run", lambda argv: typed.append(argv))
+    said = c.post("/api/plugin/reload", json={"sessions": ["b"]}).json()
+    assert said["reloaded"] == ["b"] and all("=b:" in " ".join(a) for a in typed)
+
+
+def test_the_plugins_bell_says_its_version_and_the_wired_one_does_not(tmp_path):
+    seen = tmp_path / "seen"
+    curl = tmp_path / "curl"
+    curl.write_text(f'#!/bin/sh\nfor a; do case "$a" in {{*) printf "%s\\n" "$a" >> {seen};; esac; done\n')
+    curl.chmod(0o755)
+    env = {"PATH": f"{tmp_path}:/usr/bin:/bin", "ARGUS_TOKEN": "t", "HOME": str(tmp_path)}
+    for script in (ROOT / "plugin" / "bin" / "argus-bell", ROOT / "tools" / "argus-bell"):
+        subprocess.run([str(script), "done"], input="", text=True, env=env, timeout=10)
+    first, second = [json.loads(x) for x in seen.read_text().splitlines()]
+    assert first["plugin"] == pluginstate.repo_version() and second["plugin"] == ""

@@ -64,6 +64,12 @@ if select.select([sys.stdin], [], [], 0.5)[0]:
   [ -z "$TEXT" ] && TEXT="$(printf '%s\n' "$SAID" | sed -n 2p)"
 fi
 
+# Run from inside the Argus plugin (plugin/bin/), say which plugin version: an update reaches a
+# running session only once it reloads or restarts, and Argus marks the windows still behind.
+PLUGIN=""
+HERE_PLUGIN="$(cd "$(dirname "$0")/.." 2>/dev/null && pwd)/.claude-plugin/plugin.json"
+[ -f "$HERE_PLUGIN" ] && PLUGIN="$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' "$HERE_PLUGIN" | head -1)"
+
 # Only from inside tmux: outside it, `tmux display` answers for the most recent session on the
 # default server — somebody else's — and the bell would be signed with the wrong name.
 SESSION=""
@@ -75,4 +81,4 @@ esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr -d '\000-\037'; }
 curl -s -m 5 -o /dev/null -X POST "$URL/api/bell" \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
-  -d "{\"session\":\"$(esc "$SESSION")\",\"why\":\"$(esc "$WHY")\",\"text\":\"$(esc "$TEXT")\",\"conversation\":\"$(esc "$CONVERSATION")\"}" || true
+  -d "{\"session\":\"$(esc "$SESSION")\",\"why\":\"$(esc "$WHY")\",\"text\":\"$(esc "$TEXT")\",\"conversation\":\"$(esc "$CONVERSATION")\",\"plugin\":\"$(esc "$PLUGIN")\"}" || true

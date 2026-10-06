@@ -245,3 +245,18 @@ def test_desk_shortcuts_find_their_buttons_in_another_language(make_page, argus)
     page.wait("document.body.classList.contains('wall') && !!document.querySelector('#walltools button')", timeout=15)
     page.key("X", code="KeyX", modifiers=2 | 8)                  # Ctrl+Shift+X: New session
     page.wait("!!document.querySelector('dialog.sheet[open] .startpick')", timeout=10, what="the new-session box, in Italian")
+
+
+def test_a_window_whose_session_runs_an_old_plugin_says_so(make_page, argus):
+    argus.kill_sessions()
+    argus.tmux("new-session", "-d", "-s", "oldplug", "-x", "80", "-y", "24")
+    argus.api("/api/prefs", "PATCH", {"changes": {"ws": 1, "wsSeq": 1, "workspaces": [
+        {"id": 1, "name": "Work", "desktop": [{"kind": "term", "name": "oldplug"}]}]}})
+    page = make_page(route="#/wall")
+    page.wait("!!document.querySelector('.win[data-session=\"oldplug\"] .winbar')", timeout=15, what="the window")
+    page.eval("import('/js/counts.js').then(m => m.applyAgentStates({oldplug: {agent: 'codex', state: 'waiting', since: 1, plugin: '0.0.1', plugin_old: true}}))")
+    page.wait("document.querySelector('.win[data-session=\"oldplug\"] .pluginold')?.textContent === 'plugin 0.0.1 — restart'", timeout=5,
+              what="the mark, Codex's way")
+    page.eval("import('/js/counts.js').then(m => m.applyAgentStates({oldplug: {agent: 'codex', state: 'waiting', since: 1, plugin: '0.9.9', plugin_old: false}}))")
+    page.wait("!document.querySelector('.win[data-session=\"oldplug\"] .pluginold')", timeout=5, what="gone once up to date")
+    argus.kill_sessions()

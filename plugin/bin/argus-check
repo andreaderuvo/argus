@@ -10,6 +10,12 @@ TOKEN="${ARGUS_TOKEN:-$(sed -n 's/^token:[[:space:]]*//p' "$CONF" 2>/dev/null | 
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 MINE="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['version'])" "$HERE/.claude-plugin/plugin.json" 2>/dev/null)"
 [ -n "$MINE" ] || exit 0
+# This session runs plugin $MINE: said to Argus, which marks the window when that falls behind.
+if [ -n "${TMUX:-}" ]; then
+  SESSION="$(tmux display -p '#S' 2>/dev/null || true)"
+  [ -n "$SESSION" ] && curl -s -m 2 -o /dev/null -X POST "$URL/api/plugin/seen" -H "Authorization: Bearer $TOKEN" \
+    -H 'Content-Type: application/json' -d "{\"session\":\"$SESSION\",\"version\":\"$MINE\"}" 2>/dev/null
+fi
 OFFERED="$(curl -s -m 2 -H "Authorization: Bearer $TOKEN" "$URL/api/plugin/version" 2>/dev/null \
   | python3 -c "import json,sys; print(json.load(sys.stdin).get('version',''))" 2>/dev/null)"
 [ -n "$OFFERED" ] || exit 0

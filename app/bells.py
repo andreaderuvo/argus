@@ -95,6 +95,11 @@ def repeat_of(request, why: str, session: str | None, source: str) -> dict | Non
     return next((b for b in kept["list"] if b["seq"] == seq), {"seq": seq})
 
 
+def plugin_seen(request, session: str, version: str) -> None:
+    """Which Argus plugin version a session's agent said it is running."""
+    store(request).setdefault("plugins", {})[session] = version.strip()[:20]
+
+
 def told(request, session: str, state: str) -> None:
     """What the agent itself said about its state, for the watch to believe over the pane."""
     watch = getattr(request.app.state, "agents", None)
@@ -118,6 +123,10 @@ async def ring(request: Request, body: dict) -> dict:
         raise ApiError(400, f"why must be one of {', '.join(sorted(REASONS))}")
     session = str(body.get("session") or "").strip() or None
     text = str(body.get("text") or "")
+    # The plugin's own copy of argus-bell says which plugin version this session is running, so a
+    # window can say "plugin 0.1.4 — reload" after an update (see main.tmux_states).
+    if session and body.get("plugin"):
+        plugin_seen(request, session, str(body["plugin"]))
     # Which conversation the agent is in, for bringing it back after a reboot (resume.py).
     # Kept even for a repeat: it is the freshest word on it, and it rings nothing.
     conversation = str(body.get("conversation") or "").strip().lower()

@@ -1,5 +1,6 @@
 // <imports> generated from what this file uses; edit the code, not this list
 import { quieten, rung } from '/js/bells.js';
+import { toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { getJSON, postJSON } from '/js/reconnect.js';
 import { hamburger, nav, prefs, token } from '/js/state.js';
@@ -68,6 +69,7 @@ export function applyAgentStates(states) {
     win.classList.toggle('agent-seen', st?.state === 'waiting' && !!st.seen);
     const title = win.querySelector('.wintitle');
     if (title) title.dataset.agent = st ? `${st.agent || t('agent')}: ${stateWord(st)}` : '';
+    markOldPlugin(win, st);
   }
   for (const pill of document.querySelectorAll('.agentstate[data-session]')) paintState(pill, agentStates.get(pill.dataset.session));
   paintDeskStates();
@@ -80,6 +82,34 @@ export function applyAgentStates(states) {
   }
   // The amber follows too: an agent that stopped is somebody waiting, whether or not it rang.
   showCount('sessions', lastSessionCount);
+}
+
+/** "plugin 0.1.4 — reload" in a window's title bar, while its session runs an Argus plugin older
+ *  than the one offered: an update reaches a running session only when it reloads (Claude, one
+ *  press here when it sits at its prompt) or restarts (Codex, which has no reload). */
+function markOldPlugin(win, st) {
+  const bar = win.querySelector('.winbar');
+  if (!bar) return;
+  let mark = bar.querySelector('.pluginold');
+  if (!st?.plugin_old) { mark?.remove(); return; }
+  const claude = st.agent === 'claude';
+  if (!mark) {
+    mark = el('button', { className: 'pluginold', type: 'button' });
+    mark.addEventListener('pointerdown', (e) => e.stopPropagation());
+    bar.querySelector('.wintitle')?.after(mark);
+  }
+  mark.textContent = claude ? t('plugin {v} — reload', { v: st.plugin }) : t('plugin {v} — restart', { v: st.plugin });
+  mark.title = claude ? t('A newer Argus plugin is installed; this session still runs {v}. Press to type /reload-plugins (only if it is at its prompt).', { v: st.plugin })
+    : t('A newer Argus plugin is installed; this session still runs {v}. Codex takes it when the session starts again.', { v: st.plugin });
+  mark.onclick = async (e) => {
+    e.stopPropagation();
+    if (!claude) { toast(mark.title); return; }
+    try {
+      const said = await postJSON('/api/plugin/reload', { sessions: [win.dataset.session] });
+      toast(said.reloaded.length ? t('reloaded in {done}', { done: said.reloaded.join(', ') })
+        : t('not now: it is working or asking you something — try when it has finished'), !said.reloaded.length);
+    } catch (err) { toast(err.message, true); }
+  };
 }
 
 /** The dot on each desk tab: amber and steady while an agent in it waits for you, pulsing

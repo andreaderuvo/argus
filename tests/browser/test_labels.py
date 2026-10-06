@@ -31,12 +31,25 @@ def row_of(pid: int) -> str:
 @pytest.mark.parametrize("size", [pytest.param(DESKTOP, id="desktop"), pytest.param(PHONE, id="phone")])
 def test_a_process_is_labelled_kept_and_cleared(make_page, argus, size):
     page = make_page(viewport=size, route="#/system")
-    pid = first_process(page)
-    page.click_at(*page._center(f"{row_of(pid)}.querySelector('.labelpen')"))
-    page.wait("!!document.querySelector('dialog input')", what="the label box")
-    page.type("the one that matters")
-    page.key("Enter")
-    page.wait(f"{row_of(pid)}?.classList.contains('labelled')", timeout=10, what="the row to wear the label")
+    # The largest process on a busy machine can end between the list and the press (a build, a
+    # browser of another test), and the server then rightly answers 404. Not this test's subject:
+    # try the next one, a few times.
+    page.allow("http 404: /api/labels")
+    for _attempt in range(4):
+        pid = first_process(page)
+        page.click_at(*page._center(f"{row_of(pid)}.querySelector('.labelpen')"))
+        page.wait("!!document.querySelector('dialog input')", what="the label box")
+        page.type("the one that matters")
+        page.key("Enter")
+        try:
+            page.wait(f"{row_of(pid)}?.classList.contains('labelled')", timeout=10, what="the row to wear the label")
+            break
+        except Exception:
+            if any(x["pid"] == pid for x in argus.api("/api/labels")["labels"]):
+                raise
+            page.eval("document.querySelectorAll('dialog').forEach(d => d.close?.())")
+    else:
+        raise AssertionError("four processes in a row ended before they could be labelled")
     assert page.eval(f"{row_of(pid)}.querySelector('.proctitle').textContent") == "the one that matters"
     assert {"pid": pid, "label": "the one that matters"} in argus.api("/api/labels")["labels"]
 

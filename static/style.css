@@ -3812,3 +3812,6 @@ dialog.sheet.teamsheet { width: min(980px, 96vw); max-width: none; }
 .aboutval { display: flex; flex-wrap: wrap; gap: .5rem; align-items: baseline; }
 @media (max-width: 480px) { .aboutrow { grid-template-columns: minmax(0, 1fr); gap: .1rem; } }
 .aboutrow .warn { color: var(--st-warning); }
+.pluginold { flex: none; font: 600 .68rem/1 ui-monospace, "SF Mono", Menlo, monospace; padding: .2rem .45rem; border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--st-warning) 55%, var(--line)); color: var(--st-warning); background: none; margin: 0 .3rem; }
+.pluginold:hover { background: color-mix(in srgb, var(--st-warning) 12%, transparent); }

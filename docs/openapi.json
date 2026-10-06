@@ -2300,6 +2300,52 @@
     ]
    }
   },
+  "/api/plugin/seen": {
+   "post": {
+    "description": "`{session, version}` \u2014 sent by the plugin's SessionStart hook (argus-check), so a session\nis known before its first turn.",
+    "operationId": "postApiPluginSeen",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Plugin Seen Api Plugin Seen Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "A session says which plugin version it runs",
+    "tags": [
+     "Agents"
+    ]
+   }
+  },
   "/api/plugin/version": {
    "get": {
     "description": "What `argus-check` asks at the start of every agent session: cheap, no shell, no agent.",
