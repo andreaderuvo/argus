@@ -30,7 +30,7 @@ are *not obvious*, each of which cost an afternoon:
 - **429 is not an error, it is a brake.** Twelve launches a minute and thirty relays; hitting
   one raises `TooFast`, which names the config key that raises it, so a fan-out of twenty tells
   you what to change instead of half-starting.
-- **The token is a decision.** An agent key can do five things and a master key can do
+- **The token is a decision.** An agent key can do a short list of things and a master key can do
   everything; this prefers the narrow one, and reads both out of the config rather than being
   handed a secret it could look up anyway.
 
@@ -93,7 +93,7 @@ def credentials() -> tuple[str, str]:
 
     The agent key wins when there is one. It can read what is happening, ring, relay a sentence
     and start something from the launcher list — and cannot touch a file, kill a session, expose
-    a port, mint a token or stop the server. A script that only needs those five things should
+    a port, mint a token or stop the server. A script that only needs those things should
     hold the key that only does them.
     """
     text = config_path().read_text(encoding="utf-8")

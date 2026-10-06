@@ -95,7 +95,7 @@ def test_claude_validates_both_manifests():
 # version changes: on 2026-10-06 rename_desk was added under the same 0.1.0 and '/plugin update'
 # kept the old copy, without the tool. Change anything in plugin/ and this fails until the version
 # goes up and its hash is added here.
-RELEASED = {"0.1.1": "0c47653f71ed8691"}
+RELEASED = {"0.1.1": "0c47653f71ed8691", "0.1.2": "119c80ea223b38c1"}
 
 
 def plugin_hash() -> str:

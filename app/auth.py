@@ -290,10 +290,12 @@ class TokenAuthMiddleware:
             if not waiting and (method, scope["path"]) not in AGENT_ROUTES:
                 response = PlainTextResponse(
                     "an agent key may only read what is happening (/api/who, /api/overview, "
-                    "/api/tmux/sessions, /api/tmux/cwd, /api/launchers), ring the bell "
-                    "(/api/bell), ask you a question and wait for the answer (/api/ask), pass "
-                    "a sentence to another session (/api/relay) and start something from the "
-                    "launcher list (/api/tmux/launch)",
+                    "/api/tmux/sessions, /api/tmux/cwd, /api/launchers, /api/prefs, /api/teams, "
+                    "/api/bells, /api/runs), ring the bell (/api/bell), ask you a question and "
+                    "wait for the answer (/api/ask), pass a sentence to another session "
+                    "(/api/relay), start something from the launcher list (/api/tmux/launch), "
+                    "make a worktree (/api/git/worktree), report a run (/api/runs) and make or "
+                    "rename a desk (/api/desks)",
                     status_code=403,
                 )
                 return await response(scope, receive, send)

@@ -7,7 +7,7 @@
 # What it does, all of it:
 #
 #   ~/.local/share/argus       the code, downloaded as a tarball
-#   ~/.local/share/argus/venv  a virtual environment with the five runtime dependencies
+#   ~/.local/share/argus/venv  a virtual environment with the runtime dependencies
 #   ~/.local/bin/argus         a three-line launcher
 #
 # What it does not do: touch anything outside your home, use sudo, install a package with
@@ -209,7 +209,7 @@ fi
 sed '/^# Tests/,$d' "$DIR/requirements.txt" > "$TMP/runtime.txt"
 "$DIR/venv/bin/python" -m pip install --quiet --upgrade pip >/dev/null 2>&1 || true
 "$DIR/venv/bin/python" -m pip install --quiet --upgrade -r "$TMP/runtime.txt" \
-  || die "installing the dependencies failed. The five of them are in $DIR/requirements.txt."
+  || die "installing the dependencies failed. They are in $DIR/requirements.txt."
 step "dependencies: $(sed -n 's/^\([a-z-]*\).*/\1/p' "$TMP/runtime.txt" | grep -v '^$' | paste -sd' ' -)"
 
 # ----------------------------------------------------------------- launcher
