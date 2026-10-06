@@ -689,6 +689,14 @@ export async function screenWall() {
       const entry = { win, handle, name: id, chainBtn: chain };
       if (spec.kind === 'term') handle.onSelected?.((text, x, y) => offerSelection(entry, text, x, y));
       if (spec.kind === 'term') {
+        handle.onUncaughtDrag?.(() => {
+          // Said once a visit, and only where a selection has somewhere to go.
+          if (shiftHinted || !open.some((o) => o !== entry && o.name.startsWith('term:'))) return;
+          shiftHinted = true;
+          toast(t('{session} keeps the mouse for itself — hold Shift while you drag to select text, and the button to send it to another agent appears', { session: spec.name }));
+        });
+      }
+      if (spec.kind === 'term') {
         handle.onTyping?.((line) => {
           // Typing again ends the "send it too" offer for the line before.
           if (entry.also?.after && line) { clearTimeout(entry.also.timer); entry.also.after = null; }
@@ -2839,6 +2847,7 @@ function dragBy(grabber, win, bounds, onDone, ignore = [], peers = () => [], onT
  *  give the selection to. Gone on the next press anywhere else, on Esc, on a scroll, or after
  *  twelve seconds of being ignored. */
 let selectionOffer = null;
+let shiftHinted = false;          // "hold Shift to select" said once per visit
 function hideSelectionOffer() {
   selectionOffer?.el.remove();
   clearTimeout(selectionOffer?.timer);

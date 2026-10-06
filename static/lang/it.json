@@ -998,6 +998,7 @@
   "not sent to {session}: the line was edited with the arrows or history, so it is not known exactly": "non inviato a {session}: la riga è stata modificata con le frecce o la cronologia, quindi non si sa con esattezza cosa contiene",
   "Sent to {session}": "Mandato a {session}",
   "Send this prompt to {session} now; the Enter here is still yours": "Manda subito questo prompt a {session}; l’Invio qui resta tuo",
-  "sent to {session}": "mandato a {session}"
+  "sent to {session}": "mandato a {session}",
+  "{session} keeps the mouse for itself — hold Shift while you drag to select text, and the button to send it to another agent appears": "{session} usa il mouse per sé: tieni premuto Shift mentre trascini per selezionare il testo, e compare il pulsante per mandarlo a un altro agente"
  }
 }

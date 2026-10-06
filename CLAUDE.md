@@ -254,7 +254,12 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   session of the desk, not sent. Two sources: xterm's own selection, read on the release, and
   tmux's — with `mouse on` + `set-clipboard on` the browser never sees a selection, the copy
   arrives as OSC 52 just after the release. Either counts only within 2 s of a release *in that
-  window* (tmux sends the copy to every client). In CDP a drag needs `buttons: 1` on each move,
+  window* (tmux sends the copy to every client). **Claude Code and Codex keep the mouse**
+  (tmux `mouse_any_flag`=1, alternate screen): a drag over them goes to them and selects nothing,
+  which is why it worked with every fake agent and never on a real one. Shift-drag selects in
+  xterm regardless; a plain drag over such a program that ends with nothing selected says so
+  once a visit (`onUncaughtDrag`). Test fakes that stand in for an agent should turn on mouse
+  reporting too (`KEEPS_MOUSE` in test_seloffer.py). In CDP a drag needs `buttons: 1` on each move,
   and a fitted terminal has many more rows than the session was created with.
 - **"Also →": a prompt typed to one agent, given to another of the desk** (wall.js
   `paintAlso`/`submittedAlso`, termpaths.js `typed`, `tests/browser/test_also.py`). A press

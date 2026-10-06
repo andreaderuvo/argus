@@ -480,10 +480,31 @@ export function attachTerminal(container, name, { transform, onGone, onBack, onP
     for (const cb of onSelected) cb(text, released.x, released.y);
     released = null;
   };
+  /* A drag that selected nothing, over a program that keeps the mouse for itself.
+   *
+   *  Claude Code and Codex both turn on mouse reporting (measured: tmux's mouse_any_flag on both),
+   *  so a drag over them goes to them and nothing is selected, here or in tmux — the button that
+   *  hands a selection over never appears, and nothing says why. Shift is the terminal's way past
+   *  that: a Shift-drag selects in xterm whatever the program wants. So a drag of some length
+   *  over such a program, without Shift, that ends with no selection and no copy is reported, and
+   *  the desk says so once (wall.js). */
+  const onUncaught = [];
+  let pressed = null;
+  container.addEventListener('mousedown', (e) => {
+    if (e.button === 0) pressed = { x: e.clientX, y: e.clientY };
+  }, true);
   container.addEventListener('mouseup', (e) => {
     if (e.button !== 0) return;
     released = { x: e.clientX, y: e.clientY, at: Date.now() };
+    const dragged = pressed && Math.hypot(e.clientX - pressed.x, e.clientY - pressed.y) > 12;
+    const captured = (term.modes?.mouseTrackingMode || 'none') !== 'none' && !e.shiftKey;
+    pressed = null;
     setTimeout(() => selected(term.getSelection()), 30);
+    if (dragged && captured) {
+      const mark = released;
+      // Long enough for a copy that tmux or the program sends back to have arrived.
+      setTimeout(() => { if (released === mark && !term.getSelection()) for (const cb of onUncaught) cb(); }, 700);
+    }
   }, true);
 
   // OSC 9 and OSC 777 are what a program prints to say "tell the user". Every modern
@@ -1096,6 +1117,8 @@ export function attachTerminal(container, name, { transform, onGone, onBack, onP
     selection: () => term.getSelection(),
     /** Called with (text, x, y) when something is selected here with the mouse. */
     onSelected: (cb) => { onSelected.push(cb); },
+    /** Called when a drag selected nothing because the program here keeps the mouse. */
+    onUncaughtDrag: (cb) => { onUncaught.push(cb); },
     /** Called with the line as typed so far, or null once it can no longer be known. */
     onTyping: (cb) => { onTyping.push(cb); },
     /** Called with the line when Enter sends it — only a line that was known throughout. */

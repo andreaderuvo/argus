@@ -998,6 +998,7 @@
   "not sent to {session}: the line was edited with the arrows or history, so it is not known exactly": "not sent to {session}: the line was edited with the arrows or history, so it is not known exactly",
   "Sent to {session}": "Sent to {session}",
   "Send this prompt to {session} now; the Enter here is still yours": "Send this prompt to {session} now; the Enter here is still yours",
-  "sent to {session}": "sent to {session}"
+  "sent to {session}": "sent to {session}",
+  "{session} keeps the mouse for itself — hold Shift while you drag to select text, and the button to send it to another agent appears": "{session} keeps the mouse for itself — hold Shift while you drag to select text, and the button to send it to another agent appears"
  }
 }

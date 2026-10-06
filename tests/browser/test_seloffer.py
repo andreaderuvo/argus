@@ -118,3 +118,66 @@ def test_with_tmux_holding_the_mouse_its_own_selection_is_offered(make_page, arg
         argus.tmux("set", "-gu", "set-clipboard", check=False)
         for s in ("worker2", "reviewer2"):
             argus.tmux("kill-session", "-t", s, check=False)
+
+
+
+KEEPS_MOUSE = r"""#!/usr/bin/env python3
+import sys, time
+# What Claude Code and Codex do: the alternate screen, and every mouse event reported to them.
+sys.stdout.write('\x1b[?1049h\x1b[?1003h\x1b[?1006h')
+sys.stdout.write('touch shift-selected\n')
+sys.stdout.flush()
+time.sleep(600)
+"""
+
+
+def test_over_an_agent_that_keeps_the_mouse_shift_selects_and_a_plain_drag_says_so(make_page, argus, tmp_path):
+    """Claude Code and Codex turn on mouse reporting: a drag goes to them and selects nothing.
+    Shift-drag selects in xterm anyway; a plain drag is told about Shift, once."""
+    for name in ("claude",):
+        (tmp_path / name).write_text(KEEPS_MOUSE)
+        (tmp_path / name).chmod(0o755)
+    marker = argus.root / "home" / "shift-selected"
+    if marker.exists():
+        marker.unlink()
+    argus.tmux("new-session", "-d", "-s", "keeper", "-x", "80", "-y", "12", str(tmp_path / "claude"))
+    argus.tmux("new-session", "-d", "-s", "taker", "-x", "80", "-y", "12", "-c", str(marker.parent))
+    argus.tmux("set", "-g", "mouse", "on")
+    try:
+        argus.api("/api/prefs", "PATCH", {"changes": {"ws": 1, "wsSeq": 1, "workspaces": [
+            {"id": 1, "name": "Pair", "desktop": [{"kind": "term", "name": "keeper"}, {"kind": "term", "name": "taker"}]},
+        ]}})
+        page = make_page(route="#/wall")
+        screen = "document.querySelector('.win[data-session=\"keeper\"] .xterm-screen')"
+        page.wait(f"!!{screen} && {screen}.getBoundingClientRect().width > 100", timeout=15, what="the keeper's terminal")
+        page.wait("!!document.querySelector('.win[data-session=\"taker\"] .xterm-screen')", timeout=15, what="the taker's")
+        time.sleep(1.5)
+        import json
+        left, top, width, height = json.loads(page.eval(f"JSON.stringify((r => [r.left, r.top, r.width, r.height])({screen}.getBoundingClientRect()))"))
+        row = top + 5
+
+        def drag(modifiers):
+            for kind, x, b in [("mouseMoved", left + 2, "none"), ("mousePressed", left + 2, "left")] + \
+                    [("mouseMoved", left + 2 + (width - 8) * s / 8, "left") for s in range(1, 9)] + \
+                    [("mouseReleased", left + width - 6, "left")]:
+                page.send("Input.dispatchMouseEvent", {"type": kind, "x": x, "y": row, "button": b, "clickCount": 1,
+                                                        "modifiers": modifiers,
+                                                        "buttons": 1 if b == "left" and kind != "mouseReleased" else 0})
+                time.sleep(0.02)
+
+        page.wait("document.querySelector('.win[data-session=\"keeper\"] .xterm')?.classList.contains('enable-mouse-events')",
+                  timeout=10, what="the program to have the mouse")
+        drag(0)
+        page.wait("[...document.querySelectorAll('.toast, .toasts *')].some(e => e.textContent.includes('hold Shift'))",
+                  timeout=5, what="being told about Shift")
+        assert not page.eval("!!document.querySelector('.seloffer')"), "a plain drag selected nothing"
+        drag(8)                                            # 8 = Shift
+        page.wait("!!document.querySelector('.selofferpill')", timeout=5, what="the offer, after a Shift-drag")
+        page.click_at(*page._center("document.querySelector('.selofferpill')"))
+        time.sleep(0.8)
+        argus.tmux("send-keys", "-t", "taker", "Enter")
+        eventually(marker.exists, timeout=10, what="the line selected with Shift, run in the taker")
+    finally:
+        argus.tmux("set", "-g", "mouse", "off", check=False)
+        for s in ("keeper", "taker"):
+            argus.tmux("kill-session", "-t", s, check=False)
