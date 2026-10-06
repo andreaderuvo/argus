@@ -699,8 +699,10 @@ export function teamStrip({ wsId, openLog }) {
     } catch { /* asked again in a moment */ }
     busy = false;
   };
+  // Not given up the moment it is off screen: the desk parks its parts while you are on another
+  // screen and puts them back, and a strip that had stopped asking came back frozen.
   const timer = setInterval(() => {
-    if (!strip.isConnected) { clearInterval(timer); return; }
+    if (!strip.isConnected) { if (strip.dataset.gone) clearInterval(timer); return; }
     if (!document.hidden) refresh();
   }, 3000);
   strip.refresh = refresh;

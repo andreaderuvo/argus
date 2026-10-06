@@ -307,3 +307,22 @@ def test_a_pack_may_suggest_everything_and_the_sheet_says_so_in_red(make_page, a
     page.wait("[...document.querySelectorAll('select.setpick')].some(s => s.value === 'everything')", timeout=5, what="the choice made")
     page.wait("document.querySelector('.teamdanger').hidden === false", timeout=5, what="and said in red")
     clean(argus, project)
+
+
+def test_the_team_line_survives_the_desk_being_put_back(make_page, argus):
+    """Opening a team's Log redrew the desk, and the team line was not among the parts put back."""
+    project = desk(argus)
+    page = make_page(route="#/wall")
+    open_sheet(page, argus, "fix the crash")
+    page.wait("!!document.querySelector('.teamrole select')", timeout=25, what="an agent")
+    page.eval("(() => { const c = document.querySelector('.teamcheck input'); c.value = 'true'; c.dispatchEvent(new Event('input')); })()")
+    start(page)
+    page.wait("!!document.querySelector('.teamstrip .teamline svg, .teamstrip svg')", timeout=10, what="the team's graph")
+    page.click_at(*page._center("[...document.querySelectorAll('.teamline button')].find(b => b.textContent === 'Log')"))
+    page.wait("location.hash === '#/wall'", timeout=5)
+    page.wait("!!document.querySelector('#view .teamstrip svg')", timeout=8, what="still there after the Log")
+    page.eval("location.hash = '#/sessions'")
+    page.wait("!document.querySelector('#view .teamstrip')", timeout=5)
+    page.eval("location.hash = '#/wall'")
+    page.wait("!!document.querySelector('#view .teamstrip svg')", timeout=8, what="and back from another screen")
+    clean(argus, project)

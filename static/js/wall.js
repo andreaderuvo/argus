@@ -2540,7 +2540,9 @@ export async function screenWall() {
 
   setLive({
     key: 'wall',
-    mounts: [[tabs, () => view], [tools, () => view], [wall, () => view]],
+    // The team strip too, in its place: left out, it was thrown away the first time the desk was
+    // put back on screen (opening a team's Log did it) and never came back.
+    mounts: [[tabs, () => view], [tools, () => view], [teams, () => view], [wall, () => view]],
     decorate: decorateWall,
     activate,
     resume: () => {
