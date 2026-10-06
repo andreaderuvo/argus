@@ -1,4 +1,5 @@
 #!/bin/sh
 # The MCP server, from inside the plugin: argus_mcp.py beside this file, on whichever python3 is
 # on the PATH (standard library only).
-exec python3 "$(dirname "$0")/argus_mcp.py" "$@"
+# -B: no __pycache__ written into an installed plugin's directory.
+exec python3 -B "$(dirname "$0")/argus_mcp.py" "$@"

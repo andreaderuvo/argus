@@ -2422,7 +2422,9 @@ input.groupbox:focus { border-style: solid; border-color: var(--accent); color: 
   #bar #keys, #bar #about { display: none !important; }
   #bar #vitals:not(.warning):not(.critical) { display: none !important; }
 }
-@media (max-width: 400px) { #bar > button.icon { width: 42px; min-width: 42px; } }
+/* 42px, and allowed to give up to 6 of them: the same header measured 360px here and 362px on
+   GitHub's runners, whose fonts are a little wider. A fixed width made the fit a matter of fonts. */
+@media (max-width: 400px) { #bar > button.icon { width: 42px; min-width: 36px; flex-shrink: 1; } #bar { gap: .15rem; } }
 
 /* Keys, and the list of them. */
 kbd {

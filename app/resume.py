@@ -75,8 +75,10 @@ def server_identity(sock: tmux.Socket) -> tuple[bool, str | None]:
     if p.returncode == 0:
         first = p.stdout.strip().splitlines()[:1]
         return (True, first[0]) if first else (True, None)
-    said = (p.stderr or "").lower()
-    if any(m in said for m in ("no server running", "error connecting", "failed to connect to server")):
+    # The same words the session list uses for "no server", including a server caught ending
+    # ("server exited unexpectedly", "lost server") — which is what GitHub's tmux said right after
+    # a kill-server, where this one said "no server running".
+    if tmux.is_no_server(p.stderr or ""):
         return True, None
     return False, None
 

@@ -95,12 +95,15 @@ def test_claude_validates_both_manifests():
 # version changes: on 2026-10-06 rename_desk was added under the same 0.1.0 and '/plugin update'
 # kept the old copy, without the tool. Change anything in plugin/ and this fails until the version
 # goes up and its hash is added here.
-RELEASED = {"0.1.1": "0c47653f71ed8691", "0.1.2": "119c80ea223b38c1", "0.1.3": "6a94fa2f84f0fb7f"}
+RELEASED = {"0.1.1": "0c47653f71ed8691", "0.1.2": "119c80ea223b38c1", "0.1.3": "6a94fa2f84f0fb7f", "0.1.4": "c2d4b0c927f765f0"}
 
 
 def plugin_hash() -> str:
     import hashlib
-    files = sorted(f for f in PLUGIN.rglob("*") if f.is_file() and f.name not in ("plugin.json", "gemini-extension.json"))
+    # What is in git, not what running it leaves behind: the tests import plugin/bin/argus_client,
+    # and the __pycache__ that leaves differs per Python, so GitHub's two Pythons never agreed.
+    files = sorted(f for f in PLUGIN.rglob("*") if f.is_file() and f.name not in ("plugin.json", "gemini-extension.json")
+                   and "__pycache__" not in f.parts and f.suffix != ".pyc")
     lines = "".join(f"{hashlib.sha256(f.read_bytes()).hexdigest()}  ./{f.relative_to(PLUGIN)}\n" for f in files)
     return hashlib.sha256(lines.encode()).hexdigest()[:16]
 
