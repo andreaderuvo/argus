@@ -2862,6 +2862,226 @@
     ]
    }
   },
+  "/api/teams": {
+   "get": {
+    "operationId": "getApiTeams",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Teams List Api Teams Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "The teams of agents, and what each is doing",
+    "tags": [
+     "Teams"
+    ]
+   },
+   "post": {
+    "description": "`{name, goal, template, path, roles: {role: {launcher, options, worktree}}, check, gate, max_rounds, ws}`.\n\nStarts each role's agent in a session of its own (`<name>-<role>`) \u2014 only launchers named in\nthe config, with options by name, exactly like New session \u2014 a worktree for a role that\nasks for one, and the team, which gives the first role its prompt. The check is a command\nline, typed into the team's own tmux session: what the terminal could already do, which is\nwhy this is not open to an agent's key.",
+    "operationId": "postApiTeams",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Teams Create Api Teams Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Start a team of agents on a goal",
+    "tags": [
+     "Teams"
+    ]
+   }
+  },
+  "/api/teams/suggest": {
+   "get": {
+    "description": "The template a goal reads like, and the checks a folder offers (looked for, never run).",
+    "operationId": "getApiTeamsSuggest",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "path",
+      "required": false,
+      "schema": {
+       "default": "",
+       "title": "Path",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "goal",
+      "required": false,
+      "schema": {
+       "default": "",
+       "title": "Goal",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Teams Suggest Api Teams Suggest Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "What a goal and a folder suggest for a team",
+    "tags": [
+     "Teams"
+    ]
+   }
+  },
+  "/api/teams/{team_id}": {
+   "delete": {
+    "operationId": "deleteApiTeamsTeamId",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "team_id",
+      "required": true,
+      "schema": {
+       "title": "Team Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Teams Forget Api Teams  Team Id  Delete",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Forget a finished team",
+    "tags": [
+     "Teams"
+    ]
+   }
+  },
+  "/api/teams/{team_id}/{action}": {
+   "post": {
+    "operationId": "postApiTeamsTeamIdAction",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "team_id",
+      "required": true,
+      "schema": {
+       "title": "Team Id",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "action",
+      "required": true,
+      "schema": {
+       "title": "Action",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Teams Act Api Teams  Team Id   Action  Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Continue, pause or stop a team",
+    "tags": [
+     "Teams"
+    ]
+   }
+  },
   "/api/tmux/buffer": {
    "get": {
     "description": "The last thing copied inside tmux, so it can reach the device's clipboard.",
@@ -4015,6 +4235,10 @@
   {
    "description": "tmux: what exists, where it is, what it is showing, and how it looks. The terminal itself is a WebSocket.",
    "name": "Sessions"
+  },
+  {
+   "description": "Agents working on one goal in turns, directed by the server: whose turn it is, the check between turns, and when to stop or ask you.",
+   "name": "Teams"
   },
   {
    "description": "Something has finished, or wants you. Post to it from an agent hook; read the stream to be told as it happens.",

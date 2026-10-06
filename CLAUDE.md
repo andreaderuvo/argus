@@ -419,6 +419,21 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   The browser sends option names; the server builds the flags and 400s anything off the table.
   The browser harness has a stand-in `claude` launcher (conftest `FAKE_CLAUDE`) that answers
   `--help`; the launcher list there is four long.
+- **Teams: agents on one goal, directed by the server** (`app/teams.py`, `tests/test_teams.py`).
+  A reversal, made on purpose: Two agents and the wiki said Argus is only a *reader* and ships
+  no orchestrator, and its minding ran only with a tab open. A team needs somebody to keep it
+  going with the browser shut, and an answer that is not an agent's opinion. The director is a
+  loop on the server (`directing_teams`, every 3 s, started by `main` like the sampler): it
+  prompts a role (`launch.seed`), waits for that role's `@TURN … @END` in `TEAM.argus.md`, runs
+  the **check** when the flow says so, and decides from the judge's verdict (OK / REDO / DONE /
+  BLOCKED) or the check's PASS/FAIL. Gates: `ask` (a press per round), `auto` (stops on two
+  failed checks or BLOCKED), `goal`. The check is a command line typed into the team's own tmux
+  session `<team>-check` (`TeamIO.run_check`) — visible, stoppable, and only for the full token
+  with `--allow-write`. Its exit code is written from inside a subshell *before* the `| tee`:
+  `$?` after a pipe is tee's and PIPESTATUS is bash-only, so under zsh a failing check would
+  have passed; and the command sits in a subshell of its own, so an `exit` in it ends only that.
+  Side effects go through `io`, so the state machine is tested without tmux; one test runs a
+  whole team through the API with stand-in agents that answer by appending their turn.
 - **A browser is remembered by the server too** (`/api/remember`, in the auth gate, `tests/test_remember.py`).
   localStorage is the page's copy, and a phone loses it (Safari clears script storage after
   seven days away; a link opened from a chat lands in that app's own browser). After a token

@@ -23,7 +23,7 @@ from fastapi import FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 
-from . import (agentflags, wiring, agentstate, resume, announce, asks, bells, devices, favourites, files, fsops, gitwork, journal, labels,
+from . import (agentflags, teams, wiring, agentstate, resume, announce, asks, bells, devices, favourites, files, fsops, gitwork, journal, labels,
                languages, launch, mounts, network, paths, ports, prefs, proxy, release, runner, runs,
                system, term, tmux, todo)
 import httpx
@@ -79,6 +79,7 @@ TAGS = [
     {"name": "Files", "description": "Reading the filesystem, previewing and searching it. Confined to the configured roots, canonicalised before the check, symlinks out of them refused."},
     {"name": "Writing", "description": "Making, moving, deleting, uploading. Every route here is off unless the server was started with `--allow-write`."},
     {"name": "Sessions", "description": "tmux: what exists, where it is, what it is showing, and how it looks. The terminal itself is a WebSocket."},
+    {"name": "Teams", "description": "Agents working on one goal in turns, directed by the server: whose turn it is, the check between turns, and when to stop or ask you."},
     {"name": "Notifications", "description": "Something has finished, or wants you. Post to it from an agent hook; read the stream to be told as it happens."},
     {"name": "Prompts", "description": "Working out what a path in a session refers to, so it can be opened."},
     {"name": "The machine", "description": "CPU, memory, disks, GPUs, and the ports that are listening."},
@@ -320,6 +321,55 @@ def agent_changed(app: FastAPI, session: str, was: str | None, now: str, agent: 
         bells.rung(request, "asking", session=session, source="watch", agent=agent)
 
 
+class TeamIO:
+    """What the team director does to the world: type into sessions, run the check, ring."""
+
+    def __init__(self, app: FastAPI):
+        self.app = app
+
+    def send(self, session: str, text: str) -> None:
+        launch.seed(self.app.state.socket, session, text, press_return=True)
+
+    def state(self, session: str):
+        st = self.app.state.agents.states().get(session)
+        return (st["state"], st["since"]) if st else None
+
+    def run_check(self, team: dict, command: str, folder: str, log, exit_file) -> None:
+        """In a tmux session of the team's own, as if typed there: you can watch it, and stop it.
+        The exit code goes to a file the director is waiting for."""
+        sock = self.app.state.socket
+        name = team["check_session"]
+        if not tmux.session_exists(sock, name):
+            tmux.run(tmux.new_argv(sock, name, folder))
+            launch.wait_until_settled(sock, name, timeout=8)
+        q = launch.shell_quote
+        # The exit code is written from inside the subshell, before the pipe: `$?` after a pipe is
+        # `tee`'s, always 0, and PIPESTATUS is bash's alone — under zsh a failing check would pass.
+        # And the command in a subshell of its own, so an `exit` in it ends that and not the line.
+        line = (f"cd {q(folder)} && ( ( {command} ) ; echo $? > {q(str(exit_file))} ) 2>&1 | tee {q(str(log))}")
+        launch.seed(sock, name, line, press_return=True)
+
+    def ring(self, why: str, text: str, session) -> None:
+        bells.rung(types.SimpleNamespace(app=self.app), why, session=session, text=text)
+
+    def now(self) -> float:
+        return time.time()
+
+
+TEAMS_EVERY = float(os.environ.get("ARGUS_TEAMS_EVERY", "3"))
+
+
+async def directing_teams(app: FastAPI) -> None:
+    """Every few seconds, every team moves on if it can. Nothing to do costs a stat of a file."""
+    while True:
+        try:
+            if app.state.teams.teams:
+                await asyncio.to_thread(app.state.teams.tick)
+        except Exception:
+            pass
+        await asyncio.sleep(TEAMS_EVERY)
+
+
 REGISTER_EVERY = float(os.environ.get("ARGUS_REGISTER_EVERY", "30"))   # the browser tests shorten it
 
 
@@ -353,8 +403,10 @@ async def announcing(app: FastAPI):
     if app.state.agents.always:
         app.state.agents.wake()
         registering = asyncio.create_task(keeping_the_register(app))
+        directing = asyncio.create_task(directing_teams(app))
     else:
         registering = None
+        directing = None
     task = None
     if getattr(cfg, "report_to", None):
         async def mine() -> dict:
@@ -367,7 +419,7 @@ async def announcing(app: FastAPI):
             one.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await one
-        for one in (task, registering):
+        for one in (task, registering, directing):
             if one:
                 one.cancel()
                 with contextlib.suppress(asyncio.CancelledError):
@@ -411,6 +463,9 @@ def create_app(cfg: Config) -> FastAPI:
     # Agents whose hooks are wired on this machine, so they say themselves when they stop. Filled
     # by `main` from the wiring (the tests' apps have none, and so watch every agent the old way).
     app.state.hooked_agents = set()
+    # Teams of agents and the director that moves them on (teams.py). In memory here; `main`
+    # gives it its file, and the loop runs with the server, browser or not.
+    app.state.teams = teams.Director(None, TeamIO(app))
     app.state.todo = getattr(cfg, "todo_store", None) or Path("/nonexistent")
     app.state.prefs = getattr(cfg, "prefs_store", None) or Path("/nonexistent")
     app.state.devices = cfg.devices_store or Path("/nonexistent")
@@ -502,6 +557,128 @@ def create_app(cfg: Config) -> FastAPI:
             return {"states": await agent_states(request)}
         except Exception:
             return {"states": {}}
+
+    @app.get("/api/teams", tags=["Teams"], summary="The teams of agents, and what each is doing")
+    async def teams_list(request: Request) -> dict:
+        return {"teams": request.app.state.teams.public(),
+                "templates": {k: {kk: v[kk] for kk in ("label", "hint", "roles", "flow", "check")}
+                              for k, v in teams.TEMPLATES.items()}}
+
+    @app.get("/api/teams/suggest", tags=["Teams"], summary="What a goal and a folder suggest for a team")
+    async def teams_suggest(request: Request, path: str = "", goal: str = "") -> dict:
+        """The template a goal reads like, and the checks a folder offers (looked for, never run)."""
+        folder = str(under_roots(request, path)) if path else ""
+        top = await asyncio.to_thread(gitwork.top_of, folder) if folder else None
+        return {"template": teams.suggest_template(goal),
+                "checks": await asyncio.to_thread(teams.suggest_check, str(top or folder)) if folder else [],
+                "repository": str(top) if top else None}
+
+    @app.post("/api/teams", tags=["Teams"], summary="Start a team of agents on a goal")
+    async def teams_create(request: Request, body: dict) -> dict:
+        """`{name, goal, template, path, roles: {role: {launcher, options, worktree}}, check, gate, max_rounds, ws}`.
+
+        Starts each role's agent in a session of its own (`<name>-<role>`) — only launchers named in
+        the config, with options by name, exactly like New session — a worktree for a role that
+        asks for one, and the team, which gives the first role its prompt. The check is a command
+        line, typed into the team's own tmux session: what the terminal could already do, which is
+        why this is not open to an agent's key."""
+        state = request.app.state
+        if not state.cfg.allow_write:
+            raise ApiError(403, "a team writes its log into the project — start Argus with --allow-write")
+        template = str(body.get("template", ""))
+        if template not in teams.TEMPLATES:
+            raise ApiError(400, f"template is one of {', '.join(teams.TEMPLATES)}")
+        folder = under_roots(request, str(body.get("path", "")))
+        if not folder.is_dir():
+            raise ApiError(400, f"{folder} is not a folder")
+        try:
+            base = tmux.check_name(str(body.get("name") or teams.TEMPLATES[template]["label"]).strip().replace(" ", "-")[:30])
+        except tmux.BadName as e:
+            raise ApiError(400, str(e)) from e
+        wanted = body.get("roles") or {}
+        roles_needed = teams.TEMPLATES[template]["roles"]
+        sessions: dict[str, str] = {}
+        folders: dict[str, str] = {}
+        plans = []
+        for role in roles_needed:
+            spec = wanted.get(role) or {}
+            chosen = launch.named(state.cfg, str(spec.get("launcher", "")))
+            if not chosen or not chosen.command.strip():
+                raise ApiError(400, f"{role}: choose an agent from your launchers")
+            session = f"{base}-{role}"
+            if await asyncio.to_thread(tmux.session_exists, state.socket, session):
+                raise ApiError(409, f"a session called {session} is already there — give the team another name")
+            command = chosen.command
+            if spec.get("options"):
+                program = agentflags.program_of(chosen.command) or ""
+                version = (await asyncio.to_thread(launch.versions, [program])).get(program, "") if program else ""
+                text = await asyncio.to_thread(agentflags.help_of, program, version) if program else ""
+                try:
+                    flags = agentflags.flags_for(chosen.command, text, spec["options"])
+                except ValueError as e:
+                    raise ApiError(400, f"{role}: {e}") from e
+                if flags:
+                    command = " ".join([chosen.command.rstrip(), *(launch.shell_quote(f) for f in flags)])
+            plans.append((role, session, command, bool(spec.get("worktree"))))
+        check = str(body.get("check") or "").strip()
+        if teams.TEMPLATES[template]["check"] and not check:
+            raise ApiError(400, f"{teams.TEMPLATES[template]['label']} needs a check: the command whose result decides")
+        if too_fast("start", STARTS_A_MINUTE):
+            raise ApiError(429, "too many launches in a minute — nothing was started")
+
+        # A worktree for whoever asked for one; the roles that read its work (the reviewer) go there too.
+        work = str(folder)
+        if any(w for _r, _s, _c, w in plans):
+            top = await asyncio.to_thread(gitwork.top_of, folder)
+            if not top:
+                raise ApiError(400, f"{folder} is not in a git repository — a worktree needs one")
+            branch = launch.check_branch(f"team/{base}")
+            target = gitwork.suggested_path(top, branch.replace("/", "-"))
+            try:
+                state.jail.resolve(str(target.parent))
+                made = await asyncio.to_thread(gitwork.add, top, target, branch)
+            except PathError:
+                raise ApiError(403, f"{target} would be outside the configured roots") from None
+            except gitwork.GitError as e:
+                raise ApiError(409, str(e)) from e
+            work = made["path"]
+        for role, session, command, _w in plans:
+            folders[role] = work if role in ("executor", "reviewer") else str(folder)
+            sessions[role] = session
+            await asyncio.to_thread(launch.start, state.socket, session, folders[role], command)
+        await asyncio.gather(*(asyncio.to_thread(launch.wait_until_settled, state.socket, s) for s in sessions.values()))
+        try:
+            team = state.teams.create(name=base, goal=str(body.get("goal", "")), template=template, folder=str(folder),
+                                      roles=sessions, folders=folders, check=check or None,
+                                      gate=str(body.get("gate") or "ask"), max_rounds=int(body.get("max_rounds") or 10),
+                                      ws=body.get("ws"))
+        except ValueError as e:
+            raise ApiError(400, str(e)) from e
+        if team.get("check_session"):
+            team["check_session"] = f"{base}-check"
+            state.teams.save()
+        return {"team": next(t for t in state.teams.public() if t["id"] == team["id"]), "sessions": sessions,
+                "check_session": team.get("check_session"), "worktree": work if work != str(folder) else None}
+
+    @app.post("/api/teams/{team_id}/{action}", tags=["Teams"], summary="Continue, pause or stop a team")
+    async def teams_act(request: Request, team_id: str, action: str) -> dict:
+        director = request.app.state.teams
+        if team_id not in director.teams:
+            raise ApiError(404, "no such team")
+        act = {"go": director.go, "pause": director.pause, "stop": director.stop}.get(action)
+        if act is None:
+            raise ApiError(400, "action is go, pause or stop")
+        await asyncio.to_thread(act, team_id)
+        return {"team": next(t for t in director.public() if t["id"] == team_id)}
+
+    @app.delete("/api/teams/{team_id}", tags=["Teams"], summary="Forget a finished team")
+    async def teams_forget(request: Request, team_id: str) -> dict:
+        director = request.app.state.teams
+        team = director.teams.get(team_id)
+        if team and team["status"] not in ("done", "stopped"):
+            raise ApiError(409, "stop the team first")
+        director.forget(team_id)
+        return {"teams": director.public()}
 
     @app.get("/api/resume", tags=["Sessions"], summary="Agents lost with the tmux server that held them")
     async def resume_list(request: Request) -> dict:
@@ -1962,6 +2139,7 @@ def main(argv: list[str] | None = None) -> int:
     app.state.favourites = favourites.default_store(config_path)
     app.state.labels = labels.default_store(config_path)
     app.state.resume = resume.Ledger(resume.default_store(config_path))
+    app.state.teams = teams.Director(config_path.parent / "teams.json", TeamIO(app))
     app.state.todo = todo.default_store(config_path)
     app.state.prefs = prefs.default_store(config_path)
     app.state.lang = config_path.parent / "lang"
