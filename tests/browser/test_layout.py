@@ -66,3 +66,19 @@ def test_the_repository_is_in_settings_where_the_header_has_no_room(make_page):
     page = make_page(viewport={**PHONE, "width": 360}, route="#/settings")
     page.wait("[...document.querySelectorAll('.row.setting')].some(r => r.textContent.includes('About Argus'))",
               timeout=10, what="About Argus in Settings")
+
+
+@pytest.mark.parametrize("phone", [False, True])
+def test_the_settings_filter_is_top_left_above_the_sections(make_page, phone):
+    """Asked for on 2026-10-06: the filter first, above the section chips, not at the end of them."""
+    page = make_page(viewport={**PHONE, "width": 390}, route="#/settings") if phone else make_page(route="#/settings")
+    page.wait("!!document.querySelector('.setjump .jfind')", timeout=10, what="the filter")
+    where = page.eval("""JSON.stringify((() => {
+        const bar = document.querySelector('.setjump').getBoundingClientRect();
+        const box = document.querySelector('.setjump .jfind').getBoundingClientRect();
+        const chip = document.querySelector('.setjump .chip').getBoundingClientRect();
+        return { left: Math.round(box.left - bar.left), above: box.bottom <= chip.top + 1 };
+    })())""")
+    import json
+    said = json.loads(where)
+    assert said["left"] <= 1 and said["above"], said

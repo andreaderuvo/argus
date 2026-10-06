@@ -558,9 +558,10 @@ canvas.meshview:active { cursor: grabbing; }
   margin: 0 0 .6rem; padding: .6rem 0;
   background: var(--bg); border-bottom: 1px solid var(--line);
 }
-/* The box is a filter, not the point of the screen: it sits at the end of the chips and
-   takes what is left, up to a sensible width. */
-.jbar.setjump .jfind { flex: 0 1 18rem; min-width: 8rem; margin-left: auto; }
+/* The filter first, top left, on a line of its own; the chips start on the next (the break is a
+   zero-height item that takes a whole row of the wrapping flex box). */
+.jbar.setjump .jfind { flex: 0 1 22rem; min-width: 8rem; }
+.jbar.setjump .jbreak { flex-basis: 100%; height: 0; }
 /* Where a jump stops. Without it the heading arrives under the sticky bar and the first
    setting under it is gone too — reported as "it eats Interruptions and one line more". */
 .settinggroup { scroll-margin-top: var(--jump-h, 3.4rem); }

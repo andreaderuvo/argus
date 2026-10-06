@@ -915,7 +915,9 @@ export async function screenSettings() {
         chip.hidden = !!head2?.hidden;
       }
     };
-    jump.append(find);
+    // First, on a line of its own above the chips: it is what you reach for when you know the
+    // word, and at the end of the row it sat to the right of nine chips, after them on a phone.
+    jump.prepend(find, el('span', { className: 'jbreak' }));
     wrap.prepend(jump);
   }
 
