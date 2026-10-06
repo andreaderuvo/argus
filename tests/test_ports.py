@@ -73,7 +73,9 @@ def test_our_own_port_is_flagged_so_the_ui_can_say_so():
 
 
 def test_process_name_of_this_process():
-    assert process_name(os.getpid()) in ("python3", "python", "pytest")
+    name = process_name(os.getpid())
+    # A pytest-xdist worker renames itself ("[pytest-xdist runner]"), cut to 15 by the kernel.
+    assert name in ("python3", "python", "pytest") or name.startswith("[pytest-xdist")
 
 
 def test_the_proxy_keeps_our_credentials_to_itself(tmp_path):

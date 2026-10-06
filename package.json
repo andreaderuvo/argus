@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "lint": "eslint static",
-    "relink": "node scripts/modules.mjs relink"
+    "relink": "node scripts/modules.mjs relink",
+    "test": "python3 -m pytest -q -n 16",
+    "test:quick": "python3 -m pytest -q -n 16 -m 'not browser'"
   },
   "devDependencies": {
     "eslint": "9.39.1",

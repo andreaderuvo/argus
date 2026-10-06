@@ -45,15 +45,20 @@ app/`). This is also why the product does a real PTY instead of capture-pane pol
 ## Run & test
 
 ```bash
-python3 -m pytest -q -m "not browser"      # the quick loop: Python only, ~35s
-python3 -m pytest -q                       # everything, including the browser suite (~2.5 min)
+python3 -m pytest -q -n 16                 # everything, browser suite included: ~1m50 (12 min on one worker)
+python3 -m pytest -q -n 16 -m "not browser"   # the quick loop, Python only
+npm test                                   # the same as the first line
 npm ci                                     # once, for ESLint (development only)
 python3 -m app.main --help
 python3 -m app.main --listen 0.0.0.0:8090  # config auto-created on first run
 python3 -m app.main --print-url            # the URL including the token
 ```
 
-Dependencies are already in the conda base env (fastapi, uvicorn, pyyaml, pytest, httpx);
+`-n` is pytest-xdist: every worker starts its own Argus (its own port, temp HOME and tmux socket
+`argus-t-<pid>-<n>`) and its own Chromium, so they do not share anything; measured 858 green twice
+at 16 workers. A test that reads its own process name sees "[pytest-xdist runner]".
+
+Dependencies are already in the conda base env (fastapi, uvicorn, pyyaml, pytest, pytest-xdist, httpx);
 `requirements.txt` lists them for anywhere else.
 
 **The browser harness** (`tests/browser/`) is how the frontend is tested, since it has no

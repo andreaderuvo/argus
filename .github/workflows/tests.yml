@@ -31,7 +31,7 @@ jobs:
       - name: the wiki, for the documentation check
         run: git clone --depth 1 https://github.com/andreaderuvo/argus.wiki.git "$RUNNER_TEMP/wiki" || true
       # The browser suite runs once, in its own job below — not three times here.
-      - run: python -m pytest -q -m "not browser"
+      - run: python -m pytest -q -n 4 -m "not browser"
         env:
           ARGUS_WIKI: ${{ runner.temp }}/wiki
 
@@ -53,7 +53,7 @@ jobs:
       - run: pip install -r requirements.txt
       - run: npm ci
       - run: sudo apt-get update && sudo apt-get install -y tmux poppler-utils
-      - run: python -m pytest -q tests/test_modules.py tests/browser
+      - run: python -m pytest -q -n 4 tests/test_modules.py tests/browser
         env:
           ARGUS_BROWSER_REQUIRED: '1'
           ARGUS_CHROMIUM: /usr/bin/google-chrome

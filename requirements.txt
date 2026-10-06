@@ -13,3 +13,4 @@ segno>=1.6,<2        # optional: only for `--qr`
 
 # Tests
 pytest>=8.0,<10
+pytest-xdist>=3.6,<4  # `-n 8`: the suite in a quarter of the time (each worker its own Argus and tmux socket)
