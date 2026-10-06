@@ -575,6 +575,9 @@ export async function teamSheet({ wsId, home, onStarted }) {
     go.textContent = t('starting the agents…');
     try {
       const said = await postJSON('/api/teams', {
+        // Named after the card chosen ("Kraken reversal (paper)" → Kraken-reversal-paper), not a
+        // generic "Team"; the server numbers it if another team has the name.
+        name: chosen?.includes(':') ? chosen.split(':').slice(1).join(':') : (templates[chosen]?.label || 'Team'),
         goal: goal.value.trim(), template: chosen?.startsWith('mine:') || chosen?.startsWith('file:') ? 'custom' : chosen, graph: bare(graph),
         path: where.value.trim(), agents: agentSpec, check: check.value.trim() || null,
         gate: gate.querySelector('input:checked')?.value || 'ask', max_rounds: Number(rounds.value) || 10, ws: wsId,

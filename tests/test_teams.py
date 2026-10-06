@@ -734,3 +734,29 @@ def test_a_model_may_suggest_permissions_and_nothing_else():
     bad = read_pack({"argus_team_pack": 1, "models": {"m": dict(g, permissions="root")}})
     assert bad["refused"][0]["why"] == "a model's permissions are ask, edit or everything"
     assert from_yaml(to_yaml(g, "m"))["permissions"] == "everything"
+
+
+def test_a_second_team_of_the_same_name_gets_a_number(tmp_path, monkeypatch):
+    """Two teams called 'Team' shared their session names and stepped on each other."""
+    from fastapi.testclient import TestClient
+
+    from app.config import Config
+    from app.main import create_app
+    cfg = Config(token="m" * 64, roots=[tmp_path], listen="127.0.0.1:0")
+    cfg.allow_write = True
+    cfg.tmux_socket = f"argus-t-samename-{os.getpid()}"
+    cfg.launchers = [{"name": "Stand-in", "command": "true"}]
+    app = create_app(cfg)
+    app.state.teams.home = tmp_path / "teams"
+    monkeypatch.setattr(app.state.teams, "io", type("IO", (), {
+        "send": lambda *a: None, "launch": lambda *a: None, "ring": lambda *a: None, "now": lambda self: 0.0,
+        "state": lambda *a: None, "run_check": lambda *a, **k: None})())
+    c = TestClient(app)
+    c.headers.update({"authorization": "Bearer " + "m" * 64})
+    body = {"name": "Kraken reversal (paper)", "goal": "g", "template": "fix", "path": str(tmp_path),
+            "agents": {"executor": {"launcher": "Stand-in", "worktree": False}}, "check": "true"}
+    first = c.post("/api/teams", json=body).json()["team"]
+    second = c.post("/api/teams", json=body).json()["team"]
+    assert first["name"] == "Kraken-reversal-paper" and second["name"] == "Kraken-reversal-paper-2"
+    assert {n["session"] for n in second["nodes"] if n.get("session")} == {"Kraken-reversal-paper-2-executor", "Kraken-reversal-paper-2-check"}
+    subprocess.run(["tmux", "-L", cfg.tmux_socket, "kill-server"], capture_output=True)

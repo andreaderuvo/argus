@@ -768,7 +768,14 @@ def create_app(cfg: Config) -> FastAPI:
         if not folder.is_dir():
             raise ApiError(400, f"{folder} is not a folder")
         try:
-            base = tmux.check_name(str(body.get("name") or teams.TEMPLATES.get(template, {}).get("label", "Team")).strip().replace(" ", "-")[:24])
+            wanted = str(body.get("name") or teams.TEMPLATES.get(template, {}).get("label", "Team"))
+            base = re.sub(r"[^A-Za-z0-9_-]+", "-", wanted).strip("-")[:24].strip("-") or "Team"
+            # A name another team already has gets a number: two teams called "Team" shared
+            # their session names (Team-analyst…) and stepped on each other (2026-10-07).
+            taken = {t.get("name") for t in state.teams.teams.values()}
+            if base in taken:
+                base = next(f"{base}-{i}" for i in range(2, 100) if f"{base}-{i}" not in taken)
+            base = tmux.check_name(base)
         except tmux.BadName as e:
             raise ApiError(400, str(e)) from e
 
