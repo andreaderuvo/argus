@@ -530,11 +530,67 @@ details p { color: var(--ink2); margin-top: 10px; max-width: 68ch; }
   </div>
 </section>
 
+<section id="plugin" aria-labelledby="plugin-h">
+  <div class="wrap">
+    <div class="head">
+      <span class="win"><b>5:plugin*</b></span>
+      <h2 id="plugin-h">Ask your agent. It sets up the desk.</h2>
+      <p>Install the Argus plugin in Claude Code or Codex and Argus becomes one of the agent's own tools.
+        Say <i>open a desk called pippo with a Claude and a Codex</i> and the tab appears with both of them
+        running. The agent also tells Argus when it starts, when it finishes and when it needs you.</p>
+    </div>
+    <div class="pair wide">
+      <ul class="points">
+        <li><h3>One install</h3><p><code>/plugin marketplace add andreaderuvo/argus</code>, then <code>/plugin install argus@argus</code>. Codex reads the same plugin.</p></li>
+        <li><h3>In your own words</h3><p>Open, rename and fill desks. Start agents with their options, each in its own worktree. Ask you a question and wait for the tap on your phone.</p></li>
+        <li><h3>The agent says what it is doing</h3><p>A turn starting, a turn ending with its last words, a wait for you naming the command it wants to run. The lights on the tabs come from the agent, not from a guess.</p></li>
+        <li><h3>Your decisions stay yours</h3><p>It cannot answer its own questions, start an agent that asks nobody anything, or remove a desk.</p></li>
+      </ul>
+      <svg class="sketch" viewBox="0 0 640 340" role="img" aria-labelledby="s7t">
+        <title id="s7t">On the left, an agent's terminal where someone typed "open a desk called pippo with a Claude and a Codex", and the agent calling open_desk and start_agent twice. On the right, the browser with a new tab called pippo holding two windows, claude and codex, both working.</title>
+        <g filter="url(#rough)">
+          <rect class="l fill2" x="14" y="40" width="300" height="240" rx="8"/>
+          <path class="l thin soft" d="M14 68 H314"/>
+          <rect class="l fillp" x="340" y="40" width="286" height="240" rx="8"/>
+          <path class="l thin soft" d="M340 72 H626"/>
+          <rect class="l thin soft fill2" x="350" y="48" width="54" height="24" rx="4"/>
+          <rect class="l thin soft fill2" x="410" y="48" width="62" height="24" rx="4"/>
+          <rect class="l fillp" x="478" y="46" width="66" height="26" rx="4"/>
+          <rect class="l fill2" x="352" y="86" width="126" height="128" rx="6"/>
+          <rect class="l fill2" x="488" y="86" width="126" height="128" rx="6"/>
+          <path class="l thin soft" d="M352 108 H478 M488 108 H614"/>
+          <rect class="l thin soft dash" x="352" y="228" width="262" height="40" rx="6"/>
+        </g>
+        <text class="dim" x="28" y="59" font-size="11">claude · ~/work</text>
+        <text x="28" y="96" font-size="12">› open a desk called pippo</text>
+        <text x="28" y="114" font-size="12">  with a Claude and a Codex</text>
+        <text class="dim" x="28" y="148" font-size="11">● argus · open_desk(pippo)</text>
+        <text class="dim" x="28" y="168" font-size="11">● argus · start_agent(Claude Code)</text>
+        <text class="dim" x="28" y="188" font-size="11">● argus · start_agent(Codex)</text>
+        <text class="teal" x="28" y="222" font-size="12">pippo is open, both are running.</text>
+        <text class="dim" x="361" y="64" font-size="10.5">argus</text>
+        <text class="dim" x="420" y="64" font-size="10.5">cgDist</text>
+        <text class="teal" x="490" y="64" font-size="11">pippo</text>
+        <path d="M486 71 H536" stroke-width="2.4" style="stroke: var(--teal)"/>
+        <circle cx="364" cy="97" r="4" style="fill: var(--teal)"/>
+        <text x="374" y="101" font-size="11">claude</text>
+        <circle cx="500" cy="97" r="4" style="fill: var(--teal)"/>
+        <text x="510" y="101" font-size="11">codex</text>
+        <path class="l thin soft" d="M364 130 H452 M364 148 H436 M364 166 H460 M500 130 H590 M500 148 H570 M500 166 H596"/>
+        <text class="dim" x="364" y="252" font-size="10.5">hooks: start · done · needs you</text>
+        <path d="M318 150 C 332 150, 326 98, 346 98" fill="none" stroke-width="2.2" stroke-dasharray="6 5" marker-end="url(#arr)" style="stroke: var(--teal)"/>
+        <text class="hand" x="28" y="318">you just say it</text>
+        <text class="hand ink" x="400" y="318">and the desk is there</text>
+      </svg>
+    </div>
+  </div>
+</section>
+
 <section id="phone" aria-labelledby="phone-h">
   <div class="wrap">
     <div class="pair flip">
       <div class="head">
-        <span class="win"><b>5:phone*</b></span>
+        <span class="win"><b>6:phone*</b></span>
         <h2 id="phone-h">Your desk, in your pocket.</h2>
         <p>It is the session that was already running, not a copy of it. You get a key bar for the keys a phone
           has not got, a long press to open a path, and a box to write a line in when the keyboard fights the
@@ -577,7 +633,7 @@ details p { color: var(--ink2); margin-top: 10px; max-width: 68ch; }
 <section id="more" aria-labelledby="more-h">
   <div class="wrap">
     <div class="head">
-      <span class="win"><b>6:more*</b></span>
+      <span class="win"><b>7:more*</b></span>
       <h2 id="more-h">Everything an agent's work points at.</h2>
     </div>
     <div class="list">
@@ -597,7 +653,7 @@ details p { color: var(--ink2); margin-top: 10px; max-width: 68ch; }
 <section id="yours" aria-labelledby="yours-h">
   <div class="wrap">
     <div class="head">
-      <span class="win"><b>7:yours*</b></span>
+      <span class="win"><b>8:yours*</b></span>
       <h2 id="yours-h">It runs on your machine, and nothing leaves it.</h2>
     </div>
     <div class="three">
@@ -612,7 +668,7 @@ details p { color: var(--ink2); margin-top: 10px; max-width: 68ch; }
 <section id="install" aria-labelledby="install-h">
   <div class="wrap">
     <div class="head">
-      <span class="win"><b>8:install*</b></span>
+      <span class="win"><b>9:install*</b></span>
       <h2 id="install-h">Running in a minute.</h2>
       <p>Linux and macOS, or Windows through WSL or Docker. It needs Python 3.11 or newer and tmux, and it prints
         a link: open it, or scan its QR code with your phone.</p>
@@ -645,7 +701,7 @@ python3 -m app.main          <span class="c"># prints a URL with a token in it</
 <section id="faq" aria-labelledby="faq-h">
   <div class="wrap">
     <div class="head">
-      <span class="win"><b>9:faq*</b></span>
+      <span class="win"><b>10:faq*</b></span>
       <h2 id="faq-h">Before you try it.</h2>
     </div>
     <div class="faq">
