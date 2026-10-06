@@ -286,7 +286,10 @@ export async function aboutThisArgus() {
     v?.newer && v.latest ? row(t('Release'), t('{version} is out', { version: v.latest }), true) : null,
     p?.version ? row(t('Plugin offered'), p.version) : null,
     ...(p?.agents || []).filter((a) => a.present || a.installed).map((a) =>
-      row(a.name, a.installed ? (a.outdated ? t('{have} — {offered} is out', { have: a.installed, offered: p.version }) : a.installed) : t('not installed'), a.outdated)),
+      // The plugin in that agent, said as such: "Codex — not installed" read as if Codex were missing.
+      row(t('The Argus plugin in {name}', { name: a.name }),
+        a.installed ? (a.outdated ? t('{have} — {offered} is out', { have: a.installed, offered: p.version }) : a.installed)
+          : t('not installed — Settings → Install'), a.outdated)),
   ].filter(Boolean);
   body.replaceChildren(...rows);
 }

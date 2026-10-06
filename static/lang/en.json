@@ -1157,6 +1157,7 @@
   "On disk": "On disk",
   "Release": "Release",
   "{version} is out": "{version} is out",
-  "Plugin offered": "Plugin offered"
+  "Plugin offered": "Plugin offered",
+  "not installed — Settings → Install": "not installed — Settings → Install"
  }
 }
