@@ -1109,6 +1109,12 @@
   "my team pack": "il mio pacchetto di team",
   "Say this number to an agent: “work on {n} and mark it done”": "Dillo a un agente: “lavora il {n} e segnalo fatto”",
   "by {who}": "da {who}",
-  "the agent that last moved it": "l’agente che l’ha spostato per ultimo"
+  "the agent that last moved it": "l’agente che l’ha spostato per ultimo",
+  "{name}: the team is in the picture — change it, or start it": "{name}: il team è nel disegno — cambialo o avvialo",
+  "Open a file…": "Apri un file…",
+  "A team written as YAML, or a pack of roles and models (JSON or YAML) — yours to keep, never a default": "Un team scritto in YAML, o un pacchetto di ruoli e modelli (JSON o YAML) — tuo, mai un default",
+  "Save as YAML": "Salva come YAML",
+  "This team as a team.yaml to keep in the project, under git": "Questo team come team.yaml da tenere nel progetto, sotto git",
+  "{file}: {why}": "{file}: {why}"
  }
 }

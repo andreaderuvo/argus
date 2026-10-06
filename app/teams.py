@@ -708,6 +708,141 @@ def first_line(text: str) -> str:
 
 # --------------------------------------------------------------------------- what a folder suggests
 
+# --------------------------------------------------------------------------- a team as YAML
+
+TEAM_FILES = ("team.yaml", "team.yml", ".argus/team.yaml")
+ARROW = re.compile(r"^\s*(?P<src>[^>]+?)\s*->\s*(?P<dst>.+?)(?:\s+if\s+(?P<when>.+))?\s*$")
+
+
+def from_yaml(text: str) -> dict:
+    """A team written as YAML — what a person or an agent can keep in the project, under git —
+    turned into the graph the director runs. `{name, graph, gate?, rounds?, goal?}`; ValueError
+    in words, with the line, when it cannot be read.
+
+        name: Fix it
+        steps:
+          fixer: {role: executor, worktree: true}
+          tests: {check: pytest -q, of: fixer}
+        flow:
+          - fixer -> tests
+          - tests -> done if PASS
+          - tests -> fixer if FAIL
+
+    A step is an agent unless it says `check: <command>` or `join: true`. `done` (or `end`) is the
+    end, made for you. An arrow is `a -> b`, `a -> b, c` for parallel, `if PASS` or `if OK, REDO`
+    for conditions. `start:` defaults to the first step.
+    """
+    import yaml
+    try:
+        doc = yaml.safe_load(text)
+    except yaml.YAMLError as e:
+        mark = getattr(e, "problem_mark", None)
+        raise ValueError(f"not readable YAML{f' at line {mark.line + 1}' if mark else ''}: "
+                         f"{getattr(e, 'problem', None) or e}") from None
+    if not isinstance(doc, dict) or not isinstance(doc.get("steps"), dict) or not doc["steps"]:
+        raise ValueError("a team file needs `steps:` — each step a name, with its role or its check")
+    nodes = []
+    # `done:` among the steps keeps an end nothing points at yet (the Write template has one).
+    has_end = any(str(k) in ("done", "end") for k in doc["steps"])
+    for nid, spec in doc["steps"].items():
+        nid = str(nid)
+        spec = spec if isinstance(spec, dict) else {}
+        if nid in ("done", "end"):
+            continue
+        if "check" in spec:
+            node = {"id": nid, "kind": "check"}
+            if spec["check"] not in (None, True, ""):
+                node["command"] = str(spec["check"])
+            if spec.get("of"):
+                node["of"] = str(spec["of"])
+        elif spec.get("join"):
+            node = {"id": nid, "kind": "join"}
+        else:
+            node = {"id": nid, "kind": "agent", "role": str(spec.get("role") or "executor")}
+            for key in ("duty",):
+                if spec.get(key):
+                    node[key] = str(spec[key])
+            if spec.get("judge"):
+                node["judge"] = True
+            if spec.get("worktree"):
+                node["worktree"] = True
+            if spec.get("reads"):
+                node["reads"] = [str(x) for x in (spec["reads"] if isinstance(spec["reads"], list) else [spec["reads"]])]
+        nodes.append(node)
+    edges = []
+    flow = doc.get("flow") or []
+    if not isinstance(flow, list):
+        raise ValueError("`flow:` is a list of arrows, one per line: - a -> b if PASS")
+    for i, line in enumerate(flow, 1):
+        m = ARROW.match(str(line))
+        if not m:
+            raise ValueError(f"flow line {i} is not an arrow: {line!r} — write it as  a -> b  or  a -> b if PASS")
+        whens = [w.strip().upper() for w in (m["when"] or "always").split(",")]
+        for dst in (d.strip() for d in m["dst"].split(",")):
+            if dst in ("done", "end"):
+                dst, has_end = "end", True
+            for when in whens:
+                edges.append({"from": m["src"].strip(), "to": dst, "when": "always" if when == "ALWAYS" else when})
+    if has_end:
+        nodes.append({"id": "end", "kind": "end"})
+    start = doc.get("start") or [nodes[0]["id"]]
+    graph = {"nodes": nodes, "edges": edges, "start": [str(s) for s in (start if isinstance(start, list) else [start])]}
+    check_graph(graph)
+    out = {"name": str(doc.get("name") or "team.yaml")[:60], "graph": graph}
+    if doc.get("goal"):
+        out["goal"] = str(doc["goal"])
+    if doc.get("gate") in GATES:
+        out["gate"] = doc["gate"]
+    if isinstance(doc.get("rounds"), int):
+        out["rounds"] = max(1, min(MAX_ROUNDS, doc["rounds"]))
+    return out
+
+
+def to_yaml(graph: dict, name: str = "") -> str:
+    """The other way: a graph written as a team file a person can read and edit."""
+    import yaml
+    steps = {}
+    for n in graph.get("nodes", []):
+        if n["kind"] == "end":
+            continue
+        if n["kind"] == "check":
+            spec = {"check": n.get("command") or True}
+            if n.get("of"):
+                spec["of"] = n["of"]
+        elif n["kind"] == "join":
+            spec = {"join": True}
+        else:
+            spec = {"role": n.get("role") or "executor"}
+            for key in ("judge", "worktree", "reads", "duty"):
+                if n.get(key):
+                    spec[key] = n[key]
+        steps[n["id"]] = spec
+    if any(n["kind"] == "end" for n in graph.get("nodes", [])) and not any(e["to"] == "end" for e in graph.get("edges", [])):
+        steps["done"] = {}
+    grouped: dict[tuple, list[str]] = {}
+    for e in graph.get("edges", []):
+        grouped.setdefault((e["from"], "done" if e["to"] == "end" else e["to"]), []).append(e["when"])
+    flow = [f"{a} -> {b}" + ("" if whens == ["always"] else " if " + ", ".join(whens)) for (a, b), whens in grouped.items()]
+    doc = {"name": name or "my team", "steps": steps, "flow": flow}
+    first = next((n["id"] for n in graph.get("nodes", []) if n["kind"] != "end"), None)
+    if graph.get("start") and graph["start"] != [first]:
+        doc["start"] = graph["start"]
+    return yaml.safe_dump(doc, sort_keys=False, allow_unicode=True, width=100)
+
+
+def team_file(folder: str) -> dict | None:
+    """The team a project keeps for itself (`team.yaml`), read — or None, or `{error}`."""
+    for rel in TEAM_FILES:
+        path = Path(folder) / rel
+        if path.is_file() and path.stat().st_size < 200_000:
+            try:
+                said = from_yaml(path.read_text(encoding="utf-8", errors="replace"))
+            except ValueError as e:
+                return {"file": str(path), "error": str(e)}
+            return {"file": str(path), **said}
+    return None
+
+
 # --------------------------------------------------------------------------- packs
 
 PACK_MARK = "argus_team_pack"
@@ -724,6 +859,13 @@ def read_pack(doc) -> dict:
     is judged on its own, so one broken model does not lose the rest; what is refused comes
     back with the reason. ValueError only when the file is not a pack at all.
     """
+    if isinstance(doc, dict) and isinstance(doc.get("text"), str) and PACK_MARK not in doc:
+        # A pack sent as the text of its file, which is how a YAML one arrives.
+        import yaml
+        try:
+            doc = yaml.safe_load(doc["text"])
+        except yaml.YAMLError as e:
+            raise ValueError(f"not readable as JSON or YAML: {e}") from None
     if not isinstance(doc, dict) or doc.get(PACK_MARK) != 1:
         raise ValueError(f"not an Argus team pack: it needs \"{PACK_MARK}\": 1")
     out = {"name": str(doc.get("name") or "a team pack")[:60],

@@ -592,3 +592,73 @@ def test_a_pack_is_judged_entry_by_entry():
     assert list(said["roles"]) == ["quant analyst"], "names cleaned to the form the sheet uses"
     assert list(said["models"]) == ["ok"] and "session" not in said["models"]["ok"]["nodes"][0]
     assert sorted(r["what"] for r in said["refused"]) == ["model loops", "role lazy", f"role {'x' * 40}"]
+
+
+# ------------------------------------------------------------------ a team as YAML
+
+TRADING_YAML = """
+name: Trading strategy
+gate: ask
+rounds: 6
+steps:
+  analyst:    {role: market analyst}
+  strategist: {role: strategist, worktree: true}
+  backtest:   {check: python backtest.py --out-of-sample, of: strategist}
+  risk:       {role: risk manager, judge: true, reads: [strategist]}
+flow:
+  - analyst -> strategist
+  - strategist -> backtest
+  - backtest -> risk if PASS
+  - backtest -> strategist if FAIL
+  - risk -> strategist if OK, REDO
+  - risk -> done if DONE
+"""
+
+
+def test_a_team_written_as_yaml_is_the_graph_the_director_runs():
+    from app.teams import from_yaml
+    said = from_yaml(TRADING_YAML)
+    g = said["graph"]
+    assert said["name"] == "Trading strategy" and said["gate"] == "ask" and said["rounds"] == 6
+    assert g["start"] == ["analyst"], "the first step, unless start: says otherwise"
+    kinds = {n["id"]: n["kind"] for n in g["nodes"]}
+    assert kinds == {"analyst": "agent", "strategist": "agent", "backtest": "check", "risk": "agent", "end": "end"}
+    edges = {(e["from"], e["to"], e["when"]) for e in g["edges"]}
+    assert ("risk", "strategist", "OK") in edges and ("risk", "strategist", "REDO") in edges, "if OK, REDO is two arrows"
+    assert ("risk", "end", "DONE") in edges and ("analyst", "strategist", "always") in edges
+    check_graph(g)
+
+
+def test_yaml_and_back_is_the_same_team():
+    from app.teams import from_yaml, to_yaml
+    for key, tpl in TEMPLATES.items():
+        back = from_yaml(to_yaml(tpl["graph"], key))["graph"]
+        same = lambda g: ({(n["id"], n["kind"], n.get("role"), bool(n.get("judge"))) for n in g["nodes"]},  # noqa: E731
+                          {(e["from"], e["to"], e["when"]) for e in g["edges"]}, g["start"])
+        assert same(back) == same(tpl["graph"]), key
+
+
+def test_a_wrong_team_file_says_where():
+    from app.teams import from_yaml
+    with pytest.raises(ValueError, match=r"not readable YAML at line \d"):
+        from_yaml("steps:\n  a: {role: x\n")
+    with pytest.raises(ValueError, match="flow line 1 is not an arrow"):
+        from_yaml("steps:\n  a: {}\nflow:\n  - a goes to b\n")
+    with pytest.raises(ValueError, match="needs `steps:`"):
+        from_yaml("name: nothing\n")
+
+
+def test_the_folder_offers_its_own_team_file(tmp_path):
+    from app.teams import team_file
+    assert team_file(str(tmp_path)) is None
+    (tmp_path / "team.yaml").write_text(TRADING_YAML)
+    kept = team_file(str(tmp_path))
+    assert kept["file"].endswith("team.yaml") and kept["name"] == "Trading strategy"
+    (tmp_path / "team.yaml").write_text("steps: [1, 2]\n")
+    assert "needs `steps:`" in team_file(str(tmp_path))["error"]
+
+
+def test_a_pack_may_be_yaml():
+    from app.teams import read_pack
+    said = read_pack({"text": "argus_team_pack: 1\nname: y\nroles:\n  scout: {duty: look around}\n"})
+    assert said["roles"] == {"scout": {"duty": "look around", "judge": False}}

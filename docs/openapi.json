@@ -3077,6 +3077,52 @@
     ]
    }
   },
+  "/api/teams/yaml": {
+   "post": {
+    "description": "`{text}` \u2192 `{name, graph, gate?, rounds?, goal?}`, or 400 saying which line is wrong.\n`{graph, name}` the other way \u2192 `{text}`, a team file to keep in the project.",
+    "operationId": "postApiTeamsYaml",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Teams From Yaml Api Teams Yaml Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Read a team written as YAML",
+    "tags": [
+     "Teams"
+    ]
+   }
+  },
   "/api/teams/{team_id}": {
    "delete": {
     "operationId": "deleteApiTeamsTeamId",

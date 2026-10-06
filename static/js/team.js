@@ -90,10 +90,12 @@ export async function teamSheet({ wsId, home, onStarted }) {
   }
 
   const mine = () => prefs.teamModels || {};
+  // A team read from YAML: the project's team.yaml, or a file you opened.
+  let fileTeam = null;
   const myRoles = () => prefs.teamRoles || {};
   const choose = (key) => {
     chosen = key;
-    graph = clone(key.startsWith('mine:') ? mine()[key.slice(5)] : templates[key].graph);
+    graph = clone(key.startsWith('mine:') ? mine()[key.slice(5)] : key.startsWith('file:') ? fileTeam.graph : templates[key].graph);
     selected = null;
     for (const n of graph.nodes) if (n.kind === 'agent' && copies[n.id] === undefined) copies[n.id] = !!n.worktree;
     drawAll();
@@ -112,6 +114,7 @@ export async function teamSheet({ wsId, home, onStarted }) {
     cards.replaceChildren(
       ...Object.entries(templates).map(([key, tpl]) => card(key, t(tpl.label), t(tpl.hint), tpl.graph)),
       ...Object.entries(mine()).map(([name, g]) => card(`mine:${name}`, name, t('your model'), g, true)),
+      ...(fileTeam ? [card(`file:${fileTeam.name}`, fileTeam.name, fileTeam.where, fileTeam.graph, true)] : []),
     );
   };
 
@@ -260,13 +263,29 @@ export async function teamSheet({ wsId, home, onStarted }) {
   /* Packs: roles and models in one file, to share or to download (examples/team-packs/ in the
    *  repository). Taken in only when you choose one, into your own preferences; a name you
    *  already have is kept as yours, and what the server refused is said with its reason. */
-  const picker = el('input', { type: 'file', accept: '.json,application/json', hidden: true, className: 'teampackfile' });
+  const picker = el('input', { type: 'file', accept: '.json,.yaml,.yml,application/json', hidden: true, className: 'teampackfile' });
+  const takeTeam = (said, where) => {
+    fileTeam = { ...said, where };
+    pickedByHand = true;
+    choose(`file:${said.name}`);
+    if (said.gate) for (const r of gate.querySelectorAll('input')) r.checked = r.value === said.gate;
+    if (said.rounds) rounds.value = said.rounds;
+    if (said.goal && !goal.value.trim()) goal.value = said.goal;
+  };
   picker.onchange = async () => {
     const file = picker.files[0];
     picker.value = '';
     if (!file) return;
     try {
-      const said = await postJSON('/api/teams/pack', JSON.parse(await file.text()));
+      const text = await file.text();
+      let doc = null;
+      try { doc = JSON.parse(text); } catch { /* YAML, a pack or a team */ }
+      if (!doc && !/argus_team_pack/.test(text)) {
+        takeTeam(await postJSON('/api/teams/yaml', { text }), file.name);
+        toast(t('{name}: the team is in the picture — change it, or start it', { name: file.name }));
+        return;
+      }
+      const said = await postJSON('/api/teams/pack', doc || { text });
       const roles = myRoles();
       const models = mine();
       const kept = [];
@@ -289,8 +308,18 @@ export async function teamSheet({ wsId, home, onStarted }) {
       toast(e instanceof SyntaxError ? t('that file is not JSON') : e.message, true);
     }
   };
-  const importPack = el('button', { className: 'ghost', type: 'button', textContent: t('Import a pack…'),
-    title: t('Roles and models from a file — yours to keep, never a default'), onclick: () => picker.click() });
+  const importPack = el('button', { className: 'ghost', type: 'button', textContent: t('Open a file…'),
+    title: t('A team written as YAML, or a pack of roles and models (JSON or YAML) — yours to keep, never a default'), onclick: () => picker.click() });
+  const saveYaml = el('button', { className: 'ghost', type: 'button', textContent: t('Save as YAML'),
+    title: t('This team as a team.yaml to keep in the project, under git'), onclick: async () => {
+      try {
+        const said = await postJSON('/api/teams/yaml', { graph: bare(graph), name: chosen?.split(':').pop() || 'my team' });
+        const a = el('a', { href: URL.createObjectURL(new Blob([said.text], { type: 'text/yaml' })), download: 'team.yaml' });
+        document.body.append(a);
+        a.click();
+        a.remove();
+      } catch (e) { toast(e.message, true); }
+    } });
   const exportPack = el('button', { className: 'ghost', type: 'button', textContent: t('Export mine'),
     title: t('Your roles and models, as a pack to share'), onclick: () => {
       const pack = { argus_team_pack: 1, name: t('my team pack'), description: '', roles: myRoles(), models: mine() };
@@ -309,6 +338,11 @@ export async function teamSheet({ wsId, home, onStarted }) {
       const said = await getJSON(`/api/teams/suggest?path=${encodeURIComponent(where.value.trim())}&goal=${encodeURIComponent(goal.value)}`);
       if (mineAsk !== asking) return;
       repository = said.repository;
+      if (said.team_file?.graph && fileTeam?.where !== said.team_file.file) {
+        takeTeam(said.team_file, said.team_file.file);
+      } else if (said.team_file?.error) {
+        toast(t('{file}: {why}', { file: said.team_file.file, why: said.team_file.error }), true);
+      }
       if (!pickedByHand && said.template && said.template !== chosen && templates[said.template]) choose(said.template);
       checkList.replaceChildren(...(said.checks || []).map((c) => el('option', { value: c })));
       if (!check.dataset.touched && said.checks?.length) check.value = said.checks[said.checks.length - 1];
@@ -325,7 +359,7 @@ export async function teamSheet({ wsId, home, onStarted }) {
     cards,
     el('div', { className: 'teampicturehead' }, [
       el('label', { className: 'startlabel', textContent: t('the team — click a step to change it') }),
-      el('span', { className: 'teampackbtns' }, [saveModel, importPack, exportPack, picker])]),
+      el('span', { className: 'teampackbtns' }, [saveModel, saveYaml, importPack, exportPack, picker])]),
     picture, panel,
     el('label', { className: 'startlabel', textContent: t('in') }), where,
     el('label', { className: 'startlabel', textContent: t('who does what') }), roles,
@@ -360,7 +394,7 @@ export async function teamSheet({ wsId, home, onStarted }) {
     go.textContent = t('starting the agents…');
     try {
       const said = await postJSON('/api/teams', {
-        goal: goal.value.trim(), template: chosen?.startsWith('mine:') ? 'custom' : chosen, graph: bare(graph),
+        goal: goal.value.trim(), template: chosen?.startsWith('mine:') || chosen?.startsWith('file:') ? 'custom' : chosen, graph: bare(graph),
         path: where.value.trim(), agents: agentSpec, check: check.value.trim() || null,
         gate: gate.querySelector('input:checked')?.value || 'ask', max_rounds: Number(rounds.value) || 10, ws: wsId,
       });

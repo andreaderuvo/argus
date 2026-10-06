@@ -159,3 +159,23 @@ def test_a_pack_is_imported_from_a_file_and_keeps_your_own(make_page, argus):
     assert roles["risk manager"]["judge"] is True and "market analyst" in roles
     assert "Trading strategy" in argus.api("/api/prefs")["prefs"]["teamModels"]
     clean(argus, project)
+
+
+def test_the_projects_team_yaml_is_offered_and_starts(make_page, argus):
+    """A team.yaml in the folder becomes a card in the sheet, its picture drawn, ready to start."""
+    project = desk(argus)
+    (project / "team.yaml").write_text(
+        "name: Quick fix\nsteps:\n  fixer: {role: executor}\n  tests: {check: 'true', of: fixer}\n"
+        "flow:\n  - fixer -> tests\n  - tests -> done if PASS\n  - tests -> fixer if FAIL\n")
+    page = make_page(route="#/wall")
+    open_sheet(page, argus, "fix the thing")
+    page.wait("document.querySelector('.teamcard.on')?.textContent.includes('Quick fix')", timeout=10,
+              what="the project's own team, chosen")
+    page.wait("[...document.querySelectorAll('.teampicture .tgtext')].map(t => t.textContent).join(',') === 'fixer,tests,done'",
+              timeout=5, what="its picture")
+    page.wait("!!document.querySelector('.teamrole select')", timeout=25, what="an agent for the step")
+    start(page)
+    team = argus.api("/api/teams")["teams"][0]
+    assert [n["id"] for n in team["nodes"]] == ["fixer", "tests", "end"] and team["template"] == "custom"
+    (project / "team.yaml").unlink()
+    clean(argus, project)

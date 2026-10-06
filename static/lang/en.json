@@ -1109,6 +1109,12 @@
   "my team pack": "my team pack",
   "Say this number to an agent: “work on {n} and mark it done”": "Say this number to an agent: “work on {n} and mark it done”",
   "by {who}": "by {who}",
-  "the agent that last moved it": "the agent that last moved it"
+  "the agent that last moved it": "the agent that last moved it",
+  "{name}: the team is in the picture — change it, or start it": "{name}: the team is in the picture — change it, or start it",
+  "Open a file…": "Open a file…",
+  "A team written as YAML, or a pack of roles and models (JSON or YAML) — yours to keep, never a default": "A team written as YAML, or a pack of roles and models (JSON or YAML) — yours to keep, never a default",
+  "Save as YAML": "Save as YAML",
+  "This team as a team.yaml to keep in the project, under git": "This team as a team.yaml to keep in the project, under git",
+  "{file}: {why}": "{file}: {why}"
  }
 }

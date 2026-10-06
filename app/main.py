@@ -578,9 +578,28 @@ def create_app(cfg: Config) -> FastAPI:
         """The template a goal reads like, and the checks a folder offers (looked for, never run)."""
         folder = str(under_roots(request, path)) if path else ""
         top = await asyncio.to_thread(gitwork.top_of, folder) if folder else None
+        # The team the project keeps for itself, if it has one: team.yaml in the folder, or at the
+        # top of its repository.
+        kept = None
+        for place in dict.fromkeys(x for x in (folder, str(top) if top else "") if x):
+            kept = await asyncio.to_thread(teams.team_file, place)
+            if kept:
+                break
         return {"template": teams.suggest_template(goal),
                 "checks": await asyncio.to_thread(teams.suggest_check, str(top or folder)) if folder else [],
-                "repository": str(top) if top else None}
+                "repository": str(top) if top else None,
+                "team_file": kept}
+
+    @app.post("/api/teams/yaml", tags=["Teams"], summary="Read a team written as YAML")
+    async def teams_from_yaml(body: dict) -> dict:
+        """`{text}` → `{name, graph, gate?, rounds?, goal?}`, or 400 saying which line is wrong.
+        `{graph, name}` the other way → `{text}`, a team file to keep in the project."""
+        try:
+            if "graph" in body:
+                return {"text": teams.to_yaml(body["graph"], str(body.get("name") or ""))}
+            return teams.from_yaml(str(body.get("text") or ""))
+        except (ValueError, KeyError, TypeError) as e:
+            raise ApiError(400, str(e)) from e
 
     @app.post("/api/teams", tags=["Teams"], summary="Start a team of agents on a goal")
     async def teams_create(request: Request, body: dict) -> dict:
