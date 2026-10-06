@@ -439,7 +439,6 @@ details p { color: var(--ink2); margin-top: 10px; max-width: 68ch; }
         <li><h3>Desks, not tabs</h3><p>Terminals, folders and documents side by side, one desk per project, kept between visits.</p></li>
         <li><h3>Select, and hand it over</h3><p>Select what one agent said and a button offers the other sessions of the desk. While you write a prompt, one press sends it to another agent as well.</p></li>
         <li><h3>Start an agent from the page</h3><p>In a folder, with its first instruction, and its options in words: what it may do without asking, which model, how hard it thinks.</p></li>
-        <li><h3>A team on one goal</h3><p>Agents take turns to optimise a tool, fix a bug or write a report. Tests or a benchmark run between turns, and the numbers decide. Three or more agents make a graph: branches in parallel, a reviewer that keeps the better one.</p></li>
       </ul>
       <svg class="sketch" viewBox="0 0 600 330" role="img" aria-labelledby="s4t">
         <title id="s4t">A saved prompt card called Referee being dragged onto a second agent's session, where it is typed and waits for Enter.</title>
@@ -468,11 +467,74 @@ details p { color: var(--ink2); margin-top: 10px; max-width: 68ch; }
   </div>
 </section>
 
+<section id="team" aria-labelledby="team-h">
+  <div class="wrap">
+    <div class="head">
+      <span class="win"><b>4:team*</b></span>
+      <h2 id="team-h">A team of agents on one goal.</h2>
+      <p>Write the goal in words and pick a shape. Argus prompts each agent in turn, runs your tests or your
+        benchmark between turns, and moves on from the numbers and the reviewer's verdict. It keeps going with
+        every browser shut.</p>
+    </div>
+    <div class="pair wide flip">
+      <ul class="points">
+        <li><h3>A graph, not a chat</h3><p>Steps and arrows. Two agents try two ideas at once, each in its own git worktree, and a join waits for both before the reviewer keeps the better one.</p></li>
+        <li><h3>The numbers decide</h3><p>A check is a command: tests, a benchmark. Its exit code says pass or fail, and a failure goes straight back to the agent with the output in front of it.</p></li>
+        <li><h3>Change it with clicks</h3><p>Start from Optimise, Tournament, Fix a bug, Feature with tests, Build and review or Write. Click a step to change it, add one in parallel, redirect an arrow, and save the shape as your own.</p></li>
+        <li><h3>As much on its own as you like</h3><p>A press at every round, until something fails, or until the goal is met. Every turn is written to <code>TEAM.argus.md</code> in the project.</p></li>
+      </ul>
+      <svg class="sketch" viewBox="0 0 640 340" role="img" aria-labelledby="s6t">
+        <title id="s6t">A team drawn as a graph: a planner hands two ideas to two executors working in parallel, each checked by a benchmark, then a join and a reviewer who keeps the faster one; a dashed arrow back to the planner starts the next round.</title>
+        <g filter="url(#rough)">
+          <rect class="l thin soft fillp" x="14" y="14" width="612" height="40" rx="8"/>
+          <rect class="l fill2" x="14" y="140" width="100" height="46" rx="8"/>
+          <rect class="l fill2" x="150" y="86" width="118" height="48" rx="8"/>
+          <rect class="l fill2" x="150" y="196" width="118" height="48" rx="8"/>
+          <rect class="l thin dash fillp" x="302" y="86" width="112" height="48" rx="6"/>
+          <rect class="l thin dash fillp" x="302" y="196" width="112" height="48" rx="6"/>
+          <rect class="l fill2" x="430" y="152" width="20" height="20" transform="rotate(45 440 162)"/>
+          <rect class="l fill2" x="470" y="140" width="100" height="46" rx="8"/>
+          <rect class="l work" x="584" y="149" width="48" height="26" rx="13"/>
+        </g>
+        <g fill="none" stroke-width="1.8" style="stroke: var(--ink3)">
+          <path d="M114 163 C132 163 132 110 147 110" marker-end="url(#arr)"/>
+          <path d="M114 163 C132 163 132 220 147 220" marker-end="url(#arr)"/>
+          <path d="M268 110 H299" marker-end="url(#arr)"/>
+          <path d="M268 220 H299" marker-end="url(#arr)"/>
+          <path d="M414 110 C440 110 440 122 440 145" marker-end="url(#arr)"/>
+          <path d="M414 220 C440 220 440 208 440 180" marker-end="url(#arr)"/>
+          <path d="M455 162 H467" marker-end="url(#arr)"/>
+          <path d="M570 162 H581" marker-end="url(#arr)"/>
+        </g>
+        <path d="M520 188 C520 340 64 340 64 190" fill="none" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#arr)" style="stroke: var(--wait)"/>
+        <text class="dim" x="28" y="39" font-size="11.5">goal</text>
+        <text x="66" y="39" font-size="13">make the aligner faster, same results</text>
+        <text x="26" y="160" font-size="12.5">planner</text>
+        <text class="dim" x="26" y="177" font-size="10.5">claude</text>
+        <text x="162" y="106" font-size="12.5">executor-a</text>
+        <text class="dim" x="162" y="123" font-size="10.5">claude</text>
+        <text x="162" y="216" font-size="12.5">executor-b</text>
+        <text class="dim" x="162" y="233" font-size="10.5">codex</text>
+        <text class="dim" x="314" y="106" font-size="10.5">cargo bench</text>
+        <text class="teal" x="314" y="124" font-size="12">41.2 s  pass</text>
+        <text class="dim" x="314" y="216" font-size="10.5">cargo bench</text>
+        <text class="teal" x="314" y="234" font-size="12">33.8 s  pass</text>
+        <text x="482" y="160" font-size="12.5">reviewer</text>
+        <text class="teal" x="482" y="177" font-size="10.5">keeps b</text>
+        <text class="teal" x="608" y="166" font-size="10.5" text-anchor="middle">done</text>
+        <text class="dim" x="292" y="332" font-size="11" text-anchor="middle">redo · the next round</text>
+        <text class="hand" x="150" y="78">two ideas, two worktrees</text>
+        <text class="hand ink" x="300" y="272">the numbers decide</text>
+      </svg>
+    </div>
+  </div>
+</section>
+
 <section id="phone" aria-labelledby="phone-h">
   <div class="wrap">
     <div class="pair flip">
       <div class="head">
-        <span class="win"><b>4:phone*</b></span>
+        <span class="win"><b>5:phone*</b></span>
         <h2 id="phone-h">Your desk, in your pocket.</h2>
         <p>It is the session that was already running, not a copy of it. You get a key bar for the keys a phone
           has not got, a long press to open a path, and a box to write a line in when the keyboard fights the
@@ -515,7 +577,7 @@ details p { color: var(--ink2); margin-top: 10px; max-width: 68ch; }
 <section id="more" aria-labelledby="more-h">
   <div class="wrap">
     <div class="head">
-      <span class="win"><b>5:more*</b></span>
+      <span class="win"><b>6:more*</b></span>
       <h2 id="more-h">Everything an agent's work points at.</h2>
     </div>
     <div class="list">
@@ -535,7 +597,7 @@ details p { color: var(--ink2); margin-top: 10px; max-width: 68ch; }
 <section id="yours" aria-labelledby="yours-h">
   <div class="wrap">
     <div class="head">
-      <span class="win"><b>6:yours*</b></span>
+      <span class="win"><b>7:yours*</b></span>
       <h2 id="yours-h">It runs on your machine, and nothing leaves it.</h2>
     </div>
     <div class="three">
@@ -550,7 +612,7 @@ details p { color: var(--ink2); margin-top: 10px; max-width: 68ch; }
 <section id="install" aria-labelledby="install-h">
   <div class="wrap">
     <div class="head">
-      <span class="win"><b>7:install*</b></span>
+      <span class="win"><b>8:install*</b></span>
       <h2 id="install-h">Running in a minute.</h2>
       <p>Linux and macOS, or Windows through WSL or Docker. It needs Python 3.11 or newer and tmux, and it prints
         a link: open it, or scan its QR code with your phone.</p>
@@ -583,7 +645,7 @@ python3 -m app.main          <span class="c"># prints a URL with a token in it</
 <section id="faq" aria-labelledby="faq-h">
   <div class="wrap">
     <div class="head">
-      <span class="win"><b>8:faq*</b></span>
+      <span class="win"><b>9:faq*</b></span>
       <h2 id="faq-h">Before you try it.</h2>
     </div>
     <div class="faq">
