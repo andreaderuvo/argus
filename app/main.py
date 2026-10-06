@@ -338,7 +338,7 @@ class TeamIO:
         asks first. An agent with no such argument (a script, a shell) is started and typed into."""
         sock = self.app.state.socket
         folder = n.get("folder") or team["folder"]
-        program = agentflags.program_of(n["launch"]) or ""
+        program = os.path.basename(agentflags.program_of(n["launch"]) or "")
         trust.trust(folder, program)
         line = trust.with_first_prompt(n["launch"], program, prompt)
         launch.start(sock, n["session"], folder, line or n["launch"])
