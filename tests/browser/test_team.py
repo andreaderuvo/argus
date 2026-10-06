@@ -327,3 +327,27 @@ def test_the_team_line_survives_the_desk_being_put_back(make_page, argus):
     page.eval("location.hash = '#/wall'")
     page.wait("!!document.querySelector('#view .teamstrip .teamline') && !!document.querySelector('#view .teamwin svg')", timeout=8, what="and back from another screen")
     clean(argus, project)
+
+
+def test_the_team_window_keeps_your_place_and_puts_the_newest_first(make_page, argus):
+    project = desk(argus)
+    page = make_page(route="#/wall")
+    open_sheet(page, argus, "fix the crash")
+    page.wait("!!document.querySelector('.teamrole select')", timeout=25, what="an agent")
+    page.eval("(() => { const c = document.querySelector('.teamcheck input'); c.value = 'true'; c.dispatchEvent(new Event('input')); })()")
+    start(page)
+    page.wait("document.querySelectorAll('.teamwin .teamstory li').length >= 2", timeout=10, what="the story")
+    first = page.eval("document.querySelector('.teamwin .teamstory li').textContent")
+    last = page.eval("[...document.querySelectorAll('.teamwin .teamstory li')].pop().textContent")
+    assert "turn" in first and "started from" in last, "the newest on top"
+    # Scrolled down, it stays where it is across the window's refreshes.
+    page.eval("(() => { const b = document.querySelector('.teamwin'); b.style.height = '120px'; b.style.flex = 'none'; })()")
+    page.wait("(() => { const b = document.querySelector('.teamwin'); return b.scrollHeight > b.clientHeight + 40; })()", timeout=5,
+              what="a window short enough to scroll")
+    page.eval("document.querySelector('.teamwin').scrollTop = 40")
+    at = page.eval("document.querySelector('.teamwin').scrollTop")
+    assert at > 0, page.eval("(() => { const b = document.querySelector('.teamwin'); return [b.scrollHeight, b.clientHeight, getComputedStyle(b).overflowY]; })()")
+    import time
+    time.sleep(7)
+    assert page.eval("document.querySelector('.teamwin').scrollTop") == at, "not thrown back to the top"
+    clean(argus, project)

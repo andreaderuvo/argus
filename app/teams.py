@@ -44,6 +44,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 LOG_NAME = "TEAM.argus.md"
+START_GRACE = 45          # seconds an agent just started has to begin working before you are told
 NUDGE_AFTER = 120          # s an agent may sit waiting without writing its turn before a reminder
 GIVE_UP_AFTER = 300        # …and before the person is asked
 TAIL_LINES = 25            # of a check's output, into the log
@@ -515,6 +516,21 @@ class Director:
             st = self.io.state(n["session"])
             quiet = bool(st) and st[0] == "waiting"
             waited = self.io.now() - state["since"]
+            if st and st[0] == "working":
+                state["worked"] = True
+            # An agent just started that has not begun working: its first prompt, given on its
+            # command line, may be sitting in its box behind a question it asked first (a
+            # permissions warning, a hooks review). Pressing Enter for it would be a key typed
+            # blind into whatever is on screen — so the person is told where to look, once.
+            if state.get("fresh") and not state.get("worked") and waited > START_GRACE and not state.get("told_start"):
+                state["told_start"] = True
+                self._note(team, f"{nid} has not started: its first prompt may be waiting for Enter in its window")
+                self.io.ring("asking", f"Team {team['name']}: {nid} has not started — its prompt may be waiting "
+                                       f"for Enter in {n['session']}", n["session"])
+                changed = True
+                continue
+            if state.get("fresh") and not state.get("worked"):
+                continue                                  # not reminded of a turn it never began
             if quiet and waited > NUDGE_AFTER and not state["nudged"]:
                 state["nudged"] = True
                 self.io.send(n["session"], f"You stopped without writing your turn in {team['log']}. "
@@ -577,6 +593,7 @@ class Director:
         # (io.launch): typed into a session still asking "trust this folder?", it was lost.
         if n.get("launch") and nid not in team.setdefault("launched", []):
             team["launched"].append(nid)
+            team["running"][nid]["fresh"] = True      # just started: see START_GRACE in _tick
             self.io.launch(team, n, text)
         else:
             self.io.send(n["session"], text)

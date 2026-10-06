@@ -760,3 +760,33 @@ def test_a_second_team_of_the_same_name_gets_a_number(tmp_path, monkeypatch):
     assert first["name"] == "Kraken-reversal-paper" and second["name"] == "Kraken-reversal-paper-2"
     assert {n["session"] for n in second["nodes"] if n.get("session")} == {"Kraken-reversal-paper-2-executor", "Kraken-reversal-paper-2-check"}
     subprocess.run(["tmux", "-L", cfg.tmux_socket, "kill-server"], capture_output=True)
+
+
+def test_an_agent_started_that_never_begins_is_said_once_never_typed_into(setup):
+    """Its first prompt rides on its command line; when it sits there behind a question the agent
+    asked, Argus says where to look instead of pressing Enter blind."""
+    d, io, tmp = setup
+    graph = fill_graph(TEMPLATES["fix"]["graph"], "t", {}, default_check="true")
+    for n in graph["nodes"]:
+        if n["kind"] == "agent":
+            n["launch"] = "claude"
+    team = d.create(name="t", goal="g", folder=str(tmp), graph=graph, template="fix", gate="goal", max_rounds=3)
+    assert io.launched == ["t-executor"]
+    rings = []
+    io.ring = lambda why, text, session: rings.append(text)
+    io.state = lambda session: ("waiting", 0)
+    t0 = io.now()
+    io.now = lambda: t0 + 50
+    sent = len(io.sent)
+    d.tick()
+    assert len(rings) == 1 and "has not started" in rings[0] and "t-executor" in rings[0]
+    io.now = lambda: t0 + 400
+    d.tick()
+    assert len(rings) == 1 and len(io.sent) == sent, "said once, and nothing typed into it — no reminder either"
+    # Once it has worked, the ordinary reminder applies again.
+    io.state = lambda session: ("working", 0)
+    d.tick()
+    io.state = lambda session: ("waiting", 0)
+    io.now = lambda: t0 + 600
+    d.tick()
+    assert len(io.sent) == sent + 1 and "stopped without writing your turn" in io.sent[-1][1]

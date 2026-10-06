@@ -728,18 +728,31 @@ export function attachTeam(host, spec, setLabel, { openLog }) {
   host.replaceChildren(box);
   let story = true;
   let busy = false;
-  const refresh = async () => {
+  let drawn = '';
+  const refresh = async (force = false) => {
     if (busy) return;
     busy = true;
     try {
       const said = await getJSON('/api/teams');
       const team = (said.teams || []).find((x) => x.id === spec.id);
-      if (!team) {
-        box.replaceChildren(el('p', { className: 'meta', textContent: t('this team has been forgotten — close the window') }));
-      } else {
-        setLabel?.(team.name, team.goal);
-        box.replaceChildren(...drawTeam(team, { graph: 'large', story, refresh, openLog,
-          toggleStory: () => { story = !story; refresh(); } }));
+      // Drawn again only when something changed — the team, or an agent's working/waiting —
+      // and where you had scrolled to is kept: redrawn every three seconds, the story you were
+      // reading jumped back to the top each time.
+      const states = team ? team.nodes.map((n) => agentStates.get(n.session)?.state || '').join() : '';
+      const now = JSON.stringify([team, story, states]);
+      if (force || now !== drawn) {
+        drawn = now;
+        const keep = [box.scrollTop, box.querySelector('.teamchain')?.scrollLeft || 0];
+        if (!team) {
+          box.replaceChildren(el('p', { className: 'meta', textContent: t('this team has been forgotten — close the window') }));
+        } else {
+          setLabel?.(team.name, team.goal);
+          box.replaceChildren(...drawTeam(team, { graph: 'large', story, refresh: () => refresh(true), openLog,
+            toggleStory: () => { story = !story; refresh(true); } }));
+        }
+        box.scrollTop = keep[0];
+        const chain = box.querySelector('.teamchain');
+        if (chain) chain.scrollLeft = keep[1];
       }
     } catch { /* asked again in a moment */ }
     busy = false;
