@@ -662,3 +662,12 @@ def test_a_pack_may_be_yaml():
     from app.teams import read_pack
     said = read_pack({"text": "argus_team_pack: 1\nname: y\nroles:\n  scout: {duty: look around}\n"})
     assert said["roles"] == {"scout": {"duty": "look around", "judge": False}}
+
+
+def test_a_web_page_saved_instead_of_the_file_says_so():
+    """What happened on 2026-10-06: 'Save as' on GitHub's page gave its HTML, read as broken YAML."""
+    from app.teams import read_pack, example_packs
+    with pytest.raises(ValueError, match="web page, not a pack .* Raw"):
+        read_pack({"text": "<!DOCTYPE html>\n<html><style>--tab-size-preference: 4;</style> argus_team_pack"})
+    names = {p["id"] for p in example_packs()}
+    assert {"trading", "security-review", "paper-review"} <= names

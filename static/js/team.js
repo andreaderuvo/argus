@@ -272,6 +272,29 @@ export async function teamSheet({ wsId, home, onStarted }) {
     if (said.rounds) rounds.value = said.rounds;
     if (said.goal && !goal.value.trim()) goal.value = said.goal;
   };
+  // Take a pack in: what the server let through goes into your preferences, a name you already
+  // have stays yours, and what was refused is said with its reason.
+  const takePack = async (doc) => {
+    const said = await postJSON('/api/teams/pack', doc);
+    const roles = myRoles();
+    const models = mine();
+    const kept = [];
+    let took = 0;
+    for (const [name, role] of Object.entries(said.roles)) {
+      if (roles[name]) kept.push(name); else { roles[name] = role; took++; }
+    }
+    for (const [name, g] of Object.entries(said.models)) {
+      if (models[name]) kept.push(name); else { models[name] = g; took++; }
+    }
+    prefs.teamRoles = roles;
+    prefs.teamModels = models;
+    savePrefs();
+    drawAll();
+    const parts = [t('{pack}: {n} roles and models taken in', { pack: said.name, n: took })];
+    if (kept.length) parts.push(t('yours kept: {names}', { names: kept.join(', ') }));
+    if (said.refused.length) parts.push(t('refused: {what}', { what: said.refused.map((r) => `${r.what} (${r.why})`).join('; ') }));
+    toast(parts.join(' · '), !!said.refused.length);
+  };
   picker.onchange = async () => {
     const file = picker.files[0];
     picker.value = '';
@@ -285,25 +308,7 @@ export async function teamSheet({ wsId, home, onStarted }) {
         toast(t('{name}: the team is in the picture — change it, or start it', { name: file.name }));
         return;
       }
-      const said = await postJSON('/api/teams/pack', doc || { text });
-      const roles = myRoles();
-      const models = mine();
-      const kept = [];
-      let took = 0;
-      for (const [name, role] of Object.entries(said.roles)) {
-        if (roles[name]) kept.push(name); else { roles[name] = role; took++; }
-      }
-      for (const [name, g] of Object.entries(said.models)) {
-        if (models[name]) kept.push(name); else { models[name] = g; took++; }
-      }
-      prefs.teamRoles = roles;
-      prefs.teamModels = models;
-      savePrefs();
-      drawAll();
-      const parts = [t('{pack}: {n} roles and models taken in', { pack: said.name, n: took })];
-      if (kept.length) parts.push(t('yours kept: {names}', { names: kept.join(', ') }));
-      if (said.refused.length) parts.push(t('refused: {what}', { what: said.refused.map((r) => `${r.what} (${r.why})`).join('; ') }));
-      toast(parts.join(' · '), !!said.refused.length);
+      await takePack(doc || { text });
     } catch (e) {
       toast(e instanceof SyntaxError ? t('that file is not JSON') : e.message, true);
     }
@@ -319,6 +324,17 @@ export async function teamSheet({ wsId, home, onStarted }) {
         a.click();
         a.remove();
       } catch (e) { toast(e.message, true); }
+    } });
+  // The examples this copy ships, one press each: nothing to find or download.
+  const examples = el('button', { className: 'ghost', type: 'button', textContent: t('Examples…'),
+    title: t('Ready-made packs of roles and models — taken in only if you pick one'), onclick: async () => {
+      let packs = [];
+      try { packs = (await getJSON('/api/teams/packs')).packs || []; } catch (e) { toast(e.message, true); return; }
+      const box = el('div', { className: 'sheetbody' }, packs.map((p) => el('button', {
+        className: 'ghost block teamexample', type: 'button',
+        onclick: async () => { list.close(); try { await takePack(p.pack); } catch (e) { toast(e.message, true); } },
+      }, [el('span', { className: 'name', textContent: p.name }), el('span', { className: 'meta', textContent: p.description })])));
+      const list = modal(t('Example packs'), box, [el('button', { className: 'ghost', textContent: t('Close'), onclick: () => list.close() })]);
     } });
   const exportPack = el('button', { className: 'ghost', type: 'button', textContent: t('Export mine'),
     title: t('Your roles and models, as a pack to share'), onclick: () => {
@@ -359,7 +375,7 @@ export async function teamSheet({ wsId, home, onStarted }) {
     cards,
     el('div', { className: 'teampicturehead' }, [
       el('label', { className: 'startlabel', textContent: t('the team — click a step to change it') }),
-      el('span', { className: 'teampackbtns' }, [saveModel, saveYaml, importPack, exportPack, picker])]),
+      el('span', { className: 'teampackbtns' }, [saveModel, saveYaml, examples, importPack, exportPack, picker])]),
     picture, panel,
     el('label', { className: 'startlabel', textContent: t('in') }), where,
     el('label', { className: 'startlabel', textContent: t('who does what') }), roles,

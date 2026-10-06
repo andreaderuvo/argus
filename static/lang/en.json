@@ -1117,6 +1117,9 @@
   "This team as a team.yaml to keep in the project, under git": "This team as a team.yaml to keep in the project, under git",
   "{file}: {why}": "{file}: {why}",
   "with changes not committed": "with changes not committed",
-  "a newer commit is on disk — restart Argus to run it": "a newer commit is on disk — restart Argus to run it"
+  "a newer commit is on disk — restart Argus to run it": "a newer commit is on disk — restart Argus to run it",
+  "Examples…": "Examples…",
+  "Ready-made packs of roles and models — taken in only if you pick one": "Ready-made packs of roles and models — taken in only if you pick one",
+  "Example packs": "Example packs"
  }
 }

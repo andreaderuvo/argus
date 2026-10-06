@@ -179,3 +179,15 @@ def test_the_projects_team_yaml_is_offered_and_starts(make_page, argus):
     assert [n["id"] for n in team["nodes"]] == ["fixer", "tests", "end"] and team["template"] == "custom"
     (project / "team.yaml").unlink()
     clean(argus, project)
+
+
+def test_an_example_pack_is_one_press_away(make_page, argus):
+    project = desk(argus)
+    page = make_page(route="#/wall")
+    open_sheet(page, argus, "a strategy")
+    page.click_at(*page._center("[...document.querySelectorAll('.teampackbtns button')].find(b => b.textContent === 'Examples…')"))
+    page.wait("!!document.querySelector('.teamexample')", timeout=10, what="the examples")
+    page.click_at(*page._center("[...document.querySelectorAll('.teamexample')].find(b => b.textContent.includes('Trading research'))"))
+    page.wait("[...document.querySelectorAll('.teamcard.mine')].some(c => c.textContent.includes('Trading strategy'))", timeout=10,
+              what="its model, as a card of yours")
+    clean(argus, project)

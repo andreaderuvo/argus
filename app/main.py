@@ -560,6 +560,11 @@ def create_app(cfg: Config) -> FastAPI:
         except Exception:
             return {"states": {}}
 
+    @app.get("/api/teams/packs", tags=["Teams"], summary="The example team packs this copy ships")
+    async def example_team_packs() -> dict:
+        """examples/team-packs/: offered in the team sheet, taken in only when you press one."""
+        return {"packs": await asyncio.to_thread(teams.example_packs)}
+
     @app.post("/api/teams/pack", tags=["Teams"], summary="Check a team pack before taking it in")
     async def check_team_pack(body: dict) -> dict:
         """A team pack (roles and models in one file) read and judged: what can be taken in, and

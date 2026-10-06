@@ -1117,6 +1117,9 @@
   "This team as a team.yaml to keep in the project, under git": "Questo team come team.yaml da tenere nel progetto, sotto git",
   "{file}: {why}": "{file}: {why}",
   "with changes not committed": "con modifiche non committate",
-  "a newer commit is on disk — restart Argus to run it": "sul disco c’è un commit più nuovo — riavvia Argus per usarlo"
+  "a newer commit is on disk — restart Argus to run it": "sul disco c’è un commit più nuovo — riavvia Argus per usarlo",
+  "Examples…": "Esempi…",
+  "Ready-made packs of roles and models — taken in only if you pick one": "Pacchetti pronti di ruoli e modelli — presi solo se ne scegli uno",
+  "Example packs": "Pacchetti di esempio"
  }
 }

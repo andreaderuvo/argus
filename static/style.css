@@ -3793,3 +3793,5 @@ dialog.sheet.teamsheet { width: min(980px, 96vw); max-width: none; }
 .todonum { font: 600 .78rem/1 ui-monospace, "SF Mono", Menlo, monospace; color: var(--dim); min-width: 2.4em; }
 .todoby { font-size: .75rem; color: var(--accent); white-space: nowrap; }
 .row.setting .meta.warn { color: var(--st-warning); }
+.teamexample { display: grid; gap: .15rem; text-align: left; }
+.teamexample .meta { font-size: .8rem; color: var(--dim); white-space: normal; }

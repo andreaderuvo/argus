@@ -861,6 +861,9 @@ def read_pack(doc) -> dict:
     """
     if isinstance(doc, dict) and isinstance(doc.get("text"), str) and PACK_MARK not in doc:
         # A pack sent as the text of its file, which is how a YAML one arrives.
+        if re.match(r"\s*(<!doctype html|<html)", doc["text"], re.I):
+            raise ValueError("this is a web page, not a pack — on GitHub, open the file and use Raw "
+                             "(or Download raw file); or pick one of the examples in the sheet")
         import yaml
         try:
             doc = yaml.safe_load(doc["text"])
@@ -898,6 +901,23 @@ def read_pack(doc) -> dict:
             out["refused"].append({"what": f"model {name}", "why": str(e)})
             continue
         out["models"][name] = g
+    return out
+
+
+EXAMPLES = Path(__file__).resolve().parent.parent / "examples" / "team-packs"
+
+
+def example_packs() -> list[dict]:
+    """The packs shipped in examples/team-packs/, offered in the sheet to take in with a press —
+    still a choice, never a default — so nobody has to find a raw file on GitHub."""
+    out = []
+    for path in sorted(EXAMPLES.glob("*.json")):
+        try:
+            doc = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        out.append({"id": path.stem, "name": str(doc.get("name") or path.stem),
+                    "description": str(doc.get("description") or ""), "pack": doc})
     return out
 
 
