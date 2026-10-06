@@ -4,7 +4,15 @@
 # (the version in the checkout it runs from); says nothing if Argus is not there or is slow.
 set -u
 CONF="${ARGUS_CONFIG:-$HOME/.config/argus/config.yaml}"
-URL="${ARGUS_URL:-http://127.0.0.1:8090}"
+# Where this machine's Argus answers: the config's own `listen` and, with a certificate, https —
+# always on loopback. A fixed http://127.0.0.1:8090 missed every Argus on another port or over TLS
+# (2026-10-07: an Argus on https never heard a single hook).
+LISTEN="$(sed -n 's/^listen:[[:space:]]*//p' "$CONF" 2>/dev/null | head -1 | tr -d "\"'")"
+[ -n "$LISTEN" ] || LISTEN=127.0.0.1:8080
+LISTEN="$(printf '%s' "$LISTEN" | sed 's/^0\.0\.0\.0:/127.0.0.1:/; s/^\[::\]:/127.0.0.1:/')"
+CERT="$(sed -n 's/^tls_cert:[[:space:]]*//p' "$CONF" 2>/dev/null | head -1 | tr -d "\"'")"
+case "$CERT" in ""|null|"~") SCHEME=http ;; *) SCHEME=https ;; esac
+URL="${ARGUS_URL:-$SCHEME://$LISTEN}"
 TOKEN="${ARGUS_TOKEN:-$(sed -n 's/^token:[[:space:]]*//p' "$CONF" 2>/dev/null | head -1)}"
 [ -n "$TOKEN" ] || exit 0
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
@@ -13,10 +21,10 @@ MINE="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['version
 # This session runs plugin $MINE: said to Argus, which marks the window when that falls behind.
 if [ -n "${TMUX:-}" ]; then
   SESSION="$(tmux display -p '#S' 2>/dev/null || true)"
-  [ -n "$SESSION" ] && curl -s -m 2 -o /dev/null -X POST "$URL/api/plugin/seen" -H "Authorization: Bearer $TOKEN" \
+  [ -n "$SESSION" ] && curl -sk -m 2 -o /dev/null -X POST "$URL/api/plugin/seen" -H "Authorization: Bearer $TOKEN" \
     -H 'Content-Type: application/json' -d "{\"session\":\"$SESSION\",\"version\":\"$MINE\"}" 2>/dev/null
 fi
-OFFERED="$(curl -s -m 2 -H "Authorization: Bearer $TOKEN" "$URL/api/plugin/version" 2>/dev/null \
+OFFERED="$(curl -sk -m 2 -H "Authorization: Bearer $TOKEN" "$URL/api/plugin/version" 2>/dev/null \
   | python3 -c "import json,sys; print(json.load(sys.stdin).get('version',''))" 2>/dev/null)"
 [ -n "$OFFERED" ] || exit 0
 python3 - "$MINE" "$OFFERED" <<'PY'

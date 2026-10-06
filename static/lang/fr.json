@@ -1193,6 +1193,14 @@
   "The team in a window of the desk, live": "L’équipe dans une fenêtre du bureau, en direct",
   "this team has been forgotten — close the window": "cette équipe a été oubliée — ferme la fenêtre",
   "a team": "une équipe",
-  "A team of agents, live": "Une équipe d’agents, en direct"
+  "A team of agents, live": "Une équipe d’agents, en direct",
+  "A Mermaid flowchart: id[\"role\"] an agent (add \"· judges\" for a judge), id{{\"command\"}} a check, id{join} a join, done the end. Arrows: a --> b, a -->|PASS| b, a -->|OK, REDO| b, a --> b & c. Duties are kept from the team; edit them in YAML.": "Un organigramme Mermaid : id[\"rôle\"] un agent (ajoutez « · judges » pour un juge), id{{\"commande\"}} une vérification, id{join} une jonction, done la fin. Flèches : a --> b, a -->|PASS| b, a -->|OK, REDO| b, a --> b & c. Les missions sont gardées de l’équipe ; modifiez-les en YAML.",
+  "Diagram (Mermaid)": "Diagramme (Mermaid)",
+  "More: who runs each step, permissions, rounds, files and packs": "Plus : qui fait chaque étape, permissions, tours, fichiers et packs",
+  "The whole team as YAML: steps, duties, arrows, the goal, the gate and the rounds.": "Toute l'équipe en YAML : étapes, missions, flèches, l'objectif, le contrôle et les tours.",
+  "This team as a Mermaid diagram or as YAML: change it by hand and apply it": "Cette équipe en diagramme Mermaid ou en YAML : modifiez-la à la main et appliquez",
+  "the team as a file": "l'équipe en fichier",
+  "tournament, split the work, feature with tests": "tournoi, partager le travail, fonctionnalité avec tests",
+  "{n} more…": "{n} de plus…"
  }
 }

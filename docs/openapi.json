@@ -3148,6 +3148,143 @@
     ]
    }
   },
+  "/api/teams/done": {
+   "post": {
+    "description": "`{session, summary, status?, details?}` \u2014 the MCP tool `team_done` and `argus-say turn`.\nChecked (a judge must say OK, REDO, DONE or BLOCKED; only on its turn; once per turn), then\nwritten into the team's log by Argus as the canonical turn, which the director reads.",
+    "operationId": "postApiTeamsDone",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Team Done Api Teams Done Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "An agent reports its turn",
+    "tags": [
+     "Teams"
+    ]
+   }
+  },
+  "/api/teams/expecting": {
+   "get": {
+    "description": "For the plugin's Stop guard: `{expecting, reason}` \u2014 true while the agent in this session has\na turn it has not reported, at most twice per turn.",
+    "operationId": "getApiTeamsExpecting",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "session",
+      "required": true,
+      "schema": {
+       "title": "Session",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Team Expecting Api Teams Expecting Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Is this agent stopping before reporting its turn?",
+    "tags": [
+     "Teams"
+    ]
+   }
+  },
+  "/api/teams/mermaid": {
+   "post": {
+    "description": "`{text, base?, preview?}` \u2192 `{graph}`, or 400 naming the line (`{error}` with `preview`). `base` is the team being edited: what a\nflowchart cannot say (a step's duty, worktree, reads) is kept from it. `{graph}` the other way\n\u2192 `{text}`, the flowchart to start editing from (teammermaid.py has the subset understood).",
+    "operationId": "postApiTeamsMermaid",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Teams From Mermaid Api Teams Mermaid Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Read a team drawn as a Mermaid flowchart",
+    "tags": [
+     "Teams"
+    ]
+   }
+  },
   "/api/teams/pack": {
    "post": {
     "description": "A team pack (roles and models in one file) read and judged: what can be taken in, and\nwhat is refused with the reason. Nothing is stored \u2014 the page puts what passed into your\nown preferences, beside what you made yourself.",
@@ -3269,6 +3406,51 @@
      }
     },
     "summary": "What a goal and a folder suggest for a team",
+    "tags": [
+     "Teams"
+    ]
+   }
+  },
+  "/api/teams/task": {
+   "get": {
+    "description": "What the MCP tool `team_task` answers: for the agent in this tmux session \u2014 its team, goal,\nrole, duty, round, folder, whether it is its turn, what the steps before it said last, the\nlast check, and how to finish. `{none: true}` when no team has an agent there.",
+    "operationId": "getApiTeamsTask",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "session",
+      "required": true,
+      "schema": {
+       "title": "Session",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Team Task Api Teams Task Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "An agent's task in its team, structured",
     "tags": [
      "Teams"
     ]

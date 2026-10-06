@@ -97,3 +97,12 @@ def test_an_empty_file_does_not_count_as_arrived(tmp_path, monkeypatch):
     got, left = Argus(base="http://x", token="t").wait_for(
         [empty], until=argus_client.time.monotonic() + 0.2)
     assert got == [] and left == [empty]
+
+
+def test_an_argus_with_a_certificate_is_called_over_https(config):
+    config("listen: 0.0.0.0:8090\ntoken: mmmm\ntls_cert: /etc/c.pem\ntls_key: /etc/k.pem\n")
+    assert credentials()[0] == "https://127.0.0.1:8090"
+    config("listen: 0.0.0.0:8090\ntoken: mmmm\ntls_cert: null\n")
+    assert credentials()[0] == "http://127.0.0.1:8090"
+    assert argus_client._loopback_tls("https://127.0.0.1:8090") is not None, "its certificate names the public host"
+    assert argus_client._loopback_tls("https://example.org") is None, "anything else is checked"

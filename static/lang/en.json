@@ -1193,6 +1193,14 @@
   "The team in a window of the desk, live": "The team in a window of the desk, live",
   "this team has been forgotten — close the window": "this team has been forgotten — close the window",
   "a team": "a team",
-  "A team of agents, live": "A team of agents, live"
+  "A team of agents, live": "A team of agents, live",
+  "A Mermaid flowchart: id[\"role\"] an agent (add \"· judges\" for a judge), id{{\"command\"}} a check, id{join} a join, done the end. Arrows: a --> b, a -->|PASS| b, a -->|OK, REDO| b, a --> b & c. Duties are kept from the team; edit them in YAML.": "A Mermaid flowchart: id[\"role\"] an agent (add \"· judges\" for a judge), id{{\"command\"}} a check, id{join} a join, done the end. Arrows: a --> b, a -->|PASS| b, a -->|OK, REDO| b, a --> b & c. Duties are kept from the team; edit them in YAML.",
+  "Diagram (Mermaid)": "Diagram (Mermaid)",
+  "More: who runs each step, permissions, rounds, files and packs": "More: who runs each step, permissions, rounds, files and packs",
+  "The whole team as YAML: steps, duties, arrows, the goal, the gate and the rounds.": "The whole team as YAML: steps, duties, arrows, the goal, the gate and the rounds.",
+  "This team as a Mermaid diagram or as YAML: change it by hand and apply it": "This team as a Mermaid diagram or as YAML: change it by hand and apply it",
+  "the team as a file": "the team as a file",
+  "tournament, split the work, feature with tests": "tournament, split the work, feature with tests",
+  "{n} more…": "{n} more…"
  }
 }

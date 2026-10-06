@@ -49,7 +49,7 @@ def test_the_hooks_say_start_done_and_asking():
     said = {event: groups[0]["hooks"][0]["command"] for event, groups in hooks.items()}
     assert said == {
         "UserPromptSubmit": '"${CLAUDE_PLUGIN_ROOT}/bin/argus-bell" start',
-        "Stop": '"${CLAUDE_PLUGIN_ROOT}/bin/argus-bell" done',
+        "Stop": '"${CLAUDE_PLUGIN_ROOT}/bin/argus-stop"',              # a team's guard, else the bell
         "Notification": '"${CLAUDE_PLUGIN_ROOT}/bin/argus-bell" asking',      # Claude
         "PermissionRequest": '"${CLAUDE_PLUGIN_ROOT}/bin/argus-bell" asking',  # Codex (and Claude)
         "SessionStart": '"${CLAUDE_PLUGIN_ROOT}/bin/argus-check"',            # a newer plugin? say so
@@ -96,7 +96,7 @@ def test_claude_validates_both_manifests():
 # version changes: on 2026-10-06 rename_desk was added under the same 0.1.0 and '/plugin update'
 # kept the old copy, without the tool. Change anything in plugin/ and this fails until the version
 # goes up and its hash is added here.
-RELEASED = {"0.1.1": "0c47653f71ed8691", "0.1.2": "119c80ea223b38c1", "0.1.3": "6a94fa2f84f0fb7f", "0.1.4": "c2d4b0c927f765f0", "0.1.5": "825cf3dc981918fe", "0.1.6": "b25847a26f5cbf2f"}
+RELEASED = {"0.1.1": "0c47653f71ed8691", "0.1.2": "119c80ea223b38c1", "0.1.3": "6a94fa2f84f0fb7f", "0.1.4": "c2d4b0c927f765f0", "0.1.5": "825cf3dc981918fe", "0.1.6": "b25847a26f5cbf2f", "0.1.7": "d88abaa232d82332"}
 
 
 def plugin_hash() -> str:
@@ -114,3 +114,70 @@ def test_a_changed_plugin_has_a_new_version():
     assert version in RELEASED, f"plugin/ is at {version}, which is not in RELEASED: add it with its hash {plugin_hash()}"
     assert RELEASED[version] == plugin_hash(), \
         f"plugin/ changed since {version} was released: raise the version in plugin.json and gemini-extension.json, and add its hash {plugin_hash()}"
+
+
+def _serve(answer):
+    """A stand-in Argus on loopback answering every GET with `answer` and recording what it got."""
+    import threading
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+    got = []
+
+    class H(BaseHTTPRequestHandler):
+        def do_GET(self):
+            got.append(("GET", self.path))
+            body = json.dumps(answer).encode()
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_POST(self):
+            got.append(("POST", self.path, self.rfile.read(int(self.headers.get("content-length") or 0)).decode()))
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"{}")
+
+        def log_message(self, *a):
+            pass
+
+    server = HTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return server, got
+
+
+def test_the_stop_guard_holds_an_agent_with_a_turn_to_report(tmp_path):
+    server, got = _serve({"expecting": True, "reason": "You are quant in the Argus team K and have not reported this turn."})
+    env = {"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "ARGUS_TOKEN": "t", "ARGUS_SESSION": "K-quant",
+           "ARGUS_URL": f"http://127.0.0.1:{server.server_port}"}
+    out = subprocess.run([str(PLUGIN / "bin" / "argus-stop")], input="{}", capture_output=True, text=True, env=env, timeout=15).stdout
+    said = json.loads(out)
+    assert said["decision"] == "block" and "not reported this turn" in said["reason"]
+    assert got[0][0] == "GET" and got[0][1].startswith("/api/teams/expecting?session=K-quant")
+    assert not any(g[0] == "POST" for g in got), "held: no bell rung"
+    server.shutdown()
+
+
+def test_the_stop_guard_otherwise_rings_as_before(tmp_path):
+    server, got = _serve({"expecting": False})
+    env = {"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "ARGUS_TOKEN": "t", "ARGUS_SESSION": "K-quant",
+           "ARGUS_URL": f"http://127.0.0.1:{server.server_port}"}
+    out = subprocess.run([str(PLUGIN / "bin" / "argus-stop")], input='{"hook_event_name": "Stop", "last_assistant_message": "done it"}',
+                         capture_output=True, text=True, env=env, timeout=15).stdout
+    assert out.strip() == ""
+    posts = [g for g in got if g[0] == "POST"]
+    assert posts and posts[0][1] == "/api/bell" and '"why":"done"' in posts[0][2] and "done it" in posts[0][2]
+    server.shutdown()
+
+
+def test_the_scripts_find_argus_from_its_config(tmp_path):
+    """Its own listen line, and https when it has a certificate — not a fixed http://127.0.0.1:8090."""
+    conf = tmp_path / "c.yaml"
+    seen = tmp_path / "seen"
+    curl = tmp_path / "curl"
+    curl.write_text(f'#!/bin/sh\nfor a; do case "$a" in http*) echo "$a" >> {seen};; esac; done\n')
+    curl.chmod(0o755)
+    env = {"PATH": f"{tmp_path}:/usr/bin:/bin", "HOME": str(tmp_path), "ARGUS_CONFIG": str(conf), "ARGUS_TOKEN": "t"}
+    conf.write_text("listen: 0.0.0.0:8443\ntls_cert: /etc/x.pem\ntls_key: /etc/x.key\n")
+    subprocess.run([str(PLUGIN / "bin" / "argus-bell"), "done"], input="", env=env, timeout=10)
+    conf.write_text("listen: 127.0.0.1:9000\ntls_cert: null\n")
+    subprocess.run([str(PLUGIN / "bin" / "argus-bell"), "done"], input="", env=env, timeout=10)
+    assert seen.read_text().split() == ["https://127.0.0.1:8443/api/bell", "http://127.0.0.1:9000/api/bell"]

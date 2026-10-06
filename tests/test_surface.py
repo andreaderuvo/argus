@@ -42,7 +42,9 @@ def test_the_surface_is_small_enough_to_document():
     """
     counted = {mod: len(names) for mod, names in surface.surface().items()}
     # 22 to 24 on 2026-10-06, for todos() and todo(): "work on to-do #1 and mark it done".
-    assert counted["argus_client"] <= 24, counted
+    # 24 to 27 on 2026-10-07, for team_task(), team_done() and own_session(): an agent in a team
+    # reports its turn with a call instead of appending a block to a markdown file.
+    assert counted["argus_client"] <= 27, counted
     assert counted["argus_orchestra"] <= 30, counted
 
 

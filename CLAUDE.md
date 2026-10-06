@@ -451,6 +451,35 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   on top of the other until `drawGraph` merged them into one labelled "ok · redo". Each agent
   and each check has a session `<team>-<node>`; a worktree is per node (`team/<team>-<node>`),
   which is what lets a Tournament's two executors try different things in one repository.
+- **Teams v2: an agent reports through a call, not a block in a file** (2026-10-07,
+  `Director.task/done/expecting`, `tests/test_teams.py`). Appending `@TURN … @END` by hand in an
+  exact format was the most fragile thing in a team. Now `GET /api/teams/task` gives the agent its
+  task, structured, and `POST /api/teams/done` takes its report — validated (its turn? reported
+  already? a judge without a verdict?) and written into the log *by Argus*, in the same `@TURN`
+  form, so the log and `parse_turns` did not change and an agent with no tools still works by
+  appending. Reached as MCP `team_task`/`team_done`, as `argus-say task|turn`, all on the agent
+  key (AGENT_ROUTES is 22). The plugin adds the `argus-team` skill and the **Stop guard**
+  (`plugin/bin/argus-stop`): it asks `/api/teams/expecting` and, while the turn is unreported,
+  answers `{"decision":"block","reason":…}` — Claude and Codex 0.160 both carry on with the reason
+  (measured with `claude -p --plugin-dir` and an isolated `CODEX_HOME`). At most twice per turn
+  (`running[nid]["held"]`), so an agent that cannot report is never held for ever; otherwise it is
+  `argus-bell done`. A report's lines starting `@TURN`/`@END` are defused with a leading space.
+- **Hooks and the client find Argus from the config**, `listen` and `tls_cert` → https on
+  loopback without certificate checks (`_loopback_tls`, `curl -k`). They assumed
+  `http://127.0.0.1:8090` until plugin 0.1.7, and an Argus on https never heard a ring.
+- **A team as Mermaid** (`app/teammermaid.py`, `POST /api/teams/mermaid`,
+  `tests/test_teammermaid.py`). A flowchart subset: `id[role]` agent ("judges" in the label makes
+  a judge), `id{{command}}` check, `id{join}`, `done`; `-->|PASS|`, `|OK, REDO|`, chains and `&`;
+  `%% start:`. A check's `of` is the one agent pointing into it. What a diagram cannot say (duty,
+  worktree, reads) is kept from `base`, the team being edited. Every template survives the round
+  trip (tested). Edit as text has Mermaid and YAML tabs and draws the graph while you type; that
+  sends `preview: true`, which answers 200 `{error}` instead of 400 — the browser harness counts
+  every 4xx as a failure, and a half-typed line is not one.
+- **The sheet up front is goal, shape, folder** (and the check when a step needs one). Who runs
+  each step, permissions, gate, rounds and the file/pack buttons are under a `<details>` "More",
+  opened by itself when there is no agent or a start is refused. Four cards (`FRONT`) plus yours,
+  "N more…" for the rest, never hiding the chosen one. The sheet is pinned to the top: centred, it
+  moved as the roles arrived and a test's click on the goal landed on a card.
 - **`argus-mcp`, Argus as MCP tools** (`tools/argus_mcp.py`, `tests/test_argus_mcp.py`). Stdio
   JSON-RPC, standard library, every tool one call through `argus_client` on the agent key — no
   new power. `who ring ask relay launchers start_agent teams worktree prompts`. The agent key

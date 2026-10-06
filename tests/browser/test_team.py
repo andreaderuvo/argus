@@ -15,6 +15,11 @@ def open_sheet(page, argus, goal):
     page.type(goal)
 
 
+def more(page):
+    """Open "More" in the sheet, where the files and packs are."""
+    page.eval("document.querySelector('.teamadvanced').open = true")
+
+
 def desk(argus):
     argus.kill_sessions()
     project = argus.root / "home"
@@ -192,6 +197,7 @@ def test_an_example_pack_is_one_press_away(make_page, argus):
     project = desk(argus)
     page = make_page(route="#/wall")
     open_sheet(page, argus, "a strategy")
+    more(page)
     page.click_at(*page._center("[...document.querySelectorAll('.teampackbtns button')].find(b => b.textContent === 'Examples…')"))
     page.wait("!!document.querySelector('.teamexample')", timeout=10, what="the examples")
     page.click_at(*page._center("[...document.querySelectorAll('.teamexample')].find(b => b.textContent.includes('Trading research'))"))
@@ -212,11 +218,13 @@ def test_badges_say_where_a_team_comes_from_and_yours_can_go(make_page, argus):
     badge = lambda name: f"[...document.querySelectorAll('.teamcard')].find(c => c.querySelector('.name')?.textContent === '{name}')?.querySelector('.teambadge')?.textContent"
     page.wait(f"{badge('Optimise')} === 'Argus'", timeout=10, what="a template says Argus")
     page.wait(f"{badge('hand made')} === 'yours'", timeout=5, what="yours says yours")
+    more(page)
     page.click_at(*page._center("[...document.querySelectorAll('.teampackbtns button')].find(b => b.textContent === 'Examples…')"))
     page.wait("!!document.querySelector('.teamexample')", timeout=10, what="the examples")
     page.click_at(*page._center("[...document.querySelectorAll('.teamexample')].find(b => b.textContent.includes('Security review'))"))
     page.wait(f"{badge('Security review')} === 'Security review'", timeout=10, what="a pack's model says its pack")
     # The pack goes back out whole.
+    more(page)
     page.click_at(*page._center("[...document.querySelectorAll('.teampackbtns button')].find(b => b.textContent === 'Remove a pack…')"))
     page.wait("[...document.querySelectorAll('.teamexample')].some(b => b.textContent.includes('Security review'))", timeout=5, what="the pack, listed")
     page.click_at(*page._center("[...document.querySelectorAll('.teamexample')].find(b => b.textContent.includes('Security review'))"))
@@ -244,6 +252,7 @@ def test_the_folder_is_required_and_a_pack_brings_its_goal(make_page, argus):
     assert page.eval(f"{start_button}.disabled") is True, "no folder, no start"
     page.eval("const w = document.querySelector('.startpath'); w.value = '~/work/x'; w.dispatchEvent(new Event('input'))")
     assert page.eval(f"{start_button}.disabled") is False
+    more(page)
     page.click_at(*page._center("[...document.querySelectorAll('.teampackbtns button')].find(b => b.textContent === 'Examples…')"))
     page.wait("!!document.querySelector('.teamexample')", timeout=10, what="the examples")
     page.click_at(*page._center("[...document.querySelectorAll('.teamexample')].find(b => b.textContent.includes('Security review'))"))
@@ -350,4 +359,26 @@ def test_the_team_window_keeps_your_place_and_puts_the_newest_first(make_page, a
     import time
     time.sleep(7)
     assert page.eval("document.querySelector('.teamwin').scrollTop") == at, "not thrown back to the top"
+    clean(argus, project)
+
+
+def test_a_team_drawn_in_mermaid_is_previewed_while_typed(make_page, argus):
+    """Edit as text opens on the diagram; what is typed is drawn beside it before Apply, a wrong line
+    is named, and Apply puts it in the picture. The sheet keeps the rarely changed under "More"."""
+    project = desk(argus)
+    page = make_page(route="#/wall")
+    open_sheet(page, argus, "make it faster")
+    assert page.eval("document.querySelector('.teamadvanced').open") is False, "More is folded"
+    assert page.eval("document.querySelectorAll('.teamcard.teammore').length") == 1, "the other shapes one press away"
+    page.click_at(*page._center("[...document.querySelectorAll('.teampackbtns button')].find(b => b.textContent === 'Edit as text')"))
+    page.wait("document.querySelector('.teamyaml')?.value.startsWith('flowchart')", timeout=10, what="the diagram")
+    page.wait("!!document.querySelector('.teampreview svg')", timeout=10, what="drawn beside it")
+    typed = "flowchart LR\\n  scout[\\\"scout\\\"] --> boss[\\\"boss · judges\\\"]\\n  boss -->|DONE| done\\n"
+    page.eval(f"(() => {{ const y = document.querySelector('.teamyaml'); y.value = \"{typed}\"; y.dispatchEvent(new Event('input')); }})()")
+    page.wait("[...document.querySelectorAll('.teampreview .tgtext')].some(t => t.textContent === 'scout')", timeout=5, what="the new step, previewed")
+    page.eval("(() => { const y = document.querySelector('.teamyaml'); y.value += '  boss -->|MAYBE| scout\\n'; y.dispatchEvent(new Event('input')); })()")
+    page.wait("[...document.querySelectorAll('dialog.sheet .error')].some(e => !e.hidden && e.textContent.includes('line 4'))", timeout=5, what="the wrong line, named")
+    page.eval("(() => { const y = document.querySelector('.teamyaml'); y.value = y.value.replace('MAYBE', 'REDO'); y.dispatchEvent(new Event('input')); })()")
+    page.click_at(*page._center("[...document.querySelectorAll('dialog.sheet button')].find(b => b.textContent === 'Apply')"))
+    page.wait("[...document.querySelectorAll('.teampicture:not(.teampreview) .tgtext')].some(t => t.textContent === 'scout')", timeout=5, what="applied to the picture")
     clean(argus, project)

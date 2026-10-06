@@ -30,10 +30,10 @@ import sys
 from pathlib import Path
 
 try:                                              # installed: argus_tools.argus_mcp
-    from .argus_client import Argus, ArgusError
+    from .argus_client import Argus, ArgusError, own_session
 except ImportError:                               # run from the folder: tools/argus_mcp.py
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from argus_client import Argus, ArgusError   # noqa: E402
+    from argus_client import Argus, ArgusError, own_session   # noqa: E402
 
 VERSIONS = ("2025-06-18", "2025-03-26", "2024-11-05")
 INSTRUCTIONS = (
@@ -42,7 +42,8 @@ INSTRUCTIONS = (
     "`ring` when you finish or fail, so they need not watch your pane; `who` before handing work "
     "to another session with `relay`; `start_agent` to start a second agent, in its own git "
     "worktree when it will change code; `open_desk` and `start_agent` with `desk` when asked to "
-    "lay agents out on a desk of their own; `todos` and `todo_set` when asked to work on the person's to-do "
+    "lay agents out on a desk of their own; in an Argus team, `team_task` for your task and `team_done` to "
+    "report your turn when it is done; `todos` and `todo_set` when asked to work on the person's to-do "
     "#n — mark it doing when you start and done when you finish."
 )
 
@@ -112,6 +113,21 @@ TOOLS = [
          "show_on_desk": {"type": "boolean", "default": True, "description": "Also open its window on the person's desk"},
          "desk": {"type": "string", "description": "Put its window in the desk of this name (made if missing) instead of the one on screen"}},
          "required": ["launcher", "name"]}},
+    {"name": "team_task",
+     "description": "Your task in the Argus team you are part of: the goal, your role and duty, the round, whether it "
+                    "is your turn, what the steps before you said last, and the last check. Call it when your turn "
+                    "comes, and whenever you need to see where the team is.",
+     "inputSchema": {"type": "object", "properties": {}}},
+    {"name": "team_done",
+     "description": "Report your turn in your Argus team when its work is done: a few lines of what you did, and — if "
+                    "you judge — status OK (keep it, next step), REDO (say what is wrong), DONE (the goal is met) or "
+                    "BLOCKED (a person must decide). Argus records it and gives the next turn to whoever has it; then "
+                    "stop and wait.",
+     "inputSchema": {"type": "object", "properties": {
+         "summary": {"type": "string", "description": "What you did this turn, in a few lines"},
+         "status": {"type": "string", "enum": ["OK", "REDO", "DONE", "BLOCKED"], "description": "Only if you judge (or BLOCKED)"},
+         "details": {"type": "string", "description": "Anything longer: numbers, a list of findings"}},
+         "required": ["summary"]}},
     {"name": "todos",
      "description": "The person's to-do list in Argus, each with its number (#1, #2…), state (open, doing, done) and "
                     "words. When asked to \"work on to-do #3\", read it here first.",
@@ -142,25 +158,6 @@ TOOLS = [
      "description": "The person's prompt library in Argus: saved prompts by name, with their text.",
      "inputSchema": {"type": "object", "properties": {}}},
 ]
-
-
-def own_session() -> str:
-    """The tmux session this agent runs in, so a ring or a question says who it came from.
-
-    `display-message` names it from the pane, on the server in $TMUX — the one this agent is on.
-    (Not `capture-pane`: see CLAUDE.md.) Nothing outside tmux, and then the bell is unsigned.
-    """
-    if os.environ.get("ARGUS_SESSION"):
-        return os.environ["ARGUS_SESSION"]
-    pane = os.environ.get("TMUX_PANE")
-    if not pane:
-        return ""
-    try:
-        done = subprocess.run(["tmux", "display-message", "-p", "-t", pane, "#S"],
-                              capture_output=True, text=True, timeout=3)
-        return done.stdout.strip() if done.returncode == 0 else ""
-    except (OSError, subprocess.SubprocessError):
-        return ""
 
 
 # ------------------------------------------------------------------- the tools
@@ -238,6 +235,33 @@ def _rename_desk(a: Argus, args: dict) -> str:
     return f"the desk {args['desk']} is now called {said['name']}"
 
 
+def _team_task(a: Argus, _args: dict) -> str:
+    said = a.team_task(own_session())
+    if said.get("none"):
+        return said.get("why", "you are not in a team")
+    lines = [f"Team {said['team']} — goal: {said['goal']}",
+             f"You are {said['you']} ({said['role']}){' and you judge' if said['judge'] else ''}; "
+             f"round {said['round']} of {said['max_rounds']}; "
+             + ("it is your turn." if said["your_turn"] else "it is not your turn: wait."),
+             f"Work in {said['folder']}.", f"Your duty: {said['duty']}"]
+    for b in said.get("before_you") or []:
+        lines.append(f"\n{b['who']} (round {b['round']}{', ' + b['status'] if b.get('status') else ''}) said:\n{b['text']}")
+    if said.get("reads"):
+        lines.append("\nThe work to look at: " + ", ".join(f"{k} in {v}" for k, v in said["reads"].items()))
+    if said.get("last_check"):
+        c = said["last_check"]
+        lines.append(f"\nLast check {c.get('node')}: {c.get('status')} ({c.get('seconds')}s)")
+    lines.append("\nWhen done: call team_done with a short summary"
+                 + (" and status OK, REDO, DONE or BLOCKED." if said["judge"] else "."))
+    return "\n".join(lines)
+
+
+def _team_done(a: Argus, args: dict) -> str:
+    said = a.team_done(args["summary"], args.get("status", ""), args.get("details", ""), own_session())
+    return (f"Recorded: {said['you']}, round {said['round']}" + (f", {said['status']}" if said.get("status") else "")
+            + ". Now stop and wait: Argus gives the next turn to whoever has it.")
+
+
 def _todos(a: Argus, args: dict) -> str:
     items = sorted(a.todos(), key=lambda x: x.get("n", 0))
     if not args.get("all"):
@@ -281,7 +305,7 @@ def _prompts(a: Argus, _args: dict) -> str:
 
 
 DO = {"who": _who, "ring": _ring, "ask": _ask, "relay": _relay, "open_desk": _open_desk, "rename_desk": _rename_desk, "launchers": _launchers,
-      "start_agent": _start, "todos": _todos, "todo_set": _todo_set, "todo_add": _todo_add, "teams": _teams, "worktree": _worktree, "prompts": _prompts}
+      "start_agent": _start, "team_task": _team_task, "team_done": _team_done, "todos": _todos, "todo_set": _todo_set, "todo_add": _todo_add, "teams": _teams, "worktree": _worktree, "prompts": _prompts}
 
 
 # ------------------------------------------------------------------ the wire

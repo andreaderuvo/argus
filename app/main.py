@@ -24,7 +24,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 
 from . import build, pluginstate, trust
-from . import (agentflags, teams, wiring, agentstate, resume, announce, asks, bells, devices, favourites, files, fsops, gitwork, journal, labels,
+from . import (agentflags, teams, teammermaid, wiring, agentstate, resume, announce, asks, bells, devices, favourites, files, fsops, gitwork, journal, labels,
                languages, launch, mounts, network, paths, ports, prefs, proxy, release, runner, runs,
                system, term, tmux, todo)
 import httpx
@@ -715,6 +715,31 @@ def create_app(cfg: Config) -> FastAPI:
                 "repository": str(top) if top else None,
                 "team_file": kept, "place": spot}
 
+    @app.get("/api/teams/task", tags=["Teams"], summary="An agent's task in its team, structured")
+    async def team_task(request: Request, session: str) -> dict:
+        """What the MCP tool `team_task` answers: for the agent in this tmux session — its team, goal,
+        role, duty, round, folder, whether it is its turn, what the steps before it said last, the
+        last check, and how to finish. `{none: true}` when no team has an agent there."""
+        return await asyncio.to_thread(request.app.state.teams.task, session)
+
+    @app.post("/api/teams/done", tags=["Teams"], summary="An agent reports its turn")
+    async def team_done(request: Request, body: dict) -> dict:
+        """`{session, summary, status?, details?}` — the MCP tool `team_done` and `argus-say turn`.
+        Checked (a judge must say OK, REDO, DONE or BLOCKED; only on its turn; once per turn), then
+        written into the team's log by Argus as the canonical turn, which the director reads."""
+        try:
+            return await asyncio.to_thread(request.app.state.teams.done, str(body.get("session") or ""),
+                                           str(body.get("summary") or ""), str(body.get("status") or ""),
+                                           str(body.get("details") or ""))
+        except ValueError as e:
+            raise ApiError(409, str(e)) from e
+
+    @app.get("/api/teams/expecting", tags=["Teams"], summary="Is this agent stopping before reporting its turn?")
+    async def team_expecting(request: Request, session: str) -> dict:
+        """For the plugin's Stop guard: `{expecting, reason}` — true while the agent in this session has
+        a turn it has not reported, at most twice per turn."""
+        return await asyncio.to_thread(request.app.state.teams.expecting, session)
+
     @app.post("/api/teams/yaml", tags=["Teams"], summary="Read a team written as YAML")
     async def teams_from_yaml(body: dict) -> dict:
         """`{text}` → `{name, graph, gate?, rounds?, goal?}`, or 400 saying which line is wrong.
@@ -724,6 +749,24 @@ def create_app(cfg: Config) -> FastAPI:
                 return {"text": teams.to_yaml(body["graph"], str(body.get("name") or ""))}
             return teams.from_yaml(str(body.get("text") or ""))
         except (ValueError, KeyError, TypeError) as e:
+            if body.get("preview"):
+                return {"error": str(e)}
+            raise ApiError(400, str(e)) from e
+
+    @app.post("/api/teams/mermaid", tags=["Teams"], summary="Read a team drawn as a Mermaid flowchart")
+    async def teams_from_mermaid(body: dict) -> dict:
+        """`{text, base?, preview?}` → `{graph}`, or 400 naming the line (`{error}` with `preview`). `base` is the team being edited: what a
+        flowchart cannot say (a step's duty, worktree, reads) is kept from it. `{graph}` the other way
+        → `{text}`, the flowchart to start editing from (teammermaid.py has the subset understood)."""
+        try:
+            if "graph" in body:
+                return {"text": teammermaid.to_mermaid(body["graph"])}
+            base = body.get("base") if isinstance(body.get("base"), dict) else None
+            return {"graph": teammermaid.from_mermaid(str(body.get("text") or ""), base)}
+        except (ValueError, KeyError, TypeError) as e:
+            # While typing (`preview`), a half-written line is the normal state, not a failed request.
+            if body.get("preview"):
+                return {"error": str(e)}
             raise ApiError(400, str(e)) from e
 
     @app.post("/api/teams", tags=["Teams"], summary="Start a team of agents on a goal")

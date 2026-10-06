@@ -89,6 +89,11 @@ AGENT_ROUTES = frozenset({
     # one is PATCH /api/todo/<id or number>, let through by prefix below. Removing one is not here.
     ("GET", "/api/todo"),
     ("POST", "/api/todo"),
+    # Its own turn in a team: the task, the report, and the Stop guard's question. All about the
+    # session the agent names — on the same machine, which is where this key lives.
+    ("GET", "/api/teams/task"),
+    ("POST", "/api/teams/done"),
+    ("GET", "/api/teams/expecting"),
 })
 TODO_PREFIX = "/api/todo/"
 

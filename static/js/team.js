@@ -29,6 +29,9 @@ const ALONE = {
   everything: { claude: 'skip', codex: 'yolo', gemini: 'yolo' },
 };
 
+// The models shown before "more…": what most goals need.
+const FRONT = ['review', 'optimise', 'fix', 'write'];
+
 const clone = (x) => JSON.parse(JSON.stringify(x));
 const bare = (graph) => {
   // What a model keeps: the shape, not the sessions or folders of the last time it ran.
@@ -117,6 +120,7 @@ export async function teamSheet({ wsId, home, onStarted }) {
     drawAll();
   };
 
+  let allCards = false;
   const packOf = (model) => Object.entries(prefs.teamPacks || {}).find(([, w]) => w.models.includes(model))?.[0];
   const badgeKind = (key) => (key.startsWith('mine:') ? (packOf(key.slice(5)) ? 'pack' : 'mine') : key.startsWith('file:') ? 'file' : 'argus');
   const badgeWord = (key) => ({ argus: 'Argus', mine: t('yours'), pack: packOf(key.slice(5)), file: 'team.yaml' }[badgeKind(key)]);
@@ -145,10 +149,17 @@ export async function teamSheet({ wsId, home, onStarted }) {
       el('span', { className: 'teamflow', textContent: t('{n} agents', { n: g.nodes.filter((n) => n.kind === 'agent').length })
         + (g.nodes.some((n) => n.kind === 'check') ? ` · ${t('a check')}` : '') }),
     ].filter(Boolean));
+    // Four shapes up front — the ones most goals need — and yours; the rest one press away, and
+    // never hidden while chosen.
+    const shown = Object.entries(templates).filter(([key]) => allCards || FRONT.includes(key) || key === chosen);
+    const more = Object.keys(templates).length - shown.length;
     cards.replaceChildren(
-      ...Object.entries(templates).map(([key, tpl]) => card(key, t(tpl.label), t(tpl.hint), tpl.graph)),
+      ...shown.map(([key, tpl]) => card(key, t(tpl.label), t(tpl.hint), tpl.graph)),
       ...Object.entries(mine()).map(([name, g]) => card(`mine:${name}`, name, packOf(name) ? t('from a pack') : t('your model'), g, true)),
       ...(fileTeam ? [card(`file:${fileTeam.name}`, fileTeam.name, fileTeam.where, fileTeam.graph, true)] : []),
+      ...(more ? [el('button', { type: 'button', className: 'teamcard teammore', onclick: () => { allCards = true; drawCards(); } }, [
+        el('span', { className: 'name', textContent: t('{n} more…', { n: more }) }),
+        el('span', { className: 'meta', textContent: t('tournament, split the work, feature with tests') })])] : []),
     );
   };
 
@@ -163,6 +174,7 @@ export async function teamSheet({ wsId, home, onStarted }) {
     roles.replaceChildren();
     if (!agents.length) {
       roles.append(el('p', { className: 'hint', textContent: t('No agent among your launchers yet — add Claude Code or Codex in Settings.') }));
+      advanced.open = true;
       return;
     }
     graph.nodes.filter((n) => n.kind === 'agent').forEach((n, i) => {
@@ -415,29 +427,84 @@ export async function teamSheet({ wsId, home, onStarted }) {
         el('span', { className: 'meta', textContent: [...what.models, ...what.roles].join(', ') })])));
       const list = modal(t('Remove a pack…'), box, [el('button', { className: 'ghost', textContent: t('Close'), onclick: () => list.close() })]);
     } });
-  // The team as text: YAML, edited by hand and applied back to the picture.
+  // The team as text: a Mermaid flowchart (drawn live while you type) or YAML (everything, duties
+  // included), edited by hand and applied back to the picture.
   const editText = el('button', { className: 'ghost', type: 'button', textContent: t('Edit as text'),
-    title: t('This team as YAML: change it by hand and apply it'), onclick: async () => {
-      let text = '';
-      try { text = (await postJSON('/api/teams/yaml', { graph: bare(graph), name: chosen?.split(':').pop() || 'my team' })).text; } catch (e) { toast(e.message, true); return; }
-      const box = el('textarea', { className: 'teamyaml', value: text, rows: 22, spellcheck: false });
+    title: t('This team as a Mermaid diagram or as YAML: change it by hand and apply it'), onclick: async () => {
+      const name = chosen?.split(':').pop() || 'my team';
+      const texts = {};
+      try {
+        texts.mermaid = (await postJSON('/api/teams/mermaid', { graph: bare(graph) })).text;
+        texts.yaml = (await postJSON('/api/teams/yaml', { graph: bare(graph), name })).text;
+      } catch (e) { toast(e.message, true); return; }
+      let mode = prefs.teamTextMode === 'yaml' ? 'yaml' : 'mermaid';
+      let drawn = null;                     // the graph the text says, once it parses
+      let extra = {};                       // what YAML also says: goal, gate, rounds
+      const box = el('textarea', { className: 'teamyaml', rows: 16, spellcheck: false });
+      const preview = el('div', { className: 'teampicture teampreview' });
       const err = el('p', { className: 'error', hidden: true });
-      const sheet3 = modal(t('Edit as text'), el('div', { className: 'sheetbody' }, [box, err]), [
+      const help = el('p', { className: 'hint teamtexthelp' });
+      const tabs = el('div', { className: 'segmented teamtexttabs', role: 'tablist' });
+      let seq = 0;
+      let timer = 0;
+      const parse = async () => {
+        const mine = ++seq;
+        try {
+          const said = mode === 'mermaid'
+            ? await postJSON('/api/teams/mermaid', { text: box.value, base: bare(graph), preview: true })
+            : await postJSON('/api/teams/yaml', { text: box.value, preview: true });
+          if (mine !== seq) return;
+          if (said.error) throw new Error(said.error);
+          drawn = said.graph;
+          extra = mode === 'yaml' ? said : {};
+          preview.replaceChildren(drawGraph(drawn, {}));
+          err.hidden = true;
+        } catch (e) {
+          if (mine !== seq) return;
+          drawn = null;
+          err.textContent = e.message;
+          err.hidden = false;
+          preview.classList.add('stale');
+          return;
+        }
+        preview.classList.remove('stale');
+      };
+      const show = (m) => {
+        if (drawn && m !== mode) {
+          // Carry what was typed across: the other text is regenerated from the graph it parsed to.
+          postJSON(m === 'mermaid' ? '/api/teams/mermaid' : '/api/teams/yaml', { graph: bare(drawn), name })
+            .then((said) => { box.value = said.text; parse(); }).catch(() => {});
+        } else box.value = texts[m];
+        mode = m;
+        prefs.teamTextMode = m;
+        savePrefs();
+        help.textContent = m === 'mermaid'
+          ? t('A Mermaid flowchart: id["role"] an agent (add "· judges" for a judge), id{{"command"}} a check, id{join} a join, done the end. Arrows: a --> b, a -->|PASS| b, a -->|OK, REDO| b, a --> b & c. Duties are kept from the team; edit them in YAML.')
+          : t('The whole team as YAML: steps, duties, arrows, the goal, the gate and the rounds.');
+        for (const b of tabs.children) b.setAttribute('aria-selected', String(b._mode === m));
+        parse();
+      };
+      tabs.append(...[['mermaid', t('Diagram (Mermaid)')], ['yaml', 'YAML']].map(([m, label]) =>
+        Object.assign(el('button', { type: 'button', role: 'tab', textContent: label, onclick: () => show(m) }), { _mode: m })));
+      box.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(parse, 250); });
+      const sheet3 = modal(t('Edit as text'), el('div', { className: 'sheetbody teamtext' }, [tabs, help, el('div', { className: 'teamtextsplit' }, [box, preview]), err]), [
+        el('button', { className: 'ghost', textContent: t('Copy'), onclick: () => navigator.clipboard?.writeText(box.value).then(() => toast(t('copied')), () => {}) }),
         el('button', { className: 'ghost', textContent: t('Cancel'), onclick: () => sheet3.close() }),
         el('button', { className: 'primary inline', textContent: t('Apply'), onclick: async () => {
-          try {
-            const said = await postJSON('/api/teams/yaml', { text: box.value });
-            graph = said.graph;
-            if (said.goal && !goal.value.trim()) goal.value = said.goal;
-            selected = null;
-            for (const n of graph.nodes) if (n.kind === 'agent' && copies[n.id] === undefined) copies[n.id] = !!n.worktree;
-            drawAll();
-            sheet3.close();
-            toast(t('applied — save it as a model to keep it'));
-          } catch (e) { err.textContent = e.message; err.hidden = false; }
+          await parse();
+          if (!drawn) return;
+          graph = drawn;
+          if (extra.goal && !goal.value.trim()) goal.value = extra.goal;
+          selected = null;
+          for (const n of graph.nodes) if (n.kind === 'agent' && copies[n.id] === undefined) copies[n.id] = !!n.worktree;
+          drawAll();
+          sheet3.close();
+          toast(t('applied — save it as a model to keep it'));
         } }),
       ]);
       sheet3.classList.add('teamsheet');
+      show(mode);
+      box.focus();
     } });
   const exportPack = el('button', { className: 'ghost', type: 'button', textContent: t('Export mine'),
     title: t('Your roles and models, as a pack to share'), onclick: () => {
@@ -528,20 +595,29 @@ export async function teamSheet({ wsId, home, onStarted }) {
   where.addEventListener('input', () => { clearTimeout(whereTyping); whereTyping = setTimeout(suggest, 350); });
   check.oninput = () => { check.dataset.touched = '1'; };
 
+  // Up front, the three things every team needs: the goal, its shape, the folder. Who runs each
+  // step, what they may do, how long it goes on alone and the files behind a team are good as
+  // suggested, and wait under "More" — opened by itself when something there needs you.
+  const advanced = el('details', { className: 'teamadvanced' }, [
+    el('summary', { textContent: t('More: who runs each step, permissions, rounds, files and packs') }),
+    el('label', { className: 'startlabel', textContent: t('who does what') }), roles,
+    el('div', { className: 'startopt inline' }, [el('span', { className: 'startoptname', textContent: t('What they may do without asking') }), alone]),
+    el('label', { className: 'startlabel', textContent: t('how much it goes on alone') }), gate,
+    el('div', { className: 'startopt inline' }, [el('span', { className: 'startoptname', textContent: t('At most, rounds') }), rounds]),
+    el('label', { className: 'startlabel', textContent: t('the team as a file') }),
+    el('span', { className: 'teampackbtns' }, [saveYaml, examples, importPack, removePack, exportPack, picker]),
+  ]);
   body.append(
     el('label', { className: 'startlabel', textContent: t('what should the team get done?') }), goal,
     cards,
     el('div', { className: 'teampicturehead' }, [
       el('label', { className: 'startlabel', textContent: t('the team — click a step to change it') }),
-      el('span', { className: 'teampackbtns' }, [saveModel, editText, saveYaml, examples, importPack, removePack, exportPack, picker])]),
+      el('span', { className: 'teampackbtns' }, [saveModel, editText])]),
     picture, panel,
     el('label', { className: 'startlabel', textContent: t('in') }), el('div', { className: 'folderrow' }, [where, choose_]), placeLine,
-    el('label', { className: 'startlabel', textContent: t('who does what') }), roles,
-    el('div', { className: 'startopt inline' }, [el('span', { className: 'startoptname', textContent: t('What they may do without asking') }), alone]),
-    danger,
     checkBox,
-    el('label', { className: 'startlabel', textContent: t('how much it goes on alone') }), gate,
-    el('div', { className: 'startopt inline' }, [el('span', { className: 'startoptname', textContent: t('At most, rounds') }), rounds]),
+    danger,
+    advanced,
     why,
   );
 
@@ -589,6 +665,7 @@ export async function teamSheet({ wsId, home, onStarted }) {
     } catch (e) {
       why.textContent = e.message || String(e);
       why.hidden = false;
+      advanced.open = true;              // what to change is most often in there
       go.disabled = false;
       go.textContent = t('Start the team');
     }

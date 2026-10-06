@@ -305,11 +305,22 @@ def fill_graph(graph: dict, base: str, folders: dict[str, str] | None = None,
 # --------------------------------------------------------------------------- prompts
 
 def how_to_answer(team: dict, nid: str) -> str:
+    """How an agent reports its turn — a call first, the file only as the last resort.
+
+    Since 2026-10-07 an agent reports with the Argus tool `team_done` (the plugin's MCP server) or
+    `argus-say turn`, and Argus writes the turn into the log itself: an agent appending a block in an
+    exact format by hand was the most fragile thing in a team. The heredoc stays for an agent that
+    has neither, so a team still runs with any agent at all."""
     log = team["log"]
     n = node(team["graph"], nid)
-    status = " status=<OK|REDO|DONE|BLOCKED>" if n.get("judge") else ""
-    return (f"When you have finished this turn, append exactly one entry to {log} — with a heredoc, "
-            f"so nothing in it is run by the shell:\n\n"
+    judge = bool(n.get("judge"))
+    status = " status=<OK|REDO|DONE|BLOCKED>" if judge else ""
+    verdict = (f" with status OK, REDO, DONE or BLOCKED" if judge else "")
+    flag = " --status <OK|REDO|DONE|BLOCKED>" if judge else ""
+    return (f"When you have finished this turn, report it{verdict} and a few lines of what you did:\n"
+            f"- with the Argus tool team_done, if you have it (the Argus plugin);\n"
+            f"- otherwise with the command:  argus-say turn{flag} \"<what you did>\"\n"
+            f"- with neither, append exactly this to {log} (a heredoc, so the shell runs nothing in it):\n\n"
             f"cat >> {log} <<'ARGUS_TURN'\n@TURN who={nid.upper()} round={team['round']}{status}\n"
             f"<what you did, in a few lines>\n@END\nARGUS_TURN\n\n"
             f"Then stop and wait: Argus gives the next turn to whoever has it. Do not wait for, or "
@@ -533,8 +544,8 @@ class Director:
                 continue                                  # not reminded of a turn it never began
             if quiet and waited > NUDGE_AFTER and not state["nudged"]:
                 state["nudged"] = True
-                self.io.send(n["session"], f"You stopped without writing your turn in {team['log']}. "
-                                           f"If you have finished, append it now:\n\n{how_to_answer(team, nid)}")
+                self.io.send(n["session"], f"You stopped without reporting your turn. "
+                                           f"If you have finished, report it now.\n\n{how_to_answer(team, nid)}")
                 self._note(team, f"{nid} stopped without writing its turn: reminded")
                 changed = True
             elif quiet and waited > GIVE_UP_AFTER and team["phase"] == "working":
@@ -710,6 +721,102 @@ class Director:
 
     def _note(self, team: dict, what: str) -> None:
         team["history"] = (team.get("history") or [])[-199:] + [{"at": self.io.now(), "what": what[:300]}]
+
+    # ------------------------------------------------------------- the agent's side (v2)
+
+    LIVE = ("running", "paused", "waiting-you")
+
+    def by_session(self, session: str):
+        """(team, node) whose agent runs in this tmux session, among the teams still going."""
+        for team in self.teams.values():
+            if team["status"] not in self.LIVE:
+                continue
+            for n in team["graph"]["nodes"]:
+                if n.get("session") == session and n["kind"] == "agent":
+                    return team, n
+        return None, None
+
+    def _reported(self, team: dict, nid: str) -> bool:
+        state = team["running"].get(nid)
+        if not state:
+            return False
+        return any(t.done and t.who == nid.upper() for t in self._turns(team)[state["seen"]:])
+
+    def task(self, session: str) -> dict:
+        """What `team_task` answers: this agent's task, in full, structured — the same facts its
+        prompt carried, plus what the others and the checks said since."""
+        team, n = self.by_session(session)
+        if not team:
+            return {"none": True, "why": f"no team has an agent in the session {session!r}"}
+        nid = n["id"]
+        g = team["graph"]
+        turns = self._turns(team)
+        latest = {}
+        for t in turns:
+            if t.done:
+                latest[t.who] = {"who": t.who.lower(), "round": t.fields.get("round"), "status": t.status or None, "text": t.body}
+        before = preds(g, nid)
+        return {
+            "team": team["name"], "goal": team["goal"], "you": nid, "role": n.get("role"),
+            "judge": bool(n.get("judge")), "duty": n.get("duty") or DUTIES.get(n.get("role", ""), ""),
+            "your_turn": nid in team["running"] and not self._reported(team, nid),
+            "round": team["round"], "max_rounds": team["max_rounds"],
+            "folder": n.get("folder") or team["folder"], "log": team["log"],
+            "before_you": [latest[p.upper()] for p in before if p.upper() in latest],
+            "others": [latest[k] for k in latest if k != nid.upper() and k.lower() not in before],
+            "reads": {r: node(g, r).get("folder") for r in n.get("reads") or [] if node(g, r).get("folder")},
+            "last_check": team.get("last_check"),
+            "statuses": ["OK", "REDO", "DONE", "BLOCKED"] if n.get("judge") else [],
+            "finish": "call team_done with a short summary" + (" and a status" if n.get("judge") else ""),
+        }
+
+    def done(self, session: str, summary: str, status: str = "", details: str = "") -> dict:
+        """What `team_done` does: check the report, then write it into the log as the canonical
+        turn — so the director reads it exactly as it reads one an agent appended by hand."""
+        team, n = self.by_session(session)
+        if not team:
+            raise ValueError(f"no team has an agent in the session {session!r}")
+        nid = n["id"]
+        if nid not in team["running"]:
+            raise ValueError(f"it is not {nid}'s turn in {team['name']}: Argus gives it the turn when it comes")
+        if self._reported(team, nid):
+            raise ValueError(f"{nid} has already reported this turn — wait for the next one")
+        status = (status or "").strip().upper()
+        if n.get("judge"):
+            if status not in ("OK", "REDO", "DONE", "BLOCKED"):
+                raise ValueError(f"{nid} judges: say status OK, REDO, DONE or BLOCKED")
+        elif status not in ("", "BLOCKED"):
+            raise ValueError(f"{nid} does not judge: leave the status out (or BLOCKED if a person must decide)")
+        text = "\n\n".join(x.strip() for x in (summary, details) if x and x.strip())
+        if not text:
+            raise ValueError("say what you did, in a few lines")
+        # A line of the agent's own that looks like a marker would cut the turn short.
+        text = "\n".join((" " + line) if line.startswith(("@TURN", "@END")) else line for line in text.splitlines())
+        fields = {"round": team["round"], **({"status": status} if status else {})}
+        with open(team["log"], "a") as f:
+            f.write(turn_text(nid, text, **fields))
+        state = team["running"][nid]
+        state["reported"] = True
+        self._note(team, f"{nid} reported its turn" + (f" — {status}" if status else ""))
+        self.save()
+        return {"recorded": True, "team": team["name"], "you": nid, "round": team["round"], "status": status or None}
+
+    def expecting(self, session: str, blocked_already: bool = False) -> dict:
+        """For the plugin's Stop guard: is this agent stopping in the middle of a turn it has not
+        reported? Said at most twice per turn — an agent that cannot report is not held for ever."""
+        team, n = self.by_session(session)
+        if not team or n["id"] not in team["running"] or self._reported(team, n["id"]):
+            return {"expecting": False}
+        state = team["running"][n["id"]]
+        if state.get("held", 0) >= 2:
+            return {"expecting": False}
+        state["held"] = state.get("held", 0) + 1
+        judge = " with status OK, REDO, DONE or BLOCKED" if n.get("judge") else ""
+        return {"expecting": True, "team": team["name"], "you": n["id"],
+                "reason": (f"You are {n['id']} in the Argus team {team['name']} and have not reported this turn. "
+                           f"If your work for this turn is done, call the tool team_done{judge} with a short summary "
+                           f"(or run: argus-say turn \"<summary>\"). If you cannot go on, report with status BLOCKED "
+                           f"and say why. Then stop.")}
 
     def public(self) -> list[dict]:
         out = []

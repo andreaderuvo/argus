@@ -133,8 +133,13 @@ def test_the_list_of_what_an_agent_may_do_is_short():
     Seventeen to nineteen, for `GET` and `POST /api/todo` (2026-10-06), plus `PATCH
     /api/todo/<id or #n>` by prefix: "work on to-do #1 and mark it done when you have". Reading the
     list, adding to it and moving one along; removing one stays with the person.
+
+    Nineteen to twenty-two, for `GET /api/teams/task`, `POST /api/teams/done` and `GET
+    /api/teams/expecting` (2026-10-07): an agent in a team reads its task, reports its turn and is
+    asked by its Stop guard whether it has — the structured channel that replaced appending a
+    block to a markdown file. Starting, stopping or editing a team stays with the person.
     """
-    assert len(AGENT_ROUTES) <= 19
+    assert len(AGENT_ROUTES) <= 22
     assert ("POST", "/api/teams") not in AGENT_ROUTES
     assert all(method in ("GET", "POST") for method, _ in AGENT_ROUTES)
     assert not any(path.startswith("/api/fs") or path.startswith("/api/devices")

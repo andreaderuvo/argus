@@ -54,7 +54,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-__all__ = ["Argus", "ArgusError", "TooFast", "config_path", "credentials"]
+__all__ = ["Argus", "ArgusError", "TooFast", "config_path", "credentials", "own_session"]
 
 
 class ArgusError(RuntimeError):
@@ -72,6 +72,38 @@ class TooFast(ArgusError):
     Its own class because the answer is different — a caller doing a deliberate fan-out wants to
     wait or to raise the cap, not to give up the way it would on a 400.
     """
+
+
+def _loopback_tls(base: str):
+    """No certificate check for an https Argus on this machine: its certificate names the public
+    host, not 127.0.0.1, and nothing leaves the machine. Anything else is checked as usual."""
+    if not base.startswith("https://"):
+        return None
+    host = base.split("://", 1)[1].split("/", 1)[0].rsplit(":", 1)[0].strip("[]")
+    if host in ("127.0.0.1", "localhost", "::1"):
+        import ssl
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        return ctx
+    return None
+
+
+def own_session() -> str:
+    """The tmux session this program runs in: `$ARGUS_SESSION`, else asked of tmux for this pane.
+    Outside tmux, "" — and a call that needs it says so. (`display-message` only: it reads the
+    pane's name, never its text.)"""
+    if os.environ.get("ARGUS_SESSION"):
+        return os.environ["ARGUS_SESSION"]
+    pane = os.environ.get("TMUX_PANE")
+    if not pane:
+        return ""
+    import subprocess
+    try:
+        done = subprocess.run(["tmux", "display-message", "-p", "-t", pane, "#S"], capture_output=True, text=True, timeout=3)
+        return done.stdout.strip() if done.returncode == 0 else ""
+    except (OSError, subprocess.SubprocessError):
+        return ""
 
 
 def config_path() -> Path:
@@ -97,7 +129,7 @@ def credentials() -> tuple[str, str]:
     hold the key that only does them.
     """
     text = config_path().read_text(encoding="utf-8")
-    listen, master, agent, section = "127.0.0.1:8090", None, None, None
+    listen, master, agent, section, cert = "127.0.0.1:8080", None, None, None, ""
     for line in text.splitlines():
         bare = line.strip()
         if not bare or bare.startswith("#"):
@@ -110,13 +142,17 @@ def credentials() -> tuple[str, str]:
             master = bare.split(":", 1)[1].strip().strip("\"'")
         elif section == "agents" and "token:" in bare and not agent:
             agent = bare.split("token:", 1)[1].strip().strip("\"'")
+        elif section == "tls_cert" and bare.startswith("tls_cert:"):
+            cert = bare.split(":", 1)[1].strip().strip("\"'")
     # What it *listens* on is not always an address to call: 0.0.0.0 is not somewhere you
     # connect to, and loopback always reaches a server on this machine.
-    where = listen.replace("0.0.0.0", "127.0.0.1")
+    where = listen.replace("0.0.0.0", "127.0.0.1").replace("[::]", "127.0.0.1")
+    # With a certificate it answers https only — on loopback too.
+    scheme = "https" if cert and cert not in ("null", "~") else "http"
     key = os.environ.get("ARGUS_TOKEN") or agent or master
     if not key:
         raise ArgusError(0, f"no token in {config_path()} — is this the machine Argus runs on?")
-    return f"http://{where}", key
+    return f"{scheme}://{where}", key
 
 
 class Argus:
@@ -145,7 +181,7 @@ class Argus:
             **({"content-type": "application/json"} if data else {}),
         })
         try:
-            with urllib.request.urlopen(request, timeout=timeout) as answer:
+            with urllib.request.urlopen(request, timeout=timeout, context=_loopback_tls(self.base)) as answer:
                 raw = answer.read()
                 return json.loads(raw) if raw else {}
         except urllib.error.HTTPError as e:
@@ -282,6 +318,19 @@ class Argus:
             body["folder"] = str(folder)
         return self.call("POST", "/api/desks", body)
 
+    def team_task(self, session: str = "") -> dict:
+        """This agent's task in its team — goal, role, duty, round, whether it is its turn, what the
+        steps before it said last, the last check — for the session it runs in (found from tmux)."""
+        from urllib.parse import quote
+        return self.call("GET", f"/api/teams/task?session={quote(session or own_session())}")
+
+    def team_done(self, summary: str, status: str = "", details: str = "", session: str = "") -> dict:
+        """Report this agent's turn: a few lines of what it did, and — for a judge — OK, REDO, DONE or
+        BLOCKED. Argus checks it and writes it into the team's log; refused (ArgusError) when it is
+        not this agent's turn, it has already reported, or a judge left the status out."""
+        return self.call("POST", "/api/teams/done", {"session": session or own_session(), "summary": summary,
+                                                     "status": status, "details": details})
+
     def todos(self) -> list[dict]:
         """The to-do list kept in Argus: `{n, note, status, by, ...}` each, newest first. `n` is the
         number shown beside it ("#3"), given once and never reused."""
@@ -331,7 +380,7 @@ class Argus:
                                          headers={"authorization": f"Bearer {self.token}"})
         left = max(2.0, min(40.0, until - time.monotonic()))
         try:
-            with urllib.request.urlopen(request, timeout=left) as stream:
+            with urllib.request.urlopen(request, timeout=left, context=_loopback_tls(self.base)) as stream:
                 for raw in stream:
                     if time.monotonic() >= until:
                         return
@@ -377,9 +426,9 @@ class Argus:
 # ------------------------------------------------------------------------ cli
 
 def main(argv: list[str] | None = None) -> int:
-    """The command line: `who`, `relay`, `ring`, `start`, `teams`.
+    """The command line: `who`, `relay`, `ring`, `start`, `teams`, `task`, `turn`.
 
-    Five verbs and no more, because this is what an *agent* reaches for from inside a session —
+    Seven verbs and no more, because this is what an *agent* reaches for from inside a session —
     the four things it can usefully do about the other agents on the machine. Anything larger
     is a script, and a script should import the class.
     """
@@ -418,6 +467,11 @@ def main(argv: list[str] | None = None) -> int:
                         "open right now")
 
     subs.add_parser("teams", help="the teams Argus is directing here, and whose turn it is")
+    subs.add_parser("task", help="your task in your team: goal, duty, whose turn, what came before")
+    tu = subs.add_parser("turn", help="report your turn in your team")
+    tu.add_argument("summary", nargs="?", default="")
+    tu.add_argument("--status", default="", help="for a judge: OK, REDO, DONE or BLOCKED")
+    tu.add_argument("--file", help="the details, read from a file")
 
     args = ap.parse_args(argv)
     try:
@@ -452,6 +506,16 @@ def main(argv: list[str] | None = None) -> int:
                 for n in team.get("nodes", []):
                     if n.get("kind") in ("agent", "check"):
                         print(f"  {n['id']:14} {n.get('state', ''):8} {n.get('outcome') or ''}")
+        elif args.what == "task":
+            said = argus.team_task()
+            if said.get("none"):
+                print(said.get("why", "no team here"))
+                return 1
+            print(json.dumps(said, indent=1, ensure_ascii=False))
+        elif args.what == "turn":
+            details = Path(args.file).read_text(encoding="utf-8") if args.file else ""
+            said = argus.team_done(args.summary, args.status, details)
+            print(f"recorded: {said['you']} in {said['team']}, round {said['round']}" + (f", {said['status']}" if said.get("status") else ""))
         elif args.what == "ring":
             argus.ring(args.text, args.why, args.session)
             print("rung")

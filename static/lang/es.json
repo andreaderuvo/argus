@@ -1193,6 +1193,14 @@
   "The team in a window of the desk, live": "El equipo en una ventana del escritorio, en vivo",
   "this team has been forgotten — close the window": "este equipo se ha olvidado — cierra la ventana",
   "a team": "un equipo",
-  "A team of agents, live": "Un equipo de agentes, en vivo"
+  "A team of agents, live": "Un equipo de agentes, en vivo",
+  "A Mermaid flowchart: id[\"role\"] an agent (add \"· judges\" for a judge), id{{\"command\"}} a check, id{join} a join, done the end. Arrows: a --> b, a -->|PASS| b, a -->|OK, REDO| b, a --> b & c. Duties are kept from the team; edit them in YAML.": "Un diagrama de flujo Mermaid: id[\"rol\"] un agente (añade \"· judges\" para un juez), id{{\"comando\"}} una comprobación, id{join} una unión, done el final. Flechas: a --> b, a -->|PASS| b, a -->|OK, REDO| b, a --> b & c. Las tareas se conservan del equipo; se editan en YAML.",
+  "Diagram (Mermaid)": "Diagrama (Mermaid)",
+  "More: who runs each step, permissions, rounds, files and packs": "Más: quién hace cada paso, permisos, rondas, archivos y paquetes",
+  "The whole team as YAML: steps, duties, arrows, the goal, the gate and the rounds.": "Todo el equipo en YAML: pasos, tareas, flechas, el objetivo, el control y las rondas.",
+  "This team as a Mermaid diagram or as YAML: change it by hand and apply it": "Este equipo como diagrama Mermaid o en YAML: cámbialo a mano y aplícalo",
+  "the team as a file": "el equipo como archivo",
+  "tournament, split the work, feature with tests": "torneo, dividir el trabajo, función con pruebas",
+  "{n} more…": "{n} más…"
  }
 }

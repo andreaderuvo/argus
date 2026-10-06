@@ -10,7 +10,15 @@ set -eu
 WHY="${1:-done}"
 TEXT="${2:-}"
 CONF="${ARGUS_CONFIG:-$HOME/.config/argus/config.yaml}"
-URL="${ARGUS_URL:-http://127.0.0.1:8090}"
+# Where this machine's Argus answers: the config's own `listen` and, with a certificate, https —
+# always on loopback. A fixed http://127.0.0.1:8090 missed every Argus on another port or over TLS
+# (2026-10-07: an Argus on https never heard a single hook).
+LISTEN="$(sed -n 's/^listen:[[:space:]]*//p' "$CONF" 2>/dev/null | head -1 | tr -d "\"'")"
+[ -n "$LISTEN" ] || LISTEN=127.0.0.1:8080
+LISTEN="$(printf '%s' "$LISTEN" | sed 's/^0\.0\.0\.0:/127.0.0.1:/; s/^\[::\]:/127.0.0.1:/')"
+CERT="$(sed -n 's/^tls_cert:[[:space:]]*//p' "$CONF" 2>/dev/null | head -1 | tr -d "\"'")"
+case "$CERT" in ""|null|"~") SCHEME=http ;; *) SCHEME=https ;; esac
+URL="${ARGUS_URL:-$SCHEME://$LISTEN}"
 
 TOKEN="${ARGUS_TOKEN:-$(sed -n 's/^token:[[:space:]]*//p' "$CONF" 2>/dev/null | head -1)}"
 [ -n "$TOKEN" ] || exit 0            # no Argus here: say nothing, break nothing
@@ -78,7 +86,7 @@ SESSION=""
 # Quote for JSON the small way: these fields are a session name and a short sentence.
 esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr -d '\000-\037'; }
 
-curl -s -m 5 -o /dev/null -X POST "$URL/api/bell" \
+curl -sk -m 5 -o /dev/null -X POST "$URL/api/bell" \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
   -d "{\"session\":\"$(esc "$SESSION")\",\"why\":\"$(esc "$WHY")\",\"text\":\"$(esc "$TEXT")\",\"conversation\":\"$(esc "$CONVERSATION")\",\"plugin\":\"$(esc "$PLUGIN")\"}" || true

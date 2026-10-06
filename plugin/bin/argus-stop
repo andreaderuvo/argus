@@ -1,0 +1,44 @@
+#!/bin/sh
+# The plugin's Stop hook: an agent in an Argus team that tries to end its turn without having
+# reported it is told to report first; anything else rings the bell, as argus-bell does.
+#
+# Claude Code and Codex (0.160) both let a Stop hook refuse the stop with a reason, and the agent
+# carries on with that reason as its next instruction — measured on both, 2026-10-07. Argus says
+# at most twice per turn (GET /api/teams/expecting), so an agent that cannot report is not held
+# for ever. Outside a team, or with Argus not there, this is exactly argus-bell done.
+set -u
+HERE="$(cd "$(dirname "$0")" && pwd)"
+INPUT="$(cat 2>/dev/null || true)"
+CONF="${ARGUS_CONFIG:-$HOME/.config/argus/config.yaml}"
+LISTEN="$(sed -n 's/^listen:[[:space:]]*//p' "$CONF" 2>/dev/null | head -1 | tr -d "\"'")"
+[ -n "$LISTEN" ] || LISTEN=127.0.0.1:8080
+LISTEN="$(printf '%s' "$LISTEN" | sed 's/^0\.0\.0\.0:/127.0.0.1:/; s/^\[::\]:/127.0.0.1:/')"
+CERT="$(sed -n 's/^tls_cert:[[:space:]]*//p' "$CONF" 2>/dev/null | head -1 | tr -d "\"'")"
+case "$CERT" in ""|null|"~") SCHEME=http ;; *) SCHEME=https ;; esac
+URL="${ARGUS_URL:-$SCHEME://$LISTEN}"
+TOKEN="${ARGUS_TOKEN:-$(sed -n 's/^token:[[:space:]]*//p' "$CONF" 2>/dev/null | head -1)}"
+
+SESSION="${ARGUS_SESSION:-}"
+[ -z "$SESSION" ] && [ -n "${TMUX:-}" ] && SESSION="$(tmux display -p '#S' 2>/dev/null || true)"
+
+if [ -n "$TOKEN" ] && [ -n "$SESSION" ]; then
+  SAID="$(curl -sk -m 3 -G -H "Authorization: Bearer $TOKEN" --data-urlencode "session=$SESSION" \
+    "$URL/api/teams/expecting" 2>/dev/null || true)"
+  REASON="$(printf '%s' "$SAID" | python3 -c "
+import json, sys
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    sys.exit()
+if d.get('expecting'):
+    print(json.dumps({'decision': 'block', 'reason': d.get('reason') or 'Report your turn with team_done first.'}))
+" 2>/dev/null || true)"
+  if [ -n "$REASON" ]; then
+    printf '%s\n' "$REASON"
+    exit 0
+  fi
+fi
+
+# Not held: the ordinary end of a turn.
+printf '%s' "$INPUT" | "$HERE/argus-bell" done
+exit 0

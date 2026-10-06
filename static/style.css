@@ -3784,7 +3784,7 @@ button.block.allseen .name { color: var(--st-warning); font-weight: 600; }
 .teamadd { font-size: .78rem; padding: .3rem .6rem; }
 .teamcard.mine { border-style: dashed; }
 @media (max-width: 520px) { .teamfield { grid-template-columns: minmax(0, 1fr); } .teamarrow-row { grid-template-columns: minmax(0, 1fr); } }
-dialog.sheet.teamsheet { width: min(980px, 96vw); max-width: none; }
+dialog.sheet.teamsheet { width: min(980px, 96vw); max-width: none; margin-top: max(1rem, 4vh); margin-bottom: auto; }  /* held at the top: centred, it moved under the pointer as the agents and roles arrived */
 .teamstrip .teamchain { display: block; overflow-x: auto; padding: 0 .7rem .35rem; }
 .teamgraph .tgedge.mixed { stroke: color-mix(in srgb, var(--st-warning) 60%, transparent); }
 .teamgraph .tglabel.mixed { fill: var(--st-warning); }
@@ -3824,6 +3824,16 @@ dialog.sheet.teamsheet { width: min(980px, 96vw); max-width: none; }
 .folderat { font: 600 .85rem ui-monospace, "SF Mono", Menlo, monospace; overflow-wrap: anywhere; margin: 0; }
 .folderlist { display: grid; gap: .15rem; max-height: 50vh; overflow-y: auto; }
 .teamyaml { width: 100%; font: .82rem/1.45 ui-monospace, "SF Mono", Menlo, monospace; }
+.teamtext { display: grid; gap: .5rem; min-width: min(60rem, 88vw); }
+.teamtexttabs { display: flex; gap: .3rem; }
+.teamtexttabs > button { cursor: pointer; padding: .3rem .8rem; border: 1px solid var(--line); border-radius: 999px; background: none; color: var(--dim); font: inherit; font-size: .85rem; }
+.teamtexttabs > button[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.teamtexthelp { margin: 0; }
+.teamtextsplit { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: .6rem; align-items: start; }
+.teamtextsplit > .teamyaml { min-height: 18rem; resize: vertical; }
+.teampreview { min-height: 10rem; }
+.teampreview.stale { opacity: .45; }
+@media (max-width: 760px) { .teamtextsplit { grid-template-columns: minmax(0, 1fr); } }
 .sessbulk { display: flex; align-items: center; gap: .6rem; padding: .35rem .9rem; font-size: .85rem; flex-wrap: wrap; }
 .rowwrap.sess > .sesspick, .sessbulk > .sesspick { flex: none; align-self: center; width: 1.05rem; height: 1.05rem; margin: 0 .2rem 0 .9rem; accent-color: var(--accent); }
 .sessbulk > .sesspick { margin-left: 0; }
@@ -3832,3 +3842,8 @@ dialog.sheet.teamsheet { width: min(980px, 96vw); max-width: none; }
 .teamwin .teamline { flex-wrap: wrap; }
 .teamwin .teamchain { overflow: auto; }
 .teamwin .teamgraph { max-width: 100%; height: auto; }
+.teamadvanced { display: grid; gap: .5rem; border-top: 1px solid var(--line); padding-top: .6rem; }
+.teamadvanced:not([open]) { gap: 0; }
+.teamadvanced > summary { cursor: pointer; color: var(--dim); font-size: .88rem; list-style-position: inside; }
+.teamadvanced[open] > summary { color: var(--text); margin-bottom: .2rem; }
+.teamcard.teammore { border-style: dashed; }

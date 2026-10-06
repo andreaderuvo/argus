@@ -205,7 +205,7 @@ def test_an_agent_that_stops_without_its_turn_is_reminded_then_the_person_asked(
     io.states["t-executor"] = ("waiting", io.clock)
     io.clock += teams.NUDGE_AFTER + 1
     d.tick()
-    assert io.to()[-1] == "t-executor" and "without writing your turn" in io.sent[-1][1]
+    assert io.to()[-1] == "t-executor" and "without reporting your turn" in io.sent[-1][1]
     io.clock += teams.GIVE_UP_AFTER
     d.tick()
     assert team["status"] == "waiting-you" and "has not written its turn" in io.rings[-1][1]
@@ -789,4 +789,86 @@ def test_an_agent_started_that_never_begins_is_said_once_never_typed_into(setup)
     io.state = lambda session: ("waiting", 0)
     io.now = lambda: t0 + 600
     d.tick()
-    assert len(io.sent) == sent + 1 and "stopped without writing your turn" in io.sent[-1][1]
+    assert len(io.sent) == sent + 1 and "stopped without reporting your turn" in io.sent[-1][1]
+
+
+# ------------------------------------------------------------------ v2: the agent's side
+
+def test_an_agent_reports_with_a_call_and_argus_writes_the_turn(setup):
+    """team_done instead of a block appended by hand: checked, then written by Argus in the form
+    the director reads — so the team moves on exactly as before."""
+    d, io, tmp = setup
+    team = make(d, tmp, "optimise")
+    task = d.task("t-executor")
+    assert task["your_turn"] is True and task["you"] == "executor" and task["judge"] is False
+    assert task["goal"].startswith("make it faster") and task["statuses"] == []
+    assert d.task("nobody")["none"] is True
+    with pytest.raises(ValueError, match="does not judge"):
+        d.done("t-executor", "did it", status="OK")
+    with pytest.raises(ValueError, match="what you did"):
+        d.done("t-executor", "  ")
+    said = d.done("t-executor", "cached the index\n@END sneaky", details="10% faster")
+    assert said == {"recorded": True, "team": "t", "you": "executor", "round": 1, "status": None}
+    log = Path(team["log"]).read_text()
+    assert "@TURN who=EXECUTOR round=1" in log and " @END sneaky" in log, "a marker line of its own is defused"
+    with pytest.raises(ValueError, match="already reported"):
+        d.done("t-executor", "again")
+    d.tick()
+    assert io.check_order == ["t-check"], "the director read the turn and ran the check"
+    check_exits(io, "t-check", 0)
+    d.tick()
+    with pytest.raises(ValueError, match="judges: say status"):
+        d.done("t-reviewer", "looks fine")
+    with pytest.raises(ValueError, match="not executor's turn"):
+        d.done("t-executor", "early")
+    d.done("t-reviewer", "22% faster, results identical", status="done")
+    d.tick()
+    assert team["status"] == "done"
+
+
+def test_the_stop_guard_holds_an_agent_twice_at_most(setup):
+    d, io, tmp = setup
+    make(d, tmp, "fix")
+    first = d.expecting("t-executor")
+    assert first["expecting"] is True and "team_done" in first["reason"] and "BLOCKED" in first["reason"]
+    assert d.expecting("t-executor")["expecting"] is True
+    assert d.expecting("t-executor")["expecting"] is False, "not held for ever"
+    assert d.expecting("someone-else")["expecting"] is False
+
+
+def test_the_guard_lets_go_once_the_turn_is_reported(setup):
+    d, io, tmp = setup
+    make(d, tmp, "fix")
+    d.done("t-executor", "fixed the empty input")
+    assert d.expecting("t-executor")["expecting"] is False
+
+
+def test_the_prompt_says_to_report_with_a_call_first():
+    from app.teams import how_to_answer
+    team = {"log": "/w/TEAM.argus.md", "round": 2, "graph": TEMPLATES["optimise"]["graph"]}
+    text = how_to_answer(team, "reviewer")
+    assert text.index("team_done") < text.index("argus-say turn") < text.index("cat >>")
+    assert "--status <OK|REDO|DONE|BLOCKED>" in text and "status=<OK|REDO|DONE|BLOCKED>" in text
+
+
+def test_the_routes_for_an_agents_turn(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app.config import Config
+    from app.main import create_app
+    cfg = Config(token="m" * 64, roots=[tmp_path], listen="127.0.0.1:0")
+    cfg.agents = [{"name": "in-session", "token": "a" * 64}]
+    app = create_app(cfg)
+    app.state.teams.home = tmp_path / "teams"
+    monkeypatch.setattr(app.state.teams, "io", type("IO", (), {
+        "send": lambda *a: None, "launch": lambda *a: None, "ring": lambda *a: None, "now": lambda self: 0.0,
+        "state": lambda *a: None, "run_check": lambda *a, **k: None})())
+    graph = fill_graph(TEMPLATES["fix"]["graph"], "t", {}, default_check="true")
+    app.state.teams.create(name="t", goal="g", folder=str(tmp_path), graph=graph, template="fix", gate="ask", max_rounds=3)
+    agent = TestClient(app)
+    agent.headers.update({"authorization": "Bearer " + "a" * 64})
+    assert agent.get("/api/teams/task", params={"session": "t-executor"}).json()["your_turn"] is True
+    assert agent.get("/api/teams/expecting", params={"session": "t-executor"}).json()["expecting"] is True
+    r = agent.post("/api/teams/done", json={"session": "t-executor", "summary": "fixed", "status": "OK"})
+    assert r.status_code == 409 and "does not judge" in r.json()["error"]
+    assert agent.post("/api/teams/done", json={"session": "t-executor", "summary": "fixed"}).json()["recorded"] is True
