@@ -85,14 +85,40 @@ def undocumented(names: dict[str, object]) -> list[str]:
     return missing
 
 
-def unmentioned(names: dict[str, object], pages: str) -> list[str]:
-    """Public names that appear nowhere in the wiki.
+# The page that is the reference for both files. A name counts as documented only there.
+REFERENCE = "Writing-an-orchestrator.md"
 
-    The bare name, not the dotted one: the pages write `agent.state` and `o.fan_out(...)`, and
-    a check that insisted on `Agent.state` exactly would be checking prose style rather than
-    coverage. What it is really asking is "has anybody ever written this word down".
+
+def unmentioned(names: dict[str, object], pages: str) -> list[str]:
+    """Public names the reference page does not show *as code*.
+
+    It used to ask whether the word appeared anywhere in the wiki, and on 2026-10-06 that let
+    `ask()` go undocumented: "ask" is an ordinary English word, written on a dozen pages. So now
+    the name has to be in the page's code — a backtick span or a fenced block — and a function
+    or method has to be shown being called, `name(`. The bare name, not the dotted one: the page
+    writes `a.ask(...)` and `o.fan_out(...)`, not `Argus.ask`.
     """
-    return sorted({n.split(".")[-1] for n in names} - set(_words(pages)))
+    code = _code(pages)
+    missing = []
+    for full, thing in names.items():
+        bare = full.split(".")[-1]
+        if isinstance(thing, property):
+            thing = thing.fget
+        callable_ = inspect.isfunction(thing) and not isinstance(names.get(full), property)
+        import re
+        shown = (re.search(rf"\b{re.escape(bare)}\(", code) if callable_
+                 else re.search(rf"\b{re.escape(bare)}\b", code))
+        if not shown:
+            missing.append(full)
+    return sorted(missing)
+
+
+def _code(text: str) -> str:
+    """The code on a page: fenced blocks and backtick spans, nothing in the prose around them."""
+    import re
+    fenced = re.findall(r"```.*?```", text, re.S)
+    rest = re.sub(r"```.*?```", "", text, flags=re.S)
+    return "\n".join(fenced + re.findall(r"`[^`\n]+`", rest))
 
 
 def _words(text: str) -> set[str]:
@@ -124,11 +150,10 @@ def main() -> int:
             bad.append(f"{mod}.{name} has no docstring")
 
     if args.wiki:
-        pages = "\n".join(p.read_text(encoding="utf-8", errors="replace")
-                          for p in sorted(args.wiki.glob("*.md")))
+        pages = (args.wiki / REFERENCE).read_text(encoding="utf-8", errors="replace")
         for mod, names in found.items():
             for name in unmentioned(names, pages):
-                bad.append(f"{mod}.{name} is named nowhere in the wiki")
+                bad.append(f"{mod}.{name} is not shown in {REFERENCE}")
 
     if bad:
         print(f"{len(bad)} of {total} public names are not written down:", file=sys.stderr)
@@ -136,7 +161,7 @@ def main() -> int:
             print(f"  {line}", file=sys.stderr)
         return 1
     print(f"{total} public names, all documented"
-          + (" and all named in the wiki" if args.wiki else ""))
+          + (" and all shown on " + REFERENCE if args.wiki else ""))
     return 0
 
 

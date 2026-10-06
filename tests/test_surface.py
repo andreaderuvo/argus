@@ -60,11 +60,18 @@ def wiki() -> Path | None:
 
 
 @pytest.mark.skipif(wiki() is None, reason="no wiki checkout here — CI clones one")
-def test_every_public_name_is_named_in_the_wiki():
-    pages = "\n".join(p.read_text(encoding="utf-8", errors="replace")
-                      for p in sorted(wiki().glob("*.md")))
+def test_every_public_name_is_shown_on_the_reference_page():
+    page = (wiki() / surface.REFERENCE).read_text(encoding="utf-8", errors="replace")
     bad = {f"{mod}.{name}"
            for mod, names in surface.surface().items()
-           for name in surface.unmentioned(names, pages)}
-    assert not bad, (f"in the code and nowhere in the wiki: {sorted(bad)} — "
-                     "see Writing-an-orchestrator")
+           for name in surface.unmentioned(names, page)}
+    assert not bad, (f"not shown as code on {surface.REFERENCE}: {sorted(bad)} — "
+                     "a row in its tables, with the call written out")
+
+
+def test_a_word_in_the_prose_is_not_documentation():
+    """What let ask() through: the word was on a dozen pages, never as the method."""
+    names = {"Argus.ask": lambda: None, "Argus.who": lambda: None}
+    page = "You can ask the person. | `a.who()` | who is here |"
+    assert surface.unmentioned(names, page) == ["Argus.ask"]
+    assert surface.unmentioned(names, page + "\n| `a.ask(text)` | a question |") == []
