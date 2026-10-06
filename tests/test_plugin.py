@@ -89,3 +89,24 @@ def test_claude_validates_both_manifests():
         done = subprocess.run(["claude", "plugin", "validate", "--strict", str(target)], capture_output=True,
                               text=True, timeout=60, stdin=subprocess.DEVNULL)
         assert done.returncode == 0, done.stdout + done.stderr
+
+
+# What the plugin's files hashed to, per version. An agent updates an installed plugin only when its
+# version changes: on 2026-10-06 rename_desk was added under the same 0.1.0 and '/plugin update'
+# kept the old copy, without the tool. Change anything in plugin/ and this fails until the version
+# goes up and its hash is added here.
+RELEASED = {"0.1.1": "0c47653f71ed8691"}
+
+
+def plugin_hash() -> str:
+    import hashlib
+    files = sorted(f for f in PLUGIN.rglob("*") if f.is_file() and f.name not in ("plugin.json", "gemini-extension.json"))
+    lines = "".join(f"{hashlib.sha256(f.read_bytes()).hexdigest()}  ./{f.relative_to(PLUGIN)}\n" for f in files)
+    return hashlib.sha256(lines.encode()).hexdigest()[:16]
+
+
+def test_a_changed_plugin_has_a_new_version():
+    version = json.loads((PLUGIN / ".claude-plugin" / "plugin.json").read_text())["version"]
+    assert version in RELEASED, f"plugin/ is at {version}, which is not in RELEASED: add it with its hash {plugin_hash()}"
+    assert RELEASED[version] == plugin_hash(), \
+        f"plugin/ changed since {version} was released: raise the version in plugin.json and gemini-extension.json, and add its hash {plugin_hash()}"
