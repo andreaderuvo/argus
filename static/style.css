@@ -84,6 +84,15 @@ body {
   height: 100dvh;
 }
 
+/* Whatever can be pressed shows the hand. Browsers leave a <button> with the arrow, and the rule
+   used to be written one class at a time — measured 2026-10-06, about seven in ten clickable
+   things on a screen (every dialog, the header, the rows) showed the arrow. :where() keeps this
+   at zero specificity, so every particular cursor (move on a title bar, text, grab, resize) wins. */
+:where(button:not(:disabled), a[href], [role="button"], summary, select:not(:disabled),
+  input[type="checkbox"]:not(:disabled), input[type="radio"]:not(:disabled), input[type="range"],
+  label:has(> input[type="checkbox"], > input[type="radio"])) { cursor: pointer; }
+:where(button:disabled, select:disabled, input:disabled) { cursor: not-allowed; }
+
 /* ---------- header ---------- */
 
 #bar {
