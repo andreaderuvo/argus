@@ -1196,7 +1196,7 @@ def create_app(cfg: Config) -> FastAPI:
         return {"session": name, "set": sorted(options)}
 
     @app.get("/api/tmux/cwd", tags=["Sessions"], summary="The directory a session is really in")
-    async def pane_directory(request: Request, session: str) -> dict:
+    async def pane_directory(request: Request, session: str, missing_ok: bool = False) -> dict:
         """Where this session actually is, and how well that is known.
 
         Not the same thing as the folder a desk was given: that one decides where a file
@@ -1209,6 +1209,10 @@ def create_app(cfg: Config) -> FastAPI:
         terminal), `tmux` (tmux's own observation), `start` (the directory the pane was made
         in). `cwd_live` is false only for the last, which is history rather than news.
         """
+        # `missing_ok=1`: a window asking about its own session, which may have been ended from
+        # elsewhere a moment ago — `{gone: true}`, not a 404 in the console of every open page.
+        if missing_ok and not await asyncio.to_thread(tmux.session_exists, request.app.state.socket, str(session or "")):
+            return {"session": session, "gone": True}
         name = await _known(request, session)
         found = await asyncio.to_thread(paths.pane_where, request.app.state.socket, name)
         # Where the answer came from travels with it. A directory the agent declared, one

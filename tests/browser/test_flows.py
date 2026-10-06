@@ -224,3 +224,20 @@ def test_a_token_saved_under_the_old_name_still_signs_in(make_page, argus):
     page.goto(argus.url + "/")
     page.wait("!document.getElementById('nav').hidden", what="signed in from the old key")
     assert page.eval("localStorage.getItem('argus.token')") == TOKEN
+
+
+def test_alt_v_says_which_argus_is_running(make_page):
+    page = make_page(route="#/sessions")
+    page.key("v", code="KeyV", modifiers=1)                      # Alt
+    page.wait("!!document.querySelector('dialog.aboutargus .aboutrow')", timeout=10, what="the version dialog")
+    text = page.eval("document.querySelector('dialog.aboutargus').textContent")
+    assert "Version" in text and "0." in text
+
+
+def test_desk_shortcuts_find_their_buttons_in_another_language(make_page, argus):
+    """press() matched English words, so in an Italian Argus the desk's shortcuts did nothing."""
+    argus.api("/api/prefs", "PATCH", {"changes": {"lang": "it"}})
+    page = make_page(route="#/wall")
+    page.wait("document.body.classList.contains('wall') && !!document.querySelector('#walltools button')", timeout=15)
+    page.key("X", code="KeyX", modifiers=2 | 8)                  # Ctrl+Shift+X: New session
+    page.wait("!!document.querySelector('dialog.sheet[open] .startpick')", timeout=10, what="the new-session box, in Italian")

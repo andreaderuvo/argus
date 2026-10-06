@@ -535,8 +535,9 @@ export async function screenWall() {
       if (facts) facts.dataset.ws = ws.id;
       if (facts) facts.dataset.session = spec.name;
 
-      const askWhere = () => getJSON(`/api/tmux/cwd?session=${encodeURIComponent(spec.name)}`)
+      const askWhere = () => getJSON(`/api/tmux/cwd?session=${encodeURIComponent(spec.name)}&missing_ok=1`)
         .then((answer) => {
+          if (answer.gone) return;          // ended from elsewhere: the window says so on its own
           facts.dataset.cwd = answer.cwd || '';
           facts.dataset.began = answer.started_in || '';
           facts.dataset.from = answer.cwd_source || '';

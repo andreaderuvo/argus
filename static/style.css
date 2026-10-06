@@ -3804,3 +3804,6 @@ dialog.sheet.teamsheet { width: min(980px, 96vw); max-width: none; }
 .teambadge.argus { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
 .teambadge.mine, .teambadge.pack { color: var(--st-good); border-color: color-mix(in srgb, var(--st-good) 45%, var(--line)); }
 .teambadge.file { color: var(--st-warning); border-color: color-mix(in srgb, var(--st-warning) 45%, var(--line)); }
+.aboutargus-body { display: grid; gap: .45rem; min-width: min(26rem, 80vw); }
+.aboutrow { display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: .6rem; font-size: .88rem; }
+.aboutrow .warn { color: var(--st-warning); }

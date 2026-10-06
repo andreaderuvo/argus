@@ -1,8 +1,10 @@
 // <imports> generated from what this file uses; edit the code, not this list
 import { savePrefs } from '/js/core.js';
+import { seeEverything } from '/js/counts.js';
 import { modal } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { icon } from '/js/icons.js';
+import { getJSON } from '/js/reconnect.js';
 import { go } from '/js/router.js';
 import { applySidebar } from '/js/sidebar.js';
 import { bar, prefs, token } from '/js/state.js';
@@ -50,13 +52,24 @@ import { t } from '/js/words.js';
 const KEYS = [
   { group: 'Everywhere', id: 'help', name: 'Keyboard shortcuts', key: '?' },
   { group: 'Everywhere', id: 'full', name: 'Full screen', key: 'F11' },
+  // Which build is running, in one press: what you check after a pull. Alt alone, because it is
+  // asked from anywhere; remap it if your browser keeps Alt+V for a menu.
+  { group: 'Everywhere', id: 'version', name: 'Which Argus is running', key: 'alt+v' },
+  { group: 'Everywhere', id: 'gotAll', name: 'Got it, all — set every wait aside', key: 'ctrl+shift+g' },
   { group: 'The sidebar', id: 'files', name: 'Files', key: 'ctrl+alt+f' },
   { group: 'The sidebar', id: 'sessions', name: 'Sessions', key: 'ctrl+alt+s' },
   { group: 'The sidebar', id: 'wall', name: 'Windows', key: 'ctrl+alt+w' },
   { group: 'The sidebar', id: 'prompts', name: 'Prompts', key: 'ctrl+alt+p' },
   { group: 'The sidebar', id: 'system', name: 'System', key: 'ctrl+alt+y' },
+  { group: 'The sidebar', id: 'since', name: 'While you were away', key: 'ctrl+alt+a' },
+  { group: 'The sidebar', id: 'todo', name: 'To do', key: 'ctrl+alt+o' },
+  { group: 'The sidebar', id: 'placeholders', name: 'Placeholders', key: 'ctrl+alt+v' },
+  { group: 'The sidebar', id: 'journal', name: 'Journal', key: 'ctrl+alt+j' },
   { group: 'The sidebar', id: 'settings', name: 'Settings', key: 'ctrl+alt+,' },
   { group: 'The sidebar', id: 'sidebar', name: 'Show or hide the file sidebar', key: 'ctrl+alt+b' },
+  { group: 'This desk', id: 'newSession', name: 'New session — an agent or a shell', key: 'ctrl+shift+x' },
+  { group: 'This desk', id: 'team', name: 'A team of agents', key: 'ctrl+shift+m' },
+  { group: 'This desk', id: 'windows', name: 'The list of this desk’s windows', key: 'ctrl+shift+h' },
   { group: 'This desk', id: 'browser', name: 'New file browser in this desk', key: 'ctrl+shift+e' },
   { group: 'This desk', id: 'links', name: 'The link tray', key: 'ctrl+shift+l' },
   { group: 'This desk', id: 'messages', name: 'The prompts window', key: 'ctrl+shift+y' },
@@ -129,8 +142,10 @@ function keyboardIsTaken() {
 
 function runKey(id) {
   const wall = () => document.getElementById('walltools');
+  // By the button's label *as shown* — translated: matching the English words found nothing in
+  // an Italian, Spanish or French Argus, and those shortcuts silently did nothing.
   const press = (label) => [...(wall()?.querySelectorAll('button') || [])]
-    .find((b) => new RegExp(label, 'i').test(b.textContent))?.click();
+    .find((b) => b.textContent.trim().toLowerCase().startsWith(t(label).toLowerCase()))?.click();
   const tile = (mode) => { go('#/wall'); wall()?.querySelector(`button[data-mode="${mode}"]`)?.click(); };
   const desk = (step) => {
     const tabs = [...document.querySelectorAll('#walltabs .wstab[data-ws]')];
@@ -140,6 +155,15 @@ function runKey(id) {
   };
   const jobs = {
     help: () => keyHelp(),
+    version: () => aboutThisArgus(),
+    gotAll: () => seeEverything(),
+    since: () => go('#/since'),
+    todo: () => go('#/todo'),
+    placeholders: () => go('#/placeholders'),
+    journal: () => go('#/journal'),
+    newSession: () => { go('#/wall'); setTimeout(() => press('New session'), 0); },
+    team: () => { go('#/wall'); setTimeout(() => press('Team'), 0); },
+    windows: () => { go('#/wall'); setTimeout(() => press('Windows'), 0); },
     files: () => go('#/files'),
     sessions: () => go('#/sessions'),
     wall: () => go('#/wall'),
@@ -148,9 +172,9 @@ function runKey(id) {
     settings: () => go('#/settings'),
     sidebar: () => { prefs.sidebar = !prefs.sidebar; savePrefs(); applySidebar(); },
     full: () => bar.full.click(),
-    browser: () => { go('#/wall'); press('browser'); },
-    links: () => { go('#/wall'); press('links'); },
-    messages: () => { go('#/wall'); press('prompt|messag'); },
+    browser: () => { go('#/wall'); press('Browser'); },
+    links: () => { go('#/wall'); press('Links'); },
+    messages: () => { go('#/wall'); press('Prompts'); },
     nextDesk: () => desk(1),
     prevDesk: () => desk(-1),
     /* The arrangements, on three modifiers of their own.
@@ -237,6 +261,35 @@ window.addEventListener('keydown', (e) => {
   e.preventDefault();
   runKey(hit.id);
 });
+
+/** Which Argus is running: version, the commit and its date, whether a pull is waiting for a
+ *  restart, whether a release is out, and the plugin in each agent. What you want to know after a
+ *  `git pull`, without going to the bottom of Settings. */
+export async function aboutThisArgus() {
+  if (document.querySelector('dialog.aboutargus[open]')) return;
+  const body = el('div', { className: 'sheetbody aboutargus-body' }, [el('p', { className: 'hint', textContent: '…' })]);
+  const sheet = modal(t('Which Argus is running'), body, [
+    el('button', { className: 'ghost', textContent: t('Settings'), onclick: () => { sheet.close(); go('#/settings'); } }),
+    el('button', { className: 'primary inline', textContent: t('Close'), onclick: () => sheet.close() }),
+  ]);
+  sheet.classList.add('aboutargus');
+  const [v, p] = await Promise.all([getJSON('/api/version').catch(() => null), getJSON('/api/plugin').catch(() => null)]);
+  const row = (label, value, warn = false) => el('div', { className: 'aboutrow' }, [
+    el('span', { className: 'meta', textContent: label }), el('span', { className: warn ? 'warn' : '', textContent: value })]);
+  const b = v?.build;
+  const rows = [
+    row(t('Version'), v?.running || '—'),
+    b ? row(t('Commit'), `${b.short}${b.dirty ? ` · ${t('with changes not committed')}` : ''}`) : null,
+    b?.describe ? row('git describe', b.describe) : null,
+    b?.date ? row(t('Committed'), new Date(b.date).toLocaleString()) : null,
+    v?.pulled ? row(t('On disk'), t('a newer commit is on disk — restart Argus to run it'), true) : null,
+    v?.newer && v.latest ? row(t('Release'), t('{version} is out', { version: v.latest }), true) : null,
+    p?.version ? row(t('Plugin offered'), p.version) : null,
+    ...(p?.agents || []).filter((a) => a.present || a.installed).map((a) =>
+      row(a.name, a.installed ? (a.outdated ? t('{have} — {offered} is out', { have: a.installed, offered: p.version }) : a.installed) : t('not installed'), a.outdated)),
+  ].filter(Boolean);
+  body.replaceChildren(...rows);
+}
 
 /** The list of them, and the way to change one. */
 export function keyHelp() {

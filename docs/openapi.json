@@ -3497,6 +3497,16 @@
        "title": "Session",
        "type": "string"
       }
+     },
+     {
+      "in": "query",
+      "name": "missing_ok",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Missing Ok",
+       "type": "boolean"
+      }
      }
     ],
     "responses": {

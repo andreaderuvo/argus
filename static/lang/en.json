@@ -1147,6 +1147,16 @@
   "{name} removed": "{name} removed",
   "from a pack": "from a pack",
   "the folder this team works in, e.g. ~/work/my-team — made if it does not exist": "the folder this team works in, e.g. ~/work/my-team — made if it does not exist",
-  "Choose the folder the team works in — it is made if it does not exist.": "Choose the folder the team works in — it is made if it does not exist."
+  "Choose the folder the team works in — it is made if it does not exist.": "Choose the folder the team works in — it is made if it does not exist.",
+  "Which Argus is running": "Which Argus is running",
+  "Got it, all — set every wait aside": "Got it, all — set every wait aside",
+  "New session — an agent or a shell": "New session — an agent or a shell",
+  "The list of this desk’s windows": "The list of this desk’s windows",
+  "Commit": "Commit",
+  "Committed": "Committed",
+  "On disk": "On disk",
+  "Release": "Release",
+  "{version} is out": "{version} is out",
+  "Plugin offered": "Plugin offered"
  }
 }

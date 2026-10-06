@@ -1147,6 +1147,16 @@
   "{name} removed": "{name} quitado",
   "from a pack": "de un paquete",
   "the folder this team works in, e.g. ~/work/my-team — made if it does not exist": "la carpeta en la que trabaja el equipo, p. ej. ~/trabajo/mi-equipo — se crea si no existe",
-  "Choose the folder the team works in — it is made if it does not exist.": "Elige la carpeta en la que trabaja el equipo — se crea si no existe."
+  "Choose the folder the team works in — it is made if it does not exist.": "Elige la carpeta en la que trabaja el equipo — se crea si no existe.",
+  "Which Argus is running": "Qué Argus está en marcha",
+  "Got it, all — set every wait aside": "Visto, todo — aparta cada espera",
+  "New session — an agent or a shell": "Nueva sesión — un agente o una shell",
+  "The list of this desk’s windows": "La lista de ventanas de este escritorio",
+  "Commit": "Commit",
+  "Committed": "Fecha del commit",
+  "On disk": "En el disco",
+  "Release": "Versión publicada",
+  "{version} is out": "ya está la {version}",
+  "Plugin offered": "Plugin ofrecido"
  }
 }
