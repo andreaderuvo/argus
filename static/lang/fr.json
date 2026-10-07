@@ -1208,6 +1208,15 @@
   "Hide": "Masquer",
   "Take this off the desk; the files stay": "Retirez-le du bureau ; les fichiers restent",
   "hidden from this desk — it comes back if {file} is written again": "masqué de ce bureau — il revient si {file} est réécrit",
-  "A pair of agents from the old Two agents, planned in {path}.": "Une paire d'agents de l'ancien Two agents, planifiée dans {path}."
+  "A pair of agents from the old Two agents, planned in {path}.": "Une paire d'agents de l'ancien Two agents, planifiée dans {path}.",
+  "This page is open in the browser of the app that read the QR code. That browser forgets Argus: next time you would have to scan again.": "Cette page est ouverte dans le navigateur de l'application qui a lu le QR code. Ce navigateur oublie Argus : la prochaine fois il faudrait scanner à nouveau.",
+  "Open it in Chrome (or your usual browser) once: it is remembered there, for good.": "Ouvrez-la une fois dans Chrome (ou votre navigateur habituel) : elle y est retenue pour de bon.",
+  "Copy the link and open it in Safari (or your usual browser) once: it is remembered there, for good.": "Copiez le lien et ouvrez-le une fois dans Safari (ou votre navigateur habituel) : il y est retenu pour de bon.",
+  "Use the same address every time: an IP and a name are two different sites to a browser, and each remembers on its own.": "Utilisez toujours la même adresse : pour un navigateur, une IP et un nom sont deux sites différents, et chacun retient de son côté.",
+  "Open Argus in your browser": "Ouvrir Argus dans votre navigateur",
+  "Stay here": "Rester ici",
+  "Copy the link": "Copier le lien",
+  "copied — paste it in your browser": "copié — collez-le dans votre navigateur",
+  "Open in Chrome": "Ouvrir dans Chrome"
  }
 }
