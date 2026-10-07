@@ -1257,6 +1257,22 @@
   "not an agent: a shell takes no turn and reports nothing — the team will wait on it": "no es un agente: una shell no hace turnos ni informa — el equipo la esperará",
   "no Argus plugin: no team tools and no Stop guard — it will report by writing to the team's log, which works but is checked by nobody until the next round": "sin plugin de Argus: sin herramientas de equipo ni Stop guard — informará escribiendo en el registro del equipo, que funciona pero nadie lo comprueba hasta la ronda siguiente",
   "Gemini gets the team tools from its extension but no Stop guard: a turn ended without a report is noticed by the reminder, after two minutes": "Gemini tiene las herramientas del equipo por su extensión pero no Stop guard: un turno sin informe lo nota el recordatorio, a los dos minutos",
-  "Codex's hooks have not been heard yet: they run only after you review them once in Codex — until then there is no Stop guard (open Codex, accept the hooks)": "los hooks de Codex aún no se han oído: solo funcionan tras revisarlos una vez en Codex — hasta entonces no hay Stop guard (abre Codex, acepta los hooks)"
+  "Codex's hooks have not been heard yet: they run only after you review them once in Codex — until then there is no Stop guard (open Codex, accept the hooks)": "los hooks de Codex aún no se han oído: solo funcionan tras revisarlos una vez en Codex — hasta entonces no hay Stop guard (abre Codex, acepta los hooks)",
+  "Restart": "Reiniciar",
+  "Restart the team": "Reiniciar el equipo",
+  "Reset the team": "Restablecer el equipo",
+  "Stop, reset, read the team file again, start from round 1": "Detiene, restablece, relee el archivo del equipo, empieza en la ronda 1",
+  "Delete what the team declares as a run’s state": "Borra lo que el equipo declara como estado de una ejecución",
+  "{name} stops, its sessions end ({names}), it is reset as below, and it starts again from round 1 with new agents.": "{name} se detiene, sus sesiones terminan ({names}), se restablece como abajo y empieza de nuevo en la ronda 1 con agentes nuevos.",
+  "The team is read again from {file}.": "El equipo se vuelve a leer de {file}.",
+  "This team declares no reset: no file is deleted. Add `reset:` to its team file to say which files are a run’s state.": "Este equipo no declara reset: no se borra ningún archivo. Añade `reset:` a su archivo para decir qué archivos son el estado de una ejecución.",
+  "{n} file(s) deleted, in {folder}:": "{n} archivo(s) borrado(s), en {folder}:",
+  "No file matches the reset just now: nothing to delete.": "Ningún archivo coincide con el reset ahora: nada que borrar.",
+  "Then runs: {command}": "Luego ejecuta: {command}",
+  "The log TEAM.argus.md is archived with today’s date.": "El registro TEAM.argus.md se archiva con la fecha de hoy.",
+  "The log TEAM.argus.md is deleted.": "El registro TEAM.argus.md se borra.",
+  "The log TEAM.argus.md is kept as it is.": "El registro TEAM.argus.md se mantiene tal cual.",
+  "{n} file(s) deleted, the log {log}": "{n} archivo(s) borrado(s), el registro {log}",
+  "started again": "empezado de nuevo"
  }
 }

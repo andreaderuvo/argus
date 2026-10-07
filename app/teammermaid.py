@@ -222,7 +222,7 @@ def read_team(text: str) -> dict:
 
 
 STEP_KEYS = {"role", "judge", "duty", "worktree", "reads", "check", "of", "join"}
-TOP_KEYS = {"name", "goal", "gate", "rounds", "permissions", "start", "steps", "flow", "argus_team_pack"}
+TOP_KEYS = {"name", "goal", "gate", "rounds", "permissions", "start", "steps", "flow", "reset", "argus_team_pack"}
 
 
 def _yaml_doc(body: str):

@@ -1018,10 +1018,17 @@ def create_app(cfg: Config) -> FastAPI:
                 await asyncio.to_thread(tmux.run, tmux.new_argv(state.socket, n["session"], of.get("folder") or str(folder)))
                 sessions[n["id"]] = n["session"]
         try:
+            spec = {k: body.get(k) for k in ("name", "template", "path", "agents", "check", "checks", "gate",
+                                              "max_rounds", "ws", "file") if body.get(k) is not None}
+            spec["graph"] = graph
+            wanted_id = str(body.get("id") or "")
+            if wanted_id and not re.fullmatch(r"[0-9a-f]{8}", wanted_id):
+                raise ValueError("id is a team's own id (8 hex digits) — given only by a restart")
             team = await asyncio.to_thread(lambda: state.teams.create(
                 name=base, goal=str(body.get("goal", "")), folder=str(folder), graph=filled,
                 template=template, gate=str(body.get("gate") or "ask"),
-                max_rounds=int(body.get("max_rounds") or 10), ws=body.get("ws")))
+                max_rounds=int(body.get("max_rounds") or 10), ws=body.get("ws"),
+                team_id=wanted_id or None, spec=spec))
         except ValueError as e:
             raise ApiError(400, str(e)) from e
         # The agents that started with it (the first steps), beside the checks.
@@ -1032,14 +1039,24 @@ def create_app(cfg: Config) -> FastAPI:
         return {"team": next(t for t in state.teams.public() if t["id"] == team["id"]), "sessions": sessions,
                 "worktrees": {k: v for k, v in folders.items() if v != str(folder)}}
 
-    @app.post("/api/teams/{team_id}/{action}", tags=["Teams"], summary="Continue, pause or stop a team")
+    @app.post("/api/teams/{team_id}/{action}", tags=["Teams"], summary="Continue, pause, stop, reset or restart a team")
     async def teams_act(request: Request, team_id: str, action: str) -> dict:
         director = request.app.state.teams
         if team_id not in director.teams:
             raise ApiError(404, "no such team")
+        if action == "reset":
+            if not request.app.state.cfg.allow_write:
+                raise ApiError(403, "a reset deletes files — start Argus with --allow-write")
+            try:
+                said = await asyncio.to_thread(director.reset, team_id)
+            except ValueError as e:
+                raise ApiError(409, str(e)) from e
+            return {"team": next(t for t in director.public() if t["id"] == team_id), **said}
+        if action == "restart":
+            return await restart_team(request, team_id)
         act = {"go": director.go, "pause": director.pause, "stop": director.stop}.get(action)
         if act is None:
-            raise ApiError(400, "action is go, pause or stop")
+            raise ApiError(400, "action is go, pause, stop, reset or restart")
         await asyncio.to_thread(act, team_id)
         # Stop `{kill: true}`: and end every session of the team — its agents and its checks —
         # with everything running in them. What it wrote (the log, the files, any worktree) stays.
@@ -1058,6 +1075,62 @@ def create_app(cfg: Config) -> FastAPI:
                         except tmux.TmuxError:
                             pass
         return {"team": next(t for t in director.public() if t["id"] == team_id), "ended": ended}
+
+    @app.get("/api/teams/{team_id}/reset", tags=["Teams"], summary="What a reset of this team would do")
+    async def teams_reset_plan(request: Request, team_id: str) -> dict:
+        """`{folder, files, run, log, declared}` — the files a reset (or a restart) would delete,
+        resolved from the team's `reset:` globs, the command it would run and what becomes of the
+        log. What the person confirms, before anything is touched."""
+        team = request.app.state.teams.teams.get(team_id)
+        if not team:
+            raise ApiError(404, "no such team")
+        plan = await asyncio.to_thread(teams.reset_plan, team["folder"], team["graph"].get("reset"))
+        return {**plan, "declared": bool(team["graph"].get("reset")), "file": (team.get("spec") or {}).get("file")}
+
+    async def restart_team(request: Request, team_id: str) -> dict:
+        """Stop, end the team's sessions, reset, read its team file again, start from round 1 — same
+        id, same name, same launchers. The agents start with fresh conversations; the log of the
+        run before is archived (unless `reset.log` says otherwise)."""
+        state = request.app.state
+        director = state.teams
+        team = director.teams[team_id]
+        spec = dict(team.get("spec") or {})
+        if not spec.get("graph"):
+            raise ApiError(409, "this team was started before restart existed — start it again from Team")
+        if not state.cfg.allow_write:
+            raise ApiError(403, "a restart deletes files and starts agents — start Argus with --allow-write")
+        # What it is now: the team file read afresh, when it came from one.
+        source = Path(spec["file"]) if spec.get("file") else None
+        if source and source.is_file():
+            try:
+                fresh = await asyncio.to_thread(teams.from_yaml, source.read_text(encoding="utf-8"))
+            except ValueError as e:
+                raise ApiError(409, f"{source} does not read as a team any more: {e}") from e
+            spec["graph"] = fresh["graph"]
+            for key, to in (("gate", "gate"), ("rounds", "max_rounds")):
+                if fresh.get(key):
+                    spec[to] = fresh[key]
+            goal = fresh.get("goal") or team["goal"]
+        else:
+            goal = team["goal"]
+        agents = dict(spec.get("agents") or {})
+        first = next(iter(agents.values()), None)
+        for n in spec["graph"]["nodes"]:
+            if n["kind"] == "agent" and n["id"] not in agents and first:
+                agents[n["id"]] = {**first, "worktree": bool(n.get("worktree")) and bool(first.get("worktree"))}
+        await asyncio.to_thread(director.stop, team_id, "restarted")
+        ended = []
+        for name in director.sessions_of(team_id):
+            if await asyncio.to_thread(tmux.session_exists, state.socket, name):
+                with contextlib.suppress(tmux.TmuxError):
+                    await asyncio.to_thread(tmux.run, tmux.kill_argv(state.socket, name))
+                    ended.append(name)
+        reset = await asyncio.to_thread(director.reset, team_id)
+        await asyncio.to_thread(director.forget, team_id)
+        body = {**spec, "name": team["name"], "goal": goal, "agents": agents, "id": team_id,
+                "path": spec.get("path") or team["folder"]}
+        started = await teams_create(request, body)
+        return {**started, "reset": reset, "ended": ended}
 
     @app.delete("/api/teams/{team_id}", tags=["Teams"], summary="Forget a finished team")
     async def teams_forget(request: Request, team_id: str) -> dict:

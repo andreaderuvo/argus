@@ -521,6 +521,14 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   "always allow" writes). **Before you start** (app/readiness.py, `GET /api/teams/ready`): plugin
   missing/old, Codex asking before the team tools (fix writes approve, keeps a copy), Codex hooks
   never heard (no Stop guard), Gemini, a shell — said in the Team sheet with fixes.
+- **Pause, Stop, Reset, Restart** (`teams.read_reset/reset_plan/do_reset`, `Director.reset`,
+  `restart_team` in main.py, tests/test_reset.py and the browser restart test). A team declares
+  `reset: {files, run, log}` in its file (kept in the graph); Reset (stopped teams only) deletes
+  exactly the resolved files — inside the folder, never .git/team.yaml/the log, symlinks out
+  skipped — archives the log by default, runs `run`. Restart = stop, end its sessions, reset,
+  forget, POST /api/teams again with the stored `spec` and the **same id** (the window keeps
+  watching), re-reading `spec.file` when the team came from a team.yaml. The UI and the consent
+  requests (team_reset/team_restart, always asked) show the resolved list first.
 - **How a verdict moves a team** (`Director._finished`, the audit of 2026-10-07, tests in
   test_teams.py "verdicts the audit found ignored"). A non-judge's turn is `always`, except
   BLOCKED, which anyone may say; BLOCKED follows only `if BLOCKED` arrows, else waits for the

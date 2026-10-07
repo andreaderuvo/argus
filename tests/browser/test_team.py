@@ -533,3 +533,37 @@ def test_what_the_machine_lacks_is_said_before_start(make_page, argus):
               timeout=15, what="the plugin missing, said before Start")
     assert page.eval("[...document.querySelectorAll('.teamready button')].some(b => b.textContent === 'Install / update')")
     clean(argus, project)
+
+
+def test_restart_resets_reads_the_file_again_and_starts_from_round_one(make_page, argus):
+    """A team declares what a run's state is (`reset:`); Restart stops it, deletes exactly that
+    (after saying the list), archives the log, reads team.yaml again and starts from round 1 —
+    the same team, so the window watching it goes on."""
+    project = desk(argus)
+    team_file = project / "team.yaml"
+    team_file.write_text("name: Paper run\ngoal: trade on paper\nsteps:\n  trader: {role: executor}\n"
+                         "flow:\n  - trader -> trader if REDO\nreset:\n  files: [ledger.csv]\n")
+    page = make_page(route="#/wall")
+    open_sheet(page, argus, "")
+    page.wait("document.querySelector('.teamcard.on')?.textContent.includes('Paper run')", timeout=20, what="the folder's team chosen")
+    page.wait("!!document.querySelector('.teamrole select')", timeout=25, what="an agent")
+    start(page)
+    team = eventually(lambda: (argus.api("/api/teams")["teams"] or [None])[0], timeout=10, what="the team")
+    assert team["restartable"] and team["file"] == str(team_file) and team["resets"]
+    (project / "ledger.csv").write_text("BUY 1 BTC")
+    team_file.write_text(team_file.read_text().replace("role: executor", "role: trader"))
+    line = "[...document.querySelectorAll('.teamline')].find(l => l.textContent.includes('Paper'))"
+    page.wait(f"!!{line}", timeout=10)
+    page.click_at(*page._center(f"[...{line}.querySelectorAll('button')].find(b => b.textContent === 'Restart')"))
+    page.wait("document.querySelector('.teamresetfiles')?.textContent.includes('ledger.csv')", timeout=10, what="the exact list, before anything")
+    assert (project / "ledger.csv").exists(), "nothing touched before the press"
+    page.click_at(*page._center("[...document.querySelectorAll('dialog.sheet button')].find(b => b.textContent === 'Restart')"))
+    eventually(lambda: not (project / "ledger.csv").exists(), timeout=20, what="the run's state deleted")
+    assert list(project.glob("TEAM.argus.*.md")), "the old log archived"
+    again = eventually(lambda: next((x for x in argus.api("/api/teams")["teams"] if x["id"] == team["id"] and x["round"] == 1 and x["status"] == "running"), None),
+                       timeout=20, what="the same team, from round 1")
+    assert next(n for n in again["nodes"] if n["id"] == "trader")["role"] == "trader", "team.yaml read again"
+    clean(argus, project)
+    team_file.unlink()
+    for f in project.glob("TEAM.argus.*.md"):
+        f.unlink()

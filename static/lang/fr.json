@@ -1257,6 +1257,22 @@
   "not an agent: a shell takes no turn and reports nothing — the team will wait on it": "pas un agent : un shell ne prend pas de tour et ne rapporte rien — l'équipe l'attendra",
   "no Argus plugin: no team tools and no Stop guard — it will report by writing to the team's log, which works but is checked by nobody until the next round": "pas de plugin Argus : ni outils d'équipe ni Stop guard — il rapportera en écrivant dans le journal de l'équipe, ce qui marche mais n'est vérifié par personne avant le tour suivant",
   "Gemini gets the team tools from its extension but no Stop guard: a turn ended without a report is noticed by the reminder, after two minutes": "Gemini a les outils d'équipe par son extension mais pas de Stop guard : un tour fini sans rapport est remarqué par le rappel, après deux minutes",
-  "Codex's hooks have not been heard yet: they run only after you review them once in Codex — until then there is no Stop guard (open Codex, accept the hooks)": "les hooks de Codex n'ont pas encore été entendus : ils ne tournent qu'après les avoir validés une fois dans Codex — d'ici là pas de Stop guard (ouvrez Codex, acceptez les hooks)"
+  "Codex's hooks have not been heard yet: they run only after you review them once in Codex — until then there is no Stop guard (open Codex, accept the hooks)": "les hooks de Codex n'ont pas encore été entendus : ils ne tournent qu'après les avoir validés une fois dans Codex — d'ici là pas de Stop guard (ouvrez Codex, acceptez les hooks)",
+  "Restart": "Redémarrer",
+  "Restart the team": "Redémarrer l'équipe",
+  "Reset the team": "Réinitialiser l'équipe",
+  "Stop, reset, read the team file again, start from round 1": "Arrête, réinitialise, relit le fichier de l'équipe, repart du tour 1",
+  "Delete what the team declares as a run’s state": "Supprime ce que l'équipe déclare comme l'état d'une exécution",
+  "{name} stops, its sessions end ({names}), it is reset as below, and it starts again from round 1 with new agents.": "{name} s’arrête, ses sessions se ferment ({names}), il est réinitialisé comme ci-dessous et repart du tour 1 avec de nouveaux agents.",
+  "The team is read again from {file}.": "L'équipe est relue depuis {file}.",
+  "This team declares no reset: no file is deleted. Add `reset:` to its team file to say which files are a run’s state.": "Cette équipe ne déclare pas de reset : aucun fichier n'est supprimé. Ajoutez `reset:` à son fichier pour dire quels fichiers sont l'état d'une exécution.",
+  "{n} file(s) deleted, in {folder}:": "{n} fichier(s) supprimé(s), dans {folder} :",
+  "No file matches the reset just now: nothing to delete.": "Aucun fichier ne correspond au reset pour le moment : rien à supprimer.",
+  "Then runs: {command}": "Puis lance : {command}",
+  "The log TEAM.argus.md is archived with today’s date.": "Le journal TEAM.argus.md est archivé avec la date du jour.",
+  "The log TEAM.argus.md is deleted.": "Le journal TEAM.argus.md est supprimé.",
+  "The log TEAM.argus.md is kept as it is.": "Le journal TEAM.argus.md est gardé tel quel.",
+  "{n} file(s) deleted, the log {log}": "{n} fichier(s) supprimé(s), le journal {log}",
+  "started again": "redémarré"
  }
 }

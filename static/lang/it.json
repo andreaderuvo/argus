@@ -1257,6 +1257,22 @@
   "not an agent: a shell takes no turn and reports nothing — the team will wait on it": "non è un agente: una shell non fa turni e non riporta nulla — il team la aspetterà",
   "no Argus plugin: no team tools and no Stop guard — it will report by writing to the team's log, which works but is checked by nobody until the next round": "nessun plugin Argus: niente tool del team né Stop guard — riporterà scrivendo nel log del team, che funziona ma nessuno lo controlla fino al round dopo",
   "Gemini gets the team tools from its extension but no Stop guard: a turn ended without a report is noticed by the reminder, after two minutes": "Gemini ha i tool del team dall'estensione ma non la Stop guard: un turno finito senza report lo nota il promemoria, dopo due minuti",
-  "Codex's hooks have not been heard yet: they run only after you review them once in Codex — until then there is no Stop guard (open Codex, accept the hooks)": "gli hook di Codex non si sono ancora sentiti: girano solo dopo che li hai approvati una volta in Codex — fino ad allora niente Stop guard (apri Codex, accetta gli hook)"
+  "Codex's hooks have not been heard yet: they run only after you review them once in Codex — until then there is no Stop guard (open Codex, accept the hooks)": "gli hook di Codex non si sono ancora sentiti: girano solo dopo che li hai approvati una volta in Codex — fino ad allora niente Stop guard (apri Codex, accetta gli hook)",
+  "Restart": "Riavvia",
+  "Restart the team": "Riavvia il team",
+  "Reset the team": "Azzera il team",
+  "Stop, reset, read the team file again, start from round 1": "Ferma, azzera, rilegge il file del team, riparte dal round 1",
+  "Delete what the team declares as a run’s state": "Cancella quello che il team dichiara come stato di una run",
+  "{name} stops, its sessions end ({names}), it is reset as below, and it starts again from round 1 with new agents.": "{name} si ferma, le sue sessioni si chiudono ({names}), viene azzerato come sotto e riparte dal round 1 con agenti nuovi.",
+  "The team is read again from {file}.": "Il team viene riletto da {file}.",
+  "This team declares no reset: no file is deleted. Add `reset:` to its team file to say which files are a run’s state.": "Questo team non dichiara un reset: nessun file viene cancellato. Aggiungi `reset:` al suo file per dire quali file sono lo stato di una run.",
+  "{n} file(s) deleted, in {folder}:": "{n} file cancellati, in {folder}:",
+  "No file matches the reset just now: nothing to delete.": "Nessun file corrisponde al reset in questo momento: niente da cancellare.",
+  "Then runs: {command}": "Poi esegue: {command}",
+  "The log TEAM.argus.md is archived with today’s date.": "Il log TEAM.argus.md viene archiviato con la data di oggi.",
+  "The log TEAM.argus.md is deleted.": "Il log TEAM.argus.md viene cancellato.",
+  "The log TEAM.argus.md is kept as it is.": "Il log TEAM.argus.md resta com’è.",
+  "{n} file(s) deleted, the log {log}": "{n} file cancellati, il log {log}",
+  "started again": "ripartito"
  }
 }

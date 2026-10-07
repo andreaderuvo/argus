@@ -43,6 +43,8 @@ ACTIONS = {
     "team_go": "continue a team waiting for you",
     "team_pause": "pause a team",
     "team_stop": "stop a team (with `kill`: and end its sessions)",
+    "team_reset": "reset a stopped team: delete the files its `reset:` declares, archive its log",
+    "team_restart": "restart a team: stop it, end its sessions, reset it, read its team file again, start from round 1",
     "kill_session": "end a tmux session, and what runs in it",
     "rename_session": "rename a tmux session",
     "start_agent": "start an agent with options its key may not choose (everything, no questions)",
@@ -169,6 +171,19 @@ def plan(app, action: str, args: dict) -> dict:
         raise ValueError(f"{action!r} cannot be requested: {', '.join(ACTIONS)}")
     if action == "start_team":
         return _team_plan(app, args)
+    if action in ("team_reset", "team_restart"):
+        team = _team_by_name(app, str(args.get("team") or ""))
+        if not team:
+            raise ValueError(f"no team called {args.get('team')!r}")
+        plan = teams.reset_plan(team["folder"], team["graph"].get("reset"))
+        files = (f"deleting {len(plan['files'])} file(s): {', '.join(plan['files'][:12])}"
+                 + (" …" if len(plan["files"]) > 12 else "")) if plan["files"] else "deleting no file"
+        verb = "restart" if action == "team_restart" else "reset"
+        # Deleting files is always asked, whatever agents_without_asking says.
+        return {"calls": [("POST", f"/api/teams/{team['id']}/{verb}", {})], "danger": True,
+                "text": f"{verb} the team {team['name']} — {files}; the log {dict(archive='archived', clear='deleted', keep='kept')[plan['log']]}"
+                        + (f"; then `{plan['run']}`" if plan["run"] else "")
+                        + ("; its sessions end and it starts again from round 1" if verb == "restart" else "")}
     if action in ("team_go", "team_pause", "team_stop"):
         team = _team_by_name(app, str(args.get("team") or ""))
         if not team:

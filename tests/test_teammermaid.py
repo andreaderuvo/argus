@@ -118,9 +118,15 @@ def test_the_skills_examples_are_teams():
     from app.teammermaid import read_team
     text = (Path(__file__).resolve().parent.parent / "plugin/skills/argus-team-author/SKILL.md").read_text()
     blocks = re.findall(r"```(?:mermaid|yaml)\n(.*?)```", text, re.S)
-    assert len(blocks) >= 2
+    assert len(blocks) >= 3
+    import yaml
+
+    from app.teams import read_reset
     for body in blocks:
-        read_team(body)
+        if body.lstrip().startswith("reset:"):           # a part of a team, checked as that part
+            read_reset(yaml.safe_load(body)["reset"])
+        else:
+            read_team(body)
 
 
 def test_a_proposal_is_written_never_over_the_persons_own(tmp_path):

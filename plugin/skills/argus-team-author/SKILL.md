@@ -84,6 +84,19 @@ flow:
   - rev -> done if DONE
 ```
 
+**`reset:`** — what "start this team again from clean" means, said once, so **Restart** and
+**Reset** know it (without it they delete nothing and only archive the log):
+
+```yaml
+reset:
+  files: [ledger.csv, JOURNAL.md, "state/*.json"]   # paths or globs inside the team's folder
+  run: python3 reset_paper.py                        # optional, run in the folder afterwards
+  log: archive                                       # TEAM.argus.md: archive (default) | keep | clear
+```
+
+List the files that are *a run's state* (positions, ledgers, journals, caches), never the code or
+the data a run reads. `.git`, `team.yaml` and the log itself are never deleted by it.
+
 Step keys: `role`, `judge`, `duty` (its job in your words — may name the agent's own skills,
 "use your /security-review skill"), `worktree` (its own git checkout on branch
 `team/<team>-<step>`, so parallel executors never collide), `reads` (whose worktree it should look
@@ -91,7 +104,7 @@ at); a check is `check: <command>` and `of: <agent>`; a join is `join: true`. Fl
 `a -> b`, `a -> b, c` (parallel) and `… if PASS` / `if FAIL` / `if OK, REDO` / `if DONE` /
 `if BLOCKED`. `start: [a]` when it is not the first step. Fan-in is one line per arrow
 (`a -> j` and `b -> j`), not `a, b -> j`. Top-level keys: `name`, `goal`, `gate`, `rounds`,
-`permissions`, `start`, `steps`, `flow`; Argus also reads `team.yml` and `.argus/team.yaml`.
+`permissions`, `start`, `steps`, `flow`, `reset`; Argus also reads `team.yml` and `.argus/team.yaml`.
 
 ## Roles, verdicts, results
 

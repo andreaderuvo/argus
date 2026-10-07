@@ -742,6 +742,8 @@ export async function teamSheet({ wsId, home, onStarted }) {
         goal: goal.value.trim(), template: chosen?.startsWith('mine:') || chosen?.startsWith('file:') ? 'custom' : chosen, graph: bare(graph),
         path: where.value.trim(), agents: agentSpec, check: check.value.trim() || null,
         gate: gate.querySelector('input:checked')?.value || 'ask', max_rounds: Number(rounds.value) || 10, ws: wsId,
+        // The team file it came from, read again by Restart.
+        ...(chosen?.startsWith('file:') && fileTeam?.file ? { file: fileTeam.file } : {}),
       });
       if (said.error || said.detail) throw new Error(said.error || said.detail);
       sheet.close();
@@ -795,6 +797,39 @@ async function stopTeam(team, then) {
   then();
 }
 
+/** Reset or restart, after saying exactly what will happen: the files that go (resolved from the
+ *  team's `reset:`), the command, the log; for a restart also the sessions ended and the team file
+ *  read again. Nothing is touched before the press. */
+async function resetTeam(team, restart, then) {
+  let plan;
+  try { plan = await getJSON(`/api/teams/${team.id}/reset`); } catch (e) { toast(e.message, true); return; }
+  const sessions = team.nodes.filter((n) => n.session).map((n) => n.session);
+  const body = el('div', { className: 'sheetbody teamresetplan' }, [
+    restart ? el('p', { textContent: t('{name} stops, its sessions end ({names}), it is reset as below, and it starts again from round 1 with new agents.', { name: team.name, names: sessions.join(', ') }) }) : null,
+    restart && plan.file ? el('p', { className: 'hint', textContent: t('The team is read again from {file}.', { file: plan.file }) }) : null,
+    plan.declared ? null : el('p', { className: 'hint', textContent: t('This team declares no reset: no file is deleted. Add `reset:` to its team file to say which files are a run’s state.') }),
+    plan.files.length
+      ? el('div', {}, [el('p', { className: 'warn', textContent: t('{n} file(s) deleted, in {folder}:', { n: plan.files.length, folder: plan.folder }) }),
+        el('pre', { className: 'teamresetfiles', textContent: plan.files.join('\n') })])
+      : (plan.declared ? el('p', { className: 'hint', textContent: t('No file matches the reset just now: nothing to delete.') }) : null),
+    plan.run ? el('p', { textContent: t('Then runs: {command}', { command: plan.run }) }) : null,
+    el('p', { className: 'hint', textContent: { archive: t('The log TEAM.argus.md is archived with today’s date.'), clear: t('The log TEAM.argus.md is deleted.'), keep: t('The log TEAM.argus.md is kept as it is.') }[plan.log] }),
+  ].filter(Boolean));
+  const ok = await new Promise((resolve) => {
+    const d = modal(restart ? t('Restart the team') : t('Reset the team'), body, [
+      el('button', { className: 'ghost', textContent: t('Cancel'), onclick: () => { d.close(); resolve(false); } }),
+      el('button', { className: 'danger inline', textContent: restart ? t('Restart') : t('Reset'), onclick: () => { d.close(); resolve(true); } }),
+    ]);
+  });
+  if (!ok) return;
+  try {
+    const said = await postJSON(`/api/teams/${team.id}/${restart ? 'restart' : 'reset'}`, {});
+    const r = said.reset || said;
+    toast(t('{n} file(s) deleted, the log {log}', { n: r.deleted?.length || 0, log: r.log }) + (restart ? ` — ${t('started again')}` : ''));
+  } catch (e) { toast(e.message, true); }
+  then();
+}
+
 function drawTeam(team, { graph, story, refresh, openLog, openTeam, toggleStory }) {
   const act = async (action) => {
     try { await postJSON(`/api/teams/${team.id}/${action}`, {}); } catch (e) { toast(e.message, true); }
@@ -813,6 +848,8 @@ function drawTeam(team, { graph, story, refresh, openLog, openTeam, toggleStory 
   }
   if (team.status === 'running') buttons.push(el('button', { type: 'button', textContent: t('Pause'), onclick: () => act('pause') }));
   if (live) buttons.push(el('button', { type: 'button', textContent: t('Stop'), onclick: () => stopTeam(team, refresh) }));
+  if (team.restartable) buttons.push(el('button', { type: 'button', textContent: t('Restart'), title: t('Stop, reset, read the team file again, start from round 1'), onclick: () => resetTeam(team, true, refresh) }));
+  if (!live) buttons.push(el('button', { type: 'button', textContent: t('Reset'), title: t('Delete what the team declares as a run’s state'), onclick: () => resetTeam(team, false, refresh) }));
   buttons.push(el('button', { type: 'button', textContent: t('Log'), title: team.log, onclick: () => openLog(team.log) }));
   if (openTeam) buttons.push(el('button', { type: 'button', className: 'teamopen', textContent: t('Graph'), title: t('The team in a window of the desk, live'), onclick: () => openTeam(team) }));
   if (toggleStory) buttons.push(el('button', { type: 'button', className: story ? 'on' : '', textContent: t('Story'), onclick: toggleStory }));

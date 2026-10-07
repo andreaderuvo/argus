@@ -3895,6 +3895,51 @@
     ]
    }
   },
+  "/api/teams/{team_id}/reset": {
+   "get": {
+    "description": "`{folder, files, run, log, declared}` \u2014 the files a reset (or a restart) would delete,\nresolved from the team's `reset:` globs, the command it would run and what becomes of the\nlog. What the person confirms, before anything is touched.",
+    "operationId": "getApiTeamsTeamIdReset",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "team_id",
+      "required": true,
+      "schema": {
+       "title": "Team Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Teams Reset Plan Api Teams  Team Id  Reset Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "What a reset of this team would do",
+    "tags": [
+     "Teams"
+    ]
+   }
+  },
   "/api/teams/{team_id}/{action}": {
    "post": {
     "operationId": "postApiTeamsTeamIdAction",
@@ -3942,7 +3987,7 @@
       "description": "Validation Error"
      }
     },
-    "summary": "Continue, pause or stop a team",
+    "summary": "Continue, pause, stop, reset or restart a team",
     "tags": [
      "Teams"
     ]

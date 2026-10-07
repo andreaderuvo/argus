@@ -277,6 +277,8 @@ def check_graph(graph: dict, needs_check: bool = False) -> dict:
     for n in nodes:
         if n["kind"] == "join" and not any(e["to"] == n["id"] for e in edges):
             raise ValueError(f"{n['id']} waits for nothing: give it an arrow in")
+    if graph.get("reset") is not None:
+        graph["reset"] = read_reset(graph["reset"])
     return graph
 
 
@@ -392,7 +394,8 @@ class Director:
     # ------------------------------------------------------------- making one
 
     def create(self, *, name: str, goal: str, folder: str, graph: dict, template: str = "custom",
-               gate: str = "ask", max_rounds: int = 10, ws: int | None = None) -> dict:
+               gate: str = "ask", max_rounds: int = 10, ws: int | None = None,
+               team_id: str | None = None, spec: dict | None = None) -> dict:
         """`graph`: nodes already carrying their `session` (agents and checks), `folder`, `command`."""
         graph = check_graph(deepcopy(graph))
         if gate not in GATES:
@@ -404,7 +407,10 @@ class Director:
                 raise ValueError(f"{n['id']}: no agent")
             if n["kind"] == "check" and not (n.get("command") or "").strip():
                 raise ValueError(f"{n['id']}: a check needs its command")
-        team_id = secrets.token_hex(4)
+        # A restart keeps the team's id, so the window watching it goes on watching it.
+        if team_id and team_id in self.teams:
+            raise ValueError(f"a team {team_id} is already here")
+        team_id = team_id or secrets.token_hex(4)
         now = self.io.now()
         team = {
             "id": team_id, "name": name or "team", "goal": goal.strip(), "template": template, "folder": folder,
@@ -412,6 +418,9 @@ class Director:
             "round": 1, "status": "running", "phase": "working", "log": str(Path(folder) / LOG_NAME),
             "seen": 0, "running": {}, "ran": [], "arrived": {}, "outcomes": {}, "fails": {}, "pending": [],
             "introduced": {}, "history": [], "started": now, "last_check": None,
+            # What it was started with — launchers, options, the check, the team file it came from —
+            # so Restart can start it again the same way, with that file read afresh.
+            "spec": spec or {},
         }
         flow = "; ".join(f"{e['from']} →{'' if e['when'] == 'always' else ' ' + e['when']} {e['to']}" for e in graph["edges"])
         Path(team["log"]).write_text(
@@ -483,6 +492,18 @@ class Director:
         """Every session the team has: its agents (started or not yet) and its checks."""
         team = self.teams[team_id]
         return [n["session"] for n in team["graph"]["nodes"] if n.get("session")]
+
+    def reset(self, team_id: str) -> dict:
+        """The team's `reset:` carried out — only on a team that has stopped or finished, since a
+        running one has agents writing into those very files. `{deleted, log, ran}`."""
+        team = self.teams[team_id]
+        if team["status"] not in ("done", "stopped"):
+            raise ValueError("stop the team first: its agents may be writing into those files")
+        said = do_reset(team["folder"], team["graph"].get("reset"), self.io.now())
+        self._note(team, f"reset: {len(said['deleted'])} file(s) deleted, the log {said['log']}"
+                         + (f", `{said['ran']['command']}` exited {said['ran']['code']}" if said["ran"] else ""))
+        self.save()
+        return said
 
     def forget(self, team_id: str) -> None:
         self.teams.pop(team_id, None)
@@ -852,7 +873,10 @@ class Director:
             out.append({k: team.get(k) for k in ("id", "name", "goal", "template", "folder", "ws", "gate", "round",
                                                  "max_rounds", "phase", "status", "log", "last_check", "started")}
                        | {"nodes": nodes, "edges": g["edges"], "start": g["start"],
-                          "history": team.get("history", [])[-30:]})
+                          "history": team.get("history", [])[-30:],
+                          # Restart needs what it was started with; Reset what it declared.
+                          "restartable": bool((team.get("spec") or {}).get("graph")),
+                          "file": (team.get("spec") or {}).get("file"), "resets": bool(g.get("reset"))})
         return out
 
 
@@ -954,7 +978,104 @@ def from_yaml(text: str) -> dict:
         out["permissions"] = doc["permissions"]
     if isinstance(doc.get("rounds"), int):
         out["rounds"] = max(1, min(MAX_ROUNDS, doc["rounds"]))
+    if doc.get("reset") is not None:
+        # Kept in the graph, so it travels wherever the team does (a model, a pack, a proposal).
+        graph["reset"] = read_reset(doc["reset"])
     return out
+
+
+RESET_LOG = ("archive", "keep", "clear")
+
+
+def read_reset(raw) -> dict:
+    """A team's `reset:` — what "starting this team again from clean" means, said once.
+
+        reset:
+          files: [ledger.csv, JOURNAL.md, "state/*.json"]   # deleted, inside the team's folder only
+          run: python3 reset_paper.py                        # a command, in the folder, after that
+          log: archive                                       # TEAM.argus.md: archive | keep | clear
+
+    `files` are paths or globs relative to the team's folder (never absolute, never `..`); `log`
+    defaults to archive, so no run's story is lost. ValueError in words."""
+    if not isinstance(raw, dict):
+        raise ValueError("`reset:` takes files, run and log")
+    files = raw.get("files") or []
+    if isinstance(files, str):
+        files = [files]
+    if not isinstance(files, list) or not all(isinstance(f, str) and f.strip() for f in files):
+        raise ValueError("reset.files is a list of paths or globs, relative to the team's folder")
+    for f in files:
+        if f.startswith(("/", "~")) or ".." in Path(f).parts:
+            raise ValueError(f"reset.files: {f!r} — only paths inside the team's folder (no /, ~ or ..)")
+    log = str(raw.get("log") or "archive")
+    if log not in RESET_LOG:
+        raise ValueError(f"reset.log is one of {', '.join(RESET_LOG)}")
+    run = str(raw.get("run") or "").strip()
+    unknown = set(raw) - {"files", "run", "log"}
+    if unknown:
+        raise ValueError(f"reset: {', '.join(sorted(unknown))} is not read — files, run and log are")
+    return {"files": [f.strip() for f in files], **({"run": run} if run else {}), "log": log}
+
+
+# Never deleted by a reset, whatever its globs match: the repository, the team's own definition.
+RESET_SPARED = (".git", "team.yaml", "team.yml", ".argus")
+
+
+def reset_plan(folder: str, reset: dict | None) -> dict:
+    """What a reset would do, resolved: `{files: [relative paths], run, log, folder}` — the exact
+    list the person confirms. Only files, only inside the folder (symlinks out of it are left)."""
+    root = Path(folder).resolve()
+    reset = reset or {"files": [], "log": "archive"}
+    found: list[str] = []
+    for pattern in reset.get("files", []):
+        for hit in sorted(root.glob(pattern)):
+            try:
+                real = hit.resolve()
+                rel = real.relative_to(root)
+            except (OSError, ValueError):
+                continue                                   # outside the folder: never
+            if not real.is_file() or rel.parts[0] in RESET_SPARED or str(rel) == LOG_NAME:
+                continue
+            if str(rel) not in found:
+                found.append(str(rel))
+    return {"folder": str(root), "files": found, "run": reset.get("run", ""), "log": reset.get("log", "archive")}
+
+
+def do_reset(folder: str, reset: dict | None, now: float) -> dict:
+    """Carry a reset out: the files deleted, the log archived (renamed with the date), cleared or
+    kept, then `run` in the folder (a login shell, at most ten minutes). `{deleted, log, ran}`."""
+    import subprocess
+    plan = reset_plan(folder, reset)
+    root = Path(plan["folder"])
+    deleted = []
+    for rel in plan["files"]:
+        try:
+            (root / rel).unlink()
+            deleted.append(rel)
+        except OSError:
+            pass
+    log = root / LOG_NAME
+    said_log = "none"
+    if log.exists():
+        if plan["log"] == "archive":
+            stamp = time.strftime("%Y%m%d-%H%M%S", time.localtime(now))
+            target = root / f"TEAM.argus.{stamp}.md"
+            log.rename(target)
+            said_log = f"archived as {target.name}"
+        elif plan["log"] == "clear":
+            log.unlink()
+            said_log = "cleared"
+        else:
+            said_log = "kept"
+    ran = None
+    if plan["run"]:
+        try:
+            done = subprocess.run(["sh", "-lc", plan["run"]], cwd=root, capture_output=True, text=True, timeout=600)
+            ran = {"command": plan["run"], "code": done.returncode,
+                   "tail": "\n".join((done.stdout + done.stderr).strip().splitlines()[-TAIL_LINES:])}
+        except subprocess.TimeoutExpired:
+            ran = {"command": plan["run"], "code": None, "tail": "stopped after ten minutes"}
+    return {"deleted": deleted, "log": said_log, "ran": ran}
 
 
 def to_yaml(graph: dict, name: str = "") -> str:
@@ -987,6 +1108,8 @@ def to_yaml(graph: dict, name: str = "") -> str:
     first = next((n["id"] for n in graph.get("nodes", []) if n["kind"] != "end"), None)
     if graph.get("start") and graph["start"] != [first]:
         doc["start"] = graph["start"]
+    if graph.get("reset"):
+        doc["reset"] = graph["reset"]
     return yaml.safe_dump(doc, sort_keys=False, allow_unicode=True, width=100)
 
 

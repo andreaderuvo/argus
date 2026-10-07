@@ -3890,3 +3890,4 @@ dialog.sheet.teamsheet { width: min(980px, 96vw); max-width: none; margin-top: m
 .teamreadyrow > span { flex: 1 1 18rem; min-width: 0; }
 .teamreadyrow.warn > span::before { content: "⚠ "; color: var(--st-warning); }
 .teamreadyrow.info > span::before { content: "ℹ "; color: var(--dim); }
+.teamresetfiles { max-height: 14rem; overflow: auto; margin: .3rem 0; padding: .5rem .7rem; background: var(--bg); border: 1px solid var(--line); border-radius: .4rem; font-size: .8rem; }
