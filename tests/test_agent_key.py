@@ -142,8 +142,13 @@ def test_the_list_of_what_an_agent_may_do_is_short():
     Twenty-two to twenty-four the same day, for `POST /api/teams/check` and `POST
     /api/teams/propose`: an agent asked to design a team checks what it wrote and leaves it in the
     project as team.yaml, with a bell. Starting it is still the person's.
+
+    Twenty-four to twenty-six, for `GET /api/agent/actions` and `POST /api/agent/request` (and
+    GET of one's own request by prefix): anything else on a fixed list — start a team in a desk,
+    end a session… — *requested*, put to the person as Do it / No, and done by Argus with the full
+    key only on their tap (app/consent.py). The key itself still does none of it.
     """
-    assert len(AGENT_ROUTES) <= 24
+    assert len(AGENT_ROUTES) <= 26
     assert ("POST", "/api/teams") not in AGENT_ROUTES
     assert all(method in ("GET", "POST") for method, _ in AGENT_ROUTES)
     assert not any(path.startswith("/api/fs") or path.startswith("/api/devices")

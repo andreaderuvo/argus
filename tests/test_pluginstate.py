@@ -172,3 +172,21 @@ def test_the_plugins_bell_says_its_version_and_the_wired_one_does_not(tmp_path):
         subprocess.run([str(script), "done"], input="", text=True, env=env, timeout=10)
     first, second = [json.loads(x) for x in seen.read_text().splitlines()]
     assert first["plugin"] == pluginstate.repo_version() and second["plugin"] == ""
+
+
+def test_the_sessions_behind_are_listed_with_how_each_takes_the_new_plugin(client, monkeypatch):
+    """An update installs the plugin; a running session keeps the old one until it reloads (Claude)
+    or restarts (Codex). `behind` names them, and says which Claude sits at its prompt."""
+    from app import bells
+    app, c = client
+    monkeypatch.setattr(app.state.agents, "states", lambda: {
+        "idle": {"agent": "claude", "state": "waiting"}, "busy": {"agent": "claude", "state": "working"},
+        "cx": {"agent": "codex", "state": "waiting"}, "fresh": {"agent": "claude", "state": "waiting"}})
+    req = type("R", (), {"app": app})()
+    bells.store(req)["list"].append({"seq": 1, "session": "idle", "why": "done", "source": "hook"})
+    for s in ("idle", "busy", "cx"):
+        c.post("/api/plugin/seen", json={"session": s, "version": "0.0.1"})
+    c.post("/api/plugin/seen", json={"session": "fresh", "version": pluginstate.repo_version()})
+    said = c.get("/api/plugin").json()["behind"]
+    assert [(b["session"], b["agent"], b["at_prompt"]) for b in said] == [
+        ("busy", "claude", False), ("cx", "codex", False), ("idle", "claude", True)]

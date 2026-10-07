@@ -58,7 +58,7 @@ def test_the_handshake_and_the_tool_list():
     # A version it does not know is answered with the newest it does, as the spec asks.
     assert call(Fake(), "initialize", {"protocolVersion": "1999-01-01"})["result"]["protocolVersion"] == argus_mcp.VERSIONS[0]
     names = [t["name"] for t in call(Fake(), "tools/list")["result"]["tools"]]
-    assert names == ["who", "ring", "ask", "relay", "open_desk", "rename_desk", "launchers", "start_agent", "team_task", "team_done", "team_check", "team_propose", "todos", "todo_set", "todo_add", "teams", "worktree", "prompts"]
+    assert names == ["who", "ring", "ask", "relay", "open_desk", "rename_desk", "launchers", "start_agent", "team_task", "team_done", "team_check", "team_propose", "request", "request_status", "todos", "todo_set", "todo_add", "teams", "worktree", "prompts"]
     assert all(t["inputSchema"]["type"] == "object" for t in call(Fake(), "tools/list")["result"]["tools"])
     assert argus_mcp.answer({"jsonrpc": "2.0", "method": "notifications/initialized"}, Fake) is None
     assert call(Fake(), "nope")["error"]["code"] == -32601
@@ -138,7 +138,7 @@ def test_an_agent_client_over_stdio(live):
     try:
         assert rpc("initialize", {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "test"}})["result"]["serverInfo"]["name"] == "argus"
         proc.stdin.write(json.dumps({"jsonrpc": "2.0", "method": "notifications/initialized"}) + "\n")
-        assert len(rpc("tools/list")["result"]["tools"]) == 18
+        assert len(rpc("tools/list")["result"]["tools"]) == 20
 
         def tool(tool_name, **args):
             return rpc("tools/call", {"name": tool_name, "arguments": args})["result"]

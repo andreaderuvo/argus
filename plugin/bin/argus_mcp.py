@@ -44,7 +44,8 @@ INSTRUCTIONS = (
     "worktree when it will change code; `open_desk` and `start_agent` with `desk` when asked to "
     "lay agents out on a desk of their own; in an Argus team, `team_task` for your task and `team_done` to "
     "report your turn when it is done; `team_check` and `team_propose` when asked to design a team "
-    "(write it as Mermaid or YAML, check it, propose it — the person starts it); `todos` and `todo_set` when asked to work on the person's to-do "
+    "(write it as Mermaid or YAML, check it, propose it — the person starts it); `request` for what your "
+    "key cannot do — start a team in a desk, end a session, … — which the person approves with a tap; `todos` and `todo_set` when asked to work on the person's to-do "
     "#n — mark it doing when you start and done when you finish."
 )
 
@@ -85,7 +86,8 @@ TOOLS = [
      "inputSchema": {"type": "object", "properties": {
          "name": {"type": "string"},
          "folder": {"type": "string", "description": "Where its file browsers and new sessions start"},
-         "show": {"type": "boolean", "default": True}},
+         "show": {"type": "boolean", "default": True},
+         "session": {"type": "string", "description": "Also put a window on this existing tmux session in the desk"}},
          "required": ["name"]}},
     {"name": "rename_desk",
      "description": "Rename a desk in Argus: the desk called `desk` (any case) is called `to` from now on, in every "
@@ -144,6 +146,22 @@ TOOLS = [
          "text": {"type": "string", "description": "The team, as for team_check"},
          "folder": {"type": "string", "description": "The folder the team works in: absolute, inside what Argus serves"}},
          "required": ["text", "folder"]}},
+    {"name": "request",
+     "description": "Ask the person to have something done that you cannot do yourself, and it is done on their "
+                    "tap (Do it / No): start_team (args: team — a proposal, one of their models or a template, by "
+                    "name — desk, folder, goal, gate), team_go / team_pause / team_stop (team; kill to end its "
+                    "sessions), kill_session (session), rename_session (session, to), start_agent (launcher, name, "
+                    "path, prompt, options — e.g. permissions everything), remove_worktree (path), todo_delete "
+                    "(todo). Waits up to two minutes for the outcome; then request_status.",
+     "inputSchema": {"type": "object", "properties": {
+         "action": {"type": "string", "enum": ["start_team", "team_go", "team_pause", "team_stop", "kill_session",
+                                                "rename_session", "start_agent", "remove_worktree", "todo_delete"]},
+         "args": {"type": "object", "description": "The action's arguments, as listed"},
+         "why": {"type": "string", "description": "One line the person reads with the question"}},
+         "required": ["action"]}},
+    {"name": "request_status",
+     "description": "Where a request stands: asked (waiting for the person), doing, done, refused, failed or unanswered.",
+     "inputSchema": {"type": "object", "properties": {"id": {"type": "string"}}, "required": ["id"]}},
     {"name": "todos",
      "description": "The person's to-do list in Argus, each with its number (#1, #2…), state (open, doing, done) and "
                     "words. When asked to \"work on to-do #3\", read it here first.",
@@ -241,9 +259,10 @@ def _start(a: Argus, args: dict) -> str:
 
 
 def _open_desk(a: Argus, args: dict) -> str:
-    said = a.desk(args["name"], args.get("folder") or None, bool(args.get("show", True)))
+    said = a.desk(args["name"], args.get("folder") or None, bool(args.get("show", True)), session=args.get("session") or None)
     return (f"made the desk {said['name']}" if said.get("made") else f"the desk {said['name']} was already there") + (
-        ", and switched to it" if args.get("show", True) else "")
+        ", and switched to it" if args.get("show", True) else "") + (
+        f"; {said['session']} is on it" if said.get("session") else "")
 
 
 def _rename_desk(a: Argus, args: dict) -> str:
@@ -292,6 +311,26 @@ def _team_propose(a: Argus, args: dict) -> str:
             f"in one line; you do not need to wait for it.")
 
 
+def _said_request(said: dict) -> str:
+    if said["state"] == "done":
+        return f"Done: {said['text']}."
+    if said["state"] == "refused":
+        return f"The person said no to: {said['text']}."
+    if said["state"] == "failed":
+        return f"They said yes, but it failed: {said.get('error')}"
+    return (f"Asked the person to {said['text']} — no answer yet (request {said['id']}). Tell them it is waiting "
+            f"for their tap; check later with request_status.")
+
+
+def _request(a: Argus, args: dict) -> str:
+    return _said_request(a.request(args["action"], args.get("args") or {}, args.get("why", ""), wait=120,
+                                   session=own_session()))
+
+
+def _request_status(a: Argus, args: dict) -> str:
+    return _said_request(a.request_status(args["id"]))
+
+
 def _todos(a: Argus, args: dict) -> str:
     items = sorted(a.todos(), key=lambda x: x.get("n", 0))
     if not args.get("all"):
@@ -335,7 +374,7 @@ def _prompts(a: Argus, _args: dict) -> str:
 
 
 DO = {"who": _who, "ring": _ring, "ask": _ask, "relay": _relay, "open_desk": _open_desk, "rename_desk": _rename_desk, "launchers": _launchers,
-      "start_agent": _start, "team_task": _team_task, "team_done": _team_done, "team_check": _team_check, "team_propose": _team_propose, "todos": _todos, "todo_set": _todo_set, "todo_add": _todo_add, "teams": _teams, "worktree": _worktree, "prompts": _prompts}
+      "start_agent": _start, "team_task": _team_task, "team_done": _team_done, "team_check": _team_check, "team_propose": _team_propose, "request": _request, "request_status": _request_status, "todos": _todos, "todo_set": _todo_set, "todo_add": _todo_add, "teams": _teams, "worktree": _worktree, "prompts": _prompts}
 
 
 # ------------------------------------------------------------------ the wire

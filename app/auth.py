@@ -98,7 +98,13 @@ AGENT_ROUTES = frozenset({
     # team.yaml, for the person to start. Starting a team stays theirs.
     ("POST", "/api/teams/check"),
     ("POST", "/api/teams/propose"),
+    # Anything else on a fixed list, with the person's OK (app/consent.py): asked as Do it / No,
+    # carried out by Argus with the full key. The list of what may be asked, and asking.
+    ("GET", "/api/agent/actions"),
+    ("POST", "/api/agent/request"),
 })
+# …and coming back for the outcome of one's request.
+REQUEST_PREFIX = "/api/agent/request/"
 TODO_PREFIX = "/api/todo/"
 
 
@@ -301,7 +307,8 @@ class TokenAuthMiddleware:
             # the path — and GET only, which is what keeps `POST /api/ask/<id>/answer` out of
             # reach: an agent may wait for a person, never speak for one.
             waiting = (method == "GET" and scope["path"].startswith(ASK_PREFIX)) or (
-                method == "PATCH" and scope["path"].startswith(TODO_PREFIX))
+                method == "PATCH" and scope["path"].startswith(TODO_PREFIX)) or (
+                method == "GET" and scope["path"].startswith(REQUEST_PREFIX))
             if not waiting and (method, scope["path"]) not in AGENT_ROUTES:
                 response = PlainTextResponse(
                     "an agent key may only read what is happening (/api/who, /api/overview, "

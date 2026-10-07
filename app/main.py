@@ -24,7 +24,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 
 from . import build, pluginstate, trust
-from . import (agentflags, teams, teammermaid, wiring, agentstate, resume, announce, asks, bells, devices, favourites, files, fsops, gitwork, journal, labels,
+from . import (agentflags, consent, teams, teammermaid, wiring, agentstate, resume, announce, asks, bells, devices, favourites, files, fsops, gitwork, journal, labels,
                languages, launch, mounts, network, paths, ports, prefs, proxy, release, runner, runs,
                system, term, tmux, todo)
 import httpx
@@ -600,13 +600,27 @@ def create_app(cfg: Config) -> FastAPI:
 
     @app.get("/api/plugin", tags=["Agents"], summary="The Argus plugin in each agent: installed, which version")
     async def plugin_state(request: Request) -> dict:
-        """`{version, agents: [{agent, name, present, installed, outdated}], reload: [sessions]}` —
-        `reload` is the Claude sessions sitting at their prompt that would take a newer plugin with
-        `/reload-plugins` (see POST /api/plugin/reload)."""
+        """`{version, agents: [{agent, name, present, installed, outdated}], reload: [sessions], behind:
+        [{session, agent, version, at_prompt}]}` — `reload` is the Claude sessions sitting at their
+        prompt that would take a newer plugin with `/reload-plugins` (see POST /api/plugin/reload);
+        `behind`, every session known to run an older plugin than the one offered."""
         found = await asyncio.to_thread(launch.versions, ["claude", "codex"])
         said = await asyncio.to_thread(pluginstate.state, Path.home(),
                                        {k: bool(v) for k, v in found.items()})
         said["reload"] = at_prompt(request, "claude")
+        # The sessions still running an older plugin than the one offered: an update reaches a
+        # running session only when it reloads (Claude, /reload-plugins) or restarts (Codex) —
+        # "Update" alone left them all on the old one, with nothing on screen saying so.
+        offered = said.get("version") or pluginstate.repo_version()
+        seen = bells.store(request).get("plugins", {})
+        try:
+            states = await agent_states(request)
+        except Exception:
+            states = {}
+        said["behind"] = sorted(({"session": s, "agent": st.get("agent"), "version": seen[s],
+                                  "at_prompt": s in said["reload"]}
+                                 for s, st in states.items()
+                                 if seen.get(s) and pluginstate.older(seen[s], offered)), key=lambda x: x["session"])
         return said
 
     @app.post("/api/plugin/seen", tags=["Agents"], summary="A session says which plugin version it runs")
@@ -760,6 +774,26 @@ def create_app(cfg: Config) -> FastAPI:
             if body.get("preview"):
                 return {"error": str(e)}
             raise ApiError(400, str(e)) from e
+
+    @app.get("/api/agent/actions", tags=["Agents"], summary="What an agent may ask the person to have done")
+    async def agent_actions(request: Request) -> dict:
+        """The actions an agent's key cannot take but may *request* (`POST /api/agent/request`):
+        each put to the person as Do it / No, unless `agents_without_asking` lists it."""
+        free = set(request.app.state.cfg.agents_without_asking or [])
+        return {"actions": [{"action": k, "what": v, "asks": k not in free or k == "start_agent"}
+                            for k, v in consent.ACTIONS.items()]}
+
+    @app.post("/api/agent/request", tags=["Agents"], summary="Ask the person to have something done, and do it on their OK")
+    async def agent_request(request: Request, body: dict) -> dict:
+        """`{action, args, why?, session?, wait?}` → `{id, state: asked|doing|done|refused|failed|
+        unanswered, text, result?, error?}`. The action is checked and put into words first (400 if
+        it cannot be done as asked); the person gets Do it / No; on Do it Argus does it through its
+        own routes with the full key. `wait` holds up to 300 s for the outcome; come back with GET."""
+        return await consent.request(request, body)
+
+    @app.get("/api/agent/request/{ident}", tags=["Agents"], summary="The outcome of a request")
+    async def agent_request_status(request: Request, ident: str, wait: float = 0) -> dict:
+        return await consent.status(request, ident, wait)
 
     @app.post("/api/teams/check", tags=["Teams"], summary="Check a team written as text, Mermaid or YAML")
     async def teams_check(body: dict) -> dict:
@@ -1749,13 +1783,28 @@ def create_app(cfg: Config) -> FastAPI:
                                      "show": bool(body.get("show", False))})
             return {"id": desk["id"], "name": desk["name"], "made": False, "folder": desk.get("home")}
         folder = str(under_roots(request, body["folder"])) if body.get("folder") else None
+        # `session`: put a window on that session in the desk — an existing one, nothing started.
+        # Only a window: what is in the session is not touched, so it needs nobody's OK. Checked
+        # before the desk is made, so a wrong name leaves nothing behind.
+        shown = None
+        if body.get("session"):
+            try:
+                shown = tmux.check_name(str(body["session"]))
+            except ValueError as e:
+                raise ApiError(400, str(e)) from e
+            names = [s["name"] for s in await asyncio.to_thread(tmux.list_sessions, request.app.state.socket)]
+            if shown not in names:
+                raise ApiError(404, f"no session called {shown}")
         try:
             desk, made = await asyncio.to_thread(ensure_desk, request, name, folder)
         except (ValueError, OSError) as e:
             raise ApiError(500, str(e)) from e
         if body.get("show", True):
             bells.announce(request, {"what": "desk", "id": desk["id"], "desk": desk["name"], "show": True})
-        return {"id": desk["id"], "name": desk["name"], "made": made, "folder": desk.get("home")}
+        if shown:
+            bells.announce(request, {"what": "started", "name": shown, "desk_id": desk["id"], "desk": desk["name"]})
+        return {"id": desk["id"], "name": desk["name"], "made": made, "folder": desk.get("home"),
+                **({"session": shown} if shown else {})}
 
     @app.get("/api/git/worktrees", tags=["Sessions"], summary="The working directories of a repository")
     async def list_worktrees(request: Request, path: str) -> dict:

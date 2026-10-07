@@ -247,6 +247,130 @@
  },
  "openapi": "3.1.0",
  "paths": {
+  "/api/agent/actions": {
+   "get": {
+    "description": "The actions an agent's key cannot take but may *request* (`POST /api/agent/request`):\neach put to the person as Do it / No, unless `agents_without_asking` lists it.",
+    "operationId": "getApiAgentActions",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Agent Actions Api Agent Actions Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "What an agent may ask the person to have done",
+    "tags": [
+     "Agents"
+    ]
+   }
+  },
+  "/api/agent/request": {
+   "post": {
+    "description": "`{action, args, why?, session?, wait?}` \u2192 `{id, state: asked|doing|done|refused|failed|\nunanswered, text, result?, error?}`. The action is checked and put into words first (400 if\nit cannot be done as asked); the person gets Do it / No; on Do it Argus does it through its\nown routes with the full key. `wait` holds up to 300 s for the outcome; come back with GET.",
+    "operationId": "postApiAgentRequest",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Agent Request Api Agent Request Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Ask the person to have something done, and do it on their OK",
+    "tags": [
+     "Agents"
+    ]
+   }
+  },
+  "/api/agent/request/{ident}": {
+   "get": {
+    "operationId": "getApiAgentRequestIdent",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "ident",
+      "required": true,
+      "schema": {
+       "title": "Ident",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "wait",
+      "required": false,
+      "schema": {
+       "default": 0,
+       "title": "Wait",
+       "type": "number"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Agent Request Status Api Agent Request  Ident  Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "The outcome of a request",
+    "tags": [
+     "Agents"
+    ]
+   }
+  },
   "/api/ask": {
    "post": {
     "description": "Put a question in front of whoever is holding the phone, and wait.\n\n`options` turns the answer into taps: two or three words, and answering costs no typing at\nall. Without them there is a box, which is right for \"what should I call it\" and wrong for\n\"shall I overwrite it\" \u2014 and the difference between those two is most of why this exists.\n\nThe wait is bounded and the question is not: when `wait` runs out the answer is simply not\nthere yet, and the same id can be waited on again. An agent that would rather not sit\nthere can pass `wait=0`, ask, get on with something else and come back.",
@@ -2210,7 +2334,7 @@
   },
   "/api/plugin": {
    "get": {
-    "description": "`{version, agents: [{agent, name, present, installed, outdated}], reload: [sessions]}` \u2014\n`reload` is the Claude sessions sitting at their prompt that would take a newer plugin with\n`/reload-plugins` (see POST /api/plugin/reload).",
+    "description": "`{version, agents: [{agent, name, present, installed, outdated}], reload: [sessions], behind:\n[{session, agent, version, at_prompt}]}` \u2014 `reload` is the Claude sessions sitting at their\nprompt that would take a newer plugin with `/reload-plugins` (see POST /api/plugin/reload);\n`behind`, every session known to run an older plugin than the one offered.",
     "operationId": "getApiPlugin",
     "responses": {
      "200": {

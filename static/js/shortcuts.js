@@ -265,6 +265,38 @@ window.addEventListener('keydown', (e) => {
 /** Which Argus is running: version, the commit and its date, whether a pull is waiting for a
  *  restart, whether a release is out, and the plugin in each agent. What you want to know after a
  *  `git pull`, without going to the bottom of Settings. */
+/** The sessions still running an older Argus plugin, and how each takes the new one: an update
+ *  installs it, but a running session keeps the one it started with until it reloads (Claude,
+ *  /reload-plugins — typed for you into those at their prompt) or restarts (Codex). Shared by the
+ *  Alt+V dialog and Settings. `after` redraws once a reload has been typed. */
+export function pluginBehind(info, after, { reload = true } = {}) {
+  const behind = info?.behind || [];
+  if (!behind.length) return null;
+  const claudeReady = behind.filter((s) => s.agent === 'claude' && s.at_prompt).map((s) => s.session);
+  const claudeBusy = behind.filter((s) => s.agent === 'claude' && !s.at_prompt).map((s) => s.session);
+  const others = behind.filter((s) => s.agent !== 'claude').map((s) => s.session);
+  const box = el('div', { className: 'pluginbehind' }, [
+    el('p', { className: 'aboutval warn', textContent: t('{n} open session(s) still run the old plugin: {list}', {
+      n: behind.length, list: behind.map((s) => `${s.session} (${s.version})`).join(', ') }) }),
+  ]);
+  if (claudeReady.length && reload) {
+    const go = el('button', { className: 'ghost inline pluginreload', type: 'button', textContent: t('Reload in {n} waiting', { n: claudeReady.length }) });
+    go.onclick = async () => {
+      go.disabled = true;
+      try {
+        const said = await postJSON('/api/plugin/reload', { sessions: claudeReady });
+        toast(t('reloaded in {done}', { done: said.reloaded.join(', ') || '—' })
+          + (said.not_now.length ? ` · ${t('not now (working or asking): {list}', { list: said.not_now.join(', ') })}` : ''));
+      } catch (e) { toast(e.message, true); }
+      after?.();
+    };
+    box.append(el('p', { className: 'hint' }, [el('span', { textContent: t('Claude at its prompt: {list} — ', { list: claudeReady.join(', ') }) }), go]));
+  }
+  if (claudeBusy.length) box.append(el('p', { className: 'hint', textContent: t('Claude working or asking you something: {list} — reload when it stops (its window offers it), or type /reload-plugins', { list: claudeBusy.join(', ') }) }));
+  if (others.length) box.append(el('p', { className: 'hint', textContent: t('Codex has no reload: {list} take the new plugin when the session starts again', { list: others.join(', ') }) }));
+  return box;
+}
+
 export async function aboutThisArgus() {
   if (document.querySelector('dialog.aboutargus[open]')) return;
   const body = el('div', { className: 'sheetbody aboutargus-body' }, [el('p', { className: 'hint', textContent: '…' })]);
@@ -287,6 +319,8 @@ export async function aboutThisArgus() {
       try {
         await postJSON('/api/plugin', { agent: a.agent, action: a.installed ? 'update' : 'install' });
         toast(t('the Argus plugin is in {name} — sessions take it when they reload or start', { name: a.name }));
+        // Redrawn in place, not closed: what is left to do — the open sessions still on the old
+        // plugin, and the reload for them — is said right here.
         sheet.close();
         aboutThisArgus();
       } catch (e) { toast(e.message, true); b.disabled = false; b.textContent = a.installed ? t('Update') : t('Install'); }
@@ -308,7 +342,8 @@ export async function aboutThisArgus() {
         a.installed ? (a.outdated ? t('{have} — {offered} is out', { have: a.installed, offered: p.version }) : a.installed)
           : t('not installed'), a.outdated || !a.installed, act(a))),
   ].filter(Boolean);
-  body.replaceChildren(...rows);
+  const behind = pluginBehind(p, () => { sheet.close(); aboutThisArgus(); });
+  body.replaceChildren(...rows, ...(behind ? [behind] : []));
 }
 
 /** The list of them, and the way to change one. */

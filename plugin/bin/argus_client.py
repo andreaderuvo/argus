@@ -306,17 +306,46 @@ class Argus:
         from urllib.parse import quote
         return self.call("GET", f"/api/git/worktrees?path={quote(str(path))}")
 
-    def desk(self, name: str, folder: str | Path | None = None, show: bool = True, rename: str | None = None) -> dict:
+    def desk(self, name: str, folder: str | Path | None = None, show: bool = True, rename: str | None = None,
+             session: str | None = None) -> dict:
         """The desk called `name` — made empty if there is none — and, with `show`, switched to in
         every open page. `folder` is where its browsers and new sessions start. `rename="Desk 11"`
         instead gives that desk the name `name`, on every open page too. Returns
-        `{id, name, made, folder}`. Nothing here removes a desk or what is in it."""
+        `{id, name, made, folder}`. Nothing here removes a desk or what is in it. `session` also puts
+        a window on that (existing) session in the desk."""
         body = {"name": name, "show": show}
+        if session:
+            body["session"] = session
         if rename:
             body["rename"] = rename
         if folder:
             body["folder"] = str(folder)
         return self.call("POST", "/api/desks", body)
+
+    def actions(self) -> list[dict]:
+        """What this key cannot do but may *request*: `{action, what, asks}` each — `asks` false when
+        the person lets that one be done without asking (`agents_without_asking`)."""
+        return self.call("GET", "/api/agent/actions")["actions"]
+
+    def request(self, action: str, args: dict | None = None, why: str = "", wait: float = 300,
+                session: str = "") -> dict:
+        """Ask the person to have something done that this key cannot do — start a team in a desk,
+        end a session, start an agent with no questions… (`actions()`). They get Do it / No; on Do
+        it Argus does it. Waits up to `wait` seconds and returns `{id, state, text, result?, error?}`
+        with state done, refused, failed — or still asked/doing, to come back for with
+        `request_status(id)`. ArgusError (400) when it cannot be done as asked."""
+        said = self.call("POST", "/api/agent/request", {"action": action, "args": args or {}, "why": why,
+                                                        "session": session or own_session(), "wait": min(wait, 300)},
+                         timeout=min(wait, 300) + 30)
+        until = time.time() + wait
+        while said["state"] in ("asked", "doing") and time.time() < until:
+            left = min(300.0, until - time.time())
+            said = self.request_status(said["id"], left)
+        return said
+
+    def request_status(self, ident: str, wait: float = 0) -> dict:
+        """Where a request stands: asked, doing, done, refused, failed or unanswered."""
+        return self.call("GET", f"/api/agent/request/{ident}?wait={wait:.0f}", timeout=wait + 30)
 
     def team_task(self, session: str = "") -> dict:
         """This agent's task in its team — goal, role, duty, round, whether it is its turn, what the
@@ -440,9 +469,9 @@ class Argus:
 
 def main(argv: list[str] | None = None) -> int:
     """The command line: `who`, `relay`, `ring`, `start`, `teams`, `task`, `turn`, `team-check`,
-    `team-propose`.
+    `team-propose`, `request`.
 
-    Nine verbs and no more, because this is what an *agent* reaches for from inside a session —
+    Ten verbs and no more, because this is what an *agent* reaches for from inside a session —
     the four things it can usefully do about the other agents on the machine. Anything larger
     is a script, and a script should import the class.
     """
@@ -486,6 +515,12 @@ def main(argv: list[str] | None = None) -> int:
     tu.add_argument("summary", nargs="?", default="")
     tu.add_argument("--status", default="", help="for a judge: OK, REDO, DONE or BLOCKED")
     tu.add_argument("--file", help="the details, read from a file")
+    rq = subs.add_parser("request", help="ask the person to have something done this key cannot do (they tap Do it / No)")
+    rq.add_argument("action", help="start_team, team_go, team_pause, team_stop, kill_session, rename_session, "
+                                   "start_agent, remove_worktree, todo_delete")
+    rq.add_argument("args", nargs="*", metavar="KEY=VALUE", help="e.g. team=\"Kraken paper\" desk=Trading")
+    rq.add_argument("--why", default="")
+    rq.add_argument("--wait", type=float, default=300)
     tc = subs.add_parser("team-check", help="check a team you wrote (Mermaid or YAML), from a file or stdin")
     tc.add_argument("file", nargs="?", default="-")
     tp = subs.add_parser("team-propose", help="propose a team to the person: written as team.yaml in a folder, for them to start")
@@ -535,6 +570,14 @@ def main(argv: list[str] | None = None) -> int:
             details = Path(args.file).read_text(encoding="utf-8") if args.file else ""
             said = argus.team_done(args.summary, args.status, details)
             print(f"recorded: {said['you']} in {said['team']}, round {said['round']}" + (f", {said['status']}" if said.get("status") else ""))
+        elif args.what == "request":
+            pairs = {}
+            for pair in args.args:
+                key, _, value = pair.partition("=")
+                pairs[key.strip()] = True if value.strip().lower() in ("true", "yes") else value.strip()
+            said = argus.request(args.action, pairs, args.why, args.wait)
+            print(f"{said['state']}: {said['text']}" + (f" — {said['error']}" if said.get("error") else ""))
+            return 0 if said["state"] == "done" else 1
         elif args.what in ("team-check", "team-propose"):
             text = sys.stdin.read() if args.file == "-" else Path(args.file).read_text(encoding="utf-8")
             if args.what == "team-check":

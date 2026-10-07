@@ -11,7 +11,7 @@ import { installHere, installOffer, installed } from '/js/installing.js';
 import { under } from '/js/pointing.js';
 import { colorFor, delJSON, deskHome, getJSON, homePath, human, parentOf, postJSON, serverInfo, setTitle, signOut, when, withToken } from '/js/reconnect.js';
 import { go, render } from '/js/router.js';
-import { keyFor, keyHelp } from '/js/shortcuts.js';
+import { keyFor, keyHelp, pluginBehind } from '/js/shortcuts.js';
 import { applyBottomBar, applyKeyBar, applySidebar, renderSidebar, versionRow, viewersRow } from '/js/sidebar.js';
 import { THEMES, prefs, server, view } from '/js/state.js';
 import { applyTheme } from '/js/theme.js';
@@ -532,6 +532,9 @@ export async function screenSettings() {
           go,
         ]));
       }
+      // Its own Reload row is above: here only who is behind, and what each needs.
+      const behind = pluginBehind(info, null, { reload: false });
+      if (behind) box.append(behind);
       box.append(el('p', { className: 'hint', textContent: t('hooks and tools in one install: the agent says when it starts, finishes and needs you, and can ask you, open desks, start agents and work your to-dos') }));
     };
     getJSON('/api/plugin').then(draw).catch(() => {});

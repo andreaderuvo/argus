@@ -373,6 +373,24 @@ function aside(said) {
     adoptDesks(said.renamed ? said : null).then(() => { if (said.show) showDesk(said.id); });
     return;
   }
+  // A team started on the person's OK to an agent's request: its window and its agents' windows
+  // go into the desk it was asked for, as they would from the Team sheet.
+  if (said.what === 'team-started' && said.team?.id) {
+    adoptDesks().then(() => {
+      const ws = workspaces().find((w) => w.id === said.desk_id) || workspaces().find((w) => w.id === prefs.ws);
+      const specs = [{ kind: 'team', id: said.team.id, name: said.team.name },
+        ...(said.sessions || []).map((name) => ({ kind: 'term', name }))];
+      if (!ws || ws.id === prefs.ws) {
+        for (const spec of specs) openWindow(spec, undefined, { jump: false });
+      } else {
+        const have = (x) => ws.desktop.some((d) => d.kind === x.kind && (x.kind === 'team' ? d.id === x.id : d.name === x.name));
+        ws.desktop = [...ws.desktop, ...specs.filter((x) => !have(x))];
+        savePrefs();
+      }
+      toast(t('the team {name} has started{where}', { name: said.team.name, where: said.desk ? ` — ${t('in the desk {desk}', { desk: said.desk })}` : '' }));
+    });
+    return;
+  }
   if (said.what !== 'started' || !said.name) return;
   if (said.desk_id) {
     // Into the desk it was started for, not whichever one this page has on screen.

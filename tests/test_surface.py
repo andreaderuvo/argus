@@ -45,7 +45,9 @@ def test_the_surface_is_small_enough_to_document():
     # 24 to 27 on 2026-10-07, for team_task(), team_done() and own_session(): an agent in a team
     # reports its turn with a call instead of appending a block to a markdown file.
     # 27 to 29 the same day, for team_check() and team_propose(): an agent writing a team.
-    assert counted["argus_client"] <= 29, counted
+    # 29 to 32 the same day, for actions(), request() and request_status(): what the key cannot do,
+    # asked of the person and done on their tap.
+    assert counted["argus_client"] <= 32, counted
     assert counted["argus_orchestra"] <= 30, counted
 
 

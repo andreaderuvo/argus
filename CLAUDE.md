@@ -489,6 +489,21 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   the file loses its first line — a missed six-second toast left it findable only by typing the folder. The skill's examples are checked by
   the tests. Found on the way: `measureFurniture` counted the desktop's side rail as a bottom bar,
   so every toast on a desktop was drawn above the screen (`tests/browser/test_toast.py`).
+- **What an agent may do with the person's OK** (`app/consent.py`, `POST /api/agent/request`,
+  MCP `request`/`request_status`, `argus-say request`, `tests/test_consent.py`). The agent key stays
+  narrow; an action on `consent.ACTIONS` (start_team in a desk, team_go/pause/stop, kill/rename a
+  session, start_agent with no questions, remove_worktree, todo_delete) is *requested*: planned and
+  put into words first (400 with the reason, nothing asked, when it cannot be done), then an ask
+  with Do it / No, and on Do it carried out through the app's own routes over
+  `httpx.ASGITransport` with the full token — every check, the jail and the journal still apply.
+  `agents_without_asking` lets listed actions through at once; letting agents loose is asked
+  regardless. A team started this way is announced `team-started` with its desk, and the pages
+  put its windows there. `start_team` finds the team by name: a proposal, a model in
+  `prefs.teamModels`, a template, the folder's team.yaml; launchers are described *with versions*
+  (without them nothing is recognised as an agent). The `argus` skill and the wiki's
+  What-an-agent-can-do carry the table; a test fails when an action or tool is missing from them.
+  `GET /api/plugin` also lists `behind` — sessions still on an older plugin — which Alt+V and
+  Settings show after an update, with the reload: updating alone left every open session on the old one.
 - **The sheet up front is goal, shape, folder** (and the check when a step needs one). Who runs
   each step, permissions, gate, rounds and the file/pack buttons are under a `<details>` "More",
   opened by itself when there is no agent or a start is refused. Four cards (`FRONT`) plus yours,

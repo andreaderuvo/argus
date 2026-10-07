@@ -476,3 +476,22 @@ def test_a_missed_proposal_waits_over_the_desk_and_as_a_card(make_page, argus):
     page.wait("!document.querySelector('.teamproposal')", timeout=10, what="dismissed")
     assert (folder / "team.yaml").exists()
     (folder / "team.yaml").unlink()
+
+
+def test_a_team_started_on_request_lands_in_the_desk_asked_for(make_page, argus):
+    """"Start the Build and review team in the desk Work": an agent requests it, the person taps Do
+    it, and the team's window and its agents' windows are on that desk."""
+    project = desk(argus)
+    page = make_page(route="#/wall")
+    page.wait("!!document.querySelector('#walltools')", timeout=10)
+    req = argus.api("/api/agent/request", "POST", {"action": "start_team", "args": {
+        "team": "Build and review", "folder": str(project), "goal": "tidy the notes", "desk": "Work"},
+        "why": "you asked for it", "session": ""})
+    assert req["state"] == "asked" and "in the desk Work" in req["text"]
+    argus.api(f"/api/ask/{req['question']}/answer", "POST", {"answer": "Do it"})
+    eventually(lambda: argus.api(f"/api/agent/request/{req['id']}?wait=2")["state"] in ("done", "failed"), timeout=60, what="done")
+    said = argus.api(f"/api/agent/request/{req['id']}")
+    assert said["state"] == "done", said
+    page.wait("!!document.querySelector('.win[data-kind=\"team\"]')", timeout=15, what="the team's window, on the desk")
+    page.wait("!!document.querySelector('.win[data-session=\"Build-and-review-executor\"]')", timeout=15, what="its first agent's window")
+    clean(argus, project)

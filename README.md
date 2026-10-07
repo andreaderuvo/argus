@@ -87,7 +87,9 @@ session and it is typed there; the Enter is left for you.
   one. With the Argus plugin each agent reads its task and reports its turn through a tool
   (`team_task`, `team_done`), and is sent back if it stops without reporting. Or ask an agent to
   design the team: it writes it, checks it with `team_check` and proposes it with `team_propose`;
-  you start it.
+  you start it — or tell it "start it in the desk Trading" and tap **Do it**: what an agent's key
+  cannot do, it requests, and Argus does it on your tap
+  ([the whole table](https://github.com/andreaderuvo/argus/wiki/What-an-agent-can-do)).
 
 <p align="center">
 <picture>

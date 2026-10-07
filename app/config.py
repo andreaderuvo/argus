@@ -172,6 +172,10 @@ class Config:
     # kill a session, expose a port, mint a token or stop the server, and that shows up in the
     # journal under its own name so you can read what your agents said to each other.
     agents: list[dict] = field(default_factory=list)
+    # Actions an agent may have done without asking you first (app/consent.py ACTIONS): by
+    # default none — each request is put to you as Do it / No. Starting agents with no questions
+    # at all is asked whatever this says.
+    agents_without_asking: list[str] = field(default_factory=list)
     # The brakes on starting things and passing sentences around, per minute. Not security —
     # the launcher list is that — but the difference between a fan-out and a runaway loop.
     launches_a_minute: int = 12
@@ -394,6 +398,7 @@ class Config:
             ask_outside=bool(raw.get("ask_outside", True)),
             launchers=[dict(x) for x in (raw.get("launchers") or []) if isinstance(x, dict)],
             agents=[dict(x) for x in (raw.get("agents") or []) if isinstance(x, dict)],
+            agents_without_asking=[str(x) for x in (raw.get("agents_without_asking") or [])],
             launches_a_minute=int(raw.get("launches_a_minute", 12)),
             relay_a_minute=int(raw.get("relay_a_minute", 30)),
             max_upload_bytes=int(raw.get("max_upload_bytes", 2 * 1024 * 1024 * 1024)),
@@ -447,6 +452,7 @@ class Config:
             "ask_outside": self.ask_outside,
             "launchers": self.launchers,
             "agents": self.agents,
+            "agents_without_asking": self.agents_without_asking,
             "launches_a_minute": self.launches_a_minute,
             "relay_a_minute": self.relay_a_minute,
             "max_upload_bytes": self.max_upload_bytes,

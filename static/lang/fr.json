@@ -1228,6 +1228,12 @@
   "Dismiss this proposal — its team.yaml stays in the folder": "Écarter cette proposition — son team.yaml reste dans le dossier",
   "{who} proposes a team: {name}": "{who} propose une équipe : {name}",
   "Dismiss": "Écarter",
-  "Its team.yaml stays in the folder": "Son team.yaml reste dans le dossier"
+  "Its team.yaml stays in the folder": "Son team.yaml reste dans le dossier",
+  "{n} open session(s) still run the old plugin: {list}": "{n} session(s) ouverte(s) utilisent encore l'ancien plugin : {list}",
+  "Claude at its prompt: {list} — ": "Claude à son invite : {list} — ",
+  "Claude working or asking you something: {list} — reload when it stops (its window offers it), or type /reload-plugins": "Claude au travail ou en attente d'une réponse : {list} — rechargez quand il s'arrête (sa fenêtre le propose), ou tapez /reload-plugins",
+  "Codex has no reload: {list} take the new plugin when the session starts again": "Codex n'a pas de rechargement : {list} prennent le nouveau plugin au redémarrage de la session",
+  "the team {name} has started{where}": "l'équipe {name} a démarré{where}",
+  "in the desk {desk}": "dans le bureau {desk}"
  }
 }

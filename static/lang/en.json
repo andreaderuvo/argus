@@ -1228,6 +1228,12 @@
   "Dismiss this proposal — its team.yaml stays in the folder": "Dismiss this proposal — its team.yaml stays in the folder",
   "{who} proposes a team: {name}": "{who} proposes a team: {name}",
   "Dismiss": "Dismiss",
-  "Its team.yaml stays in the folder": "Its team.yaml stays in the folder"
+  "Its team.yaml stays in the folder": "Its team.yaml stays in the folder",
+  "{n} open session(s) still run the old plugin: {list}": "{n} open session(s) still run the old plugin: {list}",
+  "Claude at its prompt: {list} — ": "Claude at its prompt: {list} — ",
+  "Claude working or asking you something: {list} — reload when it stops (its window offers it), or type /reload-plugins": "Claude working or asking you something: {list} — reload when it stops (its window offers it), or type /reload-plugins",
+  "Codex has no reload: {list} take the new plugin when the session starts again": "Codex has no reload: {list} take the new plugin when the session starts again",
+  "the team {name} has started{where}": "the team {name} has started{where}",
+  "in the desk {desk}": "in the desk {desk}"
  }
 }
