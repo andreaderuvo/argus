@@ -382,3 +382,24 @@ def test_a_team_drawn_in_mermaid_is_previewed_while_typed(make_page, argus):
     page.click_at(*page._center("[...document.querySelectorAll('dialog.sheet button')].find(b => b.textContent === 'Apply')"))
     page.wait("[...document.querySelectorAll('.teampicture:not(.teampreview) .tgtext')].some(t => t.textContent === 'scout')", timeout=5, what="applied to the picture")
     clean(argus, project)
+
+
+def test_the_teams_can_be_filtered(make_page, argus):
+    """Typing in the filter shows every card that matches — a template hidden behind "more…" too —
+    by name or by a role in it; nothing matching says so; Esc clears it."""
+    project = desk(argus)
+    page = make_page(route="#/wall")
+    open_sheet(page, argus, "anything")
+    names = "[...document.querySelectorAll('.teamcard:not(.teammore) .name')].map(n => n.textContent)"
+    find = lambda q: page.eval(f"(() => {{ const f = document.querySelector('.teamfind'); f.value = {q!r}; f.dispatchEvent(new Event('input')); }})()")
+    find("tourn")
+    page.wait(f"JSON.stringify({names}) === JSON.stringify(['Tournament'])", timeout=5, what="a hidden template, found by name")
+    find("critic")
+    page.wait(f"JSON.stringify({names}) === JSON.stringify(['Write'])", timeout=5, what="found by a role in it")
+    find("zzz-nothing")
+    page.wait("!!document.querySelector('.teamnone') && document.querySelectorAll('.teamcard').length === 0", timeout=5, what="none, said")
+    page.click_at(*page._center("document.querySelector('.teamfind')"))
+    page.send("Input.dispatchKeyEvent", {"type": "keyDown", "key": "Escape", "code": "Escape", "windowsVirtualKeyCode": 27})
+    page.wait("document.querySelector('.teamfind').value === '' && !!document.querySelector('.teamcard.teammore')", timeout=5, what="cleared")
+    assert page.eval("!!document.querySelector('dialog.sheet[open]')"), "and the sheet still open"
+    clean(argus, project)

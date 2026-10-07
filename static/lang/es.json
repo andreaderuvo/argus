@@ -1201,6 +1201,9 @@
   "This team as a Mermaid diagram or as YAML: change it by hand and apply it": "Este equipo como diagrama Mermaid o en YAML: cámbialo a mano y aplícalo",
   "the team as a file": "el equipo como archivo",
   "tournament, split the work, feature with tests": "torneo, dividir el trabajo, función con pruebas",
-  "{n} more…": "{n} más…"
+  "{n} more…": "{n} más…",
+  "find a team: name, role, pack…": "busca un equipo: nombre, rol, paquete…",
+  "find a team": "buscar un equipo",
+  "no team matches “{q}”": "ningún equipo coincide con “{q}”"
  }
 }

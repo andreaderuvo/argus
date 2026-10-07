@@ -1201,6 +1201,9 @@
   "This team as a Mermaid diagram or as YAML: change it by hand and apply it": "This team as a Mermaid diagram or as YAML: change it by hand and apply it",
   "the team as a file": "the team as a file",
   "tournament, split the work, feature with tests": "tournament, split the work, feature with tests",
-  "{n} more…": "{n} more…"
+  "{n} more…": "{n} more…",
+  "find a team: name, role, pack…": "find a team: name, role, pack…",
+  "find a team": "find a team",
+  "no team matches “{q}”": "no team matches “{q}”"
  }
 }

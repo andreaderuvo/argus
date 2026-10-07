@@ -47,6 +47,9 @@ export async function teamSheet({ wsId, home, onStarted }) {
   const goal = el('textarea', { className: 'teamgoal', rows: 3, spellcheck: true,
     placeholder: t('e.g. make the alignment faster without changing its results') });
   const cards = el('div', { className: 'teamcards' });
+  // A filter over the cards: Argus's, yours, a pack's — by name, description, pack and roles.
+  const find = el('input', { type: 'search', className: 'teamfind', spellcheck: false, autocapitalize: 'off',
+    placeholder: t('find a team: name, role, pack…'), 'aria-label': t('find a team') });
   const picture = el('div', { className: 'teampicture' });
   const panel = el('div', { className: 'teamnode', hidden: true });
   const saveModel = el('button', { className: 'ghost', type: 'button', textContent: t('Save as my model') });
@@ -121,6 +124,8 @@ export async function teamSheet({ wsId, home, onStarted }) {
   };
 
   let allCards = false;
+  find.addEventListener('input', () => drawCards());
+  find.addEventListener('keydown', (e) => { if (e.key === 'Escape' && find.value) { e.preventDefault(); e.stopPropagation(); find.value = ''; drawCards(); } });
   const packOf = (model) => Object.entries(prefs.teamPacks || {}).find(([, w]) => w.models.includes(model))?.[0];
   const badgeKind = (key) => (key.startsWith('mine:') ? (packOf(key.slice(5)) ? 'pack' : 'mine') : key.startsWith('file:') ? 'file' : 'argus');
   const badgeWord = (key) => ({ argus: 'Argus', mine: t('yours'), pack: packOf(key.slice(5)), file: 'team.yaml' }[badgeKind(key)]);
@@ -151,12 +156,27 @@ export async function teamSheet({ wsId, home, onStarted }) {
     ].filter(Boolean));
     // Four shapes up front — the ones most goals need — and yours; the rest one press away, and
     // never hidden while chosen.
-    const shown = Object.entries(templates).filter(([key]) => allCards || FRONT.includes(key) || key === chosen);
-    const more = Object.keys(templates).length - shown.length;
-    cards.replaceChildren(
+    // While filtering, every card that matches, wherever it would otherwise sit.
+    const words = find.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const fits = (key, label, hint, g) => {
+      if (!words.length) return true;
+      const hay = [label, hint, badgeWord(key), key.split(':').pop(),
+        ...g.nodes.flatMap((n) => [n.id, n.role || '', n.command || ''])].join(' ').toLowerCase();
+      return words.every((w) => hay.includes(w));
+    };
+    const shown = Object.entries(templates).filter(([key]) => words.length || allCards || FRONT.includes(key) || key === chosen)
+      .filter(([key, tpl]) => fits(key, t(tpl.label), t(tpl.hint), tpl.graph));
+    const more = words.length ? 0 : Object.keys(templates).length - shown.length;
+    const list = [
       ...shown.map(([key, tpl]) => card(key, t(tpl.label), t(tpl.hint), tpl.graph)),
-      ...Object.entries(mine()).map(([name, g]) => card(`mine:${name}`, name, packOf(name) ? t('from a pack') : t('your model'), g, true)),
-      ...(fileTeam ? [card(`file:${fileTeam.name}`, fileTeam.name, fileTeam.where, fileTeam.graph, true)] : []),
+      ...Object.entries(mine()).filter(([name, g]) => fits(`mine:${name}`, name, packOf(name) ? t('from a pack') : t('your model'), g))
+        .map(([name, g]) => card(`mine:${name}`, name, packOf(name) ? t('from a pack') : t('your model'), g, true)),
+      ...(fileTeam && fits(`file:${fileTeam.name}`, fileTeam.name, fileTeam.where, fileTeam.graph)
+        ? [card(`file:${fileTeam.name}`, fileTeam.name, fileTeam.where, fileTeam.graph, true)] : []),
+    ];
+    cards.replaceChildren(
+      ...list,
+      ...(words.length && !list.length ? [el('p', { className: 'hint teamnone', textContent: t('no team matches “{q}”', { q: find.value.trim() }) })] : []),
       ...(more ? [el('button', { type: 'button', className: 'teamcard teammore', onclick: () => { allCards = true; drawCards(); } }, [
         el('span', { className: 'name', textContent: t('{n} more…', { n: more }) }),
         el('span', { className: 'meta', textContent: t('tournament, split the work, feature with tests') })])] : []),
@@ -609,7 +629,7 @@ export async function teamSheet({ wsId, home, onStarted }) {
   ]);
   body.append(
     el('label', { className: 'startlabel', textContent: t('what should the team get done?') }), goal,
-    cards,
+    find, cards,
     el('div', { className: 'teampicturehead' }, [
       el('label', { className: 'startlabel', textContent: t('the team — click a step to change it') }),
       el('span', { className: 'teampackbtns' }, [saveModel, editText])]),
