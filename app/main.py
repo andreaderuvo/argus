@@ -800,6 +800,12 @@ def create_app(cfg: Config) -> FastAPI:
     async def agent_request_status(request: Request, ident: str, wait: float = 0) -> dict:
         return await consent.status(request, ident, wait)
 
+    @app.get("/team.schema.json", include_in_schema=False)
+    async def team_schema() -> Response:
+        """The JSON Schema of a team file, for an editor to check team.yaml as it is typed (also on
+        the project's site). Public, like the page itself: it holds no secret."""
+        return Response(teams.SCHEMA_FILE.read_text(), media_type="application/schema+json")
+
     @app.get("/api/teams/ready", tags=["Teams"], summary="Is this machine ready for these agents in a team?")
     async def teams_ready(request: Request, launchers: str = "") -> dict:
         """`?launchers=Claude Code,Codex` → `{launchers: [{name, agent, notes: [{level: warn|info, text,

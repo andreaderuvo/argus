@@ -1,0 +1,215 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://andreaderuvo.github.io/argus/team.schema.json",
+  "title": "Argus team",
+  "description": "A team of agents taking turns on one goal, directed by Argus (team.yaml). This checks the shape: keys, types, values. Argus checks the rest when it reads the file — arrows to steps that do not exist, a step that would restart itself for ever, conditions that can never fire. See https://github.com/andreaderuvo/argus/wiki/Teams",
+  "type": "object",
+  "required": [
+    "steps"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "maxLength": 60,
+      "description": "The team's name, shown on its card and its window. Its sessions are called <name>-<step>."
+    },
+    "goal": {
+      "type": "string",
+      "minLength": 1,
+      "description": "What the team should get done, in words. Fills the goal box when the team is chosen."
+    },
+    "gate": {
+      "enum": [
+        "ask",
+        "auto",
+        "goal"
+      ],
+      "description": "How much it goes on alone. ask: you press Continue at the end of each round. auto: goes on, stops at the second failed check in a row. goal: goes on until a judge says DONE or the rounds run out."
+    },
+    "rounds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 30,
+      "description": "At most this many rounds (10 when left out). A round is one pass through the flow."
+    },
+    "permissions": {
+      "enum": [
+        "ask",
+        "edit",
+        "everything"
+      ],
+      "description": "What the agents may do without asking — a suggestion the person sees before Start. ask: ask for everything. edit: edit files freely, ask for the rest. everything: no questions at all (--dangerously-skip-permissions)."
+    },
+    "start": {
+      "description": "The step(s) the team starts from. The first step when left out.",
+      "oneOf": [
+        {
+          "$ref": "#/definitions/stepName"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/stepName"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      ]
+    },
+    "steps": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 13,
+      "description": "The steps, by name: an agent (role, judge, duty…), a check (check: <command>) or a join (join: true). At most 12 steps and 8 agents. `done:` may be listed to keep an end nothing points at yet.",
+      "propertyNames": {
+        "$ref": "#/definitions/stepName"
+      },
+      "additionalProperties": {
+        "$ref": "#/definitions/step"
+      }
+    },
+    "flow": {
+      "type": "array",
+      "description": "The arrows, one per line: `a -> b`, `a -> b, c` (both start), `a -> b if PASS`, `a -> b if OK, REDO`, `a -> done if DONE`. Fan-in is one line per arrow (`a -> j` and `b -> j`). A check says PASS or FAIL; a judge says OK, REDO, DONE or BLOCKED; anyone may say BLOCKED.",
+      "items": {
+        "type": "string",
+        "pattern": "^\\s*[a-z][a-z0-9-]{0,19}\\s*->\\s*(done|end|[a-z][a-z0-9-]{0,19})(\\s*,\\s*(done|end|[a-z][a-z0-9-]{0,19}))*(\\s+if\\s+(always|ALWAYS|PASS|pass|FAIL|fail|OK|ok|REDO|redo|DONE|done|BLOCKED|blocked)(\\s*,\\s*(always|ALWAYS|PASS|pass|FAIL|fail|OK|ok|REDO|redo|DONE|done|BLOCKED|blocked))*)?\\s*$"
+      }
+    },
+    "reset": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "What \"start this team again from clean\" means — used by Reset and Restart, which show the exact list before touching anything. Without it nothing is deleted.",
+      "properties": {
+        "files": {
+          "description": "Paths or globs relative to the team's folder: the files that are a run's state (a ledger, positions, a journal). Never absolute, never `..`; .git, team.yaml and the log are never deleted.",
+          "oneOf": [
+            {
+              "$ref": "#/definitions/relativePath"
+            },
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/relativePath"
+              }
+            }
+          ]
+        },
+        "run": {
+          "type": "string",
+          "description": "A command run in the team's folder after the files are deleted (a login shell, ten minutes at most)."
+        },
+        "log": {
+          "enum": [
+            "archive",
+            "keep",
+            "clear"
+          ],
+          "description": "TEAM.argus.md: archive (renamed with the date — the default), keep, or clear (deleted)."
+        }
+      }
+    }
+  },
+  "definitions": {
+    "stepName": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,19}$",
+      "description": "A step's name: a lowercase letter, then lowercase letters, digits and dashes, at most 20 characters."
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?![/~])(?!.*(^|/)\\.\\.(/|$)).+$"
+    },
+    "step": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "role": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 30,
+          "description": "An agent step's role: planner, executor, reviewer, researcher, writer, critic, tester — or any word, with a duty."
+        },
+        "judge": {
+          "type": "boolean",
+          "description": "This agent ends its turn with a verdict: OK, REDO, DONE or BLOCKED. The arrows out of it carry those."
+        },
+        "duty": {
+          "type": "string",
+          "maxLength": 4000,
+          "description": "Its job in your words — may name the agent's own skills (\"use your /security-review skill\")."
+        },
+        "worktree": {
+          "type": "boolean",
+          "description": "Work in its own git checkout on a branch team/<team>-<step>, so parallel executors never collide."
+        },
+        "reads": {
+          "description": "The step(s) whose worktree this one should look at.",
+          "oneOf": [
+            {
+              "$ref": "#/definitions/stepName"
+            },
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/stepName"
+              }
+            }
+          ]
+        },
+        "check": {
+          "description": "This step is a check: a command run in the project; exit 0 is PASS. `true` leaves the command to be given at Start.",
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "const": true
+            }
+          ]
+        },
+        "of": {
+          "$ref": "#/definitions/stepName",
+          "description": "The agent whose work this check checks (the one pointing into it, when left out)."
+        },
+        "join": {
+          "const": true,
+          "description": "This step is a join: it waits for every arrow coming in."
+        }
+      },
+      "if": {
+        "type": "object"
+      },
+      "then": {
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "check",
+                "join"
+              ]
+            },
+            {
+              "required": [
+                "check",
+                "role"
+              ]
+            },
+            {
+              "required": [
+                "join",
+                "role"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  }
+}

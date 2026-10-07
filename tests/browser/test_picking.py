@@ -107,3 +107,22 @@ def test_a_pinned_window_stays_and_the_others_tile_around_it(make_page, argus):
     assert said["closed"] == {"Work": ["w1"]}
     page.wait("!document.querySelector('.win[data-session=\"w1\"]')", timeout=10, what="the gone window closed on the page too")
     argus.kill_sessions()
+
+
+def test_in_the_icons_view_a_box_can_start_on_an_icon(make_page, argus):
+    """Reported: in the icons view a press took the file at once — no room to start a box. Starting
+    on an icon and travelling draws the box and opens nothing; a click on the spot still opens."""
+    d = folder_with(argus, "icons", ["a.txt", "b.txt", "c.txt", "d.txt"])
+    argus.api("/api/prefs", "PATCH", {"changes": {"browserView": "tiles"}})
+    page = make_page(route=f"#/files?path={d}")
+    page.wait(f"!!{row('d.txt')} && {row('d.txt')}.classList.contains('tile')", timeout=10, what="icons")
+    x0, y0 = page._center(row("a.txt"))
+    x1, y1 = page._center(row("c.txt"))
+    page.send("Input.dispatchMouseEvent", {"type": "mousePressed", "x": x0, "y": y0, "button": "left", "clickCount": 1, "buttons": 1})
+    for s in range(1, 8):
+        page.send("Input.dispatchMouseEvent", {"type": "mouseMoved", "x": x0 + (x1 - x0) * s / 7, "y": y0 + (y1 - y0) * s / 7 + 3, "button": "left", "buttons": 1})
+        time.sleep(0.02)
+    page.send("Input.dispatchMouseEvent", {"type": "mouseReleased", "x": x1, "y": y1 + 3, "button": "left", "clickCount": 1, "buttons": 0})
+    page.wait("document.querySelectorAll('.tile.picked').length >= 2", timeout=5, what="a box from an icon")
+    time.sleep(0.4)
+    assert page.eval("location.hash").startswith("#/files"), "nothing opened"

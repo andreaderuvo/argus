@@ -256,6 +256,10 @@ def warnings(graph: dict, doc: dict | None = None) -> list[str]:
             n.get("judge") for n in kinds.values()):
         out.append("nothing leads to done and nobody judges: the team runs until the rounds are used up")
     if doc:
+        from .teams import schema_errors
+        said = schema_errors(doc)
+        if said is not None:
+            return out + [f"schema — {line}" for line in said]
         for k in doc:
             if k not in TOP_KEYS:
                 near = difflib.get_close_matches(str(k), TOP_KEYS, 1)

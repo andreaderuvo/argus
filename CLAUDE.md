@@ -545,6 +545,11 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   next save would put them back). A team's `layout` (Team sheet → Arrange the desk) rides on its
   `started` announcements and re-arranges its desk as each agent arrives. Sessions shows a
   team badge per session and a button per team that filters and ticks its sessions.
+- **The team file's JSON Schema** (`docs/team.schema.json`, draft-07 for the editors; served at
+  `/team.schema.json` and on the site). `teams.to_yaml` and `propose` put the yaml-language-server
+  line first; `teams.schema_errors` (optional `jsonschema`) feeds `teammermaid.warnings`, with the
+  messages put in words (did you mean…). tests/test_team_schema.py keeps schema keys == reader keys
+  (TOP_KEYS, STEP_KEYS, GATES, RESET_LOG) and runs every template, skill and wiki example through it.
 - **How a verdict moves a team** (`Director._finished`, the audit of 2026-10-07, tests in
   test_teams.py "verdicts the audit found ignored"). A non-judge's turn is `always`, except
   BLOCKED, which anyone may say; BLOCKED follows only `if BLOCKED` arrows, else waits for the

@@ -77,7 +77,12 @@ export function attachPicking(list, { here, bar }) {
   list.addEventListener('pointerdown', (e) => {
     active = api;
     if (e.pointerType !== 'mouse' || e.button !== 0) return;
-    if (e.target.closest('[data-pick], button, a, input, .rowwrap')) return;
+    // In the icons view a box may start on an icon too — there is hardly any empty space between
+    // them, and a press there was always taken as a click. It becomes a box only once the pointer
+    // travels; a press and release on the spot is still the click. Rows keep their drag (moving
+    // the file), so for them the box starts from empty space.
+    const onTile = e.target.closest('.tile[data-pick]');
+    if (!onTile && e.target.closest('[data-pick], button, a, input, .rowwrap')) return;
     const box = list.getBoundingClientRect();
     const start = { x: e.clientX, y: e.clientY };
     const kept = (e.ctrlKey || e.metaKey) ? new Map(chosen) : new Map();
@@ -102,11 +107,17 @@ export function attachPicking(list, { here, bar }) {
       removeEventListener('pointermove', move);
       removeEventListener('pointerup', up);
       band.remove();
-      if (!moved && chosen.size) clear();     // a click on empty space lets go
+      if (moved && onTile) {
+        // The release lands on an icon: that click is the end of the box, not "open it".
+        const eat = (c) => { c.preventDefault(); c.stopPropagation(); };
+        list.addEventListener('click', eat, { capture: true, once: true });
+        setTimeout(() => list.removeEventListener('click', eat, { capture: true }), 300);
+      }
+      if (!moved && !onTile && chosen.size) clear();     // a click on empty space lets go
     };
     addEventListener('pointermove', move);
     addEventListener('pointerup', up);
-    e.preventDefault();
+    if (!onTile) e.preventDefault();          // on an icon, leave focus and the click alone
   });
 
   const api = {

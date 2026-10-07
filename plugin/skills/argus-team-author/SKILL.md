@@ -59,6 +59,11 @@ said in Mermaid — use YAML when they matter.
 
 ## YAML
 
+Start the file with the schema line — an editor then checks it as it is typed, and `team_check`
+reports the schema's points too:
+
+`# yaml-language-server: $schema=https://andreaderuvo.github.io/argus/team.schema.json`
+
 ```yaml
 name: Faster parser
 goal: make parse() 30% faster without changing its output
