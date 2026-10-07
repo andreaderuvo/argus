@@ -25,6 +25,17 @@ import { duration } from '/js/vitals.js';
 import { t } from '/js/words.js';
 // </imports>
 
+// The desk's "close the gone ones" button, repainted when a window's session goes or comes back.
+let paintGone = () => {};
+// Arrange the desk on screen (grid, cols, rows) — a team asks for its own when its agents arrive.
+let arrangeNow = () => {};
+
+/** Lay the desk on screen out as `mode`, once the windows just opened have their place. */
+export function arrangeDesk(mode) {
+  if (!['grid', 'cols', 'rows'].includes(mode)) return;
+  setTimeout(() => arrangeNow(mode), 350);
+}
+
 // The Team sheet as the desk opens it (set while a desk is drawn), and a folder waiting for it:
 // an agent's proposed team, tapped from its bell on another screen.
 let teamOpener = null;
@@ -57,19 +68,34 @@ const WALL_GAP = 6;
 /** Lay the windows out. This *places* them and then lets go: every window stays draggable
  *  and resizable afterwards, so an arrangement is a starting point, never a cage. */
 function arrange(open, wall, mode, key = (id) => id) {
-  if (!open.length) return;
-  const n = open.length;
+  /* A pinned window stays where you put it — a log along the bottom, a graph in a corner — and
+   *  the others are laid out in the room it leaves: for each pinned one, the largest of the four
+   *  spaces beside it (above, below, left, right) within what is still free. */
+  const pinned = open.filter((o) => o.win.dataset.pinned);
+  const loose = open.filter((o) => !o.win.dataset.pinned);
+  if (!loose.length) return;
+  let free = { x0: 0, y0: 0, x1: wall.clientWidth, y1: wall.clientHeight };
+  for (const o of pinned) {
+    const r = { x0: o.win.offsetLeft, y0: o.win.offsetTop, x1: o.win.offsetLeft + o.win.offsetWidth, y1: o.win.offsetTop + o.win.offsetHeight };
+    if (r.x1 <= free.x0 || r.x0 >= free.x1 || r.y1 <= free.y0 || r.y0 >= free.y1) continue;     // not in the way
+    const sides = [
+      { ...free, y1: Math.min(free.y1, r.y0) }, { ...free, y0: Math.max(free.y0, r.y1) },
+      { ...free, x1: Math.min(free.x1, r.x0) }, { ...free, x0: Math.max(free.x0, r.x1) },
+    ].filter((s) => s.x1 - s.x0 >= MIN_W && s.y1 - s.y0 >= MIN_H);
+    if (sides.length) free = sides.sort((a, b) => (b.x1 - b.x0) * (b.y1 - b.y0) - (a.x1 - a.x0) * (a.y1 - a.y0))[0];
+  }
+  const n = loose.length;
   const cols = mode === 'cols' ? n : mode === 'rows' ? 1 : Math.ceil(Math.sqrt(n));
   const rows = Math.ceil(n / cols);
-  const w = (wall.clientWidth - WALL_GAP * (cols + 1)) / cols;
-  const h = (wall.clientHeight - WALL_GAP * (rows + 1)) / rows;
+  const w = (free.x1 - free.x0 - WALL_GAP * (cols + 1)) / cols;
+  const h = (free.y1 - free.y0 - WALL_GAP * (rows + 1)) / rows;
 
-  open.forEach((o, i) => {
+  loose.forEach((o, i) => {
     delete o.win.dataset.prev;
     delete o.win.dataset.full;   // a tiled window is not a maximised one any more
     Object.assign(o.win.style, {
-      left: `${WALL_GAP + (i % cols) * (w + WALL_GAP)}px`,
-      top: `${WALL_GAP + Math.floor(i / cols) * (h + WALL_GAP)}px`,
+      left: `${free.x0 + WALL_GAP + (i % cols) * (w + WALL_GAP)}px`,
+      top: `${free.y0 + WALL_GAP + Math.floor(i / cols) * (h + WALL_GAP)}px`,
       width: `${Math.max(MIN_W, w)}px`,
       height: `${Math.max(MIN_H, h)}px`,
     });
@@ -423,6 +449,24 @@ export async function screenWall() {
       const extras = el('span', { className: 'winextras' });
       const send = el('button', { className: 'winbtn sendbtn', title: t('Move or duplicate to another workspace') }, icon('move'));
       const close = el('button', { className: 'winbtn closebtn', title: t('Close') }, icon('close'));
+      // Pinned: Grid, Columns and Rows leave it where it is and arrange the others around it.
+      const pinBtn = el('button', { className: 'winbtn pinbtn', title: t('Pin it here — the arrangements leave it alone') }, icon('pin'));
+      const paintPin = () => {
+        win.dataset.pinned = spec.pinned ? '1' : '';
+        if (!spec.pinned) delete win.dataset.pinned;
+        win.classList.toggle('pinned', !!spec.pinned);
+        pinBtn.classList.toggle('on', !!spec.pinned);
+        pinBtn.title = spec.pinned ? t('Pinned — press to let the arrangements move it again') : t('Pin it here — the arrangements leave it alone');
+      };
+      pinBtn.onclick = () => {
+        spec.pinned = !spec.pinned;
+        const kept = ws.desktop.find((x) => specId(x) === id);
+        if (kept) { if (spec.pinned) kept.pinned = true; else delete kept.pinned; }
+        savePrefs();
+        paintPin();
+        toast(spec.pinned ? t('{name} pinned: Grid, Columns and Rows arrange the others around it', { name: label }) : t('{name} unpinned', { name: label }));
+      };
+      paintPin();
       /* Two different things, and they were sharing a button that told the truth about
        *  neither. Filling the desk leaves the header, the rail and the desk tabs around
        *  the window; full screen means the screen shows this and nothing else. The button
@@ -568,7 +612,7 @@ export async function screenWall() {
 
       // The `i` sits with the name, not with the buttons: it is about *this session*, and the
       // buttons at the other end are things you do to the window.
-      const head = el('div', { className: 'winbar' }, [swatch, title, ...(factsBtn ? [factsBtn] : []), extras, send, behind, solo, more, close]);
+      const head = el('div', { className: 'winbar' }, [swatch, title, ...(factsBtn ? [factsBtn] : []), extras, pinBtn, send, behind, solo, more, close]);
       win.append(head, ...(facts ? [facts] : []), body);
       node.append(win);
 
@@ -610,12 +654,14 @@ export async function screenWall() {
                *  sitting among things you press. It belongs to the name: that session is what
                *  has gone. */
               title.after(el('span', { className: 'state critical gonemark', textContent: t('gone') }));
+              paintGone();
             },
             // The same name, running again: the window picks it up rather than making you
             // close a dead one and add it back.
             onBack: () => {
               win.classList.remove('gone');
               head.querySelector('.gonemark')?.remove();
+              paintGone();
               toast(t('{name} is back', { name: spec.name }));
             },
           });
@@ -1566,6 +1612,10 @@ export async function screenWall() {
     paintAllSeen();
   }
 
+  arrangeNow = (mode) => {
+    const deck = deckFor(activeSpace());
+    if (deck) arrange(deck.open, deck.node, mode, (id) => geomKey(deck.ws, id));
+  };
   const applyLayout = (mode) => {
     prefs.wallLayout = mode;
     savePrefs();
@@ -1714,7 +1764,7 @@ export async function screenWall() {
       const name = strip.dataset.session;
       if (!name) continue;
       try {
-        const answer = await getJSON(`/api/tmux/cwd?session=${encodeURIComponent(name)}`);
+        const answer = await getJSON(`/api/tmux/cwd?session=${encodeURIComponent(name)}&missing_ok=1`);
         strip.dataset.cwd = answer.cwd || '';
         strip.dataset.began = answer.started_in || '';
         strip.dataset.from = answer.cwd_source || '';
@@ -1977,6 +2027,7 @@ export async function screenWall() {
         for (const name of [...Object.values(said.sessions || {}), said.check_session].filter(Boolean)) {
           openWindow({ kind: 'term', name }, undefined, { jump: false });
         }
+        arrangeDesk(said.team?.layout);
         teams.refresh();
       },
     });
@@ -1987,6 +2038,22 @@ export async function screenWall() {
     // defaulted to your home, where its log and its files would land among everything else.
     onclick: () => teamOpener(activeSpace().home || ''),
   }, [icon('layers'), el('span', { textContent: t('Team') })]));
+  /* Windows whose session has ended ("gone"), closed in one press — a team stopped with its
+   *  sessions, or a reboot, leaves a desk of them. Shown only while there are some. */
+  const goneBtn = el('button', { className: 'winbtn wide gonebtn', type: 'button', hidden: true,
+    title: t('Close the windows whose session has ended') });
+  goneBtn.onclick = () => {
+    const shut = [...document.querySelectorAll('#view .win.gone .closebtn')];
+    for (const b of shut) b.click();
+    toast(t('{n} window(s) closed', { n: shut.length }));
+    paintGone();
+  };
+  tools.append(goneBtn);
+  paintGone = () => {
+    const n = document.querySelectorAll('#view .win.gone').length;
+    goneBtn.hidden = !n;
+    goneBtn.replaceChildren(icon('close'), el('span', { textContent: t('Close {n} gone', { n }) }));
+  };
   if (pendingTeamFolder) {
     const folder = pendingTeamFolder;
     pendingTeamFolder = null;
@@ -2280,7 +2347,7 @@ export async function screenWall() {
       // that session actually is, which is otherwise written down nowhere.
       if (kind === 'term') {
         const name = o.name.slice(5);
-        getJSON(`/api/tmux/cwd?session=${encodeURIComponent(name)}`)
+        getJSON(`/api/tmux/cwd?session=${encodeURIComponent(name)}&missing_ok=1`)
           .then((answer) => { if (answer.cwd) under.replaceChildren(bidi(answer.cwd)); })
           .catch(() => {});
       }

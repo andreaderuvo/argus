@@ -21,6 +21,7 @@ phone. You reach it with the Argus tools (or `argus-say` from a shell). Three ki
 | a desk by name: open, make, switch to it | `open_desk` (`folder` optional) |
 | rename a desk | `rename_desk` |
 | put an existing session on a desk | `open_desk` with `session` |
+| close the windows of ended ("gone") sessions | `close_gone_windows` (`desk` to limit it to one) |
 | start an agent (Claude, Codex, Gemini, a shell), with a prompt, options, in a desk, in a worktree | `launchers` for what exists and its options; `start_agent` |
 | who is working or waiting | `who` |
 | tell another session something | `relay` (`press_enter: true` to send it, not just type it) |

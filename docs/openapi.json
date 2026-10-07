@@ -824,6 +824,58 @@
     ]
    }
   },
+  "/api/desks/gone": {
+   "post": {
+    "description": "`{desk?}` \u2014 every desk, or the one named: its windows on tmux sessions that no longer\nexist are taken off, on the machine and on every open page. Only windows: no session is\ntouched (they have already ended), so an agent's key may do it. \u2192 `{closed: {desk: [names]}}`.",
+    "operationId": "postApiDesksGone",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "anyOf": [
+         {
+          "additionalProperties": true,
+          "type": "object"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Body"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Close Gone Api Desks Gone Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Close the windows whose session has ended",
+    "tags": [
+     "Sessions"
+    ]
+   }
+  },
   "/api/devices": {
    "get": {
     "description": "Names, when each was added and when each was last used. Never the tokens: only a\nhash of those is kept, and the plain form existed once, when it was created.",

@@ -3708,6 +3708,8 @@ button.block.allseen .name { color: var(--st-warning); font-weight: 600; }
   border: 1px solid var(--line); background: var(--panel); color: var(--text); font: inherit; }
 .teamcard .name { font-weight: 600; color: var(--bright); }
 .teamcard .meta { font-size: .76rem; color: var(--dim); }
+.teamcard { align-content: start; }
+.teamcard .teambadge { align-self: start; justify-self: start; }
 .teamcard .teamflow { font: .7rem/1.3 ui-monospace, "SF Mono", Menlo, monospace; color: var(--dim); }
 .teamcard:hover { border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); }
 .teamcard.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--panel)); }
@@ -3749,6 +3751,16 @@ button.block.allseen .name { color: var(--st-warning); font-weight: 600; }
 .teamline button:hover, .teamline button.on { border-color: var(--accent); color: var(--bright); }
 .teamline button.teamgo { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 600; }
 .teamline button .ico { width: 13px; height: 13px; }
+/* The team's buttons, in two segmented groups: what it does, and how you look at it. */
+.teamgroup { display: inline-flex; border: 1px solid var(--line); border-radius: .5rem; overflow: hidden; }
+.teamline .teamgroup > .teambtn { border: 0; border-radius: 0; display: inline-flex; align-items: center; gap: .35rem; padding: .3rem .65rem; background: none; color: var(--text); cursor: pointer; }
+.teamline .teamgroup > .teambtn + .teambtn { border-left: 1px solid var(--line); }
+.teamline .teamgroup > .teambtn:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--bright); }
+.teamline .teamgroup > .teambtn.on { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--bright); }
+.teamline .teamgroup > .teambtn.teamgo { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+.teamline .teambtn > svg { width: 14px; height: 14px; flex: none; }
+.teamline .teambtn.teamforget { display: inline-flex; align-items: center; padding: .3rem; border-radius: .4rem; }
+@media (max-width: 560px) { .teamline .teamgroup > .teambtn > span { display: none; } .teamline .teamgroup > .teambtn { padding: .4rem .55rem; } }
 .teamstory { list-style: none; margin: 0; padding: .2rem .9rem .5rem 1.6rem; display: grid; gap: .15rem; font-size: .78rem; max-height: 12rem; overflow-y: auto; }
 .teamstory li { display: grid; grid-template-columns: 3.4rem minmax(0, 1fr); gap: .5rem; }
 .teamstory .meta { color: var(--dim); font-variant-numeric: tabular-nums; }
@@ -3891,3 +3903,34 @@ dialog.sheet.teamsheet { width: min(980px, 96vw); max-width: none; margin-top: m
 .teamreadyrow.warn > span::before { content: "⚠ "; color: var(--st-warning); }
 .teamreadyrow.info > span::before { content: "ℹ "; color: var(--dim); }
 .teamresetfiles { max-height: 14rem; overflow: auto; margin: .3rem 0; padding: .5rem .7rem; background: var(--bg); border: 1px solid var(--line); border-radius: .4rem; font-size: .8rem; }
+.popmenu { position: fixed; z-index: 60; min-width: 13rem; max-width: min(22rem, calc(100vw - 1rem)); padding: .3rem; border: 1px solid var(--line); border-radius: .55rem; background: var(--panel); color: var(--text); box-shadow: 0 10px 30px rgba(0, 0, 0, .35); display: grid; }
+.popmenutitle { padding: .3rem .6rem .4rem; font-size: .78rem; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-bottom: 1px solid var(--line); margin-bottom: .2rem; }
+.popmenuitem { display: flex; align-items: center; gap: .55rem; padding: .38rem .6rem; border: 0; border-radius: .35rem; background: none; color: inherit; font: inherit; font-size: .86rem; text-align: left; cursor: pointer; }
+.popmenuitem:hover, .popmenuitem:focus { background: var(--line); outline: none; }
+.popmenu .popmenuitem.danger { background: none; color: var(--danger); }
+.popmenu .popmenuitem.danger:hover, .popmenu .popmenuitem.danger:focus { background: color-mix(in srgb, var(--danger) 14%, transparent); }
+.popmenuitem > svg { width: 1rem; height: 1rem; flex: none; }
+.popmenusep { height: 1px; background: var(--line); margin: .25rem .2rem; }
+.panelist { position: relative; }
+.pane > .panelist { min-height: 6rem; padding-bottom: 3rem; }   /* room under the rows to start a dashed box */
+.tile.picked { background: color-mix(in srgb, var(--accent) 20%, transparent) !important; outline: 1.5px solid color-mix(in srgb, var(--accent) 60%, transparent); outline-offset: -1px; border-radius: .5rem; }
+/* A chosen row is the whole line — with its buttons — not the half of it left of them. */
+.rowwrap:has(> .row.picked), .rowwrap:has(.row.picked):not(:has(.rowwrap)) { background: color-mix(in srgb, var(--accent) 16%, transparent); box-shadow: inset 3px 0 0 var(--accent); }
+.row.picked { background: transparent !important; }
+.pickband { position: absolute; z-index: 5; border: 1.5px dashed var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); pointer-events: none; }
+.pickbar { display: flex; align-items: center; gap: .35rem; flex-wrap: wrap; padding: .35rem .6rem; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--accent) 8%, var(--panel)); font-size: .84rem; }
+.pickbar .pickcount { font-weight: 600; margin-right: .4rem; }
+.pickbar button.inline { min-height: 0; padding: .2rem .5rem; display: inline-flex; align-items: center; gap: .3rem; }
+.pickbar button > svg { width: .95rem; height: .95rem; }
+@media (max-width: 560px) { .pickbar .picklabel { display: none; } }
+.sessteams { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; padding: .35rem .9rem; font-size: .84rem; }
+.sessteams .sessteam { min-height: 0; padding: .2rem .6rem; border-radius: 999px; }
+.sessteams .sessteam.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.teambadge.team { margin-left: .5rem; font-size: .7rem; padding: .05rem .4rem; border: 1px solid var(--accent); color: var(--accent); border-radius: 999px; vertical-align: middle; font-weight: 500; }
+.win.pinned > .winbar { box-shadow: inset 0 -2px 0 var(--accent); }
+.winbtn.pinbtn.on { color: var(--accent); }
+.winbtn.pinbtn.on svg { fill: color-mix(in srgb, var(--accent) 35%, transparent); }
+/* The team's window is a page, not a terminal: it takes the theme's ground (it was the terminal's
+   black in the light theme, with dim text on it). */
+.winbody:has(> .teamwin) { background: var(--bg); }
+.sessteams button.sessteam.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }

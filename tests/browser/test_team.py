@@ -349,6 +349,7 @@ def test_the_team_window_keeps_your_place_and_puts_the_newest_first(make_page, a
     first = page.eval("document.querySelector('.teamwin .teamstory li').textContent")
     last = page.eval("[...document.querySelectorAll('.teamwin .teamstory li')].pop().textContent")
     assert "turn" in first and "started from" in last, "the newest on top"
+    time.sleep(1.5)                  # the desk is arranged as the team's agents arrive: let it settle
     # In a tall window the story takes the room under the graph (it was held to 12rem).
     page.eval("(() => { const b = document.querySelector('.teamwin'); b.style.height = '760px'; b.style.flex = 'none'; })()")
     page.wait("""(() => { const b = document.querySelector('.teamwin').getBoundingClientRect();
@@ -361,7 +362,6 @@ def test_the_team_window_keeps_your_place_and_puts_the_newest_first(make_page, a
     page.eval("document.querySelector('.teamwin').scrollTop = 40")
     at = page.eval("document.querySelector('.teamwin').scrollTop")
     assert at > 0, page.eval("(() => { const b = document.querySelector('.teamwin'); return [b.scrollHeight, b.clientHeight, getComputedStyle(b).overflowY]; })()")
-    import time
     time.sleep(7)
     assert page.eval("document.querySelector('.teamwin').scrollTop") == at, "not thrown back to the top"
     clean(argus, project)
@@ -567,3 +567,27 @@ def test_restart_resets_reads_the_file_again_and_starts_from_round_one(make_page
     team_file.unlink()
     for f in project.glob("TEAM.argus.*.md"):
         f.unlink()
+
+
+def test_sessions_badge_a_teams_sessions_and_select_them_in_one_press(make_page, argus):
+    project = desk(argus)
+    argus.tmux("new-session", "-d", "-s", "stray", "-x", "80", "-y", "20")
+    page = make_page(route="#/wall")
+    open_sheet(page, argus, "fix the crash")
+    page.wait("!!document.querySelector('.teamrole select')", timeout=25, what="an agent")
+    page.eval("(() => { const c = document.querySelector('.teamcheck input'); c.value = 'true'; c.dispatchEvent(new Event('input')); })()")
+    start(page)
+    team = eventually(lambda: (argus.api("/api/teams")["teams"] or [None])[0], timeout=10)
+    # Agents start on their first turn: the team's sessions that exist so far.
+    ours = {n["session"] for n in team["nodes"] if n.get("session")}
+    eventually(lambda: ours & {s["name"] for s in argus.api("/api/tmux/sessions")}, timeout=20, what="a session of the team up")
+    mine = sorted(ours & {s["name"] for s in argus.api("/api/tmux/sessions")})
+    page.eval("location.hash = '#/sessions'")
+    page.wait("!!document.querySelector('.sessteam')", timeout=10, what="a button for the team")
+    assert page.eval("[...document.querySelectorAll('.teambadge.team')].length") >= len(mine)
+    page.click_at(*page._center("document.querySelector('.sessteam')"))
+    page.wait(f"document.querySelectorAll('.sesspick[data-session]:checked').length === {len(mine)}", timeout=5, what="all of its sessions ticked")
+    shown = page.eval("[...document.querySelectorAll('.sesspick[data-session]')].map(c => c.dataset.session).sort()")
+    assert shown == mine, "and only its sessions shown"
+    argus.tmux("kill-session", "-t", "stray", check=False)
+    clean(argus, project)

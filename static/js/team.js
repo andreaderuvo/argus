@@ -79,6 +79,13 @@ export async function teamSheet({ wsId, home, onStarted }) {
   );
   const gate = el('div', { className: 'startradio teamgate', role: 'radiogroup' });
   const rounds = el('input', { type: 'number', min: 1, max: 30, value: 10, className: 'teamrounds' });
+  // How the desk lays the team's windows out as its agents arrive: side by side, not stacked.
+  const layout = el('select', { className: 'setpick' }, [
+    el('option', { value: 'grid', textContent: t('as a grid'), selected: true }),
+    el('option', { value: 'cols', textContent: t('in columns') }),
+    el('option', { value: 'rows', textContent: t('in rows') }),
+    el('option', { value: '', textContent: t('leave the desk as it is') }),
+  ]);
   const why = el('p', { className: 'error', hidden: true });
   // Is this machine ready for these agents? Said before Start (app/readiness.py): a team on a real
   // machine had a Codex that could not report through the tool, and nothing had said so.
@@ -688,6 +695,7 @@ export async function teamSheet({ wsId, home, onStarted }) {
     el('div', { className: 'startopt inline' }, [el('span', { className: 'startoptname', textContent: t('What they may do without asking') }), alone]),
     el('label', { className: 'startlabel', textContent: t('how much it goes on alone') }), gate,
     el('div', { className: 'startopt inline' }, [el('span', { className: 'startoptname', textContent: t('At most, rounds') }), rounds]),
+    el('div', { className: 'startopt inline' }, [el('span', { className: 'startoptname', textContent: t('Arrange the desk') }), layout]),
     el('label', { className: 'startlabel', textContent: t('the team as a file') }),
     el('span', { className: 'teampackbtns' }, [saveYaml, examples, importPack, removePack, exportPack, picker]),
   ]);
@@ -742,6 +750,7 @@ export async function teamSheet({ wsId, home, onStarted }) {
         goal: goal.value.trim(), template: chosen?.startsWith('mine:') || chosen?.startsWith('file:') ? 'custom' : chosen, graph: bare(graph),
         path: where.value.trim(), agents: agentSpec, check: check.value.trim() || null,
         gate: gate.querySelector('input:checked')?.value || 'ask', max_rounds: Number(rounds.value) || 10, ws: wsId,
+        ...(layout.value ? { layout: layout.value } : {}),
         // The team file it came from, read again by Restart.
         ...(chosen?.startsWith('file:') && fileTeam?.file ? { file: fileTeam.file } : {}),
       });
@@ -842,19 +851,25 @@ function drawTeam(team, { graph, story, refresh, openLog, openTeam, toggleStory 
     'waiting-you': team.phase === 'gate' ? t('round {r} done — continue?', { r: team.round - 1 }) : t('waiting for you'),
     done: t('done'), stopped: t('stopped'),
   }[team.status] || team.status;
-  const buttons = [];
-  if (team.status === 'waiting-you' || team.status === 'paused') {
-    buttons.push(el('button', { className: 'teamgo', type: 'button', textContent: t('Continue'), onclick: () => act('go') }));
-  }
-  if (team.status === 'running') buttons.push(el('button', { type: 'button', textContent: t('Pause'), onclick: () => act('pause') }));
-  if (live) buttons.push(el('button', { type: 'button', textContent: t('Stop'), onclick: () => stopTeam(team, refresh) }));
-  if (team.restartable) buttons.push(el('button', { type: 'button', textContent: t('Restart'), title: t('Stop, reset, read the team file again, start from round 1'), onclick: () => resetTeam(team, true, refresh) }));
-  if (!live) buttons.push(el('button', { type: 'button', textContent: t('Reset'), title: t('Delete what the team declares as a run’s state'), onclick: () => resetTeam(team, false, refresh) }));
-  buttons.push(el('button', { type: 'button', textContent: t('Log'), title: team.log, onclick: () => openLog(team.log) }));
-  if (openTeam) buttons.push(el('button', { type: 'button', className: 'teamopen', textContent: t('Graph'), title: t('The team in a window of the desk, live'), onclick: () => openTeam(team) }));
-  if (toggleStory) buttons.push(el('button', { type: 'button', className: story ? 'on' : '', textContent: t('Story'), onclick: toggleStory }));
+  // Two groups, each a segmented set: what the team does (its controls) and how you look at it
+  // (its views). An icon and a word on each — the marks every player has, read before the words.
+  const tb = (glyph, label, extra = {}) => el('button', { type: 'button', ...extra, className: `teambtn ${extra.className || ''}` },
+    [icon(glyph), el('span', { textContent: label })]);
+  const controls = [];
+  if (team.status === 'waiting-you' || team.status === 'paused') controls.push(tb('play', t('Continue'), { className: 'teamgo', onclick: () => act('go') }));
+  if (team.status === 'running') controls.push(tb('pause', t('Pause'), { title: t('The turn under way finishes, then nothing new starts'), onclick: () => act('pause') }));
+  if (live) controls.push(tb('stop', t('Stop'), { onclick: () => stopTeam(team, refresh) }));
+  if (team.restartable) controls.push(tb('restart', t('Restart'), { title: t('Stop, reset, read the team file again, start from round 1'), onclick: () => resetTeam(team, true, refresh) }));
+  if (!live) controls.push(tb('eraser', t('Reset'), { title: t('Delete what the team declares as a run’s state'), onclick: () => resetTeam(team, false, refresh) }));
+  const views = [tb('file', t('Log'), { title: team.log, onclick: () => openLog(team.log) })];
+  if (openTeam) views.push(tb('graph', t('Graph'), { className: 'teamopen', title: t('The team in a window of the desk, live'), onclick: () => openTeam(team) }));
+  if (toggleStory) views.push(tb('story', t('Story'), { className: story ? 'on' : '', onclick: toggleStory }));
+  const buttons = [
+    controls.length ? el('span', { className: 'teamgroup' }, controls) : null,
+    el('span', { className: 'teamgroup' }, views),
+  ].filter(Boolean);
   if (!live) {
-    buttons.push(el('button', { type: 'button', title: t('Forget this team'), onclick: async () => { await delJSON(`/api/teams/${team.id}`); refresh(); } }, icon('close')));
+    buttons.push(el('button', { type: 'button', className: 'teambtn teamforget', title: t('Forget this team'), onclick: async () => { await delJSON(`/api/teams/${team.id}`); refresh(); } }, icon('close')));
   }
   const check = team.last_check
     ? el('span', { className: `teamlastcheck ${team.last_check.status === 'PASS' ? 'pass' : 'fail'}`,

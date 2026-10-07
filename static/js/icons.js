@@ -56,6 +56,18 @@ export const ICONS = {
   // Copied. Shown for a moment in place of whatever was there: an action with no visible
   // result is an action you do twice.
   tick: 'M5 12.8l4.4 4.2L19 7.5',
+  // A team's controls: the marks every player has, so they are read before the words are.
+  play: 'M8 5.6v12.8L18.4 12z',
+  pause: 'M8.6 5.5v13M15.4 5.5v13',
+  stop: 'M6.5 6.5h11v11h-11z',
+  // Round and back to the start: the arrow of refresh, turned the other way, ending on the line it left.
+  restart: 'M4.5 12a7.5 7.5 0 1 0 2.4-5.5M4.5 4.5V10H10',
+  // An eraser on a line: what a reset does to a run's state.
+  eraser: 'M4.5 19.5h15M14.2 4.8l5 5-8.7 8.7H6.2L3.8 16.1z',
+  // Three steps and the arrows between them.
+  graph: 'M4 5h5v4H4zM15 5h5v4h-5zM9.5 15h5v4h-5zM9 7h6M17.5 9v3.5L13 15M6.5 9v3.5L11 15',
+  // Lines of a story, newest first.
+  story: 'M9 6.5h10.5M9 12h10.5M9 17.5h7M5 6.5h.01M5 12h.01M5 17.5h.01',
   activity: 'M3 12.5h3.8L9.4 5l4.4 14 2.4-6.5H21',
   journal: 'M5.5 4.5h13v15h-13zM8.5 8.5h7M8.5 12h7M8.5 15.5h4',
   settings: 'M4 7.5h6M14.5 7.5H20M4 16.5h3.5M12 16.5h8M12 5.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4zM9.5 14.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4z',

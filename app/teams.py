@@ -876,7 +876,8 @@ class Director:
                           "history": team.get("history", [])[-30:],
                           # Restart needs what it was started with; Reset what it declared.
                           "restartable": bool((team.get("spec") or {}).get("graph")),
-                          "file": (team.get("spec") or {}).get("file"), "resets": bool(g.get("reset"))})
+                          "file": (team.get("spec") or {}).get("file"), "resets": bool(g.get("reset")),
+                          "layout": (team.get("spec") or {}).get("layout")})
         return out
 
 

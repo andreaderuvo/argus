@@ -6,6 +6,7 @@ import { el } from '/js/dom.js';
 import { fileIcon } from '/js/fileicons.js';
 import { dropOnSession, entryRow, entryTile, fetchHere, placePicker, searchBox, takesDrops, uploadTo } from '/js/filerows.js';
 import { icon } from '/js/icons.js';
+import { attachPicking } from '/js/picking.js';
 import { applyPointed, drawTree, markCurrent, pointAt, setPointed, under } from '/js/pointing.js';
 import { bidi, colorFor, favsIn, getJSON, homePath, human, isFavourite, parentOf, pickColor, postJSON, rememberToken, renamedSession, serverInfo, setTitle, toggleFavourite, visible } from '/js/reconnect.js';
 import { go, render, renderSeq } from '/js/router.js';
@@ -113,8 +114,15 @@ export function screenLogin() {
 export async function screenSessions() {
   setTitle(t('Sessions'));
   const drawing = renderSeq;
-  const sessions = await getJSON('/api/tmux/sessions');
+  const [sessions, teamsSaid] = await Promise.all([getJSON('/api/tmux/sessions'), getJSON('/api/teams').catch(() => ({}))]);
   if (drawing !== renderSeq) return;          // a newer render owns the view now
+  // Which team each session belongs to: a badge on its row, and a button per team that shows
+  // and selects all of its sessions at once — a team leaves five or eight behind.
+  const teamOf = new Map();
+  for (const team of teamsSaid.teams || []) {
+    for (const n of team.nodes || []) if (n.session) teamOf.set(n.session, team.name);
+  }
+  let teamOnly = '';
 
   /* Starting one, from the screen that lists them.
    *
@@ -192,7 +200,8 @@ export async function screenSessions() {
   const pickedSay = el('span', { className: 'dim' });
   const endPicked = el('button', { className: 'ghost inline danger', type: 'button', hidden: true });
   const bulk = el('div', { className: 'sessbulk' }, [allBox, pickedSay, el('span', { className: 'grow' }), endPicked]);
-  const shownNow = () => sessions.filter((one) => !needle || one.name.toLowerCase().includes(needle));
+  const shownNow = () => sessions.filter((one) => (!needle || one.name.toLowerCase().includes(needle))
+    && (!teamOnly || teamOf.get(one.name) === teamOnly));
   const sayPicked = () => {
     for (const name of [...picked]) if (!sessions.some((s) => s.name === name)) picked.delete(name);
     pickedSay.textContent = picked.size ? t('{n} selected', { n: picked.size }) : t('select sessions to end several at once');
@@ -241,6 +250,26 @@ export async function screenSessions() {
       count,
     ]));
   }
+  // One button per team with sessions here: pressed, the list shows that team's alone, all ticked —
+  // ready for "End N selected". Pressed again, everything comes back.
+  const teamNames = [...new Set(sessions.map((s) => teamOf.get(s.name)).filter(Boolean))];
+  if (teamNames.length) {
+    const chips = el('div', { className: 'sessteams' }, [el('span', { className: 'dim', textContent: t('Teams:') })]);
+    for (const name of teamNames) {
+      const n = sessions.filter((s) => teamOf.get(s.name) === name).length;
+      const chip = el('button', { className: 'ghost inline sessteam', type: 'button', textContent: `${name} (${n})`,
+        title: t('Show and select the sessions of {team}', { team: name }) });
+      chip.onclick = () => {
+        teamOnly = teamOnly === name ? '' : name;
+        picked.clear();
+        if (teamOnly) for (const s of sessions) if (teamOf.get(s.name) === name) picked.add(s.name);
+        for (const c of chips.querySelectorAll('.sessteam')) c.classList.toggle('on', c === chip && !!teamOnly);
+        paint();
+      };
+      chips.append(chip);
+    }
+    view.append(chips);
+  }
   if (sessions.length > 1) view.append(bulk);
   view.append(list);
   // Under the list, because it is about the whole list: a row of words rather than a mark
@@ -250,7 +279,7 @@ export async function screenSessions() {
 
   function paint() {
   list.replaceChildren();
-  const showing = sessions.filter((one) => !needle || one.name.toLowerCase().includes(needle));
+  const showing = shownNow();
   count.textContent = needle ? t('{n} of {total}', { n: showing.length, total: sessions.length }) : '';
   if (!showing.length) list.append(el('p', { className: 'empty', textContent: t('nothing matches {needle}', { needle }) }));
   sayPicked();
@@ -277,7 +306,10 @@ export async function screenSessions() {
     const row = el('a', { className: `row dir${running ? ' running' : ''}`, href: `#/term?s=${encodeURIComponent(s.name)}` }, [
       dot,
       el('span', { className: 'grow', title: s.created ? t('started {when}', { when: new Date(s.created * 1000).toLocaleString() }) : '' }, [
-        el('span', { className: 'name', textContent: s.name }),
+        el('span', { className: 'name' }, [
+          el('span', { textContent: s.name }),
+          teamOf.get(s.name) ? el('span', { className: 'teambadge team', textContent: teamOf.get(s.name), title: t('a session of the team {team}', { team: teamOf.get(s.name) }) }) : null,
+        ].filter(Boolean)),
         el('span', { className: 'meta', textContent: running ? `${meta} · open here` : meta }),
       ]),
       pill,
@@ -366,6 +398,9 @@ export function fileBrowser({
 }) {
   const node = el('div', { className: `pane${compact ? ' compact' : ''}` });
   const list = el('div', { className: 'panelist' });
+  // Several at once (picking.js): the bar over the listing says how many and what to do to them.
+  const pickBar = el('div', { className: 'pickbar', hidden: true });
+  const picker = attachPicking(list, { here: () => other?.() || path, bar: pickBar });
   // Which pane a pasted image belongs to. Recorded on the way down so it is right even
   // for a click that lands on a button inside the pane.
   node.addEventListener('pointerdown', () => { lastPane = handle; }, true);
@@ -408,6 +443,7 @@ export function fileBrowser({
           favGroup,
         }));
       }
+      picker.sync();
       return;
     }
     list.classList.remove('tiles');
@@ -419,13 +455,14 @@ export function fileBrowser({
         favGroup,
       }));
     }
+    picker.sync();
   };
 
   // Search results span folders, so they are always a flat list — clearing the box puts
   // you back into whichever mode you chose.
   const show = (entries, err, q) =>
     (!q && getView() === 'tree'
-      ? drawTree(list, path, openFile, reload, other, favGroup)
+      ? drawTree(list, path, openFile, reload, other, favGroup).then(() => picker.sync())
       : draw(entries, err));
 
   const up = el('button', { title: t('Parent folder'), disabled: roots.includes(path) }, icon('up'));
@@ -658,7 +695,7 @@ export function fileBrowser({
     // meaning when two of them are side by side.
     takesDrops(node, (files) => uploadTo(path, files));
   }
-  node.append(tools, list);
+  node.append(tools, pickBar, list);
 
   // What the folder looked like last time we drew it. Comparing this is what lets the
   // watcher below redraw only when something actually changed — a redraw on a timer
@@ -677,7 +714,7 @@ export function fileBrowser({
     // landed, and the alternative is a registry of live panes to keep in step with reality.
     node.dataset.at = path;
     renderFavs();
-    if (getView() === 'tree') await drawTree(list, path, openFile, reload, other, favGroup);
+    if (getView() === 'tree') { await drawTree(list, path, openFile, reload, other, favGroup); picker.sync(); }
     else {
       try {
         const entries = await getJSON(`/api/files?path=${encodeURIComponent(path)}`);

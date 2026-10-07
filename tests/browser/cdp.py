@@ -268,8 +268,9 @@ class Page(Session):
             raise AssertionError(f"{finder} is not visible")
         return box[0], box[1]
 
-    def click_at(self, x: float, y: float, count: int = 1) -> None:
-        """A click where there is a mouse, a tap where there is a finger — as each device sends it."""
+    def click_at(self, x: float, y: float, count: int = 1, modifiers: int = 0) -> None:
+        """A click where there is a mouse, a tap where there is a finger — as each device sends it.
+        `modifiers` as CDP counts them: 1 Alt, 2 Ctrl, 4 Meta, 8 Shift."""
         if getattr(self, "touch", False):
             for _ in range(count):
                 self.send("Input.dispatchTouchEvent", {"type": "touchStart", "touchPoints": [{"x": x, "y": y}]})
@@ -278,7 +279,7 @@ class Page(Session):
         for kind in ("mouseMoved", "mousePressed", "mouseReleased"):
             self.send("Input.dispatchMouseEvent", {
                 "type": kind, "x": x, "y": y, "button": "left" if kind != "mouseMoved" else "none",
-                "clickCount": count,
+                "clickCount": count, "modifiers": modifiers,
             })
 
     def click(self, selector: str) -> None:
@@ -299,7 +300,7 @@ class Page(Session):
         self.send("Input.insertText", {"text": text})
 
     def key(self, key: str, code: str | None = None, modifiers: int = 0, text: str | None = None) -> None:
-        vk = {"Enter": 13, "Escape": 27, "Tab": 9, "Backspace": 8, "ArrowDown": 40, "ArrowUp": 38, "ArrowLeft": 37, "ArrowRight": 39}
+        vk = {"Enter": 13, "Escape": 27, "Tab": 9, "Backspace": 8, "Delete": 46, "ArrowDown": 40, "ArrowUp": 38, "ArrowLeft": 37, "ArrowRight": 39}
         base = {"key": key, "code": code or key, "modifiers": modifiers,
                 "windowsVirtualKeyCode": vk.get(key, ord(key.upper()) if len(key) == 1 else 0)}
         down = {**base, "type": "keyDown"}

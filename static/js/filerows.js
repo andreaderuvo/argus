@@ -1,9 +1,10 @@
 // <imports> generated from what this file uses; edit the code, not this list
 import { savePrefs } from '/js/core.js';
-import { ask, confirmBox, copyPath, copyText, modal, toast } from '/js/dialogs.js';
+import { ask, confirmBox, copyPath, copyText, modal, popMenu, toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { fileIcon } from '/js/fileicons.js';
 import { icon } from '/js/icons.js';
+import { pickable } from '/js/picking.js';
 import { bidi, getJSON, homePath, human, isFavourite, parentOf, postJSON, setHome, toggleFavourite, triggerDownload, visible, when, withToken } from '/js/reconnect.js';
 import { refreshAllBrowsers } from '/js/screens.js';
 import { prefs, server, token } from '/js/state.js';
@@ -227,7 +228,8 @@ export function entryTile(e, { onClick, refresh, dest, favGroup = 'main' }) {
     el('span', { className: 'tilename', textContent: e.name + (e.symlink ? ' ↪' : '') }),
   ]);
   // The same menu the row carries, on the gestures a tile has room for.
-  holdFor(tile, (ev) => { ev.preventDefault(); fileActions(e, refresh, dest, favGroup); });
+  holdFor(tile, (ev) => { ev.preventDefault(); fileActions(e, refresh, dest, favGroup, ev); });
+  pickable(tile, e);
   return tile;
 }
 
@@ -250,6 +252,10 @@ export function entryRow(e, { href, onClick, refresh, dest, favGroup = 'main' })
     : el('button', { className: cls, type: 'button', onclick: onClick }, kids);
   row.dataset.path = e.path;      // so a listing can be pointed at one of its entries
   if (server?.allow_write) dragEntry(row, e);
+  pickable(row, e);
+  // A right-click (or a long press) opens its menu where the pointer is — the tiles had it, the
+  // rows did not.
+  if (refresh) holdFor(row, (ev) => { ev.preventDefault(); fileActions(e, refresh, dest, favGroup, ev); });
 
   // Both of these live outside the row link, or tapping one would navigate.
   const side = dir ? [weighButton(e, meta)] : [];
@@ -290,27 +296,9 @@ export function entryRow(e, { href, onClick, refresh, dest, favGroup = 'main' })
         refreshAllBrowsers();
       } catch (err) { toast(err.message, true); }
     }));
-    side.push(quick('trash', t('Delete'), async () => {
-      if (!await confirmBox(t('Delete'), t('Delete {name}?', { name: e.name }))) return;
-      try {
-        try {
-          await postJSON('/api/fs/delete', { path: e.path });
-        } catch (err) {
-          // 409 is the server refusing to empty a folder without being told to.
-          if (err.status !== 409) throw err;
-          if (!await confirmBox(
-            t('Delete everything inside?'),
-            t('{name} is not empty. Delete it and all its contents?', { name: e.name }),
-            t('Delete all'),
-          )) return;
-          await postJSON('/api/fs/delete', { path: e.path, recursive: true });
-        }
-        toast(t('{name} deleted', { name: e.name }));
-        refreshAllBrowsers();
-      } catch (err) { toast(err.message, true); }
-    }));
+    side.push(quick('trash', t('Delete'), () => deleteEntries([e])));
     const menu = el('button', { className: 'more', type: 'button', title: t('Actions') }, icon('more'));
-    menu.onclick = (ev) => { ev.preventDefault(); ev.stopPropagation(); fileActions(e, refresh, dest, favGroup); };
+    menu.onclick = (ev) => { ev.preventDefault(); ev.stopPropagation(); fileActions(e, refresh, dest, favGroup, ev); };
     side.push(menu);
   }
   if (side.length) return el('div', { className: 'rowwrap' }, [row, ...side]);
@@ -318,124 +306,145 @@ export function entryRow(e, { href, onClick, refresh, dest, favGroup = 'main' })
   return row;
 }
 
-/** The action sheet. Everything here goes through the API, which re-checks the jail.
- *  `dest` is the other pane when the view is split — the destination you almost always
- *  mean, prefilled so a move is two taps. */
-function fileActions(entry, refresh, dest, favGroup = 'main') {
+/** Delete several entries after one question that names them; a folder with something in it
+ *  needs a second, once for all of them. Used by Delete on a row, the Delete key and the
+ *  selection's bar. Returns how many went. */
+export async function deleteEntries(entries) {
+  if (!entries.length) return 0;
+  const names = entries.map((e) => e.name);
+  const said = entries.length === 1
+    ? t('Delete {name}?', { name: names[0] })
+    : t('Delete these {n}? {names}', { n: entries.length, names: names.slice(0, 12).join(', ') + (names.length > 12 ? ' …' : '') });
+  if (!await confirmBox(t('Delete'), said, t('Delete'))) return 0;
+  let gone = 0;
+  const full = [];
+  const failed = [];
+  for (const e of entries) {
+    try { await postJSON('/api/fs/delete', { path: e.path }); gone++; } catch (err) {
+      // 409 is the server refusing to empty a folder without being told to.
+      if (err.status === 409) full.push(e); else failed.push(`${e.name}: ${err.message}`);
+    }
+  }
+  if (full.length && await confirmBox(t('Delete everything inside?'),
+    full.length === 1 ? t('{name} is not empty. Delete it and all its contents?', { name: full[0].name })
+      : t('{n} folders are not empty ({names}). Delete them and all their contents?', { n: full.length, names: full.map((e) => e.name).join(', ') }),
+    t('Delete all'))) {
+    for (const e of full) {
+      try { await postJSON('/api/fs/delete', { path: e.path, recursive: true }); gone++; } catch (err) { failed.push(`${e.name}: ${err.message}`); }
+    }
+  }
+  if (failed.length) toast(failed.join(' · '), true);
+  else if (gone) toast(gone === 1 ? t('{name} deleted', { name: entries[0].name }) : t('{n} deleted', { n: gone }));
+  refreshAllBrowsers();
+  return gone;
+}
+
+/** Move or copy several into one folder, asked once. */
+export async function moveEntries(entries, here, copy = false) {
+  if (!entries.length) return;
+  const dest = await ask(copy ? t('Copy into which folder?') : t('Move into which folder?'), here, copy ? t('Copy') : t('Move'));
+  if (!dest) return;
+  const failed = [];
+  for (const e of entries) {
+    try { await postJSON(copy ? '/api/fs/copy' : '/api/fs/move', { path: e.path, dest }); } catch (err) { failed.push(`${e.name}: ${err.message}`); }
+  }
+  if (failed.length) toast(failed.join(' · '), true);
+  else toast(copy ? t('{n} copied to {dest}', { n: entries.length, dest }) : t('{n} moved to {dest}', { n: entries.length, dest }));
+  refreshAllBrowsers();
+}
+
+/** What can be done to several at once — the selection's menu and its bar. */
+export function manyItems(entries, here) {
+  const files = entries.filter((e) => e.type !== 'directory');
+  const items = [];
+  if (server?.allow_write) {
+    items.push({ icon: 'move', label: t('Move {n} to…', { n: entries.length }), run: () => moveEntries(entries, here) });
+    items.push({ icon: 'copy', label: t('Copy {n} to…', { n: entries.length }), run: () => moveEntries(entries, here, true) });
+  }
+  items.push({ icon: 'clipboard', label: t('Copy their paths'), run: () => copyPath(entries.map((e) => e.path).join('\n')) });
+  if (files.length) {
+    items.push({ icon: 'download', label: t('Download {n}', { n: files.length }),
+      run: () => files.forEach((f, i) => setTimeout(() => triggerDownload(withToken(`/api/download?path=${encodeURIComponent(f.path)}`)), i * 400)) });
+  }
+  if (server?.allow_write) {
+    items.push('-');
+    items.push({ icon: 'trash', label: t('Delete {n}…', { n: entries.length }), danger: true, run: () => deleteEntries(entries) });
+  }
+  return items;
+}
+
+/** Everything one entry can have done to it, as menu items. Everything goes through the API,
+ *  which re-checks the jail. `dest` is the other pane when the view is split — the destination
+ *  you almost always mean, prefilled so a move is two taps. */
+function fileItems(entry, refresh, dest, favGroup = 'main') {
   const dir = entry.type === 'directory';
   const here = dest?.() || parentOf(entry.path);
+  const run = (fn) => async () => {
+    try { await fn(); refreshAllBrowsers(); } catch (e) { toast(e.message, true); }
+  };
+  const items = [];
+  if (dir) {
+    items.push({ icon: 'split', label: t('Open in a window'), run: () => chooseDesk({ kind: 'browser', id: nextWindowId(), path: entry.path, fresh: true }, entry.name) });
+    items.push({ icon: 'terminal', label: t('Open a shell here'), run: async () => {
+      const name = await createSession({ path: entry.path, suggest: entry.name });
+      if (name) chooseDesk({ kind: 'term', name }, name);
+    } });
+  } else {
+    items.push({ icon: 'split', label: t('Open in a window'), run: () => chooseDesk({ kind: 'file', path: entry.path }, entry.name) });
+    items.push({ icon: 'download', label: t('Download'), run: () => triggerDownload(withToken(`/api/download?path=${encodeURIComponent(entry.path)}`)) });
+  }
+  items.push({ icon: 'clipboard', label: t('Copy path'), run: () => copyPath(entry.path) });
+  items.push('-');
+  if (server?.allow_write) {
+    items.push({ icon: 'rename', label: t('Rename…'), run: run(async () => {
+      const name = await ask(t('Rename'), entry.name, t('Rename'));
+      if (name && name !== entry.name) {
+        await postJSON('/api/fs/rename', { path: entry.path, name });
+        toast(t('renamed to {name}', { name }));
+      }
+    }) });
+    items.push({ icon: 'move', label: t('Move to…'), run: () => moveEntries([entry], here) });
+    items.push({ icon: 'copy', label: t('Copy to…'), run: () => moveEntries([entry], here, true) });
+    if (dir) {
+      items.push({ icon: 'upload', label: t('Upload here…'), run: () => {
+        const into = el('input', { type: 'file', multiple: true, hidden: true });
+        into.onchange = () => { uploadTo(entry.path, into.files); into.remove(); };
+        document.body.append(into);
+        into.click();
+      } });
+    }
+  }
+  items.push({ icon: 'star', label: isFavourite(entry.path, favGroup) ? t('Remove from favourites') : t('Add to favourites'),
+    run: () => toggleFavourite(entry.path, favGroup) });
+  if (dir) items.push({ icon: 'home', label: t('Set as home folder'), run: () => setHome(entry.path) });
+  if (server?.allow_write) {
+    items.push('-');
+    items.push({ icon: 'trash', label: t('Delete'), danger: true, run: () => deleteEntries([entry]) });
+  }
+  return items;
+}
+
+/** The actions of one entry — or of the whole selection, when it is part of one. With a mouse
+ *  (`at`, the click's event) a menu where the pointer is; on a touch screen the sheet, whose rows
+ *  a thumb can hit. */
+export function fileActions(entry, refresh, dest, favGroup = 'main', at = null) {
+  const picker = at?.target?.closest?.('.panelist')?._picker;
+  const many = picker?.has(entry.path) && picker.size() > 1 ? picker.entries() : null;
+  const here = dest?.() || parentOf(entry.path);
+  const items = many ? manyItems(many, here) : fileItems(entry, refresh, dest, favGroup);
+  const title = many ? t('{n} selected', { n: many.length }) : entry.name;
+  if (at && Number.isFinite(at.clientX) && matchMedia('(pointer: fine)').matches) {
+    popMenu(at.clientX, at.clientY, items, title);
+    return;
+  }
   const body = el('div', { className: 'sheetbody actions' });
   let sheet;
-
-  const run = async (fn) => {
-    sheet.close();
-    try {
-      await fn();
-      refreshAllBrowsers();
-    } catch (e) {
-      toast(e.message, true);
-    }
-  };
-
-  const act = (name, label, fn) => body.append(
-    el('button', { className: 'ghost block', onclick: () => run(fn) }, [icon(name), el('span', { textContent: label })]),
-  );
-
-  act('rename', 'Rename…', async () => {
-    const name = await ask(t('Rename'), entry.name, t('Rename'));
-    if (name && name !== entry.name) {
-      await postJSON('/api/fs/rename', { path: entry.path, name });
-      toast(t('renamed to {name}', { name }));
-    }
-  });
-
-  act('move', 'Move to…', async () => {
-    const dest = await ask(t('Move into which folder?'), here, t('Move'));
-    if (dest) {
-      await postJSON('/api/fs/move', { path: entry.path, dest });
-      toast(t('moved to {dest}', { dest }));
-    }
-  });
-
-  act('copy', 'Copy to…', async () => {
-    const dest = await ask(t('Copy into which folder?'), here, t('Copy'));
-    if (dest) {
-      await postJSON('/api/fs/copy', { path: entry.path, dest });
-      toast(t('copied to {dest}', { dest }));
-    }
-  });
-
-  if (dir) {
-    const into = el('input', { type: 'file', multiple: true, hidden: true });
-    into.onchange = () => { uploadTo(entry.path, into.files); into.value = ''; };
-    const btn = el('button', { className: 'ghost block', onclick: () => into.click() },
-      [icon('upload'), el('span', { textContent: t('Upload here…') })]);
-    body.append(btn, into);
+  for (const it of items) {
+    if (it === '-') continue;
+    body.append(el('button', { className: `ghost block${it.danger ? ' danger' : ''}`, onclick: () => { sheet.close(); it.run(); } },
+      [icon(it.icon), el('span', { textContent: it.label })]));
   }
-
-  body.append(el('button', {
-    className: 'ghost block',
-    onclick: () => { sheet.close(); toggleFavourite(entry.path, favGroup); },
-  }, [icon('star'), el('span', {
-    textContent: isFavourite(entry.path, favGroup)
-      ? `Remove from ${favGroup} favourites` : `Add to ${favGroup} favourites`,
-  })]));
-
-  if (dir) {
-    body.append(el('button', {
-      className: 'ghost block',
-      onclick: () => { sheet.close(); chooseDesk({ kind: 'browser', id: nextWindowId(), path: entry.path, fresh: true }, entry.name); },
-    }, [icon('split'), el('span', { textContent: t('Open in a window') })]));
-    body.append(el('button', {
-      className: 'ghost block',
-      onclick: async () => {
-        sheet.close();
-        const name = await createSession({ path: entry.path, suggest: entry.name });
-        if (name) chooseDesk({ kind: 'term', name }, name);
-      },
-    }, [icon('terminal'), el('span', { textContent: t('Open a shell here') })]));
-    body.append(el('button', {
-      className: 'ghost block',
-      onclick: () => { sheet.close(); setHome(entry.path); },
-    }, [icon('home'), el('span', { textContent: t('Set as home folder') })]));
-  }
-
-  if (!dir) {
-    body.append(el('button', {
-      className: 'ghost block',
-      onclick: () => { sheet.close(); chooseDesk({ kind: 'file', path: entry.path }, entry.name); },
-    }, [icon('split'), el('span', { textContent: t('Open in a window') })]));
-  }
-
-  // No refresh for these two: they change nothing on disk.
-  body.append(el('button', {
-    className: 'ghost block',
-    onclick: () => { sheet.close(); copyPath(entry.path); },
-  }, [icon('clipboard'), el('span', { textContent: t('Copy path') })]));
-
-  if (!dir) {
-    body.append(el('button', {
-      className: 'ghost block',
-      onclick: () => { sheet.close(); triggerDownload(withToken(`/api/download?path=${encodeURIComponent(entry.path)}`)); },
-    }, [icon('download'), el('span', { textContent: t('Download') })]));
-  }
-
-  act('trash', 'Delete', async () => {
-    if (!await confirmBox(t('Delete'), t('Delete {name}?', { name: entry.name }))) return;
-    try {
-      await postJSON('/api/fs/delete', { path: entry.path });
-    } catch (e) {
-      // 409 is the server refusing to empty a folder without being told to.
-      if (e.status !== 409) throw e;
-      if (!await confirmBox(t('Delete everything inside?'), t('{name} is not empty. Delete it and all its contents?', { name: entry.name }), t('Delete all'))) return;
-      await postJSON('/api/fs/delete', { path: entry.path, recursive: true });
-    }
-    toast(t('deleted {name}', { name: entry.name }));
-  });
-
-  sheet = modal(entry.name, body, [
-    el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),
-  ]);
+  sheet = modal(title, body, [el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() })]);
 }
 
 /** Upload with a progress bar, which means XMLHttpRequest: `fetch` still cannot report
@@ -886,9 +895,11 @@ export function treeNode(entry, depth, onFile, refresh, dest, favGroup = 'main')
   if (dir) line.append(weighButton(entry, meta));
   if (server?.allow_write && refresh) {
     const menu = el('button', { className: 'more', type: 'button', title: t('Actions') }, icon('more'));
-    menu.onclick = (ev) => { ev.stopPropagation(); fileActions(entry, refresh, dest, favGroup); };
+    menu.onclick = (ev) => { ev.stopPropagation(); fileActions(entry, refresh, dest, favGroup, ev); };
     line.append(menu);
+    holdFor(row, (ev) => { ev.preventDefault(); fileActions(entry, refresh, dest, favGroup, ev); });
   }
+  pickable(row, entry);
   holder.append(line);
   holder.dataset.path = entry.path;
 

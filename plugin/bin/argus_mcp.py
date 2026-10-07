@@ -146,6 +146,10 @@ TOOLS = [
          "text": {"type": "string", "description": "The team, as for team_check"},
          "folder": {"type": "string", "description": "The folder the team works in: absolute, inside what Argus serves"}},
          "required": ["text", "folder"]}},
+    {"name": "close_gone_windows",
+     "description": "Close the windows on the person's desks whose tmux session has ended (marked 'gone') — on every "
+                    "desk, or only the desk named. Only windows: no session is touched.",
+     "inputSchema": {"type": "object", "properties": {"desk": {"type": "string", "description": "Only this desk (by name)"}}}},
     {"name": "request",
      "description": "Ask the person to have something done that you cannot do yourself, and it is done on their "
                     "tap (Do it / No): start_team (args: team — a proposal, one of their models or a template, by "
@@ -317,6 +321,13 @@ def _team_propose(a: Argus, args: dict) -> str:
             f"in one line; you do not need to wait for it.")
 
 
+def _close_gone(a: Argus, args: dict) -> str:
+    said = a.close_gone(args.get("desk") or "").get("closed") or {}
+    if not said:
+        return "No window of an ended session" + (f" on {args['desk']}" if args.get("desk") else "") + "."
+    return "Closed: " + "; ".join(f"{d} — {', '.join(n)}" for d, n in said.items())
+
+
 def _said_request(said: dict) -> str:
     if said["state"] == "done":
         return f"Done: {said['text']}."
@@ -380,7 +391,7 @@ def _prompts(a: Argus, _args: dict) -> str:
 
 
 DO = {"who": _who, "ring": _ring, "ask": _ask, "relay": _relay, "open_desk": _open_desk, "rename_desk": _rename_desk, "launchers": _launchers,
-      "start_agent": _start, "team_task": _team_task, "team_done": _team_done, "team_check": _team_check, "team_propose": _team_propose, "request": _request, "request_status": _request_status, "todos": _todos, "todo_set": _todo_set, "todo_add": _todo_add, "teams": _teams, "worktree": _worktree, "prompts": _prompts}
+      "start_agent": _start, "team_task": _team_task, "team_done": _team_done, "team_check": _team_check, "team_propose": _team_propose, "request": _request, "request_status": _request_status, "close_gone_windows": _close_gone, "todos": _todos, "todo_set": _todo_set, "todo_add": _todo_add, "teams": _teams, "worktree": _worktree, "prompts": _prompts}
 
 
 # ------------------------------------------------------------------ the wire

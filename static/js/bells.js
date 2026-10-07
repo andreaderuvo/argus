@@ -9,7 +9,7 @@ import { go, render } from '/js/router.js';
 import { paintRailDesks, sayIfNewer, sayIfPluginOld } from '/js/sidebar.js';
 import { live, prefs, token } from '/js/state.js';
 import { openWindow, runs, watchers, workspaces } from '/js/tray.js';
-import { openProposedTeam } from '/js/wall.js';
+import { arrangeDesk, openProposedTeam } from '/js/wall.js';
 import { t } from '/js/words.js';
 // </imports>
 /* ------------------------------------------------------------------ bells */
@@ -368,6 +368,18 @@ function aside(said) {
   }
   // A question answered — here, on another device, by its agent's timeout — leaves the corner.
   if (said.what === 'answered') { dropAsk(said.id); return; }
+  // Windows of ended sessions, closed from the machine (an agent asked): close them here too,
+  // so this page does not save them back.
+  if (said.what === 'gone-closed') {
+    const names = new Set(Object.values(said.closed || {}).flat());
+    // The machine has checked they are gone; this page may not have noticed yet.
+    for (const w of document.querySelectorAll('#view .win[data-session]')) {
+      if (names.has(w.dataset.session)) w.querySelector('.closebtn')?.click();
+    }
+    for (const ws of workspaces()) ws.desktop = ws.desktop.filter((x) => !(x.kind === 'term' && names.has(x.name)));
+    savePrefs();
+    return;
+  }
   // Somebody, on this page or another device, said they have seen these waits.
   if (said.what === 'seen') {
     for (const name of said.sessions || []) quieten(name);
@@ -399,6 +411,11 @@ function aside(said) {
     return;
   }
   if (said.what !== 'started' || !said.name) return;
+  if (said.layout) {
+    // A team's agent arriving on its first turn: its desk takes the team's arrangement again.
+    const run = () => { if (!said.desk_id || said.desk_id === prefs.ws) arrangeDesk(said.layout); };
+    setTimeout(run, 50);
+  }
   if (said.desk_id) {
     // Into the desk it was started for, not whichever one this page has on screen.
     adoptDesks().then(() => {

@@ -346,7 +346,9 @@ class TeamIO:
             launch.wait_until_settled(sock, n["session"])
             launch.seed(sock, n["session"], prompt, press_return=True)
         # Its window, in the team's desk, on every open page.
-        said = {"what": "started", "name": n["session"], "launcher": "team"}
+        said = {"what": "started", "name": n["session"], "launcher": "team",
+                # How the team's desk is arranged when its agents arrive (the Team sheet's choice).
+                **({"layout": team["spec"]["layout"]} if (team.get("spec") or {}).get("layout") in ("grid", "cols", "rows") else {})}
         if team.get("ws") is not None:
             said["desk_id"] = team["ws"]
             said["desk"] = ""
@@ -1019,7 +1021,7 @@ def create_app(cfg: Config) -> FastAPI:
                 sessions[n["id"]] = n["session"]
         try:
             spec = {k: body.get(k) for k in ("name", "template", "path", "agents", "check", "checks", "gate",
-                                              "max_rounds", "ws", "file") if body.get(k) is not None}
+                                              "max_rounds", "ws", "file", "layout") if body.get(k) is not None}
             spec["graph"] = graph
             wanted_id = str(body.get("id") or "")
             if wanted_id and not re.fullmatch(r"[0-9a-f]{8}", wanted_id):
@@ -1933,6 +1935,29 @@ def create_app(cfg: Config) -> FastAPI:
             bells.announce(request, {"what": "started", "name": shown, "desk_id": desk["id"], "desk": desk["name"]})
         return {"id": desk["id"], "name": desk["name"], "made": made, "folder": desk.get("home"),
                 **({"session": shown} if shown else {})}
+
+    @app.post("/api/desks/gone", tags=["Sessions"], summary="Close the windows whose session has ended")
+    async def close_gone(request: Request, body: dict | None = None) -> dict:
+        """`{desk?}` — every desk, or the one named: its windows on tmux sessions that no longer
+        exist are taken off, on the machine and on every open page. Only windows: no session is
+        touched (they have already ended), so an agent's key may do it. → `{closed: {desk: [names]}}`."""
+        names = {s["name"] for s in await asyncio.to_thread(tmux.list_sessions, request.app.state.socket)}
+        only = " ".join(str((body or {}).get("desk") or "").split()).lower()
+        store = request.app.state.prefs
+        version, doc = prefs.load(store)
+        closed: dict[str, list[str]] = {}
+        spaces = []
+        for w in doc.get("workspaces") or []:
+            if isinstance(w, dict) and (not only or str(w.get("name", "")).lower() == only):
+                gone = [x.get("name") for x in w.get("desktop") or [] if x.get("kind") == "term" and x.get("name") not in names]
+                if gone:
+                    closed[w.get("name", "")] = gone
+                    w = {**w, "desktop": [x for x in w["desktop"] if not (x.get("kind") == "term" and x.get("name") in gone)]}
+            spaces.append(w)
+        if closed:
+            await asyncio.to_thread(prefs.save, store, version + 1, prefs.merge(doc, {"workspaces": spaces}))
+            bells.announce(request, {"what": "gone-closed", "closed": closed})
+        return {"closed": closed}
 
     @app.get("/api/git/worktrees", tags=["Sessions"], summary="The working directories of a repository")
     async def list_worktrees(request: Request, path: str) -> dict:

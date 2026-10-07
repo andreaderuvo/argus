@@ -49,7 +49,8 @@ def test_the_surface_is_small_enough_to_document():
     # asked of the person and done on their tap.
     # 32 to 33 the same day, for me(): the session a program runs in, asked of Argus by pid when its
     # environment does not say (Codex's MCP servers).
-    assert counted["argus_client"] <= 33, counted
+    # 33 to 34 for close_gone(): windows of ended sessions, closed by an agent asked to tidy a desk.
+    assert counted["argus_client"] <= 34, counted
     assert counted["argus_orchestra"] <= 30, counted
 
 

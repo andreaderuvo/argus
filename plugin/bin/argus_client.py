@@ -338,6 +338,11 @@ class Argus:
             body["folder"] = str(folder)
         return self.call("POST", "/api/desks", body)
 
+    def close_gone(self, desk: str = "") -> dict:
+        """Close the windows whose session has ended — on every desk, or the one named. Only
+        windows: the sessions are already gone. `{closed: {desk: [names]}}`."""
+        return self.call("POST", "/api/desks/gone", {"desk": desk} if desk else {})
+
     def actions(self) -> list[dict]:
         """What this key cannot do but may *request*: `{action, what, asks}` each — `asks` false when
         the person lets that one be done without asking (`agents_without_asking`)."""
@@ -486,9 +491,9 @@ class Argus:
 
 def main(argv: list[str] | None = None) -> int:
     """The command line: `who`, `relay`, `ring`, `start`, `teams`, `task`, `turn`, `team-check`,
-    `team-propose`, `request`.
+    `team-propose`, `request`, `close-gone`.
 
-    Ten verbs and no more, because this is what an *agent* reaches for from inside a session:
+    Eleven verbs and no more, because this is what an *agent* reaches for from inside a session:
     the other agents, its team, and what it may only request. Anything larger is a script, and a
     script should import the class.
     """
@@ -532,6 +537,8 @@ def main(argv: list[str] | None = None) -> int:
     tu.add_argument("summary", nargs="?", default="")
     tu.add_argument("--status", default="", help="for a judge: OK, REDO, DONE or BLOCKED")
     tu.add_argument("--file", help="the details, read from a file")
+    cg = subs.add_parser("close-gone", help="close the windows whose session has ended (every desk, or --desk NAME)")
+    cg.add_argument("--desk", default="")
     rq = subs.add_parser("request", help="ask the person to have something done this key cannot do (they tap Do it / No)")
     rq.add_argument("action", help="start_team, team_go, team_pause, team_stop, kill_session, rename_session, "
                                    "start_agent, remove_worktree, todo_delete")
@@ -587,6 +594,9 @@ def main(argv: list[str] | None = None) -> int:
             details = Path(args.file).read_text(encoding="utf-8") if args.file else ""
             said = argus.team_done(args.summary, args.status, details)
             print(f"recorded: {said['you']} in {said['team']}, round {said['round']}" + (f", {said['status']}" if said.get("status") else ""))
+        elif args.what == "close-gone":
+            said = argus.close_gone(args.desk).get("closed") or {}
+            print("; ".join(f"{d}: {', '.join(n)}" for d, n in said.items()) or "no window of an ended session")
         elif args.what == "request":
             pairs = {}
             for pair in args.args:

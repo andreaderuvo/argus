@@ -529,6 +529,22 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   forget, POST /api/teams again with the stored `spec` and the **same id** (the window keeps
   watching), re-reading `spec.file` when the team came from a team.yaml. The UI and the consent
   requests (team_reset/team_restart, always asked) show the resolved list first.
+- **The file browser as a file manager** (`static/js/picking.js`, `popMenu` in dialogs.js,
+  `fileItems/manyItems/deleteEntries/moveEntries` in filerows.js, tests/browser/test_picking.py).
+  Rows, tiles and tree rows are `pickable` (`data-pick`, `_entry`); `attachPicking` on each
+  `.panelist` handles Ctrl/⌘/Shift+click in the capture phase (choosing never opens), a dashed
+  band from empty space (the list has padding-bottom for it), Ctrl+A/Escape/Delete for the
+  listing last touched (never in inputs, terminals or dialogs). Right-click / long press opens
+  the actions as a menu at the pointer on a fine pointer (the sheet on touch); on a chosen file
+  it is the selection's menu. `.danger` on a menu item needs `.popmenu` specificity — the global
+  `button.danger` is a filled red block.
+- **Pinned windows, gone windows, a team's layout.** `spec.pinned` (kept in the desk) makes
+  `arrange()` leave a window and tile the others in the largest free side around it. *Close N
+  gone* in the toolbar; `POST /api/desks/gone` (agent key, MCP close_gone_windows) takes them off
+  the prefs and announces `gone-closed`, and pages close those windows themselves (or a page's
+  next save would put them back). A team's `layout` (Team sheet → Arrange the desk) rides on its
+  `started` announcements and re-arranges its desk as each agent arrives. Sessions shows a
+  team badge per session and a button per team that filters and ticks its sessions.
 - **How a verdict moves a team** (`Director._finished`, the audit of 2026-10-07, tests in
   test_teams.py "verdicts the audit found ignored"). A non-judge's turn is `always`, except
   BLOCKED, which anyone may say; BLOCKED follows only `if BLOCKED` arrows, else waits for the

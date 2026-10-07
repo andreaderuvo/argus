@@ -86,6 +86,7 @@ AGENT_ROUTES = frozenset({
     # agents in it" from an agent, and renaming one when asked to. Nothing here removes a desk or
     # what is in it.
     ("POST", "/api/desks"),
+    ("POST", "/api/desks/gone"),
     # The to-do list: read it, add to it, move one along ("work on #1 and mark it done"). Changing
     # one is PATCH /api/todo/<id or number>, let through by prefix below. Removing one is not here.
     ("GET", "/api/todo"),

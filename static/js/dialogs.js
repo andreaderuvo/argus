@@ -289,3 +289,47 @@ export function undoToast(message, back) {
   for (const old of document.querySelectorAll('.toast.undo')) old.remove();
   toast(`${message} · ${t('Undo')}`, false, back, 6000).classList.add('undo');
 }
+
+/** A menu where the pointer is — a right-click on a file opens its actions beside it, not in a
+ *  sheet in the middle of the screen where the eye has to go and find them. `items`:
+ *  `{icon, label, run, danger?}`, or `'-'` for a rule. Kept on screen, closed by a choice, a press
+ *  elsewhere, Escape or a scroll. Arrow keys move through it. */
+export function popMenu(x, y, items, title = '') {
+  document.querySelector('.popmenu')?.remove();
+  const menu = el('div', { className: 'popmenu', role: 'menu' });
+  if (title) menu.append(el('div', { className: 'popmenutitle', textContent: title }));
+  const close = () => {
+    menu.remove();
+    removeEventListener('pointerdown', outside, true);
+    removeEventListener('keydown', keys, true);
+    removeEventListener('scroll', close, true);
+    removeEventListener('resize', close);
+  };
+  for (const it of items) {
+    if (it === '-') { menu.append(el('div', { className: 'popmenusep' })); continue; }
+    menu.append(el('button', { className: `popmenuitem${it.danger ? ' danger' : ''}`, type: 'button', role: 'menuitem',
+      onclick: () => { close(); it.run(); } }, [it.icon ? icon(it.icon) : el('span'), el('span', { textContent: it.label })]));
+  }
+  document.body.append(menu);
+  const r = menu.getBoundingClientRect();
+  menu.style.left = `${Math.max(8, Math.min(x, innerWidth - r.width - 8))}px`;
+  menu.style.top = `${Math.max(8, y + r.height > innerHeight - 8 ? y - r.height : y)}px`;
+  const outside = (e) => { if (!menu.contains(e.target)) close(); };
+  const keys = (e) => {
+    const all = [...menu.querySelectorAll('.popmenuitem')];
+    const at = all.indexOf(document.activeElement);
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); }
+    else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      all[(at + (e.key === 'ArrowDown' ? 1 : all.length - 1)) % all.length]?.focus();
+    }
+  };
+  setTimeout(() => {
+    addEventListener('pointerdown', outside, true);
+    addEventListener('keydown', keys, true);
+    addEventListener('scroll', close, true);
+    addEventListener('resize', close);
+  });
+  menu.querySelector('.popmenuitem')?.focus({ preventScroll: true });
+  return { close };
+}

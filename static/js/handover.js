@@ -974,7 +974,7 @@ export function attachMessages(host, wsId, extras, deliver) {
     const name = target ? senderFor(target)?.name.slice(5) : '';
     if (!name) return '';
     try {
-      const cwd = (await getJSON(`/api/tmux/cwd?session=${encodeURIComponent(name)}`)).cwd || '';
+      const cwd = (await getJSON(`/api/tmux/cwd?session=${encodeURIComponent(name)}&missing_ok=1`)).cwd || '';
       cwdSeen.set(name, cwd);
       return cwd;
     } catch { return ''; }
@@ -1038,7 +1038,7 @@ export function attachMessages(host, wsId, extras, deliver) {
     const fromName = from?.name.slice(5) || '';
     const toName = target.name.slice(5);
     let folder = '';
-    try { folder = (await getJSON(`/api/tmux/cwd?session=${encodeURIComponent(fromName)}`)).cwd || ''; } catch { /* the desk's then */ }
+    try { folder = (await getJSON(`/api/tmux/cwd?session=${encodeURIComponent(fromName)}&missing_ok=1`)).cwd || ''; } catch { /* the desk's then */ }
     // Worked out first, yours second: three names are filled in from the situation, and
     // a set that defines one of them anyway means it on purpose.
     const here = folder || deliver.folder();
