@@ -320,7 +320,9 @@ class TokenAuthMiddleware:
                     "rename a desk (/api/desks), read, add to and move along the to-do list "
                     "(/api/todo), and in a team read its task and report its turn "
                     "(/api/teams/task, /api/teams/done), and check or propose a team "
-                    "(/api/teams/check, /api/teams/propose) — never start one",
+                    "(/api/teams/check, /api/teams/propose). Anything else on the list at "
+                    "/api/agent/actions it may request (POST /api/agent/request): the person taps "
+                    "Do it or No",
                     status_code=403,
                 )
                 return await response(scope, receive, send)

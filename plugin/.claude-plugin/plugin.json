@@ -1,6 +1,6 @@
 {
   "name": "argus",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "Connects this agent to Argus: it says when it starts, finishes and needs you (hooks), and gets Argus as tools — ask the person and wait for the tap, start another agent, see who is working (MCP).",
   "author": { "name": "Andrea de Ruvo" },
   "homepage": "https://andreaderuvo.github.io/argus/",

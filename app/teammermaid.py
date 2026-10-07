@@ -53,12 +53,15 @@ def _unquote(s: str) -> str:
 
 
 def _node(text: str):
-    """(id, kind or 'ref', label, rest of the line) for the node at the start of `text`."""
+    """(id, kind or 'ref', label, rest of the line) for the node at the start of `text`.
+
+    The id is made a step's name the way Argus spells one — lowercase, `_` as `-` — since a
+    flowchart's `bench_A` is an ordinary Mermaid id and was refused only after it parsed."""
     for kind, rx in SHAPES:
         m = rx.match(text)
         if m:
             label = _unquote(m.group(2)) if m.lastindex and m.lastindex >= 2 else ""
-            return m.group(1), kind, label, text[m.end():]
+            return m.group(1).lower().replace("_", "-"), kind, label, text[m.end():]
     raise ValueError(f"expected a step here: {text.strip()[:40]!r}")
 
 
@@ -96,7 +99,7 @@ def from_mermaid(text: str, base: dict | None = None) -> dict:
         if line.startswith("%%"):
             m = re.match(r"%%\s*start\s*:\s*(.+)$", line, re.I)
             if m:
-                start = [s.strip() for s in m.group(1).split(",") if s.strip()]
+                start = [s.strip().lower().replace("_", "-") for s in m.group(1).split(",") if s.strip()]
             continue
         if re.match(r"^(classDef|class|style|linkStyle|subgraph|end\b|direction|click)\b", line):
             continue
@@ -213,10 +216,60 @@ def read_team(text: str) -> dict:
         graph = from_mermaid(body)
         if meta.get("goal"):
             graph["goal"] = meta["goal"][:2000]
-        return {"format": "mermaid", "name": (meta.get("name") or "team")[:60], "graph": graph,
+        said = {"format": "mermaid", "name": (meta.get("name") or "team")[:60], "graph": graph,
                 **({"goal": graph["goal"]} if graph.get("goal") else {})}
-    said = from_yaml(body)
-    return {"format": "yaml", **said}
+        said["warnings"] = warnings(graph)
+        return said
+    said = {"format": "yaml", **from_yaml(body)}
+    said["warnings"] = warnings(said["graph"], _yaml_doc(body))
+    return said
+
+
+STEP_KEYS = {"role", "judge", "duty", "worktree", "reads", "check", "of", "join"}
+TOP_KEYS = {"name", "goal", "gate", "rounds", "permissions", "start", "steps", "flow", "argus_team_pack"}
+
+
+def _yaml_doc(body: str):
+    import yaml
+    try:
+        doc = yaml.safe_load(body)
+    except yaml.YAMLError:
+        return None
+    return doc if isinstance(doc, dict) else None
+
+
+def warnings(graph: dict, doc: dict | None = None) -> list[str]:
+    """What is legal but cannot be what was meant — said by team_check, never refused: an arrow
+    on a result its step never gives, a key Argus does not read (`judges:` for `judge:`), a team
+    nothing ends. Each of these used to pass in silence and behave differently from the drawing."""
+    import difflib
+    out = []
+    kinds = {n["id"]: n for n in graph.get("nodes", [])}
+    for e in graph.get("edges", []):
+        n, w = kinds.get(e["from"], {}), e["when"]
+        if n.get("kind") == "check" and w not in ("always", "PASS", "FAIL"):
+            out.append(f"{e['from']} -> {e['to']} if {w}: a check only says PASS or FAIL, so this arrow never fires")
+        elif n.get("kind") == "agent" and w in ("PASS", "FAIL"):
+            out.append(f"{e['from']} -> {e['to']} if {w}: only a check says PASS or FAIL, so this arrow never fires")
+        elif n.get("kind") == "agent" and not n.get("judge") and w in ("OK", "REDO", "DONE"):
+            out.append(f"{e['from']} -> {e['to']} if {w}: {e['from']} does not judge, so it never says {w} — "
+                       f"make it judge (\"· judges\" in its label, `judge: true`) or use always")
+        elif n.get("kind") == "join" and w != "always":
+            out.append(f"{e['from']} -> {e['to']} if {w}: a join only goes on (always)")
+    if not any(e["to"] == "end" for e in graph.get("edges", [])) and not any(
+            n.get("judge") for n in kinds.values()):
+        out.append("nothing leads to done and nobody judges: the team runs until the rounds are used up")
+    if doc:
+        for k in doc:
+            if k not in TOP_KEYS:
+                near = difflib.get_close_matches(str(k), TOP_KEYS, 1)
+                out.append(f"`{k}:` is not read" + (f" — did you mean `{near[0]}:`?" if near else ""))
+        for sid, spec in (doc.get("steps") or {}).items():
+            for k in (spec or {}) if isinstance(spec, dict) else []:
+                if k not in STEP_KEYS:
+                    near = difflib.get_close_matches(str(k), STEP_KEYS, 1)
+                    out.append(f"step {sid}: `{k}:` is not read" + (f" — did you mean `{near[0]}:`?" if near else ""))
+    return out
 
 
 def describe(said: dict) -> str:

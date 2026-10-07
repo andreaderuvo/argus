@@ -153,3 +153,27 @@ def test_the_tables_name_every_action_and_every_tool():
         text = wiki.read_text()
         gone = [x for x in consent.ACTIONS if f"`{x}`" not in text]
         assert not gone, f"not in the wiki's What-an-agent-can-do: {gone}"
+
+
+def test_what_an_agent_key_does_is_journaled_under_the_agents_name(tmp_path):
+    from app import journal
+    app = make(tmp_path)
+    app.state.cfg.journal_store = tmp_path / "journal.jsonl"
+    with TestClient(app) as c:
+        c.post("/api/todo", json={"note": "x"}, headers=AGENT).raise_for_status()
+    assert journal.who_from({"argus_agent": {"name": "in-session"}}) == "in-session (agent)"
+
+
+def test_a_proposals_permissions_reach_the_start(tmp_path, monkeypatch):
+    from app.teams import Proposals, propose
+    app = make(tmp_path)
+    app.state.proposals = Proposals()
+    folder = tmp_path / "p"
+    folder.mkdir()
+    said = propose(folder, "name: Loose\ngoal: g\npermissions: everything\nsteps:\n  a: {role: executor}\nflow:\n  - a -> a if REDO\n", "x")
+    app.state.proposals.add(str(folder), said, "x", time.time())
+    monkeypatch.setattr(consent.launch, "describe", lambda cfg, versions=False: [
+        {"name": "Claude Code", "agent": "claude", "available": True,
+         "options": [{"id": "permissions", "choices": [{"value": "edits"}, {"value": "skip"}]}]}])
+    plan = consent.plan(app, "start_team", {"team": "Loose"})
+    assert plan["danger"] and "may do without asking: everything" in plan["text"]

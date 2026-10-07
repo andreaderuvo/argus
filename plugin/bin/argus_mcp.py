@@ -149,10 +149,12 @@ TOOLS = [
     {"name": "request",
      "description": "Ask the person to have something done that you cannot do yourself, and it is done on their "
                     "tap (Do it / No): start_team (args: team — a proposal, one of their models or a template, by "
-                    "name — desk, folder, goal, gate), team_go / team_pause / team_stop (team; kill to end its "
-                    "sessions), kill_session (session), rename_session (session, to), start_agent (launcher, name, "
-                    "path, prompt, options — e.g. permissions everything), remove_worktree (path), todo_delete "
-                    "(todo). Waits up to two minutes for the outcome; then request_status.",
+                    "name — desk, folder, goal, gate ask|auto|goal, rounds, permissions ask|edit|everything, check, "
+                    "agents {step: launcher}), team_go / team_pause / team_stop (team — its name as `teams` shows "
+                    "it; kill to end its sessions), kill_session (session), rename_session (session, to), "
+                    "start_agent (launcher, name, folder, prompt, press_enter, options — e.g. permissions skip), "
+                    "remove_worktree (path), todo_delete (todo). Waits up to two minutes for the outcome; then "
+                    "request_status.",
      "inputSchema": {"type": "object", "properties": {
          "action": {"type": "string", "enum": ["start_team", "team_go", "team_pause", "team_stop", "kill_session",
                                                 "rename_session", "start_agent", "remove_worktree", "todo_delete"]},
@@ -301,7 +303,10 @@ def _team_check(a: Argus, args: dict) -> str:
     said = a.team_check(args["text"])
     if not said["ok"]:
         return f"Not yet: {said['error']}"
-    return f"OK ({said['format']}): {said['name']} — {said['summary']}. Propose it with team_propose."
+    warn = said.get("warnings") or []
+    return (f"OK ({said['format']}): {said['name']} — {said['summary']}."
+            + ("\nBut look at these — they are legal and almost certainly not what you meant:\n- " + "\n- ".join(warn)
+               if warn else " Propose it with team_propose."))
 
 
 def _team_propose(a: Argus, args: dict) -> str:

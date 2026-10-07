@@ -57,6 +57,11 @@ def who_from(scope: dict) -> str:
     watcher = scope.get("argus_watcher")
     if watcher:
         return f"{watcher.get('name') or 'a board'} (board)"
+    # An agent's key, under the name it has in the config — and an action it requested and the
+    # person approved is done by Argus with the full key, so it reads "the config token".
+    agent = scope.get("argus_agent")
+    if agent:
+        return f"{agent.get('name') or 'an agent'} (agent)" if isinstance(agent, dict) else f"{agent} (agent)"
     return "unknown"
 
 

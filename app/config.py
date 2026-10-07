@@ -117,7 +117,8 @@ class Config:
     # reachable by anyone holding the token. Off unless asked for, and then still one
     # port at a time.
     allow_proxy: bool = False
-    # The one address to reach Argus by, from another device: the QR code and the banner use it.
+    # The one address to reach Argus by, from another device: the QR code (--qr and the in-app
+    # "Open on another device") and the invite to move there use it.
     # A browser remembers the token per address — the IP, the short name and the full name are
     # three sites to it, each asking for the token on its own — so one address is the way to be
     # remembered. Empty: the machine's full name, else its short name, else its first IP.

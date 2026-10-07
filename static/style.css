@@ -3855,3 +3855,4 @@ dialog.sheet.teamsheet { width: min(980px, 96vw); max-width: none; margin-top: m
 .teamline.teamproposal > .meta { flex: 1 1 12rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pluginbehind { display: grid; gap: .3rem; margin-top: .4rem; padding-top: .4rem; border-top: 1px solid var(--line); }
 .pluginbehind p { margin: 0; }
+.teamwarn { color: var(--st-warning); margin: 0; }

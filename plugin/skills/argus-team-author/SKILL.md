@@ -53,7 +53,8 @@ flowchart LR
 | `a --> b --> c`, `a --> b & c`, `b & c --> j` | chains, parallel branches, joining them |
 | `%% start: a, b` | where it starts (default: the first step written) |
 
-Ids: letters, digits, `-`, `_`, starting with a letter. A duty, a worktree or `reads` cannot be
+Ids: a lowercase letter, then lowercase letters, digits and `-`, at most 20 characters (in
+Mermaid `Bench_A` is accepted and becomes `bench-a`). A duty, a worktree or `reads` cannot be
 said in Mermaid — use YAML when they matter.
 
 ## YAML
@@ -61,7 +62,7 @@ said in Mermaid — use YAML when they matter.
 ```yaml
 name: Faster parser
 goal: make parse() 30% faster without changing its output
-gate: ask            # ask (a press per round) | auto (stops on 2 failed checks or BLOCKED) | goal
+gate: ask            # ask (a press per round) | auto (stops on 2 failed checks in a row) | goal (until DONE or the rounds)
 rounds: 8            # at most (1–30, default 10)
 permissions: edit    # ask | edit | everything — a suggestion; the person sees it before Start
 steps:
@@ -88,15 +89,22 @@ Step keys: `role`, `judge`, `duty` (its job in your words — may name the agent
 `team/<team>-<step>`, so parallel executors never collide), `reads` (whose worktree it should look
 at); a check is `check: <command>` and `of: <agent>`; a join is `join: true`. Flow lines are
 `a -> b`, `a -> b, c` (parallel) and `… if PASS` / `if FAIL` / `if OK, REDO` / `if DONE` /
-`if BLOCKED`. `start: [a]` when it is not the first step.
+`if BLOCKED`. `start: [a]` when it is not the first step. Fan-in is one line per arrow
+(`a -> j` and `b -> j`), not `a, b -> j`. Top-level keys: `name`, `goal`, `gate`, `rounds`,
+`permissions`, `start`, `steps`, `flow`; Argus also reads `team.yml` and `.argus/team.yaml`.
 
 ## Roles, verdicts, results
 
 - **Roles** with a ready duty: `planner`, `executor`, `reviewer`, `researcher`, `writer`,
   `critic`, `tester`. Any other word is fine; then give it a `duty`.
 - A **judge** ends its turn with **OK** (keep it, go on), **REDO** (say what is wrong), **DONE**
-  (the goal is met), **BLOCKED** (a person must decide). Arrows out of a judge carry those.
-- A **check** gives **PASS** or **FAIL**. Arrows out of a check carry those.
+  (the goal is met), **BLOCKED** (a person must decide). Arrows out of a judge carry those. A
+  DONE with no `if DONE` arrow ends the team — into a join, when every judge arriving there says
+  DONE. A verdict with no arrow for it waits for the person.
+- **Anyone** may say BLOCKED: an `if BLOCKED` arrow is followed if there is one, otherwise the
+  person is asked. A step that does not judge otherwise just goes on (its arrows are `always`).
+- A **check** gives **PASS** or **FAIL**. Arrows out of a check carry those. A judge's turn written
+  with no verdict counts as OK.
 - A **round** is one pass: going back to a step that already ran this round starts the next.
 
 ## Rules Argus checks (team_check says which one)

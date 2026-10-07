@@ -872,3 +872,76 @@ def test_the_routes_for_an_agents_turn(tmp_path, monkeypatch):
     r = agent.post("/api/teams/done", json={"session": "t-executor", "summary": "fixed", "status": "OK"})
     assert r.status_code == 409 and "does not judge" in r.json()["error"]
     assert agent.post("/api/teams/done", json={"session": "t-executor", "summary": "fixed"}).json()["recorded"] is True
+
+
+# ------------------------------------------------------------------ verdicts the audit found ignored
+
+def test_a_blocked_from_a_step_that_does_not_judge_stops_and_asks(setup):
+    """Anyone may say BLOCKED. From a non-judge it used to be read as "always" and the team went on."""
+    d, io, tmp = setup
+    team = make(d, tmp, "optimise")
+    turn(team, "EXECUTOR", "I need the API key", status="BLOCKED")
+    d.tick()
+    assert team["status"] == "waiting-you" and "must decide" in io.rings[-1][1]
+    assert "t-check" not in io.check_order, "nothing went on"
+
+
+def test_an_arrow_drawn_for_blocked_is_followed(setup):
+    d, io, tmp = setup
+    graph = {"nodes": [{"id": "a", "kind": "agent", "role": "executor"},
+                       {"id": "help", "kind": "agent", "role": "researcher"}, {"id": "end", "kind": "end"}],
+             "edges": [{"from": "a", "to": "end", "when": "always"}, {"from": "a", "to": "help", "when": "BLOCKED"}],
+             "start": ["a"]}
+    team = d.create(name="t", goal="g", folder=str(tmp), graph=fill_graph(graph, "t", {}), template="custom", gate="goal", max_rounds=3)
+    turn(team, "A", "stuck on the data", status="BLOCKED")
+    d.tick()
+    assert io.to()[-1] == "t-help" and team["status"] == "running"
+
+
+def test_write_ends_when_both_critics_say_done(setup):
+    """Write's critics go `always` into a join, and the join back to the writer: a DONE was followed
+    as `always`, so Write ran until the rounds were spent."""
+    d, io, tmp = setup
+    team = make(d, tmp, "write", check=None)
+    turn(team, "RESEARCHER")
+    d.tick()
+    turn(team, "WRITER")
+    d.tick()
+    turn(team, "CRITIC-METHOD", "sound", status="DONE")
+    turn(team, "CRITIC-STYLE", "one more pass", status="REDO")
+    d.tick()
+    assert team["status"] == "running" and io.to()[-1] == "t-writer", "one REDO: the writer goes again"
+    turn(team, "WRITER")
+    d.tick()
+    turn(team, "CRITIC-METHOD", "sound", status="DONE")
+    turn(team, "CRITIC-STYLE", "clean", status="DONE")
+    d.tick()
+    assert team["status"] == "done" and "say DONE" in team["history"][-1]["what"]
+
+
+def test_a_judge_saying_done_with_only_always_arrows_ends_the_team(setup):
+    d, io, tmp = setup
+    graph = {"nodes": [{"id": "a", "kind": "agent", "role": "executor"},
+                       {"id": "r", "kind": "agent", "role": "reviewer", "judge": True}],
+             "edges": [{"from": "a", "to": "r", "when": "always"}, {"from": "r", "to": "a", "when": "always"}],
+             "start": ["a"]}
+    team = d.create(name="t", goal="g", folder=str(tmp), graph=fill_graph(graph, "t", {}), template="custom", gate="goal", max_rounds=9)
+    turn(team, "A")
+    d.tick()
+    turn(team, "R", "it is right", status="DONE")
+    d.tick()
+    assert team["status"] == "done"
+
+
+def test_until_the_goal_keeps_trying_where_stop_on_trouble_stops(setup):
+    """`auto` stops at the second failed check in a row; `goal` goes on, the rounds its limit."""
+    for gate, stops in (("auto", True), ("goal", False)):
+        d, io, tmp = setup
+        d.teams.clear()
+        team = make(d, tmp, "fix", gate=gate, rounds=5)
+        for _ in range(2):
+            turn(team, "EXECUTOR")
+            d.tick()
+            check_exits(io, "t-check", 1, "FAILED")
+            d.tick()
+        assert (team["status"] == "waiting-you") is stops, gate

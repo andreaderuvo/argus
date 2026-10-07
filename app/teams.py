@@ -239,7 +239,8 @@ def check_graph(graph: dict, needs_check: bool = False) -> dict:
     for n in nodes:
         nid = str(n.get("id", ""))
         if not NODE_ID.match(nid):
-            raise ValueError(f"{nid!r} cannot name a step: lowercase letters, digits and dashes")
+            raise ValueError(f"{nid!r} cannot name a step: start with a lowercase letter, then lowercase letters, "
+                             f"digits and dashes, at most 20 characters")
         if nid in ids:
             raise ValueError(f"two steps are called {nid}")
         ids.add(nid)
@@ -518,7 +519,9 @@ class Director:
             mine = [tt for tt in turns[state["seen"]:] if tt.done and tt.who == nid.upper()]
             if mine:
                 turn = mine[-1]
-                outcome = (turn.status or "OK") if n.get("judge") else "always"
+                # A judge's verdict decides; anyone else's turn just goes on — except BLOCKED, which
+                # anyone may say (a person must decide), and which used to be read as "always".
+                outcome = (turn.status or "OK") if n.get("judge") else ("BLOCKED" if turn.status == "BLOCKED" else "always")
                 self._note(team, f"{nid}: {first_line(turn.body)}" + (f" — {outcome}" if n.get("judge") else ""))
                 self._finished(team, nid, outcome)
                 changed = True
@@ -620,14 +623,25 @@ class Director:
         if team["status"] in ("done", "stopped"):
             return
         g = team["graph"]
-        if outcome == "BLOCKED":
-            # Continue, once you have decided, goes on as if it had said OK (or REDO, if that is all
-            # there is), so the team picks up from where it was.
-            on = [e["to"] for e in g["edges"] if e["from"] == nid and e["when"] == "OK"] \
-                or [e["to"] for e in g["edges"] if e["from"] == nid and e["when"] == "REDO"]
+        out = [e for e in g["edges"] if e["from"] == nid]
+        if outcome == "BLOCKED" and not any(e["when"] == "BLOCKED" for e in out):
+            # No arrow says where BLOCKED goes: a person decides. Continue then goes on as if it had
+            # said OK (or REDO, or — from a step that does not judge — along its ordinary arrows).
+            on = [e["to"] for e in out if e["when"] == "OK"] or [e["to"] for e in out if e["when"] == "REDO"] \
+                or [e["to"] for e in out if e["when"] == "always"]
             self._wait_for_you(team, f"{nid} says a person must decide", retry=on)
             return
-        nexts = [e["to"] for e in g["edges"] if e["from"] == nid and e["when"] in ("always", outcome)]
+        if outcome == "DONE" and not any(e["when"] == "DONE" for e in out):
+            # The goal is met, and nothing is drawn for DONE: the team ends — unless its arrows lead
+            # into a join, where the other judges arriving there have their say too (Write's two
+            # critics: it ends when both say DONE). Followed as "always" before, a DONE from a judge
+            # whose only arrows were `always` never ended anything.
+            if not out or not all(node(g, e["to"])["kind"] == "join" for e in out if e["when"] == "always"):
+                self._finish(team, "done", f"the goal is met — {nid} says DONE (round {team['round']})")
+                return
+        # BLOCKED is not a turn completed: only its own arrows, never the ordinary ones.
+        nexts = [e["to"] for e in out if e["when"] == "BLOCKED"] if outcome == "BLOCKED" \
+            else [e["to"] for e in out if e["when"] in ("always", outcome)]
         if not nexts:
             if outcome == "DONE":
                 self._finish(team, "done", f"the goal is met (round {team['round']})")
@@ -644,6 +658,11 @@ class Director:
                     if to not in team["ran"]:
                         team["ran"].append(to)
                     self._note(team, f"{to}: everything arrived")
+                    # Every judge that came in said DONE: the goal is met.
+                    judges = [p for p in preds(g, to) if node(g, p).get("judge")]
+                    if judges and all(team["outcomes"].get(p) == "DONE" for p in judges):
+                        self._finish(team, "done", f"the goal is met — {', '.join(judges)} say DONE (round {team['round']})")
+                        return
                     self._finished(team, to, "always")
                 continue
             self._start(team, to)
@@ -685,7 +704,9 @@ class Director:
             f.write(turn_text(nid, f"`{n['command']}` exited {code} after {took:.1f}s\n\n```\n"
                                    + "\n".join(tail) + "\n```", round=team["round"], status=status))
         self._note(team, f"{nid}: {status} (exit {code}, {took:.1f}s)")
-        if status == "FAIL" and team["gate"] in ("auto", "goal") and team["fails"][nid] >= 2:
+        # "Go on, stop if something goes wrong" stops at the second failure in a row; "go on until
+        # the goal" keeps trying — the rounds are its limit (the two used to be the same).
+        if status == "FAIL" and team["gate"] == "auto" and team["fails"][nid] >= 2:
             team["running"].pop(nid, None)
             team["outcomes"][nid] = status
             if nid not in team["ran"]:
@@ -997,6 +1018,12 @@ def propose(folder: Path, text: str, by: str = "") -> dict:
     from .teammermaid import describe, read_team
     said = read_team(text)
     path = Path(folder) / "team.yaml"
+    # A team the person keeps under another name (team.yml, .argus/team.yaml) would be shadowed by a
+    # team.yaml written beside it — Team reads team.yaml first.
+    for other in TEAM_FILES[1:]:
+        if (Path(folder) / other).exists():
+            raise ValueError(f"{Path(folder) / other} is the person's team for this folder: a team.yaml beside it "
+                             f"would hide it — ask them, or propose it in another folder")
     if path.exists():
         head = path.read_text(encoding="utf-8", errors="replace")[:200]
         if not head.startswith(PROPOSED):

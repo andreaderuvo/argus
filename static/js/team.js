@@ -489,6 +489,7 @@ export async function teamSheet({ wsId, home, onStarted }) {
       const box = el('textarea', { className: 'teamyaml', rows: 16, spellcheck: false });
       const preview = el('div', { className: 'teampicture teampreview' });
       const err = el('p', { className: 'error', hidden: true });
+      const warn = el('p', { className: 'hint teamwarn', hidden: true });
       const help = el('p', { className: 'hint teamtexthelp' });
       const tabs = el('div', { className: 'segmented teamtexttabs', role: 'tablist' });
       let seq = 0;
@@ -505,6 +506,9 @@ export async function teamSheet({ wsId, home, onStarted }) {
           extra = mode === 'yaml' ? said : {};
           preview.replaceChildren(drawGraph(drawn, {}));
           err.hidden = true;
+          // Legal, and almost certainly not what was meant: an arrow that never fires, a key not read.
+          warn.textContent = (said.warnings || []).join(' · ');
+          warn.hidden = !said.warnings?.length;
         } catch (e) {
           if (mine !== seq) return;
           drawn = null;
@@ -533,7 +537,7 @@ export async function teamSheet({ wsId, home, onStarted }) {
       tabs.append(...[['mermaid', t('Diagram (Mermaid)')], ['yaml', 'YAML']].map(([m, label]) =>
         Object.assign(el('button', { type: 'button', role: 'tab', textContent: label, onclick: () => show(m) }), { _mode: m })));
       box.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(parse, 250); });
-      const sheet3 = modal(t('Edit as text'), el('div', { className: 'sheetbody teamtext' }, [tabs, help, el('div', { className: 'teamtextsplit' }, [box, preview]), err]), [
+      const sheet3 = modal(t('Edit as text'), el('div', { className: 'sheetbody teamtext' }, [tabs, help, el('div', { className: 'teamtextsplit' }, [box, preview]), err, warn]), [
         el('button', { className: 'ghost', textContent: t('Copy'), onclick: () => navigator.clipboard?.writeText(box.value).then(() => toast(t('copied')), () => {}) }),
         el('button', { className: 'ghost', textContent: t('Cancel'), onclick: () => sheet3.close() }),
         el('button', { className: 'primary inline', textContent: t('Apply'), onclick: async () => {

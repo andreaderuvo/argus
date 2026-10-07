@@ -362,7 +362,8 @@ class Argus:
 
     def team_check(self, text: str) -> dict:
         """Check a team written as text — a Mermaid flowchart or YAML — before proposing it.
-        `{ok: True, format, name, summary, graph}`, or `{ok: False, error}` naming the line. Starts
+        `{ok: True, format, name, summary, warnings, graph}`, or `{ok: False, error}` naming the line;
+        `warnings` are arrows that can never fire, keys Argus does not read, a team nothing ends. Starts
         nothing; the syntax is in the `argus-team-author` skill and on the wiki's Teams page."""
         return self.call("POST", "/api/teams/check", {"text": text})
 
@@ -471,9 +472,9 @@ def main(argv: list[str] | None = None) -> int:
     """The command line: `who`, `relay`, `ring`, `start`, `teams`, `task`, `turn`, `team-check`,
     `team-propose`, `request`.
 
-    Ten verbs and no more, because this is what an *agent* reaches for from inside a session —
-    the four things it can usefully do about the other agents on the machine. Anything larger
-    is a script, and a script should import the class.
+    Ten verbs and no more, because this is what an *agent* reaches for from inside a session:
+    the other agents, its team, and what it may only request. Anything larger is a script, and a
+    script should import the class.
     """
     import argparse
 
@@ -586,6 +587,8 @@ def main(argv: list[str] | None = None) -> int:
                     print(said["error"])
                     return 1
                 print(f"ok: {said['name']} — {said['summary']}")
+                for w in said.get("warnings") or []:
+                    print(f"  warning: {w}")
             else:
                 said = argus.team_propose(text, args.folder)
                 print(f"proposed: {said['name']} in {said['file']} — the person starts it from Team")

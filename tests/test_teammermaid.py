@@ -203,3 +203,27 @@ def test_a_proposal_stays_listed_until_taken_up_dismissed_or_gone(tmp_path):
     # Made the person's own (the first line gone): no longer a proposal.
     (one / "team.yaml").write_text((one / "team.yaml").read_text().split("\n", 1)[1])
     assert c.get("/api/teams", headers=h).json()["proposals"] == []
+
+
+def test_check_warns_of_what_can_never_happen_and_keys_not_read():
+    from app.teammermaid import read_team
+    said = read_team("name: x\nsteps:\n  a: {role: executor, judges: true}\n  c: {check: pytest}\n"
+                     "flow:\n  - a -> c\n  - c -> done if PASS\n  - c -> a if OK\n  - a -> c if DONE\n")
+    w = " | ".join(said["warnings"])
+    assert "a check only says PASS or FAIL" in w and "a does not judge, so it never says DONE" in w
+    assert "did you mean `judge:`" in w
+    assert read_team(KRAKEN)["warnings"] == [], "a sound team has none"
+
+
+def test_mermaid_ids_are_made_step_names():
+    from app.teammermaid import read_team
+    g = read_team("flowchart LR\n  %% start: Bench_A\n  Bench_A[executor] --> Quant[\"reviewer · judges\"]\n  Quant -->|DONE| done\n")["graph"]
+    assert [n["id"] for n in g["nodes"]][:2] == ["bench-a", "quant"] and g["start"] == ["bench-a"]
+
+
+def test_a_proposal_never_hides_a_team_kept_under_another_name(tmp_path):
+    from app.teams import propose
+    (tmp_path / "team.yml").write_text("name: mine\nsteps:\n  a: {role: executor}\nflow:\n  - a -> a if REDO\n")
+    with pytest.raises(ValueError, match="would hide it"):
+        propose(tmp_path, KRAKEN, "x")
+    assert not (tmp_path / "team.yaml").exists()

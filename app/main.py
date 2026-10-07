@@ -769,7 +769,9 @@ def create_app(cfg: Config) -> FastAPI:
         try:
             if "graph" in body:
                 return {"text": teams.to_yaml(body["graph"], str(body.get("name") or ""))}
-            return teams.from_yaml(str(body.get("text") or ""))
+            text = str(body.get("text") or "")
+            said = teams.from_yaml(text)
+            return {**said, "warnings": teammermaid.warnings(said["graph"], teammermaid._yaml_doc(text))}
         except (ValueError, KeyError, TypeError) as e:
             if body.get("preview"):
                 return {"error": str(e)}
@@ -797,7 +799,7 @@ def create_app(cfg: Config) -> FastAPI:
 
     @app.post("/api/teams/check", tags=["Teams"], summary="Check a team written as text, Mermaid or YAML")
     async def teams_check(body: dict) -> dict:
-        """`{text}` → `{ok: true, format, name, goal?, summary, graph}`, or `{ok: false, error}` naming
+        """`{text}` → `{ok: true, format, name, goal?, summary, warnings, graph}`, or `{ok: false, error}` naming
         the line. Always 200: it is the question an agent asks while writing, and "not yet" is an
         answer, not a failure. Starts nothing."""
         try:
@@ -849,7 +851,8 @@ def create_app(cfg: Config) -> FastAPI:
             if "graph" in body:
                 return {"text": teammermaid.to_mermaid(body["graph"])}
             base = body.get("base") if isinstance(body.get("base"), dict) else None
-            return {"graph": teammermaid.from_mermaid(str(body.get("text") or ""), base)}
+            graph = teammermaid.from_mermaid(str(body.get("text") or ""), base)
+            return {"graph": graph, "warnings": teammermaid.warnings(graph)}
         except (ValueError, KeyError, TypeError) as e:
             # While typing (`preview`), a half-written line is the normal state, not a failed request.
             if body.get("preview"):
@@ -1613,9 +1616,8 @@ def create_app(cfg: Config) -> FastAPI:
 
         This is what the browser does when you drop a prompt onto a terminal, offered to the
         thing already sitting in a session: *I have finished, go and look*. It carries text and
-        not a prompt from the library, because the library lives in the browser — an agent that
-        wants a template can read it out of the desk it belongs to, or simply write the
-        sentence, which is what it is good at.
+        not a prompt from the library: an agent that wants one reads it (GET /api/prefs, the
+        `prompts` tool) and fills it in, or simply writes the sentence, which is what it is good at.
 
         The same care as everywhere else: bracketed paste, and the return as a separate write a
         moment later, or an input box that reads writes rather than lines swallows it.

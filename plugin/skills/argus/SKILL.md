@@ -23,7 +23,7 @@ phone. You reach it with the Argus tools (or `argus-say` from a shell). Three ki
 | put an existing session on a desk | `open_desk` with `session` |
 | start an agent (Claude, Codex, Gemini, a shell), with a prompt, options, in a desk, in a worktree | `launchers` for what exists and its options; `start_agent` |
 | who is working or waiting | `who` |
-| tell another session something | `relay` (`run` to press Enter) |
+| tell another session something | `relay` (`press_enter: true` to send it, not just type it) |
 | ask the person and wait / tell them you are done | `ask` / `ring` |
 | the to-do list: read, add, mark doing/done | `todos`, `todo_add`, `todo_set` |
 | teams: how they are doing | `teams` |
@@ -37,11 +37,11 @@ phone. You reach it with the Argus tools (or `argus-say` from a shell). Three ki
 
 | Asked | action | args |
 |---|---|---|
-| start a team, in a desk | `start_team` | `team` (a proposal, one of their models, or a template: Optimise, Fix a bug, Build and review, Write, Tournament, Split the work, Feature with tests), `desk`, `folder` (else the proposal's or the desk's), `goal` (else the team's own), `gate` (ask / auto / goal), `permissions` (ask / edit / everything), `check` (if a check step has no command) |
-| continue, pause, stop a team | `team_go`, `team_pause`, `team_stop` | `team` (its name); `kill: true` also ends its sessions |
+| start a team, in a desk | `start_team` | `team` (a proposal, one of their models, or a template: Optimise, Fix a bug, Build and review, Write, Tournament, Split the work, Feature with tests; the folder's team.yaml when `folder` is given), `desk`, `folder` (else the proposal's or the desk's), `goal` (else the team's own), `gate` (ask — default / auto / goal), `rounds` (default 10), `permissions` (ask / edit — default / everything; a team file's own is used), `check` (if a check step has no command), `agents` (`{step: launcher}`) |
+| continue, pause, stop a team | `team_go`, `team_pause`, `team_stop` | `team` (its name exactly as `teams` shows it — "Kraken paper" became `Kraken-paper`); `kill: true` also ends its sessions |
 | end a session | `kill_session` | `session` |
 | rename a session | `rename_session` | `session`, `to` |
-| start an agent with no questions at all | `start_agent` | `launcher`, `name`, `path`, `prompt`, `options` (`{"permissions": "skip"}` …) |
+| start an agent with no questions at all | `start_agent` | `launcher`, `name`, `folder`, `prompt`, `press_enter`, `options` (`{"permissions": "skip"}` …) — always asked |
 | remove a worktree | `remove_worktree` | `path` |
 | delete a to-do | `todo_delete` | `todo` (its number) |
 

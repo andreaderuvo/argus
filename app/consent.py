@@ -74,11 +74,13 @@ def _find_team(app, wanted: str, folder: str | None) -> tuple[str, dict, dict]:
     w = wanted.strip().lower()
     for p in app.state.proposals.live():
         if p["name"].lower() == w and p.get("graph"):
-            return p["name"], p["graph"], {"folder": p["folder"], "goal": p.get("goal"), "gate": p.get("gate"), "rounds": p.get("rounds")}
+            return p["name"], p["graph"], {"folder": p["folder"], "goal": p.get("goal"), "gate": p.get("gate"),
+                                           "rounds": p.get("rounds"), "permissions": p.get("permissions")}
     if folder:
         said = teams.team_file(folder)
         if said and said.get("graph") and (not w or said["name"].lower() == w):
-            return said["name"], said["graph"], {"goal": said.get("goal"), "gate": said.get("gate"), "rounds": said.get("rounds")}
+            return said["name"], said["graph"], {"goal": said.get("goal"), "gate": said.get("gate"), "rounds": said.get("rounds"),
+                                                 "permissions": said.get("permissions")}
     store_ = getattr(app.state, "prefs", None)
     models = {}
     if store_:
@@ -116,7 +118,9 @@ def _team_plan(app, args: dict) -> dict:
     goal = str(args.get("goal") or extra.get("goal") or graph.get("goal") or "").strip()
     if not goal:
         raise ValueError(f"{name} has no goal of its own: say what the team should get done (`goal`)")
-    level = str(args.get("permissions") or graph.get("permissions") or "edit")
+    # What the team file suggests (a proposal's or team.yaml's top-level `permissions`), else the
+    # graph's own, else "edit files freely" — the Team sheet's default. Said in the question.
+    level = str(args.get("permissions") or extra.get("permissions") or graph.get("permissions") or "edit")
     if level not in ALONE:
         raise ValueError("permissions is ask, edit or everything")
     # With the versions, as the Team sheet asks: an agent is recognised (and its options known) from
@@ -178,6 +182,9 @@ def plan(app, action: str, args: dict) -> dict:
             raise ValueError("say which session (`session`) and its new name (`to`)")
         return {"calls": [("POST", "/api/tmux/rename", {"name": name, "to": to})], "text": f"rename the session {name} to {to}"}
     if action == "start_agent":
+        # `folder` and `press_enter` as start_agent names them, or `path` and `run` as the route does.
+        args = {**args, **({"path": args["folder"]} if "folder" in args and "path" not in args else {}),
+                **({"run": args["press_enter"]} if "press_enter" in args and "run" not in args else {})}
         body = {k: args[k] for k in ("launcher", "name", "path", "prompt", "run", "options", "desk") if k in args}
         if not body.get("launcher") or not body.get("name"):
             raise ValueError("say which launcher (`launcher`) and the session's name (`name`)")
