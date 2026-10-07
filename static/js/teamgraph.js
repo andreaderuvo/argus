@@ -66,6 +66,9 @@ export function drawGraph(graph, opts = {}) {
   const GX = small ? 34 : 54;
   const GY = small ? 10 : 18;
   const PAD = small ? 6 : 12;
+  // Room over the top row for the "start" label: drawn in the padding alone, it went past the
+  // top of the picture and was cut in half.
+  const TOP = small ? 0 : 10;
   // Arrows between the same two steps drawn once, their conditions together ("ok · redo"):
   // drawn apart they lay one on top of the other, labels and all.
   const merged = [];
@@ -83,10 +86,10 @@ export function drawGraph(graph, opts = {}) {
   const where = new Map();
   columns.forEach((colIds, ci) => {
     const off = ((rows - colIds.length) * (H + GY)) / 2;
-    colIds.forEach((id, ri) => where.set(id, { x: PAD + ci * (W + GX), y: PAD + off + ri * (H + GY) }));
+    colIds.forEach((id, ri) => where.set(id, { x: PAD + ci * (W + GX), y: PAD + TOP + off + ri * (H + GY) }));
   });
   const backs = [...back];
-  const bodyH = PAD * 2 + rows * (H + GY) - GY;
+  const bodyH = PAD * 2 + TOP + rows * (H + GY) - GY;
   const height = bodyH + (backs.length ? (small ? 10 : 18) + backs.length * (small ? 8 : 12) : 0);
   const width = PAD * 2 + columns.length * (W + GX) - GX;
   const svg = mk('svg', { class: `teamgraph${small ? ' small' : ''}`, viewBox: `0 0 ${width} ${height}`,
@@ -146,7 +149,7 @@ export function drawGraph(graph, opts = {}) {
       }
     }
     if ((graph.start || []).includes(n.id) && !small) {
-      g.append(mk('text', { x: 0, y: -4, class: 'tgstart' }, 'start'));
+      g.append(mk('text', { x: 2, y: -6, class: 'tgstart' }, 'start'));
     }
     g.append(mk('title', {}, n.kind === 'check' ? `${n.id}: ${n.command || ''}` : `${n.id}${n.role ? ` (${n.role})` : ''}`));
     if (opts.onPick) {

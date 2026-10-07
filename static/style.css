@@ -3752,7 +3752,7 @@ button.block.allseen .name { color: var(--st-warning); font-weight: 600; }
 .teamgraph .tgnode.join .tgbox { fill: color-mix(in srgb, var(--accent) 10%, var(--panel)); }
 .teamgraph .tgtext { font: 600 12px/1 inherit; fill: var(--bright); }
 .teamgraph .tgsub { font: 10px/1 ui-monospace, "SF Mono", Menlo, monospace; fill: var(--dim); }
-.teamgraph .tgstart { font: 600 9px/1 inherit; fill: var(--accent); letter-spacing: .06em; text-transform: uppercase; }
+.teamgraph .tgstart { font-weight: 600; font-size: 9px; fill: var(--accent); letter-spacing: .06em; text-transform: uppercase; }
 .teamgraph .tgdot { fill: var(--line); }
 .teamgraph .tgnode[tabindex] { cursor: pointer; }
 .teamgraph .tgnode[tabindex]:hover .tgbox, .teamgraph .tgnode:focus-visible .tgbox { stroke: var(--accent); }
