@@ -495,6 +495,7 @@ def create_app(cfg: Config) -> FastAPI:
     # Teams of agents and the director that moves them on (teams.py). In memory here; `main`
     # gives it its file, and the loop runs with the server, browser or not.
     app.state.teams = teams.Director(None, TeamIO(app))
+    app.state.proposals = teams.Proposals()
     app.state.todo = getattr(cfg, "todo_store", None) or Path("/nonexistent")
     app.state.prefs = getattr(cfg, "prefs_store", None) or Path("/nonexistent")
     app.state.build = build.read()
@@ -684,7 +685,14 @@ def create_app(cfg: Config) -> FastAPI:
     @app.get("/api/teams", tags=["Teams"], summary="The teams of agents, and what each is doing")
     async def teams_list(request: Request) -> dict:
         return {"teams": request.app.state.teams.public(), "templates": teams.TEMPLATES,
-                "roles": sorted(teams.DUTIES), "conditions": list(teams.WHEN)}
+                "roles": sorted(teams.DUTIES), "conditions": list(teams.WHEN),
+                "proposals": await asyncio.to_thread(request.app.state.proposals.live)}
+
+    @app.delete("/api/teams/proposals", tags=["Teams"], summary="Dismiss a team an agent proposed")
+    async def teams_dismiss(request: Request, folder: str) -> Response:
+        """Off the list; its team.yaml stays in the folder (Team still offers it there)."""
+        request.app.state.proposals.drop(folder)
+        return Response(status_code=204)
 
     @app.get("/api/teams/suggest", tags=["Teams"], summary="What a goal and a folder suggest for a team")
     async def teams_suggest(request: Request, path: str = "", goal: str = "") -> dict:
@@ -792,6 +800,7 @@ def create_app(cfg: Config) -> FastAPI:
             said = await asyncio.to_thread(teams.propose, folder, str(body.get("text") or ""), session)
         except ValueError as e:
             raise ApiError(409, str(e)) from e
+        request.app.state.proposals.add(str(folder), said, session, time.time())
         bells.rung(request, "asking", session=session or None,
                    text=f"proposes a team: {said['name']} — {said['summary']}",
                    team_proposal={"folder": str(folder), "name": said["name"], "file": said["file"]})
@@ -946,6 +955,7 @@ def create_app(cfg: Config) -> FastAPI:
         for n in filled["nodes"]:
             if n.get("launch") and n["id"] in team.get("launched", []):
                 sessions[n["id"]] = n["session"]
+        state.proposals.drop(str(folder))             # taken up: no longer a proposal waiting
         return {"team": next(t for t in state.teams.public() if t["id"] == team["id"]), "sessions": sessions,
                 "worktrees": {k: v for k, v in folders.items() if v != str(folder)}}
 
@@ -2596,6 +2606,7 @@ def main(argv: list[str] | None = None) -> int:
     app.state.labels = labels.default_store(config_path)
     app.state.resume = resume.Ledger(resume.default_store(config_path))
     app.state.teams = teams.Director(config_path.parent / "teams.json", TeamIO(app))
+    app.state.proposals = teams.Proposals(config_path.parent / "proposals.json")
     app.state.todo = todo.default_store(config_path)
     app.state.prefs = prefs.default_store(config_path)
     app.state.lang = config_path.parent / "lang"

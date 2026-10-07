@@ -173,3 +173,33 @@ def test_propose_needs_allow_write(tmp_path):
     c = TestClient(create_app(Config(token="m" * 64, roots=[tmp_path], listen="127.0.0.1:0")))
     said = c.post("/api/teams/propose", json={"text": KRAKEN, "folder": str(tmp_path)}, headers={"authorization": "Bearer " + "m" * 64})
     assert said.status_code == 403 and not (tmp_path / "team.yaml").exists()
+
+
+def test_a_proposal_stays_listed_until_taken_up_dismissed_or_gone(tmp_path):
+    """The bell is a six-second toast and the folder may be anywhere: a proposal stays on the list
+    (GET /api/teams `proposals`) until a team is started there, it is dismissed, or its file stops
+    being a proposal — and survives a restart."""
+    from fastapi.testclient import TestClient
+
+    from app.config import Config
+    from app.main import create_app
+    from app.teams import Proposals
+
+    one, two = tmp_path / "one", tmp_path / "two"
+    one.mkdir(), two.mkdir()
+    cfg = Config(token="m" * 64, roots=[tmp_path], listen="127.0.0.1:0", allow_write=True)
+    app = create_app(cfg)
+    app.state.proposals = Proposals(tmp_path / "proposals.json")
+    c = TestClient(app)
+    h = {"authorization": "Bearer " + "m" * 64}
+    for folder in (one, two):
+        assert c.post("/api/teams/propose", json={"text": "%% name: T " + folder.name + "\n" + KRAKEN,
+                                                   "folder": str(folder), "session": "claude-1"}, headers=h).status_code == 200
+    listed = c.get("/api/teams", headers=h).json()["proposals"]
+    assert [p["name"] for p in listed] == ["T two", "T one"] and listed[0]["by"] == "claude-1" and listed[0]["graph"]["nodes"]
+    assert [p["name"] for p in Proposals(tmp_path / "proposals.json").live()] == ["T two", "T one"], "kept across a restart"
+    assert c.delete(f"/api/teams/proposals?folder={two}", headers=h).status_code == 204
+    assert (two / "team.yaml").exists(), "dismissed, the file stays"
+    # Made the person's own (the first line gone): no longer a proposal.
+    (one / "team.yaml").write_text((one / "team.yaml").read_text().split("\n", 1)[1])
+    assert c.get("/api/teams", headers=h).json()["proposals"] == []

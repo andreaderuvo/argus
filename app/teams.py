@@ -1017,6 +1017,70 @@ def propose(folder: Path, text: str, by: str = "") -> dict:
             "graph": said["graph"]}
 
 
+class Proposals:
+    """The teams agents have proposed and nobody has taken up yet, wherever they are.
+
+    A proposal is a file in a folder, and Team only reads a folder's team.yaml when that folder is
+    typed into it — so a bell missed (a toast lasts six seconds) left the team nowhere to be found
+    (2026-10-07, on a real machine: "I had an agent make a team and put it in Argus — nothing").
+    Kept here until it is started, dismissed, or its file is gone or no longer a proposal; shown as
+    a card in Team and a line over the desk. Beside the config (`proposals.json`) when there is one.
+    """
+
+    def __init__(self, path: Path | None = None):
+        self.path = path
+        self.items: list[dict] = []
+        if path and path.exists():
+            try:
+                self.items = [x for x in json.loads(path.read_text()).get("proposals", []) if isinstance(x, dict)]
+            except (OSError, ValueError):
+                self.items = []
+
+    def _save(self) -> None:
+        if self.path:
+            tmp = self.path.with_suffix(".tmp")
+            tmp.write_text(json.dumps({"proposals": self.items}, indent=1))
+            tmp.replace(self.path)
+
+    def add(self, folder: str, said: dict, by: str, now: float) -> None:
+        self.items = [x for x in self.items if x["folder"] != folder]
+        self.items.append({"folder": folder, "file": said["file"], "name": said["name"], "by": by,
+                           "at": now, "summary": said.get("summary", "")})
+        self.items = self.items[-20:]
+        self._save()
+
+    def drop(self, folder: str) -> bool:
+        before = len(self.items)
+        self.items = [x for x in self.items if x["folder"] != folder]
+        if len(self.items) != before:
+            self._save()
+        return len(self.items) != before
+
+    def live(self) -> list[dict]:
+        """The proposals still standing, each with its team read from the file — newest first. One
+        whose file is gone, or no longer starts with the proposal line (made the person's own, or
+        replaced), is dropped."""
+        out, keep = [], []
+        for x in self.items:
+            try:
+                text = Path(x["file"]).read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            if not text.startswith(PROPOSED):
+                continue
+            keep.append(x)
+            try:
+                team = from_yaml(text)
+            except ValueError as e:
+                out.append({**x, "error": str(e)})
+                continue
+            out.append({**x, **{k: v for k, v in team.items() if k != "name"}, "name": team.get("name") or x["name"]})
+        if len(keep) != len(self.items):
+            self.items = keep
+            self._save()
+        return sorted(out, key=lambda x: -x["at"])
+
+
 # --------------------------------------------------------------------------- packs
 
 PACK_MARK = "argus_team_pack"

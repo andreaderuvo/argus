@@ -1222,6 +1222,12 @@
   "One address for Argus": "One address for Argus",
   "You opened Argus at {here}; its address is {main}.": "You opened Argus at {here}; its address is {main}.",
   "A browser remembers the token for each address on its own: keep to one, and you will not be asked for it again.": "A browser remembers the token for each address on its own: keep to one, and you will not be asked for it again.",
-  "Go to {main}": "Go to {main}"
+  "Go to {main}": "Go to {main}",
+  "proposed": "proposed",
+  "by {who}, in {folder}": "by {who}, in {folder}",
+  "Dismiss this proposal — its team.yaml stays in the folder": "Dismiss this proposal — its team.yaml stays in the folder",
+  "{who} proposes a team: {name}": "{who} proposes a team: {name}",
+  "Dismiss": "Dismiss",
+  "Its team.yaml stays in the folder": "Its team.yaml stays in the folder"
  }
 }

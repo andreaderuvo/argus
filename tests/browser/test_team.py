@@ -448,3 +448,31 @@ def test_a_team_proposed_by_an_agent_opens_from_its_bell(make_page, argus):
     assert argus.api("/api/teams")["teams"] == [], "proposed, not started"
     page.eval("document.querySelector('dialog.sheet')?.close()")
     (folder / "team.yaml").unlink()
+
+
+def test_a_missed_proposal_waits_over_the_desk_and_as_a_card(make_page, argus):
+    """The bell missed: the proposal is still over the desk, with Open and Dismiss, and a card in
+    Team whatever folder the box holds. Picking the card moves the folder to the proposal's."""
+    project = desk(argus)
+    folder = project / "elsewhere"
+    folder.mkdir(exist_ok=True)
+    text = "%% name: Missed one\n%% goal: find it again\nflowchart LR\n  a[\"executor\"] --> c{{\"true\"}}\n  c -->|PASS| done\n  c -->|FAIL| a\n"
+    argus.api("/api/teams/propose", "POST", {"text": text, "folder": str(folder), "session": "claude-x"})
+    page = make_page(route="#/wall")
+    line = "[...document.querySelectorAll('.teamproposal')].find(l => l.textContent.includes('Missed one'))"
+    page.wait(f"!!{line}", timeout=15, what="the proposal, over the desk")
+    assert "claude-x" in page.eval(f"{line}.textContent")
+    # As a card, with the desk's own folder in the box.
+    open_sheet(page, argus, "")
+    card = "[...document.querySelectorAll('.teamcard')].find(c => c.querySelector('.name')?.textContent === 'Missed one')"
+    page.wait(f"!!{card}", timeout=10, what="its card")
+    assert page.eval(f"{card}.querySelector('.teambadge').textContent") == "proposed"
+    page.click_at(*page._center(card))
+    page.wait(f"document.querySelector('.startpath').value === {str(folder)!r}", timeout=5, what="the folder, the proposal's")
+    page.wait("document.querySelector('.teamcard.on')?.textContent.includes('Missed one')", timeout=5, what="chosen")
+    page.eval("document.querySelector('dialog.sheet').close()")
+    # Dismissed from the line: gone from the list, the file still there.
+    page.click_at(*page._center(f"[...{line}.querySelectorAll('button')].find(b => b.textContent === 'Dismiss')"))
+    page.wait("!document.querySelector('.teamproposal')", timeout=10, what="dismissed")
+    assert (folder / "team.yaml").exists()
+    (folder / "team.yaml").unlink()

@@ -3401,6 +3401,47 @@
     ]
    }
   },
+  "/api/teams/proposals": {
+   "delete": {
+    "description": "Off the list; its team.yaml stays in the folder (Team still offers it there).",
+    "operationId": "deleteApiTeamsProposals",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "folder",
+      "required": true,
+      "schema": {
+       "title": "Folder",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Dismiss a team an agent proposed",
+    "tags": [
+     "Teams"
+    ]
+   }
+  },
   "/api/teams/propose": {
    "post": {
     "description": "`{text, folder, session?}`: the team (Mermaid or YAML) is checked, written as\n`<folder>/team.yaml` and a bell rings \u2014 tapped, it opens Team on that folder with the\nteam chosen. Starting it is left to the person. 400 when the text is not a team, 409 when\nthe folder holds a team.yaml of the person's own; `--allow-write` and an existing folder\ninside the roots.",

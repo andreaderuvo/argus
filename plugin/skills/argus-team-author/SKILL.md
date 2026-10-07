@@ -18,8 +18,10 @@ starts it — never promise that it is running.
 2. **Check it** — the tool `team_check` with the text (or `argus-say team-check team.mmd`). It
    answers `OK` with a one-line summary, or the line that is wrong. Fix and check again.
 3. **Propose it** — `team_propose` with the text and the project's folder (absolute). Argus writes
-   it as `<folder>/team.yaml` and rings the person; their tap opens Team on it. Then tell them in
-   one line what you proposed and stop: you do not wait for it.
+   it as `<folder>/team.yaml` and rings the person; the proposal then waits over their desk and as
+   a card in Team (whatever folder they are on) until they start it or dismiss it. Tell them in
+   one line what you proposed and where to find it — "over your desk, or in Team" — and stop: you
+   do not wait for it. Proposing again in the same folder replaces your earlier version.
 
 ## Mermaid
 

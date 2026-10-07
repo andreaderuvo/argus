@@ -287,8 +287,9 @@ def _team_check(a: Argus, args: dict) -> str:
 
 def _team_propose(a: Argus, args: dict) -> str:
     said = a.team_propose(args["text"], args["folder"], own_session())
-    return (f"Proposed: {said['name']}, written to {said['file']} — {said['summary']}. The person has been rung; "
-            f"they start it from Team (or edit it). You do not need to wait for it.")
+    return (f"Proposed: {said['name']}, written to {said['file']} — {said['summary']}. The person has been rung, "
+            f"and it waits over their desk and as a card in Team until they start or dismiss it. Tell them so "
+            f"in one line; you do not need to wait for it.")
 
 
 def _todos(a: Argus, args: dict) -> str:

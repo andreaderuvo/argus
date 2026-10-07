@@ -7,6 +7,7 @@ import { icon } from '/js/icons.js';
 import { delJSON, getJSON, postJSON, serverInfo } from '/js/reconnect.js';
 import { prefs } from '/js/state.js';
 import { drawGraph, edits } from '/js/teamgraph.js';
+import { openProposedTeam } from '/js/wall.js';
 import { t } from '/js/words.js';
 // </imports>
 /* ------------------------------------------------------------------ teams of agents */
@@ -124,11 +125,14 @@ export async function teamSheet({ wsId, home, onStarted }) {
   };
 
   let allCards = false;
+  // Teams agents proposed and nobody has taken up yet (GET /api/teams `proposals`), wherever their
+  // folder is: a card each, first, until started or dismissed.
+  let proposals = [];
   find.addEventListener('input', () => drawCards());
   find.addEventListener('keydown', (e) => { if (e.key === 'Escape' && find.value) { e.preventDefault(); e.stopPropagation(); find.value = ''; drawCards(); } });
   const packOf = (model) => Object.entries(prefs.teamPacks || {}).find(([, w]) => w.models.includes(model))?.[0];
-  const badgeKind = (key) => (key.startsWith('mine:') ? (packOf(key.slice(5)) ? 'pack' : 'mine') : key.startsWith('file:') ? 'file' : 'argus');
-  const badgeWord = (key) => ({ argus: 'Argus', mine: t('yours'), pack: packOf(key.slice(5)), file: 'team.yaml' }[badgeKind(key)]);
+  const badgeKind = (key) => (key.startsWith('prop:') ? 'proposed' : key.startsWith('mine:') ? (packOf(key.slice(5)) ? 'pack' : 'mine') : key.startsWith('file:') ? 'file' : 'argus');
+  const badgeWord = (key) => ({ argus: 'Argus', mine: t('yours'), pack: packOf(key.slice(5)), file: 'team.yaml', proposed: t('proposed') }[badgeKind(key)]);
   const drawCards = () => {
     const card = (key, label, hint, g, own) => el('button', {
       type: 'button', className: `teamcard${key === chosen ? ' on' : ''}${own ? ' mine' : ''}`,
@@ -167,7 +171,23 @@ export async function teamSheet({ wsId, home, onStarted }) {
     const shown = Object.entries(templates).filter(([key]) => words.length || allCards || FRONT.includes(key) || key === chosen)
       .filter(([key, tpl]) => fits(key, t(tpl.label), t(tpl.hint), tpl.graph));
     const more = words.length ? 0 : Object.keys(templates).length - shown.length;
+    // A proposal: its folder becomes the team's, and its team.yaml the chosen card. The ✕ takes it
+    // off the list; the file stays in the folder.
+    const proposalCard = (p) => {
+      const c = card(`prop:${p.folder}`, p.name, t('by {who}, in {folder}', { who: p.by || t('an agent'), folder: p.folder }), p.graph, true);
+      c.onclick = () => takeProposal(p);
+      c.prepend(el('span', { className: 'teamcardx', role: 'button', title: t('Dismiss this proposal — its team.yaml stays in the folder'), textContent: '✕',
+        onclick: async (e) => {
+          e.stopPropagation();
+          try { await delJSON(`/api/teams/proposals?folder=${encodeURIComponent(p.folder)}`); } catch (err) { toast(err.message, true); return; }
+          proposals = proposals.filter((x) => x.folder !== p.folder);
+          drawCards();
+        } }));
+      return c;
+    };
     const list = [
+      ...proposals.filter((p) => p.graph && p.file !== fileTeam?.where)
+        .filter((p) => fits(`prop:${p.folder}`, p.name, `${p.by} ${p.folder} ${p.summary || ''}`, p.graph)).map(proposalCard),
       ...shown.map(([key, tpl]) => card(key, t(tpl.label), t(tpl.hint), tpl.graph)),
       ...Object.entries(mine()).filter(([name, g]) => fits(`mine:${name}`, name, packOf(name) ? t('from a pack') : t('your model'), g))
         .map(([name, g]) => card(`mine:${name}`, name, packOf(name) ? t('from a pack') : t('your model'), g, true)),
@@ -340,6 +360,12 @@ export async function teamSheet({ wsId, home, onStarted }) {
    *  repository). Taken in only when you choose one, into your own preferences; a name you
    *  already have is kept as yours, and what the server refused is said with its reason. */
   const picker = el('input', { type: 'file', accept: '.json,.yaml,.yml,application/json', hidden: true, className: 'teampackfile' });
+  const takeProposal = (p) => {
+    where.value = p.folder;
+    takeTeam(p, p.file);
+    needFolder();
+    suggest();
+  };
   const takeTeam = (said, where) => {
     fileTeam = { ...said, where };
     pickedByHand = true;
@@ -694,6 +720,7 @@ export async function teamSheet({ wsId, home, onStarted }) {
   try {
     const [list, more] = await Promise.all([getJSON('/api/teams'), getJSON('/api/launchers?versions=1')]);
     templates = list.templates || {};
+    proposals = list.proposals || [];
     roleNames = list.roles || [];
     conditions = list.conditions || ['always'];
     launchers = more.launchers || [];
@@ -808,8 +835,20 @@ export function teamStrip({ wsId, openLog, openTeam }) {
     try {
       const said = await getJSON('/api/teams');
       const mineOnes = (said.teams || []).filter((team) => String(team.ws) === String(wsId()));
-      strip.replaceChildren(...mineOnes.flatMap((team) => drawTeam(team, { refresh, openLog, openTeam })));
-      strip.hidden = !mineOnes.length;
+      // A team an agent proposed stays in sight until it is started or dismissed: its bell is a
+      // toast of six seconds, and the folder it is in may be nowhere near this desk.
+      const offered = (said.proposals || []).map((p) => el('div', { className: 'teamline teamproposal' }, [
+        icon('layers'),
+        el('span', { className: 'teamname', textContent: t('{who} proposes a team: {name}', { who: p.by || t('an agent'), name: p.name }) }),
+        el('span', { className: 'meta', textContent: p.error ? p.error : p.summary || p.folder, title: p.folder }),
+        el('button', { className: 'ghost', type: 'button', textContent: t('Open'), onclick: () => openProposedTeam(p.folder) }),
+        el('button', { className: 'ghost', type: 'button', textContent: t('Dismiss'), title: t('Its team.yaml stays in the folder'), onclick: async () => {
+          try { await delJSON(`/api/teams/proposals?folder=${encodeURIComponent(p.folder)}`); } catch (e) { toast(e.message, true); }
+          refresh();
+        } }),
+      ]));
+      strip.replaceChildren(...offered, ...mineOnes.flatMap((team) => drawTeam(team, { refresh, openLog, openTeam })));
+      strip.hidden = !mineOnes.length && !offered.length;
     } catch { /* asked again in a moment */ }
     busy = false;
   };

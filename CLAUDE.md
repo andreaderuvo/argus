@@ -483,7 +483,10 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   while a team.yaml without it is the person's and is refused (409) — and rings `asking` with
   `team_proposal` on the bell; its toast opens Team on the folder (`openProposedTeam`, wall.js,
   through `#/wall` when elsewhere), where the folder's team.yaml is the chosen card. An agent key
-  can do both (AGENT_ROUTES 24) and still cannot start a team. The skill's examples are checked by
+  can do both (AGENT_ROUTES 24) and still cannot start a team. A proposal is also *listed*
+  (`teams.Proposals`, `proposals.json`, `GET /api/teams` → `proposals`): a dashed line over every
+  desk and a "proposed" card first in Team, until a team starts in that folder, it is dismissed, or
+  the file loses its first line — a missed six-second toast left it findable only by typing the folder. The skill's examples are checked by
   the tests. Found on the way: `measureFurniture` counted the desktop's side rail as a bottom bar,
   so every toast on a desktop was drawn above the screen (`tests/browser/test_toast.py`).
 - **The sheet up front is goal, shape, folder** (and the check when a step needs one). Who runs
