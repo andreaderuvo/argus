@@ -33,6 +33,9 @@ export function attachPicking(list, { here, bar }) {
   const paint = () => {
     for (const n of items()) n.classList.toggle('picked', chosen.has(n.dataset.pick));
     const n = chosen.size;
+    // Floating at the foot of the listing (sticky), never above it: a bar appearing over the rows
+    // pushed them down under a box being drawn, and the box seemed to start away from the mouse.
+    if (bar.parentNode !== list || list.lastElementChild !== bar) list.append(bar);
     bar.hidden = !n;
     if (!n) { bar.replaceChildren(); return; }
     const entries = [...chosen.values()];
@@ -83,23 +86,27 @@ export function attachPicking(list, { here, bar }) {
     // the file), so for them the box starts from empty space.
     const onTile = e.target.closest('.tile[data-pick]');
     if (!onTile && e.target.closest('[data-pick], button, a, input, .rowwrap')) return;
-    const box = list.getBoundingClientRect();
-    const start = { x: e.clientX, y: e.clientY };
+    // The press, in the listing's own coordinates (its content, scroll included): the box stays
+    // anchored to what was under the pointer whatever moves the listing on screen meanwhile.
+    const at0 = list.getBoundingClientRect();
+    const start = { x: e.clientX - at0.left + list.scrollLeft, y: e.clientY - at0.top + list.scrollTop };
     const kept = (e.ctrlKey || e.metaKey) ? new Map(chosen) : new Map();
     const band = el('div', { className: 'pickband' });
     let moved = false;
     const move = (m) => {
-      const x1 = Math.min(start.x, m.clientX), x2 = Math.max(start.x, m.clientX);
-      const y1 = Math.min(start.y, m.clientY), y2 = Math.max(start.y, m.clientY);
+      const now = list.getBoundingClientRect();
+      const px = m.clientX - now.left + list.scrollLeft, py = m.clientY - now.top + list.scrollTop;
+      const x1 = Math.min(start.x, px), x2 = Math.max(start.x, px);
+      const y1 = Math.min(start.y, py), y2 = Math.max(start.y, py);
       if (!moved && x2 - x1 < 5 && y2 - y1 < 5) return;
       if (!moved) { moved = true; list.append(band); }
-      Object.assign(band.style, { left: `${x1 - box.left + list.scrollLeft}px`, top: `${y1 - box.top + list.scrollTop}px`,
-        width: `${x2 - x1}px`, height: `${y2 - y1}px` });
+      Object.assign(band.style, { left: `${x1}px`, top: `${y1}px`, width: `${x2 - x1}px`, height: `${y2 - y1}px` });
       chosen.clear();
       for (const [k, v] of kept) chosen.set(k, v);
       for (const n of items()) {
         const r = n.getBoundingClientRect();
-        if (r.right > x1 && r.left < x2 && r.bottom > y1 && r.top < y2) chosen.set(n.dataset.pick, n._entry);
+        const l = r.left - now.left + list.scrollLeft, tp = r.top - now.top + list.scrollTop;
+        if (l + r.width > x1 && l < x2 && tp + r.height > y1 && tp < y2) chosen.set(n.dataset.pick, n._entry);
       }
       paint();
     };

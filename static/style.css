@@ -3490,12 +3490,16 @@ body:not(.railwide) .railwin.raildesk .railcount { display: none; }
  *  eye cannot scan, which is the one thing this arrangement is for. `auto-fill` and not
  *  `auto-fit`, so a folder with three things in it does not stretch them across the pane. */
 .panelist.tiles {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
-  gap: .35rem; padding: .5rem; align-content: start;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  gap: .5rem .25rem; padding: .6rem .5rem 3rem; align-content: start;
 }
+/* The icon and its name are what a press takes — not the whole cell. The space round them is
+   the listing's own, where a dashed box starts, as on a desktop: a cell-wide button took the
+   file wherever you pressed (reported: "too much padding, a press takes the file"). */
 .panelist.tiles .tile {
-  display: flex; flex-direction: column; align-items: center; gap: .35rem;
-  padding: .6rem .3rem .5rem; border: 1px solid transparent; border-radius: .5rem;
+  justify-self: center; align-self: start; width: 96px;
+  display: flex; flex-direction: column; align-items: center; gap: .3rem;
+  padding: .4rem .25rem .35rem; border: 1px solid transparent; border-radius: .5rem;
   background: none; color: var(--text); cursor: pointer; text-align: center;
 }
 .panelist.tiles .tile:hover { background: var(--panel); border-color: var(--line); }
@@ -3918,7 +3922,11 @@ dialog.sheet.teamsheet { width: min(980px, 96vw); max-width: none; margin-top: m
 .rowwrap:has(> .row.picked), .rowwrap:has(.row.picked):not(:has(.rowwrap)) { background: color-mix(in srgb, var(--accent) 16%, transparent); box-shadow: inset 3px 0 0 var(--accent); }
 .row.picked { background: transparent !important; }
 .pickband { position: absolute; z-index: 5; border: 1.5px dashed var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); pointer-events: none; }
-.pickbar { display: flex; align-items: center; gap: .35rem; flex-wrap: wrap; padding: .35rem .6rem; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--accent) 8%, var(--panel)); font-size: .84rem; }
+.pickbar { position: sticky; bottom: .6rem; z-index: 6; display: flex; align-items: center; gap: .35rem; flex-wrap: wrap;
+  width: fit-content; max-width: calc(100% - 1.2rem); margin: .6rem auto 0; padding: .35rem .45rem .35rem .8rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); border-radius: .7rem;
+  background: var(--panel); box-shadow: 0 8px 24px rgba(0, 0, 0, .28); font-size: .84rem; }
+.panelist.tiles > .pickbar { grid-column: 1 / -1; }
 .pickbar .pickcount { font-weight: 600; margin-right: .4rem; }
 .pickbar button.inline { min-height: 0; padding: .2rem .5rem; display: inline-flex; align-items: center; gap: .3rem; }
 .pickbar button > svg { width: .95rem; height: .95rem; }

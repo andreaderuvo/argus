@@ -695,7 +695,7 @@ export function fileBrowser({
     // meaning when two of them are side by side.
     takesDrops(node, (files) => uploadTo(path, files));
   }
-  node.append(tools, pickBar, list);
+  node.append(tools, list);              // the selection's bar lives at the foot of the list (picking.js)
 
   // What the folder looked like last time we drew it. Comparing this is what lets the
   // watcher below redraw only when something actually changed — a redraw on a timer
