@@ -3612,6 +3612,98 @@
     ]
    }
   },
+  "/api/teams/ready": {
+   "get": {
+    "description": "`?launchers=Claude Code,Codex` \u2192 `{launchers: [{name, agent, notes: [{level: warn|info, text,\nfix?}]}]}`: what each would be missing in a team \u2014 the plugin, Codex asking before the team\ntools, Codex's hooks never heard \u2014 said before Start (app/readiness.py).",
+    "operationId": "getApiTeamsReady",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "launchers",
+      "required": false,
+      "schema": {
+       "default": "",
+       "title": "Launchers",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Teams Ready Api Teams Ready Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Is this machine ready for these agents in a team?",
+    "tags": [
+     "Teams"
+    ]
+   }
+  },
+  "/api/teams/ready/fix": {
+   "post": {
+    "description": "`{fix: \"codex-team-tools\"}` lets Codex run team_task and team_done without asking (a copy of\nits config is kept); `{fix: \"plugin:claude\"|\"plugin:codex\"}` installs or updates the plugin.",
+    "operationId": "postApiTeamsReadyFix",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Teams Ready Fix Api Teams Ready Fix Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Fix what a team would be missing",
+    "tags": [
+     "Teams"
+    ]
+   }
+  },
   "/api/teams/suggest": {
    "get": {
     "description": "The template a goal reads like, the checks a folder offers (looked for, never run), and\n`place`: whether the folder is there, will be made, or is outside what Argus serves \u2014\nsaid under the folder box while you type, instead of as a refusal at Start.",
@@ -4399,6 +4491,51 @@
      }
     },
     "summary": "Dress one session, without touching the config",
+    "tags": [
+     "Sessions"
+    ]
+   }
+  },
+  "/api/tmux/whoami": {
+   "get": {
+    "description": "`{session}` \u2014 the tmux session whose pane the process `pid` descends from, or null.\nFor a program whose environment does not say (Codex's MCP servers get no TMUX_PANE): it\nsends its own pid and is told where it is. Only processes on this machine, only the\nsessions of this Argus's tmux server.",
+    "operationId": "getApiTmuxWhoami",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "pid",
+      "required": true,
+      "schema": {
+       "title": "Pid",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Tmux Whoami Api Tmux Whoami Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Which session a process on this machine runs in",
     "tags": [
      "Sessions"
     ]

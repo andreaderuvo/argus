@@ -167,6 +167,22 @@ class Argus:
 
     # ---------------------------------------------------------------- the wire
 
+    def me(self, session: str = "") -> str:
+        """The tmux session this program runs in: `session` if given, else `own_session()` (the
+        environment, tmux), else asked of Argus by pid — for a program started with a bare
+        environment, as Codex starts its MCP servers, which cannot ask tmux. Remembered."""
+        if session:
+            return session
+        if getattr(self, "_me", None) is None:
+            mine = own_session()
+            if not mine:
+                try:
+                    mine = self.call("GET", f"/api/tmux/whoami?pid={os.getpid()}", timeout=5).get("session") or ""
+                except ArgusError:
+                    mine = ""
+            self._me = mine
+        return self._me
+
     def call(self, method: str, path: str, body: dict | None = None, timeout: float = 60) -> dict:
         """Any route at all, with the token attached and the error unwrapped.
 
@@ -335,7 +351,7 @@ class Argus:
         with state done, refused, failed — or still asked/doing, to come back for with
         `request_status(id)`. ArgusError (400) when it cannot be done as asked."""
         said = self.call("POST", "/api/agent/request", {"action": action, "args": args or {}, "why": why,
-                                                        "session": session or own_session(), "wait": min(wait, 300)},
+                                                        "session": self.me(session), "wait": min(wait, 300)},
                          timeout=min(wait, 300) + 30)
         until = time.time() + wait
         while said["state"] in ("asked", "doing") and time.time() < until:
@@ -351,13 +367,13 @@ class Argus:
         """This agent's task in its team — goal, role, duty, round, whether it is its turn, what the
         steps before it said last, the last check — for the session it runs in (found from tmux)."""
         from urllib.parse import quote
-        return self.call("GET", f"/api/teams/task?session={quote(session or own_session())}")
+        return self.call("GET", f"/api/teams/task?session={quote(self.me(session))}")
 
     def team_done(self, summary: str, status: str = "", details: str = "", session: str = "") -> dict:
         """Report this agent's turn: a few lines of what it did, and — for a judge — OK, REDO, DONE or
         BLOCKED. Argus checks it and writes it into the team's log; refused (ArgusError) when it is
         not this agent's turn, it has already reported, or a judge left the status out."""
-        return self.call("POST", "/api/teams/done", {"session": session or own_session(), "summary": summary,
+        return self.call("POST", "/api/teams/done", {"session": self.me(session), "summary": summary,
                                                      "status": status, "details": details})
 
     def team_check(self, text: str) -> dict:
@@ -372,7 +388,7 @@ class Argus:
         tapped, it opens Team on that folder with the team chosen. Starting it is theirs.
         ArgusError (400) when it is not a team, (409) when the folder has a team.yaml of theirs."""
         return self.call("POST", "/api/teams/propose", {"text": text, "folder": str(folder),
-                                                        "session": session or own_session()})
+                                                        "session": self.me(session)})
 
     def todos(self) -> list[dict]:
         """The to-do list kept in Argus: `{n, note, status, by, ...}` each, newest first. `n` is the

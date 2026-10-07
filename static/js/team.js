@@ -80,6 +80,35 @@ export async function teamSheet({ wsId, home, onStarted }) {
   const gate = el('div', { className: 'startradio teamgate', role: 'radiogroup' });
   const rounds = el('input', { type: 'number', min: 1, max: 30, value: 10, className: 'teamrounds' });
   const why = el('p', { className: 'error', hidden: true });
+  // Is this machine ready for these agents? Said before Start (app/readiness.py): a team on a real
+  // machine had a Codex that could not report through the tool, and nothing had said so.
+  const ready = el('div', { className: 'teamready', hidden: true });
+  let readyAsk = 0;
+  let readyTimer = 0;
+  const checkReady = () => { clearTimeout(readyTimer); readyTimer = setTimeout(paintReady, 300); };
+  const paintReady = async () => {
+    const mine = ++readyAsk;
+    const names = [...new Set(Object.values(picks).filter(Boolean))];
+    if (!names.length) { ready.hidden = true; return; }
+    let said;
+    try { said = await getJSON(`/api/teams/ready?launchers=${encodeURIComponent(names.join(','))}`); } catch { return; }
+    if (mine !== readyAsk) return;
+    const rows = (said.launchers || []).flatMap((l) => l.notes.map((n) => ({ ...n, name: l.name })));
+    ready.hidden = !rows.length;
+    ready.replaceChildren(
+      el('p', { className: 'teamreadyhead', textContent: t('Before you start') }),
+      ...rows.map((n) => el('div', { className: `teamreadyrow ${n.level}` }, [
+        el('span', {}, [el('b', { textContent: `${n.name}: ` }), el('span', { textContent: t(n.text) })]),
+        n.fix ? el('button', { className: 'ghost inline', type: 'button',
+          textContent: n.fix === 'codex-team-tools' ? t('Allow them') : t('Install / update'),
+          onclick: async (e) => {
+            e.target.disabled = true;
+            try { await postJSON('/api/teams/ready/fix', { fix: n.fix }); toast(t('done — checked again')); } catch (err) { toast(err.message, true); }
+            paintReady();
+          } }) : null,
+      ].filter(Boolean))),
+    );
+  };
 
   let templates = {};
   let roleNames = [];
@@ -221,7 +250,7 @@ export async function teamSheet({ wsId, home, onStarted }) {
       // A different agent per step where there is more than one: two minds, not one twice.
       if (!picks[n.id] || !agents.some((a) => a.name === picks[n.id])) picks[n.id] = (agents[i % agents.length] || agents[0]).name;
       const sel = el('select', { className: 'setpick' }, agents.map((a) => el('option', { value: a.name, textContent: a.name, selected: a.name === picks[n.id] })));
-      sel.onchange = () => { picks[n.id] = sel.value; };
+      sel.onchange = () => { picks[n.id] = sel.value; checkReady(); };
       const row = el('div', { className: 'teamrole' }, [
         el('span', { className: 'teamrolename', textContent: n.id, title: t(n.role || 'agent') }), sel]);
       if (repository) {
@@ -231,6 +260,7 @@ export async function teamSheet({ wsId, home, onStarted }) {
       }
       roles.append(row);
     });
+    checkReady();
   };
 
   // The selected step: what it is, its arrows, and what can be added around it.
@@ -672,6 +702,7 @@ export async function teamSheet({ wsId, home, onStarted }) {
     checkBox,
     danger,
     advanced,
+    ready,
     why,
   );
 

@@ -24,7 +24,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 
 from . import build, pluginstate, trust
-from . import (agentflags, consent, teams, teammermaid, wiring, agentstate, resume, announce, asks, bells, devices, favourites, files, fsops, gitwork, journal, labels,
+from . import (agentflags, consent, readiness, teams, teammermaid, wiring, agentstate, resume, announce, asks, bells, devices, favourites, files, fsops, gitwork, journal, labels,
                languages, launch, mounts, network, paths, ports, prefs, proxy, release, runner, runs,
                system, term, tmux, todo)
 import httpx
@@ -798,6 +798,38 @@ def create_app(cfg: Config) -> FastAPI:
     async def agent_request_status(request: Request, ident: str, wait: float = 0) -> dict:
         return await consent.status(request, ident, wait)
 
+    @app.get("/api/teams/ready", tags=["Teams"], summary="Is this machine ready for these agents in a team?")
+    async def teams_ready(request: Request, launchers: str = "") -> dict:
+        """`?launchers=Claude Code,Codex` → `{launchers: [{name, agent, notes: [{level: warn|info, text,
+        fix?}]}]}`: what each would be missing in a team — the plugin, Codex asking before the team
+        tools, Codex's hooks never heard — said before Start (app/readiness.py)."""
+        wanted = [n.strip() for n in launchers.split(",") if n.strip()]
+        rows = [r for r in await asyncio.to_thread(launch.describe, request.app.state.cfg, True) if r["name"] in wanted]
+        try:
+            states = await agent_states(request)
+        except Exception:
+            states = {}
+        told = set(getattr(request.app.state.agents, "told", set()) or set())
+        heard = set(bells.store(request).get("plugins", {})) | told
+        codex_heard = any(states.get(s, {}).get("agent") == "codex" for s in heard)
+        return {"launchers": await asyncio.to_thread(readiness.check, Path.home(), rows, codex_heard)}
+
+    @app.post("/api/teams/ready/fix", tags=["Teams"], summary="Fix what a team would be missing")
+    async def teams_ready_fix(request: Request, body: dict) -> dict:
+        """`{fix: "codex-team-tools"}` lets Codex run team_task and team_done without asking (a copy of
+        its config is kept); `{fix: "plugin:claude"|"plugin:codex"}` installs or updates the plugin."""
+        fix = str(body.get("fix") or "")
+        if fix == "codex-team-tools":
+            return {"changed": await asyncio.to_thread(readiness.allow_codex_team_tools, Path.home())}
+        if fix in ("plugin:claude", "plugin:codex"):
+            agent = fix.split(":")[1]
+            got = next(a for a in pluginstate.state(Path.home(), {})["agents"] if a["agent"] == agent)
+            said = await asyncio.to_thread(pluginstate.run, agent, Path.home(), "update" if got["installed"] else "install")
+            if not said["ok"]:
+                raise ApiError(502, "\n\n".join(said["said"]))
+            return {"changed": [agent]}
+        raise ApiError(400, "fix is codex-team-tools, plugin:claude or plugin:codex")
+
     @app.post("/api/teams/check", tags=["Teams"], summary="Check a team written as text, Mermaid or YAML")
     async def teams_check(body: dict) -> dict:
         """`{text}` → `{ok: true, format, name, goal?, summary, warnings, graph}`, or `{ok: false, error}` naming
@@ -1439,6 +1471,14 @@ def create_app(cfg: Config) -> FastAPI:
         except tmux.TmuxError as e:
             raise ApiError(400, str(e)) from e
         return {"session": name, "set": sorted(options)}
+
+    @app.get("/api/tmux/whoami", tags=["Sessions"], summary="Which session a process on this machine runs in")
+    async def tmux_whoami(request: Request, pid: int) -> dict:
+        """`{session}` — the tmux session whose pane the process `pid` descends from, or null.
+        For a program whose environment does not say (Codex's MCP servers get no TMUX_PANE): it
+        sends its own pid and is told where it is. Only processes on this machine, only the
+        sessions of this Argus's tmux server."""
+        return {"session": await asyncio.to_thread(tmux.session_of_pid, request.app.state.socket, int(pid))}
 
     @app.get("/api/tmux/cwd", tags=["Sessions"], summary="The directory a session is really in")
     async def pane_directory(request: Request, session: str, missing_ok: bool = False) -> dict:

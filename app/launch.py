@@ -27,6 +27,7 @@ import re
 import shutil
 import subprocess
 import threading
+from pathlib import Path
 import time
 from dataclasses import dataclass
 
@@ -365,12 +366,22 @@ def wait_for(line: str) -> str:
             f"do sleep 0.5; i=$((i+1)); done; ")
 
 
+# argus-say, argus-mcp, argus-bell: the tools beside this copy of Argus.
+TOOLS = Path(__file__).resolve().parent.parent / "tools"
+
+
 def start(sock: tmux.Socket, name: str, folder: str | None, command: str) -> None:
     argv = ["tmux", *sock.args(), "new-session", "-d", "-s", name]
     if folder:
         argv += ["-c", folder]
     line = wrap(command)
     if line:
+        # What runs here knows its session, and finds `argus-say`: set after the login profile
+        # (which may rebuild PATH), for the program and everything it starts — an agent in a
+        # team reports with `argus-say turn`, and an Argus run from a checkout has no
+        # `argus-say` on the PATH otherwise (seen on a real team, 2026-10-07).
+        line = (f"export ARGUS_SESSION={shell_quote(name)}; "
+                f"export PATH={shell_quote(str(TOOLS))}:\"$PATH\"; {line}")
         # The user's shell, told to log in, so profiles are read. `-c` takes the whole line,
         # which is why a launcher may be `conda activate x && claude` rather than a bare word.
         argv += ["sh", "-c", f'exec "${{SHELL:-/bin/sh}}" -l -c {shell_quote(line)}']

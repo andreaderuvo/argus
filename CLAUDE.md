@@ -512,6 +512,15 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   (renumbered if the page reused the id) and answers them, and the page adopts them. The bell
   stream also re-adopts on every (re)connect. Pending consent requests are in `GET /api/teams`
   (`requests`) and drawn over every desk with Do it / No until answered.
+- **Which session am I, with a bare environment** (`tmux.session_of_pid`, `GET /api/tmux/whoami`,
+  `Argus.me()`, the hooks' fallback). Codex starts its MCP servers (and maybe hooks) without
+  TMUX/TMUX_PANE: on a real team `team_done` could not say whose turn it was and the trader fell
+  back to writing the log. Order: ARGUS_SESSION (set, with `tools/` on PATH, by `launch.start` after
+  the login profile), tmux display, then Argus walks /proc parents to a pane pid of *its* socket.
+  Codex's `approval_mode` values are auto | prompt | writes | approve ("approve" = allowed, what
+  "always allow" writes). **Before you start** (app/readiness.py, `GET /api/teams/ready`): plugin
+  missing/old, Codex asking before the team tools (fix writes approve, keeps a copy), Codex hooks
+  never heard (no Stop guard), Gemini, a shell — said in the Team sheet with fixes.
 - **How a verdict moves a team** (`Director._finished`, the audit of 2026-10-07, tests in
   test_teams.py "verdicts the audit found ignored"). A non-judge's turn is `always`, except
   BLOCKED, which anyone may say; BLOCKED follows only `if BLOCKED` arrows, else waits for the

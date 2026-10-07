@@ -520,3 +520,16 @@ def test_an_agents_request_waits_in_the_corner_until_answered(make_page, argus):
     eventually(lambda: argus.api(f"/api/agent/request/{req['id']}?wait=2")["state"] == "done", timeout=15, what="done")
     assert argus.api("/api/todo")["items"] == []
     page.wait("!document.querySelector('#toasts .askcard')", timeout=10, what="and gone once answered")
+
+
+def test_what_the_machine_lacks_is_said_before_start(make_page, argus):
+    """A Codex on a real machine could not report through the tool, and nothing had said so before
+    Start. The sheet now says, for the agents chosen, what a team would be missing."""
+    project = desk(argus)
+    page = make_page(route="#/wall")
+    open_sheet(page, argus, "fix the crash")
+    page.wait("!!document.querySelector('.teamrole select')", timeout=25, what="an agent")
+    page.wait("!document.querySelector('.teamready').hidden && document.querySelector('.teamready').textContent.includes('no Argus plugin')",
+              timeout=15, what="the plugin missing, said before Start")
+    assert page.eval("[...document.querySelectorAll('.teamready button')].some(b => b.textContent === 'Install / update')")
+    clean(argus, project)

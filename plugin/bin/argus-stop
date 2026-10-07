@@ -20,6 +20,11 @@ TOKEN="${ARGUS_TOKEN:-$(sed -n 's/^token:[[:space:]]*//p' "$CONF" 2>/dev/null | 
 
 SESSION="${ARGUS_SESSION:-}"
 [ -z "$SESSION" ] && [ -n "${TMUX:-}" ] && SESSION="$(tmux display -p '#S' 2>/dev/null || true)"
+# A bare environment (no TMUX): Argus finds the session from this process's ancestors.
+if [ -z "$SESSION" ] && [ -n "$TOKEN" ]; then
+  SESSION="$(curl -sk -m 3 -H "Authorization: Bearer $TOKEN" "$URL/api/tmux/whoami?pid=$$" 2>/dev/null \
+    | sed -n 's/.*"session":"\([^"]*\)".*/\1/p')"
+fi
 
 if [ -n "$TOKEN" ] && [ -n "$SESSION" ]; then
   SAID="$(curl -sk -m 3 -G -H "Authorization: Bearer $TOKEN" --data-urlencode "session=$SESSION" \

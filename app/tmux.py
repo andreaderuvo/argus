@@ -5,6 +5,7 @@ from __future__ import annotations
 import contextlib
 import re
 import subprocess
+from pathlib import Path
 from dataclasses import dataclass
 
 # An explicit format string, so we parse fields we chose rather than tmux's
@@ -141,6 +142,32 @@ def declared(sock: Socket) -> dict[str, dict]:
         # split with two agents in it, and the tile has room for one word.
         said.setdefault(name, {"agent": agent or None, "model": model or None})
     return said
+
+
+def parent_of(pid: int) -> int:
+    """The parent pid, from /proc (0 when it cannot be read). The command name in `stat` may hold
+    spaces and parentheses, so the fields are read after the *last* `)`."""
+    try:
+        stat = Path(f"/proc/{pid}/stat").read_text()
+        return int(stat[stat.rindex(")") + 2:].split()[1])
+    except (OSError, ValueError, IndexError):
+        return 0
+
+
+def session_of_pid(sock: Socket, pid: int) -> str | None:
+    """The tmux session a process runs in, found by walking up its parents to a pane's own pid.
+
+    For a program that cannot ask tmux itself: Codex starts its MCP servers with a bare
+    environment — no TMUX, no TMUX_PANE — so `display-message` there names nothing, and a
+    team's `team_done` could not say whose turn it was reporting (seen on a real team,
+    2026-10-07). Reads `list-panes` and /proc only."""
+    panes = {p: name for name, ps in pane_pids(sock).items() for p in ps}
+    seen = 0
+    while pid > 1 and seen < 64:
+        if pid in panes:
+            return panes[pid]
+        pid, seen = parent_of(pid), seen + 1
+    return None
 
 
 def pane_pids(sock: Socket) -> dict[str, list[int]]:

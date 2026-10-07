@@ -80,8 +80,14 @@ HERE_PLUGIN="$(cd "$(dirname "$0")/.." 2>/dev/null && pwd)/.claude-plugin/plugin
 
 # Only from inside tmux: outside it, `tmux display` answers for the most recent session on the
 # default server — somebody else's — and the bell would be signed with the wrong name.
-SESSION=""
-[ -n "${TMUX:-}" ] && SESSION="$(tmux display -p '#S' 2>/dev/null || true)"
+SESSION="${ARGUS_SESSION:-}"
+[ -z "$SESSION" ] && [ -n "${TMUX:-}" ] && SESSION="$(tmux display -p '#S' 2>/dev/null || true)"
+# A bare environment (no TMUX — as an agent may start its hooks): Argus finds the session from
+# this process's ancestors, on its own tmux server only, so it cannot name somebody else's.
+if [ -z "$SESSION" ] && [ -n "$TOKEN" ]; then
+  SESSION="$(curl -sk -m 3 -H "Authorization: Bearer $TOKEN" "$URL/api/tmux/whoami?pid=$$" 2>/dev/null \
+    | sed -n 's/.*"session":"\([^"]*\)".*/\1/p')"
+fi
 
 # Quote for JSON the small way: these fields are a session name and a short sentence.
 esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr -d '\000-\037'; }

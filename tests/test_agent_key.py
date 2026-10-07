@@ -148,7 +148,7 @@ def test_the_list_of_what_an_agent_may_do_is_short():
     end a session… — *requested*, put to the person as Do it / No, and done by Argus with the full
     key only on their tap (app/consent.py). The key itself still does none of it.
     """
-    assert len(AGENT_ROUTES) <= 26
+    assert len(AGENT_ROUTES) <= 27
     assert ("POST", "/api/teams") not in AGENT_ROUTES
     assert all(method in ("GET", "POST") for method, _ in AGENT_ROUTES)
     assert not any(path.startswith("/api/fs") or path.startswith("/api/devices")

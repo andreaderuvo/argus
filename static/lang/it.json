@@ -1249,6 +1249,14 @@
   "by their length": "secondo la lunghezza",
   "until I close them": "finché non le chiudo",
   "like this — {how}": "così — {how}",
-  "Hide it here — it stays open in While you were away": "Nascondila qui — resta aperta in Mentre eri via"
+  "Hide it here — it stays open in While you were away": "Nascondila qui — resta aperta in Mentre eri via",
+  "Before you start": "Prima di partire",
+  "Allow them": "Consentili",
+  "Install / update": "Installa / aggiorna",
+  "done — checked again": "fatto — ricontrollato",
+  "not an agent: a shell takes no turn and reports nothing — the team will wait on it": "non è un agente: una shell non fa turni e non riporta nulla — il team la aspetterà",
+  "no Argus plugin: no team tools and no Stop guard — it will report by writing to the team's log, which works but is checked by nobody until the next round": "nessun plugin Argus: niente tool del team né Stop guard — riporterà scrivendo nel log del team, che funziona ma nessuno lo controlla fino al round dopo",
+  "Gemini gets the team tools from its extension but no Stop guard: a turn ended without a report is noticed by the reminder, after two minutes": "Gemini ha i tool del team dall'estensione ma non la Stop guard: un turno finito senza report lo nota il promemoria, dopo due minuti",
+  "Codex's hooks have not been heard yet: they run only after you review them once in Codex — until then there is no Stop guard (open Codex, accept the hooks)": "gli hook di Codex non si sono ancora sentiti: girano solo dopo che li hai approvati una volta in Codex — fino ad allora niente Stop guard (apri Codex, accetta gli hook)"
  }
 }

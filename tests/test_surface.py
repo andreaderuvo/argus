@@ -47,7 +47,9 @@ def test_the_surface_is_small_enough_to_document():
     # 27 to 29 the same day, for team_check() and team_propose(): an agent writing a team.
     # 29 to 32 the same day, for actions(), request() and request_status(): what the key cannot do,
     # asked of the person and done on their tap.
-    assert counted["argus_client"] <= 32, counted
+    # 32 to 33 the same day, for me(): the session a program runs in, asked of Argus by pid when its
+    # environment does not say (Codex's MCP servers).
+    assert counted["argus_client"] <= 33, counted
     assert counted["argus_orchestra"] <= 30, counted
 
 

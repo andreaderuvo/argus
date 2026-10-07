@@ -31,6 +31,9 @@ class Fake:
     def __init__(self):
         self.calls = []
 
+    def me(self, session=""):
+        return session or ""
+
     def who(self):
         return {"machine": "box", "launchers": ["Claude Code"], "sessions": [
             {"name": "fix", "agent": "claude", "model": "Opus", "folder": "/p", "state": "working", "wants_you": False},

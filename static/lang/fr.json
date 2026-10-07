@@ -1249,6 +1249,14 @@
   "by their length": "selon leur longueur",
   "until I close them": "jusqu’à ce que je les ferme",
   "like this — {how}": "comme ceci — {how}",
-  "Hide it here — it stays open in While you were away": "La masquer ici — elle reste ouverte dans Pendant votre absence"
+  "Hide it here — it stays open in While you were away": "La masquer ici — elle reste ouverte dans Pendant votre absence",
+  "Before you start": "Avant de commencer",
+  "Allow them": "Les autoriser",
+  "Install / update": "Installer / mettre à jour",
+  "done — checked again": "fait — vérifié à nouveau",
+  "not an agent: a shell takes no turn and reports nothing — the team will wait on it": "pas un agent : un shell ne prend pas de tour et ne rapporte rien — l'équipe l'attendra",
+  "no Argus plugin: no team tools and no Stop guard — it will report by writing to the team's log, which works but is checked by nobody until the next round": "pas de plugin Argus : ni outils d'équipe ni Stop guard — il rapportera en écrivant dans le journal de l'équipe, ce qui marche mais n'est vérifié par personne avant le tour suivant",
+  "Gemini gets the team tools from its extension but no Stop guard: a turn ended without a report is noticed by the reminder, after two minutes": "Gemini a les outils d'équipe par son extension mais pas de Stop guard : un tour fini sans rapport est remarqué par le rappel, après deux minutes",
+  "Codex's hooks have not been heard yet: they run only after you review them once in Codex — until then there is no Stop guard (open Codex, accept the hooks)": "les hooks de Codex n'ont pas encore été entendus : ils ne tournent qu'après les avoir validés une fois dans Codex — d'ici là pas de Stop guard (ouvrez Codex, acceptez les hooks)"
  }
 }

@@ -200,7 +200,7 @@ TOOLS = [
 
 def _who(a: Argus, _args: dict) -> str:
     said = a.who()
-    me = own_session()
+    me = a.me()
     lines = [f"machine {said.get('machine', '?')}"]
     for s in said.get("sessions", []):
         state = s.get("state") or ("no agent" if not s.get("agent") else "")
@@ -214,14 +214,14 @@ def _who(a: Argus, _args: dict) -> str:
 
 
 def _ring(a: Argus, args: dict) -> str:
-    a.ring(args.get("text", ""), args.get("why") or "done", own_session())
+    a.ring(args.get("text", ""), args.get("why") or "done", a.me())
     return "rung"
 
 
 def _ask(a: Argus, args: dict) -> str:
     minutes = max(1.0, min(60.0, float(args.get("wait_minutes") or 10)))
     answer = a.ask(args["question"], args.get("options") or None, wait=min(minutes * 60, 300),
-                   session=own_session(), patience=minutes * 60)
+                   session=a.me(), patience=minutes * 60)
     if answer is None:
         return f"Nobody answered within {minutes:g} minutes. Decide for yourself if it is safe to, or stop and say why."
     return f"The person answered: {answer}"
@@ -273,7 +273,7 @@ def _rename_desk(a: Argus, args: dict) -> str:
 
 
 def _team_task(a: Argus, _args: dict) -> str:
-    said = a.team_task(own_session())
+    said = a.team_task(a.me())
     if said.get("none"):
         return said.get("why", "you are not in a team")
     lines = [f"Team {said['team']} — goal: {said['goal']}",
@@ -294,7 +294,7 @@ def _team_task(a: Argus, _args: dict) -> str:
 
 
 def _team_done(a: Argus, args: dict) -> str:
-    said = a.team_done(args["summary"], args.get("status", ""), args.get("details", ""), own_session())
+    said = a.team_done(args["summary"], args.get("status", ""), args.get("details", ""), a.me())
     return (f"Recorded: {said['you']}, round {said['round']}" + (f", {said['status']}" if said.get("status") else "")
             + ". Now stop and wait: Argus gives the next turn to whoever has it.")
 
@@ -310,7 +310,7 @@ def _team_check(a: Argus, args: dict) -> str:
 
 
 def _team_propose(a: Argus, args: dict) -> str:
-    said = a.team_propose(args["text"], args["folder"], own_session())
+    said = a.team_propose(args["text"], args["folder"], a.me())
     return (f"Proposed: {said['name']}, written to {said['file']} — {said['summary']}. The person has been rung, "
             f"and it waits over their desk and as a card in Team until they start or dismiss it. Tell them so "
             f"in one line; you do not need to wait for it.")
@@ -329,7 +329,7 @@ def _said_request(said: dict) -> str:
 
 def _request(a: Argus, args: dict) -> str:
     return _said_request(a.request(args["action"], args.get("args") or {}, args.get("why", ""), wait=120,
-                                   session=own_session()))
+                                   session=a.me()))
 
 
 def _request_status(a: Argus, args: dict) -> str:
@@ -345,7 +345,7 @@ def _todos(a: Argus, args: dict) -> str:
 
 
 def _todo_set(a: Argus, args: dict) -> str:
-    said = a.todo(note=args.get("note"), ident=str(args["todo"]), status=args.get("status"), by=own_session())
+    said = a.todo(note=args.get("note"), ident=str(args["todo"]), status=args.get("status"), by=a.me())
     return f"#{said['n']} is {said['status']}: {said['note']}"
 
 

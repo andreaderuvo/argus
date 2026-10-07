@@ -1249,6 +1249,14 @@
   "by their length": "by their length",
   "until I close them": "until I close them",
   "like this — {how}": "like this — {how}",
-  "Hide it here — it stays open in While you were away": "Hide it here — it stays open in While you were away"
+  "Hide it here — it stays open in While you were away": "Hide it here — it stays open in While you were away",
+  "Before you start": "Before you start",
+  "Allow them": "Allow them",
+  "Install / update": "Install / update",
+  "done — checked again": "done — checked again",
+  "not an agent: a shell takes no turn and reports nothing — the team will wait on it": "not an agent: a shell takes no turn and reports nothing — the team will wait on it",
+  "no Argus plugin: no team tools and no Stop guard — it will report by writing to the team's log, which works but is checked by nobody until the next round": "no Argus plugin: no team tools and no Stop guard — it will report by writing to the team's log, which works but is checked by nobody until the next round",
+  "Gemini gets the team tools from its extension but no Stop guard: a turn ended without a report is noticed by the reminder, after two minutes": "Gemini gets the team tools from its extension but no Stop guard: a turn ended without a report is noticed by the reminder, after two minutes",
+  "Codex's hooks have not been heard yet: they run only after you review them once in Codex — until then there is no Stop guard (open Codex, accept the hooks)": "Codex's hooks have not been heard yet: they run only after you review them once in Codex — until then there is no Stop guard (open Codex, accept the hooks)"
  }
 }

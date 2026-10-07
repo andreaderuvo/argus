@@ -58,6 +58,7 @@ AGENT_ROUTES = frozenset({
     ("GET", "/api/prefs"),
     ("GET", "/api/tmux/sessions"),
     ("GET", "/api/tmux/cwd"),
+    ("GET", "/api/tmux/whoami"),
     ("POST", "/api/bell"),
     # Asking a person a question, and waiting for the answer. Answering one is *not* here and
     # never will be: the whole value of a question is that a person answered it, and an agent

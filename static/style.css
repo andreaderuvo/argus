@@ -3884,3 +3884,9 @@ dialog.sheet.teamsheet { width: min(980px, 96vw); max-width: none; margin-top: m
 .toast.askcard { border: 1px solid var(--accent); background: var(--panel); color: var(--text); animation: toastin .18s ease-out; }
 .toast.askcard .askbuttons { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .5rem; }
 .toast.askcard .askbuttons > .linkbox { flex: 1 1 10rem; min-width: 0; }
+.teamready { display: grid; gap: .35rem; padding: .6rem .8rem; border: 1px solid var(--line); border-radius: .6rem; }
+.teamreadyhead { margin: 0; font-weight: 600; font-size: .88rem; }
+.teamreadyrow { display: flex; align-items: center; gap: .6rem; font-size: .84rem; flex-wrap: wrap; }
+.teamreadyrow > span { flex: 1 1 18rem; min-width: 0; }
+.teamreadyrow.warn > span::before { content: "⚠ "; color: var(--st-warning); }
+.teamreadyrow.info > span::before { content: "ℹ "; color: var(--dim); }

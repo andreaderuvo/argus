@@ -177,3 +177,42 @@ def test_a_proposals_permissions_reach_the_start(tmp_path, monkeypatch):
          "options": [{"id": "permissions", "choices": [{"value": "edits"}, {"value": "skip"}]}]}])
     plan = consent.plan(app, "start_team", {"team": "Loose"})
     assert plan["danger"] and "may do without asking: everything" in plan["text"]
+
+
+def test_a_process_with_a_bare_environment_is_told_its_session(tmp_path, monkeypatch):
+    """Codex starts its MCP servers with no TMUX_PANE: `team_done` could not say whose turn it was.
+    Argus walks the process's parents to a pane's own pid — on its own tmux server only."""
+    import os
+    from app import tmux as T
+    me = os.getpid()
+    parent = T.parent_of(me)
+    assert parent > 0
+    monkeypatch.setattr(T, "pane_pids", lambda sock: {"trader": [parent], "other": [999999]})
+    assert T.session_of_pid(None, me) == "trader"
+    monkeypatch.setattr(T, "pane_pids", lambda sock: {"other": [999999]})
+    assert T.session_of_pid(None, me) is None
+    with TestClient(make(tmp_path)) as c:
+        monkeypatch.setattr(T, "pane_pids", lambda sock: {"trader": [parent]})
+        assert c.get(f"/api/tmux/whoami?pid={me}", headers=AGENT).json() == {"session": "trader"}
+
+
+def test_the_client_asks_argus_when_its_environment_does_not_say(monkeypatch):
+    from tools import argus_client as C
+    monkeypatch.delenv("ARGUS_SESSION", raising=False)
+    monkeypatch.delenv("TMUX_PANE", raising=False)
+    a = C.Argus("http://127.0.0.1:1", "x")
+    asked = []
+    monkeypatch.setattr(a, "call", lambda m, p, b=None, timeout=60: asked.append(p) or {"session": "trader"})
+    assert a.me() == "trader" and a.me() == "trader" and len(asked) == 1, "asked once, remembered"
+    assert asked[0].startswith("/api/tmux/whoami?pid=")
+    assert a.me("given") == "given"
+
+
+def test_a_session_argus_starts_knows_its_name_and_finds_argus_say(monkeypatch):
+    from app import launch
+    ran = []
+    monkeypatch.setattr(launch.tmux, "run", lambda argv: ran.append(argv))
+    launch.start(launch.tmux.Socket(), "Kraken-trader", "/tmp", "codex")
+    line = ran[0][-1]
+    assert "export ARGUS_SESSION=" in line and "Kraken-trader" in line and str(launch.TOOLS) in line
+    assert (launch.TOOLS / "argus-say").exists()
