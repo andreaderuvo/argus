@@ -416,7 +416,7 @@ function aside(said) {
  *  fetch and append on its own. Only additions — a desk this page has is left as it is, since it
  *  may be in the middle of being dragged about. */
 let adopting = Promise.resolve();
-function adoptDesks(renamed = null) {
+export function adoptDesks(renamed = null) {
   adopting = adopting.then(async () => {
     // A rename said by the machine is taken as said: this page keeps its desks in memory and would
     // otherwise save the old name straight back.
@@ -464,6 +464,9 @@ function openStream() {
         signal: stop.signal,
       });
       if (!r.ok || !r.body) throw new Error(`stream ${r.status}`);
+      // Connected (again): anything announced while this page was not listening — a desk an agent
+      // made while Argus restarted — was missed; the machine's list of desks says it.
+      adoptDesks();
 
       const reader = r.body.getReader();
       const decode = new TextDecoder();

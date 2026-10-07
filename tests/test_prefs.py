@@ -63,3 +63,33 @@ def test_a_document_that_is_not_a_map_is_ignored(tmp_path):
     store = tmp_path / "prefs.json"
     store.write_text(json.dumps({"version": 3, "prefs": ["not", "a", "map"]}), encoding="utf-8")
     assert prefs.load(store) == (0, {})
+
+
+def test_a_desk_made_for_an_agent_survives_a_page_that_never_saw_it(tmp_path):
+    """Reported 2026-10-07: an agent made the desk "pippo" (answered "made"), no page was open to
+    adopt it, a page then saved its desks whole and pippo was gone. A page now says which desks it
+    knew; one it never saw is kept — renumbered if the page has given its id away meanwhile."""
+    from fastapi.testclient import TestClient
+
+    from app.config import Config
+    from app.main import create_app
+    from app import prefs as P
+
+    app = create_app(Config(token="m" * 64, roots=[tmp_path], listen="127.0.0.1:0"))
+    app.state.prefs = tmp_path / "prefs.json"
+    c = TestClient(app)
+    h = {"authorization": "Bearer " + "m" * 64}
+    c.patch("/api/prefs", json={"changes": {"workspaces": [{"id": 1, "name": "argus", "desktop": []}], "wsSeq": 1}}, headers=h)
+    made = c.post("/api/desks", json={"name": "pippo", "show": False}, headers=h).json()
+    assert made["made"] and made["id"] == 2
+    # A page that knew only desk 1 saves its desks, having made one of its own — also id 2.
+    said = c.patch("/api/prefs", json={"changes": {"workspaces": [
+        {"id": 1, "name": "argus", "desktop": [{"kind": "term", "name": "x"}]},
+        {"id": 2, "name": "mine", "desktop": []}], "wsSeq": 2}, "known": {"workspaces": [1]}}, headers=h).json()
+    names = {w["name"]: w["id"] for w in P.load(app.state.prefs)[1]["workspaces"]}
+    assert set(names) == {"argus", "mine", "pippo"} and names["mine"] == 2 and names["pippo"] == 3
+    assert said["wsSeq"] == 3 and P.load(app.state.prefs)[1]["wsSeq"] == 3
+    # Closing a desk the page *did* know still closes it.
+    c.patch("/api/prefs", json={"changes": {"workspaces": [{"id": 1, "name": "argus", "desktop": []}]},
+                                "known": {"workspaces": [1, 2, 3]}}, headers=h)
+    assert [w["name"] for w in P.load(app.state.prefs)[1]["workspaces"]] == ["argus"]

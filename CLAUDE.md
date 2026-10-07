@@ -504,6 +504,14 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   What-an-agent-can-do carry the table; a test fails when an action or tool is missing from them.
   `GET /api/plugin` also lists `behind` — sessions still on an older plugin — which Alt+V and
   Settings show after an update, with the reload: updating alone left every open session on the old one.
+- **A desk made on the machine survives a page that never saw it** (`prefs.keep_unseen_desks`,
+  test_prefs.py, test_desk_by_name.py). A page PATCHes `workspaces` whole; one that missed the
+  `desk` announcement (made with show off, or Argus restarted under it) deleted an agent's desk
+  with its next save — reported as "made the desk pippo", then gone. A save of the desks now carries
+  `known: {workspaces: [ids the page had]}`; the server keeps desks the page never knew
+  (renumbered if the page reused the id) and answers them, and the page adopts them. The bell
+  stream also re-adopts on every (re)connect. Pending consent requests are in `GET /api/teams`
+  (`requests`) and drawn over every desk with Do it / No until answered.
 - **How a verdict moves a team** (`Director._finished`, the audit of 2026-10-07, tests in
   test_teams.py "verdicts the audit found ignored"). A non-judge's turn is `always`, except
   BLOCKED, which anyone may say; BLOCKED follows only `if BLOCKED` arrows, else waits for the

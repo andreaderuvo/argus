@@ -80,6 +80,34 @@ def save(store: Path, version: int, doc: dict) -> None:
     tmp.replace(store)
 
 
+def keep_unseen_desks(stored: list, sent: list, known: list) -> tuple[list, int]:
+    """The desks a page sends, plus the ones it never saw — `(desks, highest id)`.
+
+    A page saves `workspaces` whole. A desk the server made while that page was not looking (an
+    agent's "open a desk called pippo", with no page open to adopt it) was then simply not in
+    the list, and the save deleted it — reported 2026-10-07: "made the desk pippo", then gone.
+    `known` is the desk ids the page had when it last read the machine: a desk missing from what
+    it sends was closed by it only if it knew it. One it never knew is kept, renumbered if the
+    page has meanwhile given its id to a desk of its own."""
+    sent = [dict(w) for w in sent if isinstance(w, dict)]
+    ids = {w.get("id") for w in sent}
+    known = set(known)
+    top = max([int(w.get("id") or 0) for w in [*sent, *stored] if isinstance(w, dict)] + [0])
+    for w in stored:
+        if not isinstance(w, dict) or w.get("id") in known:
+            continue
+        if any(s.get("name", "").lower() == str(w.get("name", "")).lower() and s.get("id") == w.get("id") for s in sent):
+            continue
+        if w.get("id") in ids:
+            if any(s.get("id") == w.get("id") and s.get("name") == w.get("name") for s in sent):
+                continue
+            top += 1
+            w = {**w, "id": top}
+        sent.append(w)
+        ids.add(w.get("id"))
+    return sent, top
+
+
 def merge(doc: dict, changes: dict) -> dict:
     """Changed keys over the document, and *only* top level.
 

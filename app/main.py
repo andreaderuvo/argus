@@ -700,7 +700,8 @@ def create_app(cfg: Config) -> FastAPI:
     async def teams_list(request: Request) -> dict:
         return {"teams": request.app.state.teams.public(), "templates": teams.TEMPLATES,
                 "roles": sorted(teams.DUTIES), "conditions": list(teams.WHEN),
-                "proposals": await asyncio.to_thread(request.app.state.proposals.live)}
+                "proposals": await asyncio.to_thread(request.app.state.proposals.live),
+                "requests": consent.waiting(request.app)}
 
     @app.delete("/api/teams/proposals", tags=["Teams"], summary="Dismiss a team an agent proposed")
     async def teams_dismiss(request: Request, folder: str) -> Response:
@@ -1266,11 +1267,20 @@ def create_app(cfg: Config) -> FastAPI:
             raise ApiError(400, "send {changes: {key: value}} — a null value removes a key")
         store = request.app.state.prefs
         version, doc = prefs.load(store)
+        # Desks the page never saw (made by the server for an agent) survive its save — see
+        # prefs.keep_unseen_desks. Only from a page that says what it knew; an old one saves as before.
+        known = (body.get("known") or {}).get("workspaces") if isinstance(body.get("known"), dict) else None
+        if isinstance(changes.get("workspaces"), list) and isinstance(known, list):
+            desks, top = prefs.keep_unseen_desks(doc.get("workspaces") or [], changes["workspaces"], known)
+            changes = {**changes, "workspaces": desks,
+                       "wsSeq": max(top, int(changes.get("wsSeq") or doc.get("wsSeq") or 0))}
         try:
             prefs.save(store, version + 1, prefs.merge(doc, changes))
         except (ValueError, OSError) as e:
             raise ApiError(413 if isinstance(e, ValueError) else 500, str(e)) from e
-        return {"version": version + 1, "changed": sorted(changes)}
+        return {"version": version + 1, "changed": sorted(changes),
+                **({"workspaces": changes["workspaces"], "wsSeq": changes["wsSeq"]}
+                   if isinstance(known, list) and "workspaces" in changes else {})}
 
     @app.put("/api/prefs", tags=["Setup"], summary="Replace the whole document")
     async def put_prefs(request: Request, body: dict) -> dict:

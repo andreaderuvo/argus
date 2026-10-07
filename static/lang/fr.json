@@ -1234,6 +1234,9 @@
   "Claude working or asking you something: {list} — reload when it stops (its window offers it), or type /reload-plugins": "Claude au travail ou en attente d'une réponse : {list} — rechargez quand il s'arrête (sa fenêtre le propose), ou tapez /reload-plugins",
   "Codex has no reload: {list} take the new plugin when the session starts again": "Codex n'a pas de rechargement : {list} prennent le nouveau plugin au redémarrage de la session",
   "the team {name} has started{where}": "l'équipe {name} a démarré{where}",
-  "in the desk {desk}": "dans le bureau {desk}"
+  "in the desk {desk}": "dans le bureau {desk}",
+  "{who} asks to {what}": "{who} demande de {what}",
+  "Do it": "Fais-le",
+  "No": "Non"
  }
 }

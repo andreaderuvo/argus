@@ -168,6 +168,13 @@ export function setPushing(value) { pushing = value; }
  *  desk it has already seen the night's work. */
 export const MINE_ONLY = new Set(['ws', 'looked']);
 
+/** The desk ids this page had when it last agreed with the machine — sent with a save of the
+ *  desks, so the machine keeps the ones this page never saw (made for an agent) rather than
+ *  taking their absence as "closed". */
+export function knownDesks() {
+  return (baseline.workspaces || []).map((w) => w.id);
+}
+
 export function changedKeys() {
   const changes = {};
   for (const [key, value] of Object.entries(prefs)) {

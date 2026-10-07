@@ -855,8 +855,20 @@ export function teamStrip({ wsId, openLog, openTeam }) {
           refresh();
         } }),
       ]));
-      strip.replaceChildren(...offered, ...mineOnes.flatMap((team) => drawTeam(team, { refresh, openLog, openTeam })));
-      strip.hidden = !mineOnes.length && !offered.length;
+      // An agent's request waiting for your tap (app/consent.py): over every desk until answered.
+      const answer = (r, said) => async () => {
+        try { await postJSON(`/api/ask/${r.question}/answer`, { answer: said }); } catch (e) { toast(e.message, true); }
+        refresh();
+      };
+      const asked = (said.requests || []).map((r) => el('div', { className: `teamline teamrequest${r.danger ? ' danger' : ''}` }, [
+        icon('bell'),
+        el('span', { className: 'teamname', textContent: t('{who} asks to {what}', { who: r.session || t('an agent'), what: r.text }) }),
+        r.why ? el('span', { className: 'meta', textContent: r.why }) : null,
+        el('button', { className: 'ghost', type: 'button', textContent: t('No'), onclick: answer(r, 'No') }),
+        el('button', { className: 'primary inline', type: 'button', textContent: t('Do it'), onclick: answer(r, 'Do it') }),
+      ].filter(Boolean)));
+      strip.replaceChildren(...asked, ...offered, ...mineOnes.flatMap((team) => drawTeam(team, { refresh, openLog, openTeam })));
+      strip.hidden = !mineOnes.length && !offered.length && !asked.length;
     } catch { /* asked again in a moment */ }
     busy = false;
   };

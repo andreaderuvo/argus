@@ -495,3 +495,20 @@ def test_a_team_started_on_request_lands_in_the_desk_asked_for(make_page, argus)
     page.wait("!!document.querySelector('.win[data-kind=\"team\"]')", timeout=15, what="the team's window, on the desk")
     page.wait("!!document.querySelector('.win[data-session=\"Build-and-review-executor\"]')", timeout=15, what="its first agent's window")
     clean(argus, project)
+
+
+def test_an_agents_request_waits_over_the_desk_with_do_it(make_page, argus):
+    """The bell is a six-second toast: a request missed there was found only in "while you were
+    away". It now waits over the desk, with Do it and No, until answered."""
+    project = desk(argus)
+    argus.api("/api/todo", "POST", {"note": "drop me"})
+    n = argus.api("/api/todo")["items"][0]["n"]
+    page = make_page(route="#/wall")
+    req = argus.api("/api/agent/request", "POST", {"action": "todo_delete", "args": {"todo": n}, "session": "claude-x"})
+    line = "[...document.querySelectorAll('.teamrequest')].find(l => l.textContent.includes('claude-x'))"
+    page.wait(f"!!{line}", timeout=15, what="the request, over the desk")
+    page.click_at(*page._center(f"[...{line}.querySelectorAll('button')].find(b => b.textContent === 'Do it')"))
+    eventually(lambda: argus.api(f"/api/agent/request/{req['id']}?wait=2")["state"] == "done", timeout=15, what="done")
+    assert argus.api("/api/todo")["items"] == []
+    page.wait("!document.querySelector('.teamrequest')", timeout=10, what="and gone from the desk")
+    clean(argus, project)

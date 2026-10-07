@@ -39,3 +39,22 @@ def test_a_desk_made_by_name_appears_and_takes_what_is_started_into_it(make_page
     eventually(lambda: [d["name"] for d in argus.api("/api/prefs")["prefs"]["workspaces"]] == ["Pippo senior", "pippo"],
                timeout=10, what="the new name kept after the page saved")
     argus.kill_sessions()
+
+
+def test_a_desk_made_while_the_page_was_not_told_is_not_lost_when_it_saves(make_page, argus):
+    """Reported 2026-10-07: an agent made "pippo" ("made the desk pippo"), the page open then had
+    not been told (made with show off, or Argus restarted under it), saved its own desks whole —
+    and pippo was gone. The page says which desks it knew; the machine keeps the rest, and the
+    page takes them in."""
+    argus.kill_sessions()
+    argus.api("/api/prefs", "PATCH", {"changes": {"ws": 1, "wsSeq": 1, "workspaces": [
+        {"id": 1, "name": "Work", "desktop": []}]}})
+    page = make_page(route="#/wall")
+    page.wait("!!document.querySelector('.wstab[data-ws=\"1\"]')", timeout=10, what="the desk there is")
+    argus.api("/api/desks", "POST", {"name": "pippo", "show": False})      # no announcement
+    # The page changes its desks and saves them, never having seen pippo.
+    page.eval("import('/js/state.js').then(s => { s.prefs.workspaces[0].name = 'Work 2'; return import('/js/core.js'); }).then(c => c.savePrefs())")
+    eventually(lambda: sorted(d["name"] for d in argus.api("/api/prefs")["prefs"]["workspaces"]) == ["Work 2", "pippo"],
+               timeout=10, what="pippo kept beside the page's save")
+    page.wait("[...document.querySelectorAll('.wstab')].some(t => t.textContent.includes('pippo'))", timeout=10,
+              what="and the page took it in")

@@ -57,6 +57,14 @@ def store(app) -> dict[str, dict]:
     return app.state.consent
 
 
+def waiting(app) -> list[dict]:
+    """The requests still waiting for the person's tap — shown over every desk until answered, so a
+    bell missed (a six-second toast) does not leave the question nowhere to be found."""
+    return [{"id": o["id"], "question": o.get("question"), "session": o.get("session"), "text": o["text"],
+             "why": o.get("why", ""), "at": o["at"], "danger": bool(o["_plan"].get("danger"))}
+            for o in store(app).values() if o["state"] == "asked" and o.get("question")]
+
+
 def public(one: dict) -> dict:
     return {k: v for k, v in one.items() if not k.startswith("_")}
 

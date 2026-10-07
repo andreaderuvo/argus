@@ -1,4 +1,5 @@
 // <imports> generated from what this file uses; edit the code, not this list
+import { adoptDesks } from '/js/bells.js';
 import { modal, toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { icon } from '/js/icons.js';
@@ -6,7 +7,7 @@ import { api, getJSON, patchJSON } from '/js/reconnect.js';
 import { go } from '/js/router.js';
 import { keyHelp } from '/js/shortcuts.js';
 import { applyRail } from '/js/sidebar.js';
-import { CAN_FULLSCREEN, MINE_ONLY, PREFS_KEY, VITALS_EVERY, bar, changedKeys, prefs, pushing, railToggle, server, setBaseline, setPrefsVersion, setPushing, setVitalsTimer, vitalsTimer } from '/js/state.js';
+import { CAN_FULLSCREEN, MINE_ONLY, PREFS_KEY, VITALS_EVERY, bar, changedKeys, knownDesks, prefs, pushing, railToggle, server, setBaseline, setPrefsVersion, setPushing, setVitalsTimer, vitalsTimer } from '/js/state.js';
 import { nextWindowId, openWindow } from '/js/tray.js';
 import { LEVEL_WORD, worstVital } from '/js/vitals.js';
 import { t } from '/js/words.js';
@@ -141,8 +142,12 @@ export function savePrefs() {
     const changes = changedKeys();
     if (!Object.keys(changes).length) return;
     try {
-      const said = await patchJSON('/api/prefs', { changes });
+      const said = await patchJSON('/api/prefs', {
+        changes, ...('workspaces' in changes ? { known: { workspaces: knownDesks() } } : {}),
+      });
       setPrefsVersion(said.version);
+      // The machine kept a desk this page had not seen: take it in, so the next save carries it.
+      if (said.workspaces?.some((w) => !(prefs.workspaces || []).some((m) => m.id === w.id))) adoptDesks();
       setBaseline(JSON.parse(JSON.stringify(prefs)));
     } catch (e) {
       // Offline, or a server too old to have this: the browser goes on working from its own

@@ -3856,3 +3856,7 @@ dialog.sheet.teamsheet { width: min(980px, 96vw); max-width: none; margin-top: m
 .pluginbehind { display: grid; gap: .3rem; margin-top: .4rem; padding-top: .4rem; border-top: 1px solid var(--line); }
 .pluginbehind p { margin: 0; }
 .teamwarn { color: var(--st-warning); margin: 0; }
+.teamline.teamrequest { border: 1px solid var(--accent); border-radius: .5rem; margin: .3rem .5rem; }
+.teamline.teamrequest.danger { border-color: var(--danger); }
+.teamline.teamrequest > .teamname { flex: 1 1 16rem; min-width: 0; }
+.teamline.teamrequest > button.primary.inline { min-height: 0; padding: .2rem .8rem; }
