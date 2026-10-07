@@ -1204,6 +1204,10 @@
   "{n} more…": "{n} de plus…",
   "find a team: name, role, pack…": "chercher une équipe : nom, rôle, pack…",
   "find a team": "chercher une équipe",
-  "no team matches “{q}”": "aucune équipe ne correspond à « {q} »"
+  "no team matches “{q}”": "aucune équipe ne correspond à « {q} »",
+  "Hide": "Masquer",
+  "Take this off the desk; the files stay": "Retirez-le du bureau ; les fichiers restent",
+  "hidden from this desk — it comes back if {file} is written again": "masqué de ce bureau — il revient si {file} est réécrit",
+  "A pair of agents from the old Two agents, planned in {path}.": "Une paire d'agents de l'ancien Two agents, planifiée dans {path}."
  }
 }

@@ -403,3 +403,24 @@ def test_the_teams_can_be_filtered(make_page, argus):
     page.wait("document.querySelector('.teamfind').value === '' && !!document.querySelector('.teamcard.teammore')", timeout=5, what="cleared")
     assert page.eval("!!document.querySelector('dialog.sheet[open]')"), "and the sheet still open"
     clean(argus, project)
+
+
+def test_an_old_pair_left_on_a_desk_can_be_hidden(make_page, argus):
+    """A PLAN/BRIDGE.argus.md left by the old Two agents kept its note ("together · blocked") on the
+    desk for ever. Hide takes it off until either file is written again; the files stay."""
+    project = desk(argus)
+    (project / "PLAN.argus.md").write_text("# Plan\n\n- builds: a\n- reviews: b\n")
+    (project / "BRIDGE.argus.md").write_text("## WORKER: BLOCKED\nneed the credentials\n")
+    page = make_page(route="#/wall")
+    page.wait("!document.querySelector('.pairnote').hidden", timeout=15, what="the old pair's note")
+    page.click_at(*page._center("document.querySelector('.pairnote')"))
+    page.click_at(*page._center("[...document.querySelectorAll('dialog.sheet button')].find(b => b.textContent === 'Hide')"))
+    page.wait("document.querySelector('.pairnote').hidden", timeout=5, what="hidden")
+    eventually(lambda: (argus.api("/api/prefs")["prefs"].get("pairHidden") or {}).get(str(project)), timeout=10, what="remembered")
+    assert (project / "PLAN.argus.md").exists() and (project / "BRIDGE.argus.md").exists(), "the files stay"
+    page.eval("location.reload()")
+    page.wait("!!document.querySelector('.pairnote')", timeout=15)
+    time.sleep(1.5)
+    assert page.eval("document.querySelector('.pairnote').hidden") is True, "still hidden after a reload"
+    (project / "PLAN.argus.md").unlink()
+    (project / "BRIDGE.argus.md").unlink()

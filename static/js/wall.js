@@ -2024,6 +2024,10 @@ export async function screenWall() {
     const who = [...text.matchAll(/^-\s*(?:builds|reviews):\s*(\S+)/gm)].map((m) => m[1]);
     const loop = (prefs.pairLoop || {})[activeSpace().id];
     const bridge = await readBridge(folder);
+    // Put away from this desk ("Hide"): stays away until either file is written again — a pair
+    // long finished, or one that ended BLOCKED, otherwise sat there for ever.
+    const newest = Math.max(wrote, bridge?.wrote || 0);
+    if ((prefs.pairHidden || {})[folder] >= newest) { pairNote.hidden = true; return; }
     const last = bridge?.last || null;
     // The bridge is the live thing; the plan is written once and then mostly sits there.
     const quiet = bridge?.wrote ? (Date.now() / 1000) - bridge.wrote : (wrote ? (Date.now() / 1000) - wrote : 0);
@@ -2056,9 +2060,16 @@ export async function screenWall() {
         }),
       ]),
     );
-    pairNote.onclick = () => (bridge
-      ? bridgeSheet(folder, bridge, loop)
-      : openLocated('wall', { path, type: 'file' }, null));
+    pairNote.onclick = () => bridgeSheet(folder, bridge, loop, newest);
+  }
+
+  // Off this desk until the plan or the bridge is written again. The files stay where they are.
+  function hidePair(folder, newest) {
+    prefs.pairHidden = { ...(prefs.pairHidden || {}), [folder]: newest };
+    if ((prefs.pairLoop || {})[activeSpace().id]) delete prefs.pairLoop[activeSpace().id];
+    savePrefs();
+    pairNote.hidden = true;
+    toast(t('hidden from this desk — it comes back if {file} is written again', { file: 'PLAN/BRIDGE.argus.md' }));
   }
 
   /** Where they have got to, and the way out.
@@ -2070,16 +2081,17 @@ export async function screenWall() {
    *  Stopping is a turn in the bridge like any other, because that is the only instruction
    *  the two of them are listening for. Nothing here reaches into a terminal.
    */
-  function bridgeSheet(folder, bridge, loop) {
+  function bridgeSheet(folder, bridge, loop, newest) {
     const body = el('div', { className: 'sheetbody' });
-    const recent = bridge.turns.slice(-3);
+    const recent = bridge ? bridge.turns.slice(-3) : [];
+    if (!bridge) body.append(el('p', { className: 'hint', textContent: t('A pair of agents from the old Two agents, planned in {path}.', { path: planPath(folder) }) }));
     for (const one of recent) {
       body.append(el('p', { className: 'bridgeturn' }, [
         el('code', { textContent: `${one.who}: ${one.status}` }),
         el('span', { textContent: ` ${(one.body[0] || one.said || '').slice(0, 120)}` }),
       ]));
     }
-    const by = bridgeDeadline(bridge.turns);
+    const by = bridge && bridgeDeadline(bridge.turns);
     if (by) {
       body.append(el('p', {
         className: 'hint',
@@ -2107,15 +2119,19 @@ export async function screenWall() {
     };
     sheet = modal(t('Two agents, on their own'), body, [
       el('button', {
+        className: 'ghost', textContent: t('Hide'), title: t('Take this off the desk; the files stay'),
+        onclick: () => { sheet.close(); hidePair(folder, newest); },
+      }),
+      el('button', {
         className: 'ghost', textContent: t('Open the plan'),
         onclick: () => { sheet.close(); openLocated('wall', { path: planPath(folder), type: 'file' }, null); },
       }),
-      el('button', {
+      bridge ? el('button', {
         className: 'ghost', textContent: t('Open the bridge'),
         onclick: () => { sheet.close(); openLocated('wall', { path: bridgePath(folder), type: 'file' }, null); },
-      }),
-      stop,
-    ]);
+      }) : null,
+      bridge && !['STOP', 'OK', 'BLOCKED'].includes(bridge.last?.status) ? stop : null,
+    ].filter(Boolean));
   }
 
   /** Argus's whole part in the loop: ring at the end of it, and stop it when the rounds it

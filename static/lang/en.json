@@ -1204,6 +1204,10 @@
   "{n} more…": "{n} more…",
   "find a team: name, role, pack…": "find a team: name, role, pack…",
   "find a team": "find a team",
-  "no team matches “{q}”": "no team matches “{q}”"
+  "no team matches “{q}”": "no team matches “{q}”",
+  "Hide": "Hide",
+  "Take this off the desk; the files stay": "Take this off the desk; the files stay",
+  "hidden from this desk — it comes back if {file} is written again": "hidden from this desk — it comes back if {file} is written again",
+  "A pair of agents from the old Two agents, planned in {path}.": "A pair of agents from the old Two agents, planned in {path}."
  }
 }
