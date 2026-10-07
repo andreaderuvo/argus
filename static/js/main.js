@@ -3,6 +3,7 @@
 // before anything else asks for it.
 import '/js/plumbing.js';
 // <imports> generated from what this file uses; edit the code, not this list
+import { loadAsks } from '/js/askcards.js';
 import { listenForBells } from '/js/bells.js';
 import { markDrops, syncPrefs, watchVitals } from '/js/core.js';
 import { AGENT_STATES_EVERY, SESSION_COUNT_EVERY, countSessions, countTodo, readAgentStates } from '/js/counts.js';
@@ -120,6 +121,8 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) { co
   // Only after the first paint: the first answer sets the mark for "now" and rings
   // nothing, so this can never greet you with the morning's leftovers.
   if (token) listenForBells();
+  // The questions still open come back as cards in the corner, after a reload too.
+  if (token) loadAsks();
   // Not awaited: the header icon is a nicety, not something first paint should wait on,
   // and it is a no-op wherever `server` is already known by the time this resolves.
   if (token) serverInfo().then(markDrops).catch(() => {});

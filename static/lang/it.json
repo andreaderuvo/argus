@@ -1237,6 +1237,18 @@
   "in the desk {desk}": "nel desk {desk}",
   "{who} asks to {what}": "{who} chiede di {what}",
   "Do it": "Fallo",
-  "No": "No"
+  "No": "No",
+  "Notifications on screen": "Notifiche a schermo",
+  "the messages in the bottom-right corner — off, only failures still show": "i messaggi nell'angolo in basso a destra — spente, si vedono solo gli errori",
+  "How long they stay": "Quanto restano",
+  "then they fade; the pointer on one holds it, ✕ closes it": "poi svaniscono; il mouse sopra la trattiene, ✕ la chiude",
+  "3 seconds": "3 secondi",
+  "5 seconds": "5 secondi",
+  "10 seconds": "10 secondi",
+  "20 seconds": "20 secondi",
+  "by their length": "secondo la lunghezza",
+  "until I close them": "finché non le chiudo",
+  "like this — {how}": "così — {how}",
+  "Hide it here — it stays open in While you were away": "Nascondila qui — resta aperta in Mentre eri via"
  }
 }

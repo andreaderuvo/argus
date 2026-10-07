@@ -842,6 +842,17 @@ export async function screenSettings() {
     group(t('Interruptions')),
     toggle(t('Sound when something rings'), t('two short tones when an agent finishes or asks for you'),
       () => prefs.bellSound !== false, (v) => { prefs.bellSound = v; }),
+    // The messages in the bottom-right corner: whether, and for how long.
+    toggle(t('Notifications on screen'), t('the messages in the bottom-right corner — off, only failures still show'),
+      () => prefs.toastShow !== false, (v) => { prefs.toastShow = v; }),
+    choice(t('How long they stay'), t('then they fade; the pointer on one holds it, ✕ closes it'),
+      [t('3 seconds'), t('5 seconds'), t('10 seconds'), t('20 seconds'), t('by their length'), t('until I close them')],
+      () => ({ 5: t('5 seconds'), 10: t('10 seconds'), 20: t('20 seconds'), auto: t('by their length'), close: t('until I close them') })[prefs.toastSecs] || t('3 seconds'),
+      (v) => {
+        prefs.toastSecs = { [t('5 seconds')]: '5', [t('10 seconds')]: '10', [t('20 seconds')]: '20',
+          [t('by their length')]: 'auto', [t('until I close them')]: 'close' }[v] || '3';
+        toast(t('like this — {how}', { how: v }));
+      }),
     wiringRows(), pluginRows(), bellRow(),
   );
 

@@ -855,20 +855,9 @@ export function teamStrip({ wsId, openLog, openTeam }) {
           refresh();
         } }),
       ]));
-      // An agent's request waiting for your tap (app/consent.py): over every desk until answered.
-      const answer = (r, said) => async () => {
-        try { await postJSON(`/api/ask/${r.question}/answer`, { answer: said }); } catch (e) { toast(e.message, true); }
-        refresh();
-      };
-      const asked = (said.requests || []).map((r) => el('div', { className: `teamline teamrequest${r.danger ? ' danger' : ''}` }, [
-        icon('bell'),
-        el('span', { className: 'teamname', textContent: t('{who} asks to {what}', { who: r.session || t('an agent'), what: r.text }) }),
-        r.why ? el('span', { className: 'meta', textContent: r.why }) : null,
-        el('button', { className: 'ghost', type: 'button', textContent: t('No'), onclick: answer(r, 'No') }),
-        el('button', { className: 'primary inline', type: 'button', textContent: t('Do it'), onclick: answer(r, 'Do it') }),
-      ].filter(Boolean)));
-      strip.replaceChildren(...asked, ...offered, ...mineOnes.flatMap((team) => drawTeam(team, { refresh, openLog, openTeam })));
-      strip.hidden = !mineOnes.length && !offered.length && !asked.length;
+      // An agent's request for your OK is a card in the corner (askcards.js), on every screen.
+      strip.replaceChildren(...offered, ...mineOnes.flatMap((team) => drawTeam(team, { refresh, openLog, openTeam })));
+      strip.hidden = !mineOnes.length && !offered.length;
     } catch { /* asked again in a moment */ }
     busy = false;
   };
@@ -898,7 +887,7 @@ export function attachTeam(host, spec, setLabel, { openLog }) {
       const now = JSON.stringify([team, story, states]);
       if (force || now !== drawn) {
         drawn = now;
-        const keep = [box.scrollTop, box.querySelector('.teamchain')?.scrollLeft || 0];
+        const keep = [box.scrollTop, box.querySelector('.teamchain')?.scrollLeft || 0, box.querySelector('.teamstory')?.scrollTop || 0];
         if (!team) {
           box.replaceChildren(el('p', { className: 'meta', textContent: t('this team has been forgotten — close the window') }));
         } else {
@@ -909,6 +898,8 @@ export function attachTeam(host, spec, setLabel, { openLog }) {
         box.scrollTop = keep[0];
         const chain = box.querySelector('.teamchain');
         if (chain) chain.scrollLeft = keep[1];
+        const told = box.querySelector('.teamstory');
+        if (told) told.scrollTop = keep[2];
       }
     } catch { /* asked again in a moment */ }
     busy = false;

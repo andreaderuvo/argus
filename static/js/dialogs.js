@@ -1,7 +1,7 @@
 // <imports> generated from what this file uses; edit the code, not this list
 import { el } from '/js/dom.js';
 import { icon } from '/js/icons.js';
-import { nav } from '/js/state.js';
+import { nav, prefs } from '/js/state.js';
 import { t } from '/js/words.js';
 // </imports>
 /* ------------------------------------------------------------------ dialogs */
@@ -214,22 +214,69 @@ export function measureFurniture() {
 
 window.addEventListener('resize', measureFurniture);
 
-/** A message at the bottom of the screen. With `onTap` it is also a button — which is
- *  the only reliable way to reach the clipboard, since a browser grants that to a gesture
- *  and an upload finishing is not one. */
-export function toast(message, bad = false, onTap = null, lasts = null) {
-  measureFurniture();
-  // An upload bar sits in this exact corner. Stack above it rather than on top of it:
-  // two messages covering each other is how the last attempt at feedback went wrong.
+/** How long a toast stays, by the setting (Settings → Interruptions): `3` seconds by default,
+ *  5, 10, 20, `auto` — by its length, a second for every ~15 characters, 3 to 20 s — or `close`,
+ *  until you close it. An explicit `lasts` (an Undo's six seconds) is a floor. */
+export function toastLasts(message, lasts = null) {
+  const by = prefs.toastSecs || '3';
+  if (by === 'close') return null;
+  const ms = by === 'auto'
+    ? Math.min(20000, Math.max(3000, 1500 + String(message).length * 65))
+    : Number(by) * 1000 || 3000;
+  return Math.max(ms, lasts || 0);
+}
+
+/** The corner the toasts stack in: bottom right (across the bottom on a phone), newest at the
+ *  bottom, each one whole — a toast used to sit centred, two of them on top of each other, cut
+ *  after 2.2 s. Lifted above the bars along the bottom and above an upload bar. */
+export function toastStack() {
+  let stack = document.getElementById('toasts');
+  if (!stack) {
+    stack = el('div', { id: 'toasts', className: 'toasts', role: 'status', 'aria-live': 'polite' });
+    document.body.append(stack);
+  }
   const bar = document.querySelector('.uploading');
   const lift = bar?.getClientRects().length ? Math.round(bar.getBoundingClientRect().height) + 8 : 0;
-  const t = el(onTap ? 'button' : 'div', { className: `toast ${bad ? 'bad' : ''}${onTap ? ' tappable' : ''}`, textContent: message });
-  if (lift) t.style.bottom = `calc(var(--furniture) + .7rem + ${lift}px)`;
-  if (onTap) t.onclick = () => { onTap(); t.remove(); };
-  document.body.append(t);
-  // A message you are meant to act on has to outlast the glance that notices it.
-  setTimeout(() => t.remove(), lasts ?? (bad ? 5000 : onTap ? 6000 : 2200));
-  return t;
+  stack.style.bottom = `calc(var(--furniture) + .7rem + ${lift}px)`;
+  return stack;
+}
+
+/** A message in the corner. With `onTap` it can be pressed — the only reliable way to reach the
+ *  clipboard, since a browser grants that to a gesture and an upload finishing is not one. It
+ *  fades after the time set (hovering holds it), ✕ closes it, and *Notifications on screen* off
+ *  keeps only the ones saying something failed. */
+export function toast(message, bad = false, onTap = null, lasts = null) {
+  measureFurniture();
+  const stack = toastStack();
+  const box = el('div', { className: `toast${bad ? ' bad' : ''}${onTap ? ' tappable' : ''}`, tabIndex: onTap ? 0 : -1 }, [
+    el('span', { className: 'toasttext', textContent: message }),
+  ]);
+  const go = () => {
+    box.classList.add('leaving');
+    setTimeout(() => box.remove(), 350);
+  };
+  const close = el('button', { className: 'toastx', type: 'button', title: t('Close'), textContent: '✕',
+    onclick: (e) => { e.stopPropagation(); go(); } });
+  box.append(close);
+  if (onTap) {
+    box.onclick = () => { onTap(); go(); };
+    box.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); box.onclick(); } };
+  }
+  // Off in Settings: only failures still show — an error nobody sees is worse than a toast.
+  if (prefs.toastShow === false && !bad) return box;
+  stack.append(box);
+  // At most six passing messages at once, the oldest first; a question waiting for an answer
+  // (askcards.js) never counts and is never pushed out.
+  const passing = [...stack.children].filter((n) => !n.classList.contains('askcard'));
+  for (const old of passing.slice(0, Math.max(0, passing.length - 6))) old.remove();
+  const ms = toastLasts(message, lasts);
+  if (ms !== null) {
+    let timer = setTimeout(go, ms);
+    // Held while the pointer is on it, so a long one can be read to the end.
+    box.addEventListener('mouseenter', () => clearTimeout(timer));
+    box.addEventListener('mouseleave', () => { clearTimeout(timer); timer = setTimeout(go, 1500); });
+  }
+  return box;
 }
 
 /** Something happened that you might not have meant. Six seconds, one tap to undo — the

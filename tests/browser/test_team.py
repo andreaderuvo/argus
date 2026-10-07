@@ -349,6 +349,11 @@ def test_the_team_window_keeps_your_place_and_puts_the_newest_first(make_page, a
     first = page.eval("document.querySelector('.teamwin .teamstory li').textContent")
     last = page.eval("[...document.querySelectorAll('.teamwin .teamstory li')].pop().textContent")
     assert "turn" in first and "started from" in last, "the newest on top"
+    # In a tall window the story takes the room under the graph (it was held to 12rem).
+    page.eval("(() => { const b = document.querySelector('.teamwin'); b.style.height = '760px'; b.style.flex = 'none'; })()")
+    page.wait("""(() => { const b = document.querySelector('.teamwin').getBoundingClientRect();
+      const s = document.querySelector('.teamwin .teamstory').getBoundingClientRect();
+      return s.height > 230 && b.bottom - s.bottom < 24; })()""", timeout=5, what="the story filling the window")
     # Scrolled down, it stays where it is across the window's refreshes.
     page.eval("(() => { const b = document.querySelector('.teamwin'); b.style.height = '120px'; b.style.flex = 'none'; })()")
     page.wait("(() => { const b = document.querySelector('.teamwin'); return b.scrollHeight > b.clientHeight + 40; })()", timeout=5,
@@ -497,18 +502,21 @@ def test_a_team_started_on_request_lands_in_the_desk_asked_for(make_page, argus)
     clean(argus, project)
 
 
-def test_an_agents_request_waits_over_the_desk_with_do_it(make_page, argus):
-    """The bell is a six-second toast: a request missed there was found only in "while you were
-    away". It now waits over the desk, with Do it and No, until answered."""
-    project = desk(argus)
+def test_an_agents_request_waits_in_the_corner_until_answered(make_page, argus):
+    """A request for your OK is a card in the bottom-right corner, on any screen, with Do it and No;
+    it does not fade, comes back after a reload, and leaves once answered."""
     argus.api("/api/todo", "POST", {"note": "drop me"})
     n = argus.api("/api/todo")["items"][0]["n"]
-    page = make_page(route="#/wall")
+    page = make_page(route="#/files")
     req = argus.api("/api/agent/request", "POST", {"action": "todo_delete", "args": {"todo": n}, "session": "claude-x"})
-    line = "[...document.querySelectorAll('.teamrequest')].find(l => l.textContent.includes('claude-x'))"
-    page.wait(f"!!{line}", timeout=15, what="the request, over the desk")
-    page.click_at(*page._center(f"[...{line}.querySelectorAll('button')].find(b => b.textContent === 'Do it')"))
+    card = "[...document.querySelectorAll('#toasts .askcard')].find(c => c.textContent.includes('claude-x'))"
+    page.wait(f"!!{card}", timeout=15, what="the request, in the corner")
+    time.sleep(4)
+    assert page.eval(f"!!{card}"), "it does not fade like a toast"
+    page.eval("window.__old = true; location.reload()")
+    page.wait("!window.__old", timeout=15, what="the page reloaded")
+    page.wait(f"!!{card}", timeout=15, what="and is back after a reload")
+    page.click_at(*page._center(f"[...{card}.querySelectorAll('button')].find(b => b.textContent === 'Do it')"))
     eventually(lambda: argus.api(f"/api/agent/request/{req['id']}?wait=2")["state"] == "done", timeout=15, what="done")
     assert argus.api("/api/todo")["items"] == []
-    page.wait("!document.querySelector('.teamrequest')", timeout=10, what="and gone from the desk")
-    clean(argus, project)
+    page.wait("!document.querySelector('#toasts .askcard')", timeout=10, what="and gone once answered")

@@ -1208,20 +1208,42 @@ button.ghost.inline.danger:hover {
   background: color-mix(in srgb, var(--danger) 12%, transparent);
 }
 
-.toast {
+.toasts {
   position: fixed;
-  left: 50%;
+  right: 1rem;
   bottom: calc(var(--furniture) + .7rem);
-  transform: translateX(-50%);
   z-index: 50;
-  max-width: min(28rem, calc(100vw - 2rem));
-  padding: .6rem 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: .45rem;
+  width: min(26rem, calc(100vw - 2rem));
+  pointer-events: none;
+}
+.toast {
+  position: relative;
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: .6rem;
+  max-width: 100%;
+  padding: .6rem .6rem .6rem 1rem;
   border-radius: .6rem;
   background: var(--bright);
   color: var(--bg);
   font-size: .85rem;
+  line-height: 1.35;
   box-shadow: 0 8px 24px rgba(0, 0, 0, .4);
+  animation: toastin .18s ease-out;
+  transition: opacity .35s ease, transform .35s ease;
 }
+.toast > .toasttext { flex: 1 1 auto; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.toast > .toastx { flex: none; border: 0; background: none; color: inherit; opacity: .6; cursor: pointer; font: inherit; padding: 0 .2rem; line-height: 1.35; }
+.toast > .toastx:hover { opacity: 1; }
+.toast.leaving { opacity: 0; transform: translateX(1.5rem); }
+@keyframes toastin { from { opacity: 0; transform: translateY(.6rem); } to { opacity: 1; transform: none; } }
+@media (max-width: 560px) { .toasts { right: 1rem; left: 1rem; width: auto; align-items: stretch; } }
+@media (prefers-reduced-motion: reduce) { .toast { animation: none; transition: opacity .2s; } .toast.leaving { transform: none; } }
 
 .toast.bad { background: var(--danger); color: #fff; }
 
@@ -1925,8 +1947,8 @@ body.wall .preview, .winbody .pdfsearch { }
 }
 
 /* A message that is also a button: the clipboard is only reachable from a gesture. */
-.toast.tappable { cursor: pointer; font: inherit; font-size: .85rem; border: 1px solid var(--accent); }
-.toast.tappable:active { transform: translateX(-50%) scale(.98); }
+.toast.tappable { cursor: pointer; border: 1px solid var(--accent); }
+.toast.tappable:active { transform: scale(.98); }
 
 /* Back to the live end of a session. Bottom right, clear of tmux's own status line, and
    only there when you are somewhere else. */
@@ -3842,6 +3864,9 @@ dialog.sheet.teamsheet { width: min(980px, 96vw); max-width: none; margin-top: m
 .teamwin .teamline { flex-wrap: wrap; }
 .teamwin .teamchain { overflow: auto; }
 .teamwin .teamgraph { max-width: 100%; height: auto; }
+/* The story takes whatever the window has left under the graph, and scrolls in itself — it was
+   held to 12rem however tall the window was made. */
+.teamwin > .teamstory { flex: 1 1 0; min-height: 8rem; max-height: none; }
 .teamadvanced { display: grid; gap: .5rem; border-top: 1px solid var(--line); padding-top: .6rem; }
 .teamadvanced:not([open]) { gap: 0; }
 .teamadvanced > summary { cursor: pointer; color: var(--dim); font-size: .88rem; list-style-position: inside; }
@@ -3856,7 +3881,6 @@ dialog.sheet.teamsheet { width: min(980px, 96vw); max-width: none; margin-top: m
 .pluginbehind { display: grid; gap: .3rem; margin-top: .4rem; padding-top: .4rem; border-top: 1px solid var(--line); }
 .pluginbehind p { margin: 0; }
 .teamwarn { color: var(--st-warning); margin: 0; }
-.teamline.teamrequest { border: 1px solid var(--accent); border-radius: .5rem; margin: .3rem .5rem; }
-.teamline.teamrequest.danger { border-color: var(--danger); }
-.teamline.teamrequest > .teamname { flex: 1 1 16rem; min-width: 0; }
-.teamline.teamrequest > button.primary.inline { min-height: 0; padding: .2rem .8rem; }
+.toast.askcard { border: 1px solid var(--accent); background: var(--panel); color: var(--text); animation: toastin .18s ease-out; }
+.toast.askcard .askbuttons { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .5rem; }
+.toast.askcard .askbuttons > .linkbox { flex: 1 1 10rem; min-width: 0; }

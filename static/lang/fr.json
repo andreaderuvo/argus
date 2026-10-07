@@ -1237,6 +1237,18 @@
   "in the desk {desk}": "dans le bureau {desk}",
   "{who} asks to {what}": "{who} demande de {what}",
   "Do it": "Fais-le",
-  "No": "Non"
+  "No": "Non",
+  "Notifications on screen": "Notifications à l'écran",
+  "the messages in the bottom-right corner — off, only failures still show": "les messages en bas à droite — désactivées, seules les erreurs restent",
+  "How long they stay": "Combien de temps elles restent",
+  "then they fade; the pointer on one holds it, ✕ closes it": "puis elles s’effacent ; le pointeur dessus la retient, ✕ la ferme",
+  "3 seconds": "3 secondes",
+  "5 seconds": "5 secondes",
+  "10 seconds": "10 secondes",
+  "20 seconds": "20 secondes",
+  "by their length": "selon leur longueur",
+  "until I close them": "jusqu’à ce que je les ferme",
+  "like this — {how}": "comme ceci — {how}",
+  "Hide it here — it stays open in While you were away": "La masquer ici — elle reste ouverte dans Pendant votre absence"
  }
 }

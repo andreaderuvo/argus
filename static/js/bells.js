@@ -1,4 +1,5 @@
 // <imports> generated from what this file uses; edit the code, not this list
+import { askFromBell, dropAsk } from '/js/askcards.js';
 import { savePrefs } from '/js/core.js';
 import { agentStates, countSessions, readAgentStates, showCount } from '/js/counts.js';
 import { toast } from '/js/dialogs.js';
@@ -60,9 +61,13 @@ export function ring(bell) {
    *  rather than to the terminal that asked. Tapping a session is right for "it finished";
    *  for "shall I overwrite it" the useful destination is the two buttons. */
   // A proposed team goes where it can be started: Team, on its folder, with the team chosen.
-  toast(label + said, why === 'failed',
-    bell.team_proposal?.folder ? () => openProposedTeam(bell.team_proposal.folder)
-      : bell.ask ? () => go('#/since') : session ? () => showSession(session) : null);
+  // A question is not a passing message: it waits in the corner with its answers (askcards.js).
+  if (bell.ask) askFromBell(bell.ask);
+  else {
+    toast(label + said, why === 'failed',
+      bell.team_proposal?.folder ? () => openProposedTeam(bell.team_proposal.folder)
+        : session ? () => showSession(session) : null);
+  }
   if (prefs.bellSound !== false) bellSound(why);
 
   // A real notification only exists on a secure origin, and only once you have allowed
@@ -361,6 +366,8 @@ function aside(said) {
     }
     return;
   }
+  // A question answered — here, on another device, by its agent's timeout — leaves the corner.
+  if (said.what === 'answered') { dropAsk(said.id); return; }
   // Somebody, on this page or another device, said they have seen these waits.
   if (said.what === 'seen') {
     for (const name of said.sessions || []) quieten(name);

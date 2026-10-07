@@ -1237,6 +1237,18 @@
   "in the desk {desk}": "in the desk {desk}",
   "{who} asks to {what}": "{who} asks to {what}",
   "Do it": "Do it",
-  "No": "No"
+  "No": "No",
+  "Notifications on screen": "Notifications on screen",
+  "the messages in the bottom-right corner — off, only failures still show": "the messages in the bottom-right corner — off, only failures still show",
+  "How long they stay": "How long they stay",
+  "then they fade; the pointer on one holds it, ✕ closes it": "then they fade; the pointer on one holds it, ✕ closes it",
+  "3 seconds": "3 seconds",
+  "5 seconds": "5 seconds",
+  "10 seconds": "10 seconds",
+  "20 seconds": "20 seconds",
+  "by their length": "by their length",
+  "until I close them": "until I close them",
+  "like this — {how}": "like this — {how}",
+  "Hide it here — it stays open in While you were away": "Hide it here — it stays open in While you were away"
  }
 }
