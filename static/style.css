@@ -3882,7 +3882,7 @@ dialog.sheet.teamsheet { width: min(980px, 96vw); max-width: none; margin-top: m
 .teamwin .teamgraph { max-width: 100%; height: auto; }
 /* The story takes whatever the window has left under the graph, and scrolls in itself — it was
    held to 12rem however tall the window was made. */
-.teamwin > .teamstory { flex: 1 1 0; min-height: 8rem; max-height: none; }
+.teamwin > .teamstory { flex: 1 1 0; min-height: 8rem; max-height: none; align-content: start; }   /* rows stay rows, the room is below them */
 .teamadvanced { display: grid; gap: .5rem; border-top: 1px solid var(--line); padding-top: .6rem; }
 .teamadvanced:not([open]) { gap: 0; }
 .teamadvanced > summary { cursor: pointer; color: var(--dim); font-size: .88rem; list-style-position: inside; }
@@ -3942,3 +3942,9 @@ dialog.sheet.teamsheet { width: min(980px, 96vw); max-width: none; margin-top: m
    black in the light theme, with dim text on it). */
 .winbody:has(> .teamwin) { background: var(--bg); }
 .sessteams button.sessteam.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
+.row.setting .namebox { width: min(16rem, 45vw); flex: none; }
+.teamgoalbox { display: grid; gap: .3rem; padding: .6rem .8rem; border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--line)); border-left: 3px solid var(--accent); border-radius: .5rem; background: color-mix(in srgb, var(--accent) 6%, var(--panel)); }
+.teamgoalhead { display: inline-flex; align-items: center; gap: .35rem; font-size: .72rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+.teamgoalhead > svg { width: 14px; height: 14px; }
+.teamgoaltext { margin: 0; white-space: pre-wrap; font-size: .9rem; line-height: 1.45; color: var(--text); }
+.teamgoalbox > .meta { margin: 0; font-size: .75rem; color: var(--dim); overflow-wrap: anywhere; }

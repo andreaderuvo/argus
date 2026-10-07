@@ -1304,6 +1304,14 @@
   "in rows": "en lignes",
   "leave the desk as it is": "laisser le bureau tel quel",
   "Arrange the desk": "Disposer le bureau",
-  "The turn under way finishes, then nothing new starts": "Le tour en cours se termine, puis rien de nouveau ne démarre"
+  "The turn under way finishes, then nothing new starts": "Le tour en cours se termine, puis rien de nouveau ne démarre",
+  "Goal": "Objectif",
+  "What the team was asked to get done": "Ce qu'on a demandé à l'équipe",
+  "in {folder}": "dans {folder}",
+  "Name in the browser tab": "Nom dans l'onglet du navigateur",
+  "to tell several Argus apart — on every device that opens this one": "pour distinguer plusieurs Argus — sur chaque appareil qui ouvre celui-ci",
+  "Argus — e.g. Argus · GPU": "Argus — p. ex. Argus · GPU",
+  "this tab is now called {name}": "cet onglet s’appelle maintenant {name}",
+  "back to Argus": "de nouveau Argus"
  }
 }

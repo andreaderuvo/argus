@@ -15,7 +15,7 @@ import { getJSON, loadFavourites, recallToken, rememberToken, serverInfo } from 
 import { render } from '/js/router.js';
 import { applyBottomBar, applyKeyBar, applyRail, applySidebar } from '/js/sidebar.js';
 import { token } from '/js/state.js';
-import { applyTheme } from '/js/theme.js';
+import { applyName, applyTheme } from '/js/theme.js';
 import { loadLanguage, preferredLanguage, t } from '/js/words.js';
 // </imports>
 
@@ -108,6 +108,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) { co
     // Before the first paint: the desks and the theme in it decide what is drawn.
     await syncPrefs();
     applyTheme();
+    applyName();
     await loadFavourites();
   }
   await render();

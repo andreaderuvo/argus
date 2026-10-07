@@ -28,6 +28,9 @@
     var t = JSON.parse(raw).theme || 'dark';
     if (t === 'auto') t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
     document.documentElement.dataset.theme = t;
+    // And the tab's name, so a second Argus is told apart before anything loads.
+    var name = (JSON.parse(raw).instanceName || '').trim();
+    if (name) document.title = name;
   } catch (e) { document.documentElement.dataset.theme = 'dark'; }
 </script>
 </head>

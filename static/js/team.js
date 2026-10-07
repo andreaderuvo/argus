@@ -839,7 +839,7 @@ async function resetTeam(team, restart, then) {
   then();
 }
 
-function drawTeam(team, { graph, story, refresh, openLog, openTeam, toggleStory }) {
+function drawTeam(team, { graph, story, goal, refresh, openLog, openTeam, toggleStory, toggleGoal }) {
   const act = async (action) => {
     try { await postJSON(`/api/teams/${team.id}/${action}`, {}); } catch (e) { toast(e.message, true); }
     refresh();
@@ -863,6 +863,7 @@ function drawTeam(team, { graph, story, refresh, openLog, openTeam, toggleStory 
   if (!live) controls.push(tb('eraser', t('Reset'), { title: t('Delete what the team declares as a run’s state'), onclick: () => resetTeam(team, false, refresh) }));
   const views = [tb('file', t('Log'), { title: team.log, onclick: () => openLog(team.log) })];
   if (openTeam) views.push(tb('graph', t('Graph'), { className: 'teamopen', title: t('The team in a window of the desk, live'), onclick: () => openTeam(team) }));
+  if (toggleGoal) views.push(tb('info', t('Goal'), { className: goal ? 'on' : '', title: t('What the team was asked to get done'), onclick: toggleGoal }));
   if (toggleStory) views.push(tb('story', t('Story'), { className: story ? 'on' : '', onclick: toggleStory }));
   const buttons = [
     controls.length ? el('span', { className: 'teamgroup' }, controls) : null,
@@ -883,6 +884,14 @@ function drawTeam(team, { graph, story, refresh, openLog, openTeam, toggleStory 
     ...buttons,
   ].filter(Boolean));
   const out = [line];
+  // The goal, whole, to read again — what every prompt starts from.
+  if (goal) {
+    out.push(el('div', { className: 'teamgoalbox' }, [
+      el('span', { className: 'teamgoalhead' }, [icon('info'), el('span', { textContent: t('Goal') })]),
+      el('p', { className: 'teamgoaltext', textContent: team.goal || '—' }),
+      team.folder ? el('p', { className: 'meta', textContent: t('in {folder}', { folder: team.folder }) }) : null,
+    ].filter(Boolean)));
+  }
   if (graph) {
     const states = {};
     const outcomes = {};
@@ -955,6 +964,7 @@ export function attachTeam(host, spec, setLabel, { openLog }) {
   const box = el('div', { className: 'teamwin' });
   host.replaceChildren(box);
   let story = true;
+  let goal = false;
   let busy = false;
   let drawn = '';
   const refresh = async (force = false) => {
@@ -967,7 +977,7 @@ export function attachTeam(host, spec, setLabel, { openLog }) {
       // and where you had scrolled to is kept: redrawn every three seconds, the story you were
       // reading jumped back to the top each time.
       const states = team ? team.nodes.map((n) => agentStates.get(n.session)?.state || '').join() : '';
-      const now = JSON.stringify([team, story, states]);
+      const now = JSON.stringify([team, story, goal, states]);
       if (force || now !== drawn) {
         drawn = now;
         const keep = [box.scrollTop, box.querySelector('.teamchain')?.scrollLeft || 0, box.querySelector('.teamstory')?.scrollTop || 0];
@@ -975,8 +985,9 @@ export function attachTeam(host, spec, setLabel, { openLog }) {
           box.replaceChildren(el('p', { className: 'meta', textContent: t('this team has been forgotten — close the window') }));
         } else {
           setLabel?.(team.name, team.goal);
-          box.replaceChildren(...drawTeam(team, { graph: 'large', story, refresh: () => refresh(true), openLog,
-            toggleStory: () => { story = !story; refresh(true); } }));
+          box.replaceChildren(...drawTeam(team, { graph: 'large', story, goal, refresh: () => refresh(true), openLog,
+            toggleStory: () => { story = !story; refresh(true); },
+            toggleGoal: () => { goal = !goal; refresh(true); } }));
         }
         box.scrollTop = keep[0];
         const chain = box.querySelector('.teamchain');

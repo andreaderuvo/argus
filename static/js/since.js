@@ -14,7 +14,7 @@ import { go, render } from '/js/router.js';
 import { keyFor, keyHelp, pluginBehind } from '/js/shortcuts.js';
 import { applyBottomBar, applyKeyBar, applySidebar, renderSidebar, versionRow, viewersRow } from '/js/sidebar.js';
 import { THEMES, prefs, server, view } from '/js/state.js';
-import { applyTheme } from '/js/theme.js';
+import { applyName, applyTheme } from '/js/theme.js';
 import { workspaces } from '/js/tray.js';
 import { repaintDiagrams } from '/js/viewers.js';
 import { deviceRows, handoffSheet, languageSheet } from '/js/vitals.js';
@@ -459,6 +459,29 @@ export async function screenSettings() {
    */
   const group = (title) => el('h2', { className: 'settinggroup', textContent: title });
 
+  /* What this Argus is called in the browser's tab — for whoever keeps two or three open. */
+  const nameRow = () => {
+    const box = el('input', { type: 'text', className: 'startpath namebox', value: prefs.instanceName || '', maxLength: 40,
+      placeholder: t('Argus — e.g. Argus · GPU'), spellcheck: false, 'aria-label': t('Name in the browser tab') });
+    const save = () => {
+      const v = box.value.trim();
+      if (v === (prefs.instanceName || '')) return;
+      if (v) prefs.instanceName = v; else delete prefs.instanceName;
+      savePrefs();
+      applyName();
+      toast(v ? t('this tab is now called {name}', { name: v }) : t('back to Argus'));
+    };
+    box.addEventListener('change', save);
+    box.addEventListener('keydown', (e) => { if (e.key === 'Enter') box.blur(); });
+    return el('div', { className: 'row setting' }, [
+      el('span', { className: 'grow' }, [
+        el('span', { className: 'name', textContent: t('Name in the browser tab') }),
+        el('span', { className: 'meta', textContent: t('to tell several Argus apart — on every device that opens this one') }),
+      ]),
+      box,
+    ]);
+  };
+
   const toggle = (label, hint, get, set) => {
     const state = el('span', { className: 'sw', textContent: get() ? 'ON' : 'OFF' });
     const row = el('button', { className: 'row setting', type: 'button' }, [
@@ -760,6 +783,7 @@ export async function screenSettings() {
 
   wrap.append(
     group(t('Look')),
+    nameRow(),
     /* The bottom bar, on a phone, or the drawer alone.
      *
      *  It costs 46px and buys one thing: the Sessions tally is visible without touching

@@ -1304,6 +1304,14 @@
   "in rows": "in rows",
   "leave the desk as it is": "leave the desk as it is",
   "Arrange the desk": "Arrange the desk",
-  "The turn under way finishes, then nothing new starts": "The turn under way finishes, then nothing new starts"
+  "The turn under way finishes, then nothing new starts": "The turn under way finishes, then nothing new starts",
+  "Goal": "Goal",
+  "What the team was asked to get done": "What the team was asked to get done",
+  "in {folder}": "in {folder}",
+  "Name in the browser tab": "Name in the browser tab",
+  "to tell several Argus apart — on every device that opens this one": "to tell several Argus apart — on every device that opens this one",
+  "Argus — e.g. Argus · GPU": "Argus — e.g. Argus · GPU",
+  "this tab is now called {name}": "this tab is now called {name}",
+  "back to Argus": "back to Argus"
  }
 }

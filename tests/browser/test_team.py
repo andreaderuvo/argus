@@ -591,3 +591,28 @@ def test_sessions_badge_a_teams_sessions_and_select_them_in_one_press(make_page,
     assert shown == mine, "and only its sessions shown"
     argus.tmux("kill-session", "-t", "stray", check=False)
     clean(argus, project)
+
+
+def test_the_goal_can_be_read_again_in_the_teams_window(make_page, argus):
+    project = desk(argus)
+    page = make_page(route="#/wall")
+    open_sheet(page, argus, "make the parser faster without changing a single result")
+    page.wait("!!document.querySelector('.teamrole select')", timeout=25)
+    page.eval("(() => { const c = document.querySelector('.teamcheck input'); if (c) { c.value = 'true'; c.dispatchEvent(new Event('input')); } })()")
+    start(page)
+    page.wait("!!document.querySelector('.teamwin .teambtn')", timeout=15)
+    time.sleep(1.5)                  # the desk is arranged as the team starts: let it settle
+    page.click_at(*page._center("[...document.querySelectorAll('.teamwin .teambtn')].find(b => b.textContent === 'Goal')"))
+    page.wait("document.querySelector('.teamwin .teamgoaltext')?.textContent === 'make the parser faster without changing a single result'",
+              timeout=5, what="the goal, whole")
+    clean(argus, project)
+
+
+def test_the_browser_tab_says_which_argus_this_is(make_page, argus):
+    page = make_page(route="#/settings")
+    page.wait("!!document.querySelector('.namebox')", timeout=10)
+    page.eval("(() => { const b = document.querySelector('.namebox'); b.value = 'Argus · GPU'; b.dispatchEvent(new Event('change')); })()")
+    page.wait("document.title === 'Argus · GPU'", timeout=5)
+    eventually(lambda: argus.api("/api/prefs")["prefs"].get("instanceName") == "Argus · GPU", timeout=5, what="kept on the machine")
+    page.eval("location.reload()")
+    page.wait("document.title === 'Argus · GPU'", timeout=10, what="and after a reload")

@@ -6,6 +6,14 @@ import { repaintDiagrams, repaintMeshes } from '/js/viewers.js';
 
 /** Resolve `auto` here rather than in a media query, so the stylesheet only ever deals
  *  with a concrete `data-theme`. */
+/** The browser tab says which Argus this is: "Argus" by default, or the name given in Settings —
+ *  kept on this machine, so every device opening it sees the same one ("Argus · GPU", "Argus · lab").
+ *  With several Argus open side by side, the tabs were otherwise all called the same. */
+export function applyName() {
+  const name = (prefs.instanceName || '').trim();
+  document.title = name || 'Argus';
+}
+
 export function applyTheme() {
   const resolved = prefs.theme === 'auto'
     ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')

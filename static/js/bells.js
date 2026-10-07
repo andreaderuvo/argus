@@ -93,7 +93,8 @@ function markTitle(session, why) {
   if (!document.hidden) return;
   if (realTitle === null) realTitle = document.title;
   const mark = why === 'asking' ? '\u25CF' : '\u2713';
-  document.title = `${mark} ${session || 'Argus'}`;
+  const name = (prefs.instanceName || '').trim();
+  document.title = `${mark} ${session || name || 'Argus'}${session && name ? ` · ${name}` : ''}`;
   markIcon(why);
 }
 
