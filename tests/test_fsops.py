@@ -370,3 +370,24 @@ def test_creating_is_refused_when_writing_is_off(tree):
     answer = post(ro, "/api/fs/write", {"path": str(tree / "root" / "new.md"), "content": "x"})
     assert answer.status_code == 403
     assert not (tree / "root" / "new.md").exists()
+
+
+def test_a_file_read_whole_under_a_raised_cap_can_be_saved(tmp_path):
+    """`viewers.max_bytes.default` above 2 MiB let a big text file open whole for editing, and the
+    save then refused it against max_preview_bytes as "too big to have been read whole"."""
+    from fastapi.testclient import TestClient
+
+    from app.config import Config
+    from app.main import create_app
+
+    big = tmp_path / "big.txt"
+    big.write_text("x" * (3 * 1024 * 1024))
+    cfg = Config(token="m" * 64, roots=[tmp_path], listen="127.0.0.1:0", allow_write=True,
+                 viewers={"max_bytes": {"default": 10 * 1024 * 1024}})
+    c = TestClient(create_app(cfg))
+    h = {"authorization": "Bearer " + "m" * 64}
+    read = c.get(f"/api/file?path={big}", headers=h)
+    assert read.status_code == 200 and len(read.content) == big.stat().st_size, "read whole"
+    saved = c.post("/api/fs/write", json={"path": str(big), "content": "short now", "mtime": int(read.headers["x-mtime"])}, headers=h)
+    assert saved.status_code == 200, saved.text
+    assert big.read_text() == "short now"

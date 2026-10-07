@@ -851,8 +851,11 @@ def create_app(cfg: Config) -> FastAPI:
             if "graph" in body:
                 return {"text": teammermaid.to_mermaid(body["graph"])}
             base = body.get("base") if isinstance(body.get("base"), dict) else None
-            graph = teammermaid.from_mermaid(str(body.get("text") or ""), base)
-            return {"graph": graph, "warnings": teammermaid.warnings(graph)}
+            text = str(body.get("text") or "")
+            graph = teammermaid.from_mermaid(text, base)
+            meta = teammermaid.meta_of(text)
+            return {"graph": graph, "warnings": teammermaid.warnings(graph),
+                    **({"goal": meta["goal"]} if meta.get("goal") else {}), **({"name": meta["name"]} if meta.get("name") else {})}
         except (ValueError, KeyError, TypeError) as e:
             # While typing (`preview`), a half-written line is the normal state, not a failed request.
             if body.get("preview"):

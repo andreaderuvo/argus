@@ -31,7 +31,9 @@ agents yourself.
 - **Report before you stop.** If you try to end your turn without `team_done`, the Argus plugin
   stops you and reminds you — twice at most.
 - **The numbers decide.** A check is a command whose exit code Argus reads. Do not argue with a
-  FAIL; read its output (in `team_task`, and in the check's window) and fix the cause.
+  FAIL; read its output — `team_task` shows it when the check came right before you; the last
+  25 lines of every check are in the team's log (`TEAM.argus.md`), and it ran in its own window —
+  and fix the cause.
 - **Stay in your folder.** If you were given a worktree, work only there.
 - **Without the tools** (no MCP): `argus-say task` and `argus-say turn [--status OK] "summary"` do
   the same from a shell. With neither, the prompt you were given shows the block to append to

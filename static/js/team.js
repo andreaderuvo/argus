@@ -503,7 +503,7 @@ export async function teamSheet({ wsId, home, onStarted }) {
           if (mine !== seq) return;
           if (said.error) throw new Error(said.error);
           drawn = said.graph;
-          extra = mode === 'yaml' ? said : {};
+          extra = said;                 // goal (YAML, or a flowchart's %% goal:), gate, rounds, permissions
           preview.replaceChildren(drawGraph(drawn, {}));
           err.hidden = true;
           // Legal, and almost certainly not what was meant: an arrow that never fires, a key not read.
@@ -545,6 +545,10 @@ export async function teamSheet({ wsId, home, onStarted }) {
           if (!drawn) return;
           graph = drawn;
           if (extra.goal && !goal.value.trim()) goal.value = extra.goal;
+          // What the text says about how the team runs, as a team.yaml card would bring it.
+          if (extra.gate) for (const r of gate.querySelectorAll('input')) r.checked = r.value === extra.gate;
+          if (extra.rounds) rounds.value = extra.rounds;
+          if (extra.permissions && ALONE[extra.permissions]) { alone.value = extra.permissions; paintDanger(); }
           selected = null;
           for (const n of graph.nodes) if (n.kind === 'agent' && copies[n.id] === undefined) copies[n.id] = !!n.worktree;
           drawAll();

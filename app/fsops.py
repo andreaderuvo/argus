@@ -216,7 +216,8 @@ async def fetch_link(request: Request, body: dict) -> dict:
 
     The same care as an upload, because it is one: streamed to a dotted part-file and renamed
     into place only when it is complete, so an interrupted download never leaves a truncated
-    file wearing the real name. Nothing is ever overwritten; a name already taken gets a number.
+    file wearing the real name. Nothing is ever overwritten: a name already taken is refused (409),
+    as an upload into a folder you chose is.
 
     **On the obvious objection.** Yes, this makes the server fetch a URL somebody else chose,
     and yes, that URL could be `169.254.169.254` or a service on loopback. It grants nothing:
@@ -521,7 +522,14 @@ async def write(request: Request, body: WriteBody) -> dict:
         return {"ok": True, "path": str(target), "size": st.st_size, "mtime": int(st.st_mtime),
                 "appended": len(data)}
 
-    limit = request.app.state.cfg.max_preview_bytes
+    # The same cap the file was read under (viewers.max_bytes for its kind, else
+    # max_preview_bytes): a larger `default` there let a 5 MB text file open whole for editing
+    # and then refused to save it as "too big to have been read whole".
+    import mimetypes
+
+    from .files import preview_kind
+    limit = request.app.state.cfg.preview_limit(
+        preview_kind(target.suffix.lower(), mimetypes.guess_type(target.name)[0] or ""))
     st = target.stat()
     if st.st_size > limit:
         raise ApiError(413, "this file is too big to have been read whole — saving it would lose the rest")

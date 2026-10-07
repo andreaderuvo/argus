@@ -208,11 +208,7 @@ def read_team(text: str) -> dict:
         raise ValueError("nothing written: a Mermaid flowchart or a team in YAML")
     first = next((ln for ln in body.splitlines() if ln.strip() and not ln.strip().startswith("%%")), "")
     if HEAD.match(first):
-        meta = {}
-        for ln in body.splitlines():
-            m = re.match(r"\s*%%\s*(name|goal)\s*:\s*(.+?)\s*$", ln, re.I)
-            if m:
-                meta[m.group(1).lower()] = m.group(2)
+        meta = meta_of(body)
         graph = from_mermaid(body)
         if meta.get("goal"):
             graph["goal"] = meta["goal"][:2000]
@@ -270,6 +266,16 @@ def warnings(graph: dict, doc: dict | None = None) -> list[str]:
                     near = difflib.get_close_matches(str(k), STEP_KEYS, 1)
                     out.append(f"step {sid}: `{k}:` is not read" + (f" — did you mean `{near[0]}:`?" if near else ""))
     return out
+
+
+def meta_of(text: str) -> dict:
+    """`%% name: …` and `%% goal: …` in a flowchart: what Mermaid ignores and a team needs."""
+    meta = {}
+    for ln in text.splitlines():
+        m = re.match(r"\s*%%\s*(name|goal)\s*:\s*(.+?)\s*$", ln, re.I)
+        if m:
+            meta[m.group(1).lower()] = m.group(2)
+    return meta
 
 
 def describe(said: dict) -> str:

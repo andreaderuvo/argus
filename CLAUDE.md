@@ -432,7 +432,7 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   prompts a role (`launch.seed`), waits for that role's `@TURN … @END` in `TEAM.argus.md`, runs
   the **check** when the flow says so, and decides from the judge's verdict (OK / REDO / DONE /
   BLOCKED) or the check's PASS/FAIL. Gates: `ask` (a press per round), `auto` (stops on two
-  failed checks or BLOCKED), `goal`. The check is a command line typed into the team's own tmux
+  failed checks in a row), `goal` (until DONE or the rounds); BLOCKED always asks. The check is a command line typed into the team's own tmux
   session `<team>-check` (`TeamIO.run_check`) — visible, stoppable, and only for the full token
   with `--allow-write`. Its exit code is written from inside a subshell *before* the `| tee`:
   `$?` after a pipe is tee's and PIPESTATUS is bash-only, so under zsh a failing check would
@@ -504,6 +504,20 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   What-an-agent-can-do carry the table; a test fails when an action or tool is missing from them.
   `GET /api/plugin` also lists `behind` — sessions still on an older plugin — which Alt+V and
   Settings show after an update, with the reload: updating alone left every open session on the old one.
+- **How a verdict moves a team** (`Director._finished`, the audit of 2026-10-07, tests in
+  test_teams.py "verdicts the audit found ignored"). A non-judge's turn is `always`, except
+  BLOCKED, which anyone may say; BLOCKED follows only `if BLOCKED` arrows, else waits for the
+  person (Continue: OK, else REDO, else always). A judge's DONE with no `if DONE` arrow ends the
+  team — unless its `always` arrows all go into joins, and a join whose judges all said DONE ends
+  it (Write's two critics). `auto` stops at two failed checks in a row; `goal` does not (rounds are
+  its limit) — they used to be identical. team_check warns (never refuses) of arrows that cannot
+  fire and YAML keys not read; Mermaid ids are lower-cased with `_`→`-`.
+- **The documentation is tested** where it can be: `tests/test_wiki.py` (with the wiki cloned at
+  ~/argus.wiki) checks every link and #anchor, image branches, and that the wiki's API-reference
+  page is what `scripts/apiref.py` generates from docs/openapi.json; test_surface.py, the
+  consent test (every action and tool in the `argus` skill and What-an-agent-can-do) and the
+  skill-examples test do the rest. After changing a route: `python3 scripts/openapi.py`, then
+  `python3 scripts/apiref.py ~/argus.wiki/API-reference.md`, and push the wiki.
 - **The sheet up front is goal, shape, folder** (and the check when a step needs one). Who runs
   each step, permissions, gate, rounds and the file/pack buttons are under a `<details>` "More",
   opened by itself when there is no agent or a start is refused. Four cards (`FRONT`) plus yours,
@@ -512,7 +526,7 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
 - **`argus-mcp`, Argus as MCP tools** (`tools/argus_mcp.py`, `tests/test_argus_mcp.py`). Stdio
   JSON-RPC, standard library, every tool one call through `argus_client` on the agent key — no
   new power. `who ring ask relay launchers start_agent teams worktree prompts`. The agent key
-  gained `GET /api/teams` (read only; the route guard in test_agent_key.py is now 16), and lost
+  gained `GET /api/teams` (read only; test_agent_key.py holds the count of routes), and lost
   something it had by accident: starting an agent with a `danger` option
   (`--dangerously-skip-permissions`) is 403 for it (`agentflags.dangerous`). The session a ring
   comes from is `tmux display-message -p -t $TMUX_PANE '#S'`. Checked with a real headless
@@ -538,7 +552,7 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   would give one per page) and announces `{what: "desk"}`; pages adopt missing desks by id
   (`adoptDesks`, serialised) and switch to it. Windows still go in from the page, on `started`
   with `desk_id`. A doc with no desks yet gets "Desk 1" (id 1) too, or the new desk would take
-  the number a browser gives its first. On the agent key (route guard: 17).
+  the number a browser gives its first. On the agent key (the route guard in test_agent_key.py holds the count).
 - **Two agents was folded into Teams** (2026-10-06). Its button and `pairSheet` are gone; its
   patterns are the templates *Build and review* and *Split the work* (two executors at once in
   the same folder, each on the files the planner gave it, no worktree). What reads an existing

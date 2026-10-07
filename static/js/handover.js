@@ -966,6 +966,21 @@ export function attachMessages(host, wsId, extras, deliver) {
     };
   };
 
+  // `{folder}` is the sending session's directory, asked of tmux. Sending asks every time; the
+  // preview (hover, ⋯) uses the last answer at once and redraws when a fresh one arrives — it used
+  // to show the desk's folder, so the preview and what was sent could disagree.
+  const cwdSeen = new Map();
+  const senderCwd = async (target) => {
+    const name = target ? senderFor(target)?.name.slice(5) : '';
+    if (!name) return '';
+    try {
+      const cwd = (await getJSON(`/api/tmux/cwd?session=${encodeURIComponent(name)}`)).cwd || '';
+      cwdSeen.set(name, cwd);
+      return cwd;
+    } catch { return ''; }
+  };
+  const lastCwd = (target) => (target ? cwdSeen.get(senderFor(target)?.name.slice(5) || '') || '' : '');
+
   /** Who the message is coming *from*: the other terminal, since a message dropped on B
    *  is work being handed over by A. With one terminal it is that one. */
   const senderFor = (target) => {
@@ -1339,11 +1354,15 @@ export function attachMessages(host, wsId, extras, deliver) {
     let peeking = null;
     const showPeek = () => {
       const target = deliver.aim();
-      const known = { ...situationFor(target), ...allVars(wsId) };
+      const known = { ...situationFor(target, lastCwd(target)), ...allVars(wsId) };
       const short = gapsIn(kind.text, known);
+      const filled = el('pre', { textContent: fillBaton(kind.text, known) });
+      senderCwd(target).then((cwd) => {
+        if (cwd && filled.isConnected) filled.textContent = fillBaton(kind.text, { ...situationFor(target, cwd), ...allVars(wsId) });
+      });
       peek = el('div', { className: 'promptpeek' }, [
         el('div', { className: 'peekname', textContent: kind.name }),
-        el('pre', { textContent: fillBaton(kind.text, known) }),
+        filled,
         short.length ? el('p', { className: 'peekgap', textContent: t('nothing to put in {list}', { list: short.map((g) => `{${g}}`).join(' ') }) }) : null,
       ].filter(Boolean));
       // Reaching the panel keeps it; leaving the panel closes it. Scrolling inside it is
@@ -1393,11 +1412,11 @@ export function attachMessages(host, wsId, extras, deliver) {
     // For the times a word needs changing before it goes. Not saved anywhere: this is
     // a one-off, and the library is edited where the library lives.
     const more = el('button', { className: 'winbtn', title: t('Change it before sending') }, icon('more'));
-    more.onclick = (e) => {
+    more.onclick = async (e) => {
       e.stopPropagation();
       const target = deliver.aim();
       if (!target) return toast(t('no session in this desk to send it to'), true);
-      const known = { ...situationFor(target), ...allVars(wsId) };
+      const known = { ...situationFor(target, await senderCwd(target)), ...allVars(wsId) };
       const note = el('textarea', { className: 'baton', spellcheck: false, rows: 7, value: kind.text });
       const shown = el('pre', { className: 'batonpreview' });
       // Edited here, so the gaps move as you type: filling one in by hand is half of
