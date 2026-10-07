@@ -3849,3 +3849,4 @@ dialog.sheet.teamsheet { width: min(980px, 96vw); max-width: none; margin-top: m
 .teamcard.teammore { border-style: dashed; }
 .teamfind { width: 100%; max-width: 22rem; margin-top: .3rem; padding: .35rem .6rem; border: 1px solid var(--line); border-radius: .5rem; background: var(--bg); color: var(--text); font: inherit; font-size: .88rem; }
 .teamcards > .teamnone { grid-column: 1 / -1; margin: .3rem 0; }
+.handoffothers > summary { cursor: pointer; color: var(--dim); font-size: .85rem; margin: .3rem 0; }

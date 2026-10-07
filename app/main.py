@@ -2327,6 +2327,21 @@ def reachable_addresses() -> list[str]:
     return out
 
 
+def preferred_first(addresses: list[str], chosen: str = "") -> list[str]:
+    """The addresses with the one to use first: the config's `address`, else the machine's full
+    name (it resolves across the network), else its short name, else the first IP.
+
+    One address matters because a browser keeps the token per address: offered three QR codes,
+    a phone ends up remembered three times over, and asks again whichever one it opens next."""
+    out = [a for a in addresses if a]
+    if chosen:
+        return [chosen] + [a for a in out if a != chosen]
+    names = [a for a in out if not a.replace(".", "").isdigit()]
+    full = [a for a in names if "." in a]
+    first = (full or names or out or [""])[0]
+    return ([first] + [a for a in out if a != first]) if first else out
+
+
 def parse_listen(listen: str) -> tuple[str, int]:
     host, _, port = listen.rpartition(":")
     if not port.isdigit():
@@ -2467,9 +2482,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--print-url", action="store_true", help="print the URL with the access token and exit")
     parser.add_argument(
         "--qr",
-        action="store_true",
-        help="print a QR code of the URL for every address this machine answers on, and "
-        "exit. Photograph it with a phone instead of typing 64 hex characters",
+        nargs="?", const="one", choices=["one", "all"],
+        help="print a QR code of the URL at the address to use (`address` in the config, else "
+        "the machine's full name), and exit — `--qr all` for every address it answers on. "
+        "Photograph it with a phone instead of typing 64 hex characters; a browser remembers "
+        "the token per address, so keep to one",
     )
     args = parser.parse_args(argv)
 
@@ -2506,8 +2523,11 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.qr:
-        # One per address: which of them a phone can dial depends on where the phone is.
-        for address in reachable_addresses() or [host]:
+        # The address to use, and only that one: a browser remembers the token per address, so
+        # a code per address had a phone scanning again whichever one it opened. `--qr all` for
+        # the others (on a network where the name does not resolve, say).
+        every = preferred_first(reachable_addresses(), cfg.address) or [host]
+        for address in (every if args.qr == "all" else every[:1]):
             scheme = "https" if cfg.tls() else "http"
             url = f"{scheme}://{address}:{port}/#token={cfg.token}"
             print(f"\n  {url}\n")
@@ -2537,7 +2557,7 @@ def main(argv: list[str] | None = None) -> int:
     app.state.lang = config_path.parent / "lang"
     app.state.port = port
     app.state.host = host
-    app.state.addresses = reachable_addresses()
+    app.state.addresses = preferred_first(reachable_addresses(), cfg.address)
     banner(config_path, created, host, port, cfg, app.state.socket)
     # What can be started, and at which version, asked while nobody is waiting: otherwise the
     # first "New session" after a restart pays a login shell for the choices and another for

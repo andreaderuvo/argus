@@ -8,7 +8,7 @@ import { markDrops, syncPrefs, watchVitals } from '/js/core.js';
 import { AGENT_STATES_EVERY, SESSION_COUNT_EVERY, countSessions, countTodo, readAgentStates } from '/js/counts.js';
 import { el } from '/js/dom.js';
 import { icon } from '/js/icons.js';
-import { offerRealBrowser } from '/js/inapp.js';
+import { offerRealBrowser, offerTheAddress } from '/js/inapp.js';
 import { translateMarkup } from '/js/markup.js';
 import { getJSON, loadFavourites, recallToken, rememberToken, serverInfo } from '/js/reconnect.js';
 import { render } from '/js/router.js';
@@ -124,5 +124,5 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) { co
   // and it is a no-op wherever `server` is already known by the time this resolves.
   if (token) serverInfo().then(markDrops).catch(() => {});
   if (token) watchVitals();
-  offerRealBrowser();
+  if (!offerRealBrowser()) offerTheAddress();
 })();

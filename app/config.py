@@ -117,6 +117,11 @@ class Config:
     # reachable by anyone holding the token. Off unless asked for, and then still one
     # port at a time.
     allow_proxy: bool = False
+    # The one address to reach Argus by, from another device: the QR code and the banner use it.
+    # A browser remembers the token per address — the IP, the short name and the full name are
+    # three sites to it, each asking for the token on its own — so one address is the way to be
+    # remembered. Empty: the machine's full name, else its short name, else its first IP.
+    address: str = ""
     # Whether the System screen may offer to ask a stranger what this machine's public address
     # is. Nothing happens without a press and the button names who it will ask, but a machine
     # that has to be able to promise it never speaks to anybody unasked can remove the offer.
@@ -385,6 +390,7 @@ class Config:
             allow_write=bool(raw.get("allow_write", False)),
             include_mounts=bool(raw.get("include_mounts", False)),
             allow_proxy=bool(raw.get("allow_proxy", False)),
+            address=str(raw.get("address") or "").strip(),
             ask_outside=bool(raw.get("ask_outside", True)),
             launchers=[dict(x) for x in (raw.get("launchers") or []) if isinstance(x, dict)],
             agents=[dict(x) for x in (raw.get("agents") or []) if isinstance(x, dict)],
@@ -437,6 +443,7 @@ class Config:
             "allow_write": self.allow_write,
             "include_mounts": self.include_mounts,
             "allow_proxy": self.allow_proxy,
+            "address": self.address,
             "ask_outside": self.ask_outside,
             "launchers": self.launchers,
             "agents": self.agents,

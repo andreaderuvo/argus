@@ -1217,6 +1217,11 @@
   "Stay here": "Rester ici",
   "Copy the link": "Copier le lien",
   "copied — paste it in your browser": "copié — collez-le dans votre navigateur",
-  "Open in Chrome": "Ouvrir dans Chrome"
+  "Open in Chrome": "Ouvrir dans Chrome",
+  "Other addresses — each one is remembered separately": "Autres adresses — chacune est retenue à part",
+  "One address for Argus": "Une seule adresse pour Argus",
+  "You opened Argus at {here}; its address is {main}.": "Vous avez ouvert Argus à {here} ; son adresse est {main}.",
+  "A browser remembers the token for each address on its own: keep to one, and you will not be asked for it again.": "Un navigateur retient le jeton séparément pour chaque adresse : gardez-en une et il ne vous sera plus demandé.",
+  "Go to {main}": "Aller à {main}"
  }
 }

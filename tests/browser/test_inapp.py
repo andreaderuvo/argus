@@ -44,3 +44,15 @@ def test_a_real_browser_is_left_alone(make_page, argus):
     as_(page, CHROME)
     page.settle(quiet=0.8, timeout=4)
     assert not page.eval(DIALOG)
+
+
+def test_the_handoff_sheet_shows_one_code_at_the_address_to_use(make_page, argus):
+    page = make_page(route="#/files")
+    page.eval("import('/js/vitals.js').then(m => m.handoffSheet())")
+    page.wait("!!document.querySelector('.handoff .qr svg')", timeout=10, what="the code")
+    first = page.eval("fetch('/api/config', {headers: {Authorization: 'Bearer ' + localStorage.getItem('argus.token')}}).then(r => r.json()).then(c => c.addresses[0] || location.hostname)")
+    assert first in page.eval("document.querySelector('.handoff .tilenote').textContent"), "the code is for the first address"
+    many = page.eval("document.querySelectorAll('.handoff .dup').length")
+    assert page.eval("!!document.querySelector('.handoffothers')") is (many > 1), "the others folded away"
+    if many > 1:
+        assert page.eval("document.querySelector('.handoffothers').open") is False

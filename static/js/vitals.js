@@ -800,8 +800,14 @@ export async function handoffSheet() {
     b.dataset.host = host;
     picker.append(b);
   }
+  // One code, at the address to use. A browser remembers the token per address — the IP, the
+  // short name and the full name are three sites to it — so a choice of three had a phone
+  // asking for the token again whichever one it opened next. The others stay, folded, for a
+  // network where the name does not resolve.
+  const others = el('details', { className: 'handoffothers' }, [
+    el('summary', { textContent: t('Other addresses — each one is remembered separately') }), picker]);
 
-  body.append(holder, label, picker);
+  body.append(holder, label, ...(addresses.length > 1 ? [others] : []));
   body.append(el('button', {
     className: 'ghost block',
     onclick: () => copyText(label.textContent).then((ok) => toast(ok ? t('link copied') : t('could not reach the clipboard'), !ok)),
