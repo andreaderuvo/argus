@@ -301,7 +301,7 @@ export function popMenu(x, y, items, title = '') {
   const close = () => {
     menu.remove();
     removeEventListener('pointerdown', outside, true);
-    removeEventListener('keydown', keys, true);
+    document.removeEventListener('keydown', keys, true);
     removeEventListener('scroll', close, true);
     removeEventListener('resize', close);
   };
@@ -324,9 +324,11 @@ export function popMenu(x, y, items, title = '') {
       all[(at + (e.key === 'ArrowDown' ? 1 : all.length - 1)) % all.length]?.focus();
     }
   };
+  // Keys at once — Escape must close it whenever it is pressed; the press that opened it is only
+  // a pointer's, so the outside-press and scroll listeners wait for the next turn.
+  document.addEventListener('keydown', keys, true);
   setTimeout(() => {
     addEventListener('pointerdown', outside, true);
-    addEventListener('keydown', keys, true);
     addEventListener('scroll', close, true);
     addEventListener('resize', close);
   });
