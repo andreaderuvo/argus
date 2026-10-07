@@ -125,8 +125,11 @@ def test_branch_names_that_are_fine(good):
 
 @pytest.fixture
 def sock():
-    """A socket nobody else is on, killed afterwards whatever happens."""
-    spot = tmux.Socket(f"argus-test-{os.getpid()}")
+    """A socket nobody else is on, killed afterwards whatever happens — one per test, not per
+    process: `kill-server` returns before the server has gone, and the next test opening the same
+    socket a moment later met the dying server ("server exited unexpectedly", on CI)."""
+    import uuid
+    spot = tmux.Socket(f"argus-test-{os.getpid()}-{uuid.uuid4().hex[:6]}")
     yield spot
     subprocess.run(["tmux", *spot.args(), "kill-server"], capture_output=True)
 
