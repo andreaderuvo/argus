@@ -982,6 +982,41 @@ def team_file(folder: str) -> dict | None:
     return None
 
 
+PROPOSED = "# proposed by "
+
+
+def propose(folder: Path, text: str, by: str = "") -> dict:
+    """An agent's team, written into the project as `team.yaml` for the person to start.
+
+    Never started from here: a team writes files and runs a command, which is the person's
+    decision. What an agent may do is put the team where the Team sheet finds it — the folder's
+    `team.yaml`, offered as a card the moment that folder is chosen — and ring. A `team.yaml`
+    the person wrote is not overwritten (one an agent proposed is: that is "here is version 2").
+    `{file, name, format, summary, graph}`; ValueError when the text is not a team, or the file
+    is someone else's."""
+    from .teammermaid import describe, read_team
+    said = read_team(text)
+    path = Path(folder) / "team.yaml"
+    if path.exists():
+        head = path.read_text(encoding="utf-8", errors="replace")[:200]
+        if not head.startswith(PROPOSED):
+            raise ValueError(f"{path} is already there and was not proposed by an agent: it is the person's — "
+                             f"ask them, or propose it in another folder")
+    if said["format"] == "yaml":
+        body = text.strip() + "\n"
+    else:
+        graph = dict(said["graph"])
+        body = to_yaml(graph, said["name"])
+        for key in ("gate", "rounds"):
+            if said.get(key):
+                body += f"{key}: {said[key]}\n"
+    who = by or "an agent"
+    path.write_text(f"{PROPOSED}{who} through Argus — start it from Team, or edit it; delete this line to make it yours\n"
+                    + body, encoding="utf-8")
+    return {"file": str(path), "name": said["name"], "format": said["format"], "summary": describe(said),
+            "graph": said["graph"]}
+
+
 # --------------------------------------------------------------------------- packs
 
 PACK_MARK = "argus_team_pack"

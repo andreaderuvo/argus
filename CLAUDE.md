@@ -475,6 +475,17 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   trip (tested). Edit as text has Mermaid and YAML tabs and draws the graph while you type; that
   sends `preview: true`, which answers 200 `{error}` instead of 400 — the browser harness counts
   every 4xx as a failure, and a half-typed line is not one.
+- **An agent designs a team, the person starts it** (`teams.propose`, `teammermaid.read_team`,
+  `POST /api/teams/check|propose`, MCP `team_check`/`team_propose`, `argus-say team-check|
+  team-propose`, the plugin skill `argus-team-author`, `tests/test_teammermaid.py`). Check is read
+  only and always 200 (`{ok, error}`). Propose writes `<folder>/team.yaml` with a first line
+  `# proposed by <session> through Argus` — the marker that lets a later proposal replace it,
+  while a team.yaml without it is the person's and is refused (409) — and rings `asking` with
+  `team_proposal` on the bell; its toast opens Team on the folder (`openProposedTeam`, wall.js,
+  through `#/wall` when elsewhere), where the folder's team.yaml is the chosen card. An agent key
+  can do both (AGENT_ROUTES 24) and still cannot start a team. The skill's examples are checked by
+  the tests. Found on the way: `measureFurniture` counted the desktop's side rail as a bottom bar,
+  so every toast on a desktop was drawn above the screen (`tests/browser/test_toast.py`).
 - **The sheet up front is goal, shape, folder** (and the check when a step needs one). Who runs
   each step, permissions, gate, rounds and the file/pack buttons are under a `<details>` "More",
   opened by itself when there is no agent or a start is refused. Four cards (`FRONT`) plus yours,

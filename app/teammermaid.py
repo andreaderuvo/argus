@@ -190,3 +190,47 @@ def to_mermaid(graph: dict) -> str:
         label = "" if whens == ["always"] else "|" + ", ".join(w for w in whens if w != "always") + "| "
         lines.append(f"  {a} --> {label}{b}")
     return "\n".join(lines) + "\n"
+
+
+def read_team(text: str) -> dict:
+    """A team as text, whichever of the two it is written in: a Mermaid flowchart (it starts
+    with `flowchart` or `graph`) or YAML. `{format, name, goal?, gate?, rounds?, graph}`;
+    ValueError, naming the line, when it does not make a team Argus would start.
+
+    A flowchart carries its name and goal in comments, `%% name: …` and `%% goal: …` — what
+    Mermaid ignores, so the diagram still draws on GitHub."""
+    from .teams import from_yaml
+    body = text.strip()
+    if not body:
+        raise ValueError("nothing written: a Mermaid flowchart or a team in YAML")
+    first = next((ln for ln in body.splitlines() if ln.strip() and not ln.strip().startswith("%%")), "")
+    if HEAD.match(first):
+        meta = {}
+        for ln in body.splitlines():
+            m = re.match(r"\s*%%\s*(name|goal)\s*:\s*(.+?)\s*$", ln, re.I)
+            if m:
+                meta[m.group(1).lower()] = m.group(2)
+        graph = from_mermaid(body)
+        if meta.get("goal"):
+            graph["goal"] = meta["goal"][:2000]
+        return {"format": "mermaid", "name": (meta.get("name") or "team")[:60], "graph": graph,
+                **({"goal": graph["goal"]} if graph.get("goal") else {})}
+    said = from_yaml(body)
+    return {"format": "yaml", **said}
+
+
+def describe(said: dict) -> str:
+    """One line on what a team is, for an agent checking what it wrote."""
+    g = said["graph"]
+    agents = [n for n in g["nodes"] if n["kind"] == "agent"]
+    checks = [n for n in g["nodes"] if n["kind"] == "check"]
+    judges = [n["id"] for n in agents if n.get("judge")]
+    parts = [f"{len(agents)} agent{'s' if len(agents) != 1 else ''} ({', '.join(n['id'] + ': ' + (n.get('role') or 'agent') for n in agents)})"]
+    if checks:
+        parts.append(f"{len(checks)} check{'s' if len(checks) != 1 else ''} ("
+                     + ", ".join(f"{n['id']}: {n.get('command') or 'no command yet — the person will be asked'}" for n in checks) + ")")
+    parts.append(f"judged by {', '.join(judges)}" if judges else "no judge: it ends when an arrow reaches done, or when the rounds run out")
+    parts.append(f"starts at {', '.join(g['start'])}")
+    if not any(n["kind"] == "end" for n in g["nodes"]):
+        parts.append("no `done`: it runs until the rounds are used up or a person stops it")
+    return "; ".join(parts)

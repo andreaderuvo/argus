@@ -8,6 +8,7 @@ import { go, render } from '/js/router.js';
 import { paintRailDesks, sayIfNewer, sayIfPluginOld } from '/js/sidebar.js';
 import { live, prefs, token } from '/js/state.js';
 import { openWindow, runs, watchers, workspaces } from '/js/tray.js';
+import { openProposedTeam } from '/js/wall.js';
 import { t } from '/js/words.js';
 // </imports>
 /* ------------------------------------------------------------------ bells */
@@ -58,8 +59,10 @@ export function ring(bell) {
   /* A question is the one bell you can *answer*, so its toast goes where the answer is
    *  rather than to the terminal that asked. Tapping a session is right for "it finished";
    *  for "shall I overwrite it" the useful destination is the two buttons. */
+  // A proposed team goes where it can be started: Team, on its folder, with the team chosen.
   toast(label + said, why === 'failed',
-    bell.ask ? () => go('#/since') : session ? () => showSession(session) : null);
+    bell.team_proposal?.folder ? () => openProposedTeam(bell.team_proposal.folder)
+      : bell.ask ? () => go('#/since') : session ? () => showSession(session) : null);
   if (prefs.bellSound !== false) bellSound(why);
 
   // A real notification only exists on a secure origin, and only once you have allowed

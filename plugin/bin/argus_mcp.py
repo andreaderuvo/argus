@@ -43,7 +43,8 @@ INSTRUCTIONS = (
     "to another session with `relay`; `start_agent` to start a second agent, in its own git "
     "worktree when it will change code; `open_desk` and `start_agent` with `desk` when asked to "
     "lay agents out on a desk of their own; in an Argus team, `team_task` for your task and `team_done` to "
-    "report your turn when it is done; `todos` and `todo_set` when asked to work on the person's to-do "
+    "report your turn when it is done; `team_check` and `team_propose` when asked to design a team "
+    "(write it as Mermaid or YAML, check it, propose it — the person starts it); `todos` and `todo_set` when asked to work on the person's to-do "
     "#n — mark it doing when you start and done when you finish."
 )
 
@@ -128,6 +129,21 @@ TOOLS = [
          "status": {"type": "string", "enum": ["OK", "REDO", "DONE", "BLOCKED"], "description": "Only if you judge (or BLOCKED)"},
          "details": {"type": "string", "description": "Anything longer: numbers, a list of findings"}},
          "required": ["summary"]}},
+    {"name": "team_check",
+     "description": "Check a team you have written — a Mermaid flowchart or YAML, as the argus-team-author skill "
+                    "describes — before proposing it. Says ok with a one-line summary (agents, checks, judge, "
+                    "start), or the line that is wrong. Starts nothing.",
+     "inputSchema": {"type": "object", "properties": {
+         "text": {"type": "string", "description": "The team: a Mermaid flowchart (flowchart LR …) or YAML (name, goal, steps, flow)"}},
+         "required": ["text"]}},
+    {"name": "team_propose",
+     "description": "Propose a team to the person: Argus checks it, writes it into the folder as team.yaml and rings "
+                    "them; their tap opens Team on that folder with it chosen. Only they can start it — say so, "
+                    "do not wait for it. Refused if the folder already has a team.yaml of their own.",
+     "inputSchema": {"type": "object", "properties": {
+         "text": {"type": "string", "description": "The team, as for team_check"},
+         "folder": {"type": "string", "description": "The folder the team works in: absolute, inside what Argus serves"}},
+         "required": ["text", "folder"]}},
     {"name": "todos",
      "description": "The person's to-do list in Argus, each with its number (#1, #2…), state (open, doing, done) and "
                     "words. When asked to \"work on to-do #3\", read it here first.",
@@ -262,6 +278,19 @@ def _team_done(a: Argus, args: dict) -> str:
             + ". Now stop and wait: Argus gives the next turn to whoever has it.")
 
 
+def _team_check(a: Argus, args: dict) -> str:
+    said = a.team_check(args["text"])
+    if not said["ok"]:
+        return f"Not yet: {said['error']}"
+    return f"OK ({said['format']}): {said['name']} — {said['summary']}. Propose it with team_propose."
+
+
+def _team_propose(a: Argus, args: dict) -> str:
+    said = a.team_propose(args["text"], args["folder"], own_session())
+    return (f"Proposed: {said['name']}, written to {said['file']} — {said['summary']}. The person has been rung; "
+            f"they start it from Team (or edit it). You do not need to wait for it.")
+
+
 def _todos(a: Argus, args: dict) -> str:
     items = sorted(a.todos(), key=lambda x: x.get("n", 0))
     if not args.get("all"):
@@ -305,7 +334,7 @@ def _prompts(a: Argus, _args: dict) -> str:
 
 
 DO = {"who": _who, "ring": _ring, "ask": _ask, "relay": _relay, "open_desk": _open_desk, "rename_desk": _rename_desk, "launchers": _launchers,
-      "start_agent": _start, "team_task": _team_task, "team_done": _team_done, "todos": _todos, "todo_set": _todo_set, "todo_add": _todo_add, "teams": _teams, "worktree": _worktree, "prompts": _prompts}
+      "start_agent": _start, "team_task": _team_task, "team_done": _team_done, "team_check": _team_check, "team_propose": _team_propose, "todos": _todos, "todo_set": _todo_set, "todo_add": _todo_add, "teams": _teams, "worktree": _worktree, "prompts": _prompts}
 
 
 # ------------------------------------------------------------------ the wire

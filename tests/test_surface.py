@@ -44,7 +44,8 @@ def test_the_surface_is_small_enough_to_document():
     # 22 to 24 on 2026-10-06, for todos() and todo(): "work on to-do #1 and mark it done".
     # 24 to 27 on 2026-10-07, for team_task(), team_done() and own_session(): an agent in a team
     # reports its turn with a call instead of appending a block to a markdown file.
-    assert counted["argus_client"] <= 27, counted
+    # 27 to 29 the same day, for team_check() and team_propose(): an agent writing a team.
+    assert counted["argus_client"] <= 29, counted
     assert counted["argus_orchestra"] <= 30, counted
 
 

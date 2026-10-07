@@ -14,7 +14,7 @@ import { go, parseRoute } from '/js/router.js';
 import { killSession } from '/js/screens.js';
 import { keyFor } from '/js/shortcuts.js';
 import { TMUX_LOOKS, lookOptions, paintRailWindows, withLook } from '/js/sidebar.js';
-import { bar, killLive, leaving, prefs, server, setLeaving, setLive, token, view } from '/js/state.js';
+import { bar, killLive, leaving, live, prefs, server, setLeaving, setLive, token, view } from '/js/state.js';
 import { attachTeam, teamSheet, teamStrip } from '/js/team.js';
 import { copyButton, sizeButtons } from '/js/terminal.js';
 import { attachTerminal, openLocated } from '/js/termpaths.js';
@@ -24,6 +24,19 @@ import { focusDesk, putDeskAway } from '/js/viewers.js';
 import { duration } from '/js/vitals.js';
 import { t } from '/js/words.js';
 // </imports>
+
+// The Team sheet as the desk opens it (set while a desk is drawn), and a folder waiting for it:
+// an agent's proposed team, tapped from its bell on another screen.
+let teamOpener = null;
+let pendingTeamFolder = null;
+
+/** Open Team on the folder an agent proposed a team in — its team.yaml is offered there as a
+ *  card, chosen. On the desk at once; from anywhere else, the desk first. */
+export function openProposedTeam(folder) {
+  if (live?.key === 'wall' && teamOpener && document.querySelector('#walltools')) { teamOpener(folder); return; }
+  pendingTeamFolder = folder;
+  go('#/wall');
+}
 /* ------------------------------------------------------------------- wall */
 
 /** Every session at once. Four layouts, because the right one depends entirely on the
@@ -1953,14 +1966,10 @@ export async function screenWall() {
     onclick: sessionSheet,
   }, [icon('terminal'), el('span', { textContent: t('Sessions') })]));
 
-  tools.append(el('button', {
-    className: 'winbtn wide',
-    title: t('Agents taking turns on one goal, with a check between turns, directed by Argus'),
-    onclick: () => teamSheet({
+  // The Team sheet on a folder: the desk's own from the button, an agent's proposal from its bell.
+  teamOpener = (home) => teamSheet({
       wsId: prefs.ws,
-      // The desk's own folder if it has one; otherwise nothing — a team's folder is chosen, never
-      // defaulted to your home, where its log and its files would land among everything else.
-      home: activeSpace().home || '',
+      home,
       onStarted: (said) => {
         // The team's sessions on this desk: its agents, and the check you can watch.
         // The team itself first, as a window: its graph, live, and its story.
@@ -1970,8 +1979,19 @@ export async function screenWall() {
         }
         teams.refresh();
       },
-    }),
+    });
+  tools.append(el('button', {
+    className: 'winbtn wide',
+    title: t('Agents taking turns on one goal, with a check between turns, directed by Argus'),
+    // The desk's own folder if it has one; otherwise nothing — a team's folder is chosen, never
+    // defaulted to your home, where its log and its files would land among everything else.
+    onclick: () => teamOpener(activeSpace().home || ''),
   }, [icon('layers'), el('span', { textContent: t('Team') })]));
+  if (pendingTeamFolder) {
+    const folder = pendingTeamFolder;
+    pendingTeamFolder = null;
+    teamOpener(folder);
+  }
 
   /* Whether this desk has a pair on it, and whether they are still moving.
    *

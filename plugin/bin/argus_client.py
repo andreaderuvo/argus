@@ -331,6 +331,19 @@ class Argus:
         return self.call("POST", "/api/teams/done", {"session": session or own_session(), "summary": summary,
                                                      "status": status, "details": details})
 
+    def team_check(self, text: str) -> dict:
+        """Check a team written as text — a Mermaid flowchart or YAML — before proposing it.
+        `{ok: True, format, name, summary, graph}`, or `{ok: False, error}` naming the line. Starts
+        nothing; the syntax is in the `argus-team-author` skill and on the wiki's Teams page."""
+        return self.call("POST", "/api/teams/check", {"text": text})
+
+    def team_propose(self, text: str, folder: str | Path, session: str = "") -> dict:
+        """Propose a team to the person: checked, written as `<folder>/team.yaml`, and a bell —
+        tapped, it opens Team on that folder with the team chosen. Starting it is theirs.
+        ArgusError (400) when it is not a team, (409) when the folder has a team.yaml of theirs."""
+        return self.call("POST", "/api/teams/propose", {"text": text, "folder": str(folder),
+                                                        "session": session or own_session()})
+
     def todos(self) -> list[dict]:
         """The to-do list kept in Argus: `{n, note, status, by, ...}` each, newest first. `n` is the
         number shown beside it ("#3"), given once and never reused."""
@@ -426,9 +439,10 @@ class Argus:
 # ------------------------------------------------------------------------ cli
 
 def main(argv: list[str] | None = None) -> int:
-    """The command line: `who`, `relay`, `ring`, `start`, `teams`, `task`, `turn`.
+    """The command line: `who`, `relay`, `ring`, `start`, `teams`, `task`, `turn`, `team-check`,
+    `team-propose`.
 
-    Seven verbs and no more, because this is what an *agent* reaches for from inside a session —
+    Nine verbs and no more, because this is what an *agent* reaches for from inside a session —
     the four things it can usefully do about the other agents on the machine. Anything larger
     is a script, and a script should import the class.
     """
@@ -472,6 +486,11 @@ def main(argv: list[str] | None = None) -> int:
     tu.add_argument("summary", nargs="?", default="")
     tu.add_argument("--status", default="", help="for a judge: OK, REDO, DONE or BLOCKED")
     tu.add_argument("--file", help="the details, read from a file")
+    tc = subs.add_parser("team-check", help="check a team you wrote (Mermaid or YAML), from a file or stdin")
+    tc.add_argument("file", nargs="?", default="-")
+    tp = subs.add_parser("team-propose", help="propose a team to the person: written as team.yaml in a folder, for them to start")
+    tp.add_argument("file", nargs="?", default="-")
+    tp.add_argument("--in", dest="folder", default=os.getcwd(), help="the folder the team is for (default: here)")
 
     args = ap.parse_args(argv)
     try:
@@ -516,6 +535,17 @@ def main(argv: list[str] | None = None) -> int:
             details = Path(args.file).read_text(encoding="utf-8") if args.file else ""
             said = argus.team_done(args.summary, args.status, details)
             print(f"recorded: {said['you']} in {said['team']}, round {said['round']}" + (f", {said['status']}" if said.get("status") else ""))
+        elif args.what in ("team-check", "team-propose"):
+            text = sys.stdin.read() if args.file == "-" else Path(args.file).read_text(encoding="utf-8")
+            if args.what == "team-check":
+                said = argus.team_check(text)
+                if not said["ok"]:
+                    print(said["error"])
+                    return 1
+                print(f"ok: {said['name']} — {said['summary']}")
+            else:
+                said = argus.team_propose(text, args.folder)
+                print(f"proposed: {said['name']} in {said['file']} — the person starts it from Team")
         elif args.what == "ring":
             argus.ring(args.text, args.why, args.session)
             print("rung")

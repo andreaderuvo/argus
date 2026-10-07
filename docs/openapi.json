@@ -3148,6 +3148,52 @@
     ]
    }
   },
+  "/api/teams/check": {
+   "post": {
+    "description": "`{text}` \u2192 `{ok: true, format, name, goal?, summary, graph}`, or `{ok: false, error}` naming\nthe line. Always 200: it is the question an agent asks while writing, and \"not yet\" is an\nanswer, not a failure. Starts nothing.",
+    "operationId": "postApiTeamsCheck",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Teams Check Api Teams Check Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Check a team written as text, Mermaid or YAML",
+    "tags": [
+     "Teams"
+    ]
+   }
+  },
   "/api/teams/done": {
    "post": {
     "description": "`{session, summary, status?, details?}` \u2014 the MCP tool `team_done` and `argus-say turn`.\nChecked (a judge must say OK, REDO, DONE or BLOCKED; only on its turn; once per turn), then\nwritten into the team's log by Argus as the canonical turn, which the director reads.",
@@ -3350,6 +3396,52 @@
      }
     },
     "summary": "The example team packs this copy ships",
+    "tags": [
+     "Teams"
+    ]
+   }
+  },
+  "/api/teams/propose": {
+   "post": {
+    "description": "`{text, folder, session?}`: the team (Mermaid or YAML) is checked, written as\n`<folder>/team.yaml` and a bell rings \u2014 tapped, it opens Team on that folder with the\nteam chosen. Starting it is left to the person. 400 when the text is not a team, 409 when\nthe folder holds a team.yaml of the person's own; `--allow-write` and an existing folder\ninside the roots.",
+    "operationId": "postApiTeamsPropose",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Teams Propose Api Teams Propose Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Propose a team: written into a folder, for you to start",
     "tags": [
      "Teams"
     ]

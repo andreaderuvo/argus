@@ -753,6 +753,50 @@ def create_app(cfg: Config) -> FastAPI:
                 return {"error": str(e)}
             raise ApiError(400, str(e)) from e
 
+    @app.post("/api/teams/check", tags=["Teams"], summary="Check a team written as text, Mermaid or YAML")
+    async def teams_check(body: dict) -> dict:
+        """`{text}` → `{ok: true, format, name, goal?, summary, graph}`, or `{ok: false, error}` naming
+        the line. Always 200: it is the question an agent asks while writing, and "not yet" is an
+        answer, not a failure. Starts nothing."""
+        try:
+            said = teammermaid.read_team(str(body.get("text") or ""))
+        except (ValueError, KeyError, TypeError) as e:
+            return {"ok": False, "error": str(e)}
+        return {"ok": True, **said, "summary": teammermaid.describe(said)}
+
+    @app.post("/api/teams/propose", tags=["Teams"], summary="Propose a team: written into a folder, for you to start")
+    async def teams_propose(request: Request, body: dict) -> dict:
+        """`{text, folder, session?}`: the team (Mermaid or YAML) is checked, written as
+        `<folder>/team.yaml` and a bell rings — tapped, it opens Team on that folder with the
+        team chosen. Starting it is left to the person. 400 when the text is not a team, 409 when
+        the folder holds a team.yaml of the person's own; `--allow-write` and an existing folder
+        inside the roots."""
+        state = request.app.state
+        if not state.cfg.allow_write:
+            raise ApiError(403, "this Argus is read-only (--allow-write): it cannot write a team into a folder")
+        raw = str(body.get("folder") or "").strip()
+        if not raw:
+            raise ApiError(400, "say which folder the team is for")
+        try:
+            folder = await asyncio.to_thread(state.jail.resolve, raw)
+        except PathError:
+            raise ApiError(403, f"{raw}: not a folder inside the ones Argus serves") from None
+        if not folder.is_dir():
+            raise ApiError(400, f"{folder} is not a folder")
+        session = str(body.get("session") or "").strip()
+        try:
+            teammermaid.read_team(str(body.get("text") or ""))
+        except (ValueError, KeyError, TypeError) as e:
+            raise ApiError(400, str(e)) from e
+        try:
+            said = await asyncio.to_thread(teams.propose, folder, str(body.get("text") or ""), session)
+        except ValueError as e:
+            raise ApiError(409, str(e)) from e
+        bells.rung(request, "asking", session=session or None,
+                   text=f"proposes a team: {said['name']} — {said['summary']}",
+                   team_proposal={"folder": str(folder), "name": said["name"], "file": said["file"]})
+        return {"proposed": True, "folder": str(folder), "file": said["file"], "name": said["name"], "summary": said["summary"]}
+
     @app.post("/api/teams/mermaid", tags=["Teams"], summary="Read a team drawn as a Mermaid flowchart")
     async def teams_from_mermaid(body: dict) -> dict:
         """`{text, base?, preview?}` → `{graph}`, or 400 naming the line (`{error}` with `preview`). `base` is the team being edited: what a

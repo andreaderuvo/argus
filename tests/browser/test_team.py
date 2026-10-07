@@ -424,3 +424,27 @@ def test_an_old_pair_left_on_a_desk_can_be_hidden(make_page, argus):
     assert page.eval("document.querySelector('.pairnote').hidden") is True, "still hidden after a reload"
     (project / "PLAN.argus.md").unlink()
     (project / "BRIDGE.argus.md").unlink()
+
+
+def test_a_team_proposed_by_an_agent_opens_from_its_bell(make_page, argus):
+    """An agent writes a team and proposes it: the bell's toast, tapped — from another screen —
+    opens Team on that folder with the proposed team chosen and its goal filled. Nothing started."""
+    project = desk(argus)
+    folder = project / "proposed"
+    folder.mkdir(exist_ok=True)
+    page = make_page(route="#/files")
+    page.wait("!!document.querySelector('#nav')", timeout=10)
+    time.sleep(1.0)                        # the bell stream is listening
+    text = ("%% name: Bench it\n%% goal: make the parser faster\nflowchart LR\n"
+            "  a[\"executor\"] --> c{{\"true\"}}\n  c -->|PASS| r[\"reviewer · judges\"]\n"
+            "  c -->|FAIL| a\n  r -->|OK, REDO| a\n  r -->|DONE| done\n")
+    argus.api("/api/teams/propose", "POST", {"text": text, "folder": str(folder), "session": ""})
+    toast = "[...document.querySelectorAll('.toast.tappable')].find(t => t.textContent.includes('Bench it'))"
+    page.wait(f"!!{toast}", timeout=10, what="the bell, as a toast")
+    page.click_at(*page._center(toast))
+    page.wait("document.querySelector('.teamcard.on')?.textContent.includes('Bench it')", timeout=20, what="Team, with the proposal chosen")
+    assert page.eval("document.querySelector('.startpath').value") == str(folder)
+    assert page.eval("document.querySelector('.teamgoal').value") == "make the parser faster"
+    assert argus.api("/api/teams")["teams"] == [], "proposed, not started"
+    page.eval("document.querySelector('dialog.sheet')?.close()")
+    (folder / "team.yaml").unlink()

@@ -202,9 +202,13 @@ export async function copyPath(path) {
  *  offset lands on top of the buttons on one screen and floats in mid-air on another.
  */
 export function measureFurniture() {
+  // Only bars along the bottom: on a desktop the nav is a rail down the side, as tall as the
+  // window, and counting it put every toast above the top of the screen.
   const bars = [document.getElementById('keys'), nav]
-    .filter((n) => n && !n.hidden && n.getClientRects().length);
-  const total = bars.reduce((sum, n) => sum + n.getBoundingClientRect().height, 0);
+    .filter((n) => n && !n.hidden && n.getClientRects().length)
+    .map((n) => n.getBoundingClientRect())
+    .filter((r) => r.bottom >= innerHeight - 2 && r.height < innerHeight / 2);
+  const total = bars.reduce((sum, r) => sum + r.height, 0);
   document.documentElement.style.setProperty('--furniture', `${Math.round(total)}px`);
 }
 

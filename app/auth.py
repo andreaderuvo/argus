@@ -94,6 +94,10 @@ AGENT_ROUTES = frozenset({
     ("GET", "/api/teams/task"),
     ("POST", "/api/teams/done"),
     ("GET", "/api/teams/expecting"),
+    # Writing a team: checking one (read only), and proposing one — written into a folder as
+    # team.yaml, for the person to start. Starting a team stays theirs.
+    ("POST", "/api/teams/check"),
+    ("POST", "/api/teams/propose"),
 })
 TODO_PREFIX = "/api/todo/"
 
@@ -308,7 +312,8 @@ class TokenAuthMiddleware:
                     "make a worktree (/api/git/worktree), report a run (/api/runs), make or "
                     "rename a desk (/api/desks), read, add to and move along the to-do list "
                     "(/api/todo), and in a team read its task and report its turn "
-                    "(/api/teams/task, /api/teams/done)",
+                    "(/api/teams/task, /api/teams/done), and check or propose a team "
+                    "(/api/teams/check, /api/teams/propose) — never start one",
                     status_code=403,
                 )
                 return await response(scope, receive, send)
