@@ -558,3 +558,58 @@ def vocab() -> dict:
                  "OK": "the judge keeps it and says the next step", "REDO": "the judge says what is wrong",
                  "DONE": "the judge says the goal is met", "BLOCKED": "a person must decide"},
     }
+
+
+# ------------------------------------------------------------------------------------ converting
+
+def convert(text: str, to: str, base_text: str = "") -> str:
+    """A team from one written form to the other, losing nothing the target can say.
+
+    Mermaid → YAML: the drawing gives the steps and arrows; what a flowchart cannot say (duties,
+    worktrees, reads) and the keys around the graph (gate, rounds, permissions, reset) come from
+    `base_text`, the YAML being edited, when there is one. YAML → Mermaid: the name and goal ride
+    as `%% name:` / `%% goal:` comments, which Mermaid ignores. ValueError when `text` is not a team."""
+    if to not in ("yaml", "mermaid"):
+        raise ValueError("to is yaml or mermaid")
+    base = None
+    if base_text.strip() and sniff(base_text) == "yaml":
+        try:
+            base = teams.from_yaml(base_text)
+        except ValueError:
+            base = None
+    if sniff(text) == "mermaid":
+        graph = teammermaid.from_mermaid(text, base["graph"] if base else None)
+        meta = teammermaid.meta_of(text)
+        said = {"name": meta.get("name") or (base or {}).get("name") or "my team", "graph": graph,
+                **({"goal": meta["goal"]} if meta.get("goal") else {"goal": base["goal"]} if base and base.get("goal") else {})}
+        for k in ("gate", "rounds", "permissions"):
+            if base and base.get(k):
+                said[k] = base[k]
+        if base and base["graph"].get("reset"):
+            graph["reset"] = base["graph"]["reset"]
+    else:
+        said = teams.from_yaml(text)
+    if to == "mermaid":
+        head = [f"%% name: {said['name']}"] + ([f"%% goal: {' '.join(said['goal'].split())}"] if said.get("goal") else [])
+        body = teammermaid.to_mermaid(said["graph"]).split("\n", 1)
+        return body[0] + "\n" + "".join(f"  {h}\n" for h in head) + body[1]
+    graph = dict(said["graph"])
+    if said.get("goal"):
+        graph["goal"] = said["goal"]
+    if said.get("permissions"):
+        graph["permissions"] = said["permissions"]
+    out = teams.to_yaml(graph, said["name"])
+    extra = "".join(f"{k}: {said[k]}\n" for k in ("gate", "rounds") if said.get(k))
+    if extra:
+        # After the goal (or the name), where a person would put them.
+        lines = out.split("\n")
+        at = max(i for i, ln in enumerate(lines) if ln.startswith(("name:", "goal:", "permissions:")))
+        out = "\n".join(lines[:at + 1]) + "\n" + extra.rstrip("\n") + "\n" + "\n".join(lines[at + 1:])
+    return out
+
+
+def looks_like_team(text: str) -> bool:
+    """A flowchart that was meant as a team, not any flowchart: it says so (`%% name:`, `%% goal:`)
+    or uses what only a team has — a check `{{…}}`, a `done`, a judge, a result on an arrow."""
+    return sniff(text) == "mermaid" and bool(re.search(
+        r"%%\s*(name|goal|start)\s*:|\{\{|(?<![\w-])done(?![\w-])|judges?\b|\|\s*(PASS|FAIL|OK|REDO|DONE|BLOCKED)\b", text, re.I))

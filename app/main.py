@@ -849,6 +849,19 @@ def create_app(cfg: Config) -> FastAPI:
         base = body.get("base") if isinstance(body.get("base"), dict) else None
         return await asyncio.to_thread(teamlint.lint, str(body.get("text") or ""), body.get("format"), base)
 
+    @app.post("/api/teams/convert", tags=["Teams"], summary="A team from Mermaid to YAML, or back, losing nothing")
+    async def teams_convert(body: dict) -> dict:
+        """`{text, to: yaml|mermaid, base?}` → `{text}`. `base` is the YAML being edited: what a
+        flowchart cannot say — duties, worktrees, gate, rounds, permissions, reset — is kept from it.
+        400 when `text` is not a team (`{error}` with `preview`)."""
+        try:
+            return {"text": await asyncio.to_thread(teamlint.convert, str(body.get("text") or ""), str(body.get("to") or ""),
+                                                    str(body.get("base") or ""))}
+        except (ValueError, KeyError, TypeError) as e:
+            if body.get("preview"):
+                return {"error": str(e)}
+            raise ApiError(400, str(e)) from e
+
     @app.get("/api/teams/vocab", tags=["Teams"], summary="What a team file may say, for completion")
     async def teams_vocab() -> dict:
         """`{top, step, reset, values, roles, conditions, when}` — keys with a line each, the values
@@ -866,6 +879,38 @@ def create_app(cfg: Config) -> FastAPI:
             return {"ok": False, "error": str(e), "problems": teamlint.lint(str(body.get("text") or ""))["problems"]}
         return {"ok": True, **said, "summary": teammermaid.describe(said),
                 "problems": teamlint.lint(str(body.get("text") or ""))["problems"]}
+
+    @app.post("/api/teams/save", tags=["Teams"], summary="Keep a team as the folder's team.yaml")
+    async def teams_save(request: Request, body: dict) -> dict:
+        """`{text, folder, replace?}`: the team (Mermaid or YAML) written as `<folder>/team.yaml`.
+        A team.yaml already there is the base — its duties, worktrees, gate, rounds, permissions
+        and reset are kept — and is replaced only with `replace: true`; without it the answer is
+        200 `{exists: true, file}`, for the page to ask. `--allow-write`, a folder inside the roots."""
+        state = request.app.state
+        if not state.cfg.allow_write:
+            raise ApiError(403, "this Argus is read-only (--allow-write): it cannot write a team file")
+        raw = str(body.get("folder") or "").strip()
+        try:
+            folder = await asyncio.to_thread(state.jail.resolve, raw)
+        except PathError:
+            raise ApiError(403, f"{raw}: not a folder inside the ones Argus serves") from None
+        if not folder.is_dir():
+            raise ApiError(400, f"{folder} is not a folder")
+        path = folder / "team.yaml"
+        if os.path.lexists(path):
+            try:
+                path = await asyncio.to_thread(state.jail.resolve, str(path))     # a link out of the roots: no
+            except PathError:
+                raise ApiError(403, f"{path} leads outside the folders Argus serves") from None
+        old = path.read_text(encoding="utf-8", errors="replace") if path.is_file() else ""
+        if old and not body.get("replace"):
+            return {"exists": True, "file": str(path)}
+        try:
+            text = await asyncio.to_thread(teamlint.convert, str(body.get("text") or ""), "yaml", old)
+        except ValueError as e:
+            raise ApiError(400, str(e)) from e
+        await asyncio.to_thread(path.write_text, text, encoding="utf-8")
+        return {"saved": True, "file": str(path), "kept": bool(old)}
 
     @app.post("/api/teams/propose", tags=["Teams"], summary="Propose a team: written into a folder, for you to start")
     async def teams_propose(request: Request, body: dict) -> dict:

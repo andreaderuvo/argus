@@ -770,6 +770,10 @@ export async function mountPreview(host, path, ctl) {
 
   const wanted = viewerFor(path);
   if (wanted === 'diagram') {
+    // A diagram that is a team says so, and offers to become the folder's team.yaml.
+    const team = isTeamFile(path, text) && !truncated;
+    if (team) host.append(teamFileCard(text, path));
+    if (team && server?.allow_write) ctl.edit?.({ text, mtime: Number(r.headers.get('x-mtime') || 0), host, path });
     const body = el('div', { className: 'md' });
     host.append(body);
     return ctl.source(async (rendered) => {

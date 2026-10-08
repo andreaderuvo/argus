@@ -4086,3 +4086,9 @@ button.ghost.teamfileopen { padding: .32rem .8rem; border-radius: 999px; }
 .teamfilecardnote.warning .teline-n { color: var(--st-warning); }
 .teamfilecardgraph { overflow-x: auto; }
 .teamfilecardgraph:empty { display: none; }
+.teamfilehead .teamfiletabs > button { padding: .22rem .7rem; font-size: .8rem; }
+.teamfilehead .teamfilemode { flex: 0 1 auto; color: var(--accent); }
+.teamfilehead .teamfilemode:empty { display: none; }
+.teamfilecard > .editnote:empty { display: none; }
+.teamfilecard > .editnote { color: var(--st-warning); font-size: .82rem; }
+button.ghost.teamfileopen.danger { color: var(--st-critical); border-color: color-mix(in srgb, var(--st-critical) 50%, transparent); }

@@ -1351,6 +1351,17 @@
   "unsaved": "sin guardar",
   "{n} errors": "{n} errores",
   "{n} errors left: saved like this, Argus will not start it": "quedan {n} errores: guardado así, Argus no lo iniciará",
-  "{n} warnings": "{n} avisos"
+  "{n} warnings": "{n} avisos",
+  "Save as team.yaml": "Guardar como team.yaml",
+  "Replace team.yaml": "Reemplazar team.yaml",
+  "Make this diagram the folder's team — written as team.yaml": "Haz de este diagrama el equipo de la carpeta — escrito como team.yaml",
+  "this folder has a team.yaml: replacing it keeps its duties, gate, rounds and reset": "esta carpeta ya tiene un team.yaml: al reemplazarlo se conservan sus duties, gate, rounds y reset",
+  "saved team.yaml — duties and settings kept from the one before": "team.yaml guardado — duties y ajustes conservados del anterior",
+  "saved team.yaml": "team.yaml guardado",
+  "fix the errors first — a team that does not read cannot be rewritten": "corrige antes los errores — un equipo que no se lee no se puede reescribir",
+  "Drawn from team.yaml; saved back as YAML — duties, worktrees, gate, rounds and reset are kept": "Dibujado desde team.yaml; se guarda de nuevo en YAML — se conservan duties, worktrees, gate, rounds y reset",
+  "As YAML for now; saved back as the diagram": "En YAML por ahora; se guarda de nuevo como diagrama",
+  "a team with errors cannot be written back as {what} — fix them first": "un equipo con errores no se puede reescribir como {what} — corrígelos antes",
+  "A team, drawn": "Un equipo, dibujado"
  }
 }

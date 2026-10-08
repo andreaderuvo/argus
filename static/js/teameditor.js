@@ -3,6 +3,7 @@ import { toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { icon } from '/js/icons.js';
 import { getJSON, human, postJSON } from '/js/reconnect.js';
+import { server } from '/js/state.js';
 import { drawGraph } from '/js/teamgraph.js';
 import { openProposedTeam } from '/js/wall.js';
 import { t } from '/js/words.js';
@@ -35,7 +36,44 @@ const CONDITIONS = ['always', 'PASS', 'FAIL', 'OK', 'REDO', 'DONE', 'BLOCKED'];
 export function isTeamFile(path, text = '') {
   const name = String(path || '').split('/').pop().toLowerCase();
   if (/(^|[.-])team\.ya?ml$/.test(name)) return true;
+  if (/\.(mmd|mermaid)$/.test(name)) return looksLikeTeam(text);
   return /\.ya?ml$/.test(name) && /team\.schema\.json/.test(String(text).slice(0, 400));
+}
+
+/** A flowchart meant as a team, not any flowchart (teamlint.looks_like_team says the same): it
+ *  names itself (`%% name:`), or uses what only a team has — a check, a done, a judge, a result. */
+export function looksLikeTeam(text) {
+  const s = String(text);
+  return /^\s*(%%.*\n\s*)*(flowchart|graph)\b/i.test(s)
+    && /%%\s*(name|goal|start)\s*:|\{\{|(^|[^\w-])done([^\w-]|$)|judges?\b|\|\s*(PASS|FAIL|OK|REDO|DONE|BLOCKED)\b/im.test(s);
+}
+
+/** Which of the two a team file is written in, by its name. */
+export const teamFormatOf = (path) => (/\.(mmd|mermaid)$/i.test(String(path)) ? 'mermaid' : 'yaml');
+
+/** "Save as team.yaml": a diagram becomes the folder's team. The team.yaml already there is asked
+ *  about once, and is the base — its duties, gate, rounds and reset are kept. Wires `button`. */
+function savesAsTeamYaml(button, note, folder, getText, onSaved) {
+  let replace = false;
+  const label = button.querySelector('span');
+  const reset = () => { replace = false; label.textContent = t('Save as team.yaml'); button.classList.remove('danger'); };
+  button.onclick = async () => {
+    try {
+      const said = await postJSON('/api/teams/save', { text: getText(), folder, replace });
+      if (said.exists) {
+        replace = true;
+        label.textContent = t('Replace team.yaml');
+        button.classList.add('danger');
+        note.textContent = t('this folder has a team.yaml: replacing it keeps its duties, gate, rounds and reset');
+        return;
+      }
+      reset();
+      note.textContent = '';
+      toast(said.kept ? t('saved team.yaml — duties and settings kept from the one before') : t('saved team.yaml'));
+      onSaved?.(said);
+    } catch (e) { toast(e.message, true); }
+  };
+  return reset;
 }
 
 /* ------------------------------------------------------------------ colours */
@@ -596,20 +634,28 @@ export const graphWaiting = () => el('div', { className: 'teamgraphwait' }, [ico
  *  "Open in Team", which starts from this folder's team.yaml. */
 export function teamFileEditor({ text, mtime, host, path }, { onDone, watch } = {}) {
   const folder = path.replace(/\/[^/]*$/, '') || '/';
+  const kind = teamFormatOf(path);               // what the file is written in, and is saved as
+  let mode = kind;                               // what is on screen
+  let yamlBase = kind === 'yaml' ? text : '';    // the YAML a diagram is drawn from, for what it cannot say
+  let touched = false;
   const preview = el('div', { className: 'teampicture teampreview teamfilegraph' });
   const note = el('span', { className: 'editnote' });
   const save = el('button', { className: 'primary inline', textContent: t('Save') });
   const cancel = el('button', { className: 'ghost', textContent: t('Cancel'), onclick: () => onDone?.() });
   const open = el('button', { className: 'ghost inline teamfileopen', type: 'button', title: t('Start from this team, in this folder') },
     [icon('play'), el('span', { textContent: t('Open in Team') })]);
+  const asYaml = el('button', { className: 'ghost inline teamfileopen teamfilesave', type: 'button',
+    title: t("Make this diagram the folder's team — written as team.yaml") }, [icon('save'), el('span', { textContent: t('Save as team.yaml') })]);
+  const tabs = el('div', { className: 'segmented teamtexttabs teamfiletabs', role: 'tablist' });
   let drawn = null;
   let lit = null;
   let anyway = false;
-  const dirty = () => ed.value !== text;
+  const dirty = () => touched && (mode !== kind || ed.value !== text);
   const picture = () => {
     if (drawn) preview.replaceChildren(drawGraph(drawn, { selected: lit, onPick: (id) => { lit = id; ed.reveal(id); picture(); } }));
     else preview.replaceChildren(graphWaiting());
   };
+  const unask = () => { if (anyway) { anyway = false; save.textContent = t('Save'); save.classList.remove('danger'); } };
   const paintNote = () => {
     open.disabled = dirty();
     open.title = dirty() ? t('save it first') : t('Start from this team, in this folder');
@@ -617,22 +663,45 @@ export function teamFileEditor({ text, mtime, host, path }, { onDone, watch } = 
     note.textContent = dirty() ? t('unsaved') : '';
   };
   const ed = teamEditor({
-    text, format: 'yaml',
+    text, format: kind,
     onLint: (said) => {
       if (said.ok && said.graph) { drawn = said.graph; preview.classList.remove('stale'); } else preview.classList.add('stale');
       picture();
-      if (said.ok && anyway) { anyway = false; save.textContent = t('Save'); save.classList.remove('danger'); }
+      if (said.ok) unask();
       paintNote();
     },
     onCaret: (id) => { lit = id; picture(); },
     onSave: () => store(),
   });
-  ed.input.addEventListener('input', () => { if (anyway) { anyway = false; save.textContent = t('Save'); save.classList.remove('danger'); } paintNote(); });
+  ed.input.addEventListener('input', () => { touched = true; unask(); paintNote(); });
   ed.input.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !e.defaultPrevented) onDone?.(); });
+
+  /* Write it as YAML or as a diagram, whatever the file is: the text is converted on the way,
+   * keeping from the YAML what a flowchart cannot say (POST /api/teams/convert). */
+  const show = async (m) => {
+    if (m === mode) return;
+    const said = await postJSON('/api/teams/convert', { text: ed.value, to: m, base: yamlBase, preview: true });
+    if (said.error) { toast(t('fix the errors first — a team that does not read cannot be rewritten'), true); return; }
+    if (m === 'mermaid') { yamlBase = ed.value; ed.setBase(drawn); }
+    mode = m;
+    await ed.setFormat(m, said.text);
+    for (const b of tabs.children) b.setAttribute('aria-selected', String(b._mode === m));
+    hint.textContent = m === kind ? '' : kind === 'yaml'
+      ? t('Drawn from team.yaml; saved back as YAML — duties, worktrees, gate, rounds and reset are kept')
+      : t('As YAML for now; saved back as the diagram');
+    paintNote();
+  };
+  tabs.append(...[['yaml', 'YAML'], ['mermaid', t('Diagram (Mermaid)')]].map(([m, label]) =>
+    Object.assign(el('button', { type: 'button', role: 'tab', textContent: label, 'aria-selected': String(m === mode), onclick: () => show(m) }), { _mode: m })));
+  const hint = el('span', { className: 'teamfilehint teamfilemode' });
 
   const store = async () => {
     const said = await ed.lint();
     const errors = (said.problems || []).filter((p) => p.level === 'error').length;
+    if (errors && mode !== kind) {
+      note.textContent = t('a team with errors cannot be written back as {what} — fix them first', { what: kind === 'yaml' ? 'YAML' : 'Mermaid' });
+      return;
+    }
     if (errors && !anyway) {
       // Once more, said plainly: it can be kept, it will not run.
       anyway = true;
@@ -644,7 +713,9 @@ export function teamFileEditor({ text, mtime, host, path }, { onDone, watch } = 
     save.disabled = true;
     note.textContent = t('saving…');
     try {
-      const r = await postJSON('/api/fs/write', { path, content: ed.value, mtime });
+      const content = mode === kind ? ed.value
+        : (await postJSON('/api/teams/convert', { text: ed.value, to: kind, base: yamlBase })).text;
+      const r = await postJSON('/api/fs/write', { path, content, mtime });
       toast(t('saved {name} · {size}', { name: path.split('/').pop(), size: human(r.size) }));
       onDone?.(r);
     } catch (e) {
@@ -655,11 +726,16 @@ export function teamFileEditor({ text, mtime, host, path }, { onDone, watch } = 
   };
   save.onclick = store;
   open.onclick = () => { if (!dirty()) openProposedTeam(folder); };
+  if (kind === 'mermaid') {
+    open.hidden = true;
+    savesAsTeamYaml(asYaml, note, folder, () => ed.value, () => { open.hidden = false; open.disabled = false; });
+  } else asYaml.hidden = true;
 
   const head = el('div', { className: 'teamfilehead' }, [
     el('span', { className: 'teamfilebadge' }, [icon('graph'), el('span', { textContent: t('Team file') })]),
+    tabs, hint,
     el('span', { className: 'teamfilehint', textContent: t('Ctrl+Space completes · Ctrl+/ comments · a click on a step finds its line') }),
-    open,
+    asYaml, open,
   ]);
   host.textContent = '';
   host.append(el('div', { className: 'teamfileedit' }, [head, el('div', { className: 'teamfilesplit' }, [ed.node, preview]),
@@ -680,9 +756,19 @@ export function teamFileCard(text, path) {
   const notes = el('div', { className: 'teamfilecardnotes' });
   const open = el('button', { className: 'ghost inline teamfileopen', type: 'button', title: t('Start from this team, in this folder'),
     onclick: () => openProposedTeam(folder) }, [icon('play'), el('span', { textContent: t('Open in Team') })]);
+  // A diagram is drawn by Mermaid just below, and is not yet the folder's team: it offers to become it.
+  const diagram = teamFormatOf(path) === 'mermaid';
+  const asYaml = el('button', { className: 'ghost inline teamfileopen teamfilesave', type: 'button', hidden: !diagram || !server?.allow_write,
+    title: t("Make this diagram the folder's team — written as team.yaml") }, [icon('save'), el('span', { textContent: t('Save as team.yaml') })]);
+  const said_ = el('span', { className: 'editnote' });
+  if (diagram) {
+    open.hidden = true;
+    savesAsTeamYaml(asYaml, said_, folder, () => text, () => { open.hidden = false; asYaml.hidden = true; });
+  }
   const card = el('div', { className: 'teamfilecard' }, [
-    el('div', { className: 'teamfilehead' }, [el('span', { className: 'teamfilebadge' }, [icon('graph'), el('span', { textContent: t('Team file') })]), state, open]),
-    notes, picture,
+    el('div', { className: 'teamfilehead' }, [el('span', { className: 'teamfilebadge' }, [icon('graph'),
+      el('span', { textContent: diagram ? t('A team, drawn') : t('Team file') })]), state, asYaml, open]),
+    said_, notes, picture,
   ]);
   postJSON('/api/teams/lint', { text }).then((said) => {
     const errors = said.problems.filter((p) => p.level === 'error').length;
@@ -696,8 +782,9 @@ export function teamFileCard(text, path) {
       ...said.problems.slice(0, 4).map((p) => el('p', { className: `teamfilecardnote ${p.level}` }, [
         el('span', { className: 'teline-n', textContent: p.line ? t('line {n}', { n: p.line }) : t('the team') }),
         el('span', { textContent: p.message })])));
-    if (said.graph) picture.replaceChildren(drawGraph(said.graph, {}));
+    if (said.graph && !diagram) picture.replaceChildren(drawGraph(said.graph, {}));
     else picture.hidden = true;
+    if (errors) asYaml.disabled = true;
   }).catch(() => card.remove());
   return card;
 }

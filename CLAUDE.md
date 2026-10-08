@@ -568,6 +568,13 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   (`isTeamFile`: team.yaml/team.yml/*.team.yaml or the schema line), whose Save asks once more with
   errors left; a team file being read gets `teamFileCard` (status, graph, Open in Team).
   `team_check` (and MCP) now carries `problems` too.
+  **Both ways** (`teamlint.convert`, `/api/teams/convert`, `/api/teams/save`): a team.yaml edited
+  in the Diagram tab is saved back as YAML with the old file as base — duties, worktrees, reads,
+  gate, rounds, permissions, reset kept (to_yaml knows no gate/rounds; convert puts them back). A
+  `.mmd` is a team only if `looks_like_team` (`%% name:`, a check, done, judge, a result label) —
+  every flowchart in someone's docs must not grow a team card; its card offers Save as team.yaml,
+  which answers 200 `{exists}` rather than 409 (the harness counts every 4xx) and resolves an
+  existing team.yaml through the jail (a symlink out is 403).
 - **How a verdict moves a team** (`Director._finished`, the audit of 2026-10-07, tests in
   test_teams.py "verdicts the audit found ignored"). A non-judge's turn is `always`, except
   BLOCKED, which anyone may say; BLOCKED follows only `if BLOCKED` arrows, else waits for the

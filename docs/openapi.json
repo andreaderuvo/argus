@@ -3370,6 +3370,52 @@
     ]
    }
   },
+  "/api/teams/convert": {
+   "post": {
+    "description": "`{text, to: yaml|mermaid, base?}` \u2192 `{text}`. `base` is the YAML being edited: what a\nflowchart cannot say \u2014 duties, worktrees, gate, rounds, permissions, reset \u2014 is kept from it.\n400 when `text` is not a team (`{error}` with `preview`).",
+    "operationId": "postApiTeamsConvert",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Teams Convert Api Teams Convert Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "A team from Mermaid to YAML, or back, losing nothing",
+    "tags": [
+     "Teams"
+    ]
+   }
+  },
   "/api/teams/done": {
    "post": {
     "description": "`{session, summary, status?, details?}` \u2014 the MCP tool `team_done` and `argus-say turn`.\nChecked (a judge must say OK, REDO, DONE or BLOCKED; only on its turn; once per turn), then\nwritten into the team's log by Argus as the canonical turn, which the director reads.",
@@ -3797,6 +3843,52 @@
      }
     },
     "summary": "Fix what a team would be missing",
+    "tags": [
+     "Teams"
+    ]
+   }
+  },
+  "/api/teams/save": {
+   "post": {
+    "description": "`{text, folder, replace?}`: the team (Mermaid or YAML) written as `<folder>/team.yaml`.\nA team.yaml already there is the base \u2014 its duties, worktrees, gate, rounds, permissions\nand reset are kept \u2014 and is replaced only with `replace: true`; without it the answer is\n200 `{exists: true, file}`, for the page to ask. `--allow-write`, a folder inside the roots.",
+    "operationId": "postApiTeamsSave",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Teams Save Api Teams Save Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Keep a team as the folder's team.yaml",
     "tags": [
      "Teams"
     ]

@@ -128,6 +128,72 @@ def test_a_team_file_read_says_what_it_is_and_opens_in_team(make_page, argus):
     page.wait("document.querySelector('.teamfilecard .testatus')?.classList.contains('good')", timeout=10, what="the card, checked")
     assert page.eval("!!document.querySelector('.teamfilecard svg.teamgraph')"), "the team drawn"
     assert "1 agent" in page.text(".teamfilecard")
-    page.click_at(*page._center("document.querySelector('.teamfilecard .teamfileopen')"))
+    page.click_at(*page._center("document.querySelector('.teamfilecard .teamfileopen:not(.teamfilesave)')"))
     page.wait("document.querySelector('.teamcard.on')?.textContent.includes('Card team')", timeout=20, what="Team, on this folder's team")
     path.unlink()
+
+
+FULL = """name: Paper run
+goal: trade on paper
+gate: auto
+rounds: 7
+steps:
+  trader: {role: executor, duty: "Trade carefully."}
+  check: {check: python3 run.py --check, of: trader}
+flow:
+  - trader -> check
+  - check -> done if PASS
+  - check -> trader if FAIL
+"""
+
+
+def test_a_team_yaml_can_be_edited_as_a_diagram_and_is_saved_as_yaml(make_page, argus):
+    page, path = open_editor(make_page, argus, FULL)
+    page.wait("document.querySelector('.testatus')?.classList.contains('good')", timeout=10)
+    page.click_at(*page._center("[...document.querySelectorAll('.teamfiletabs button')].find(b => b.textContent.startsWith('Diagram'))"))
+    page.wait("document.querySelector('.teinput').value.startsWith('flowchart')", timeout=10, what="the diagram")
+    assert "duties, worktrees, gate, rounds and reset are kept" in page.text(".teamfilemode")
+    page.eval("(() => { const i = document.querySelector('.teinput'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); })()")
+    page.type('  analyst["researcher"] --> trader\n')
+    page.wait("[...document.querySelectorAll('.teamfilegraph .tgtext')].some(x => x.textContent === 'analyst')", timeout=10, what="the new step, drawn")
+    page.key("s", modifiers=2)
+    deadline = time.time() + 10
+    while "analyst" not in path.read_text() and time.time() < deadline:
+        time.sleep(0.2)
+    saved = path.read_text()
+    assert not saved.startswith("flowchart") and "analyst:" in saved, saved
+    assert "Trade carefully." in saved and "rounds: 7" in saved and "gate: auto" in saved, "nothing the diagram cannot say was lost"
+
+
+def test_a_diagram_file_becomes_the_folders_team(make_page, argus):
+    argus.kill_sessions()
+    folder = argus.root / "home" / "drawn"
+    folder.mkdir(parents=True, exist_ok=True)
+    team = folder / "team.yaml"
+    team.unlink(missing_ok=True)
+    mmd = folder / "flow.mmd"
+    mmd.write_text("flowchart LR\n  %% name: Drawn team\n  fixer[executor] --> tests{{pytest -q}}\n  tests -->|PASS| done\n  tests -->|FAIL| fixer\n")
+    page = make_page(route=f"#/preview?path={mmd}")
+    page.wait("document.querySelector('.teamfilecard .testatus')?.classList.contains('good')", timeout=10, what="a team, drawn")
+    assert "A team, drawn" in page.text(".teamfilecard")
+    page.click_at(*page._center("[...document.querySelectorAll('.teamfilecard button')].find(b => b.textContent.includes('Save as team.yaml'))"))
+    deadline = time.time() + 10
+    while not team.exists() and time.time() < deadline:
+        time.sleep(0.2)
+    assert "fixer:" in team.read_text() and "name: Drawn team" in team.read_text()
+    page.wait("[...document.querySelectorAll('.teamfilecard button')].some(b => b.textContent.includes('Open in Team') && !b.hidden)", timeout=5)
+    # Again, over a team.yaml with a duty: asked once, then replaced keeping the duty.
+    team.write_text(team.read_text().replace("role: executor", "role: executor\n    duty: Mind the edge cases."))
+    page.eval("location.reload()")
+    page.wait("document.querySelector('.teamfilecard .testatus')?.classList.contains('good')", timeout=15)
+    save = "[...document.querySelectorAll('.teamfilecard button')].find(b => /team\\.yaml/.test(b.textContent))"
+    page.click_at(*page._center(save))
+    page.wait(f"{save}.textContent.includes('Replace')", timeout=5, what="asked before replacing")
+    page.click_at(*page._center(save))
+    deadline = time.time() + 10
+    page.wait("[...document.querySelectorAll('.teamfilecard button')].some(b => b.textContent.includes('Open in Team') && b.getClientRects().length)",
+              timeout=10, what="replaced, and Open in Team offered")
+    assert "Mind the edge cases." in team.read_text(), "the duty kept from the team.yaml it replaced"
+    page.click_at(*page._center("[...document.querySelectorAll('.teamfilecard button')].find(b => b.textContent.includes('Open in Team'))"))
+    page.wait("document.querySelector('.teamcard.on')?.textContent.includes('Drawn team')", timeout=20, what="Team, on the folder's new team")
+    team.unlink()

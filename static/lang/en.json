@@ -1351,6 +1351,17 @@
   "unsaved": "unsaved",
   "{n} errors": "{n} errors",
   "{n} errors left: saved like this, Argus will not start it": "{n} errors left: saved like this, Argus will not start it",
-  "{n} warnings": "{n} warnings"
+  "{n} warnings": "{n} warnings",
+  "Save as team.yaml": "Save as team.yaml",
+  "Replace team.yaml": "Replace team.yaml",
+  "Make this diagram the folder's team — written as team.yaml": "Make this diagram the folder's team — written as team.yaml",
+  "this folder has a team.yaml: replacing it keeps its duties, gate, rounds and reset": "this folder has a team.yaml: replacing it keeps its duties, gate, rounds and reset",
+  "saved team.yaml — duties and settings kept from the one before": "saved team.yaml — duties and settings kept from the one before",
+  "saved team.yaml": "saved team.yaml",
+  "fix the errors first — a team that does not read cannot be rewritten": "fix the errors first — a team that does not read cannot be rewritten",
+  "Drawn from team.yaml; saved back as YAML — duties, worktrees, gate, rounds and reset are kept": "Drawn from team.yaml; saved back as YAML — duties, worktrees, gate, rounds and reset are kept",
+  "As YAML for now; saved back as the diagram": "As YAML for now; saved back as the diagram",
+  "a team with errors cannot be written back as {what} — fix them first": "a team with errors cannot be written back as {what} — fix them first",
+  "A team, drawn": "A team, drawn"
  }
 }

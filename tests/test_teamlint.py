@@ -175,3 +175,79 @@ def test_the_same_arrow_twice_is_said_and_removed():
     (p,) = said["problems"]
     assert p["level"] == "warning" and p["line"] == 10 and "line 9" in p["message"]
     assert fix(text, p["fix"]) == GOOD
+
+
+FULL = """name: Paper run
+goal: trade on paper
+gate: auto
+rounds: 7
+permissions: edit
+steps:
+  trader: {role: executor, worktree: true, duty: "Trade carefully."}
+  check: {check: python3 run.py --check, of: trader}
+  risk: {role: reviewer, judge: true}
+flow:
+  - trader -> check
+  - check -> risk if PASS
+  - check -> trader if FAIL
+  - risk -> trader if REDO
+  - risk -> done if DONE
+reset:
+  files: [ledger.csv]
+"""
+
+
+def test_yaml_to_a_diagram_and_back_loses_nothing():
+    drawn = teamlint.convert(FULL, "mermaid")
+    assert drawn.startswith("flowchart") and "%% name: Paper run" in drawn and "%% goal: trade on paper" in drawn
+    assert teamlint.lint(drawn)["ok"]
+    # A step drawn in, then back to YAML on the old file: the new step is there, nothing else lost.
+    back = teamlint.convert(drawn + "  analyst[\"researcher\"] --> trader\n", "yaml", FULL)
+    said = teams.from_yaml(back)
+    assert said["gate"] == "auto" and said["rounds"] == 7 and said["permissions"] == "edit" and said["goal"] == "trade on paper"
+    assert said["graph"]["reset"]["files"] == ["ledger.csv"]
+    trader = next(n for n in said["graph"]["nodes"] if n["id"] == "trader")
+    assert trader["duty"] == "Trade carefully." and trader["worktree"]
+    assert next(n for n in said["graph"]["nodes"] if n["id"] == "analyst")["role"] == "researcher"
+    assert teamlint.lint(back)["problems"] == []
+
+
+def test_a_diagram_with_no_yaml_becomes_a_team_file():
+    drawn = "flowchart LR\n  %% name: Quick\n  fixer[executor] --> tests{{pytest -q}}\n  tests -->|PASS| done\n  tests -->|FAIL| fixer\n"
+    said = teams.from_yaml(teamlint.convert(drawn, "yaml"))
+    assert said["name"] == "Quick" and {n["id"] for n in said["graph"]["nodes"]} == {"fixer", "tests", "end"}
+    with pytest.raises(ValueError):
+        teamlint.convert("flowchart LR\n  a -->|MAYBE| b\n", "yaml")
+
+
+def test_which_flowcharts_are_teams():
+    assert teamlint.looks_like_team("flowchart LR\n  a[x] --> b{{make test}}\n")
+    assert teamlint.looks_like_team("%% name: x\nflowchart TD\n  a --> b\n")
+    assert not teamlint.looks_like_team("flowchart LR\n  login --> dashboard --> logout\n")
+    assert not teamlint.looks_like_team("name: x\nsteps: {}\n")
+
+
+def test_save_as_team_yaml_asks_before_replacing_and_keeps_the_old_duties(tmp_path):
+    from app.config import Config
+    from app.main import create_app
+    app = create_app(Config(token="m" * 64, roots=[tmp_path], listen="127.0.0.1:0", allow_write=True))
+    h = {"Authorization": "Bearer " + "m" * 64}
+    drawn = teamlint.convert(FULL, "mermaid").replace("risk -->", "risk -->", 1)
+    with TestClient(app) as c:
+        said = c.post("/api/teams/save", json={"text": drawn, "folder": str(tmp_path)}, headers=h).json()
+        assert said["saved"] and not said["kept"]
+        (tmp_path / "team.yaml").write_text(FULL)
+        said = c.post("/api/teams/save", json={"text": drawn + "  analyst[researcher] --> trader\n", "folder": str(tmp_path)}, headers=h).json()
+        assert said == {"exists": True, "file": str(tmp_path / "team.yaml")}, "asked, not replaced"
+        assert (tmp_path / "team.yaml").read_text() == FULL
+        said = c.post("/api/teams/save", json={"text": drawn + "  analyst[researcher] --> trader\n", "folder": str(tmp_path), "replace": True},
+                      headers=h).json()
+        assert said["saved"] and said["kept"]
+        now = teams.from_yaml((tmp_path / "team.yaml").read_text())
+        assert any(n["id"] == "analyst" for n in now["graph"]["nodes"]) and now["rounds"] == 7
+        assert "Trade carefully." in (tmp_path / "team.yaml").read_text()
+        assert c.post("/api/teams/convert", json={"text": "flowchart LR\n a -->|MAYBE| b\n", "to": "yaml", "preview": True},
+                      headers=h).json()["error"]
+    ro = create_app(Config(token="m" * 64, roots=[tmp_path], listen="127.0.0.1:0"))
+    with TestClient(ro) as c:
+        assert c.post("/api/teams/save", json={"text": drawn, "folder": str(tmp_path)}, headers=h).status_code == 403
