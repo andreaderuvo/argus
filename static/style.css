@@ -4188,3 +4188,12 @@ dialog.sheet.teamsheet:has(.tcanvas) { width: min(1240px, 96vw); }
   .tcanvas.teamfilegraph, .tcanvas.teamfilegraph.teampreview { max-height: none; min-height: 22rem; }
   .teamfilesplit { grid-template-rows: minmax(14rem, 1fr) auto; overflow: auto; }
 }
+/* Send to… and Search, side by side in one pill. */
+.seloffer:has(.seloffersearch) { display: flex; gap: 1px; background: var(--line); overflow: hidden; }
+.seloffer:has(.seloffersearch) .selofferpill { border-radius: 0; }
+.seloffer:has(.seloffersearch) .selofferpill:first-child { border-radius: 999px 0 0 999px; }
+.seloffer:has(.seloffersearch) .selofferpill:last-child { border-radius: 0 999px 999px 0; }
+.seloffer:has(.seloffersearch) .selofferpill:only-child { border-radius: 999px; }
+.selofferpill.seloffersearch { background: var(--panel); color: var(--text); }
+.selofferpill.seloffersearch .ico { color: var(--accent); }
+.seloffer:has(.seloffertarget) { display: grid; background: var(--panel); }

@@ -56,9 +56,10 @@ def test_a_selection_is_typed_into_the_other_session_of_the_desk(make_page, argu
         argus.tmux("kill-session", "-t", s, check=False)
 
 
-def test_nothing_is_offered_in_a_desk_with_one_terminal(make_page, argus):
+def test_alone_on_a_desk_a_selection_is_offered_to_the_web(make_page, argus):
+    """Nobody to hand it to, so no Send to…; but Search is there, on the engine chosen in Settings."""
     argus.tmux("new-session", "-d", "-s", "alone", "-x", "80", "-y", "12", "sh -c 'echo some words here; sleep 600'")
-    argus.api("/api/prefs", "PATCH", {"changes": {"ws": 1, "wsSeq": 1, "workspaces": [
+    argus.api("/api/prefs", "PATCH", {"changes": {"searchEngine": "duckduckgo", "ws": 1, "wsSeq": 1, "workspaces": [
         {"id": 1, "name": "Solo", "desktop": [{"kind": "term", "name": "alone"}]},
     ]}})
     page = make_page(route="#/wall")
@@ -72,8 +73,15 @@ def test_nothing_is_offered_in_a_desk_with_one_terminal(make_page, argus):
                        ("mouseMoved", left + width / 2, "left"), ("mouseReleased", left + width / 2, "left")):
         page.send("Input.dispatchMouseEvent", {"type": kind, "x": x, "y": row, "button": b, "clickCount": 1,
                                                 "buttons": 1 if b == "left" and kind != "mouseReleased" else 0})
-    time.sleep(0.6)
-    assert not page.eval("!!document.querySelector('.seloffer')")
+    page.wait("!!document.querySelector('.seloffersearch')", timeout=5, what="Search, where the mouse let go")
+    assert page.eval("document.querySelectorAll('.selofferpill').length") == 1, "no Send to… with nobody to send to"
+    # The new tab is the browser's to open; here it is caught, so nothing leaves for the web.
+    page.eval("window.open = (url) => { window.__opened = url; return null; }")
+    page.click_at(*page._center("document.querySelector('.seloffersearch')"))
+    page.wait("!!window.__opened", timeout=5, what="a search opened")
+    url = page.eval("window.__opened")
+    assert url.startswith("https://duckduckgo.com/?q=") and "some" in url, url
+    page.wait("!document.querySelector('.seloffer')", timeout=5, what="the offer to go once used")
     argus.tmux("kill-session", "-t", "alone", check=False)
 
 

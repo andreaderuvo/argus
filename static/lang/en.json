@@ -1406,6 +1406,11 @@
   "waits for every arrow coming in": "waits for every arrow coming in",
   "Draw or write": "Draw or write",
   "Draw the team with blocks and arrows, or write it as Mermaid or YAML — each follows the other": "Draw the team with blocks and arrows, or write it as Mermaid or YAML — each follows the other",
-  "Draw or write the team": "Draw or write the team"
+  "Draw or write the team": "Draw or write the team",
+  "Search the web with": "Search the web with",
+  "what Search looks text up on, when you select it in a session": "what Search looks text up on, when you select it in a session",
+  "Search the web for the selection, on {engine}": "Search the web for the selection, on {engine}",
+  "Search": "Search",
+  "looked up on {engine}: {query}": "looked up on {engine}: {query}"
  }
 }

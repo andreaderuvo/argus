@@ -18,6 +18,7 @@ import { applyName, applyTheme } from '/js/theme.js';
 import { workspaces } from '/js/tray.js';
 import { repaintDiagrams } from '/js/viewers.js';
 import { deviceRows, handoffSheet, languageSheet } from '/js/vitals.js';
+import { SEARCH_ENGINES, searchEngine } from '/js/wall.js';
 import { activeLang, t } from '/js/words.js';
 // </imports>
 /* ------------------------------------------------------ while you were away */
@@ -940,6 +941,11 @@ export async function screenSettings() {
       (i) => { prefs.keyBar = ['auto', 'always', 'never'][i]; applyKeyBar(); }),
     // Not under Interruptions: this one is about what a window says, not about being told.
     whereWiringRow(),
+    // Select text in a session of a desk and a Search button appears beside Send to….
+    choice(t('Search the web with'), t('what Search looks text up on, when you select it in a session'),
+      Object.values(SEARCH_ENGINES).map((e) => e.name),
+      () => searchEngine().name,
+      (name) => { prefs.searchEngine = Object.keys(SEARCH_ENGINES).find((k) => SEARCH_ENGINES[k].name === name) || 'google'; }),
   );
 
   wrap.append(

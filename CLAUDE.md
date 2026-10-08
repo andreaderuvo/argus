@@ -266,6 +266,11 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   once a visit (`onUncaughtDrag`). Test fakes that stand in for an agent should turn on mouse
   reporting too (`KEEPS_MOUSE` in test_seloffer.py). In CDP a drag needs `buttons: 1` on each move,
   and a fitted terminal has many more rows than the session was created with.
+- **Search, beside Send to…** (`searchTheWeb`, `SEARCH_ENGINES` in wall.js, test_seloffer.py): the
+  selection looked up in a new tab — so a desk with one terminal now gets the offer too, with
+  Search alone. `prefs.searchEngine` (Settings → Sessions); a page has no way to learn the
+  browser's default engine (only extensions do), hence the choice. The test replaces
+  `window.open` so nothing leaves for the web.
 - **"Also →": a prompt typed to one agent, given to another of the desk** (wall.js
   `paintAlso`/`submittedAlso`, termpaths.js `typed`, `tests/browser/test_also.py`). A press
   **sends it now** (typed, with its Enter). It first armed and waited for the Enter in the

@@ -266,8 +266,8 @@ export async function screenWall() {
      *  one terminal, where there is nobody to hand it to.
      */
     function offerSelection(from, text, x, y) {
+      // With nobody to hand it to, the offer is still there: to look it up on the web.
       const others = open.filter((o) => o !== from && o.name.startsWith('term:'));
-      if (!others.length) return;
       // What a terminal selection carries that nobody wants pasted: the padding each line gets,
       // and the newline after the last one, which an agent's box would take as Enter.
       const clean = text.replace(/[ \t]+$/gm, '').replace(/\n+$/, '');
@@ -2830,6 +2830,28 @@ function dragBy(grabber, win, bounds, onDone, ignore = [], peers = () => [], onT
  *  twelve seconds of being ignored. */
 let selectionOffer = null;
 let shiftHinted = false;          // "hold Shift to select" said once per visit
+
+/** Where a selection is looked up: Settings → Sessions picks one; the query goes after the URL. */
+export const SEARCH_ENGINES = {
+  google: { name: 'Google', url: 'https://www.google.com/search?q=' },
+  duckduckgo: { name: 'DuckDuckGo', url: 'https://duckduckgo.com/?q=' },
+  bing: { name: 'Bing', url: 'https://www.bing.com/search?q=' },
+  startpage: { name: 'Startpage', url: 'https://www.startpage.com/do/search?q=' },
+  ecosia: { name: 'Ecosia', url: 'https://www.ecosia.org/search?q=' },
+  perplexity: { name: 'Perplexity', url: 'https://www.perplexity.ai/search?q=' },
+};
+export const searchEngine = () => SEARCH_ENGINES[prefs.searchEngine] || SEARCH_ENGINES.google;
+
+/** The selection, looked up in a new tab: one line, at most 400 characters — an error message
+ *  is what people search for, and its first line is the part that matches. */
+export function searchTheWeb(text) {
+  const lines = String(text).split('\n').map((l) => l.trim()).filter(Boolean);
+  const query = (lines.length > 3 ? lines[0] : lines.join(' ')).replace(/\s+/g, ' ').slice(0, 400);
+  if (!query) return;
+  const engine = searchEngine();
+  window.open(engine.url + encodeURIComponent(query), '_blank', 'noopener');
+  toast(t('looked up on {engine}: {query}', { engine: engine.name, query: query.length > 60 ? `${query.slice(0, 58)}…` : query }));
+}
 function hideSelectionOffer() {
   selectionOffer?.el.remove();
   clearTimeout(selectionOffer?.timer);
@@ -2861,7 +2883,11 @@ function showSelectionOffer(text, x, y, targets) {
     icon('relay'), el('span', { textContent: targets.length === 1 ? t('to {session}', { session: targets[0].name }) : t('Send to…') }),
   ]);
   pill.onclick = () => (targets.length === 1 ? (hideSelectionOffer(), targets[0].give()) : list());
-  box.append(pill);
+  // Beside it, always: the selection looked up on the web — an error, a name, a flag.
+  const search = el('button', { className: 'selofferpill seloffersearch', type: 'button',
+    title: t('Search the web for the selection, on {engine}', { engine: searchEngine().name }),
+    onclick: () => { hideSelectionOffer(); searchTheWeb(text); } }, [icon('search'), el('span', { textContent: t('Search') })]);
+  box.append(...(targets.length ? [pill] : []), search);
   document.body.append(box);
   place();
   selectionOffer = { el: box, timer: setTimeout(hideSelectionOffer, 12000) };

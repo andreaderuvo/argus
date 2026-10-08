@@ -1406,6 +1406,11 @@
   "waits for every arrow coming in": "espera cada flecha que llega",
   "Draw or write": "Dibujar o escribir",
   "Draw the team with blocks and arrows, or write it as Mermaid or YAML — each follows the other": "Dibuja el equipo con bloques y flechas, o escríbelo en Mermaid o YAML — uno sigue al otro",
-  "Draw or write the team": "Dibuja o escribe el equipo"
+  "Draw or write the team": "Dibuja o escribe el equipo",
+  "Search the web with": "Buscar en la web con",
+  "what Search looks text up on, when you select it in a session": "dónde Buscar busca el texto que seleccionas en una sesión",
+  "Search the web for the selection, on {engine}": "Buscar la selección en la web, con {engine}",
+  "Search": "Buscar",
+  "looked up on {engine}: {query}": "buscado en {engine}: {query}"
  }
 }
