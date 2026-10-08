@@ -8,8 +8,9 @@ list: Argus puts it to the person as a question with **Do it** / **No** (a bell,
 Do it carries it out itself — with the full key, through the very same routes the page uses, so
 every check, the jail and the journal still apply. The agent gets the outcome back.
 
-`agents_without_asking` in the config lists actions the person is happy to have done straight
-away. An action that would run agents with no questions at all is put to the person regardless.
+Settings → Agents (the preference `agentsWithoutAsking`) and `agents_without_asking` in the
+config list actions the person is happy to have done straight away — any of them, the dangerous
+ones included, ticked with the warning in front of them.
 
 Kept in memory, like questions: a request outliving the server is one nobody is waiting for.
 """
@@ -51,6 +52,27 @@ ACTIONS = {
     "remove_worktree": "remove a git worktree",
     "todo_delete": "take a to-do off the list",
 }
+
+
+def without_asking(app) -> set[str]:
+    """The actions the person lets agents do at once: Settings → Agents (kept in the preferences,
+    which an agent's key may read but never write) and `agents_without_asking` in the config.
+    Honoured for every action, the dangerous ones too — the person ticked them, with the warning
+    in front of them. Reported: "rilancia il team", and half an hour later the Do it was still
+    waiting."""
+    out = set(app.state.cfg.agents_without_asking or [])
+    store_ = getattr(app.state, "prefs", None)
+    if store_:
+        try:
+            _, doc = prefs.load(store_)
+            out |= {str(a) for a in doc.get("agentsWithoutAsking") or [] if str(a) in ACTIONS}
+        except Exception:                              # noqa: BLE001 — unreadable prefs ask, as before
+            pass
+    return out
+
+
+# Said in red beside their box in Settings: they delete files, end work, or let agents loose.
+DANGEROUS = {"team_reset", "team_restart", "kill_session", "start_agent", "remove_worktree"}
 
 
 def store(app) -> dict[str, dict]:
@@ -179,7 +201,7 @@ def plan(app, action: str, args: dict) -> dict:
         files = (f"deleting {len(plan['files'])} file(s): {', '.join(plan['files'][:12])}"
                  + (" …" if len(plan["files"]) > 12 else "")) if plan["files"] else "deleting no file"
         verb = "restart" if action == "team_restart" else "reset"
-        # Deleting files is always asked, whatever agents_without_asking says.
+        # Deletes files: asked, unless the person has let agents do it (Settings → Agents).
         return {"calls": [("POST", f"/api/teams/{team['id']}/{verb}", {})], "danger": True,
                 "text": f"{verb} the team {team['name']} — {files}; the log {dict(archive='archived', clear='deleted', keep='kept')[plan['log']]}"
                         + (f"; then `{plan['run']}`" if plan["run"] else "")
@@ -301,7 +323,9 @@ async def request(req, body: dict) -> dict:
     one = {"id": uuid.uuid4().hex[:12], "at": time.time(), "action": action, "args": args, "session": session,
            "text": the_plan["text"], "why": why, "state": "asked", "_plan": the_plan, "_landed": asyncio.Event()}
     kept[one["id"]] = one
-    free = action in (app.state.cfg.agents_without_asking or []) and not the_plan.get("danger")
+    let = without_asking(app)
+    # A team whose agents ask nobody lets agents loose: it needs that box ticked too.
+    free = action in let and (not the_plan.get("danger") or action == "start_agent" or "start_agent" in let)
     if free:
         one["state"] = "doing"
         asyncio.create_task(_do(app, one))

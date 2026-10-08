@@ -496,8 +496,10 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   put into words first (400 with the reason, nothing asked, when it cannot be done), then an ask
   with Do it / No, and on Do it carried out through the app's own routes over
   `httpx.ASGITransport` with the full token — every check, the jail and the journal still apply.
-  `agents_without_asking` lets listed actions through at once; letting agents loose is asked
-  regardless. A team started this way is announced `team-started` with its desk, and the pages
+  Settings → Agents (`prefs.agentsWithoutAsking`, never writable by an agent key) and
+  `agents_without_asking` let listed actions through at once — *any* of them, the dangerous ones
+  (`consent.DANGEROUS`, marked red) included: asked for on 2026-10-08 ("deve poter essere
+  bypassabile"). A team started this way is announced `team-started` with its desk, and the pages
   put its windows there. `start_team` finds the team by name: a proposal, a model in
   `prefs.teamModels`, a template, the folder's team.yaml; launchers are described *with versions*
   (without them nothing is recognised as an agent). The `argus` skill and the wiki's
@@ -528,7 +530,9 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   skipped — archives the log by default, runs `run`. Restart = stop, end its sessions, reset,
   forget, POST /api/teams again with the stored `spec` and the **same id** (the window keeps
   watching), re-reading `spec.file` when the team came from a team.yaml. The UI and the consent
-  requests (team_reset/team_restart, always asked) show the resolved list first.
+  requests (team_reset/team_restart, asked unless ticked) show the resolved list first. A restart
+  also closes the windows of ended sessions on the team's desk (`tidy_desks`), sparing the team's
+  own — they come back on their turn; the answer carries `tidied`.
 - **The file browser as a file manager** (`static/js/picking.js`, `popMenu` in dialogs.js,
   `fileItems/manyItems/deleteEntries/moveEntries` in filerows.js, tests/browser/test_picking.py).
   Rows, tiles and tree rows are `pickable` (`data-pick`, `_entry`); `attachPicking` on each

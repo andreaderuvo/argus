@@ -1312,6 +1312,25 @@
   "to tell several Argus apart — on every device that opens this one": "to tell several Argus apart — on every device that opens this one",
   "Argus — e.g. Argus · GPU": "Argus — e.g. Argus · GPU",
   "this tab is now called {name}": "this tab is now called {name}",
-  "back to Argus": "back to Argus"
+  "back to Argus": "back to Argus",
+  "Agents": "Agents",
+  "Start a team in a desk": "Start a team in a desk",
+  "Restart a team (stop, reset, start again)": "Restart a team (stop, reset, start again)",
+  "Reset a stopped team (delete what it declares)": "Reset a stopped team (delete what it declares)",
+  "Continue a team": "Continue a team",
+  "Pause a team": "Pause a team",
+  "Stop a team (and end its sessions, if asked)": "Stop a team (and end its sessions, if asked)",
+  "End a session": "End a session",
+  "Rename a session": "Rename a session",
+  "Start an agent with no questions at all": "Start an agent with no questions at all",
+  "Remove a git worktree": "Remove a git worktree",
+  "Delete a to-do": "Delete a to-do",
+  "Ticked: an agent does it as soon as it is asked, and a bell says it was done. Unticked: you get Do it / No first.": "Ticked: an agent does it as soon as it is asked, and a bell says it was done. Unticked: you get Do it / No first.",
+  "agents may now: {what}": "agents may now: {what}",
+  "asked again: {what}": "asked again: {what}",
+  "deletes files, ends work or lets agents loose — tick it only if you mean it": "deletes files, ends work or lets agents loose — tick it only if you mean it",
+  "not available here": "not available here",
+  "risky": "risky",
+  "The risky ones delete files, end work or let agents loose — tick them only if you mean it.": "The risky ones delete files, end work or let agents loose — tick them only if you mean it."
  }
 }

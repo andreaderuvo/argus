@@ -85,14 +85,40 @@ def test_what_cannot_be_done_as_asked_is_refused_before_asking(tmp_path):
         assert c.get("/api/asks", headers=MASTER).json()["asks"] == [], "nothing was put to the person"
 
 
-def test_without_asking_when_the_config_says_so_but_never_for_no_questions_agents(tmp_path):
-    with TestClient(make(tmp_path, agents_without_asking=["todo_delete", "start_agent"])) as c:
+def test_without_asking_when_the_person_says_so_for_any_action(tmp_path):
+    """Listed — in the config, or ticked in Settings — an action is done at once, the dangerous ones
+    too: "relaunch the team" waited half an hour on a Do it nobody saw."""
+    from app import prefs as P
+    app = make(tmp_path, agents_without_asking=["todo_delete"])
+    app.state.prefs = tmp_path / "prefs.json"
+    P.save(app.state.prefs, 1, {"agentsWithoutAsking": ["kill_session"]})
+    with TestClient(app) as c:
         c.post("/api/todo", json={"note": "x"}, headers=AGENT)
         req = c.post("/api/agent/request", json={"action": "todo_delete", "args": {"todo": "1"}, "wait": 5}, headers=AGENT).json()
-        assert req["state"] == "done" and "question" not in req
-        req = c.post("/api/agent/request", json={"action": "start_agent", "args": {
-            "launcher": "Claude Code", "name": "loose", "options": {"permissions": "skip"}}}, headers=AGENT).json()
-        assert req["state"] == "asked", "letting an agent loose is always asked"
+        assert req["state"] == "done" and "question" not in req, "from the config"
+        said = {a["action"]: a for a in c.get("/api/agent/actions", headers=AGENT).json()["actions"]}
+        assert said["kill_session"]["asks"] is False and said["kill_session"]["danger"], "from Settings, said dangerous"
+        assert said["team_restart"]["asks"] is True
+        req = c.post("/api/agent/request", json={"action": "kill_session", "args": {"session": "nope"}, "wait": 5}, headers=AGENT).json()
+        assert "question" not in req and req["state"] in ("doing", "failed", "done"), "not asked"
+        # An agent's key cannot tick one for itself.
+        assert c.patch("/api/prefs", json={"changes": {"agentsWithoutAsking": ["team_restart"]}}, headers=AGENT).status_code == 403
+
+
+def test_a_team_that_asks_nobody_needs_both_boxes(tmp_path, monkeypatch):
+    """Start a team ticked is not enough for one with *everything*: that lets agents loose, and
+    asks unless "Start an agent with no questions at all" is ticked too."""
+    from app import prefs as P
+    app = make(tmp_path)
+    app.state.prefs = tmp_path / "prefs.json"
+    P.save(app.state.prefs, 1, {"agentsWithoutAsking": ["start_team"]})
+    agents = [{"name": "Claude Code", "agent": "claude", "available": True,
+               "options": [{"id": "permissions", "choices": [{"value": "edits"}, {"value": "skip"}]}]}]
+    monkeypatch.setattr(consent.launch, "describe", lambda cfg, versions=False: agents)
+    args = {"team": "Build and review", "folder": str(tmp_path), "goal": "tidy it", "permissions": "everything"}
+    with TestClient(app) as c:
+        req = c.post("/api/agent/request", json={"action": "start_team", "args": args, "wait": 0}, headers=AGENT).json()
+        assert req.get("question") and req["state"] == "asked", req
 
 
 def test_a_team_is_planned_from_its_name_with_an_agent_per_step(tmp_path, monkeypatch):

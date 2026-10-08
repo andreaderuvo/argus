@@ -1312,6 +1312,25 @@
   "to tell several Argus apart — on every device that opens this one": "per distinguere più Argus — su ogni dispositivo che apre questo",
   "Argus — e.g. Argus · GPU": "Argus — es. Argus · GPU",
   "this tab is now called {name}": "questa scheda ora si chiama {name}",
-  "back to Argus": "di nuovo Argus"
+  "back to Argus": "di nuovo Argus",
+  "Agents": "Agenti",
+  "Start a team in a desk": "Avviare un team in un desk",
+  "Restart a team (stop, reset, start again)": "Riavviare un team (ferma, azzera, riparte)",
+  "Reset a stopped team (delete what it declares)": "Azzerare un team fermo (cancella ciò che dichiara)",
+  "Continue a team": "Far continuare un team",
+  "Pause a team": "Mettere in pausa un team",
+  "Stop a team (and end its sessions, if asked)": "Fermare un team (e chiuderne le sessioni, se chiesto)",
+  "End a session": "Chiudere una sessione",
+  "Rename a session": "Rinominare una sessione",
+  "Start an agent with no questions at all": "Avviare un agente senza alcuna domanda",
+  "Remove a git worktree": "Rimuovere un worktree git",
+  "Delete a to-do": "Cancellare un to-do",
+  "Ticked: an agent does it as soon as it is asked, and a bell says it was done. Unticked: you get Do it / No first.": "Spuntata: un agente la fa appena gliela chiedono, e una notifica dice che è fatta. Non spuntata: prima ti arriva Fallo / No.",
+  "agents may now: {what}": "ora gli agenti possono: {what}",
+  "asked again: {what}": "di nuovo con conferma: {what}",
+  "deletes files, ends work or lets agents loose — tick it only if you mean it": "cancella file, interrompe lavoro o lascia agenti senza freni — spuntala solo se lo vuoi davvero",
+  "not available here": "non disponibile qui",
+  "risky": "rischiosa",
+  "The risky ones delete files, end work or let agents loose — tick them only if you mean it.": "Quelle rischiose cancellano file, interrompono lavoro o lasciano agenti senza freni — spuntale solo se lo vuoi davvero."
  }
 }

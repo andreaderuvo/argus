@@ -551,6 +551,13 @@ def test_restart_resets_reads_the_file_again_and_starts_from_round_one(make_page
     team = eventually(lambda: (argus.api("/api/teams")["teams"] or [None])[0], timeout=10, what="the team")
     assert team["restartable"] and team["file"] == str(team_file) and team["resets"]
     (project / "ledger.csv").write_text("BUY 1 BTC")
+    # A window of an ended session on the team's desk: Restart leaves a clean desk.
+    argus.tmux("new-session", "-d", "-s", "stray", "-x", "80", "-y", "20")
+    argus.api("/api/desks", "POST", {"name": "Work", "session": "stray", "show": False})
+    page.wait("!!document.querySelector('.win[data-session=\"stray\"]')", timeout=10, what="the stray window")
+    argus.tmux("kill-session", "-t", "stray")
+    eventually(lambda: any(w.get("name") == "stray" for w in argus.api("/api/prefs")["prefs"]["workspaces"][0]["desktop"]),
+               timeout=10, what="the stray window kept by the server")
     team_file.write_text(team_file.read_text().replace("role: executor", "role: trader"))
     line = "[...document.querySelectorAll('.teamline')].find(l => l.textContent.includes('Paper'))"
     page.wait(f"!!{line}", timeout=10)
@@ -563,6 +570,9 @@ def test_restart_resets_reads_the_file_again_and_starts_from_round_one(make_page
     again = eventually(lambda: next((x for x in argus.api("/api/teams")["teams"] if x["id"] == team["id"] and x["round"] == 1 and x["status"] == "running"), None),
                        timeout=20, what="the same team, from round 1")
     assert next(n for n in again["nodes"] if n["id"] == "trader")["role"] == "trader", "team.yaml read again"
+    page.wait("!document.querySelector('.win[data-session=\"stray\"]')", timeout=10, what="the gone window closed by the restart")
+    assert any(w.get("name") == "Paper-run-trader" for d in argus.api("/api/prefs")["prefs"]["workspaces"] for w in d["desktop"]) or \
+        page.eval("!!document.querySelector('.win[data-session=\"Paper-run-trader\"]')"), "the team's own window spared"
     clean(argus, project)
     team_file.unlink()
     for f in project.glob("TEAM.argus.*.md"):
@@ -616,3 +626,15 @@ def test_the_browser_tab_says_which_argus_this_is(make_page, argus):
     eventually(lambda: argus.api("/api/prefs")["prefs"].get("instanceName") == "Argus · GPU", timeout=5, what="kept on the machine")
     page.eval("location.reload()")
     page.wait("document.title === 'Argus · GPU'", timeout=10, what="and after a reload")
+
+
+def test_settings_let_an_agent_restart_a_team_without_the_tap(make_page, argus):
+    page = make_page(route="#/settings")
+    row = "[...document.querySelectorAll('.askfreerow')].find(r => r.textContent.includes('Restart a team'))"
+    page.wait(f"!!{row}", timeout=10, what="the box for restarting a team")
+    assert page.eval(f"{row}.classList.contains('danger')"), "said dangerous"
+    page.click_at(*page._center(f"{row}.querySelector('input')"))
+    eventually(lambda: "team_restart" in (argus.api("/api/prefs")["prefs"].get("agentsWithoutAsking") or []), timeout=5, what="kept on the machine")
+    said = {a["action"]: a for a in argus.api("/api/agent/actions")["actions"]}
+    assert said["team_restart"]["asks"] is False
+

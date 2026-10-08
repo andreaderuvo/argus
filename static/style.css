@@ -3948,3 +3948,12 @@ dialog.sheet.teamsheet { width: min(980px, 96vw); max-width: none; margin-top: m
 .teamgoalhead > svg { width: 14px; height: 14px; }
 .teamgoaltext { margin: 0; white-space: pre-wrap; font-size: .9rem; line-height: 1.45; color: var(--text); }
 .teamgoalbox > .meta { margin: 0; font-size: .75rem; color: var(--dim); overflow-wrap: anywhere; }
+.askfree { display: grid; }
+.askfree .askfreehint { padding: .3rem .9rem .5rem; margin: 0; }
+.askfreerow { cursor: pointer; align-items: center; gap: .7rem; }
+.askfreerow > input { flex: none; width: 1.05rem; height: 1.05rem; accent-color: var(--accent); margin-left: .1rem; }
+.askfreehint .askfreewarn { color: var(--danger); }
+.askfreerisk { flex: none; font-size: .72rem; letter-spacing: .04em; text-transform: uppercase; color: var(--danger);
+  border: 1px solid color-mix(in srgb, var(--danger) 55%, transparent); border-radius: 999px; padding: .1rem .55rem; }
+.askfreerow.danger:has(input:checked) .askfreerisk { background: var(--danger); color: var(--bg); border-color: var(--danger); }
+.askfreerow.danger:has(input:checked) { background: color-mix(in srgb, var(--danger) 8%, transparent); }

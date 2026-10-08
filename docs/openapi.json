@@ -249,7 +249,7 @@
  "paths": {
   "/api/agent/actions": {
    "get": {
-    "description": "The actions an agent's key cannot take but may *request* (`POST /api/agent/request`):\neach put to the person as Do it / No, unless `agents_without_asking` lists it.",
+    "description": "The actions an agent's key cannot take but may *request* (`POST /api/agent/request`):\neach put to the person as Do it / No, unless they let it through (Settings \u2192 Agents, or\n`agents_without_asking`). `danger`: deletes files, ends work or lets agents loose.",
     "operationId": "getApiAgentActions",
     "responses": {
      "200": {

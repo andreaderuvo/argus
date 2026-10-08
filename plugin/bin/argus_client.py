@@ -344,8 +344,8 @@ class Argus:
         return self.call("POST", "/api/desks/gone", {"desk": desk} if desk else {})
 
     def actions(self) -> list[dict]:
-        """What this key cannot do but may *request*: `{action, what, asks}` each — `asks` false when
-        the person lets that one be done without asking (`agents_without_asking`)."""
+        """What this key cannot do but may *request*: `{action, what, asks, danger}` each — `asks`
+        false when the person lets that one be done without asking (Settings → Agents)."""
         return self.call("GET", "/api/agent/actions")["actions"]
 
     def request(self, action: str, args: dict | None = None, why: str = "", wait: float = 300,

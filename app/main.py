@@ -783,9 +783,10 @@ def create_app(cfg: Config) -> FastAPI:
     @app.get("/api/agent/actions", tags=["Agents"], summary="What an agent may ask the person to have done")
     async def agent_actions(request: Request) -> dict:
         """The actions an agent's key cannot take but may *request* (`POST /api/agent/request`):
-        each put to the person as Do it / No, unless `agents_without_asking` lists it."""
-        free = set(request.app.state.cfg.agents_without_asking or [])
-        return {"actions": [{"action": k, "what": v, "asks": k not in free or k == "start_agent"}
+        each put to the person as Do it / No, unless they let it through (Settings → Agents, or
+        `agents_without_asking`). `danger`: deletes files, ends work or lets agents loose."""
+        free = consent.without_asking(request.app)
+        return {"actions": [{"action": k, "what": v, "asks": k not in free, "danger": k in consent.DANGEROUS}
                             for k, v in consent.ACTIONS.items()]}
 
     @app.post("/api/agent/request", tags=["Agents"], summary="Ask the person to have something done, and do it on their OK")
@@ -1138,7 +1139,13 @@ def create_app(cfg: Config) -> FastAPI:
         body = {**spec, "name": team["name"], "goal": goal, "agents": agents, "id": team_id,
                 "path": spec.get("path") or team["folder"]}
         started = await teams_create(request, body)
-        return {**started, "reset": reset, "ended": ended}
+        # A clean desk too: the windows of sessions that ended — an earlier run's, a stray shell's —
+        # go; the team's own are spared (its agents start on their turn, their windows wait).
+        tidied = {}
+        if spec.get("ws") is not None and getattr(state, "prefs", None):
+            mine = {n["session"] for n in state.teams.teams[team_id]["graph"]["nodes"] if n.get("session")}
+            tidied = await tidy_desks(request, desk_id=spec.get("ws"), spare=mine)
+        return {**started, "reset": reset, "ended": ended, "tidied": tidied}
 
     @app.delete("/api/teams/{team_id}", tags=["Teams"], summary="Forget a finished team")
     async def teams_forget(request: Request, team_id: str) -> dict:
@@ -1947,14 +1954,19 @@ def create_app(cfg: Config) -> FastAPI:
         """`{desk?}` — every desk, or the one named: its windows on tmux sessions that no longer
         exist are taken off, on the machine and on every open page. Only windows: no session is
         touched (they have already ended), so an agent's key may do it. → `{closed: {desk: [names]}}`."""
-        names = {s["name"] for s in await asyncio.to_thread(tmux.list_sessions, request.app.state.socket)}
-        only = " ".join(str((body or {}).get("desk") or "").split()).lower()
+        return {"closed": await tidy_desks(request, desk=str((body or {}).get("desk") or ""))}
+
+    async def tidy_desks(request: Request, desk: str = "", desk_id=None, spare: set | None = None) -> dict:
+        """Take the windows of ended sessions off the desks (one by name or id, or all), sparing
+        `spare` — a team's own sessions about to start again."""
+        names = {s["name"] for s in await asyncio.to_thread(tmux.list_sessions, request.app.state.socket)} | (spare or set())
+        only = " ".join(desk.split()).lower()
         store = request.app.state.prefs
         version, doc = prefs.load(store)
         closed: dict[str, list[str]] = {}
         spaces = []
         for w in doc.get("workspaces") or []:
-            if isinstance(w, dict) and (not only or str(w.get("name", "")).lower() == only):
+            if isinstance(w, dict) and (not only or str(w.get("name", "")).lower() == only) and (desk_id is None or w.get("id") == desk_id):
                 gone = [x.get("name") for x in w.get("desktop") or [] if x.get("kind") == "term" and x.get("name") not in names]
                 if gone:
                     closed[w.get("name", "")] = gone
@@ -1963,7 +1975,7 @@ def create_app(cfg: Config) -> FastAPI:
         if closed:
             await asyncio.to_thread(prefs.save, store, version + 1, prefs.merge(doc, {"workspaces": spaces}))
             bells.announce(request, {"what": "gone-closed", "closed": closed})
-        return {"closed": closed}
+        return closed
 
     @app.get("/api/git/worktrees", tags=["Sessions"], summary="The working directories of a repository")
     async def list_worktrees(request: Request, path: str) -> dict:

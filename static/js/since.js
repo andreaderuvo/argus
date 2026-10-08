@@ -459,6 +459,49 @@ export async function screenSettings() {
    */
   const group = (title) => el('h2', { className: 'settinggroup', textContent: title });
 
+  /* What an agent may do without the Do it: one box per action it can request. Kept in the
+   *  preferences on the machine — an agent's key reads them and cannot write them, so it cannot
+   *  tick one for itself. The dangerous ones say so in red; ticking them is still yours to do. */
+  const withoutAskingRows = () => {
+    const box = el('div', { className: 'askfree' }, [el('p', { className: 'meta', textContent: '…' })]);
+    const WORDS = {
+      start_team: t('Start a team in a desk'), team_restart: t('Restart a team (stop, reset, start again)'),
+      team_reset: t('Reset a stopped team (delete what it declares)'), team_go: t('Continue a team'),
+      team_pause: t('Pause a team'), team_stop: t('Stop a team (and end its sessions, if asked)'),
+      kill_session: t('End a session'), rename_session: t('Rename a session'),
+      start_agent: t('Start an agent with no questions at all'), remove_worktree: t('Remove a git worktree'),
+      todo_delete: t('Delete a to-do'),
+    };
+    getJSON('/api/agent/actions').then((said) => {
+      const free = new Set(prefs.agentsWithoutAsking || []);
+      box.replaceChildren(
+        el('p', { className: 'meta askfreehint' }, [
+          t('Ticked: an agent does it as soon as it is asked, and a bell says it was done. Unticked: you get Do it / No first.'), ' ',
+          el('span', { className: 'askfreewarn', textContent: t('The risky ones delete files, end work or let agents loose — tick them only if you mean it.') }),
+        ]),
+        ...said.actions.map((a) => {
+          const input = el('input', { type: 'checkbox', checked: free.has(a.action) });
+          input.onchange = () => {
+            const now = new Set(prefs.agentsWithoutAsking || []);
+            if (input.checked) now.add(a.action); else now.delete(a.action);
+            prefs.agentsWithoutAsking = [...now];
+            savePrefs();
+            toast(input.checked ? t('agents may now: {what}', { what: WORDS[a.action] || a.what }) : t('asked again: {what}', { what: WORDS[a.action] || a.what }));
+          };
+          return el('label', { className: `row setting askfreerow${a.danger ? ' danger' : ''}` }, [
+            input,
+            el('span', { className: 'grow' }, [
+              el('span', { className: 'name', textContent: WORDS[a.action] || a.action }),
+            ]),
+            a.danger ? el('span', { className: 'askfreerisk', textContent: t('risky'),
+              title: t('deletes files, ends work or lets agents loose — tick it only if you mean it') }) : null,
+          ].filter(Boolean));
+        }),
+      );
+    }).catch(() => box.replaceChildren(el('p', { className: 'meta', textContent: t('not available here') })));
+    return box;
+  };
+
   /* What this Argus is called in the browser's tab — for whoever keeps two or three open. */
   const nameRow = () => {
     const box = el('input', { type: 'text', className: 'startpath namebox', value: prefs.instanceName || '', maxLength: 40,
@@ -879,6 +922,8 @@ export async function screenSettings() {
       }),
     wiringRows(), pluginRows(), bellRow(),
   );
+
+  wrap.append(group(t('Agents')), withoutAskingRows());
 
   wrap.append(
     group(t('Sessions')),

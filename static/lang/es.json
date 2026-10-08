@@ -1312,6 +1312,25 @@
   "to tell several Argus apart — on every device that opens this one": "para distinguir varios Argus — en cada dispositivo que abra este",
   "Argus — e.g. Argus · GPU": "Argus — p. ej. Argus · GPU",
   "this tab is now called {name}": "esta pestaña ahora se llama {name}",
-  "back to Argus": "de nuevo Argus"
+  "back to Argus": "de nuevo Argus",
+  "Agents": "Agentes",
+  "Start a team in a desk": "Iniciar un equipo en un escritorio",
+  "Restart a team (stop, reset, start again)": "Reiniciar un equipo (detener, restablecer, empezar de nuevo)",
+  "Reset a stopped team (delete what it declares)": "Restablecer un equipo detenido (borra lo que declara)",
+  "Continue a team": "Continuar un equipo",
+  "Pause a team": "Pausar un equipo",
+  "Stop a team (and end its sessions, if asked)": "Detener un equipo (y cerrar sus sesiones, si se pide)",
+  "End a session": "Terminar una sesión",
+  "Rename a session": "Renombrar una sesión",
+  "Start an agent with no questions at all": "Iniciar un agente sin ninguna pregunta",
+  "Remove a git worktree": "Eliminar un worktree de git",
+  "Delete a to-do": "Borrar una tarea",
+  "Ticked: an agent does it as soon as it is asked, and a bell says it was done. Unticked: you get Do it / No first.": "Marcada: un agente la hace en cuanto se le pide, y un aviso dice que está hecha. Sin marcar: primero recibes Hazlo / No.",
+  "agents may now: {what}": "ahora los agentes pueden: {what}",
+  "asked again: {what}": "de nuevo con confirmación: {what}",
+  "deletes files, ends work or lets agents loose — tick it only if you mean it": "borra archivios, detiene trabajo o suelta agentes — márcala solo si de verdad lo quieres",
+  "not available here": "no disponible aquí",
+  "risky": "arriesgada",
+  "The risky ones delete files, end work or let agents loose — tick them only if you mean it.": "Las arriesgadas borran archivos, detienen trabajo o sueltan agentes — márcalas solo si de verdad lo quieres."
  }
 }

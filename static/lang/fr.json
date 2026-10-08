@@ -1312,6 +1312,25 @@
   "to tell several Argus apart — on every device that opens this one": "pour distinguer plusieurs Argus — sur chaque appareil qui ouvre celui-ci",
   "Argus — e.g. Argus · GPU": "Argus — p. ex. Argus · GPU",
   "this tab is now called {name}": "cet onglet s’appelle maintenant {name}",
-  "back to Argus": "de nouveau Argus"
+  "back to Argus": "de nouveau Argus",
+  "Agents": "Agents",
+  "Start a team in a desk": "Démarrer une équipe dans un bureau",
+  "Restart a team (stop, reset, start again)": "Redémarrer une équipe (arrêter, réinitialiser, relancer)",
+  "Reset a stopped team (delete what it declares)": "Réinitialiser une équipe arrêtée (supprime ce qu'elle déclare)",
+  "Continue a team": "Faire continuer une équipe",
+  "Pause a team": "Mettre une équipe en pause",
+  "Stop a team (and end its sessions, if asked)": "Arrêter une équipe (et fermer ses sessions, si demandé)",
+  "End a session": "Fermer une session",
+  "Rename a session": "Renommer une session",
+  "Start an agent with no questions at all": "Démarrer un agent sans aucune question",
+  "Remove a git worktree": "Supprimer un worktree git",
+  "Delete a to-do": "Supprimer une tâche",
+  "Ticked: an agent does it as soon as it is asked, and a bell says it was done. Unticked: you get Do it / No first.": "Cochée : un agent la fait dès qu'on la lui demande, et une notification dit qu'elle est faite. Décochée : vous avez d'abord Fais-le / Non.",
+  "agents may now: {what}": "les agents peuvent maintenant : {what}",
+  "asked again: {what}": "de nouveau demandé : {what}",
+  "deletes files, ends work or lets agents loose — tick it only if you mean it": "supprime des fichiers, arrête du travail ou lâche des agents — cochez-la seulement si vous le voulez vraiment",
+  "not available here": "pas disponible ici",
+  "risky": "risquée",
+  "The risky ones delete files, end work or let agents loose — tick them only if you mean it.": "Les risquées suppriment des fichiers, arrêtent du travail ou lâchent des agents — cochez-les seulement si vous le voulez vraiment."
  }
 }
