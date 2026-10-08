@@ -61,6 +61,7 @@ def test_a_team_file_is_edited_with_its_problems_on_their_lines(make_page, argus
     page.wait("!document.querySelector('.tecomplete').hidden", timeout=5, what="the completion list")
     assert "worktree" in page.eval("document.querySelector('.tecomplete .teitem.on').textContent")
     page.key("Enter")
+    page.wait("document.querySelector('.teinput').value.includes('worktree: ')", timeout=5, what="the key taken")
     page.type("t")
     page.wait("!document.querySelector('.tecomplete').hidden && document.querySelector('.tecomplete').textContent.includes('true')", timeout=5,
               what="true/false offered for worktree")

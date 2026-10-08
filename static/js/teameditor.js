@@ -276,7 +276,8 @@ export function teamEditor({ text = '', format = 'yaml', base = null, onLint, on
     hl.style.transform = `translate(${-input.scrollLeft}px, ${-input.scrollTop}px)`;
     gutterIn.style.transform = `translateY(${-input.scrollTop}px)`;
   };
-  input.addEventListener('scroll', () => { sync(); if (!pop.hidden) closePop(); });
+  // Typing near the edge scrolls the box by itself: the list follows the word instead of closing.
+  input.addEventListener('scroll', () => { sync(); if (!pop.hidden) placePop(); });
 
   /* --- the problems, under the text */
   const paintList = () => {
@@ -585,7 +586,8 @@ export function teamEditor({ text = '', format = 'yaml', base = null, onLint, on
       showPop(false);
     } else closePop();
   });
-  input.addEventListener('blur', () => setTimeout(closePop, 150));
+  // Late, and only if the focus did not come back: a click on the graph blurs and refocuses in one go.
+  input.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== input) closePop(); }, 150));
 
   const toggleComment = () => {
     const mark = fmt === 'yaml' ? '# ' : '%% ';
