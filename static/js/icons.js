@@ -58,6 +58,8 @@ export const ICONS = {
   tick: 'M5 12.8l4.4 4.2L19 7.5',
   // A warning: a triangle with its mark, for what is legal and probably not what was meant.
   warn: 'M12 4.2l8.6 15H3.4zM12 10v4.2M12 16.9h.01',
+  // Undo: a curved arrow back (redo is the same, mirrored).
+  undo: 'M9 14.5L4.5 10 9 5.5M4.5 10h10a5 5 0 0 1 0 10H12',
   // A wand: the edit that fixes it.
   wand: 'M4.5 19.5l10-10M13 6l1.6-1.6M18 11l1.6-1.6M17.2 4.2v2.4M19.8 6.8h-2.4M14.5 9.5l-1.8-1.8',
   // A team's controls: the marks every player has, so they are read before the words are.

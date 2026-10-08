@@ -4092,3 +4092,99 @@ button.ghost.teamfileopen { padding: .32rem .8rem; border-radius: 999px; }
 .teamfilecard > .editnote:empty { display: none; }
 .teamfilecard > .editnote { color: var(--st-warning); font-size: .82rem; }
 button.ghost.teamfileopen.danger { color: var(--st-critical); border-color: color-mix(in srgb, var(--st-critical) 50%, transparent); }
+
+/* The drawing canvas (teamcanvas.js): a palette, the team on a dotted ground, what is picked. */
+.tcanvas { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; border: 1px solid var(--line); border-radius: .6rem; background: var(--bg); overflow: hidden; }
+.tcbar { display: flex; align-items: center; gap: .4rem; padding: .45rem .5rem; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--panel) 75%, var(--bg)); }
+.tcpalette { display: flex; flex-wrap: wrap; gap: .35rem; }
+.tcgap { flex: 1; }
+.tcchip, .tcghost {
+  display: inline-flex; align-items: center; gap: .4rem; padding: .28rem .65rem .28rem .5rem; border: 1px solid var(--line);
+  border-radius: 999px; background: var(--panel); color: var(--text); font-size: .8rem; font-weight: 600; user-select: none;
+}
+.tcchip { cursor: grab; touch-action: none; transition: transform .12s, border-color .12s, box-shadow .12s; }
+.tcchip:hover, .tcchip:focus-visible { border-color: var(--accent); transform: translateY(-1px); box-shadow: 0 3px 10px rgb(0 0 0 / .18); outline: none; }
+.tcchip:active { cursor: grabbing; }
+.tcshape { flex: none; display: inline-block; width: 14px; height: 10px; border: 1.5px solid var(--dim); border-radius: 3px; background: var(--panel); }
+.k-agent > .tcshape, .tcshape.k-agent { border-radius: 4px; }
+.k-judge > .tcshape, .tcshape.k-judge { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, var(--panel)); border-radius: 4px; }
+.k-check > .tcshape, .tcshape.k-check { border-style: dashed; border-radius: 1px; }
+.k-join > .tcshape, .tcshape.k-join { width: 9px; height: 9px; transform: rotate(45deg); margin: 0 2px; background: color-mix(in srgb, var(--accent) 12%, var(--panel)); }
+.k-end > .tcshape, .tcshape.k-end { border-radius: 999px; border-color: var(--st-good); background: color-mix(in srgb, var(--st-good) 18%, var(--panel)); }
+.tcghost { position: fixed; z-index: 1000; pointer-events: none; border-color: var(--accent); box-shadow: 0 8px 24px rgb(0 0 0 / .3); }
+.tcghost[data-where]:not([data-where=""])::after { content: "→ " attr(data-where); font-weight: 400; color: var(--dim); }
+button.icon.tcbtn { width: 2rem; height: 2rem; min-height: 0; }
+button.icon.tcbtn svg { width: 1rem; height: 1rem; }
+.tcredo svg { transform: scaleX(-1); }
+.tcstagewrap { position: relative; min-height: 0; display: grid; }
+.tcstage {
+  overflow: auto; min-height: 11rem; padding: .6rem; outline: none; display: grid; place-items: center;
+  background-image: radial-gradient(color-mix(in srgb, var(--dim) 28%, transparent) 1px, transparent 1.2px); background-size: 16px 16px;
+}
+.tcstage:focus-visible { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent); }
+.tcstage.tcdrop { box-shadow: inset 0 0 0 2px var(--accent); background-color: color-mix(in srgb, var(--accent) 5%, transparent); }
+.tcempty { display: grid; justify-items: center; gap: .5rem; color: var(--dim); font-size: .85rem; }
+.tcempty > svg { width: 1.8rem; height: 1.8rem; opacity: .5; }
+.tcanvas .teamgraph .tgnode { cursor: pointer; }
+.tcanvas .teamgraph .tgport { fill: var(--bg); stroke: var(--accent); stroke-width: 1.6; opacity: 0; cursor: crosshair; transition: opacity .12s; }
+.tcanvas .teamgraph .tgnode:hover .tgport, .tcanvas .teamgraph .tgnode.selected .tgport { opacity: 1; }
+@media (pointer: coarse) { .tcanvas .teamgraph .tgport { opacity: .9; } }
+.tcanvas .teamgraph .tgport:hover { fill: var(--accent); }
+.tcanvas .teamgraph .tghit { fill: none; stroke: transparent; stroke-width: 14; cursor: pointer; pointer-events: stroke; }
+.tcanvas .teamgraph .tghit:hover { stroke: color-mix(in srgb, var(--accent) 16%, transparent); }
+.tcanvas .teamgraph .tghit.tcdrop { stroke: color-mix(in srgb, var(--accent) 35%, transparent); }
+.tcanvas .teamgraph .tgedge.picked { stroke: var(--accent); stroke-width: 2.6; }
+.tcanvas .teamgraph .tgnode.tcdrop .tgbox { stroke: var(--accent); stroke-width: 2.4; stroke-dasharray: 5 3; }
+.tcanvas .teamgraph .tcpull { fill: none; stroke: var(--accent); stroke-width: 2; stroke-dasharray: 6 4; pointer-events: none; }
+.tcanvas.locked .tcstage { opacity: .45; pointer-events: none; }
+.tcanvas.locked .tcpalette { opacity: .45; pointer-events: none; }
+.tclock { position: absolute; left: 50%; bottom: .6rem; transform: translateX(-50%); display: flex; align-items: center; gap: .4rem; padding: .35rem .75rem; border-radius: 999px; background: var(--panel); border: 1px solid var(--st-warning); color: var(--text); font-size: .8rem; white-space: nowrap; box-shadow: 0 4px 14px rgb(0 0 0 / .2); }
+.tclock > svg { width: 1rem; height: 1rem; color: var(--st-warning); }
+.tcinspect { display: grid; gap: .45rem; padding: .55rem .7rem .65rem; border-top: 1px solid var(--line); background: color-mix(in srgb, var(--panel) 60%, var(--bg)); max-height: 16rem; overflow: auto; }
+.tchint { margin: 0; color: var(--dim); font-size: .8rem; line-height: 1.45; }
+.tchead { display: flex; align-items: center; gap: .5rem; }
+.tchead strong { font: 600 .92rem ui-monospace, "SF Mono", Menlo, monospace; }
+.tckind { font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--dim); }
+button.ghost.tcdel { min-height: 0; padding: .2rem .6rem; display: inline-flex; align-items: center; gap: .3rem; font-size: .78rem; border-radius: 999px; background: none; }
+button.ghost.tcdel svg { width: .9rem; height: .9rem; }
+.tcfield { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr); align-items: center; gap: .6rem; font-size: .82rem; color: var(--dim); }
+.tcinput { font: inherit; font-size: .85rem; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: .4rem; padding: .32rem .5rem; min-width: 0; width: 100%; box-sizing: border-box; }
+.tcinput:focus { outline: none; border-color: var(--accent); }
+.tcinput.bad { border-color: var(--st-critical); }
+.tcmono { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+.tcduty { resize: vertical; min-height: 2.6rem; }
+.tcrole { display: block; }
+.tcchecks { display: flex; flex-wrap: wrap; gap: .3rem 1rem; padding-left: 8.1rem; }
+.tccheck { display: inline-flex; align-items: center; gap: .4rem; font-size: .82rem; cursor: pointer; }
+.tccheck > input { accent-color: var(--accent); }
+.tcinspect > .tccheck { padding-left: 8.1rem; }
+.tcconds { display: flex; flex-wrap: wrap; gap: .3rem; }
+.tccond { cursor: pointer; padding: .22rem .65rem; border: 1px solid var(--line); border-radius: 999px; background: none; color: var(--dim); font: 600 .75rem ui-monospace, "SF Mono", Menlo, monospace; }
+.tccond:hover { border-color: var(--accent); color: var(--text); }
+.tccond.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.tccond.on.w-FAIL, .tccond.on.w-REDO, .tccond.on.w-BLOCKED { background: var(--st-critical); border-color: var(--st-critical); color: #fff; }
+.tccond.on.w-PASS, .tccond.on.w-OK, .tccond.on.w-DONE { background: var(--st-good); border-color: var(--st-good); color: #fff; }
+.tcanvas.dragging .tcstage { cursor: copy; }
+.teamtextsplit > .tcanvas { align-self: stretch; }
+@media (max-width: 560px) {
+  .tcfield { grid-template-columns: minmax(0, 1fr); gap: .2rem; }
+  .tcchecks, .tcinspect > .tccheck { padding-left: 0; }
+}
+/* The canvas's own fields: compact, whatever sheet it sits in (.sheetbody input is a thumb's size). */
+.tcinspect input.tcinput, .tcinspect select.tcinput, .tcinspect textarea.tcinput { min-height: 0; height: auto; padding: .3rem .5rem; border-radius: .4rem; background: var(--bg); font-size: .85rem; }
+.tcinspect input.tcinput:focus, .tcinspect select.tcinput:focus, .tcinspect textarea.tcinput:focus { outline: none; border-color: var(--accent); }
+.tcstage { place-items: safe center; }
+.tcpalette .tcchip { padding: .22rem .6rem .22rem .45rem; font-size: .76rem; }
+dialog.sheet.teamsheet:has(.tcanvas) { width: min(1240px, 96vw); }
+.teamtext:has(.tcanvas) { min-width: 0; }
+.teamtextsplit:has(> .tcanvas) { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); }
+/* The whole team in view: a wide one is scaled down rather than scrolled — dragging onto a step
+   that is off to the side is not something anyone can do. */
+.tcstage > svg.teamgraph { max-width: 100%; height: auto; }
+/* The canvas in the file editor is no longer a preview: it keeps its own height and frame. */
+.tcanvas.teamfilegraph { padding: 0; overflow: hidden; }
+.tcstagewrap { min-height: 9rem; }
+@media (max-width: 760px) {
+  .tcanvas.teamfilegraph, .tcanvas.teamfilegraph.teampreview { max-height: none; min-height: 22rem; }
+  .teamfilesplit { grid-template-rows: minmax(14rem, 1fr) auto; overflow: auto; }
+}

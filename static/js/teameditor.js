@@ -4,6 +4,7 @@ import { el } from '/js/dom.js';
 import { icon } from '/js/icons.js';
 import { getJSON, human, postJSON } from '/js/reconnect.js';
 import { server } from '/js/state.js';
+import { teamCanvas } from '/js/teamcanvas.js';
 import { drawGraph } from '/js/teamgraph.js';
 import { openProposedTeam } from '/js/wall.js';
 import { t } from '/js/words.js';
@@ -638,7 +639,7 @@ export function teamFileEditor({ text, mtime, host, path }, { onDone, watch } = 
   let mode = kind;                               // what is on screen
   let yamlBase = kind === 'yaml' ? text : '';    // the YAML a diagram is drawn from, for what it cannot say
   let touched = false;
-  const preview = el('div', { className: 'teampicture teampreview teamfilegraph' });
+  let wrote = null;                               // the text the canvas wrote last: reading it back draws nothing
   const note = el('span', { className: 'editnote' });
   const save = el('button', { className: 'primary inline', textContent: t('Save') });
   const cancel = el('button', { className: 'ghost', textContent: t('Cancel'), onclick: () => onDone?.() });
@@ -651,10 +652,25 @@ export function teamFileEditor({ text, mtime, host, path }, { onDone, watch } = 
   let lit = null;
   let anyway = false;
   const dirty = () => touched && (mode !== kind || ed.value !== text);
-  const picture = () => {
-    if (drawn) preview.replaceChildren(drawGraph(drawn, { selected: lit, onPick: (id) => { lit = id; ed.reveal(id); picture(); } }));
-    else preview.replaceChildren(graphWaiting());
-  };
+  // The team drawn beside the text, and drawable: each writes the other (teamcanvas.js).
+  const canvas = teamCanvas({
+    graph: { nodes: [], edges: [], start: [] },
+    onSelect: (id) => { lit = id; ed.reveal(id); },
+    onChange: async (g) => {
+      try {
+        const said = await postJSON('/api/teams/convert', { graph: g, to: mode, base: ed.value });
+        wrote = said.text;
+        touched = true;
+        ed.setBase(g);
+        ed.value = said.text;
+        unask();
+        paintNote();
+      } catch (e) { toast(e.message, true); }
+    },
+  });
+  const preview = canvas.node;
+  preview.classList.add('teamfilegraph');
+  vocabulary().then((v) => v && canvas.setRoles?.(v.roles));
   const unask = () => { if (anyway) { anyway = false; save.textContent = t('Save'); save.classList.remove('danger'); } };
   const paintNote = () => {
     open.disabled = dirty();
@@ -665,12 +681,12 @@ export function teamFileEditor({ text, mtime, host, path }, { onDone, watch } = 
   const ed = teamEditor({
     text, format: kind,
     onLint: (said) => {
-      if (said.ok && said.graph) { drawn = said.graph; preview.classList.remove('stale'); } else preview.classList.add('stale');
-      picture();
+      if (said.ok && said.graph) { drawn = said.graph; if (ed.value !== wrote) canvas.set(said.graph); }
+      canvas.lock(!said.ok && ed.value !== wrote);
       if (said.ok) unask();
       paintNote();
     },
-    onCaret: (id) => { lit = id; picture(); },
+    onCaret: (id) => { lit = id; canvas.select(id); },
     onSave: () => store(),
   });
   ed.input.addEventListener('input', () => { touched = true; unask(); paintNote(); });

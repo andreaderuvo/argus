@@ -853,8 +853,14 @@ def create_app(cfg: Config) -> FastAPI:
     async def teams_convert(body: dict) -> dict:
         """`{text, to: yaml|mermaid, base?}` → `{text}`. `base` is the YAML being edited: what a
         flowchart cannot say — duties, worktrees, gate, rounds, permissions, reset — is kept from it.
+        `{graph, to, base?, name?}` instead: a graph from the drawing canvas, written as text, with
+        name, goal, gate, rounds, permissions and reset kept from `base`.
         400 when `text` is not a team (`{error}` with `preview`)."""
         try:
+            if isinstance(body.get("graph"), dict):
+                # From the drawing canvas: a graph, maybe a draft, written as text around `base`.
+                return {"text": await asyncio.to_thread(teamlint.from_graph, body["graph"], str(body.get("to") or "yaml"),
+                                                        str(body.get("base") or ""), str(body.get("name") or ""))}
             return {"text": await asyncio.to_thread(teamlint.convert, str(body.get("text") or ""), str(body.get("to") or ""),
                                                     str(body.get("base") or ""))}
         except (ValueError, KeyError, TypeError) as e:

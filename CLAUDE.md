@@ -575,6 +575,17 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   every flowchart in someone's docs must not grow a team card; its card offers Save as team.yaml,
   which answers 200 `{exists}` rather than 409 (the harness counts every 4xx) and resolves an
   existing team.yaml through the jail (a symlink out is 403).
+- **The drawing canvas** (`static/js/teamcanvas.js`, `tests/browser/test_teameditor.py`, Team's
+  *Draw or write* and the team-file editor). A palette (agent, judge, check, join, done) dropped on a
+  step (after), an arrow (between: a check also sends FAIL back, a judge REDO back to the worker)
+  or empty space; arrows pulled from a `.tgport`; an inspector; Delete; undo/redo. Layout stays
+  automatic (`drawGraph(..., {editable})` adds ports, `.tghit` targets and `data-id`s). Every change
+  → `POST /api/teams/convert {graph, to, base}` (`teamlint.from_graph`, the base keeps
+  goal/gate/rounds/permissions/reset) → the editor's text. Two traps: reading back the text the
+  canvas just wrote re-laid the graph under the mouse (`wrote` skips it; `set` compares `canon`, the
+  same team in another order is not a change); and a stage that scrolls makes `_center`'s
+  scrollIntoView move the first target while measuring the second — the svg is scaled to fit, and
+  the tests measure with `box()`. The canvas is locked while the typed text does not read.
 - **How a verdict moves a team** (`Director._finished`, the audit of 2026-10-07, tests in
   test_teams.py "verdicts the audit found ignored"). A non-judge's turn is `always`, except
   BLOCKED, which anyone may say; BLOCKED follows only `if BLOCKED` arrows, else waits for the

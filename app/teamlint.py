@@ -613,3 +613,41 @@ def looks_like_team(text: str) -> bool:
     or uses what only a team has — a check `{{…}}`, a `done`, a judge, a result on an arrow."""
     return sniff(text) == "mermaid" and bool(re.search(
         r"%%\s*(name|goal|start)\s*:|\{\{|(?<![\w-])done(?![\w-])|judges?\b|\|\s*(PASS|FAIL|OK|REDO|DONE|BLOCKED)\b", text, re.I))
+
+
+def from_graph(graph: dict, to: str, base_text: str = "", name: str = "") -> str:
+    """A graph drawn on the canvas, written as text. The graph may be a draft that does not run
+    yet (a step nothing leads to): it is written as it is, and the lint says what is missing.
+    Around it, what the text being edited says and a graph does not — name, goal, gate, rounds,
+    permissions, reset — is kept from `base_text`, read leniently (it may not parse as a team)."""
+    import yaml
+    base: dict = {}
+    if base_text.strip():
+        if sniff(base_text) == "mermaid":
+            base = teammermaid.meta_of(base_text)
+        else:
+            try:
+                doc = yaml.safe_load(base_text)
+                base = doc if isinstance(doc, dict) else {}
+            except yaml.YAMLError:
+                base = {}
+    name = str(base.get("name") or name or "my team")[:60]
+    goal = base.get("goal")
+    graph = {**graph, "nodes": [dict(n) for n in graph.get("nodes", [])], "edges": [dict(e) for e in graph.get("edges", [])]}
+    if to == "mermaid":
+        head = [f"%% name: {name}"] + ([f"%% goal: {' '.join(str(goal).split())}"] if goal else [])
+        first, rest = teammermaid.to_mermaid(graph).split("\n", 1)
+        return first + "\n" + "".join(f"  {h}\n" for h in head) + rest
+    if goal:
+        graph["goal"] = str(goal)
+    if base.get("permissions") in ("ask", "edit", "everything"):
+        graph["permissions"] = base["permissions"]
+    if not graph.get("reset") and isinstance(base.get("reset"), dict):
+        graph["reset"] = base["reset"]
+    out = teams.to_yaml(graph, name)
+    extra = "".join(f"{k}: {base[k]}\n" for k in ("gate", "rounds") if base.get(k) is not None)
+    if extra:
+        lines = out.split("\n")
+        at = max(i for i, ln in enumerate(lines) if ln.startswith(("name:", "goal:", "permissions:")))
+        out = "\n".join(lines[:at + 1]) + "\n" + extra.rstrip("\n") + "\n" + "\n".join(lines[at + 1:])
+    return out

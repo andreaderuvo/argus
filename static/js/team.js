@@ -6,7 +6,8 @@ import { el } from '/js/dom.js';
 import { icon } from '/js/icons.js';
 import { delJSON, getJSON, postJSON, serverInfo } from '/js/reconnect.js';
 import { prefs } from '/js/state.js';
-import { graphWaiting, teamEditor } from '/js/teameditor.js';
+import { teamCanvas } from '/js/teamcanvas.js';
+import { teamEditor } from '/js/teameditor.js';
 import { drawGraph, edits } from '/js/teamgraph.js';
 import { openProposedTeam } from '/js/wall.js';
 import { t } from '/js/words.js';
@@ -513,8 +514,8 @@ export async function teamSheet({ wsId, home, onStarted }) {
     } });
   // The team as text: a Mermaid flowchart (drawn live while you type) or YAML (everything, duties
   // included), edited by hand and applied back to the picture.
-  const editText = el('button', { className: 'ghost', type: 'button', textContent: t('Edit as text'),
-    title: t('This team as a Mermaid diagram or as YAML: change it by hand and apply it'), onclick: async () => {
+  const editText = el('button', { className: 'ghost', type: 'button', textContent: t('Draw or write'),
+    title: t('Draw the team with blocks and arrows, or write it as Mermaid or YAML — each follows the other'), onclick: async () => {
       const name = chosen?.split(':').pop() || 'my team';
       const texts = {};
       try {
@@ -525,33 +526,41 @@ export async function teamSheet({ wsId, home, onStarted }) {
       let drawn = null;                     // the graph the text says, once it reads without errors
       let extra = {};                       // what the text also says: goal, gate, rounds, permissions
       let lit = null;                       // the step the cursor is on, lit in the picture
-      const preview = el('div', { className: 'teampicture teampreview' });
+      let wrote = null;                      // the text the canvas wrote last: reading it back draws nothing
       const help = el('p', { className: 'hint teamtexthelp' });
       const tabs = el('div', { className: 'segmented teamtexttabs', role: 'tablist' });
       const apply = el('button', { className: 'primary inline', textContent: t('Apply') });
-      const picture = () => {
-        if (!drawn) { if (!preview.firstChild) preview.replaceChildren(graphWaiting()); return; }
-        preview.replaceChildren(drawGraph(drawn, { selected: lit, onPick: (id) => { lit = id; ed.reveal(id); picture(); } }));
-      };
+      // Drawn by hand (teamcanvas.js) or typed (teameditor.js): each writes the other.
+      const canvas = teamCanvas({
+        graph: bare(graph),
+        roles: Object.fromEntries(roleNames.map((r) => [r, ''])),
+        onSelect: (id) => { lit = id; ed.reveal(id); },
+        onChange: async (g) => {
+          try {
+            const said = await postJSON('/api/teams/convert', { graph: g, to: mode, base: ed.value, name });
+            wrote = said.text;
+            ed.setBase(g);
+            ed.value = said.text;
+          } catch (e) { toast(e.message, true); }
+        },
+      });
+      const preview = canvas.node;
       // Every problem on its line, a fix where one is obvious, completion from the schema
-      // (teameditor.js); the picture follows whatever reads.
+      // (teameditor.js); the canvas follows whatever reads.
       const ed = teamEditor({
         text: texts[mode], format: mode, base: bare(graph),
         onLint: (said) => {
           if (said.ok && said.graph) {
             drawn = said.graph;
             extra = said;
-            preview.classList.remove('stale');
-            picture();
-          } else {
-            drawn = null;
-            preview.classList.add('stale');
-            picture();
+            if (ed.value !== wrote) canvas.set(said.graph);
           }
+          // What was typed and does not read would be overwritten by a drawing: wait for it.
+          canvas.lock(!said.ok && ed.value !== wrote);
           apply.disabled = !said.ok;
           apply.title = said.ok ? '' : t('fix the errors first');
         },
-        onCaret: (id) => { lit = id; picture(); },
+        onCaret: (id) => { lit = id; canvas.select(id); },
         onSave: () => apply.click(),
       });
       ed.node.style.setProperty('--te-height', 'min(26rem, 52vh)');
@@ -589,7 +598,7 @@ export async function teamSheet({ wsId, home, onStarted }) {
         sheet3.close();
         toast(t('applied — save it as a model to keep it'));
       };
-      const sheet3 = modal(t('Edit as text'), el('div', { className: 'sheetbody teamtext' }, [tabs, help, el('div', { className: 'teamtextsplit' }, [ed.node, preview])]), [
+      const sheet3 = modal(t('Draw or write the team'), el('div', { className: 'sheetbody teamtext' }, [tabs, help, el('div', { className: 'teamtextsplit' }, [ed.node, preview])]), [
         el('button', { className: 'ghost', textContent: t('Copy'), onclick: () => navigator.clipboard?.writeText(ed.value).then(() => toast(t('copied')), () => {}) }),
         el('button', { className: 'ghost', textContent: t('Cancel'), onclick: () => sheet3.close() }),
         apply,

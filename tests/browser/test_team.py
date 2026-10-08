@@ -290,7 +290,7 @@ def test_the_folder_is_guided_and_the_team_can_be_edited_as_text(make_page, argu
     page.click_at(*page._center("[...document.querySelectorAll('dialog.sheet button')].find(b => b.textContent === 'Use this folder')"))
     page.wait(f"document.querySelector('.startpath').value === {str(project / 'alpha')!r}", timeout=5, what="the box filled")
     # Edit as text: rename the executor, apply, see it drawn.
-    page.click_at(*page._center("[...document.querySelectorAll('.teampackbtns button')].find(b => b.textContent === 'Edit as text')"))
+    page.click_at(*page._center("[...document.querySelectorAll('.teampackbtns button')].find(b => b.textContent === 'Draw or write')"))
     page.wait("!!document.querySelector('.teamtext .teinput')", timeout=20, what="the editor")
     page.eval("(() => { const y = document.querySelector('.teamtext .teinput'); y.value = y.value.replaceAll('executor', 'fixer'); })()")
     page.click_at(*page._center("[...document.querySelectorAll('dialog.sheet button')].find(b => b.textContent === 'Apply')"))
@@ -375,12 +375,12 @@ def test_a_team_drawn_in_mermaid_is_previewed_while_typed(make_page, argus):
     open_sheet(page, argus, "make it faster")
     assert page.eval("document.querySelector('.teamadvanced').open") is False, "More is folded"
     assert page.eval("document.querySelectorAll('.teamcard.teammore').length") == 1, "the other shapes one press away"
-    page.click_at(*page._center("[...document.querySelectorAll('.teampackbtns button')].find(b => b.textContent === 'Edit as text')"))
+    page.click_at(*page._center("[...document.querySelectorAll('.teampackbtns button')].find(b => b.textContent === 'Draw or write')"))
     page.wait("document.querySelector('.teamtext .teinput')?.value.startsWith('flowchart')", timeout=20, what="the diagram")
-    page.wait("!!document.querySelector('.teampreview svg')", timeout=10, what="drawn beside it")
+    page.wait("!!document.querySelector('.tcanvas svg')", timeout=10, what="drawn beside it")
     typed = "flowchart LR\\n  scout[\\\"scout\\\"] --> boss[\\\"boss · judges\\\"]\\n  boss -->|DONE| done\\n"
     page.eval(f"(() => {{ const y = document.querySelector('.teamtext .teinput'); y.value = \"{typed}\"; y.dispatchEvent(new Event('input')); }})()")
-    page.wait("[...document.querySelectorAll('.teampreview .tgtext')].some(t => t.textContent === 'scout')", timeout=5, what="the new step, previewed")
+    page.wait("[...document.querySelectorAll('.tcanvas .tgtext')].some(t => t.textContent === 'scout')", timeout=5, what="the new step, previewed")
     page.eval("(() => { const y = document.querySelector('.teamtext .teinput'); y.value += '  boss -->|MAYBE| scout\\n'; y.dispatchEvent(new Event('input')); })()")
     page.wait("[...document.querySelectorAll('.teamtext .teproblem.error')].some(e => e.textContent.includes('line 4'))", timeout=10, what="the wrong line, named")
     assert page.eval("[...document.querySelectorAll('dialog.sheet button')].find(b => b.textContent === 'Apply').disabled"), "Apply waits"

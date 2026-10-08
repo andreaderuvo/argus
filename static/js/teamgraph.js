@@ -58,7 +58,9 @@ export function layoutGraph(graph) {
 const WORD = { always: '', PASS: 'pass', FAIL: 'fail', OK: 'ok', REDO: 'redo', DONE: 'done', BLOCKED: 'blocked' };
 
 /** The picture. `opts`: `small` (the strip over the desk), `states` (id -> running|waiting|ran|idle),
- *  `outcomes` (id -> PASS|FAIL|…), `selected` (id), `onPick(id)`. */
+ *  `outcomes` (id -> PASS|FAIL|…), `selected` (id), `onPick(id)`, `editable` (the drawing canvas,
+ *  teamcanvas.js: a port on each step to pull an arrow from, a wide target on each arrow, and
+ *  `selectedEdge` "from>to"). Steps and arrows carry `data-id` / `data-from` `data-to`. */
 export function drawGraph(graph, opts = {}) {
   const small = !!opts.small;
   const W = small ? 92 : 124;
@@ -101,6 +103,7 @@ export function drawGraph(graph, opts = {}) {
   defs.append(marker);
   svg.append(defs);
   const arrow = `url(#tg-arrow-${small ? 's' : 'l'})`;
+  const picked = (e) => (opts.selectedEdge === `${e.from}>${e.to}` ? ' picked' : '');
 
   // Arrows first, so the steps sit on top of them.
   const forward = merged.filter((e) => !back.has(e));
@@ -113,8 +116,10 @@ export function drawGraph(graph, opts = {}) {
     const x2 = b.x;
     const y2 = b.y + H / 2;
     const mx = (x1 + x2) / 2;
-    svg.append(mk('path', { d: `M${x1} ${y1} C${mx} ${y1} ${mx} ${y2} ${x2 - 1} ${y2}`, class: `tgedge ${tone(e)}`, 'marker-end': arrow }));
+    const d = `M${x1} ${y1} C${mx} ${y1} ${mx} ${y2} ${x2 - 1} ${y2}`;
+    svg.append(mk('path', { d, class: `tgedge ${tone(e)}${picked(e)}`, 'marker-end': arrow }));
     if (word(e)) svg.append(mk('text', { x: mx, y: (y1 + y2) / 2 - 3, class: `tglabel ${tone(e)}`, 'text-anchor': 'middle' }, word(e)));
+    if (opts.editable) svg.append(mk('path', { d, class: 'tghit', 'data-from': e.from, 'data-to': e.to }));
   }
   backs.forEach((e, k) => {
     const a = where.get(e.from);
@@ -123,8 +128,10 @@ export function drawGraph(graph, opts = {}) {
     const yb = bodyH + (small ? 4 : 8) + k * (small ? 8 : 12);
     const x1 = a.x + W / 2 + 6;
     const x2 = b.x + W / 2 - 6;
-    svg.append(mk('path', { d: `M${x1} ${a.y + H} C${x1} ${yb} ${x2} ${yb} ${x2} ${b.y + H + 1}`, class: `tgedge back ${tone(e)}`, 'marker-end': arrow }));
+    const d = `M${x1} ${a.y + H} C${x1} ${yb} ${x2} ${yb} ${x2} ${b.y + H + 1}`;
+    svg.append(mk('path', { d, class: `tgedge back ${tone(e)}${picked(e)}`, 'marker-end': arrow }));
     if (word(e)) svg.append(mk('text', { x: (x1 + x2) / 2, y: yb + (small ? 1 : 2), class: `tglabel ${tone(e)}`, 'text-anchor': 'middle' }, word(e)));
+    if (opts.editable) svg.append(mk('path', { d, class: 'tghit', 'data-from': e.from, 'data-to': e.to }));
   });
 
   for (const n of graph.nodes) {
@@ -132,7 +139,7 @@ export function drawGraph(graph, opts = {}) {
     const state = opts.states?.[n.id] || 'idle';
     const outcome = opts.outcomes?.[n.id] || '';
     const g = mk('g', { class: `tgnode ${n.kind} ${state} out-${String(outcome).toLowerCase()}${opts.selected === n.id ? ' selected' : ''}`,
-      transform: `translate(${p.x} ${p.y})`, tabindex: opts.onPick ? 0 : undefined });
+      transform: `translate(${p.x} ${p.y})`, tabindex: opts.onPick ? 0 : undefined, 'data-id': n.id });
     if (n.kind === 'join') {
       g.append(mk('rect', { x: W / 2 - H / 2, y: 0, width: H, height: H, rx: 6, transform: `rotate(45 ${W / 2} ${H / 2})`, class: 'tgbox' }));
       g.append(mk('text', { x: W / 2, y: H / 2 + 4, 'text-anchor': 'middle', class: 'tgtext' }, small ? '' : 'join'));
@@ -152,6 +159,8 @@ export function drawGraph(graph, opts = {}) {
       g.append(mk('text', { x: 2, y: -6, class: 'tgstart' }, 'start'));
     }
     g.append(mk('title', {}, n.kind === 'check' ? `${n.id}: ${n.command || ''}` : `${n.id}${n.role ? ` (${n.role})` : ''}`));
+    // The port an arrow is pulled from: every step but the end.
+    if (opts.editable && n.kind !== 'end') g.append(mk('circle', { cx: n.kind === 'join' ? W / 2 + H * 0.72 : W, cy: H / 2, r: 6, class: 'tgport' }));
     if (opts.onPick) {
       g.addEventListener('click', () => opts.onPick(n.id));
       g.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); opts.onPick(n.id); } });

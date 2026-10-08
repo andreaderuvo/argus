@@ -3372,7 +3372,7 @@
   },
   "/api/teams/convert": {
    "post": {
-    "description": "`{text, to: yaml|mermaid, base?}` \u2192 `{text}`. `base` is the YAML being edited: what a\nflowchart cannot say \u2014 duties, worktrees, gate, rounds, permissions, reset \u2014 is kept from it.\n400 when `text` is not a team (`{error}` with `preview`).",
+    "description": "`{text, to: yaml|mermaid, base?}` \u2192 `{text}`. `base` is the YAML being edited: what a\nflowchart cannot say \u2014 duties, worktrees, gate, rounds, permissions, reset \u2014 is kept from it.\n`{graph, to, base?, name?}` instead: a graph from the drawing canvas, written as text, with\nname, goal, gate, rounds, permissions and reset kept from `base`.\n400 when `text` is not a team (`{error}` with `preview`).",
     "operationId": "postApiTeamsConvert",
     "requestBody": {
      "content": {
