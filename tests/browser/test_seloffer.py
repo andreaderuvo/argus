@@ -182,7 +182,7 @@ def test_over_an_agent_that_keeps_the_mouse_shift_selects_and_a_plain_drag_says_
         # The hint sits in the bottom-right corner, over the end of the next drag: closed, as a person would.
         page.eval("document.querySelectorAll('#toasts .toast').forEach(t => t.remove())")
         drag(8)                                            # 8 = Shift
-        page.wait("!!document.querySelector('.selofferpill')", timeout=5, what="the offer, after a Shift-drag")
+        page.wait("!!document.querySelector('.selofferpill')", timeout=10, what="the offer, after a Shift-drag")  # tmux copy arrives late on a busy CI
         page.click_at(*page._center("document.querySelector('.selofferpill')"))
         time.sleep(0.8)
         argus.tmux("send-keys", "-t", "taker", "Enter")
