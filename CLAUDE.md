@@ -554,6 +554,20 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   line first; `teams.schema_errors` (optional `jsonschema`) feeds `teammermaid.warnings`, with the
   messages put in words (did you mean…). tests/test_team_schema.py keeps schema keys == reader keys
   (TOP_KEYS, STEP_KEYS, GATES, RESET_LOG) and runs every template, skill and wiki example through it.
+- **The team editor** (`app/teamlint.py`, `POST /api/teams/lint`, `GET /api/teams/vocab`,
+  `static/js/teameditor.js`, tests/test_teamlint.py and tests/browser/test_teameditor.py). Every
+  problem with line/col/end and `error|warning`, and a `fix` (a range + text) where the answer is
+  obvious: syntax (the parser's mark; an unclosed `{` is placed where it opens, not where the parser
+  gave up), shape (the schema, by teamlint's **own draft-7 subset checker** — `jsonschema` lives in
+  `~/.local` here, which a test's HOME hides, so the editor lost every enum/type error under the
+  harness; tested to agree with jsonschema on every template and on mutations), names that point at
+  no step, `check_graph`, `warnings`, duplicate keys and arrows. Errors are placed on YAML nodes by
+  walking `yaml.compose`. The editor is a textarea over a `pre` (same font/padding/line height),
+  never CodeMirror (needs a bundler); completion from the schema, graph ↔ line both ways. Used by
+  Edit as text (Apply disabled while errors) and by `viewers.editor()` for any team file
+  (`isTeamFile`: team.yaml/team.yml/*.team.yaml or the schema line), whose Save asks once more with
+  errors left; a team file being read gets `teamFileCard` (status, graph, Open in Team).
+  `team_check` (and MCP) now carries `problems` too.
 - **How a verdict moves a team** (`Director._finished`, the audit of 2026-10-07, tests in
   test_teams.py "verdicts the audit found ignored"). A non-judge's turn is `always`, except
   BLOCKED, which anyone may say; BLOCKED follows only `if BLOCKED` arrows, else waits for the

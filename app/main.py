@@ -24,7 +24,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 
 from . import build, pluginstate, trust
-from . import (agentflags, consent, readiness, teams, teammermaid, wiring, agentstate, resume, announce, asks, bells, devices, favourites, files, fsops, gitwork, journal, labels,
+from . import (agentflags, consent, readiness, teamlint, teams, teammermaid, wiring, agentstate, resume, announce, asks, bells, devices, favourites, files, fsops, gitwork, journal, labels,
                languages, launch, mounts, network, paths, ports, prefs, proxy, release, runner, runs,
                system, term, tmux, todo)
 import httpx
@@ -839,6 +839,22 @@ def create_app(cfg: Config) -> FastAPI:
             return {"changed": [agent]}
         raise ApiError(400, "fix is codex-team-tools, plugin:claude or plugin:codex")
 
+    @app.post("/api/teams/lint", tags=["Teams"], summary="Every problem in a team file, on its line")
+    async def teams_lint(body: dict) -> dict:
+        """`{text, format?, base?}` → `{format, ok, problems, where, graph?, name?, goal?, gate?,
+        rounds?, permissions?, summary?}`. Each problem: `{line, col, end_line, end_col, level:
+        error|warning, message, fix?}` — lines 1-based, columns 0-based; a fix is a range and the
+        text to put there. `where` is each step's line. Always 200: what the editor asks while you
+        type (app/teamlint.py)."""
+        base = body.get("base") if isinstance(body.get("base"), dict) else None
+        return await asyncio.to_thread(teamlint.lint, str(body.get("text") or ""), body.get("format"), base)
+
+    @app.get("/api/teams/vocab", tags=["Teams"], summary="What a team file may say, for completion")
+    async def teams_vocab() -> dict:
+        """`{top, step, reset, values, roles, conditions, when}` — keys with a line each, the values
+        each key takes, the roles and which conditions each kind of step can give. From the schema."""
+        return teamlint.vocab()
+
     @app.post("/api/teams/check", tags=["Teams"], summary="Check a team written as text, Mermaid or YAML")
     async def teams_check(body: dict) -> dict:
         """`{text}` → `{ok: true, format, name, goal?, summary, warnings, graph}`, or `{ok: false, error}` naming
@@ -847,8 +863,9 @@ def create_app(cfg: Config) -> FastAPI:
         try:
             said = teammermaid.read_team(str(body.get("text") or ""))
         except (ValueError, KeyError, TypeError) as e:
-            return {"ok": False, "error": str(e)}
-        return {"ok": True, **said, "summary": teammermaid.describe(said)}
+            return {"ok": False, "error": str(e), "problems": teamlint.lint(str(body.get("text") or ""))["problems"]}
+        return {"ok": True, **said, "summary": teammermaid.describe(said),
+                "problems": teamlint.lint(str(body.get("text") or ""))["problems"]}
 
     @app.post("/api/teams/propose", tags=["Teams"], summary="Propose a team: written into a folder, for you to start")
     async def teams_propose(request: Request, body: dict) -> dict:

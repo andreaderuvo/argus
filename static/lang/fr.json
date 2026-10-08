@@ -1331,6 +1331,26 @@
   "deletes files, ends work or lets agents loose — tick it only if you mean it": "supprime des fichiers, arrête du travail ou lâche des agents — cochez-la seulement si vous le voulez vraiment",
   "not available here": "pas disponible ici",
   "risky": "risquée",
-  "The risky ones delete files, end work or let agents loose — tick them only if you mean it.": "Les risquées suppriment des fichiers, arrêtent du travail ou lâchent des agents — cochez-les seulement si vous le voulez vraiment."
+  "The risky ones delete files, end work or let agents loose — tick them only if you mean it.": "Les risquées suppriment des fichiers, arrêtent du travail ou lâchent des agents — cochez-les seulement si vous le voulez vraiment.",
+  "1 error": "1 erreur",
+  "1 warning": "1 avertissement",
+  "Ctrl+Space completes · Ctrl+/ comments · a click on a step finds its line": "Ctrl+Espace complète · Ctrl+/ commente · un clic sur une étape trouve sa ligne",
+  "Fix: {what}": "Corriger : {what}",
+  "Open in Team": "Ouvrir dans Team",
+  "Save anyway": "Enregistrer quand même",
+  "Start from this team, in this folder": "Partir de cette équipe, dans ce dossier",
+  "Team file": "Fichier d'équipe",
+  "The team is drawn here as soon as it reads — fix the errors on the left.": "L'équipe est dessinée ici dès qu'elle se lit — corrigez les erreurs à gauche.",
+  "The team, as text": "L'équipe, en texte",
+  "fix the errors first": "corrigez d'abord les erreurs",
+  "line {n}": "ligne {n}",
+  "no problems": "aucun problème",
+  "save it first": "enregistrez-le d'abord",
+  "the end": "la fin",
+  "the team": "l'équipe",
+  "unsaved": "non enregistré",
+  "{n} errors": "{n} erreurs",
+  "{n} errors left: saved like this, Argus will not start it": "il reste {n} erreurs : enregistré ainsi, Argus ne la démarrera pas",
+  "{n} warnings": "{n} avertissements"
  }
 }

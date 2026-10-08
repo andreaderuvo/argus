@@ -56,6 +56,10 @@ export const ICONS = {
   // Copied. Shown for a moment in place of whatever was there: an action with no visible
   // result is an action you do twice.
   tick: 'M5 12.8l4.4 4.2L19 7.5',
+  // A warning: a triangle with its mark, for what is legal and probably not what was meant.
+  warn: 'M12 4.2l8.6 15H3.4zM12 10v4.2M12 16.9h.01',
+  // A wand: the edit that fixes it.
+  wand: 'M4.5 19.5l10-10M13 6l1.6-1.6M18 11l1.6-1.6M17.2 4.2v2.4M19.8 6.8h-2.4M14.5 9.5l-1.8-1.8',
   // A team's controls: the marks every player has, so they are read before the words are.
   play: 'M8 5.6v12.8L18.4 12z',
   pause: 'M8.6 5.5v13M15.4 5.5v13',

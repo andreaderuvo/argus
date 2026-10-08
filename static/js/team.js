@@ -6,6 +6,7 @@ import { el } from '/js/dom.js';
 import { icon } from '/js/icons.js';
 import { delJSON, getJSON, postJSON, serverInfo } from '/js/reconnect.js';
 import { prefs } from '/js/state.js';
+import { graphWaiting, teamEditor } from '/js/teameditor.js';
 import { drawGraph, edits } from '/js/teamgraph.js';
 import { openProposedTeam } from '/js/wall.js';
 import { t } from '/js/words.js';
@@ -521,47 +522,43 @@ export async function teamSheet({ wsId, home, onStarted }) {
         texts.yaml = (await postJSON('/api/teams/yaml', { graph: bare(graph), name })).text;
       } catch (e) { toast(e.message, true); return; }
       let mode = prefs.teamTextMode === 'yaml' ? 'yaml' : 'mermaid';
-      let drawn = null;                     // the graph the text says, once it parses
-      let extra = {};                       // what YAML also says: goal, gate, rounds
-      const box = el('textarea', { className: 'teamyaml', rows: 16, spellcheck: false });
+      let drawn = null;                     // the graph the text says, once it reads without errors
+      let extra = {};                       // what the text also says: goal, gate, rounds, permissions
+      let lit = null;                       // the step the cursor is on, lit in the picture
       const preview = el('div', { className: 'teampicture teampreview' });
-      const err = el('p', { className: 'error', hidden: true });
-      const warn = el('p', { className: 'hint teamwarn', hidden: true });
       const help = el('p', { className: 'hint teamtexthelp' });
       const tabs = el('div', { className: 'segmented teamtexttabs', role: 'tablist' });
-      let seq = 0;
-      let timer = 0;
-      const parse = async () => {
-        const mine = ++seq;
-        try {
-          const said = mode === 'mermaid'
-            ? await postJSON('/api/teams/mermaid', { text: box.value, base: bare(graph), preview: true })
-            : await postJSON('/api/teams/yaml', { text: box.value, preview: true });
-          if (mine !== seq) return;
-          if (said.error) throw new Error(said.error);
-          drawn = said.graph;
-          extra = said;                 // goal (YAML, or a flowchart's %% goal:), gate, rounds, permissions
-          preview.replaceChildren(drawGraph(drawn, {}));
-          err.hidden = true;
-          // Legal, and almost certainly not what was meant: an arrow that never fires, a key not read.
-          warn.textContent = (said.warnings || []).join(' · ');
-          warn.hidden = !said.warnings?.length;
-        } catch (e) {
-          if (mine !== seq) return;
-          drawn = null;
-          err.textContent = e.message;
-          err.hidden = false;
-          preview.classList.add('stale');
-          return;
-        }
-        preview.classList.remove('stale');
+      const apply = el('button', { className: 'primary inline', textContent: t('Apply') });
+      const picture = () => {
+        if (!drawn) { if (!preview.firstChild) preview.replaceChildren(graphWaiting()); return; }
+        preview.replaceChildren(drawGraph(drawn, { selected: lit, onPick: (id) => { lit = id; ed.reveal(id); picture(); } }));
       };
+      // Every problem on its line, a fix where one is obvious, completion from the schema
+      // (teameditor.js); the picture follows whatever reads.
+      const ed = teamEditor({
+        text: texts[mode], format: mode, base: bare(graph),
+        onLint: (said) => {
+          if (said.ok && said.graph) {
+            drawn = said.graph;
+            extra = said;
+            preview.classList.remove('stale');
+            picture();
+          } else {
+            drawn = null;
+            preview.classList.add('stale');
+            picture();
+          }
+          apply.disabled = !said.ok;
+          apply.title = said.ok ? '' : t('fix the errors first');
+        },
+        onCaret: (id) => { lit = id; picture(); },
+        onSave: () => apply.click(),
+      });
+      ed.node.style.setProperty('--te-height', 'min(26rem, 52vh)');
+      // Typing makes the last verdict old: Apply asks again rather than refusing on a stale one.
+      ed.input.addEventListener('input', () => { apply.disabled = false; apply.title = ''; });
       const show = (m) => {
-        if (drawn && m !== mode) {
-          // Carry what was typed across: the other text is regenerated from the graph it parsed to.
-          postJSON(m === 'mermaid' ? '/api/teams/mermaid' : '/api/teams/yaml', { graph: bare(drawn), name })
-            .then((said) => { box.value = said.text; parse(); }).catch(() => {});
-        } else box.value = texts[m];
+        const was = mode;
         mode = m;
         prefs.teamTextMode = m;
         savePrefs();
@@ -569,33 +566,38 @@ export async function teamSheet({ wsId, home, onStarted }) {
           ? t('A Mermaid flowchart: id["role"] an agent (add "· judges" for a judge), id{{"command"}} a check, id{join} a join, done the end. Arrows: a --> b, a -->|PASS| b, a -->|OK, REDO| b, a --> b & c. Duties are kept from the team; edit them in YAML.')
           : t('The whole team as YAML: steps, duties, arrows, the goal, the gate and the rounds.');
         for (const b of tabs.children) b.setAttribute('aria-selected', String(b._mode === m));
-        parse();
+        if (drawn && m !== was) {
+          // Carry what was typed across: the other text is regenerated from the graph it read to.
+          postJSON(m === 'mermaid' ? '/api/teams/mermaid' : '/api/teams/yaml', { graph: bare(drawn), name })
+            .then((said) => ed.setFormat(m, said.text)).catch(() => ed.setFormat(m, texts[m]));
+        } else if (m !== was) ed.setFormat(m, texts[m]);
       };
       tabs.append(...[['mermaid', t('Diagram (Mermaid)')], ['yaml', 'YAML']].map(([m, label]) =>
         Object.assign(el('button', { type: 'button', role: 'tab', textContent: label, onclick: () => show(m) }), { _mode: m })));
-      box.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(parse, 250); });
-      const sheet3 = modal(t('Edit as text'), el('div', { className: 'sheetbody teamtext' }, [tabs, help, el('div', { className: 'teamtextsplit' }, [box, preview]), err, warn]), [
-        el('button', { className: 'ghost', textContent: t('Copy'), onclick: () => navigator.clipboard?.writeText(box.value).then(() => toast(t('copied')), () => {}) }),
+      apply.onclick = async () => {
+        const said = await ed.lint();
+        if (!said.ok || !said.graph) { toast(t('fix the errors first'), true); return; }
+        graph = said.graph;
+        if (extra.goal && !goal.value.trim()) goal.value = extra.goal;
+        // What the text says about how the team runs, as a team.yaml card would bring it.
+        if (extra.gate) for (const r of gate.querySelectorAll('input')) r.checked = r.value === extra.gate;
+        if (extra.rounds) rounds.value = extra.rounds;
+        if (extra.permissions && ALONE[extra.permissions]) { alone.value = extra.permissions; paintDanger(); }
+        selected = null;
+        for (const n of graph.nodes) if (n.kind === 'agent' && copies[n.id] === undefined) copies[n.id] = !!n.worktree;
+        drawAll();
+        sheet3.close();
+        toast(t('applied — save it as a model to keep it'));
+      };
+      const sheet3 = modal(t('Edit as text'), el('div', { className: 'sheetbody teamtext' }, [tabs, help, el('div', { className: 'teamtextsplit' }, [ed.node, preview])]), [
+        el('button', { className: 'ghost', textContent: t('Copy'), onclick: () => navigator.clipboard?.writeText(ed.value).then(() => toast(t('copied')), () => {}) }),
         el('button', { className: 'ghost', textContent: t('Cancel'), onclick: () => sheet3.close() }),
-        el('button', { className: 'primary inline', textContent: t('Apply'), onclick: async () => {
-          await parse();
-          if (!drawn) return;
-          graph = drawn;
-          if (extra.goal && !goal.value.trim()) goal.value = extra.goal;
-          // What the text says about how the team runs, as a team.yaml card would bring it.
-          if (extra.gate) for (const r of gate.querySelectorAll('input')) r.checked = r.value === extra.gate;
-          if (extra.rounds) rounds.value = extra.rounds;
-          if (extra.permissions && ALONE[extra.permissions]) { alone.value = extra.permissions; paintDanger(); }
-          selected = null;
-          for (const n of graph.nodes) if (n.kind === 'agent' && copies[n.id] === undefined) copies[n.id] = !!n.worktree;
-          drawAll();
-          sheet3.close();
-          toast(t('applied — save it as a model to keep it'));
-        } }),
+        apply,
       ]);
       sheet3.classList.add('teamsheet');
       show(mode);
-      box.focus();
+      for (const b of tabs.children) b.setAttribute('aria-selected', String(b._mode === mode));
+      ed.focus();
     } });
   const exportPack = el('button', { className: 'ghost', type: 'button', textContent: t('Export mine'),
     title: t('Your roles and models, as a pack to share'), onclick: () => {

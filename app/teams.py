@@ -992,34 +992,42 @@ SCHEMA_LINE = f"# yaml-language-server: $schema={SCHEMA_URL}"
 SCHEMA_FILE = Path(__file__).resolve().parent.parent / "docs" / "team.schema.json"
 
 
-def schema_errors(doc) -> list[str] | None:
-    """What the published schema says about a team file, in a line each — or None when the
-    optional `jsonschema` is not installed (the checks in from_yaml and `warnings` still run)."""
+def schema_errors(doc) -> list[str]:
+    """What the published schema says about a team file, in a line each — with `jsonschema` when
+    it is installed, else with teamlint's own checker of the same schema."""
     try:
         import jsonschema
+        errors = jsonschema.Draft7Validator(json.loads(SCHEMA_FILE.read_text())).iter_errors(doc)
     except ImportError:
-        return None
-    validator = jsonschema.Draft7Validator(json.loads(SCHEMA_FILE.read_text()))
+        from .teamlint import _schema, validate     # the same checks, without the library
+        errors = validate(doc, _schema())
     out = []
-    for e in sorted(validator.iter_errors(doc), key=lambda e: list(map(str, e.path))):
+    for e in sorted(errors, key=lambda e: list(map(str, e.path))):
         where = ".".join(str(p) for p in e.path) or "the file"
-        said = e.message
-        if e.validator == "pattern" and e.path and e.path[0] == "flow":
-            said = f"{e.instance!r} is not an arrow: a -> b, a -> b, c, a -> b if PASS, a -> b if OK, REDO"
-        elif e.validator == "pattern" and e.path and e.path[0] == "steps":
-            said = f"{e.instance!r}: a step name is a lowercase letter, then lowercase letters, digits and dashes"
-        elif e.validator == "not":
-            said = "a step is one of: an agent (role…), a check (check:), a join (join: true) — not two"
-        elif e.validator == "additionalProperties":
-            import difflib
-            allowed = list((e.schema.get("properties") or {}))
-            extra = [k for k in e.instance if k not in allowed] if isinstance(e.instance, dict) else []
-            said = "; ".join(f"`{k}:` is not read" + (f" — did you mean `{near[0]}:`?" if (near := difflib.get_close_matches(str(k), allowed, 1)) else "")
-                             for k in extra) or said
-        elif e.validator in ("oneOf", "anyOf"):
-            said = f"{e.instance!r} is not allowed here"
-        out.append(f"{where}: {said}")
+        out.append(f"{where}: {schema_says(e)}")
     return out
+
+
+def schema_says(e) -> str:
+    """One jsonschema error, in words (the editor and team_check say the same)."""
+    said = e.message
+    if e.validator == "pattern" and e.path and e.path[0] == "flow":
+        said = f"{e.instance!r} is not an arrow: a -> b, a -> b, c, a -> b if PASS, a -> b if OK, REDO"
+    elif e.validator == "pattern" and e.path and e.path[0] == "steps":
+        said = f"{e.instance!r}: a step name is a lowercase letter, then lowercase letters, digits and dashes"
+    elif e.validator == "not":
+        said = "a step is one of: an agent (role…), a check (check:), a join (join: true) — not two"
+    elif e.validator == "additionalProperties":
+        import difflib
+        allowed = list((e.schema.get("properties") or {}))
+        extra = [k for k in e.instance if k not in allowed] if isinstance(e.instance, dict) else []
+        said = "; ".join(f"`{k}:` is not read" + (f" — did you mean `{near[0]}:`?" if (near := difflib.get_close_matches(str(k), allowed, 1)) else "")
+                         for k in extra) or said
+    elif e.validator in ("oneOf", "anyOf"):
+        said = f"{e.instance!r} is not allowed here"
+    elif e.validator == "enum":
+        said = f"{e.instance!r} is not one of {', '.join(map(str, e.validator_value))}"
+    return said
 
 
 RESET_LOG = ("archive", "keep", "clear")

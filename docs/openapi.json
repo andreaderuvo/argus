@@ -3461,6 +3461,52 @@
     ]
    }
   },
+  "/api/teams/lint": {
+   "post": {
+    "description": "`{text, format?, base?}` \u2192 `{format, ok, problems, where, graph?, name?, goal?, gate?,\nrounds?, permissions?, summary?}`. Each problem: `{line, col, end_line, end_col, level:\nerror|warning, message, fix?}` \u2014 lines 1-based, columns 0-based; a fix is a range and the\ntext to put there. `where` is each step's line. Always 200: what the editor asks while you\ntype (app/teamlint.py).",
+    "operationId": "postApiTeamsLint",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Teams Lint Api Teams Lint Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Every problem in a team file, on its line",
+    "tags": [
+     "Teams"
+    ]
+   }
+  },
   "/api/teams/mermaid": {
    "post": {
     "description": "`{text, base?, preview?}` \u2192 `{graph}`, or 400 naming the line (`{error}` with `preview`). `base` is the team being edited: what a\nflowchart cannot say (a step's duty, worktree, reads) is kept from it. `{graph}` the other way\n\u2192 `{text}`, the flowchart to start editing from (teammermaid.py has the subset understood).",
@@ -3852,6 +3898,30 @@
      }
     },
     "summary": "An agent's task in its team, structured",
+    "tags": [
+     "Teams"
+    ]
+   }
+  },
+  "/api/teams/vocab": {
+   "get": {
+    "description": "`{top, step, reset, values, roles, conditions, when}` \u2014 keys with a line each, the values\neach key takes, the roles and which conditions each kind of step can give. From the schema.",
+    "operationId": "getApiTeamsVocab",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Teams Vocab Api Teams Vocab Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "What a team file may say, for completion",
     "tags": [
      "Teams"
     ]

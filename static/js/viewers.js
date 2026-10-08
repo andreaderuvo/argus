@@ -9,6 +9,7 @@ import { go } from '/js/router.js';
 import { keepMyPlace, playedTo } from '/js/screens.js';
 import { paintRailDesks } from '/js/sidebar.js';
 import { bar, prefs, server, view } from '/js/state.js';
+import { isTeamFile, teamFileCard, teamFileEditor } from '/js/teameditor.js';
 import { chooseDesk, nextWindowId, openWindow, watchers } from '/js/tray.js';
 import { t } from '/js/words.js';
 // </imports>
@@ -808,6 +809,8 @@ export async function mountPreview(host, path, ctl) {
     });
   }
 
+  // A team file says what it is, whether it reads and what team it makes, over its text.
+  if (isTeamFile(path, text) && !truncated) host.append(teamFileCard(text, path));
   const pre = el('pre', { className: `file ${prefs.wrap ? 'wrap' : 'nowrap'}`, textContent: text });
 
   /* Numbers down the side, when you want them and they can be trusted.
@@ -944,6 +947,8 @@ async function colour(pre, text, path) {
  *  here, not a rare one.
  */
 export function editor({ text, mtime, host, path }, { onDone, watch } = {}) {
+  // A team file gets the team editor: its problems on their lines, the team drawn beside it.
+  if (isTeamFile(path, text)) return teamFileEditor({ text, mtime, host, path }, { onDone, watch });
   const area = el('textarea', { className: 'editor', spellcheck: false, value: text });
   const status = el('span', { className: 'editnote' });
   const save = el('button', { className: 'primary inline', textContent: t('Save') });
@@ -956,7 +961,7 @@ export function editor({ text, mtime, host, path }, { onDone, watch } = {}) {
   watch?.(false);        // a reload underneath the cursor would eat the edit
 
   const dirty = () => area.value !== text;
-  area.addEventListener('input', () => { status.textContent = dirty() ? 'unsaved' : ''; });
+  area.addEventListener('input', () => { status.textContent = dirty() ? t('unsaved') : ''; });
 
   const store = async () => {
     save.disabled = true;

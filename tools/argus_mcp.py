@@ -134,7 +134,7 @@ TOOLS = [
     {"name": "team_check",
      "description": "Check a team you have written — a Mermaid flowchart or YAML, as the argus-team-author skill "
                     "describes — before proposing it. Says ok with a one-line summary (agents, checks, judge, "
-                    "start), or the line that is wrong. Starts nothing.",
+                    "start), or every problem with its line and, where it is obvious, the fix. Starts nothing.",
      "inputSchema": {"type": "object", "properties": {
          "text": {"type": "string", "description": "The team: a Mermaid flowchart (flowchart LR …) or YAML (name, goal, steps, flow)"}},
          "required": ["text"]}},
@@ -304,11 +304,20 @@ def _team_done(a: Argus, args: dict) -> str:
             + ". Now stop and wait: Argus gives the next turn to whoever has it.")
 
 
+def _line(p: dict) -> str:
+    """One problem, the way an editor says it: where, what, and the fix when there is one."""
+    where = f"line {p['line']}: " if p.get("line") else ""
+    fix = f" (fix: {p['fix']['label']})" if p.get("fix") else ""
+    return f"{where}{p['message']}{fix}"
+
+
 def _team_check(a: Argus, args: dict) -> str:
     said = a.team_check(args["text"])
+    problems = said.get("problems") or []
     if not said["ok"]:
-        return f"Not yet: {said['error']}"
-    warn = said.get("warnings") or []
+        errors = [p for p in problems if p.get("level") == "error"] or [{"message": said["error"]}]
+        return "Not yet:\n- " + "\n- ".join(_line(p) for p in errors + [p for p in problems if p.get("level") != "error"])
+    warn = [_line(p) for p in problems if p.get("level") == "warning"] or said.get("warnings") or []
     return (f"OK ({said['format']}): {said['name']} — {said['summary']}."
             + ("\nBut look at these — they are legal and almost certainly not what you meant:\n- " + "\n- ".join(warn)
                if warn else " Propose it with team_propose."))

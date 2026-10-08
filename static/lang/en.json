@@ -1331,6 +1331,26 @@
   "deletes files, ends work or lets agents loose — tick it only if you mean it": "deletes files, ends work or lets agents loose — tick it only if you mean it",
   "not available here": "not available here",
   "risky": "risky",
-  "The risky ones delete files, end work or let agents loose — tick them only if you mean it.": "The risky ones delete files, end work or let agents loose — tick them only if you mean it."
+  "The risky ones delete files, end work or let agents loose — tick them only if you mean it.": "The risky ones delete files, end work or let agents loose — tick them only if you mean it.",
+  "1 error": "1 error",
+  "1 warning": "1 warning",
+  "Ctrl+Space completes · Ctrl+/ comments · a click on a step finds its line": "Ctrl+Space completes · Ctrl+/ comments · a click on a step finds its line",
+  "Fix: {what}": "Fix: {what}",
+  "Open in Team": "Open in Team",
+  "Save anyway": "Save anyway",
+  "Start from this team, in this folder": "Start from this team, in this folder",
+  "Team file": "Team file",
+  "The team is drawn here as soon as it reads — fix the errors on the left.": "The team is drawn here as soon as it reads — fix the errors on the left.",
+  "The team, as text": "The team, as text",
+  "fix the errors first": "fix the errors first",
+  "line {n}": "line {n}",
+  "no problems": "no problems",
+  "save it first": "save it first",
+  "the end": "the end",
+  "the team": "the team",
+  "unsaved": "unsaved",
+  "{n} errors": "{n} errors",
+  "{n} errors left: saved like this, Argus will not start it": "{n} errors left: saved like this, Argus will not start it",
+  "{n} warnings": "{n} warnings"
  }
 }

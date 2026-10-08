@@ -96,7 +96,7 @@ def test_claude_validates_both_manifests():
 # version changes: on 2026-10-06 rename_desk was added under the same 0.1.0 and '/plugin update'
 # kept the old copy, without the tool. Change anything in plugin/ and this fails until the version
 # goes up and its hash is added here.
-RELEASED = {"0.1.1": "0c47653f71ed8691", "0.1.2": "119c80ea223b38c1", "0.1.3": "6a94fa2f84f0fb7f", "0.1.4": "c2d4b0c927f765f0", "0.1.5": "825cf3dc981918fe", "0.1.6": "b25847a26f5cbf2f", "0.1.7": "d88abaa232d82332", "0.1.8": "206de9ba5939dd39", "0.1.9": "9085fca9d6aca6d7", "0.1.10": "e96fde2fe3ff36ed", "0.1.11": "ccede2ff0451c374", "0.1.12": "b887cd2a7560c29c", "0.1.13": "5e270e6f6f88fab5", "0.1.14": "0374be41babb7552", "0.1.15": "5bb7cf3195436d17", "0.1.16": "72ec788f08e174ea", "0.1.17": "5dc532300ecc0531"}
+RELEASED = {"0.1.1": "0c47653f71ed8691", "0.1.2": "119c80ea223b38c1", "0.1.3": "6a94fa2f84f0fb7f", "0.1.4": "c2d4b0c927f765f0", "0.1.5": "825cf3dc981918fe", "0.1.6": "b25847a26f5cbf2f", "0.1.7": "d88abaa232d82332", "0.1.8": "206de9ba5939dd39", "0.1.9": "9085fca9d6aca6d7", "0.1.10": "e96fde2fe3ff36ed", "0.1.11": "ccede2ff0451c374", "0.1.12": "b887cd2a7560c29c", "0.1.13": "5e270e6f6f88fab5", "0.1.14": "0374be41babb7552", "0.1.15": "5bb7cf3195436d17", "0.1.16": "72ec788f08e174ea", "0.1.17": "5dc532300ecc0531", "0.1.18": "412f0c89d568d631"}
 
 
 def plugin_hash() -> str:

@@ -156,7 +156,8 @@ def test_check_and_propose_on_the_agent_key(tmp_path):
     ok = c.post("/api/teams/check", json={"text": KRAKEN}, headers=h).json()
     assert ok["ok"] and "judged by risk" in ok["summary"]
     bad = c.post("/api/teams/check", json={"text": "flowchart LR\n a -->|NOPE| b"}, headers=h)
-    assert bad.status_code == 200 and bad.json() == {"ok": False, "error": bad.json()["error"]} and "line 2" in bad.json()["error"]
+    assert bad.status_code == 200 and bad.json()["ok"] is False and "line 2" in bad.json()["error"]
+    assert bad.json()["problems"][0]["line"] == 2, "and the same on its line, for the agent to fix"
     said = c.post("/api/teams/propose", json={"text": KRAKEN, "folder": str(tmp_path), "session": "claude-1"}, headers=h)
     assert said.status_code == 200, said.text
     assert (tmp_path / "team.yaml").read_text().startswith("# proposed by claude-1")

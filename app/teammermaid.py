@@ -257,18 +257,7 @@ def warnings(graph: dict, doc: dict | None = None) -> list[str]:
         out.append("nothing leads to done and nobody judges: the team runs until the rounds are used up")
     if doc:
         from .teams import schema_errors
-        said = schema_errors(doc)
-        if said is not None:
-            return out + [f"schema — {line}" for line in said]
-        for k in doc:
-            if k not in TOP_KEYS:
-                near = difflib.get_close_matches(str(k), TOP_KEYS, 1)
-                out.append(f"`{k}:` is not read" + (f" — did you mean `{near[0]}:`?" if near else ""))
-        for sid, spec in (doc.get("steps") or {}).items():
-            for k in (spec or {}) if isinstance(spec, dict) else []:
-                if k not in STEP_KEYS:
-                    near = difflib.get_close_matches(str(k), STEP_KEYS, 1)
-                    out.append(f"step {sid}: `{k}:` is not read" + (f" — did you mean `{near[0]}:`?" if near else ""))
+        out += [f"schema — {line}" for line in schema_errors(doc)]
     return out
 
 
