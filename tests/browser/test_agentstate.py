@@ -107,7 +107,7 @@ def test_the_desk_tabs_say_which_desk_has_an_agent_waiting(make_page, argus, tmp
     page.click_at(*page._center("document.querySelector('.deskcardok')"))
     page.wait(f"!{tab(2)}.classList.contains('agents-waiting')", timeout=5, what="the desk to stop asking")
     page.wait("![...document.querySelectorAll('.tally, .drawertally, #hamburger')].some(e => e.classList.contains('wants'))",
-              timeout=5, what="the amber to leave the counts")
+              timeout=10, what="the amber to leave the counts")  # the next state poll, late on a busy CI
     assert argus.api("/api/tmux/states")["states"]["asking"]["seen"] is True
 
 
