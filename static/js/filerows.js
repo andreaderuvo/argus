@@ -711,7 +711,7 @@ export function uploadTo(path, fileList, onDone, { sequence = '', quiet = false,
 
   // `called` is for a file with no name worth showing: a pasted screenshot arrives as
   // "image.png" every time, and reading that back is not feedback.
-  const label = called || (files.length === 1 ? files[0].name : `${files.length} files`);
+  const label = called || (files.length === 1 ? files[0].name : t('{n} files', { n: files.length }));
   // Always name the destination: the folder comes from whichever pane you used, which
   // is invisible once the system file picker is covering the screen.
   const bar = progressBar(`${label} · ${human(total)}`, `→ ${path}`);
@@ -794,7 +794,7 @@ export function placePicker(roots, setPath, current) {
     body.append(el('button', {
       className: 'ghost block',
       onclick: () => { sheet.close(); setHome(current); },
-    }, [icon('home'), el('span', {}, bidi(`Make this folder home: ${current}`))]));
+    }, [icon('home'), el('span', {}, bidi(t('Make this folder home: {path}', { path: current })))]));
   }
   if (prefs.home) {
     body.append(el('button', {
@@ -827,7 +827,7 @@ export function whereWiringRow() {
     const can = info.agents.filter((a) => !a.cannot);
     if (!can.length) return;
     const all = can.every((a) => a.on);
-    const state = el('span', { className: `sw${all ? ' on' : ''}`, textContent: all ? 'ON' : 'OFF' });
+    const state = el('span', { className: `sw${all ? ' on' : ''}`, textContent: all ? t('ON') : t('OFF') });
     const said = info.agents.map((a) => `${a.name}: ${a.cannot ? t('cannot say') : a.taken ? t('your own status line') : a.on ? t('wired') : t('not wired')}`);
     const row = el('button', { className: 'row setting', type: 'button' }, [
       el('span', { className: 'grow' }, [
@@ -855,7 +855,7 @@ export function whereWiringRow() {
 
 /** Debounced search box wired to a folder. The query is handed back too, because an
  *  empty one means "go back to how you were showing this folder". */
-export function searchBox(path, onResults, placeholder = 'search in this folder…') {
+export function searchBox(path, onResults, placeholder = t('search in this folder…')) {
   const input = el('input', { type: 'search', placeholder });
   let timer;
   input.addEventListener('input', () => {

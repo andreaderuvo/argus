@@ -294,7 +294,7 @@ export async function screenSessions() {
     // Not the shell sitting in the pane, which never grows — everything it went on to
     // start. Absent rather than "0 B" wherever the server could not work it out.
     const ram = s.ram ? human(s.ram) : null;
-    const meta = [`${s.windows} window${s.windows === 1 ? '' : 's'}`, ram, s.attached ? 'attached' : null, age]
+    const meta = [s.windows === 1 ? t('1 window') : t('{n} windows', { n: s.windows }), ram, s.attached ? t('attached') : null, age]
       .filter(Boolean).join(' · ');
     const dot = el('span', { className: 'dot' });
     dot.style.background = colorFor(s.name);
@@ -310,7 +310,7 @@ export async function screenSessions() {
           el('span', { textContent: s.name }),
           teamOf.get(s.name) ? el('span', { className: 'teambadge team', textContent: teamOf.get(s.name), title: t('a session of the team {team}', { team: teamOf.get(s.name) }) }) : null,
         ].filter(Boolean)),
-        el('span', { className: 'meta', textContent: running ? `${meta} · open here` : meta }),
+        el('span', { className: 'meta', textContent: running ? `${meta} · ${t('open here')}` : meta }),
       ]),
       pill,
       running ? el('span', { className: 'livedot' }) : el('span', { className: 'chev', textContent: '›' }),
@@ -430,7 +430,7 @@ export function fileBrowser({
       const hidden = entries.length - shown.length;
       return list.append(el('p', {
         className: 'empty',
-        textContent: hidden ? `Nothing but ${hidden} hidden item(s).` : 'Nothing here.',
+        textContent: hidden === 1 ? t('Nothing but one hidden item.') : hidden ? t('Nothing but {n} hidden items.', { n: hidden }) : t('Nothing here.'),
       }));
     }
     if (getView() === 'tiles') {
@@ -622,7 +622,7 @@ export function fileBrowser({
     VIEWS.forEach(([key], i) => viewBtns[i].classList.toggle('on', getView() === key));
     const mine = favsIn(favGroup);
     pin.className = isFavourite(path, favGroup) ? 'on' : '';
-    pin.title = isFavourite(path, favGroup) ? `Unpin from ${favGroup} favourites` : `Pin this folder in ${favGroup} favourites`;
+    pin.title = isFavourite(path, favGroup) ? t('Unpin from {group} favourites', { group: favGroup }) : t('Pin this folder in {group} favourites', { group: favGroup });
     favsHolder.textContent = '';
     if (!mine.length) return;
 
@@ -641,7 +641,7 @@ export function fileBrowser({
         fileIcon(f),
         el('span', { className: 'grow' }, [
           el('span', { className: 'name', textContent: f.name }),
-          el('span', { className: 'meta' }, bidi(f.missing ? `missing · ${f.path}` : parentOf(f.path))),
+          el('span', { className: 'meta' }, bidi(f.missing ? `${t('missing')} · ${f.path}` : parentOf(f.path))),
         ]),
       ]);
       const off = el('button', { className: 'more', title: t('Unpin'), onclick: (ev) => { ev.stopPropagation(); toggleFavourite(f.path, favGroup); } }, icon('close'));
@@ -651,7 +651,7 @@ export function fileBrowser({
   };
   node.append(favsHolder);
 
-  const tools = el('div', { className: 'pad tools' }, searchBox(path, show, compact ? 'search…' : undefined));
+  const tools = el('div', { className: 'pad tools' }, searchBox(path, show, compact ? t('search…') : undefined));
   if (server?.allow_write) {
     const mkdirBtn = el('button', { className: 'ghost', title: t('New folder') }, icon('folderPlus'));
     Object.assign(mkdirBtn, {
@@ -967,9 +967,9 @@ function sessionActions(session) {
       [icon(name), el('span', { textContent: label })]),
   );
 
-  item('grid', 'Open in a window', () => chooseDesk({ kind: 'term', name: session.name }, session.name));
-  item('rename', 'Rename…', () => renameSession(session));
-  item('trash', 'Kill session', () => killSession(session));
+  item('grid', t('Open in a window'), () => chooseDesk({ kind: 'term', name: session.name }, session.name));
+  item('rename', t('Rename…'), () => renameSession(session));
+  item('trash', t('Kill session'), () => killSession(session));
 
   sheet = modal(session.name, body, [
     el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),

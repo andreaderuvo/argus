@@ -9,7 +9,7 @@ import { keyHelp } from '/js/shortcuts.js';
 import { applyRail } from '/js/sidebar.js';
 import { CAN_FULLSCREEN, MINE_ONLY, PREFS_KEY, VITALS_EVERY, bar, changedKeys, knownDesks, prefs, pushing, railToggle, server, setBaseline, setPrefsVersion, setPushing, setVitalsTimer, vitalsTimer } from '/js/state.js';
 import { nextWindowId, openWindow } from '/js/tray.js';
-import { LEVEL_WORD, worstVital } from '/js/vitals.js';
+import { levelWord, worstVital } from '/js/vitals.js';
 import { t } from '/js/words.js';
 // </imports>
 
@@ -54,7 +54,7 @@ function markVitals(s) {
   bar.vitals.hidden = false;
   bar.vitals.className = `icon ${worst.level === 'good' ? '' : worst.level}`.trim();
   bar.vitals.title = t('System — {what} {word} ({pct}%)',
-    { what: worst.what, word: LEVEL_WORD[worst.level], pct: Math.round(worst.pct) });
+    { what: worst.what, word: levelWord(worst.level), pct: Math.round(worst.pct) });
 }
 
 export function watchVitals() {

@@ -388,7 +388,7 @@ export function teamCanvas({ graph, onChange, onSelect, roles: given = {} } = {}
       }),
     }));
     inspect.replaceChildren(
-      el('div', { className: 'tchead' }, [el('strong', { textContent: `${a} → ${z === 'end' ? 'done' : z}` }), el('span', { className: 'tckind', textContent: t('arrow') }),
+      el('div', { className: 'tchead' }, [el('strong', { textContent: `${a} → ${z === 'end' ? t('done') : z}` }), el('span', { className: 'tckind', textContent: t('arrow') }),
         el('span', { className: 'tcgap' }),
         el('button', { className: 'ghost inline danger tcdel', type: 'button', title: t('Remove this arrow (Delete)'), onclick: () => removeSelected() },
           [icon('trash'), el('span', { textContent: t('Remove') })])]),

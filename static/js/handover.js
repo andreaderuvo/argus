@@ -197,47 +197,28 @@ export const PAIR_BATONS = [
   },
 ];
 
-/* The two modes, as data: what the plan file starts as, and which prompt goes to whom.
- *
- *  The templates above are the words; this is the wiring. Kept apart because the words are
- *  yours to change — they are stock templates like any other — while the wiring is what makes
- *  one click start two agents.
- */
-export const PAIR_MODES = [
-  {
-    id: 'together',
-    group: TOGETHER,
-    name: 'Together, without stepping on each other',
-    hint: 'Both work towards one goal. The plan file says who owns which file, and neither '
-      + 'may touch the other\u2019s.',
-    // One prompt to both, through the chain: the two agents differ only by which name the plan
-    // assigns work to, so there is nothing to word differently.
-    same: 'Start (send to both)',
-    plan: (goal, a, b) => `# Plan\n\n`
-      + `## Goal\n${goal || '(write the goal here, then tell them to read it)'}\n\n`
-      + `## Files\nEvery file that will be touched, one owner each. Nobody edits a file that is\n`
-      + `not theirs.\n\n- (path) — ${a}\n- (path) — ${b}\n\n`
-      + `## Doing\n- ${a}: \n- ${b}: \n\n`
-      + `## Done\n\n`
-      + `## Blocked\nA request for a file you do not own goes here, and then you stop.\n`,
-  },
-  {
-    id: 'review',
-    group: ADVERSARIAL,
-    name: 'One builds, the other reviews',
-    hint: 'One writes and never marks its own work correct. The other reads the diff, writes '
-      + 'the review to REVIEW.argus.md, and ends on VERDICT: OK or REDO.',
-    // Two different jobs, so two different prompts.
-    roles: { a: 'You build (send to the worker)', b: 'You review (send to the reviewer)' },
-    plan: (goal, a, b) => `# Plan\n\n`
-      + `## Goal\n${goal || '(what is being attempted, in a paragraph)'}\n\n`
-      + `## Who\n- builds: ${a}\n- reviews: ${b}\n\n`
-      + `## Where the review goes\n${b} writes it to REVIEW.argus.md, beside this file, and\n`
-      + `replaces it each round. ${a} reads it there — neither of them can see the other's\n`
-      + `terminal.\n\n`
-      + `## Rounds\nOne line per pass, written by ${b}: what changed, and the verdict it got.\n`,
-  },
-];
+/** The names of the stock templates and their groups, in the language on screen. They are
+ *  stored in English in the preferences (they are identifiers there: a group is matched by
+ *  name), so only what is drawn is translated, and anything you named yourself is left alone. */
+function stockWords() {
+  return {
+    [LOOSE]: t('General'),
+    [TOGETHER]: t('Two agents · together'),
+    [ADVERSARIAL]: t('Two agents · one reviews'),
+    'Code review': t('Code review'),
+    Referee: t('Referee'),
+    'Referee back': t('Referee back'),
+    Relay: t('Relay'),
+    'Start (send to both)': t('Start (send to both)'),
+    'You build (send to the worker)': t('You build (send to the worker)'),
+    'You review (send to the reviewer)': t('You review (send to the reviewer)'),
+    'Nudge (if one of them has gone quiet)': t('Nudge (if one of them has gone quiet)'),
+  };
+}
+/** A group's name as shown. */
+export function groupName(group) { return stockWords()[group] ?? group; }
+/** A template's name as shown: translated only while it is still one that shipped. */
+export function promptName(kind) { return kind.stock ? stockWords()[kind.name] ?? kind.name : kind.name; }
 
 export const BATONS = [
   {
@@ -795,7 +776,7 @@ export function whyEmpty(name) {
   const set = varSetNamed(setName);
   if (!set) return t('there is no set called {set} — there is {list}', { set: setName, list: varSets().map((x) => x.name).join(', ') });
   const has = Object.keys(set.name === GROUND ? groundVars() : { ...groundVars(), ...set.vars });
-  return t('{set} has no {key} — it has {list}', { set: setName, key, list: has.join(', ') || '(nothing)' });
+  return t('{set} has no {key} — it has {list}', { set: setName, key, list: has.join(', ') || t('(nothing)') });
 }
 
 /** Type a prompt into a session, and only then press Enter.
@@ -1009,7 +990,7 @@ export function attachMessages(host, wsId, extras, deliver) {
     const body = el('div', { className: 'sheetbody' });
     body.append(
       el('p', { textContent: t('This desk has nothing to put in {list}.', { list: gaps.map((g) => `{${g}}`).join(' ') }) }),
-      el('p', { className: 'hint', textContent: t('Sent as it is, {name} goes across with the braces still in it — which the agent may well ask you about.', { name: kind.name }) }),
+      el('p', { className: 'hint', textContent: t('Sent as it is, {name} goes across with the braces still in it — which the agent may well ask you about.', { name: promptName(kind) }) }),
     );
     let sheet;
     sheet = modal(t('Something is missing'), body, [
@@ -1067,8 +1048,8 @@ export function attachMessages(host, wsId, extras, deliver) {
     if (ofMany > 1 && target !== deliver.aims()[deliver.aims().length - 1]) return;
     const many = ofMany > 1 ? t('{n} sessions', { n: ofMany }) : toName;
     toast(kind.run
-      ? t('{name} sent to {session}', { name: kind.name, session: many })
-      : t('{name} put into {session}', { name: kind.name, session: many }));
+      ? t('{name} sent to {session}', { name: promptName(kind), session: many })
+      : t('{name} put into {session}', { name: promptName(kind), session: many }));
   };
 
   /** Who it is going to, at the top, as buttons: one is lit and that is where a tap
@@ -1228,7 +1209,7 @@ export function attachMessages(host, wsId, extras, deliver) {
         + kind.text.split('\n')[0],
     }, [
       icon('relay'),
-      el('span', { className: 'trayleaf', textContent: kind.name }),
+      el('span', { className: 'trayleaf', textContent: promptName(kind) }),
       gaps.length ? el('span', { className: 'gapmark', textContent: '{ }' }) : null,
     ].filter(Boolean));
 
@@ -1342,7 +1323,7 @@ export function attachMessages(host, wsId, extras, deliver) {
       uses.title = said.join(' · ');
     }
 
-    dragLink(row, { text: kind.name, message: kind }, deliver.find, (item, target) => send(item.message, target));
+    dragLink(row, { text: promptName(kind), message: kind }, deliver.find, (item, target) => send(item.message, target));
     row.onclick = () => {
       if (row.dataset.dragged) return;
       sendAll(kind);
@@ -1361,7 +1342,7 @@ export function attachMessages(host, wsId, extras, deliver) {
         if (cwd && filled.isConnected) filled.textContent = fillBaton(kind.text, { ...situationFor(target, cwd), ...allVars(wsId) });
       });
       peek = el('div', { className: 'promptpeek' }, [
-        el('div', { className: 'peekname', textContent: kind.name }),
+        el('div', { className: 'peekname', textContent: promptName(kind) }),
         filled,
         short.length ? el('p', { className: 'peekgap', textContent: t('nothing to put in {list}', { list: short.map((g) => `{${g}}`).join(' ') }) }) : null,
       ].filter(Boolean));
@@ -1432,7 +1413,7 @@ export function attachMessages(host, wsId, extras, deliver) {
       note.addEventListener('input', see);
       see();
       let sheet;
-      sheet = modal(`${kind.name} → ${target.name.slice(5)}`, el('div', { className: 'sheetbody' }, [
+      sheet = modal(`${promptName(kind)} → ${target.name.slice(5)}`, el('div', { className: 'sheetbody' }, [
         note,
         el('p', { className: 'hint', textContent: t('what will be typed over there:') }),
         shown,
@@ -1535,7 +1516,7 @@ export function attachMessages(host, wsId, extras, deliver) {
        */
       folder.append(el('summary', {}, [
         icon('folder'),
-        el('span', { textContent: group }),
+        el('span', { textContent: groupName(group) }),
         el('span', { className: 'count', textContent: String(mine.length) }),
       ]));
       folder.dataset.group = group;

@@ -4,7 +4,7 @@ import { savePrefs } from '/js/core.js';
 import { lastSessionCount, lastTodoCount, paintDeskStates, showCount } from '/js/counts.js';
 import { ask, askPrompt, confirmBox, toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
-import { BATONS, GROUND, LOOSE, PAIR_BATONS, SITUATIONAL, batonGroups, batonTemplates, bridgePath, deskSetName, fillBaton, groundVars, messagesChanged, pairEvery, pairLimit, pairTries, planPath, saidAs, unknownVars, varSetNamed, varSets, whyEmpty } from '/js/handover.js';
+import { BATONS, GROUND, LOOSE, PAIR_BATONS, SITUATIONAL, batonGroups, batonTemplates, bridgePath, deskSetName, fillBaton, groundVars, groupName, messagesChanged, pairEvery, pairLimit, pairTries, planPath, promptName, saidAs, unknownVars, varSetNamed, varSets, whyEmpty } from '/js/handover.js';
 import { icon } from '/js/icons.js';
 import { bidi, colorFor, deskHome, getJSON, postJSON, serverInfo, setTitle } from '/js/reconnect.js';
 import { go, parseRoute } from '/js/router.js';
@@ -135,11 +135,11 @@ export async function screenMessages(open = null) {
         el('span', { className: 'dragrip', title: t('Drag to reorder') }, icon('grip')),
         el('span', { className: 'twist' }, icon('down')),
         icon('folder'),
-        el('span', { className: 'foldername', textContent: group }),
+        el('span', { className: 'foldername', textContent: groupName(group) }),
         el('span', { className: 'count', textContent: String(mine.length) }),
         el('span', { className: 'grow' }),
-        groupBtn('plus', t('A new prompt in {group}', { group }), async () => {
-          const made = await askPrompt(t('A new prompt in {group}', { group }));
+        groupBtn('plus', t('A new prompt in {group}', { group: groupName(group) }), async () => {
+          const made = await askPrompt(t('A new prompt in {group}', { group: groupName(group) }));
           if (!made) return;
           all.push({ group, name: made.name, text: made.text, ...(made.run ? { run: true } : {}) });
           savePrefs();
@@ -236,8 +236,8 @@ export async function screenMessages(open = null) {
           // Nothing here is armoured, and nothing needs to be: the ones it came with can always
           // be fetched again. Saying so is what makes deleting one feel like tidying rather
           // than like breaking something.
-          ? t('{name} deleted — “Put back the ones it came with” brings it back', { name: kind.name })
-          : t('{name} deleted', { name: kind.name }) }),
+          ? t('{name} deleted — “Put back the ones it came with” brings it back', { name: promptName(kind) })
+          : t('{name} deleted', { name: promptName(kind) }) }),
         back,
       ]);
       card.replaceWith(strip);
@@ -280,13 +280,13 @@ export async function screenMessages(open = null) {
     card.append(el('summary', {}, [
       el('span', { className: 'dragrip', title: t('Drag to reorder') }, icon('grip')),
       el('span', { className: 'twist' }, icon('down')),
-      el('span', { className: 'name', textContent: kind.name }),
+      el('span', { className: 'name', textContent: promptName(kind) }),
       el('span', { className: 'meta', textContent: first }),
       star,
       bin,
     ]));
 
-    const name = el('input', { type: 'text', value: kind.name, spellcheck: false });
+    const name = el('input', { type: 'text', value: promptName(kind), spellcheck: false });
     const text = el('textarea', { className: 'baton', spellcheck: false, rows: 6, value: kind.text });
     const where = el('input', { type: 'text', className: 'groupbox', value: kind.group, spellcheck: false, title: t('which group it belongs to') });
     where.setAttribute('list', 'batongroups');
@@ -1214,7 +1214,7 @@ export function viewersRow() {
  */
 const DRAWER = ['placeholders', 'todo', 'system', 'journal'];
 // With the bottom bar off, the drawer *is* the navigation and carries all of them.
-const EVERYTHING = ['files', 'sessions', 'wall', 'prompts', 'placeholders', 'todo', 'system', 'journal'];
+const EVERYTHING = ['files', 'sessions', 'wall', 'prompts', 'placeholders', 'todo', 'system', 'since', 'journal'];
 // Drawer only, unless somebody asks for the bar back. Asked for plainly, and the bar was
 // left in place by mistake the first time.
 const noBar = () => prefs.bottomBar !== true;
@@ -1253,7 +1253,7 @@ function buildDrawer() {
     const copy = el('a', { href: link.getAttribute('href'), 'data-goes': tab }, [
       icon({
         files: 'folder', sessions: 'terminal', wall: 'grid', prompts: 'relay',
-        placeholders: 'rename', todo: 'tick', system: 'activity', journal: 'journal',
+        placeholders: 'rename', todo: 'tick', system: 'activity', since: 'bell', journal: 'journal',
       }[tab] || 'folder'),
       // The link's own words, not its badge: `textContent` on the anchor swept up the tally
       // as well, so the drawer read "Windows4".

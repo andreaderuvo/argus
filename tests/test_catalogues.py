@@ -38,7 +38,7 @@ def unescape(js: str) -> str:
         return js
 
 
-def keys_in_source() -> set[str]:
+def keys_in_source(body: str | None = None) -> set[str]:
     """Every literal in the first argument of a `t()` call.
 
     Walked rather than matched with a regex, because the first argument is not always one
@@ -50,7 +50,7 @@ def keys_in_source() -> set[str]:
     a comma in it — and then reports the catalogue as having entries nothing asks for, when
     the truth is the opposite.
     """
-    body = frontend_source()
+    body = frontend_source() if body is None else body
     found: set[str] = set()
     for call in re.finditer(r"\bt\(", body):
         i, depth = call.end(), 1
@@ -121,3 +121,90 @@ def test_each_catalogue_says_which_language_it_is():
     for code, entry in catalogues().items():
         assert entry["code"] == code
         assert entry["name"].strip()
+
+
+# Values that are the same word in English and in that language — not forgotten, just the same.
+# Product and tool names, a key label, a loanword the glossary keeps (scratchpad glossaries:
+# it keeps desk/home/team/log; fr shares Actions, Journal, Session…). Anything else equal to its
+# key is a string nobody translated, which is invisible to everyone reading in English.
+SAME_EVERYWHERE = {"Ctrl", "auto", "markdown", "link-local", "Commit",
+                   "B KB MB GB TB"}           # French alone writes octets: o Ko Mo Go To
+SAME_IN = {
+    "it": {"Browser", "Menu", "desk", "home", "in", "in {folder}", "Log", "Team", "tester", "Release", "No",
+           "Join", "join", "Desk {n}"},
+    "es": {"Prompts", "tester", "No", "1 error", "General"},
+    "fr": {"Actions", "Documents", "Interruptions", "Journal", "Menu", "Prompts", "Version", "Pause",
+           "code", "document", "extension", "page", "agent", "Agent", "Agents", "{n} agents",
+           "session", "Sessions", "{n} sessions"},
+}
+# Compact units: "15s", "{n} min", "p. {n}", "{h}h {m}m" — what is left once the numbers and
+# the holes are gone is only a unit, and the unit is the same letter in that language.
+UNIT = re.compile(r"^(?:s|m|h|d|min|p)$")
+
+
+def is_only_units(key: str) -> bool:
+    words = re.sub(r"\{\w+\}|[\d\W_]", " ", key).split()
+    return all(UNIT.match(w) for w in words)
+
+
+def test_nothing_is_left_in_english_by_accident():
+    """A value identical to its English key is either the same word in that language — listed
+    above, with the reason — or a string that was added and never translated."""
+    cats = catalogues()
+    for code in ("it", "es", "fr"):
+        allowed = SAME_EVERYWHERE | SAME_IN[code]
+        same = [k for k, v in cats[code]["strings"].items() if v == k and not is_only_units(k) and k not in allowed]
+        assert not same, f"{code}: {len(same)} values are still the English key: {same[:10]}"
+        stale = sorted(k for k in SAME_IN[code] if cats[code]["strings"].get(k) != k)
+        assert not stale, f"{code}: allowed to stay English but no longer does (drop it from SAME_IN): {stale}"
+
+
+def test_every_word_of_the_markup_is_translated_by_markup_js():
+    """index.html is read before any script runs, so its words are English until
+    translateMarkup() rewrites them: every title, aria-label and visible label in the header
+    and the rail must be one it says (markup.js), and every tab must have its word there."""
+    html = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
+    markup = (ROOT / "static" / "js" / "markup.js").read_text(encoding="utf-8")
+    said = keys_in_source(markup)
+    tab_word = dict(re.findall(r"(\w+): '([^']+)'", markup.split("const TAB_WORD", 1)[1].split("};", 1)[0]))
+    said |= set(tab_word.values())
+    region = html[html.index('<header id="bar">'):html.index("</nav>")]
+    region = re.sub(r"<!--.*?-->", "", region, flags=re.S)
+    words = set(re.findall(r'(?:title|aria-label)="([^"]+)"', region))
+    words |= {w.strip() for w in re.findall(r"</span>([^<]+)</(?:a|button)>", region) if w.strip()}
+    words -= {"Argus"}                          # the product's name, in the title
+    missing = sorted(words - said)
+    assert not missing, f"index.html says these and translateMarkup() never translates them: {missing}"
+    tabs = set(re.findall(r'data-tab="(\w+)"', region))
+    assert tabs <= set(tab_word), f"tabs with no word in TAB_WORD: {sorted(tabs - set(tab_word))}"
+    english = set(catalogues()["en"]["strings"])
+    assert not (said - english) - {""}, f"not in the catalogues: {sorted(said - english)}"
+
+
+def test_what_the_server_says_for_the_page_to_translate_is_in_the_catalogues():
+    """Sentences the server sends and the page looks up with t(variable): the readiness notes
+    (`say`, with its holes filled by `values`) and the agent options' labels. A sentence built
+    with an f-string can never match a key; these are what replaced them."""
+    import ast
+    import sys
+    sys.path.insert(0, str(ROOT))
+    from app import agentflags
+    english = set(catalogues()["en"]["strings"])
+    tree = ast.parse((ROOT / "app" / "readiness.py").read_text(encoding="utf-8"))
+    says = [c.args[1].value for c in ast.walk(tree)
+            if isinstance(c, ast.Call) and getattr(c.func, "id", "") == "_note" and isinstance(c.args[1], ast.Constant)]
+    assert len(says) >= 6
+    assert not [s for s in says if s not in english]
+    labels: list[str] = []
+
+    def walk(o):
+        if isinstance(o, dict):
+            labels.extend(o[k] for k in ("label", "placeholder") if isinstance(o.get(k), str) and o[k])
+            for v in o.values():
+                walk(v)
+        elif isinstance(o, (list, tuple)):
+            for v in o:
+                walk(v)
+    walk(agentflags.CATALOG)
+    product = {"Opus", "Sonnet", "Haiku", "Fable"}      # model names, the same in every language
+    assert labels and not [x for x in labels if x not in english and x not in product]

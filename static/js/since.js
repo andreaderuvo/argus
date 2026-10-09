@@ -527,7 +527,7 @@ export async function screenSettings() {
   };
 
   const toggle = (label, hint, get, set) => {
-    const state = el('span', { className: 'sw', textContent: get() ? 'ON' : 'OFF' });
+    const state = el('span', { className: 'sw', textContent: get() ? t('ON') : t('OFF') });
     const row = el('button', { className: 'row setting', type: 'button' }, [
       el('span', { className: 'grow' }, [
         el('span', { className: 'name', textContent: label }),
@@ -539,7 +539,7 @@ export async function screenSettings() {
     row.onclick = () => {
       set(!get());
       savePrefs();
-      state.textContent = get() ? 'ON' : 'OFF';
+      state.textContent = get() ? t('ON') : t('OFF');
       state.classList.toggle('on', get());
     };
     return row;
@@ -617,7 +617,7 @@ export async function screenSettings() {
       if (!info?.agents?.length) return;                 // no agent here, nothing to offer
       const all = info.agents.every((a) => a.on);
       const some = info.agents.some((a) => a.on);
-      const state = el('span', { className: `sw${all ? ' on' : ''}`, textContent: all ? 'ON' : some ? t('partly') : 'OFF' });
+      const state = el('span', { className: `sw${all ? ' on' : ''}`, textContent: all ? t('ON') : some ? t('partly') : t('OFF') });
       const row = el('button', { className: 'row setting', type: 'button' }, [
         el('span', { className: 'grow' }, [
           el('span', { className: 'name', textContent: t('Let your agents ring') }),
@@ -661,10 +661,10 @@ export async function screenSettings() {
     const paint = () => {
       const how = !window.Notification ? t('not available')
         : !secure ? t('needs HTTPS')
-          : Notification.permission === 'granted' ? 'ON'
-            : Notification.permission === 'denied' ? t('refused') : 'OFF';
+          : Notification.permission === 'granted' ? t('ON')
+            : Notification.permission === 'denied' ? t('refused') : t('OFF');
       state.textContent = how;
-      state.classList.toggle('on', how === 'ON');
+      state.classList.toggle('on', how === t('ON'));
     };
     const row = el('button', { className: 'row setting', type: 'button' }, [
       el('span', { className: 'grow' }, [
@@ -847,6 +847,10 @@ export async function screenSettings() {
       () => prefs.keyTips !== false, (v) => { prefs.keyTips = v; }),
     toggle(t('Teach me the shortcuts'), t('after a click on something that has one: "next time, …" — three times each, then never'),
       () => prefs.keyNudges !== false, (v) => { prefs.keyNudges = v; }),
+    // Argus's Ctrl+Alt keys (the side rail) from inside a terminal: on, unless Emacs's C-M-… is yours.
+    toggle(t('{key} keys work inside a terminal', { key: prettyKey('ctrl+alt+x').replace(/\+?X$/, '') }),
+      t('off leaves them to the program — Emacs and readline use a few; Ctrl+Shift keys work there always'),
+      () => prefs.termCtrlAlt !== false, (v) => { prefs.termCtrlAlt = v; }),
   );
 
   wrap.append(

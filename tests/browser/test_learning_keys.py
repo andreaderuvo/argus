@@ -68,6 +68,30 @@ def test_the_key_is_on_the_tooltip_and_a_click_teaches_it_three_times(make_page,
     eventually(lambda: (argus.api("/api/prefs")["prefs"].get("keyTaught") or {}).get("files") == 99, timeout=5, what="learnt")
 
 
+def test_the_sidebar_keys_work_with_a_terminal_focused_unless_left_to_it(make_page, argus):
+    argus.tmux("new-session", "-d", "-s", "work", "-x", "80", "-y", "20")
+    try:
+        argus.api("/api/prefs", "PATCH", {"changes": {"ws": 1, "wsSeq": 1, "workspaces": [
+            {"id": 1, "name": "Work", "desktop": [{"kind": "term", "name": "work"}]}]}})
+        page = make_page(route="#/wall")
+        area = "document.querySelector('.win[data-session=\"work\"] .xterm-helper-textarea')"
+        page.wait(f"!!{area}", timeout=15, what="the terminal")
+        page.eval(f"{area}.focus()")
+        page.key("s", code="KeyS", modifiers=2 | 1)            # Ctrl+Alt+S: Sessions, from inside the terminal
+        page.wait("location.hash.startsWith('#/sessions')", timeout=5, what="Sessions, without clicking out first")
+        # Left to the terminal by choice (Emacs's C-M-…): the key goes to it, Argus stays put.
+        argus.api("/api/prefs", "PATCH", {"changes": {"termCtrlAlt": False}})
+        page.eval("location.hash = '#/wall'; location.reload()")
+        page.wait(f"!!{area}", timeout=15, what="the terminal again")
+        time.sleep(0.8)
+        page.eval(f"{area}.focus()")
+        page.key("s", code="KeyS", modifiers=2 | 1)
+        time.sleep(0.8)
+        assert page.eval("location.hash").startswith("#/wall"), "left to the terminal"
+    finally:
+        argus.tmux("kill-session", "-t", "work", check=False)
+
+
 def test_got_it_all_by_its_key_with_a_terminal_focused(make_page, argus, tmp_path):
     argus.kill_sessions()
     agents(tmp_path, argus, spin_for=2)

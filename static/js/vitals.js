@@ -57,17 +57,20 @@ function labelButton(current, after) {
   }, icon('rename'));
 }
 
-export const LEVEL_WORD = { good: 'ok', warning: 'high', critical: 'critical' };
+/** The word for a level, in the language on screen. */
+export function levelWord(level) {
+  return { good: t('ok'), warning: t('high'), critical: t('critical') }[level];
+}
 
 /** The single worst number on a reading, so "is it dying" is answered before anything
  *  else is. Shared between the System screen's hero tile and the header badge — both are
  *  the same question asked at a different distance, and they must never disagree. */
 export function worstVital(s) {
   return [
-    { what: 'cpu', pct: s.cpu.pct, level: s.cpu.level },
-    { what: 'memory', pct: s.memory.pct, level: s.memory.level },
-    ...s.disks.map((d) => ({ what: `disk ${d.path}`, pct: d.pct, level: d.level })),
-    ...s.gpus.map((g) => ({ what: 'gpu memory', pct: g.mem_pct, level: g.level })),
+    { what: 'CPU', pct: s.cpu.pct, level: s.cpu.level },
+    { what: t('memory'), pct: s.memory.pct, level: s.memory.level },
+    ...s.disks.map((d) => ({ what: t('disk {path}', { path: d.path }), pct: d.pct, level: d.level })),
+    ...s.gpus.map((g) => ({ what: t('GPU memory'), pct: g.mem_pct, level: g.level })),
   ].sort((a, b) => b.pct - a.pct)[0];
 }
 
@@ -79,7 +82,7 @@ function meter(label, value, pct, lvl, note = '') {
   const tile = el('div', { className: 'tile' }, [
     el('div', { className: 'tilehead' }, [
       el('span', { className: 'tilelabel', textContent: label }),
-      el('span', { className: `state ${lvl}`, textContent: LEVEL_WORD[lvl] }),
+      el('span', { className: `state ${lvl}`, textContent: levelWord(lvl) }),
     ]),
     el('div', { className: 'tilevalue', textContent: value }),
     el('div', { className: 'track' }, fill),
@@ -100,7 +103,7 @@ function meter(label, value, pct, lvl, note = '') {
     if (fill.style.width !== width) fill.style.width = width;
     if (fill.className !== `fill ${lvl2}`) fill.className = `fill ${lvl2}`;
     if (state.className !== `state ${lvl2}`) state.className = `state ${lvl2}`;
-    writeInto(state, LEVEL_WORD[lvl2]);
+    writeInto(state, levelWord(lvl2));
     writeInto(value2, v);
     writeInto(noteNode, note2);
   };
@@ -111,7 +114,7 @@ export const duration = (s) => {
   const d = Math.floor(s / 86400);
   const h = Math.floor((s % 86400) / 3600);
   const m = Math.floor((s % 3600) / 60);
-  return d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : `${m}m`;
+  return d ? t('{d}d {h}h', { d, h }) : h ? t('{h}h {m}m', { h, m }) : t('{m}m', { m });
 };
 
 /** Where this machine is, where you are, and the line that joins the two.
@@ -327,7 +330,7 @@ function portsSection(where) {
     list.textContent = '';
     head.textContent = data.open.length
       ? t('Listening ports · {n} reachable through Argus', { n: data.open.length })
-      : 'Listening ports';
+      : t('Listening ports');
     const mine = data.ports.filter((p) => p.mine && !p.self);
     if (data.allow_proxy) list.append(byHand());
 
@@ -348,7 +351,7 @@ function portsSection(where) {
           onclick: () => openWindow({ kind: 'web', url: withToken(`/proxy/${port}/`), label: `:${port}` }),
         }),
         el('button', {
-          className: 'winbtn', title: `Stop reaching port ${port}`,
+          className: 'winbtn', title: t('Stop reaching port {port}', { port }),
           onclick: async () => {
             try {
               await postJSON('/api/ports', { port, open: false });
@@ -376,11 +379,11 @@ function portsSection(where) {
       const row = el('div', { className: `portrow${p.label ? ' labelled' : ''}` }, [
         el('span', { className: 'portnum', textContent: String(p.port) }),
         el('span', { className: 'grow' }, [
-          el('span', { className: 'name', textContent: p.label || p.process || 'unknown' }),
+          el('span', { className: 'name', textContent: p.label || p.process || t('unknown') }),
           el('span', { className: 'meta', textContent: said }),
         ]),
         p.pid ? labelButton(() => ({ pid: p.pid, label: p.label, name: p.process }), () => paint()) : null,
-        el('span', { className: `state ${p.loopback ? 'warning' : 'good'}`, textContent: p.loopback ? 'local only' : 'on the network' }),
+        el('span', { className: `state ${p.loopback ? 'warning' : 'good'}`, textContent: p.loopback ? t('local only') : t('on the network') }),
       ].filter(Boolean));
 
       if (!p.loopback) {
@@ -402,7 +405,7 @@ function portsSection(where) {
         }));
         row.append(el('button', {
           className: 'winbtn',
-          title: `Stop reaching port ${p.port}`,
+          title: t('Stop reaching port {port}', { port: p.port }),
           onclick: async () => {
             try {
               await postJSON('/api/ports', { port: p.port, open: false });
@@ -617,33 +620,33 @@ export async function screenSystem() {
     if (hero.className !== `hero ${worst.level}`) hero.className = `hero ${worst.level}`;
     write(heroNum, `${Math.round(worst.pct)}%`);
     if (heroState.className !== `state ${worst.level}`) heroState.className = `state ${worst.level}`;
-    write(heroState, LEVEL_WORD[worst.level]);
+    write(heroState, levelWord(worst.level));
     write(heroWhat, ` · ${t('busiest')}: ${worst.what}`);
     write(heroNote, t('{host} · up {up} · {cores} cores',
       { host: s.hostname, up: duration(s.uptime), cores: s.cpu.cores }));
 
     const want = [
       { key: 'cpu', label: 'CPU', value: `${s.cpu.pct}%`, pct: s.cpu.pct, level: s.cpu.level,
-        note: `load ${s.cpu.load.join('  ')} over ${s.cpu.cores} cores` },
-      { key: 'memory', label: 'Memory', value: `${human(s.memory.used)} / ${human(s.memory.total)}`,
+        note: t('load {load} over {cores} cores', { load: s.cpu.load.join('  '), cores: s.cpu.cores }) },
+      { key: 'memory', label: t('Memory'), value: `${human(s.memory.used)} / ${human(s.memory.total)}`,
         pct: s.memory.pct, level: s.memory.level,
-        note: `${human(s.memory.available)} available · ${human(s.memory.cached)} cached` },
+        note: t('{available} available · {cached} cached', { available: human(s.memory.available), cached: human(s.memory.cached) }) },
     ];
     if (s.memory.swap_total) {
       want.push({ key: 'swap', label: 'Swap',
         value: `${human(s.memory.swap_used)} / ${human(s.memory.swap_total)}`,
         pct: s.memory.swap_pct, level: s.memory.swap_level,
-        note: 'swapping under pressure is the warning sign' });
+        note: t('swapping under pressure is the warning sign') });
     }
     for (const g of s.gpus) {
       want.push({ key: `gpu:${g.name}`, label: g.name,
         value: `${human(g.mem_used)} / ${human(g.mem_total)}`, pct: g.mem_pct, level: g.level,
-        note: `${g.util}% busy · ${g.temp}°C` });
+        note: t('{util}% busy · {temp}°C', { util: g.util, temp: g.temp }) });
     }
     for (const d of s.disks) {
       want.push({ key: `disk:${d.path}`, label: d.path,
         value: `${human(d.used)} / ${human(d.total)}`, pct: d.pct, level: d.level,
-        note: `${human(d.free)} free` });
+        note: t('{free} free', { free: human(d.free) }) });
     }
 
     const here = new Set();

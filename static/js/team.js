@@ -107,7 +107,7 @@ export async function teamSheet({ wsId, home, onStarted }) {
     ready.replaceChildren(
       el('p', { className: 'teamreadyhead', textContent: t('Before you start') }),
       ...rows.map((n) => el('div', { className: `teamreadyrow ${n.level}` }, [
-        el('span', {}, [el('b', { textContent: `${n.name}: ` }), el('span', { textContent: t(n.text) })]),
+        el('span', {}, [el('b', { textContent: `${n.name}: ` }), el('span', { textContent: n.say ? t(n.say, n.values) : t(n.text) })]),
         n.fix ? el('button', { className: 'ghost inline', type: 'button',
           textContent: n.fix === 'codex-team-tools' ? t('Allow them') : t('Install / update'),
           onclick: async (e) => {

@@ -660,7 +660,7 @@ export function attachTerminal(container, name, { transform, onGone, onBack, onP
       const msg = JSON.parse(ev.data);
       if (msg.type === 'ready') {
         ready = true;
-        if (attempts) note('reconnected', '38;5;108');
+        if (attempts) note(t('reconnected'), '38;5;108');
         attempts = 0;
         sentCols = 0;      // a fresh attach knows nothing about what we sent before
         sentRows = 0;
@@ -724,7 +724,7 @@ export function attachTerminal(container, name, { transform, onGone, onBack, onP
       // 0.5s, 1, 2, 4, 8, then every 10 — quick enough to be invisible on a blip,
       // slow enough not to hammer a server that is actually down.
       const delay = Math.min(RECONNECT_CAP, 500 * 2 ** attempts++);
-      note(`disconnected, retrying in ${Math.round(delay / 1000) || 1}s`);
+      note(t('disconnected, retrying in {n}s', { n: Math.round(delay / 1000) || 1 }));
       timer = setTimeout(connect, delay);
     };
   };

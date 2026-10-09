@@ -286,10 +286,18 @@ def snapshot(paths: list[Path], brief: bool = False) -> dict:
         uptime = 0.0
 
     seen: dict[str, dict] = {}
+    devices: set = set()
     for p in paths:
         d = disk(p)
-        # Several roots can live on one filesystem; report each device once.
-        if d and (d["total"], d["free"]) not in {(x["total"], x["free"]) for x in seen.values()}:
+        # Several roots can live on one filesystem; report each device once. By the device
+        # number: comparing the free space read for each root counted one disk twice whenever
+        # anything wrote to it between the two readings.
+        try:
+            dev = os.stat(p).st_dev
+        except OSError:
+            dev = (d or {}).get("total")
+        if d and dev not in devices:
+            devices.add(dev)
             seen[d["path"]] = d
 
     return {

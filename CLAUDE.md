@@ -318,6 +318,15 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   the "next time: …" nudge after a mouse click (3 per action, `prefs.keyTaught`, 99 = used the key).
   Ctrl+Shift chords bound to a shortcut are taken in the capture phase even from a terminal —
   Got it, all never fired on a desk, where the focus is in a terminal; Ctrl+Alt stays the terminal's.
+- **Translations are tested for what they leave in English** (tests/test_catalogues.py). The audit
+  of 2026-10-09 found 126 Spanish and 148 French strings never translated, mixed terms (desk /
+  scrivania, tarea for both duty and to-do), "tu" among the French "vous", and UI text that never
+  went through t() at all (Grid/Columns/Rows, the System tiles, ON/OFF, units, the Since tab). Now:
+  no it/es/fr value may equal its English key outside a short justified allowlist; every word of
+  index.html's header and rail goes through markup.js; readiness notes come with `say` + `values`
+  for the page to translate. Glossaries: it desk/agente/controllo/step/giro/termina (tu); es
+  escritorio/comprobación/ronda/cometido (tú); fr bureau/vérification/manche/mission (vous, ’).
+  Keys are written per keyboard (prettyKey), sizes per language (o/Ko/Mo in French).
 - **Full screen** is the header's ⤢ button (`#fullscreen`), hidden where the browser has
   no Fullscreen API — an iPhone, notably — rather than sitting there doing nothing. The
   icon and title follow `fullscreenchange`, not the click, so leaving by Esc or F11 keeps

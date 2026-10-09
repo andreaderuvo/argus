@@ -9,6 +9,12 @@
  *  forty lines — the longest path from the start gives each step its column. */
 
 const SVGNS = 'http://www.w3.org/2000/svg';
+
+/* The words on the picture. This module runs in Node too (tests/test_teamgraph.py), where
+ *  words.js — which reads the page at load — cannot be imported, so the page hands its `t()`
+ *  over at boot (main.js) and until then the picture speaks English. */
+const say = { t: (text) => text };
+export function teamgraphWords(fn) { say.t = fn; }
 const mk = (tag, attrs = {}, text) => {
   const node = document.createElementNS(SVGNS, tag);
   for (const [k, v] of Object.entries(attrs)) if (v !== undefined && v !== null) node.setAttribute(k, String(v));
@@ -95,7 +101,7 @@ export function drawGraph(graph, opts = {}) {
   const height = bodyH + (backs.length ? (small ? 10 : 18) + backs.length * (small ? 8 : 12) : 0);
   const width = PAD * 2 + columns.length * (W + GX) - GX;
   const svg = mk('svg', { class: `teamgraph${small ? ' small' : ''}`, viewBox: `0 0 ${width} ${height}`,
-    width, height, role: 'img', 'aria-label': 'the team, as a graph' });
+    width, height, role: 'img', 'aria-label': say.t('the team, as a graph') });
   const defs = mk('defs');
   const marker = mk('marker', { id: `tg-arrow-${small ? 's' : 'l'}`, viewBox: '0 0 10 10', refX: 9, refY: 5,
     markerWidth: small ? 5 : 7, markerHeight: small ? 5 : 7, orient: 'auto-start-reverse' });
@@ -142,21 +148,21 @@ export function drawGraph(graph, opts = {}) {
       transform: `translate(${p.x} ${p.y})`, tabindex: opts.onPick ? 0 : undefined, 'data-id': n.id });
     if (n.kind === 'join') {
       g.append(mk('rect', { x: W / 2 - H / 2, y: 0, width: H, height: H, rx: 6, transform: `rotate(45 ${W / 2} ${H / 2})`, class: 'tgbox' }));
-      g.append(mk('text', { x: W / 2, y: H / 2 + 4, 'text-anchor': 'middle', class: 'tgtext' }, small ? '' : 'join'));
+      g.append(mk('text', { x: W / 2, y: H / 2 + 4, 'text-anchor': 'middle', class: 'tgtext' }, small ? '' : say.t('join')));
     } else if (n.kind === 'end') {
       g.append(mk('rect', { x: W / 4, y: H * 0.15, width: W / 2, height: H * 0.7, rx: H * 0.35, class: 'tgbox' }));
-      g.append(mk('text', { x: W / 2, y: H / 2 + 4, 'text-anchor': 'middle', class: 'tgtext' }, 'done'));
+      g.append(mk('text', { x: W / 2, y: H / 2 + 4, 'text-anchor': 'middle', class: 'tgtext' }, say.t('done')));
     } else {
       g.append(mk('rect', { x: 0, y: 0, width: W, height: H, rx: n.kind === 'check' ? 3 : 9, class: 'tgbox' }));
       g.append(mk('circle', { cx: small ? 9 : 12, cy: H / 2, r: small ? 3 : 4, class: 'tgdot' }));
       g.append(mk('text', { x: small ? 16 : 22, y: small ? H / 2 + 4 : H / 2 - 2, class: 'tgtext' }, n.id));
       if (!small) {
-        const sub = n.kind === 'check' ? (n.command || 'check') : `${n.role || 'agent'}${n.judge ? ' · judges' : ''}`;
+        const sub = n.kind === 'check' ? (n.command || say.t('check')) : `${say.t(n.role || 'agent')}${n.judge ? ` · ${say.t('judges')}` : ''}`;
         g.append(mk('text', { x: 22, y: H / 2 + 12, class: 'tgsub' }, sub.length > 19 ? `${sub.slice(0, 18)}…` : sub));
       }
     }
     if ((graph.start || []).includes(n.id) && !small) {
-      g.append(mk('text', { x: 2, y: -6, class: 'tgstart' }, 'start'));
+      g.append(mk('text', { x: 2, y: -6, class: 'tgstart' }, say.t('start')));
     }
     g.append(mk('title', {}, n.kind === 'check' ? `${n.id}: ${n.command || ''}` : `${n.id}${n.role ? ` (${n.role})` : ''}`));
     // The port an arrow is pulled from: every step but the end.

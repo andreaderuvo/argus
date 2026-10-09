@@ -200,20 +200,27 @@ function runKey(id) {
   jobs[id]?.();
 }
 
-/* From inside a terminal, the chords with Ctrl *and* Shift still reach us.
+/* From inside a terminal, Argus's own chords still reach us.
  *
  *  On a desk the focus is nearly always in a terminal, and the rule above gave it every key: so
- *  Ctrl+Shift+G — Got it, all — did nothing at all, exactly where it is wanted (reported from a
- *  Mac, 2026-10-09). A terminal cannot tell Ctrl+Shift+G from Ctrl+G — the legacy encoding has no
- *  bit for Shift with Ctrl, xterm sends the same byte — so taking those chords costs a program
- *  nothing it could have seen. Only the ones bound to a shortcut, in the capture phase so xterm
- *  never gets them. Ctrl+Alt (the sidebar) stays the terminal's: Emacs and readline live there.
+ *  Ctrl+Shift+G (Got it, all) and Ctrl+Alt+S (Sessions) did nothing there, exactly where they are
+ *  wanted — you had to click outside the terminal first (reported from a Mac, 2026-10-09).
+ *
+ *  - Ctrl+Shift: a terminal cannot tell Ctrl+Shift+G from Ctrl+G — the legacy encoding has no bit
+ *    for Shift with Ctrl, xterm sends the same byte — so taking them costs a program nothing.
+ *  - Ctrl+Alt: a terminal *can* see these (ESC + Ctrl-letter: Emacs's C-M-f, a few readline keys),
+ *    so they are taken too unless Settings leaves them to the terminal (`prefs.termCtrlAlt ===
+ *    false`), for whoever lives in Emacs over tmux.
+ *
+ *  Only the chords bound to a shortcut, and before xterm sees them (this listener runs first);
+ *  every other key goes to the terminal as before.
  */
 window.addEventListener('keydown', (e) => {
-  if (!token || e.repeat || !e.ctrlKey || !e.shiftKey) return;
+  if (!token || e.repeat || !e.ctrlKey || !(e.shiftKey || e.altKey) || e.metaKey) return;
   if (!document.activeElement?.closest?.('.xterm, .win[data-kind="term"]')) return;
+  if (!e.shiftKey && prefs.termCtrlAlt === false) return;
   const pressed = keyName(e);
-  const hit = KEYS.find((k) => keyFor(k.id) === pressed && /(^|\+)ctrl\+/.test(pressed) && pressed.includes('shift'));
+  const hit = KEYS.find((k) => keyFor(k.id) === pressed);
   if (!hit) return;
   e.preventDefault();
   e.stopImmediatePropagation();

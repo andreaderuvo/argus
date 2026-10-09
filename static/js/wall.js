@@ -58,10 +58,11 @@ export function openProposedTeam(folder) {
  *  with a ResizeObserver, so switching layout re-fits and tells tmux the new size without
  *  any extra bookkeeping here.
  */
+// Words as functions, so they are looked up in the language on screen when drawn.
 const LAYOUTS = [
-  ['grid', 'grid', 'Grid'],
-  ['cols', 'columns', 'Columns'],
-  ['rows', 'rows', 'Rows'],
+  ['grid', 'grid', () => t('Grid'), () => t('Arrange as a grid')],
+  ['cols', 'columns', () => t('Columns'), () => t('Arrange as columns')],
+  ['rows', 'rows', () => t('Rows'), () => t('Arrange as rows')],
 ];
 const WALL_GAP = 6;
 
@@ -915,13 +916,13 @@ export async function screenWall() {
       dot.style.background = colorFor(`ws:${ws.id}`);
       // Two explicit verbs rather than a bare icon: an unlabelled second action beside a
       // row reads as decoration, and nobody clicks decoration.
-      const dup = el('button', { className: 'ghost dup', title: `Leave this one open and add a copy to ${ws.name}` },
+      const dup = el('button', { className: 'ghost dup', title: t('Leave this one open and add a copy to {desk}', { desk: ws.name }) },
         [icon('copy'), el('span', { textContent: t('Duplicate') })]);
       dup.onclick = (e) => { e.stopPropagation(); sheet.close(); relocate(spec, fromWs, ws, entry, true); };
 
       const row = el('button', {
         className: 'ghost block',
-        title: `Move this window to ${ws.name}`,
+        title: t('Move this window to {desk}', { desk: ws.name }),
         onclick: () => { sheet.close(); relocate(spec, fromWs, ws, entry, false); },
       }, [dot, el('span', { className: 'grow', textContent: ws.name }),
         el('span', { className: 'verb', textContent: t('Move') })]);
@@ -935,7 +936,7 @@ export async function screenWall() {
       sheet.close();
       const id = (prefs.wsSeq || spaces.length) + 1;
       prefs.wsSeq = id;
-      const ws = { id, name: `Desk ${spaces.length + 1}`, desktop: [] };
+      const ws = { id, name: t('Desk {n}', { n: spaces.length + 1 }), desktop: [] };
       spaces.push(ws);
       ownSetFor(ws);
       relocate(spec, fromWs, ws, entry, duplicate);
@@ -1596,7 +1597,7 @@ export async function screenWall() {
     add.onclick = async () => {
       const id = (prefs.wsSeq || spaces.length) + 1;
       prefs.wsSeq = id;
-      const born = { id, name: `Desk ${spaces.length + 1}`, desktop: [] };
+      const born = { id, name: t('Desk {n}', { n: spaces.length + 1 }), desktop: [] };
       spaces.push(born);
       ownSetFor(born);
       savePrefs();
@@ -1819,7 +1820,7 @@ export async function screenWall() {
       const seen = strip.dataset.began || '';        // where tmux says it was made
       const now = strip.dataset.cwd || '';           // the best answer there is
       const from = strip.dataset.from || '';
-      const agent = strip.dataset.agent || 'session';
+      const agent = strip.dataset.agent || t('session');
       const model = strip.dataset.model || '';
       const deskAt = ws ? deskHome(ws) : '';
       const set = ws ? deskSetName(ws.id) : '';
@@ -2511,15 +2512,15 @@ export async function screenWall() {
   tools.append(el('span', { className: 'toolsplit' }));
 
   const tiles = [];
-  for (const [mode, glyph, label] of LAYOUTS) {
+  for (const [mode, glyph, label, tip] of LAYOUTS) {
     const b = el('button', {
       className: 'winbtn wide',
       // The key is in the tooltip, where somebody wondering "is there a shortcut for this"
       // already has the pointer. A list you have to open to learn a key is a list you open
       // once and forget.
-      title: `${t('Arrange as {how}', { how: label.toLowerCase() })} · ${keyFor(mode === 'cols' ? 'cols' : mode)}`,
+      title: `${tip()} · ${keyFor(mode === 'cols' ? 'cols' : mode)}`,
       onclick: () => applyLayout(mode),
-    }, [icon(glyph), el('span', { textContent: label })]);
+    }, [icon(glyph), el('span', { textContent: label() })]);
     b.dataset.mode = mode;
     tiles.push(b);
   }

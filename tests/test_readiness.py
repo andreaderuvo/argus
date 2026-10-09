@@ -14,7 +14,11 @@ def test_codex_asking_before_the_team_tools_is_said_and_fixed(tmp_path, monkeypa
     said = readiness.check(home, [{"name": "Codex", "agent": "codex"}, {"name": "Claude Code", "agent": "claude"},
                                   {"name": "A shell"}], codex_heard=False)
     codex, claude, shell = (r["notes"] for r in said)
-    assert any(n.get("fix") == "codex-team-tools" and "team_task and team_done" in n["text"] for n in codex)
+    asks = next(n for n in codex if n.get("fix") == "codex-team-tools")
+    assert "team_task, team_done" in asks["text"]
+    # Said twice: as words for an older page, and as a sentence + values the page translates.
+    assert asks["say"].startswith("Codex asks before {tools}") and asks["values"] == {"tools": "team_task, team_done"}
+    assert asks["say"].format(**asks["values"]) == asks["text"]
     assert any("hooks have not been heard" in n["text"] for n in codex)
     assert any(n.get("fix") == "plugin:claude" for n in claude)
     assert "not an agent" in shell[0]["text"]

@@ -69,6 +69,16 @@ def allow_codex_team_tools(home: Path) -> list[str]:
     return changed
 
 
+def _note(level: str, say: str, fix: str | None = None, **values) -> dict:
+    """A note as words the page can translate: `say` is the English sentence with `{holes}`,
+    `values` fill them, and `text` is the two put together — what older pages show as it is.
+    The `say` sentences are catalogue keys (tests/test_catalogues.py checks)."""
+    note = {"level": level, "text": say.format(**values), "say": say, "values": {k: str(v) for k, v in values.items()}}
+    if fix:
+        note["fix"] = fix
+    return note
+
+
 def check(home: Path, launchers: list[dict], codex_heard: bool) -> list[dict]:
     """For each launcher a team is about to use: `{name, agent, notes: [{level, text, fix?}]}`."""
     plugin = {a["agent"]: a for a in pluginstate.state(home, {})["agents"]}
@@ -79,30 +89,27 @@ def check(home: Path, launchers: list[dict], codex_heard: bool) -> list[dict]:
         agent = launcher.get("agent")
         notes = []
         if not agent:
-            notes.append({"level": "warn", "text": "not an agent: a shell takes no turn and reports nothing — the team will wait on it"})
+            notes.append(_note("warn", "not an agent: a shell takes no turn and reports nothing — the team will wait on it"))
         elif agent in ("claude", "codex"):
             got = plugin.get(agent) or {}
             if not got.get("installed"):
-                notes.append({"level": "warn", "fix": f"plugin:{agent}",
-                              "text": "no Argus plugin: no team tools and no Stop guard — it will report by writing to the "
-                                      "team's log, which works but is checked by nobody until the next round"})
+                notes.append(_note("warn", "no Argus plugin: no team tools and no Stop guard — it will report by writing to the "
+                                           "team's log, which works but is checked by nobody until the next round",
+                                   fix=f"plugin:{agent}"))
             elif got.get("outdated"):
-                notes.append({"level": "warn", "fix": f"plugin:{agent}",
-                              "text": f"the Argus plugin is {got['installed']}, {offered} is out — the team tools may be missing"})
+                notes.append(_note("warn", "the Argus plugin is {installed}, {offered} is out — the team tools may be missing",
+                                   fix=f"plugin:{agent}", installed=got["installed"], offered=offered))
             if agent == "codex" and got.get("installed"):
                 modes = modes or codex_tool_modes(home)
                 asking = [t for t, m in modes.items() if m not in ("approve", "auto")]
                 if asking:
-                    notes.append({"level": "warn", "fix": "codex-team-tools",
-                                  "text": f"Codex asks before {' and '.join(asking)} — in a team nobody is there to say yes, "
-                                          "and the turn waits"})
+                    notes.append(_note("warn", "Codex asks before {tools} — in a team nobody is there to say yes, "
+                                               "and the turn waits", fix="codex-team-tools", tools=", ".join(asking)))
                 if not codex_heard:
-                    notes.append({"level": "info",
-                                  "text": "Codex's hooks have not been heard yet: they run only after you review them once in "
-                                          "Codex — until then there is no Stop guard (open Codex, accept the hooks)"})
+                    notes.append(_note("info", "Codex's hooks have not been heard yet: they run only after you review them "
+                                               "once in Codex — until then there is no Stop guard (open Codex, accept the hooks)"))
         elif agent == "gemini":
-            notes.append({"level": "info",
-                          "text": "Gemini gets the team tools from its extension but no Stop guard: a turn ended without a "
-                                  "report is noticed by the reminder, after two minutes"})
+            notes.append(_note("info", "Gemini gets the team tools from its extension but no Stop guard: a turn ended "
+                                       "without a report is noticed by the reminder, after two minutes"))
         out.append({"name": launcher.get("name"), "agent": agent, "notes": notes})
     return out

@@ -108,7 +108,7 @@ function loadOcct() {
       const tag = document.createElement('script');
       tag.src = '/vendor/occt-import-js-0.0.23/occt-import-js.js';
       tag.onload = () => resolve(window.occtimportjs);
-      tag.onerror = () => reject(new Error('could not load occt-import-js.js'));
+      tag.onerror = () => reject(new Error(t('the 3D viewer did not load')));
       document.head.append(tag);
     }).then((init) => init({
       locateFile: (path) => `/vendor/occt-import-js-0.0.23/${path}`,
@@ -1244,7 +1244,7 @@ function headerSourceToggle(paint) {
   let rendered = true;
   const apply = () => {
     bar.alt.hidden = false;
-    bar.alt.title = rendered ? 'View the source' : 'View it rendered';
+    bar.alt.title = rendered ? t('View the source') : t('View it rendered');
     bar.alt.replaceChildren(icon(rendered ? 'code' : 'eye'));
     bar.alt.className = `icon${rendered ? '' : ' on'}`;
     paint(rendered);

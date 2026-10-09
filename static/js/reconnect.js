@@ -7,7 +7,7 @@ import { allVars, fillBaton } from '/js/handover.js';
 import { render } from '/js/router.js';
 import { refreshAllBrowsers } from '/js/screens.js';
 import { KEY, WIN_COLORS, bar, favs, prefs, server, setFavs, setFavsLoaded, setServer, setToken, side, token } from '/js/state.js';
-import { t } from '/js/words.js';
+import { activeLang, t } from '/js/words.js';
 // </imports>
 /* ------------------------------------------------------- when it stops answering
 
@@ -293,12 +293,16 @@ export function signOut() {
   render();
 }
 
+/** A size, in the units and the decimal mark of the language on screen: French writes
+ *  octets (o, Ko, Mo…) and 1,5 where English writes 1.5. The units are one catalogue entry,
+ *  five words, so a language changes all of them or none. */
 export const human = (n) => {
-  if (n < 1024) return `${n} B`;
-  const u = ['KB', 'MB', 'GB', 'TB'];
+  const [bytes, ...u] = t('B KB MB GB TB').split(' ');
+  if (n < 1024) return `${n} ${bytes}`;
   let i = -1;
   do { n /= 1024; i++; } while (n >= 1024 && i < u.length - 1);
-  return `${n < 10 ? n.toFixed(1) : Math.round(n)} ${u[i]}`;
+  const num = n < 10 ? n.toFixed(1) : String(Math.round(n));
+  return `${activeLang === 'en' ? num : num.replace('.', (1.5).toLocaleString(activeLang).charAt(1))} ${u[i]}`;
 };
 
 export const when = (secs) => {
@@ -390,7 +394,7 @@ export function pickColor(name, onPicked) {
     el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),
   ]);
   WIN_COLORS.forEach((c, i) => {
-    const b = el('button', { className: 'swatch', type: 'button', title: `colour ${i + 1}` });
+    const b = el('button', { className: 'swatch', type: 'button', title: t('colour {n}', { n: i + 1 }) });
     b.style.background = c;
     b.onclick = () => {
       prefs.colors = { ...(prefs.colors || {}), [name]: i };

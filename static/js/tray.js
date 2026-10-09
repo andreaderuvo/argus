@@ -3,7 +3,7 @@ import { savePrefs } from '/js/core.js';
 import { copies, copyText, modal, showText, ticked, toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { uploadTo } from '/js/filerows.js';
-import { allVars, batonTemplates, fillBaton, ownSetFor, situationOf } from '/js/handover.js';
+import { allVars, batonTemplates, fillBaton, groupName, ownSetFor, promptName, situationOf } from '/js/handover.js';
 import { icon } from '/js/icons.js';
 import { current, setCurrent } from '/js/pointing.js';
 import { bidi, colorFor, getJSON, openFileRaw, postJSON } from '/js/reconnect.js';
@@ -411,7 +411,7 @@ export function nextWindowId() {
 /** The tabs, created on first use out of whatever single desktop existed before. */
 export function workspaces() {
   if (!prefs.workspaces?.length) {
-    prefs.workspaces = [{ id: 1, name: 'Desk 1', desktop: prefs.desktop || [] }];
+    prefs.workspaces = [{ id: 1, name: t('Desk {n}', { n: 1 }), desktop: prefs.desktop || [] }];
     prefs.ws = 1;
     prefs.wsSeq = 1;
     savePrefs();
@@ -566,7 +566,7 @@ export async function createSession({ path, suggest = 'shell', wsId = null, shel
   const fromLibrary = el('select', { className: 'setpick' });
   fromLibrary.append(el('option', { value: '', textContent: t('from the library…') }));
   for (const kind of batonTemplates()) {
-    fromLibrary.append(el('option', { value: kind.name, textContent: `${kind.group || ''} · ${kind.name}`.replace(/^ · /, '') }));
+    fromLibrary.append(el('option', { value: kind.name, textContent: `${kind.group ? groupName(kind.group) : ''} · ${promptName(kind)}`.replace(/^ · /, '') }));
   }
   fromLibrary.onchange = () => {
     const kind = batonTemplates().find((k) => k.name === fromLibrary.value);
@@ -840,12 +840,12 @@ export function chooseDesk(spec, label) {
     dot.style.background = colorFor(`ws:${ws.id}`);
     body.append(el('button', {
       className: 'ghost block',
-      title: here ? `already in ${ws.name}` : `Open in ${ws.name}`,
+      title: here ? t('already in {desk}', { desk: ws.name }) : t('Open in {desk}', { desk: ws.name }),
       onclick: () => { sheet.close(); placeIn(ws, spec); },
     }, [
       dot,
       el('span', { className: 'grow', textContent: ws.name }),
-      el('span', { className: 'verb', textContent: here ? 'already there' : `${ws.desktop.length} open` }),
+      el('span', { className: 'verb', textContent: here ? t('already there') : t('{n} open', { n: ws.desktop.length }) }),
     ]));
   }
 
@@ -856,7 +856,7 @@ export function chooseDesk(spec, label) {
       sheet.close();
       const id = (prefs.wsSeq || spaces.length) + 1;
       prefs.wsSeq = id;
-      const ws = { id, name: `Desk ${spaces.length + 1}`, desktop: [] };
+      const ws = { id, name: t('Desk {n}', { n: spaces.length + 1 }), desktop: [] };
       spaces.push(ws);
       ownSetFor(ws);
       placeIn(ws, spec);
@@ -1213,7 +1213,7 @@ export function attachViewer(host, path, extras) {
       srcBtn.onclick = () => {
         rendered = !rendered;
         srcBtn.replaceChildren(icon(rendered ? 'code' : 'eye'));
-        srcBtn.title = rendered ? 'View the source' : 'View it rendered';
+        srcBtn.title = rendered ? t('View the source') : t('View it rendered');
         paint(rendered);
       };
       paint(rendered);
