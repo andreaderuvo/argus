@@ -1382,6 +1382,7 @@
   "the Argus plugin is {installed}, {offered} is out — the team tools may be missing": "il plugin Argus è alla {installed}, è uscita la {offered} — i tool del team potrebbero mancare",
   "Codex asks before {tools} — in a team nobody is there to say yes, and the turn waits": "Codex chiede prima di {tools} — in un team non c’è nessuno a dire sì, e il turno resta fermo",
   "{key} keys work inside a terminal": "I tasti {key} funzionano anche dentro un terminale",
-  "off leaves them to the program — Emacs and readline use a few; Ctrl+Shift keys work there always": "spento le lascia al programma — Emacs e readline ne usano alcune; i tasti Ctrl+Shift lì funzionano sempre"
+  "off leaves them to the program — Emacs and readline use a few; Ctrl+Shift keys work there always": "spento le lascia al programma — Emacs e readline ne usano alcune; i tasti Ctrl+Shift lì funzionano sempre",
+  "pinned in {where}": "fissati in {where}"
  }
 }

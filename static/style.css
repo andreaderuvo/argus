@@ -4233,3 +4233,5 @@ dialog.sheet.teamsheet:has(.tcanvas) { width: min(1240px, 96vw); }
 .keytipsfoot { gap: .9rem; flex-wrap: wrap; justify-content: center; max-width: calc(100vw - 2rem); }
 .keytipslegend { display: inline-flex; align-items: center; gap: .35rem; }
 .keytipshint { color: var(--dim); }
+/* Favourites kept by another tool, shown below this one's own (screens.js renderFavs). */
+.favfrom { padding: .35rem .85rem .15rem; font-size: .62rem; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); border-top: 1px dashed var(--line); margin-top: .15rem; }

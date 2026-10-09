@@ -1382,6 +1382,7 @@
   "the Argus plugin is {installed}, {offered} is out — the team tools may be missing": "the Argus plugin is {installed}, {offered} is out — the team tools may be missing",
   "Codex asks before {tools} — in a team nobody is there to say yes, and the turn waits": "Codex asks before {tools} — in a team nobody is there to say yes, and the turn waits",
   "{key} keys work inside a terminal": "{key} keys work inside a terminal",
-  "off leaves them to the program — Emacs and readline use a few; Ctrl+Shift keys work there always": "off leaves them to the program — Emacs and readline use a few; Ctrl+Shift keys work there always"
+  "off leaves them to the program — Emacs and readline use a few; Ctrl+Shift keys work there always": "off leaves them to the program — Emacs and readline use a few; Ctrl+Shift keys work there always",
+  "pinned in {where}": "pinned in {where}"
  }
 }

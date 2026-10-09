@@ -11,7 +11,7 @@ import { applyPointed, drawTree, markCurrent, pointAt, setPointed, under } from 
 import { bidi, colorFor, favsIn, getJSON, homePath, human, isFavourite, parentOf, pickColor, postJSON, rememberToken, renamedSession, serverInfo, setTitle, toggleFavourite, visible } from '/js/reconnect.js';
 import { go, render, renderSeq } from '/js/router.js';
 import { applySidebar, renderSidebar } from '/js/sidebar.js';
-import { KEY, bar, live, prefs, server, setServer, setToken, sidePath, token, view } from '/js/state.js';
+import { KEY, bar, favs, live, prefs, server, setServer, setToken, sidePath, token, view } from '/js/state.js';
 import { openLocated } from '/js/termpaths.js';
 import { chooseDesk, createSession, nextWindowId, openWindow } from '/js/tray.js';
 import { duration } from '/js/vitals.js';
@@ -375,6 +375,11 @@ let crumbSeq = 0;
 export const browserView = (from) => from.browserView
   || (from.browserGrid ? 'tiles' : from.tree ? 'tree' : 'list');
 
+/** A favourites list by the tool that keeps it: Files, the file sidebar, the windows. */
+function groupWord(group) {
+  return { main: t('Files'), sidebar: t('File sidebar'), windows: t('Windows') }[group] || group;
+}
+
 export function fileBrowser({
   path, setPath, other, roots, compact = false,
   // Only the Files screen's first pane carries the split switch. A window's browser and the
@@ -624,13 +629,25 @@ export function fileBrowser({
     pin.className = isFavourite(path, favGroup) ? 'on' : '';
     pin.title = isFavourite(path, favGroup) ? t('Unpin from {group} favourites', { group: favGroup }) : t('Pin this folder in {group} favourites', { group: favGroup });
     favsHolder.textContent = '';
-    if (!mine.length) return;
+    /* The others' favourites too, under their own heading: each tool still pins into its own
+     *  list, but the folders pinned in Files are the ones wanted in the sidebar as well ("I want
+     *  my favourite folders in the sidebar too", 2026-10-09) — and seeing them costs one line. */
+    const shown = new Set(mine.map((f) => f.path));
+    const theirs = Object.keys(favs).filter((g) => g !== favGroup)
+      .map((g) => ({ group: g, list: favsIn(g).filter((f) => !shown.has(f.path) && shown.add(f.path)) }))
+      .filter((x) => x.list.length);
+    if (!mine.length && !theirs.length) return;
 
     const strip = el('div', { className: 'favs' });
     strip.append(el('div', { className: 'favhead' }, [
-      icon('star'), el('span', { textContent: t('Favourites') }), el('span', { className: 'favwhere', textContent: favGroup }),
+      icon('star'), el('span', { textContent: t('Favourites') }), el('span', { className: 'favwhere', textContent: groupWord(favGroup) }),
     ]));
-    for (const f of mine) {
+    const rows = [...mine.map((f) => ({ f, group: favGroup })), ...theirs.flatMap((x) => [{ head: x.group }, ...x.list.map((f) => ({ f, group: x.group }))])];
+    for (const { f, group, head } of rows) {
+      if (head) {
+        strip.append(el('div', { className: 'favfrom', textContent: t('pinned in {where}', { where: groupWord(head) }) }));
+        continue;
+      }
       const row = el('button', {
         className: `row fav${f.missing ? ' missing' : ''}`,
         type: 'button',
@@ -644,7 +661,7 @@ export function fileBrowser({
           el('span', { className: 'meta' }, bidi(f.missing ? `${t('missing')} · ${f.path}` : parentOf(f.path))),
         ]),
       ]);
-      const off = el('button', { className: 'more', title: t('Unpin'), onclick: (ev) => { ev.stopPropagation(); toggleFavourite(f.path, favGroup); } }, icon('close'));
+      const off = el('button', { className: 'more', title: t('Unpin'), onclick: (ev) => { ev.stopPropagation(); toggleFavourite(f.path, group); } }, icon('close'));
       strip.append(el('div', { className: 'rowwrap' }, [row, off]));
     }
     favsHolder.append(strip);
