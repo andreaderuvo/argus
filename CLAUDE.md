@@ -602,6 +602,14 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   again once, then waiting-you; a log = stopped by hand → waiting-you, not retyped. Never by
   elapsed time: checks may run for hours. Typing (not respawn-pane) is kept on purpose: the line
   runs in the person's interactive shell, with their rc and conda.
+- **Old hand-made copies of the commands** (`app/toolcopies.py`, `old_tools` in /api/version,
+  `POST /api/tools/link`, Alt+V `oldTools`, tests/test_toolcopies.py). A link into tools/, the
+  installer's launcher ("Written by install.sh") or an identical copy is fine; anything else named
+  argus-say/-bell/-mcp/-where/argus_client.py/argus_mcp.py on PATH, ~/.local/bin, ~/bin or beside
+  sys.executable is reported; plugin caches are skipped (pluginstate's job). With a PATH passed in
+  (tests) only that is searched — a first version also searched conda's bin from a test and
+  relinked the real ~/miniconda3/bin/argus-say (restored from its backup). The browser harness sets
+  ARGUS_OLD_TOOLS=off.
 - **How a verdict moves a team** (`Director._finished`, the audit of 2026-10-07, tests in
   test_teams.py "verdicts the audit found ignored"). A non-judge's turn is `always`, except
   BLOCKED, which anyone may say; BLOCKED follows only `if BLOCKED` arrows, else waits for the

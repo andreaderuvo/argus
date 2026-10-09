@@ -24,7 +24,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 
 from . import build, pluginstate, trust
-from . import (agentflags, consent, readiness, teamlint, teams, teammermaid, wiring, agentstate, resume, announce, asks, bells, devices, favourites, files, fsops, gitwork, journal, labels,
+from . import (agentflags, consent, readiness, teamlint, toolcopies, teams, teammermaid, wiring, agentstate, resume, announce, asks, bells, devices, favourites, files, fsops, gitwork, journal, labels,
                languages, launch, mounts, network, paths, ports, prefs, proxy, release, runner, runs,
                system, term, tmux, todo)
 import httpx
@@ -2270,7 +2270,23 @@ def create_app(cfg: Config) -> FastAPI:
         said["build"] = running
         disk = await asyncio.to_thread(build.on_disk) if running else ""
         said["pulled"] = bool(running and disk and disk != running["commit"])
+        # Copies of argus-say & co. made by hand, which a pull does not update (toolcopies.py).
+        said["old_tools"] = await asyncio.to_thread(toolcopies.stale_copies)
         return said
+
+    @app.post("/api/tools/link", tags=["Setup"], summary="Replace old copies of Argus's commands with links")
+    async def link_tools(request: Request) -> dict:
+        """The copies `/api/version` calls old (`old_tools`), each replaced by a link into this
+        checkout — so the next pull updates them too. The old file is kept beside it
+        (`<name>.argus-old-<time>`). Only those exact paths; `--allow-write`."""
+        if not request.app.state.cfg.allow_write:
+            raise ApiError(403, "this Argus is read-only (--allow-write): it does not write outside its folders either")
+        found = await asyncio.to_thread(toolcopies.stale_copies)
+        try:
+            done = await asyncio.to_thread(toolcopies.link, found)
+        except OSError as e:
+            raise ApiError(500, f"could not link them: {e}") from e
+        return {"linked": done}
 
     @app.get("/api/overview", tags=["The machine"],
              summary="What is happening on this machine, in one cheap call")
@@ -2792,6 +2808,8 @@ def banner(config_path: Path, created: bool, host: str, port: int, cfg: Config, 
         print(f"          (files, documents and the machine page work regardless)")
     print(f"  files   {'read-write (mkdir/rename/move/copy/delete)' if cfg.allow_write else 'read-only'}")
     print(f"  ports   {'proxy allowed, one port at a time' if cfg.allow_proxy else 'no proxying'}")
+    for old in toolcopies.stale_copies():
+        print(f"  OLD     {old['path']} — {old['why']}; link it: {old['fix']}")
     print()
     print(f"  open    {url_for(host, port, cfg)}")
     print("          (argus --qr prints a code to photograph)")

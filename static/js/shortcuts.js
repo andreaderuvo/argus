@@ -1,13 +1,13 @@
 // <imports> generated from what this file uses; edit the code, not this list
 import { savePrefs } from '/js/core.js';
 import { seeEverything } from '/js/counts.js';
-import { modal, toast } from '/js/dialogs.js';
+import { copyText, modal, toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { icon } from '/js/icons.js';
 import { getJSON, postJSON } from '/js/reconnect.js';
 import { go } from '/js/router.js';
 import { applySidebar } from '/js/sidebar.js';
-import { bar, prefs, token } from '/js/state.js';
+import { bar, prefs, server, token } from '/js/state.js';
 import { t } from '/js/words.js';
 // </imports>
 /* ------------------------------------------------------------------ shortcuts */
@@ -343,7 +343,7 @@ export async function aboutThisArgus() {
           : t('not installed'), a.outdated || !a.installed, act(a))),
   ].filter(Boolean);
   const behind = pluginBehind(p, () => { sheet.close(); aboutThisArgus(); });
-  body.replaceChildren(...rows, ...(behind ? [behind] : []));
+  body.replaceChildren(...rows, ...(behind ? [behind] : []), ...oldTools(v, () => { sheet.close(); aboutThisArgus(); }));
 }
 
 /** The list of them, and the way to change one. */
@@ -479,4 +479,34 @@ export function keyHelp() {
     el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),
   ]);
   sheet.classList.add('keyhelp');
+}
+
+/** Copies of argus-say & co. made by hand, which a pull left behind (toolcopies.py): each with
+ *  the line that makes it a link, and one press to do it for all of them. */
+export function oldTools(v, redraw) {
+  const old = v?.old_tools || [];
+  if (!old.length) return [];
+  const link = el('button', { className: 'ghost inline', type: 'button', textContent: t('Link them to this Argus'),
+    title: t('Each becomes a link into this checkout, so the next pull updates it too; the old file is kept beside it'),
+    hidden: !server?.allow_write });
+  link.onclick = async () => {
+    link.disabled = true;
+    try {
+      const said = await postJSON('/api/tools/link', {});
+      toast(t('linked: {list}', { list: said.linked.map((p) => p.split('/').pop()).join(', ') }));
+      redraw?.();
+    } catch (e) { toast(e.message, true); link.disabled = false; }
+  };
+  return [el('div', { className: 'oldtools' }, [
+    el('p', { className: 'oldtoolshead' }, [icon('warn'), el('span', { textContent: old.length === 1
+      ? t('An old copy of an Argus command is on your PATH — a pull does not update a copy')
+      : t('{n} old copies of Argus commands are on your PATH — a pull does not update a copy', { n: old.length }) })]),
+    ...old.map((o) => el('div', { className: 'oldtool' }, [
+      el('span', { className: 'oldtoolpath', textContent: o.path }),
+      el('span', { className: 'meta', textContent: o.why === 'a link to another copy of Argus' ? t('a link to another copy of Argus') : t('a copy older than this Argus') }),
+      el('button', { className: 'ghost inline', type: 'button', title: o.fix, textContent: t('Copy the fix'),
+        onclick: () => copyText(o.fix).then(() => toast(t('copied: {what}', { what: o.fix }))) }),
+    ])),
+    link,
+  ])];
 }

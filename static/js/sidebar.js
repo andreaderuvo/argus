@@ -9,6 +9,7 @@ import { icon } from '/js/icons.js';
 import { bidi, colorFor, deskHome, getJSON, postJSON, serverInfo, setTitle } from '/js/reconnect.js';
 import { go, parseRoute } from '/js/router.js';
 import { fileBrowser } from '/js/screens.js';
+import { aboutThisArgus } from '/js/shortcuts.js';
 import { SIDE_PATH_KEY, assignSidePath, bar, hamburger, moreBtn, prefs, railDesks, railToggle, railWins, side, sidePath, sideToggle, token, view } from '/js/state.js';
 import { redressTerminals } from '/js/theme.js';
 import { currentSpace, openWindow, runs, specId } from '/js/tray.js';
@@ -913,6 +914,14 @@ export async function sayIfNewer() {
   if (!token) return;
   let news;
   try { news = await getJSON('/api/version'); } catch { return; }
+  // Old hand-made copies of the commands: said once for each set of them.
+  const olds = (news?.old_tools || []).map((o) => o.path).sort().join('|');
+  if (olds && prefs.sawOldTools !== olds) {
+    prefs.sawOldTools = olds;
+    savePrefs();
+    toast(t('{n} old copies of argus-say & co. are on your PATH — a pull does not update them. Alt+V to link them.', { n: news.old_tools.length }),
+      false, () => aboutThisArgus(), 9000);
+  }
   if (!news?.newer || !news.latest) return;
   if (prefs.sawVersion === news.latest) return;
   prefs.sawVersion = news.latest;
@@ -957,6 +966,10 @@ export function versionRow() {
     if (b) said.title = [b.describe, b.commit, b.dirty ? t('with changes not committed') : ''].filter(Boolean).join('\n');
     if (news.pulled) {
       row.querySelector('.meta').textContent = t('a newer commit is on disk — restart Argus to run it');
+      row.querySelector('.meta').classList.add('warn');
+    }
+    if (news.old_tools?.length) {
+      row.querySelector('.meta').textContent = t('{n} old copies of argus-say & co. on your PATH — Alt+V says which', { n: news.old_tools.length });
       row.querySelector('.meta').classList.add('warn');
     }
     if (!news.newer || !news.latest) return;

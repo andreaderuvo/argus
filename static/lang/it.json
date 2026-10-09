@@ -1411,6 +1411,17 @@
   "what Search looks text up on, when you select it in a session": "dove Cerca cerca il testo che selezioni in una sessione",
   "Search the web for the selection, on {engine}": "Cerca la selezione sul web, con {engine}",
   "Search": "Cerca",
-  "looked up on {engine}: {query}": "cercato su {engine}: {query}"
+  "looked up on {engine}: {query}": "cercato su {engine}: {query}",
+  "Link them to this Argus": "Collegali a questo Argus",
+  "Each becomes a link into this checkout, so the next pull updates it too; the old file is kept beside it": "Ognuno diventa un link a questa copia, così il prossimo pull aggiorna anche lui; il file vecchio resta accanto",
+  "linked: {list}": "collegati: {list}",
+  "An old copy of an Argus command is on your PATH — a pull does not update a copy": "Nel tuo PATH c'è una copia vecchia di un comando di Argus — un pull non aggiorna una copia",
+  "{n} old copies of Argus commands are on your PATH — a pull does not update a copy": "Nel tuo PATH ci sono {n} copie vecchie di comandi di Argus — un pull non aggiorna una copia",
+  "a link to another copy of Argus": "un link a un'altra copia di Argus",
+  "a copy older than this Argus": "una copia più vecchia di questo Argus",
+  "Copy the fix": "Copia la correzione",
+  "copied: {what}": "copiato: {what}",
+  "{n} old copies of argus-say & co. on your PATH — Alt+V says which": "{n} copie vecchie di argus-say & co. nel tuo PATH — Alt+V dice quali",
+  "{n} old copies of argus-say & co. are on your PATH — a pull does not update them. Alt+V to link them.": "{n} copie vecchie di argus-say & co. sono nel tuo PATH — un pull non le aggiorna. Alt+V per collegarle."
  }
 }

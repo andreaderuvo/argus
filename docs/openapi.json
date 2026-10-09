@@ -4965,6 +4965,30 @@
     ]
    }
   },
+  "/api/tools/link": {
+   "post": {
+    "description": "The copies `/api/version` calls old (`old_tools`), each replaced by a link into this\ncheckout \u2014 so the next pull updates them too. The old file is kept beside it\n(`<name>.argus-old-<time>`). Only those exact paths; `--allow-write`.",
+    "operationId": "postApiToolsLink",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Link Tools Api Tools Link Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Replace old copies of Argus's commands with links",
+    "tags": [
+     "Setup"
+    ]
+   }
+  },
   "/api/version": {
    "get": {
     "description": "Answers immediately from a day-old cache; the question is only asked of GitHub\nwhen that cache is stale. Switched off, it answers about this machine and stops\nthere, which is also what it does when there is no way out to the network.",
