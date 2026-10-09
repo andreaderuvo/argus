@@ -1383,6 +1383,7 @@
   "Codex asks before {tools} — in a team nobody is there to say yes, and the turn waits": "Codex chiede prima di {tools} — in un team non c’è nessuno a dire sì, e il turno resta fermo",
   "{key} keys work inside a terminal": "I tasti {key} funzionano anche dentro un terminale",
   "off leaves them to the program — Emacs and readline use a few; Ctrl+Shift keys work there always": "spento le lascia al programma — Emacs e readline ne usano alcune; i tasti Ctrl+Shift lì funzionano sempre",
-  "pinned in {where}": "fissati in {where}"
+  "pinned in {where}": "fissati in {where}",
+  "{name} is gone — shown as it was": "{name} non c’è più — lo vedi com’era"
  }
 }

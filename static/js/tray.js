@@ -1235,7 +1235,13 @@ export function attachViewer(host, path, extras) {
   const poll = async () => {
     if (!watching || document.hidden) return;
     try {
-      const s = await getJSON(`/api/stat?path=${encodeURIComponent(path)}`);
+      const s = await getJSON(`/api/stat?path=${encodeURIComponent(path)}&missing_ok=1`);
+      // Deleted underneath (a team's log after a Reset): said once, and watched for its return.
+      if (s.missing) {
+        if (stamp !== 'gone') toast(t('{name} is gone — shown as it was', { name: path.split('/').pop() }));
+        stamp = 'gone';
+        return;
+      }
       const now = `${s.mtime}:${s.size}`;
       if (stamp && stamp !== now) {
         if (askFirst) {

@@ -1591,14 +1591,19 @@ def create_app(cfg: Config) -> FastAPI:
         return {"pinned": pinned, "group": group, "favourites": favourites.describe_all(paths)}
 
     @app.get("/api/stat", tags=["Files"], summary="Size and modification time, for watching a file")
-    async def stat_path(request: Request, path: str) -> dict:
+    async def stat_path(request: Request, path: str, missing_ok: bool = False) -> dict:
         """Just enough to notice a file has changed: a window watching a report being
-        regenerated polls this rather than re-downloading the whole thing."""
+        regenerated polls this rather than re-downloading the whole thing. `missing_ok=1`:
+        a file that is not there answers `{missing: true}` rather than 404 — a window watching
+        a file that was deleted (a team's log after a Reset) asked every few seconds and got an
+        error each time."""
         from .safepath import Denied, NotFound
 
         try:
             target = request.app.state.jail.resolve(path)
         except NotFound:
+            if missing_ok:
+                return {"missing": True}
             raise ApiError(404, "not found") from None
         except Denied:
             raise ApiError(403, "outside the configured roots") from None

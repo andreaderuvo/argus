@@ -74,3 +74,16 @@ def test_version_says_which_and_link_does_it(tmp_path, monkeypatch):
     with TestClient(rw) as c:
         assert c.post("/api/tools/link", json={}, headers=h).json() == {"linked": [str(b / "argus-say")]}
         assert c.get("/api/version", headers=h).json()["old_tools"] == []
+
+
+def test_stat_of_a_file_gone_answers_missing_when_asked(tmp_path):
+    """A window watching a file that was deleted (a team's log after a Reset) polled /api/stat
+    and got a 404 every few seconds; with missing_ok it is told, quietly."""
+    app = create_app(Config(token="m" * 64, roots=[tmp_path], listen="127.0.0.1:0"))
+    h = {"Authorization": "Bearer " + "m" * 64}
+    with TestClient(app) as c:
+        gone = tmp_path / "TEAM.argus.md"
+        assert c.get("/api/stat", params={"path": str(gone)}, headers=h).status_code == 404
+        assert c.get("/api/stat", params={"path": str(gone), "missing_ok": 1}, headers=h).json() == {"missing": True}
+        gone.write_text("back")
+        assert c.get("/api/stat", params={"path": str(gone), "missing_ok": 1}, headers=h).json()["size"] == 4

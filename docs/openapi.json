@@ -3169,7 +3169,7 @@
   },
   "/api/stat": {
    "get": {
-    "description": "Just enough to notice a file has changed: a window watching a report being\nregenerated polls this rather than re-downloading the whole thing.",
+    "description": "Just enough to notice a file has changed: a window watching a report being\nregenerated polls this rather than re-downloading the whole thing. `missing_ok=1`:\na file that is not there answers `{missing: true}` rather than 404 \u2014 a window watching\na file that was deleted (a team's log after a Reset) asked every few seconds and got an\nerror each time.",
     "operationId": "getApiStat",
     "parameters": [
      {
@@ -3179,6 +3179,16 @@
       "schema": {
        "title": "Path",
        "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "missing_ok",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Missing Ok",
+       "type": "boolean"
       }
      }
     ],
