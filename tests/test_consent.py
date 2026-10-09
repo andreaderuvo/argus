@@ -242,3 +242,23 @@ def test_a_session_argus_starts_knows_its_name_and_finds_argus_say(monkeypatch):
     line = ran[0][-1]
     assert "export ARGUS_SESSION=" in line and "Kraken-trader" in line and str(launch.TOOLS) in line
     assert (launch.TOOLS / "argus-say").exists()
+
+
+def test_a_team_started_on_request_arranges_its_desk_and_keeps_its_file(tmp_path, monkeypatch):
+    """The Team sheet sends `layout` (grid by default) and the team file it came from; a request
+    sent neither, so a team an agent started never arranged its desk, and Restart could not read
+    its team.yaml again."""
+    app = make(tmp_path)
+    agents = [{"name": "Claude Code", "agent": "claude", "available": True, "options": []}]
+    monkeypatch.setattr(consent.launch, "describe", lambda cfg, versions=False: agents)
+    args = {"team": "Build and review", "folder": str(tmp_path), "goal": "tidy it", "desk": "Work"}
+    plan = consent.plan(app, "start_team", args)
+    assert plan["calls"][0][2]["layout"] == "grid" and "laid out as a grid" in plan["text"]
+    plan = consent.plan(app, "start_team", {**args, "layout": "cols"})
+    assert plan["calls"][0][2]["layout"] == "cols"
+    assert "layout" not in consent.plan(app, "start_team", {**args, "layout": "none"})["calls"][0][2]
+    with pytest.raises(ValueError, match="layout is one of"):
+        consent.plan(app, "start_team", {**args, "layout": "diagonal"})
+    (tmp_path / "team.yaml").write_text("name: Mine\ngoal: g\nsteps:\n  a: {role: executor}\nflow:\n  - a -> done\n")
+    plan = consent.plan(app, "start_team", {"team": "Mine", "folder": str(tmp_path)})
+    assert plan["calls"][0][2]["file"] == str(tmp_path / "team.yaml"), "Restart reads it again"

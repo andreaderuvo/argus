@@ -154,7 +154,7 @@ TOOLS = [
      "description": "Ask the person to have something done that you cannot do yourself, and it is done on their "
                     "tap (Do it / No): start_team (args: team — a proposal, one of their models or a template, by "
                     "name — desk, folder, goal, gate ask|auto|goal, rounds, permissions ask|edit|everything, check, "
-                    "agents {step: launcher}), team_go / team_pause / team_stop (team — its name as `teams` shows "
+                    "agents {step: launcher}, layout grid|cols|rows|none — how the desk is arranged, grid by default), team_go / team_pause / team_stop (team — its name as `teams` shows "
                     "it; kill to end its sessions), team_reset / team_restart (team — delete what its reset: declares; "
                     "restart also starts it again from round 1), kill_session (session), rename_session (session, to), "
                     "start_agent (launcher, name, folder, prompt, press_enter, options — e.g. permissions skip), "

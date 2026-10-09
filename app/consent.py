@@ -107,12 +107,13 @@ def _find_team(app, wanted: str, folder: str | None) -> tuple[str, dict, dict]:
     for p in app.state.proposals.live():
         if p["name"].lower() == w and p.get("graph"):
             return p["name"], p["graph"], {"folder": p["folder"], "goal": p.get("goal"), "gate": p.get("gate"),
-                                           "rounds": p.get("rounds"), "permissions": p.get("permissions")}
+                                           "rounds": p.get("rounds"), "permissions": p.get("permissions"),
+                                           "file": p.get("file")}
     if folder:
         said = teams.team_file(folder)
         if said and said.get("graph") and (not w or said["name"].lower() == w):
             return said["name"], said["graph"], {"goal": said.get("goal"), "gate": said.get("gate"), "rounds": said.get("rounds"),
-                                                 "permissions": said.get("permissions")}
+                                                 "permissions": said.get("permissions"), "file": said.get("file")}
     store_ = getattr(app.state, "prefs", None)
     models = {}
     if store_:
@@ -137,6 +138,10 @@ def _desk_home(app, desk: str) -> str | None:
         if isinstance(w, dict) and str(w.get("name", "")).lower() == desk.lower():
             return w.get("home") or None
     return None
+
+
+LAYOUTS = ("grid", "cols", "rows", "none")
+LAYOUT_WORDS = {"grid": "as a grid", "cols": "in columns", "rows": "in rows"}
 
 
 def _team_plan(app, args: dict) -> dict:
@@ -177,12 +182,22 @@ def _team_plan(app, args: dict) -> dict:
     if missing and not args.get("check"):
         raise ValueError(f"the check {', '.join(missing)} has no command: give one (`check`)")
     gate = str(args.get("gate") or extra.get("gate") or "ask")
+    # How its desk is laid out as the agents arrive — the Team sheet's "Arrange the desk", whose
+    # default is a grid; "none" leaves the desk as it is. Forgotten here until 2026-10-09, so a
+    # team an agent started never arranged its desk.
+    layout = str(args.get("layout") or "grid").strip().lower()
+    if layout not in LAYOUTS:
+        raise ValueError(f"layout is one of {', '.join(LAYOUTS)}")
     body = {"name": name, "goal": goal, "template": extra.get("template") or "custom",
             "graph": {k: v for k, v in graph.items() if k != "goal"}, "path": folder, "agents": spec,
             "check": args.get("check") or None, "gate": gate,
-            "max_rounds": int(args.get("rounds") or extra.get("rounds") or 10)}
+            "max_rounds": int(args.get("rounds") or extra.get("rounds") or 10),
+            **({"layout": layout} if layout != "none" else {}),
+            # The team file it came from, so Restart reads it again — as when started from the sheet.
+            **({"file": extra["file"]} if extra.get("file") else {})}
     text = (f"start the team {name} in {folder}" + (f", in the desk {desk}" if desk else "")
-            + f": {goal} — {', '.join(who)}; may do without asking: {level}; goes on: {gate}")
+            + f": {goal} — {', '.join(who)}; may do without asking: {level}; goes on: {gate}"
+            + (f"; the desk laid out {LAYOUT_WORDS[layout]}" if desk and layout != "none" else ""))
     return {"calls": [("POST", "/api/teams", body)], "text": text, "desk": desk,
             "danger": level == "everything", "kind": "team"}
 
