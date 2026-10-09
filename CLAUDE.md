@@ -591,6 +591,17 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   same team in another order is not a change); and a stage that scrolls makes `_center`'s
   scrollIntoView move the first target while measuring the second — the svg is scaled to fit, and
   the tests measure with `box()`. The canvas is locked while the typed text does not read.
+- **A check's line can be spoiled; a check that never started is noticed** (`TeamIO.run_check`,
+  `Director._check_alive`, tests "junk" and "never_started" in test_teams.py). 2026-10-08: a browser
+  terminal's late DA answers (ESC[?1;2c, ESC[>0;276;0c, 276 = xterm.js) reached the check's shell as
+  keys, readline left `1;2c0;276;0c` on the line, the check typed after it began `…0ccd`, the &&
+  skipped all, and the director waited 15 h for an exit file. Now: `send-keys C-u` first (only for
+  checks — seed also types into agents' boxes), the line opens with `: ;` and closes with `; :`.
+  And past CHECK_LOOK_AFTER (30 s), every 10 s: nothing running under the pane's shell
+  (`tmux.has_children`) and no exit file → no log (tee makes it at once) = never started → typed
+  again once, then waiting-you; a log = stopped by hand → waiting-you, not retyped. Never by
+  elapsed time: checks may run for hours. Typing (not respawn-pane) is kept on purpose: the line
+  runs in the person's interactive shell, with their rc and conda.
 - **How a verdict moves a team** (`Director._finished`, the audit of 2026-10-07, tests in
   test_teams.py "verdicts the audit found ignored"). A non-judge's turn is `always`, except
   BLOCKED, which anyone may say; BLOCKED follows only `if BLOCKED` arrows, else waits for the

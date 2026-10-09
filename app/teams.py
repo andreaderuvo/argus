@@ -45,6 +45,10 @@ from pathlib import Path
 
 LOG_NAME = "TEAM.argus.md"
 START_GRACE = 45          # seconds an agent just started has to begin working before you are told
+# A check that left no trace — no exit file, and nothing running in its pane — is looked at after
+# this long, and then every CHECK_LOOK_EVERY. Not a time limit: a check may run for hours.
+CHECK_LOOK_AFTER = 30
+CHECK_LOOK_EVERY = 10
 NUDGE_AFTER = 120          # s an agent may sit waiting without writing its turn before a reminder
 GIVE_UP_AFTER = 300        # …and before the person is asked
 TAIL_LINES = 25            # of a check's output, into the log
@@ -366,7 +370,9 @@ class Director:
 
     - `send(session, text)`: type a prompt into a session and press Enter;
     - `state(session)`: `("working"|"waiting", since)` or None;
-    - `run_check(team, command, folder, log_path, exit_path, session)`: start a check, not waiting;
+    - `run_check(team, command, folder, log_path, exit_path, session)`: start a check, not waiting
+      (returns the tmux session it typed into);
+    - `check_running(session)`: anything running in that check's pane — True, False, None (cannot tell);
     - `ring(why, text, session)`: a bell;
     - `now()`.
     """
@@ -699,15 +705,15 @@ class Director:
         for f in (log, exit_file):
             f.unlink(missing_ok=True)
         folder = (node(team["graph"], n["of"]).get("folder") if n.get("of") else None) or n.get("folder") or team["folder"]
-        team["running"][nid] = {"since": self.io.now(), "nudged": False, "files": [str(log), str(exit_file)]}
-        self.io.run_check(team, n["command"], folder, log, exit_file, n.get("session"))
+        team["running"][nid] = {"since": self.io.now(), "nudged": False, "files": [str(log), str(exit_file)], "folder": folder}
+        team["running"][nid]["session"] = self.io.run_check(team, n["command"], folder, log, exit_file, n.get("session"))
         self._note(team, f"round {team['round']}: {nid} — {n['command']}")
 
     def _check_done(self, team: dict, nid: str) -> bool:
         state = team["running"][nid]
         log, exit_file = (Path(p) for p in state["files"])
         if not exit_file.exists() or not exit_file.read_text().strip():
-            return False
+            return self._check_alive(team, nid, state, log)
         try:
             code = int(exit_file.read_text().split()[0])
         except ValueError:
@@ -737,6 +743,44 @@ class Director:
                                retry=[e["to"] for e in team["graph"]["edges"] if e["from"] == nid and e["when"] == "FAIL"])
             return True
         self._finished(team, nid, status)
+        return True
+
+    def _check_alive(self, team: dict, nid: str, state: dict, log: Path) -> bool:
+        """A check with no exit file yet: still running, or never ran?
+
+        A check is typed into a shell, and the line can come out mangled — a terminal's late answer
+        to tmux (`1;2c0;276;0c`) glued in front of it made the `cd` fail and the rest never ran;
+        the director then waited for an exit file for 15 hours, saying nothing (2026-10-08). So,
+        past CHECK_LOOK_AFTER: if nothing runs in its pane and there is no exit file, it is not
+        running. No log either (`tee` makes it the moment the pipeline starts) means it never
+        started: typed once more, and if that fails too, the person is asked. A log means it ran
+        and ended without its exit code — stopped by hand, most likely: the person is asked,
+        nothing is typed again. Time alone decides nothing: a check may legitimately run for hours.
+        """
+        now = self.io.now()
+        if now - state["since"] < CHECK_LOOK_AFTER or now - state.get("looked", 0) < CHECK_LOOK_EVERY:
+            return False
+        state["looked"] = now
+        n = node(team["graph"], nid)
+        session = state.get("session") or n.get("session") or team.get("check_session") or f"{team.get('name', 'team')}-check"
+        ask = getattr(self.io, "check_running", None)
+        if ask is None or ask(session) is not False:
+            return False                                # running, or cannot tell: wait
+        if log.exists():
+            team["running"].pop(nid, None)
+            self._wait_for_you(team, f"the check {nid} ended without an exit code in {session} — stopped by hand? "
+                                     f"Continue runs it again", retry=[nid])
+            return True
+        if state.get("retyped"):
+            team["running"].pop(nid, None)
+            self._wait_for_you(team, f"the check {nid} did not start, twice: the line typed into {session} came out "
+                                     f"mangled — look at that pane; Continue types it again", retry=[nid])
+            return True
+        state.update(retyped=True, since=now, looked=0)
+        exit_file = Path(state["files"][1])
+        folder = state.get("folder") or team["folder"]
+        state["session"] = self.io.run_check(team, n["command"], folder, log, exit_file, n.get("session")) or session
+        self._note(team, f"{nid} did not start (its line in {session} came out mangled?): typed again")
         return True
 
     def _bell_session(self, team: dict):

@@ -375,8 +375,34 @@ class TeamIO:
         # The exit code is written from inside the subshell, before the pipe: `$?` after a pipe is
         # `tee`'s, always 0, and PIPESTATUS is bash's alone — under zsh a failing check would pass.
         # And the command in a subshell of its own, so an `exit` in it ends that and not the line.
-        line = (f"cd {q(folder)} && ( ( {command} ) ; echo $? > {q(str(exit_file))} ) 2>&1 | tee {q(str(log))}")
+        #
+        # The line is typed into a shell the person may have looked at from a browser or a phone,
+        # and that terminal answers tmux's Device Attributes queries — ESC[?1;2c, ESC[>0;276;0c —
+        # late, as keys. Readline eats the ESC[? and leaves `1;2c0;276;0c` on the line; a check
+        # typed after it read `1;2c0;276;0ccd '…'`, the cd failed, the && skipped everything and
+        # the director waited 15 hours for an exit file (2026-10-08). So: the line is emptied
+        # first (C-u: readline's, zsh's and fish's "kill to the start", which runs nothing — an
+        # Enter would run the junk), it opens with `: ;` so anything that still lands in front is
+        # a failed command of its own and the cd runs anyway, and it closes with `; :` so junk
+        # landing behind it before the Enter is not glued to the log's name. Only here: the same
+        # seed types into Claude's and Codex's boxes, where a C-u would wipe the person's words.
+        line = (f": ; cd {q(folder)} && ( ( {command} ) ; echo $? > {q(str(exit_file))} ) 2>&1 | tee {q(str(log))} ; :")
+        pane = launch.pane_of(sock, name)
+        if pane:
+            tmux.run(["tmux", *sock.args(), "send-keys", "-t", pane, "C-u"])
         launch.seed(sock, name, line, press_return=True)
+        return name
+
+    def check_running(self, session: str):
+        """Is anything running in a check's pane? True, False (the shell is at its prompt, or the
+        session is gone), or None when tmux cannot say."""
+        panes = tmux.pane_pids(self.app.state.socket)
+        if not panes:
+            return None
+        pids = panes.get(session)
+        if not pids:
+            return False
+        return any(tmux.has_children(pid) for pid in pids)
 
     def ring(self, why: str, text: str, session) -> None:
         bells.rung(types.SimpleNamespace(app=self.app), why, session=session, text=text)

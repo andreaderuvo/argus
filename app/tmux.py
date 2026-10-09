@@ -170,6 +170,29 @@ def session_of_pid(sock: Socket, pid: int) -> str | None:
     return None
 
 
+def has_children(pid: int) -> bool:
+    """Whether anything runs under this process — for a pane's shell: is it at its prompt, or
+    running something. Reads /proc (field 4 of each stat, after the command name's last `)`),
+    else asks `pgrep -P`."""
+    proc = Path("/proc")
+    if proc.is_dir():
+        for entry in proc.iterdir():
+            if not entry.name.isdigit():
+                continue
+            try:
+                stat = (entry / "stat").read_text()
+            except OSError:
+                continue
+            fields = stat[stat.rfind(")") + 2:].split()
+            if len(fields) > 1 and fields[1] == str(pid):
+                return True
+        return False
+    try:
+        return subprocess.run(["pgrep", "-P", str(pid)], capture_output=True, timeout=4).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
 def pane_pids(sock: Socket) -> dict[str, list[int]]:
     """Every pane's own pid, by session — the root of whatever is actually running in it.
 

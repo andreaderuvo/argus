@@ -945,3 +945,118 @@ def test_until_the_goal_keeps_trying_where_stop_on_trouble_stops(setup):
             check_exits(io, "t-check", 1, "FAILED")
             d.tick()
         assert (team["status"] == "waiting-you") is stops, gate
+
+
+# ------------------------------------------------------------------ a check that never started
+
+JUNK = "1;2c0;276;0c"          # what readline leaves of a terminal's late ESC[?1;2c and ESC[>0;276;0c
+
+
+@pytest.mark.skipif(not HAS_TMUX, reason="needs tmux")
+@pytest.mark.parametrize("shell", [s for s in ("bash", "zsh") if shutil.which(s)])
+def test_a_check_typed_after_a_terminals_junk_still_runs(tmp_path, shell):
+    """Seen on a real team (2026-10-08): `1;2c0;276;0c` sat on the shell's line — a browser
+    terminal's late answer to tmux — and the check typed after it read `1;2c0;276;0ccd '…'`. The cd
+    failed, nothing ran, and the director waited 15 hours. The line is emptied first and made
+    immune to anything glued in front of it or behind it."""
+    from app.main import TeamIO
+    from app.tmux import Socket
+
+    name = f"argus-t-junk-{os.getpid()}-{shell}"
+    sock = Socket.new(name)
+    env = {k: v for k, v in os.environ.items() if k not in ("TMUX", "TMUX_PANE")}
+    tm = lambda *a: subprocess.run(["tmux", "-L", name, *a], env=env, capture_output=True, text=True)  # noqa: E731
+    try:
+        rc = ["bash", "--norc", "--noprofile", "-i"] if shell == "bash" else ["zsh", "-f", "-i"]
+        tm("new-session", "-d", "-s", "t-check", "-x", "120", "-y", "20", "-c", str(tmp_path), *rc)
+        _time.sleep(0.8)
+        tm("send-keys", "-t", "t-check", "-l", JUNK)               # on the line, not entered
+        _time.sleep(0.3)
+        io = TeamIO(types.SimpleNamespace(state=types.SimpleNamespace(socket=sock)))
+        log, exit_file = tmp_path / "check.log", tmp_path / "check.exit"
+        assert io.run_check({"name": "t"}, "echo checked; sleep 2", str(tmp_path), log, exit_file, "t-check") == "t-check"
+        for _ in range(20):
+            if io.check_running("t-check"):
+                break
+            _time.sleep(0.1)
+        assert io.check_running("t-check") is True, "running: the pane's shell has a child"
+        for _ in range(100):
+            if exit_file.exists() and exit_file.read_text().strip():
+                break
+            _time.sleep(0.1)
+        assert exit_file.exists() and int(exit_file.read_text().split()[0]) == 0, "the check ran despite the junk"
+        _time.sleep(0.3)
+        assert "checked" in log.read_text() and not any(p.name.startswith("check.log") and p != log for p in tmp_path.iterdir())
+        # And junk landing *behind* the line, before its Enter, is not glued to the log's name.
+        tm("send-keys", "-t", "t-check", "-l", JUNK)
+        io.run_check({"name": "t"}, "echo again", str(tmp_path), log, exit_file, "t-check")
+        _time.sleep(1.5)
+        assert sorted(p.name for p in tmp_path.iterdir()) == ["check.exit", "check.log"]
+        for _ in range(30):
+            if io.check_running("t-check") is False:
+                break
+            _time.sleep(0.1)
+        assert io.check_running("t-check") is False, "back at its prompt: nothing running"
+        assert io.check_running("no-such-session") is False
+    finally:
+        tm("kill-server")
+
+
+def mangled(io):
+    """The pane's shell is at its prompt and nothing ran: the check left no log and no exit."""
+    io.check_running = lambda session: False
+
+
+def test_a_check_that_never_started_is_typed_again_once_then_the_person_is_asked(setup):
+    d, io, tmp = setup
+    team = make(d, tmp, "optimise")
+    turn(team, "EXECUTOR")
+    d.tick()
+    assert io.check_order == ["t-check"]
+    io.check_running = lambda session: True                  # running: hours are fine
+    io.clock += 3 * 3600
+    d.tick()
+    assert io.check_order == ["t-check"] and team["status"] == "running", "a long check is left alone"
+    mangled(io)
+    io.clock += teams.CHECK_LOOK_AFTER + 1
+    d.tick()
+    assert io.check_order == ["t-check", "t-check"], "typed again"
+    assert "typed again" in team["history"][-1]["what"]
+    io.clock += teams.CHECK_LOOK_AFTER - 5
+    d.tick()
+    assert io.check_order == ["t-check", "t-check"], "and given its time again"
+    io.clock += 10
+    d.tick()
+    assert team["status"] == "waiting-you" and "did not start, twice" in team["history"][-1]["what"]
+    assert io.rings and "t-check" in io.rings[-1][1]
+    # Continue types it again, and this time it runs.
+    d.go(team["id"])
+    assert io.check_order[-1] == "t-check" and len(io.check_order) == 3
+    check_exits(io, "t-check", 0)
+    d.tick()
+    assert io.to()[-1] == "t-reviewer"
+
+
+def test_a_check_that_ran_and_was_stopped_is_not_typed_again(setup):
+    d, io, tmp = setup
+    team = make(d, tmp, "optimise")
+    turn(team, "EXECUTOR")
+    d.tick()
+    _cmd, _folder, log, _exit = io.checks["t-check"]
+    log.write_text("running tests…\n^C")                     # it ran: tee made the log
+    mangled(io)
+    io.clock += teams.CHECK_LOOK_AFTER + 1
+    d.tick()
+    assert io.check_order == ["t-check"], "not typed again: the person may have stopped it"
+    assert team["status"] == "waiting-you" and "without an exit code" in team["history"][-1]["what"]
+
+
+def test_a_check_is_not_judged_when_tmux_cannot_say(setup):
+    d, io, tmp = setup
+    team = make(d, tmp, "optimise")
+    turn(team, "EXECUTOR")
+    d.tick()
+    io.check_running = lambda session: None
+    io.clock += 3600
+    d.tick()
+    assert io.check_order == ["t-check"] and team["status"] == "running"
