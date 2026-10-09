@@ -1422,6 +1422,16 @@
   "Copy the fix": "Copiar la corrección",
   "copied: {what}": "copiado: {what}",
   "{n} old copies of argus-say & co. on your PATH — Alt+V says which": "{n} copias viejas de argus-say y cía. en tu PATH — Alt+V dice cuáles",
-  "{n} old copies of argus-say & co. are on your PATH — a pull does not update them. Alt+V to link them.": "{n} copias viejas de argus-say y cía. están en tu PATH — un pull no las actualiza. Alt+V para enlazarlas."
+  "{n} old copies of argus-say & co. are on your PATH — a pull does not update them. Alt+V to link them.": "{n} copias viejas de argus-say y cía. están en tu PATH — un pull no las actualiza. Alt+V para enlazarlas.",
+  "held: the shortcuts on screen — let go to hide them, ? for all of them": "pulsado: los atajos en pantalla — suelta para ocultarlos, ? para verlos todos",
+  "Hold {key} to see the shortcuts": "Mantén {key} para ver los atajos",
+  "a moment, alone: each button that has one shows its key": "un momento, solo: cada botón que tiene uno muestra su tecla",
+  "Teach me the shortcuts": "Enséñame los atajos",
+  "after a click on something that has one: \"next time, …\" — three times each, then never": "tras un clic en algo que tiene uno: \"la próxima vez, …\" — tres veces cada uno, luego nunca",
+  "{name} — next time: {key}": "{name} — la próxima vez: {key}",
+  "the side rail": "la barra lateral",
+  "this desk": "este escritorio",
+  "arrangements": "disposiciones",
+  "let go to hide · ? for all of them": "suelta para ocultar · ? para verlos todos"
  }
 }

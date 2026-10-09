@@ -11,7 +11,7 @@ import { installHere, installOffer, installed } from '/js/installing.js';
 import { under } from '/js/pointing.js';
 import { colorFor, delJSON, deskHome, getJSON, homePath, human, parentOf, postJSON, serverInfo, setTitle, signOut, when, withToken } from '/js/reconnect.js';
 import { go, render } from '/js/router.js';
-import { keyFor, keyHelp, pluginBehind } from '/js/shortcuts.js';
+import { keyFor, keyHelp, pluginBehind, prettyKey } from '/js/shortcuts.js';
 import { applyBottomBar, applyKeyBar, applySidebar, renderSidebar, versionRow, viewersRow } from '/js/sidebar.js';
 import { THEMES, prefs, server, view } from '/js/state.js';
 import { applyName, applyTheme } from '/js/theme.js';
@@ -841,6 +841,12 @@ export async function screenSettings() {
       () => prefs.bottomBar === true, (v) => { prefs.bottomBar = v; applyBottomBar(); }),
     choice(t('Theme'), t('auto follows the system setting'), THEMES,
       () => prefs.theme, (v) => { prefs.theme = v; applyTheme(); }),
+    // Learning the keys without learning a list: see them over their buttons, be told after a click.
+    toggle(t('Hold {key} to see the shortcuts', { key: prettyKey('ctrl+x').replace(/\+?X$/, '') }),
+      t('a moment, alone: each button that has one shows its key'),
+      () => prefs.keyTips !== false, (v) => { prefs.keyTips = v; }),
+    toggle(t('Teach me the shortcuts'), t('after a click on something that has one: "next time, …" — three times each, then never'),
+      () => prefs.keyNudges !== false, (v) => { prefs.keyNudges = v; }),
   );
 
   wrap.append(

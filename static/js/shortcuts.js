@@ -200,6 +200,27 @@ function runKey(id) {
   jobs[id]?.();
 }
 
+/* From inside a terminal, the chords with Ctrl *and* Shift still reach us.
+ *
+ *  On a desk the focus is nearly always in a terminal, and the rule above gave it every key: so
+ *  Ctrl+Shift+G — Got it, all — did nothing at all, exactly where it is wanted (reported from a
+ *  Mac, 2026-10-09). A terminal cannot tell Ctrl+Shift+G from Ctrl+G — the legacy encoding has no
+ *  bit for Shift with Ctrl, xterm sends the same byte — so taking those chords costs a program
+ *  nothing it could have seen. Only the ones bound to a shortcut, in the capture phase so xterm
+ *  never gets them. Ctrl+Alt (the sidebar) stays the terminal's: Emacs and readline live there.
+ */
+window.addEventListener('keydown', (e) => {
+  if (!token || e.repeat || !e.ctrlKey || !e.shiftKey) return;
+  if (!document.activeElement?.closest?.('.xterm, .win[data-kind="term"]')) return;
+  const pressed = keyName(e);
+  const hit = KEYS.find((k) => keyFor(k.id) === pressed && /(^|\+)ctrl\+/.test(pressed) && pressed.includes('shift'));
+  if (!hit) return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  runKey(hit.id);
+  learnt(hit.id);
+}, true);
+
 window.addEventListener('keydown', (e) => {
   if (!token || e.repeat || keyboardIsTaken()) return;
   if (document.querySelector('dialog.sheet[open]') && e.key !== 'Escape') {
@@ -260,6 +281,7 @@ window.addEventListener('keydown', (e) => {
   if (!hit) return;
   e.preventDefault();
   runKey(hit.id);
+  learnt(hit.id);
 });
 
 /** Which Argus is running: version, the commit and its date, whether a pull is waiting for a
@@ -389,7 +411,7 @@ export function keyHelp() {
       }
       const action = one.action;
       const key = keyFor(action.id);
-      const shown = el('kbd', { className: key ? '' : 'offkey', textContent: key || t('off') });
+      const shown = el('kbd', { className: key ? '' : 'offkey', textContent: key ? prettyKey(key) : t('off'), title: key || '' });
 
       /* A button, not only a gesture.
        *
@@ -510,3 +532,149 @@ export function oldTools(v, redraw) {
     link,
   ])];
 }
+
+/* ------------------------------------------------------------------ learning them */
+
+/** A key the way this keyboard writes it: ⌃⇧G on a Mac — where `ctrl` is the Control key, not
+ *  ⌘, which is why "Ctrl+Shift+G" read as Command and opened Chrome's find — Ctrl+Shift+G
+ *  elsewhere. */
+const ON_MAC = /Mac|iPhone|iPad/i.test(navigator.userAgentData?.platform || navigator.platform || navigator.userAgent);
+const KEY_WORDS = { ArrowRight: '→', ArrowLeft: '←', ArrowUp: '↑', ArrowDown: '↓', Escape: 'Esc', ' ': 'Space' };
+export function prettyKey(key) {
+  if (!key) return '';
+  const parts = key.split('+');
+  let last = parts.pop();
+  if (last === '' && parts.length) { parts.pop(); last = '+'; }       // "ctrl++"
+  last = KEY_WORDS[last] || (last.length === 1 ? last.toUpperCase() : last);
+  const mods = new Set(parts);
+  if (ON_MAC) {
+    return ['ctrl', 'alt', 'shift', 'meta'].filter((m) => mods.has(m))
+      .map((m) => ({ ctrl: '⌃', alt: '⌥', shift: '⇧', meta: '⌘' })[m]).join('') + last;
+  }
+  return [...['ctrl', 'alt', 'shift', 'meta'].filter((m) => mods.has(m))
+    .map((m) => ({ ctrl: 'Ctrl', alt: 'Alt', shift: 'Shift', meta: 'Meta' })[m]), last].join('+');
+}
+
+/** Where each shortcut's action is on screen — the buttons and links a click would use. */
+function keyTargets() {
+  const one = (sel) => [...document.querySelectorAll(sel)];
+  const nav = (tab) => one(`#nav a[data-tab="${tab}"]`);
+  const tool = (label) => [...document.querySelectorAll('#walltools button')]
+    .filter((b) => b.textContent.trim().toLowerCase().startsWith(t(label).toLowerCase()));
+  return {
+    help: one('#keys'), full: one('#fullscreen'), settings: one('#settings'), sidebar: one('#sidetoggle'),
+    gotAll: one('.allseen'),
+    files: nav('files'), sessions: nav('sessions'), wall: nav('wall'), prompts: nav('prompts'),
+    placeholders: nav('placeholders'), todo: nav('todo'), since: nav('since'), journal: nav('journal'),
+    system: [...nav('system'), ...one('#vitals')],
+    newSession: tool('New session'), team: tool('Team'), windows: tool('Windows'), browser: tool('Browser'),
+    links: tool('Links'), messages: tool('Prompts'),
+    grid: one('#walltools button[data-mode="grid"]'), cols: one('#walltools button[data-mode="cols"]'),
+    rows: one('#walltools button[data-mode="rows"]'), mine: one('#walltools [data-mine]'),
+  };
+}
+const shownOnScreen = (n) => !n.hidden && n.getClientRects().length > 0 && !n.closest('[hidden]');
+function shortcutOf(node) {
+  if (!node) return null;
+  for (const [id, nodes] of Object.entries(keyTargets())) if (nodes.includes(node) && keyFor(id)) return id;
+  return null;
+}
+
+/** 1 — on the button itself: its tooltip ends with its key. Said on hover, so a title rewritten
+ *  later (a count that changed) still gets it. */
+document.addEventListener('pointerover', (e) => {
+  const node = e.target.closest?.('button, a');
+  const id = node && shortcutOf(node);
+  if (!id) return;
+  const key = prettyKey(keyFor(id));
+  node.setAttribute('aria-keyshortcuts', keyFor(id));
+  const base = (node.title || node.getAttribute('aria-label') || node.textContent.trim()).replace(/ · \S+$/, '');
+  if (node.title !== `${base} · ${key}`) node.title = `${base} · ${key}`;
+}, true);
+
+/** 2 — hold Ctrl a moment, alone, and every shortcut on screen shows its key over its button
+ *  (Office's KeyTips, Vimium's hints); let go and they are gone. Ctrl alone types nothing, so it
+ *  works with a terminal focused too; another key or a click joining in puts them away. */
+const HOLD = 600;
+let holding = 0;
+let tips = null;
+function hideTips() {
+  clearTimeout(holding);
+  holding = 0;
+  tips?.remove();
+  tips = null;
+}
+/* The chords, by what they reach: a tip shows only the letter, in the chord's colour, and the
+ * legend says the chord once — "Ctrl+Shift+X" on every button of a toolbar ran into each other. */
+const CHORDS = [
+  { mods: 'ctrl+alt', cls: 'm-ca', what: 'the side rail' },
+  { mods: 'ctrl+shift', cls: 'm-cs', what: 'this desk' },
+  { mods: 'ctrl+alt+shift', cls: 'm-cas', what: 'arrangements' },
+];
+const chordOf = (key) => {
+  const mods = key.split('+').slice(0, -1).sort().join('+');
+  return CHORDS.find((c) => c.mods.split('+').sort().join('+') === mods);
+};
+function showTips() {
+  hideTips();
+  tips = el('div', { className: 'keytips', 'aria-hidden': 'true' });
+  document.body.append(tips);
+  const used = new Set();
+  for (const [id, nodes] of Object.entries(keyTargets())) {
+    const key = keyFor(id);
+    if (!key) continue;
+    const chord = chordOf(key);
+    for (const n of nodes.filter(shownOnScreen)) {
+      const r = n.getBoundingClientRect();
+      if (r.bottom < 0 || r.top > innerHeight || r.right < 0 || r.left > innerWidth) continue;
+      if (chord) used.add(chord);
+      const tip = el('span', { className: `keytip ${chord ? chord.cls : 'm-full'}`,
+        textContent: chord ? prettyKey(key).slice(prettyKey(`${chord.mods}+x`).length - 1) : prettyKey(key) });
+      tips.append(tip);
+      // On its button's lower right corner, like a badge: above it, in a column of icons, a tip
+      // sat between two of them and belonged to neither. Always inside the screen.
+      const w = tip.offsetWidth;
+      const h = tip.offsetHeight;
+      tip.style.left = `${Math.max(4, Math.min(r.right - w * 0.75, innerWidth - w - 4))}px`;
+      tip.style.top = `${Math.max(2, Math.min(r.bottom - h * 0.75, innerHeight - h - 2))}px`;
+    }
+  }
+  tips.append(el('div', { className: 'keytipsfoot' }, [
+    ...CHORDS.filter((c) => used.has(c)).map((c) => el('span', { className: 'keytipslegend' }, [
+      el('kbd', { className: c.cls, textContent: `${prettyKey(`${c.mods}+x`).replace(/\+?X$/, '')} +` }),
+      el('span', { textContent: t(c.what) })])),
+    el('span', { className: 'keytipshint', textContent: t('let go to hide · ? for all of them') })]));
+}
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Control' && !e.repeat && !e.shiftKey && !e.altKey && !e.metaKey && token
+      && prefs.keyTips !== false) {               // Ctrl alone types nothing, even in a terminal
+    clearTimeout(holding);
+    holding = setTimeout(showTips, HOLD);
+  } else if (e.key !== 'Control') hideTips();
+}, true);
+window.addEventListener('keyup', (e) => { if (e.key === 'Control') hideTips(); }, true);
+for (const ev of ['pointerdown', 'wheel', 'blur']) window.addEventListener(ev, hideTips, { capture: true, passive: true });
+document.addEventListener('visibilitychange', hideTips);
+
+/** 3 — clicked with the mouse something that has a key: "next time, ⌃⇧G", the first three
+ *  times, then never again for that one (JetBrains' Key Promoter). Using the key counts as
+ *  learnt. Not with a finger: a phone has no Ctrl. */
+const TEACH = 3;
+let lastPointer = 'mouse';
+window.addEventListener('pointerdown', (e) => { lastPointer = e.pointerType; }, true);
+function learnt(id) {
+  if ((prefs.keyTaught?.[id] || 0) >= 99) return;
+  prefs.keyTaught = { ...(prefs.keyTaught || {}), [id]: 99 };
+  savePrefs();
+}
+document.addEventListener('click', (e) => {
+  if (!e.isTrusted || !e.detail || lastPointer !== 'mouse' || prefs.keyNudges === false || !token) return;
+  const id = shortcutOf(e.target.closest?.('button, a'));
+  if (!id) return;
+  const n = prefs.keyTaught?.[id] || 0;
+  if (n >= TEACH) return;
+  prefs.keyTaught = { ...(prefs.keyTaught || {}), [id]: n + 1 };
+  savePrefs();
+  const name = t(KEYS.find((k) => k.id === id).name).split(' — ')[0];
+  toast(t('{name} — next time: {key}', { name, key: prettyKey(keyFor(id)) }), false, null, 3500);
+}, true);

@@ -1422,6 +1422,16 @@
   "Copy the fix": "Copier la correction",
   "copied: {what}": "copié : {what}",
   "{n} old copies of argus-say & co. on your PATH — Alt+V says which": "{n} vieilles copies de argus-say & cie dans votre PATH — Alt+V dit lesquelles",
-  "{n} old copies of argus-say & co. are on your PATH — a pull does not update them. Alt+V to link them.": "{n} vieilles copies de argus-say & cie sont dans votre PATH — un pull ne les met pas à jour. Alt+V pour les lier."
+  "{n} old copies of argus-say & co. are on your PATH — a pull does not update them. Alt+V to link them.": "{n} vieilles copies de argus-say & cie sont dans votre PATH — un pull ne les met pas à jour. Alt+V pour les lier.",
+  "held: the shortcuts on screen — let go to hide them, ? for all of them": "maintenu : les raccourcis à l'écran — relâchez pour les cacher, ? pour les voir tous",
+  "Hold {key} to see the shortcuts": "Maintenez {key} pour voir les raccourcis",
+  "a moment, alone: each button that has one shows its key": "un instant, seul : chaque bouton qui en a un montre sa touche",
+  "Teach me the shortcuts": "Apprends-moi les raccourcis",
+  "after a click on something that has one: \"next time, …\" — three times each, then never": "après un clic sur quelque chose qui en a un : « la prochaine fois, … » — trois fois chacun, puis jamais",
+  "{name} — next time: {key}": "{name} — la prochaine fois : {key}",
+  "the side rail": "la barre latérale",
+  "this desk": "ce bureau",
+  "arrangements": "dispositions",
+  "let go to hide · ? for all of them": "relâchez pour cacher · ? pour les voir tous"
  }
 }

@@ -1422,6 +1422,16 @@
   "Copy the fix": "Copy the fix",
   "copied: {what}": "copied: {what}",
   "{n} old copies of argus-say & co. on your PATH — Alt+V says which": "{n} old copies of argus-say & co. on your PATH — Alt+V says which",
-  "{n} old copies of argus-say & co. are on your PATH — a pull does not update them. Alt+V to link them.": "{n} old copies of argus-say & co. are on your PATH — a pull does not update them. Alt+V to link them."
+  "{n} old copies of argus-say & co. are on your PATH — a pull does not update them. Alt+V to link them.": "{n} old copies of argus-say & co. are on your PATH — a pull does not update them. Alt+V to link them.",
+  "held: the shortcuts on screen — let go to hide them, ? for all of them": "held: the shortcuts on screen — let go to hide them, ? for all of them",
+  "Hold {key} to see the shortcuts": "Hold {key} to see the shortcuts",
+  "a moment, alone: each button that has one shows its key": "a moment, alone: each button that has one shows its key",
+  "Teach me the shortcuts": "Teach me the shortcuts",
+  "after a click on something that has one: \"next time, …\" — three times each, then never": "after a click on something that has one: \"next time, …\" — three times each, then never",
+  "{name} — next time: {key}": "{name} — next time: {key}",
+  "the side rail": "the side rail",
+  "this desk": "this desk",
+  "arrangements": "arrangements",
+  "let go to hide · ? for all of them": "let go to hide · ? for all of them"
  }
 }

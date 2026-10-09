@@ -311,6 +311,13 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   not exist; if even that is refused, `showText()` hands the text over selected. OSC 52 is
   also honoured, which covers `set -g set-clipboard on`.
 
+- **Learning the shortcuts** (shortcuts.js "learning them", tests/browser/test_learning_keys.py).
+  `prettyKey` writes keys as the keyboard does (⌃⇧G on a Mac, where `ctrl` is Control — a user
+  read "Ctrl" as ⌘ and got Chrome's find); `keyTargets()` maps each shortcut to its buttons for
+  the tooltip suffix (on hover), the Ctrl-held KeyTips (letter only, chord by colour, legend) and
+  the "next time: …" nudge after a mouse click (3 per action, `prefs.keyTaught`, 99 = used the key).
+  Ctrl+Shift chords bound to a shortcut are taken in the capture phase even from a terminal —
+  Got it, all never fired on a desk, where the focus is in a terminal; Ctrl+Alt stays the terminal's.
 - **Full screen** is the header's ⤢ button (`#fullscreen`), hidden where the browser has
   no Fullscreen API — an iPhone, notably — rather than sitting there doing nothing. The
   icon and title follow `fullscreenchange`, not the click, so leaving by Esc or F11 keeps
