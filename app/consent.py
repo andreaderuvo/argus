@@ -46,6 +46,7 @@ ACTIONS = {
     "team_stop": "stop a team (with `kill`: and end its sessions)",
     "team_reset": "reset a stopped team: delete the files its `reset:` declares, archive its log",
     "team_restart": "restart a team: stop it, end its sessions, reset it, read its team file again, start from round 1",
+    "close_desk": "close a desk — its windows go; the sessions in them keep running",
     "kill_session": "end a tmux session, and what runs in it",
     "rename_session": "rename a tmux session",
     "start_agent": "start an agent with options its key may not choose (everything, no questions)",
@@ -144,6 +145,14 @@ LAYOUTS = ("grid", "cols", "rows", "none")
 LAYOUT_WORDS = {"grid": "as a grid", "cols": "in columns", "rows": "in rows"}
 
 
+def _desk_named(app, name: str) -> dict | None:
+    store_ = getattr(app.state, "prefs", None)
+    if not store_:
+        return None
+    _, doc = prefs.load(store_)
+    return next((w for w in doc.get("workspaces") or [] if isinstance(w, dict) and str(w.get("name", "")).lower() == name.lower()), None)
+
+
 def _team_plan(app, args: dict) -> dict:
     cfg = app.state.cfg
     folder = str(args.get("folder") or "").strip() or None
@@ -232,6 +241,17 @@ def plan(app, action: str, args: dict) -> dict:
         return {"calls": [("POST", f"/api/teams/{team['id']}/{verb}", {"kill": True} if kill else {})],
                 "text": {"go": "continue", "pause": "pause", "stop": "stop"}[verb] + f" the team {team['name']}"
                         + (" and end its sessions, with what runs in them" if kill else "")}
+    if action == "close_desk":
+        name = " ".join(str(args.get("desk") or "").split())
+        if not name:
+            raise ValueError("say which desk (`desk`, its name)")
+        desk = _desk_named(app, name)
+        if desk is None:
+            raise ValueError(f"no desk called {name!r}")
+        n = len(desk.get("desktop") or [])
+        return {"calls": [("POST", "/api/desks/close", {"desk": desk["name"]})],
+                "text": f"close the desk {desk['name']}" + (f" and its {n} window{'s' if n != 1 else ''}" if n else "")
+                        + " — the sessions keep running"}
     if action == "kill_session":
         name = str(args.get("session") or "").strip()
         if not name:

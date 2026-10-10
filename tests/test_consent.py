@@ -262,3 +262,27 @@ def test_a_team_started_on_request_arranges_its_desk_and_keeps_its_file(tmp_path
     (tmp_path / "team.yaml").write_text("name: Mine\ngoal: g\nsteps:\n  a: {role: executor}\nflow:\n  - a -> done\n")
     plan = consent.plan(app, "start_team", {"team": "Mine", "folder": str(tmp_path)})
     assert plan["calls"][0][2]["file"] == str(tmp_path / "team.yaml"), "Restart reads it again"
+
+
+def test_an_agent_may_ask_to_close_a_desk_and_a_page_cannot_bring_it_back(tmp_path):
+    from app import prefs as P
+    app = make(tmp_path)
+    app.state.prefs = tmp_path / "prefs.json"
+    P.save(app.state.prefs, 1, {"ws": 2, "wsSeq": 2, "workspaces": [
+        {"id": 1, "name": "Work", "desktop": []}, {"id": 2, "name": "Trading", "desktop": [{"kind": "term", "name": "t"}]}]})
+    plan = consent.plan(app, "close_desk", {"desk": "trading"})
+    assert plan["calls"] == [("POST", "/api/desks/close", {"desk": "Trading"})] and "sessions keep running" in plan["text"]
+    with TestClient(app) as c:
+        assert c.post("/api/desks/close", json={"desk": "Trading"}, headers=AGENT).status_code == 403, "not on its own key"
+        said = c.post("/api/desks/close", json={"desk": "Trading"}, headers=MASTER).json()
+        assert said == {"closed": "Trading", "id": 2, "windows": 1}
+        doc = c.get("/api/prefs", headers=MASTER).json()["prefs"]
+        assert [w["name"] for w in doc["workspaces"]] == ["Work"] and doc["ws"] == 1
+        # A page that had not heard saves its old list: the closed desk stays closed.
+        c.patch("/api/prefs", json={"changes": {"workspaces": [{"id": 1, "name": "Work", "desktop": []},
+                                                              {"id": 2, "name": "Trading", "desktop": []}]},
+                                     "known": {"workspaces": [1, 2]}}, headers=MASTER)
+        assert [w["name"] for w in c.get("/api/prefs", headers=MASTER).json()["prefs"]["workspaces"]] == ["Work"]
+        assert c.post("/api/desks/close", json={"desk": "Work"}, headers=MASTER).status_code == 409, "the last desk stays"
+    with pytest.raises(ValueError, match="no desk called"):
+        consent.plan(app, "close_desk", {"desk": "nope"})

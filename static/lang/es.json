@@ -1397,6 +1397,8 @@
   "Folders": "Carpetas",
   "Starred folders": "Carpetas con estrella",
   "Remove the star (or right-click)": "Quitar la estrella (o clic derecho)",
-  "Remove the star": "Quitar la estrella"
+  "Remove the star": "Quitar la estrella",
+  "Close a desk (its windows; sessions stay)": "Cerrar un escritorio (sus ventanas; las sesiones siguen)",
+  "the desk {desk} was closed — its sessions keep running": "el escritorio {desk} se ha cerrado — sus sesiones siguen"
  }
 }

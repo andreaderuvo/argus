@@ -1496,6 +1496,10 @@ def create_app(cfg: Config) -> FastAPI:
         known = (body.get("known") or {}).get("workspaces") if isinstance(body.get("known"), dict) else None
         if isinstance(changes.get("workspaces"), list) and isinstance(known, list):
             desks, top = prefs.keep_unseen_desks(doc.get("workspaces") or [], changes["workspaces"], known)
+            # A desk closed on the machine (an agent's close_desk) is not saved back by a page that
+            # had not heard yet.
+            gone = set(doc.get("closedDesks") or [])
+            desks = [w for w in desks if not (isinstance(w, dict) and w.get("id") in gone)] or desks
             changes = {**changes, "workspaces": desks,
                        "wsSeq": max(top, int(changes.get("wsSeq") or doc.get("wsSeq") or 0))}
         try:
@@ -2007,6 +2011,31 @@ def create_app(cfg: Config) -> FastAPI:
             "ready": settled,
             "sent": bool(prompt) and wants_return and bool(settled),
         }
+
+    @app.post("/api/desks/close", tags=["Sessions"], summary="Close a desk: its windows go, its sessions stay")
+    async def close_desk(request: Request, body: dict) -> dict:
+        """`{desk}` (its name) or `{id}`: the desk taken out of the preferences and every open page
+        told (`desk-closed`) — sessions are not touched. Its id is remembered as closed, so a page
+        that has not heard yet cannot save it back. Not the last desk (409). Agents reach it as a
+        request (`close_desk`), asked of the person unless let through."""
+        store = request.app.state.prefs
+        version, doc = prefs.load(store)
+        desks = [w for w in doc.get("workspaces") or [] if isinstance(w, dict)]
+        name = " ".join(str(body.get("desk") or "").split()).lower()
+        desk = next((w for w in desks if (body.get("id") is not None and w.get("id") == body.get("id"))
+                     or (name and str(w.get("name", "")).lower() == name)), None)
+        if desk is None:
+            raise ApiError(404, "no such desk")
+        if len(desks) < 2:
+            raise ApiError(409, f"{desk.get('name')} is the only desk — there has to be one")
+        left = [w for w in desks if w is not desk]
+        closed = ([*(doc.get("closedDesks") or []), desk.get("id")])[-50:]
+        changes = {"workspaces": left, "closedDesks": closed}
+        if doc.get("ws") == desk.get("id"):
+            changes["ws"] = left[0].get("id")
+        await asyncio.to_thread(prefs.save, store, version + 1, prefs.merge(doc, changes))
+        bells.announce(request, {"what": "desk-closed", "id": desk.get("id"), "desk": desk.get("name")})
+        return {"closed": desk.get("name"), "id": desk.get("id"), "windows": len(desk.get("desktop") or [])}
 
     @app.post("/api/desks", tags=["Sessions"], summary="Make a desk, or find one by name, and show it")
     async def make_desk(request: Request, body: dict) -> dict:

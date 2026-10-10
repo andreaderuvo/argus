@@ -1397,6 +1397,8 @@
   "Folders": "Dossiers",
   "Starred folders": "Dossiers étoilés",
   "Remove the star (or right-click)": "Retirer l’étoile (ou clic droit)",
-  "Remove the star": "Retirer l’étoile"
+  "Remove the star": "Retirer l’étoile",
+  "Close a desk (its windows; sessions stay)": "Fermer un bureau (ses fenêtres ; les sessions restent)",
+  "the desk {desk} was closed — its sessions keep running": "le bureau {desk} a été fermé — ses sessions continuent"
  }
 }

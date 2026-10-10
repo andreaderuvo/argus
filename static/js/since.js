@@ -469,7 +469,7 @@ export async function screenSettings() {
       start_team: t('Start a team in a desk'), team_restart: t('Restart a team (stop, reset, start again)'),
       team_reset: t('Reset a stopped team (delete what it declares)'), team_go: t('Continue a team'),
       team_pause: t('Pause a team'), team_stop: t('Stop a team (and end its sessions, if asked)'),
-      kill_session: t('End a session'), rename_session: t('Rename a session'),
+      kill_session: t('End a session'), rename_session: t('Rename a session'), close_desk: t('Close a desk (its windows; sessions stay)'),
       start_agent: t('Start an agent with no questions at all'), remove_worktree: t('Remove a git worktree'),
       todo_delete: t('Delete a to-do'),
     };

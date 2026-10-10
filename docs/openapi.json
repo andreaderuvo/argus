@@ -824,6 +824,52 @@
     ]
    }
   },
+  "/api/desks/close": {
+   "post": {
+    "description": "`{desk}` (its name) or `{id}`: the desk taken out of the preferences and every open page\ntold (`desk-closed`) \u2014 sessions are not touched. Its id is remembered as closed, so a page\nthat has not heard yet cannot save it back. Not the last desk (409). Agents reach it as a\nrequest (`close_desk`), asked of the person unless let through.",
+    "operationId": "postApiDesksClose",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Close Desk Api Desks Close Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Close a desk: its windows go, its sessions stay",
+    "tags": [
+     "Sessions"
+    ]
+   }
+  },
   "/api/desks/gone": {
    "post": {
     "description": "`{desk?}` \u2014 every desk, or the one named: its windows on tmux sessions that no longer\nexist are taken off, on the machine and on every open page. Only windows: no session is\ntouched (they have already ended), so an agent's key may do it. \u2192 `{closed: {desk: [names]}}`.",

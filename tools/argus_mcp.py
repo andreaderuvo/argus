@@ -156,12 +156,12 @@ TOOLS = [
                     "name — desk, folder, goal, gate ask|auto|goal, rounds, permissions ask|edit|everything, check, "
                     "agents {step: launcher}, layout grid|cols|rows|none — how the desk is arranged, grid by default, ring_turns true to ring at every agent's turn — off by default), team_go / team_pause / team_stop (team — its name as `teams` shows "
                     "it; kill to end its sessions), team_reset / team_restart (team — delete what its reset: declares; "
-                    "restart also starts it again from round 1), kill_session (session), rename_session (session, to), "
+                    "restart also starts it again from round 1), kill_session (session), rename_session (session, to), close_desk (desk — its windows go, sessions stay), "
                     "start_agent (launcher, name, folder, prompt, press_enter, options — e.g. permissions skip), "
                     "remove_worktree (path), todo_delete (todo). Waits up to two minutes for the outcome; then "
                     "request_status.",
      "inputSchema": {"type": "object", "properties": {
-         "action": {"type": "string", "enum": ["start_team", "team_go", "team_pause", "team_stop", "team_reset", "team_restart", "kill_session",
+         "action": {"type": "string", "enum": ["start_team", "team_go", "team_pause", "team_stop", "team_reset", "team_restart", "close_desk", "kill_session",
                                                 "rename_session", "start_agent", "remove_worktree", "todo_delete"]},
          "args": {"type": "object", "description": "The action's arguments, as listed"},
          "why": {"type": "string", "description": "One line the person reads with the question"}},

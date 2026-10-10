@@ -1397,6 +1397,8 @@
   "Folders": "Cartelle",
   "Starred folders": "Cartelle con la stella",
   "Remove the star (or right-click)": "Togli la stella (o clic destro)",
-  "Remove the star": "Togli la stella"
+  "Remove the star": "Togli la stella",
+  "Close a desk (its windows; sessions stay)": "Chiudere un desk (le finestre; le sessioni restano)",
+  "the desk {desk} was closed — its sessions keep running": "il desk {desk} è stato chiuso — le sue sessioni continuano"
  }
 }

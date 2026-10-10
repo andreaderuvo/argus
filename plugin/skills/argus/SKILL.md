@@ -41,6 +41,7 @@ phone. You reach it with the Argus tools (or `argus-say` from a shell). Three ki
 | start a team, in a desk | `start_team` | `team` (a proposal, one of their models, or a template: Optimise, Fix a bug, Build and review, Write, Tournament, Split the work, Feature with tests; the folder's team.yaml when `folder` is given), `desk`, `folder` (else the proposal's or the desk's), `goal` (else the team's own), `gate` (ask — default / auto / goal), `rounds` (default 10), `permissions` (ask / edit — default / everything; a team file's own is used), `check` (if a check step has no command), `agents` (`{step: launcher}`), `layout` (how the desk is arranged as its agents arrive: grid — default / cols / rows / none), `ring_turns` (true: ring the person at every agent's turn; off by default — only decisions and permissions ring) |
 | reset a stopped team / restart one from round 1 | `team_reset`, `team_restart` | `team` — deletes the files its `reset:` declares (the person sees the list); restart also ends its sessions, reads its team file again, starts it fresh and closes the desk's windows of ended sessions |
 | continue, pause, stop a team | `team_go`, `team_pause`, `team_stop` | `team` (its name exactly as `teams` shows it — "Kraken paper" became `Kraken-paper`); `kill: true` also ends its sessions |
+| close a desk (its windows; the sessions keep running) | `close_desk` | `desk` (its name); not the last one |
 | end a session | `kill_session` | `session` |
 | rename a session | `rename_session` | `session`, `to` |
 | start an agent with no questions at all | `start_agent` | `launcher`, `name`, `folder`, `prompt`, `press_enter`, `options` (`{"permissions": "skip"}` …) |
@@ -58,7 +59,7 @@ reason — fix it and request again; nothing was put to the person.
 
 - **Read another session's screen** — never; ask that agent to write to a file, or `relay` to it.
 - **Answer a question meant for the person** — never.
-- **Arrange, close or remove desks and windows; change their settings or prompts; open ports;
+- **Arrange desks and windows (closing a desk is a request: `close_desk`); change their settings or prompts; open ports;
   tokens, devices, the journal, tmux config, installing the plugin, stopping Argus** — theirs, in
   the app (Settings, the desk's tab, the Ports screen).
 - **Change a running team's graph** — for nobody: stop it and start the changed one.

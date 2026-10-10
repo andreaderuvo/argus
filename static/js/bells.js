@@ -393,6 +393,20 @@ function aside(said) {
     adoptDesks(said.renamed ? said : null).then(() => { if (said.show) showDesk(said.id); });
     return;
   }
+  // A desk closed on the machine (an agent's close_desk, on the person's OK): gone here too, and
+  // this page moves off it if it was on it. The sessions in it are not touched.
+  if (said.what === 'desk-closed' && said.id !== undefined) {
+    const list = workspaces();
+    const at = list.findIndex((w) => w.id === said.id);
+    if (at >= 0) {
+      list.splice(at, 1);
+      if (prefs.ws === said.id) prefs.ws = list[0]?.id;
+      savePrefs();
+      if (live?.key === 'wall') render();
+      toast(t('the desk {desk} was closed — its sessions keep running', { desk: said.desk || '' }));
+    }
+    return;
+  }
   // A team started on the person's OK to an agent's request: its window and its agents' windows
   // go into the desk it was asked for, as they would from the Team sheet.
   if (said.what === 'team-started' && said.team?.id) {

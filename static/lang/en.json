@@ -1397,6 +1397,8 @@
   "Folders": "Folders",
   "Starred folders": "Starred folders",
   "Remove the star (or right-click)": "Remove the star (or right-click)",
-  "Remove the star": "Remove the star"
+  "Remove the star": "Remove the star",
+  "Close a desk (its windows; sessions stay)": "Close a desk (its windows; sessions stay)",
+  "the desk {desk} was closed — its sessions keep running": "the desk {desk} was closed — its sessions keep running"
  }
 }

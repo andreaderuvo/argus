@@ -58,3 +58,16 @@ def test_a_desk_made_while_the_page_was_not_told_is_not_lost_when_it_saves(make_
                timeout=10, what="pippo kept beside the page's save")
     page.wait("[...document.querySelectorAll('.wstab')].some(t => t.textContent.includes('pippo'))", timeout=10,
               what="and the page took it in")
+
+
+def test_a_desk_closed_on_the_machine_goes_from_an_open_page(make_page, argus):
+    argus.api("/api/prefs", "PATCH", {"changes": {"ws": 2, "wsSeq": 2, "workspaces": [
+        {"id": 1, "name": "Work", "desktop": []}, {"id": 2, "name": "Trading", "desktop": []}]}})
+    page = make_page(route="#/wall")
+    page.wait("!!document.querySelector('.wstab[data-ws=\"2\"]')", timeout=10, what="the two desks")
+    argus.api("/api/desks/close", "POST", {"desk": "Trading"})
+    page.wait("!document.querySelector('.wstab[data-ws=\"2\"]')", timeout=10, what="the desk gone from the page")
+    page.wait("[...document.querySelectorAll('.toast')].some(t => t.textContent.includes('was closed'))", timeout=5)
+    import time
+    time.sleep(1)
+    assert [w["name"] for w in argus.api("/api/prefs")["prefs"]["workspaces"]] == ["Work"], "and not saved back"
