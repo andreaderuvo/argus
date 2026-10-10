@@ -619,7 +619,8 @@ export async function mountPreview(host, path, ctl) {
    */
   let versioned = src;
   try {
-    const s = await getJSON(`/api/stat?path=${encodeURIComponent(path)}`);
+    const s = await getJSON(`/api/stat?path=${encodeURIComponent(path)}&missing_ok=1`);
+    if (s.missing) throw new Error('gone');
     versioned = `${src}&v=${Math.floor(s.mtime)}-${s.size}`;
   } catch { /* no stat, no version: the fetch below reports whatever is really wrong */ }
 
@@ -1104,7 +1105,8 @@ function whereFacts(path) {
     el('span', { className: 'factvalue', textContent: '…' }),
   ]);
   strip.append(changed);
-  getJSON(`/api/stat?path=${encodeURIComponent(path)}`).then((s) => {
+  getJSON(`/api/stat?path=${encodeURIComponent(path)}&missing_ok=1`).then((s) => {
+    if (s.missing) { changed.remove(); return; }
     const at = new Date(s.mtime * 1000);
     changed.querySelector('.factvalue').textContent = at.toLocaleString([], {
       day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',

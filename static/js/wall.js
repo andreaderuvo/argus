@@ -1070,8 +1070,10 @@ export async function screenWall() {
       resolved.textContent = `→ ${wanted}`;
       if (!probe) return;
       try {
-        const found = await getJSON(`/api/stat?path=${encodeURIComponent(wanted)}`);
+        const found = await getJSON(`/api/stat?path=${encodeURIComponent(wanted)}&missing_ok=1`);
         if (mine !== asking) return;
+        // Not there is an answer, not an error: the same as the 404 it used to be.
+        if (found.missing) throw Object.assign(new Error('not found'), { status: 404 });
         resolved.className = 'hint';
         resolved.textContent = `→ ${found.path}`;
       } catch (e) {
@@ -1123,7 +1125,7 @@ export async function screenWall() {
       for (; at > 0; at--) {
         const upto = `/${parts.slice(0, at).join('/')}`;
         try {
-          await getJSON(`/api/stat?path=${encodeURIComponent(upto)}`);
+          if ((await getJSON(`/api/stat?path=${encodeURIComponent(upto)}&missing_ok=1`)).missing) continue;
           base = upto;
           break;
         } catch { /* not this one either */ }
