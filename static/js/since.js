@@ -951,6 +951,11 @@ export async function screenSettings() {
       (i) => { prefs.keyBar = ['auto', 'always', 'never'][i]; applyKeyBar(); }),
     // Not under Interruptions: this one is about what a window says, not about being told.
     whereWiringRow(),
+    // How far the wheel or the trackpad moves tmux's history (tmuxwheel.js).
+    choice(t('Scrolling in a session'), t('with the wheel or the trackpad, in tmux’s history'),
+      [t('as the fingers move'), t('twice as fast'), t('three times as fast')],
+      () => [t('as the fingers move'), t('twice as fast'), t('three times as fast')][(Number(prefs.wheelSpeed) || 1) - 1] || t('as the fingers move'),
+      (v) => { prefs.wheelSpeed = [t('as the fingers move'), t('twice as fast'), t('three times as fast')].indexOf(v) + 1 || 1; }),
     // Select text in a session of a desk and a Search button appears beside Send to….
     choice(t('Search the web with'), t('what Search looks text up on, when you select it in a session'),
       Object.values(SEARCH_ENGINES).map((e) => e.name),

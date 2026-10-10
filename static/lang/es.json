@@ -1384,6 +1384,11 @@
   "{key} keys work inside a terminal": "Las teclas {key} funcionan también dentro de un terminal",
   "off leaves them to the program — Emacs and readline use a few; Ctrl+Shift keys work there always": "desactivado las deja al programa — Emacs y readline usan algunas; las teclas Ctrl+Shift funcionan ahí siempre",
   "pinned in {where}": "fijados en {where}",
-  "{name} is gone — shown as it was": "{name} ya no existe — se muestra como estaba"
+  "{name} is gone — shown as it was": "{name} ya no existe — se muestra como estaba",
+  "Scrolling in a session": "Desplazamiento en una sesión",
+  "with the wheel or the trackpad, in tmux’s history": "con la rueda o el trackpad, en el historial de tmux",
+  "as the fingers move": "como se mueven los dedos",
+  "twice as fast": "el doble de rápido",
+  "three times as fast": "el triple de rápido"
  }
 }

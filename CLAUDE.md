@@ -178,6 +178,15 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   code point + the inserted text, once. Reached by name and checked first: a later xterm without
   those internals keeps its own behaviour. Tests replay Android's event sequences into a pane
   whose program records the raw bytes.
+- **The wheel moves tmux's history by distance** (`static/js/tmuxwheel.js`, tests/browser/
+  test_tmux_wheel.py). With tmux's `mouse on`, xterm.js 6 sends ONE wheel report per event (tmux
+  scrolls 5 lines for each) whatever the distance — a flick was worth a nudge — and the phone's
+  drag, which asks for several turns in one synthetic event, got one ("scrolling feels slow",
+  2026-10-10). `attachCustomWheelEventHandler`: pixels carried and turned into reports, one per
+  `perWheel` (measured, else 5) lines of movement × the Settings speed; synthetic LINE events get
+  exactly `deltaY` reports; up from the live end one more (it only enters copy mode) unless a
+  full-screen program has the pane. xterm calls the handler twice per event (two listeners):
+  a WeakSet answers once. Reports go through `coreMouseService.triggerMouseEvent` (checked).
 - **"Back to the live end" talks to tmux, not to xterm.** Scrolling here never scrolls the
   browser: tmux owns the scrollback, so a wheel over the pane puts *tmux* into copy-mode
   and `term.buffer` never moves — which is why a first attempt built on `viewportY` and

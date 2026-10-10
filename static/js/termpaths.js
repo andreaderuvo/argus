@@ -15,6 +15,7 @@ import { go } from '/js/router.js';
 import { bar, killLive, live, nav, prefs, server, setLive, token, view } from '/js/state.js';
 import { READABLE, RECONNECT_CAP, copyButton, sizeButtons } from '/js/terminal.js';
 import { termTheme, termThemeWatch } from '/js/theme.js';
+import { scrollTmuxByDistance } from '/js/tmuxwheel.js';
 import { currentSpace, linkHarvester, nextWindowId, noteLinks, openWindow } from '/js/tray.js';
 import { followLine } from '/js/typedline.js';
 import { beside } from '/js/wall.js';
@@ -546,6 +547,7 @@ export function attachTerminal(container, name, { transform, onGone, onBack, onP
   // when expanding a placeholder, so it has to be declared before both.
   let fullScreen = false;
 
+  let historyNow = false;            // tmux in copy mode, as last asked
   const check = async () => {
     if (disposed) { clearInterval(asking); asking = null; return; }
     if (!onScreen()) return;
@@ -557,6 +559,7 @@ export function attachTerminal(container, name, { transform, onGone, onBack, onP
       // tmux itself lives in the alternate buffer, so xterm says "alternate" always.
       fullScreen = !!where.alternate;
     } catch { inMode = false; }
+    historyNow = inMode;
     toEnd.hidden = !(inMode || ownScrollback());
   };
 
@@ -568,6 +571,16 @@ export function attachTerminal(container, name, { transform, onGone, onBack, onP
   // but it is the moment to ask rather than wait out the interval. Capture phase: xterm
   // consumes the wheel and stops it bubbling.
   container.addEventListener('wheel', (e) => { if (e.deltaY < 0) check(); }, { passive: true, capture: true });
+
+  // The wheel and the trackpad move tmux's history as far as the fingers moved (tmuxwheel.js):
+  // xterm sent one report per event, and a trackpad needed dozens of events for one.
+  scrollTmuxByDistance(term, {
+    inHistory: () => historyNow,
+    perReport: () => perWheel || 5,
+    speed: () => Number(prefs.wheelSpeed) || 1,
+    onUp: () => { historyNow = true; },
+    programHasScreen: () => fullScreen,
+  });
 
   toEnd.onclick = async () => {
     toEnd.hidden = true;
