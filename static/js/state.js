@@ -18,6 +18,7 @@ export const moreBtn = document.getElementById('more');
 export const hamburger = document.getElementById('hamburger');
 export const railWins = document.getElementById('railwins');
 export const railDesks = document.getElementById('raildesks');
+export const railFavs = document.getElementById('railfavs');
 
 export const sideToggle = document.getElementById('sidetoggle');
 export const bar = {

@@ -1389,6 +1389,14 @@
   "with the wheel or the trackpad, in tmux’s history": "con la rotella o il trackpad, nella cronologia di tmux",
   "as the fingers move": "come si muovono le dita",
   "twice as fast": "due volte più veloce",
-  "three times as fast": "tre volte più veloce"
+  "three times as fast": "tre volte più veloce",
+  "Ring me when each agent ends its turn": "Avvisami quando ogni agente finisce il turno",
+  "off: only when the team needs you, or an agent asks for a permission": "spento: solo quando il team ha bisogno di te, o un agente chiede un permesso",
+  "More below": "Altro sotto",
+  "{n} more": "altri {n}",
+  "Folders": "Cartelle",
+  "Starred folders": "Cartelle con la stella",
+  "Remove the star (or right-click)": "Togli la stella (o clic destro)",
+  "Remove the star": "Togli la stella"
  }
 }

@@ -68,6 +68,23 @@ def store(request: Request) -> dict[str, Any]:
     return state.bells
 
 
+# A question that blocks the agent until somebody answers it — always rung, even from a quiet team.
+PERMISSION = re.compile(r"permission|approv|allow|authori[sz]", re.I)
+
+
+def quiet_team(app, session: str | None) -> str | None:
+    """The live team this session's agent belongs to, when that team keeps its agents quiet (the
+    default): their turns ending is the director's business, not the person's — a team that ran
+    alone rang, and lit "Got it, all", at every turn of every agent (2026-10-10). None otherwise."""
+    director = getattr(getattr(app, "state", None), "teams", None)
+    if not session or director is None:
+        return None
+    team, _node = director.by_session(session)
+    if team and (team.get("spec") or {}).get("quiet_agents", True) is not False:
+        return team["name"]
+    return None
+
+
 def is_agent(request, session: str | None) -> bool:
     """Whether the sampler knows this session as an agent. Only then is "its turn is over"
     something that ends: it ends when the sampler sees it working again. A session it does not
@@ -141,6 +158,10 @@ async def ring(request: Request, body: dict) -> dict:
         return {"started": True, "session": session}
     if why in NEEDS and session:
         told(request, session, "waiting")
+        # An agent of a quiet team ending its turn rings nothing; one stuck on a permission does.
+        team = quiet_team(request.app, session)
+        if team and not PERMISSION.search(text):
+            return {"quiet": True, "team": team, "session": session}
     earlier = repeat_of(request, why, session, "hook")
     if earlier is not None:
         return {**earlier, "repeat": True}

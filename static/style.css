@@ -4235,3 +4235,91 @@ dialog.sheet.teamsheet:has(.tcanvas) { width: min(1240px, 96vw); }
 .keytipshint { color: var(--dim); }
 /* Favourites kept by another tool, shown below this one's own (screens.js renderFavs). */
 .favfrom { padding: .35rem .85rem .15rem; font-size: .62rem; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); border-top: 1px dashed var(--line); margin-top: .15rem; }
+/* Favourite folders in the rail: a section of their own, under the destinations (paintRailFavs). */
+#railfavs { display: flex; flex-direction: column; border-top: 1px solid var(--line); margin-top: .3rem; padding: .3rem 0; }
+#railfavs[hidden] { display: none; }
+@media (max-width: 899px) { #railfavs { display: none !important; } }
+#railfavs .railhead { display: flex; align-items: center; gap: .45rem; padding: .25rem .95rem .15rem; color: var(--dim);
+  font-size: .62rem; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; }
+#railfavs .railhead .ico { width: 12px; height: 12px; color: var(--accent); flex: none; }
+body:not(.railwide) #railfavs .railhead { justify-content: center; padding: .2rem 0; }
+body:not(.railwide) #railfavs .railhead .railname { display: none; }
+#railfavs .railfav .ico { color: color-mix(in srgb, var(--accent) 70%, var(--dim)); }
+#railfavs .railfav.missing { opacity: .5; text-decoration: line-through; }
+#drawerfavs { display: grid; gap: .1rem; border-top: 1px solid var(--line); margin-top: .4rem; padding-top: .4rem; }
+#drawerfavs[hidden] { display: none; }
+#drawerfavs .drawerhead { color: var(--dim); font-size: .72rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; padding: .3rem 1rem; }
+#drawerfavs .railwin { display: flex; align-items: center; gap: .6rem; min-height: 40px; padding: 0 1rem; border: 0; background: none; color: var(--text); font: inherit; text-align: left; }
+#drawerfavs .railwin .ico { width: 16px; height: 16px; color: var(--accent); }
+#railfavs .railinit { display: none; }
+@media (min-width: 900px) {
+  body:not(.railwide) #railfavs .railfav .ico { display: none; }
+  body:not(.railwide) #railfavs .railinit {
+    display: grid; place-items: center; width: 26px; height: 22px; border-radius: 6px;
+    font: 700 10.5px/1 ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: .02em; text-transform: lowercase;
+    color: var(--accent); background: color-mix(in srgb, var(--accent) 13%, transparent);
+  }
+}
+.startopt.teamquiet { cursor: pointer; flex-wrap: wrap; align-items: center; gap: .3rem .6rem; }
+.startopt.teamquiet > input { accent-color: var(--accent); width: 1rem; height: 1rem; }
+.startopt.teamquiet > .hint { flex-basis: 100%; margin: 0; padding-left: 1.6rem; }
+/* The rail scrolls when it is longer than the screen — destinations, favourites, parked desks and
+   the desk's windows add up. One scroll for all of it (the windows' own list scrolled inside it),
+   with the menu button and the file-panel toggle held at the two ends. */
+@media (min-width: 900px) {
+  #nav { overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; overscroll-behavior: contain; }
+  #nav > * { flex-shrink: 0; }
+  #nav #railwins { overflow: visible; min-height: auto; }
+  #nav #railtoggle { position: sticky; top: 0; z-index: 2; background: var(--panel); }
+  #nav #sidetoggle { position: sticky; bottom: 0; z-index: 2; background: var(--panel); }
+}
+/* The rail scrolls without a scrollbar: fades say where there is more (paintRailFades). */
+.railfade { display: none; }
+@media (min-width: 900px) {
+  #nav { scrollbar-width: none; }
+  #nav::-webkit-scrollbar { display: none; }
+  #nav .railfade { display: flex; position: sticky; z-index: 3; pointer-events: none; margin: 0; padding: 0; border: 0;
+    height: 30px; flex-shrink: 0; transition: opacity .18s; }
+  #nav .railfade[hidden] { display: flex; opacity: 0; visibility: hidden; }
+  #nav .railfade.top { top: var(--bar); margin-bottom: -30px; background: linear-gradient(var(--panel), transparent); }
+  #nav .railfade.bottom {
+    bottom: calc(var(--bar) - 4px); margin-top: -30px; align-items: flex-end; justify-content: center; gap: .3rem;
+    background: linear-gradient(transparent, var(--panel) 75%); color: var(--dim); font: 600 .62rem/1 inherit;
+    letter-spacing: .05em; text-transform: uppercase; pointer-events: auto; cursor: pointer; padding-bottom: 3px;
+  }
+  #nav .railfade.bottom .ico { width: 13px; height: 13px; animation: railnudge 1.6s ease-in-out infinite; }
+  #nav .railfade.bottom:hover { color: var(--accent); }
+  body:not(.railwide) #nav .railmore { display: none; }
+  @keyframes railnudge { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(2px); } }
+}
+@media (prefers-reduced-motion: reduce) { #nav .railfade.bottom .ico { animation: none; } }
+@media (min-width: 900px) {
+  #nav .railfade.top { height: 26px; margin-bottom: -26px; background: linear-gradient(var(--panel) 15%, transparent); }
+  #nav .railfade.bottom { bottom: var(--sideh, 46px); height: 48px; margin-top: -48px; padding-bottom: 6px;
+    background: linear-gradient(transparent, var(--panel) 62%); }
+  #nav .railpill { display: inline-flex; align-items: center; gap: .3rem; padding: 3px 9px 3px 7px; border-radius: 999px;
+    background: color-mix(in srgb, var(--panel) 75%, var(--bg)); border: 1px solid var(--line); color: var(--dim);
+    box-shadow: 0 2px 8px rgb(0 0 0 / .18); transition: border-color .15s, color .15s; }
+  #nav .railpill .ico { width: 11px; height: 11px; animation: railnudge 1.6s ease-in-out infinite; }
+  body:not(.railwide) #nav .railpill { padding: 3px 5px; }
+  #nav .railfade.bottom:hover .railpill { border-color: var(--accent); color: var(--accent); }
+}
+/* Narrow, each starred folder is a little folder with its initials: a tab on top says "folder". */
+@media (min-width: 900px) {
+  body:not(.railwide) #railfavs .railinit { position: relative; border-radius: 2px 5px 5px 5px; margin-top: 3px; }
+  body:not(.railwide) #railfavs .railinit::before { content: ''; position: absolute; left: 0; top: -3px; width: 11px; height: 4px;
+    border-radius: 2px 3px 0 0; background: inherit; }
+  #railfavs .railhead .ico { color: var(--accent); }
+}
+/* Unstar from the rail: a ✕ on hover, wide; right-click works at either width. */
+#railfavs .railunstar, #drawerfavs .railunstar { display: none; }
+@media (min-width: 900px) {
+  body.railwide #railfavs .railfav { position: relative; }
+  body.railwide #railfavs .railunstar { display: grid; place-items: center; margin-left: auto; width: 20px; height: 20px; border-radius: 6px;
+    color: var(--dim); opacity: 0; transition: opacity .12s; flex: none; }
+  body.railwide #railfavs .railfav:hover .railunstar, body.railwide #railfavs .railfav:focus-visible .railunstar { opacity: 1; }
+  body.railwide #railfavs .railunstar:hover { color: var(--st-critical); background: color-mix(in srgb, var(--st-critical) 12%, transparent); }
+  body.railwide #railfavs .railunstar .ico { width: 11px; height: 11px; }
+}
+#drawerfavs .railunstar { display: grid; place-items: center; margin-left: auto; width: 32px; height: 32px; color: var(--dim); }
+#drawerfavs .railunstar .ico { width: 14px; height: 14px; }

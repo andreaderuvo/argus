@@ -6,11 +6,11 @@ import { ask, askPrompt, confirmBox, toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { BATONS, GROUND, LOOSE, PAIR_BATONS, SITUATIONAL, batonGroups, batonTemplates, bridgePath, deskSetName, fillBaton, groundVars, groupName, messagesChanged, pairEvery, pairLimit, pairTries, planPath, promptName, saidAs, unknownVars, varSetNamed, varSets, whyEmpty } from '/js/handover.js';
 import { icon } from '/js/icons.js';
-import { bidi, colorFor, deskHome, getJSON, postJSON, serverInfo, setTitle } from '/js/reconnect.js';
+import { bidi, colorFor, deskHome, getJSON, postJSON, serverInfo, setTitle, toggleFavourite } from '/js/reconnect.js';
 import { go, parseRoute } from '/js/router.js';
 import { fileBrowser } from '/js/screens.js';
 import { aboutThisArgus } from '/js/shortcuts.js';
-import { SIDE_PATH_KEY, assignSidePath, bar, hamburger, moreBtn, prefs, railDesks, railToggle, railWins, side, sidePath, sideToggle, token, view } from '/js/state.js';
+import { SIDE_PATH_KEY, assignSidePath, bar, favs, hamburger, moreBtn, prefs, railDesks, railFavs, railToggle, railWins, side, sidePath, sideToggle, token, view } from '/js/state.js';
 import { redressTerminals } from '/js/theme.js';
 import { currentSpace, openWindow, runs, specId } from '/js/tray.js';
 import { VIEWERS, editor } from '/js/viewers.js';
@@ -1030,7 +1030,51 @@ function railLabel(spec) {
  *  **Clicking brings it back.** Parking is a place to leave something, not a mode it lives in.
  *  A desk you use but cannot see in the strip is a desk you spend time looking for.
  */
+/** The favourite folders, as a section of the rail (and of the phone's drawer).
+ *
+ *  Asked for as "a new section in the sidebar" (2026-10-10): the stars lived only in the file
+ *  browsers' strips, so a folder pinned in Files was a click away only from inside Files. Here
+ *  every list's favourites, once each, from anywhere: a click opens the folder in Files, a file
+ *  in its viewer. Narrow, the folder glyph says enough; wide, its name.
+ */
+export function paintRailFavs() {
+  const seen = new Set();
+  const all = Object.values(favs || {}).flat().filter((f) => f?.path && !seen.has(f.path) && seen.add(f.path));
+  const open = (f) => (f.missing ? toast(t('this one is gone'), true)
+    : go(f.type === 'directory' || !f.type ? `#/files?path=${encodeURIComponent(f.path)}` : `#/preview?path=${encodeURIComponent(f.path)}`));
+  // Unstarred from here too: from every list it is in, since here they are shown as one.
+  const unstar = async (f) => {
+    for (const [group, list] of Object.entries(favs || {})) {
+      if ((list || []).some((x) => x.path === f.path)) await toggleFavourite(f.path, group);
+    }
+  };
+  const item = (f) => el('button', {
+    className: `railwin railfav${f.missing ? ' missing' : ''}`, type: 'button', title: f.path, onclick: (e) => {
+      if (e.target.closest('.railunstar')) { e.stopPropagation(); unstar(f); return; }
+      open(f);
+    },
+    oncontextmenu: (e) => { e.preventDefault(); unstar(f); },
+  }, [icon(f.type === 'directory' || !f.type ? 'folder' : 'file'),
+    // Narrow, three folder glyphs are three of the same: the name's first letters tell them apart.
+    el('span', { className: 'railinit', textContent: (f.name || '?').replace(/[^\p{L}\p{N}]/gu, '').slice(0, 2) || '?' }),
+    el('span', { className: 'railname', textContent: f.name }),
+    el('span', { className: 'railunstar', title: t('Remove the star (or right-click)'), role: 'button', 'aria-label': t('Remove the star') }, icon('close'))]);
+  if (railFavs) {
+    // Called what they are — folders, starred — rather than "favourites", which said nothing of what is in the list.
+    railFavs.replaceChildren(...(all.length ? [el('div', { className: 'railhead', title: t('Starred folders') }, [icon('folder'), el('span', { className: 'railname', textContent: t('Folders') })])] : []),
+      ...all.map(item));
+    railFavs.hidden = !all.length || !token;
+  }
+  const drawer = document.getElementById('drawerfavs');
+  if (drawer) {
+    drawer.replaceChildren(...(all.length ? [el('div', { className: 'drawerhead', textContent: t('Starred folders') })] : []),
+      ...all.map((f) => { const b = item(f); b.onclick = (e) => { if (e.target.closest('.railunstar')) { e.stopPropagation(); unstar(f); return; } openDrawer(false); open(f); }; return b; }));
+    drawer.hidden = !all.length || !token;
+  }
+}
+
 export function paintRailDesks() {
+  paintRailFavs();
   if (!railDesks) return;
   const away = (prefs.workspaces || []).filter((w) => w.hidden);
   railDesks.replaceChildren();
@@ -1123,7 +1167,45 @@ export function paintRailWindows() {
 
 /** Wide rail or narrow. Remembered, because it is a preference about your screen rather
  *  than about what you are doing, and re-choosing it every visit would be a tax. */
+/** A rail longer than the screen says so without a scrollbar: a fade at each end that has more
+ *  beyond it, and at the bottom a chevron — with how many entries are below, when the rail is
+ *  wide — that scrolls a page on a click. Asked for as "a scrollbar that does not get in the way
+ *  but tells you there is more" (2026-10-10). */
+export function paintRailFades() {
+  const nav = document.getElementById('nav');
+  if (!nav) return;
+  const top = nav.querySelector('.railfade.top');
+  const bottom = nav.querySelector('.railfade.bottom');
+  const above = nav.scrollTop > 2;
+  const below = nav.scrollTop + nav.clientHeight < nav.scrollHeight - 2;
+  nav.classList.toggle('more-above', above);
+  nav.classList.toggle('more-below', below);
+  if (top) top.hidden = !above;
+  // Held right against the file-panel toggle, whatever its height: a gap there showed a row through it.
+  nav.style.setProperty('--sideh', `${document.getElementById('sidetoggle')?.offsetHeight || 0}px`);
+  if (bottom) {
+    bottom.hidden = !below;
+    const edge = nav.getBoundingClientRect().bottom - (document.getElementById('sidetoggle')?.offsetHeight || 0);
+    const hidden = [...nav.querySelectorAll('a[data-tab], .railwin')].filter((n) => n.getClientRects().length && n.getBoundingClientRect().top >= edge).length;
+    const more = bottom.querySelector('.railmore');
+    if (more) more.textContent = hidden ? t('{n} more', { n: hidden }) : '';
+  }
+}
+
+let fadesWatched = false;
+function watchRailFades() {
+  const nav = document.getElementById('nav');
+  if (!nav || fadesWatched) return;
+  fadesWatched = true;
+  nav.addEventListener('scroll', paintRailFades, { passive: true });
+  addEventListener('resize', paintRailFades, { passive: true });
+  new MutationObserver(() => requestAnimationFrame(paintRailFades)).observe(nav, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden'] });
+  nav.querySelector('.railfade.bottom')?.addEventListener('click', () => nav.scrollBy({ top: nav.clientHeight * 0.75, behavior: 'smooth' }));
+  paintRailFades();
+}
+
 export function applyRail() {
+  watchRailFades();
   document.body.classList.toggle('railwide', !!prefs.railWide);
   const wide = !!prefs.railWide;
   // The label names the thing, the tooltip names the action. "Collapse" as a label described
@@ -1268,6 +1350,8 @@ function buildDrawer() {
   // No Settings row: the sliders are two icons away in the header, on every screen, and a
   // menu that repeats the header is a menu with one more thing to read.
   // The desks you put away, filled by paintRailDesks: on a phone this is the only place they are.
+  // The favourite folders, filled by paintRailFavs: on a phone the drawer is where they are.
+  panel.append(el('div', { id: 'drawerfavs', hidden: true }));
   panel.append(el('div', { id: 'drawerdesks', hidden: true }));
 
   const veil = el('div', { id: 'drawerveil', onclick: () => openDrawer(false) });

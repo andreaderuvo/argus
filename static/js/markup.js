@@ -44,6 +44,7 @@ export function translateMarkup() {
   name(bar.settings, t('Settings'));
   name(railToggle, t('Wider or narrower'), null);
   name(sideToggle, t('Toggle the file sidebar'), t('File sidebar'));
+  name(document.querySelector('#nav .railfade.bottom'), t('More below'));
   if (moreBtn) {
     name(moreBtn, t('More'), null);
     const word = [...moreBtn.childNodes].find((n) => n.nodeType === 3 && n.textContent.trim());

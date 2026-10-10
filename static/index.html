@@ -69,6 +69,9 @@
 
 <nav id="nav" hidden>
   <button id="railtoggle" class="icon" aria-label="Wider or narrower"><span data-icon="menu"></span><span class="railname"></span></button>
+  <!-- A fade over what has scrolled out of sight, at each end of a rail longer than the screen —
+       instead of a scrollbar (paintRailFades). -->
+  <div class="railfade top" aria-hidden="true"></div>
   <a href="#/files" data-tab="files"><span data-icon="folder"></span>Files</a>
   <a href="#/sessions" data-tab="sessions"><span data-icon="terminal"></span>Sessions</a>
   <a href="#/wall" data-tab="wall"><span data-icon="grid"></span>Windows</a>
@@ -85,6 +88,9 @@
   <!-- The rest of the destinations, on a phone. Four fit across the bottom with room for a
        badge; the other three live behind this and open as a drawer. -->
   <button id="more" class="icon" aria-label="More"><span data-icon="more"></span>More</button>
+  <!-- Favourite folders: places you go, so right after the destinations, and visible wherever
+       you are. Filled by the script (paintRailFavs); on a phone they are in the drawer. -->
+  <div id="railfavs" hidden></div>
   <!-- Desks put away. Between the destinations and the windows because that is what they
        are between: a parked desk is somewhere you go, and it is not somewhere the app goes.
        Unlike the windows below, these stay visible wherever you are — the reason to glance
@@ -96,6 +102,7 @@
   <!-- The file panel is a layout switch, not a destination, so it sits at the far end of
        the rail rather than among the places you can go. It was in the header, which had
        eight buttons in it and no room for opinions. -->
+  <button class="railfade bottom" type="button" aria-label="More below" tabindex="-1"><span class="railpill"><span data-icon="down"></span><span class="railmore"></span></span></button>
   <button id="sidetoggle" class="icon" aria-label="Toggle the file sidebar" title="File sidebar"><span data-icon="sidebar"></span><span class="railname"></span></button>
 </nav>
 

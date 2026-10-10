@@ -6,6 +6,7 @@ import { el } from '/js/dom.js';
 import { allVars, fillBaton } from '/js/handover.js';
 import { render } from '/js/router.js';
 import { refreshAllBrowsers } from '/js/screens.js';
+import { paintRailFavs } from '/js/sidebar.js';
 import { KEY, WIN_COLORS, bar, favs, prefs, server, setFavs, setFavsLoaded, setServer, setToken, side, token } from '/js/state.js';
 import { activeLang, t } from '/js/words.js';
 // </imports>
@@ -226,6 +227,7 @@ export async function serverInfo() {
 export async function loadFavourites() {
   try { setFavs(await getJSON('/api/favourites')); } catch { setFavs({}); }
   setFavsLoaded(true);   // an empty list is an answer, not a reason to keep asking
+  paintRailFavs();
 }
 
 // The sidebar, the panes and a window are three different tools; each keeps its own
@@ -237,6 +239,7 @@ export async function toggleFavourite(path, group) {
   try {
     const r = await postJSON('/api/favourites', { path, group });
     setFavs(r.favourites);
+    paintRailFavs();
     toast(r.pinned ? t('pinned in {group}', { group: r.group }) : t('unpinned from {group}', { group: r.group }));
     refreshAllBrowsers();
   } catch (e) { toast(e.message, true); }

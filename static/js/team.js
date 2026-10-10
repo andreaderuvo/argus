@@ -82,6 +82,7 @@ export async function teamSheet({ wsId, home, onStarted }) {
   const gate = el('div', { className: 'startradio teamgate', role: 'radiogroup' });
   const rounds = el('input', { type: 'number', min: 1, max: 30, value: 10, className: 'teamrounds' });
   // How the desk lays the team's windows out as its agents arrive: side by side, not stacked.
+  const ringTurns = el('input', { type: 'checkbox', checked: false });
   const layout = el('select', { className: 'setpick' }, [
     el('option', { value: 'grid', textContent: t('as a grid'), selected: true }),
     el('option', { value: 'cols', textContent: t('in columns') }),
@@ -707,6 +708,10 @@ export async function teamSheet({ wsId, home, onStarted }) {
     el('label', { className: 'startlabel', textContent: t('how much it goes on alone') }), gate,
     el('div', { className: 'startopt inline' }, [el('span', { className: 'startoptname', textContent: t('At most, rounds') }), rounds]),
     el('div', { className: 'startopt inline' }, [el('span', { className: 'startoptname', textContent: t('Arrange the desk') }), layout]),
+    // Its agents' turns ending is the director's business: off by default, a team that runs alone
+    // rang (and lit "Got it, all") at every turn of every agent. A permission still rings.
+    el('label', { className: 'startopt inline teamquiet' }, [ringTurns, el('span', { className: 'startoptname', textContent: t('Ring me when each agent ends its turn') }),
+      el('span', { className: 'hint', textContent: t('off: only when the team needs you, or an agent asks for a permission') })]),
     el('label', { className: 'startlabel', textContent: t('the team as a file') }),
     el('span', { className: 'teampackbtns' }, [saveYaml, examples, importPack, removePack, exportPack, picker]),
   ]);
@@ -762,6 +767,7 @@ export async function teamSheet({ wsId, home, onStarted }) {
         path: where.value.trim(), agents: agentSpec, check: check.value.trim() || null,
         gate: gate.querySelector('input:checked')?.value || 'ask', max_rounds: Number(rounds.value) || 10, ws: wsId,
         ...(layout.value ? { layout: layout.value } : {}),
+        quiet_agents: !ringTurns.checked,
         // The team file it came from, read again by Restart.
         ...(chosen?.startsWith('file:') && fileTeam?.file ? { file: fileTeam.file } : {}),
       });

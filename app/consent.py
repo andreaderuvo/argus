@@ -193,6 +193,8 @@ def _team_plan(app, args: dict) -> dict:
             "check": args.get("check") or None, "gate": gate,
             "max_rounds": int(args.get("rounds") or extra.get("rounds") or 10),
             **({"layout": layout} if layout != "none" else {}),
+            # Quiet unless asked: its agents' turns ending ring nothing (bells.quiet_team).
+            "quiet_agents": not bool(args.get("ring_turns")),
             # The team file it came from, so Restart reads it again — as when started from the sheet.
             **({"file": extra["file"]} if extra.get("file") else {})}
     text = (f"start the team {name} in {folder}" + (f", in the desk {desk}" if desk else "")

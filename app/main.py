@@ -316,6 +316,7 @@ def agent_changed(app: FastAPI, session: str, was: str | None, now: str, agent: 
         bells.turn_began(request, session)
     elif (now == "waiting" and was == "working" and session not in app.state.agents.told
           and agent not in app.state.hooked_agents
+          and not bells.quiet_team(app, session)
           and bells.repeat_of(request, "asking", session, "watch") is None):
         # Only for an agent with no hooks: one that has them says when it stops, in words, and
         # the pane going quiet is a much worse witness of the same thing (a long command's
@@ -619,8 +620,17 @@ def create_app(cfg: Config) -> FastAPI:
         # The plugin each session said it runs, and whether that is older than the one offered:
         # an updated plugin reaches a running session only when it reloads (Claude) or restarts.
         offered = pluginstate.repo_version()
-        seen = bells.store(request).get("plugins", {})
+        kept = bells.store(request)
+        seen = kept.get("plugins", {})
         for name, st in states.items():
+            # An agent of a quiet team waiting between turns is not waiting for you: counted as
+            # seen, so neither the amber nor "Got it, all" asks about it — unless it rang for a
+            # permission, which is still open.
+            team = bells.quiet_team(request.app, name)
+            if team:
+                st["team"] = team
+                if st.get("state") == "waiting" and name not in kept.get("open", {}):
+                    st["seen"] = True
             if seen.get(name):
                 st["plugin"] = seen[name]
                 st["plugin_old"] = pluginstate.older(seen[name], offered)
@@ -1122,7 +1132,7 @@ def create_app(cfg: Config) -> FastAPI:
                 sessions[n["id"]] = n["session"]
         try:
             spec = {k: body.get(k) for k in ("name", "template", "path", "agents", "check", "checks", "gate",
-                                              "max_rounds", "ws", "file", "layout") if body.get(k) is not None}
+                                              "max_rounds", "ws", "file", "layout", "quiet_agents") if body.get(k) is not None}
             spec["graph"] = graph
             wanted_id = str(body.get("id") or "")
             if wanted_id and not re.fullmatch(r"[0-9a-f]{8}", wanted_id):

@@ -645,6 +645,14 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   (tests) only that is searched — a first version also searched conda's bin from a test and
   relinked the real ~/miniconda3/bin/argus-say (restored from its backup). The browser harness sets
   ARGUS_OLD_TOOLS=off.
+- **Quiet teams** (`bells.quiet_team`, tests/test_quiet_teams.py). An agent of a live team whose
+  spec does not say `quiet_agents: false` (the sheet's *Ring me when each agent ends its turn*,
+  the request's `ring_turns`) rings nothing at the end of a turn (hook done/asking, the sampler's
+  watch ring) and its wait is `seen` in /api/tmux/states — "Got it, all" lit at every turn of an
+  autonomous team (2026-10-10). A permission (PERMISSION regex on the bell's text) still rings.
+- **The rail** has a *Folders* section (`paintRailFavs`: every favourites list, deduped; drawer on
+  a phone) and scrolls with no scrollbar: `paintRailFades` toggles a top fade and a bottom pill
+  (*↓ N more*, scrolls a page), the bottom one held against #sidetoggle by `--sideh`.
 - **How a verdict moves a team** (`Director._finished`, the audit of 2026-10-07, tests in
   test_teams.py "verdicts the audit found ignored"). A non-judge's turn is `always`, except
   BLOCKED, which anyone may say; BLOCKED follows only `if BLOCKED` arrows, else waits for the
