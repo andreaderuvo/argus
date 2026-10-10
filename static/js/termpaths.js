@@ -8,6 +8,7 @@ import { el, enc } from '/js/dom.js';
 import { dropOnSession, takesDrops } from '/js/filerows.js';
 import { allVars, fillBaton, mark, markRe, situationOf, typeInto, valueFor } from '/js/handover.js';
 import { icon } from '/js/icons.js';
+import { fixPhoneKeyboards } from '/js/imefix.js';
 import { pointAt } from '/js/pointing.js';
 import { deskHome, getJSON, openFileRaw, postJSON, setTitle, withToken } from '/js/reconnect.js';
 import { go } from '/js/router.js';
@@ -780,6 +781,9 @@ export function attachTerminal(container, name, { transform, onGone, onBack, onP
    *  a paste, a key held down — goes through untouched.
    */
   const textarea = container.querySelector('.xterm-helper-textarea');
+  // A phone keyboard's accents, corrections and deletions, sent as the edits they are (imefix.js):
+  // xterm 6 resent whole lines for them.
+  fixPhoneKeyboards(term);
   // xterm turns off autocorrect and autocapitalize but leaves this one, and some
   // keyboards read it as permission to suggest.
   textarea?.setAttribute('autocomplete', 'off');

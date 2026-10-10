@@ -168,6 +168,16 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   word entirely. Reproducible with CDP: `Input.imeSetComposition` then two
   `Input.insertText` gives `["listeria","listeria"]` without the guard and `["listeria"]`
   with it, while ordinary keystrokes stay `["l","s"]`.
+- **A phone keyboard's edits are sent as edits** (`static/js/imefix.js`, tests/browser/
+  test_phone_keyboard.py). xterm.js 6.0.0 + Chrome on Android (xtermjs#3600): keys arrive as 229
+  and xterm diffs its hidden textarea with `after.replace(before, '')` — so e→è resent the WHOLE
+  textarea, an autocorrection the whole line, a keyboard-made deletion was lost, a word composed
+  again was sent on top ("an accent and the terminal copies words at random", 2026-10-10).
+  `fixPhoneKeyboards(term)` replaces `_handleAnyTextareaChanges`, wraps `compositionstart` /
+  `_finalizeComposition(true)` and listens for delete input events: each becomes DEL per removed
+  code point + the inserted text, once. Reached by name and checked first: a later xterm without
+  those internals keeps its own behaviour. Tests replay Android's event sequences into a pane
+  whose program records the raw bytes.
 - **"Back to the live end" talks to tmux, not to xterm.** Scrolling here never scrolls the
   browser: tmux owns the scrollback, so a wheel over the pane puts *tmux* into copy-mode
   and `term.buffer` never moves — which is why a first attempt built on `viewportY` and
