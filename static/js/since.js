@@ -471,7 +471,8 @@ export async function screenSettings() {
       team_pause: t('Pause a team'), team_stop: t('Stop a team (and end its sessions, if asked)'),
       kill_session: t('End a session'), rename_session: t('Rename a session'), close_desk: t('Close a desk (its windows; sessions stay)'),
       start_agent: t('Start an agent with no questions at all'), remove_worktree: t('Remove a git worktree'),
-      todo_delete: t('Delete a to-do'),
+      todo_delete: t('Delete a to-do'), update_plugin: t('Install or update the Argus plugin in an agent'),
+      reload_plugins: t('Reload the plugin in the sessions waiting at their prompt'),
     };
     getJSON('/api/agent/actions').then((said) => {
       const free = new Set(prefs.agentsWithoutAsking || []);
@@ -481,7 +482,7 @@ export async function screenSettings() {
           el('span', { className: 'askfreewarn', textContent: t('The risky ones delete files, end work or let agents loose — tick them only if you mean it.') }),
         ]),
         ...said.actions.map((a) => {
-          const input = el('input', { type: 'checkbox', checked: free.has(a.action) });
+          const input = el('input', { type: 'checkbox', checked: a.always || free.has(a.action), disabled: !!a.always });
           input.onchange = () => {
             const now = new Set(prefs.agentsWithoutAsking || []);
             if (input.checked) now.add(a.action); else now.delete(a.action);
@@ -493,7 +494,8 @@ export async function screenSettings() {
             input,
             el('span', { className: 'grow' }, [
               el('span', { className: 'name', textContent: WORDS[a.action] || a.action }),
-            ]),
+              a.always ? el('span', { className: 'meta', textContent: t('always: it changes nothing but which plugin they run') }) : null,
+            ].filter(Boolean)),
             a.danger ? el('span', { className: 'askfreerisk', textContent: t('risky'),
               title: t('deletes files, ends work or lets agents loose — tick it only if you mean it') }) : null,
           ].filter(Boolean));

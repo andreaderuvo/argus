@@ -9,7 +9,7 @@ import { icon } from '/js/icons.js';
 import { bidi, colorFor, deskHome, getJSON, postJSON, serverInfo, setTitle, toggleFavourite } from '/js/reconnect.js';
 import { go, parseRoute } from '/js/router.js';
 import { fileBrowser } from '/js/screens.js';
-import { aboutThisArgus } from '/js/shortcuts.js';
+import { aboutThisArgus, pluginUpdateDialog } from '/js/shortcuts.js';
 import { SIDE_PATH_KEY, assignSidePath, bar, favs, hamburger, moreBtn, prefs, railDesks, railFavs, railToggle, railWins, side, sidePath, sideToggle, token, view } from '/js/state.js';
 import { redressTerminals } from '/js/theme.js';
 import { currentSpace, openWindow, runs, specId } from '/js/tray.js';
@@ -934,16 +934,11 @@ export async function sayIfNewer() {
 
 /** An agent whose Argus plugin is older than the one this copy offers: said once per version, and
  *  pressing it goes to the row in Settings that updates it. */
+let pluginAsked = 0;
 export async function sayIfPluginOld() {
-  if (!token) return;
-  let info;
-  try { info = await getJSON('/api/plugin'); } catch { return; }
-  const old = (info?.agents || []).filter((a) => a.outdated);
-  if (!old.length || prefs.sawPlugin === info.version) return;
-  prefs.sawPlugin = info.version;
-  savePrefs();
-  toast(t('Argus plugin {version} is out — {names} still have the older one. Update in Settings.',
-    { version: info.version, names: old.map((a) => a.name).join(', ') }), false, () => go('#/settings'), 9000);
+  if (!token || Date.now() - pluginAsked < 600_000) return;
+  pluginAsked = Date.now();
+  pluginUpdateDialog();
 }
 
 /** The version, at the bottom of the settings, where you go to look for it. */

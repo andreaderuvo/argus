@@ -822,7 +822,8 @@ def create_app(cfg: Config) -> FastAPI:
         each put to the person as Do it / No, unless they let it through (Settings → Agents, or
         `agents_without_asking`). `danger`: deletes files, ends work or lets agents loose."""
         free = consent.without_asking(request.app)
-        return {"actions": [{"action": k, "what": v, "asks": k not in free, "danger": k in consent.DANGEROUS}
+        return {"actions": [{"action": k, "what": v, "asks": k not in free, "danger": k in consent.DANGEROUS,
+                             "always": k in consent.ALWAYS_FREE}
                             for k, v in consent.ACTIONS.items()]}
 
     @app.post("/api/agent/request", tags=["Agents"], summary="Ask the person to have something done, and do it on their OK")

@@ -326,6 +326,74 @@ export function pluginBehind(info, after, { reload = true } = {}) {
   return box;
 }
 
+/** Install or Update for one agent, or null when it already has the plugin offered. `after`
+ *  runs once it is done, to redraw whatever holds the button. */
+export function pluginButton(a, after) {
+  if (a.installed && !a.outdated) return null;
+  const label = () => (a.installed ? t('Update') : t('Install'));
+  const b = el('button', { className: 'ghost inline', type: 'button', textContent: label() });
+  b.onclick = async () => {
+    b.disabled = true;
+    b.textContent = '…';
+    try {
+      await postJSON('/api/plugin', { agent: a.agent, action: a.installed ? 'update' : 'install' });
+      toast(t('the Argus plugin is in {name} — sessions take it when they reload or start', { name: a.name }));
+      after?.();
+    } catch (e) { toast(e.message, true); b.disabled = false; b.textContent = label(); }
+  };
+  return b;
+}
+
+/** Said once per plugin version, when an agent here has an older one: what is behind, a button
+ *  per agent, and then — in the same dialog — the open sessions to reload. A toast used to say
+ *  "update in Settings", and was gone before anybody reached Settings. Later remembers the
+ *  version, so the next release asks again and this one does not. */
+export async function pluginUpdateDialog({ force = false } = {}) {
+  if (document.querySelector('dialog.pluginupdate[open]')) return;
+  let info;
+  try { info = await getJSON('/api/plugin'); } catch { return; }
+  const old = (info?.agents || []).filter((a) => a.outdated);
+  if (!force && (!old.length || prefs.sawPlugin === info.version)) return;
+  const body = el('div', { className: 'sheetbody aboutargus-body pluginupdate-body' });
+  const later = el('button', { className: 'ghost', type: 'button', textContent: t('Later') });
+  const all = el('button', { className: 'primary inline', type: 'button' });
+  const sheet = modal(t('Argus plugin {version} is out', { version: info.version }), body, [later, all]);
+  sheet.classList.add('aboutargus', 'pluginupdate');
+  const seen = () => { prefs.sawPlugin = info.version; savePrefs(); };
+  later.onclick = () => { seen(); sheet.close(); };
+  sheet.addEventListener('close', seen);
+  const paint = async () => {
+    try { info = await getJSON('/api/plugin'); } catch { /* the last answer will do */ }
+    const left = (info?.agents || []).filter((a) => a.outdated);
+    const rows = (info?.agents || []).filter((a) => a.outdated || (a.installed && old.some((o) => o.agent === a.agent))).map((a) =>
+      el('div', { className: 'aboutrow' }, [
+        el('span', { className: 'meta', textContent: t('The Argus plugin in {name}', { name: a.name }) }),
+        el('span', { className: `aboutval${a.outdated ? ' warn' : ''}` }, [
+          el('span', { textContent: a.outdated ? t('{have} — {offered} is out', { have: a.installed, offered: info.version }) : `${a.installed} ✓` }),
+          // One agent behind: the dialog's own Update is that button; a second beside it says nothing more.
+          left.length > 1 ? pluginButton(a, paint) : null,
+        ].filter(Boolean))]));
+    const behind = pluginBehind(info, paint);
+    body.replaceChildren(
+      el('p', { className: 'hint', textContent: left.length
+        ? t('Its hooks, tools and skills are what let agents ring you, ask, and run a team. Updating takes a few seconds; nothing running stops.')
+        : t('Updated. A session already open keeps the plugin it started with until it reloads.') }),
+      ...rows, ...(behind ? [behind] : []));
+    later.hidden = !left.length;
+    all.textContent = left.length > 1 ? t('Update all') : left.length ? t('Update') : t('Done');
+    all.onclick = left.length ? async () => {
+      all.disabled = true;
+      all.textContent = '…';
+      for (const a of left) {
+        try { await postJSON('/api/plugin', { agent: a.agent, action: 'update' }); } catch (e) { toast(e.message, true); }
+      }
+      all.disabled = false;
+      paint();
+    } : () => sheet.close();
+  };
+  await paint();
+}
+
 export async function aboutThisArgus() {
   if (document.querySelector('dialog.aboutargus[open]')) return;
   const body = el('div', { className: 'sheetbody aboutargus-body' }, [el('p', { className: 'hint', textContent: '…' })]);
@@ -339,23 +407,9 @@ export async function aboutThisArgus() {
     el('span', { className: 'meta', textContent: label }),
     el('span', { className: `aboutval${warn ? ' warn' : ''}` }, [el('span', { textContent: value }), action].filter(Boolean))]);
   // Install or update right here: "go to Settings" sent people looking for a row among forty.
-  const act = (a) => {
-    if (a.installed && !a.outdated) return null;
-    const b = el('button', { className: 'ghost inline', type: 'button', textContent: a.installed ? t('Update') : t('Install') });
-    b.onclick = async () => {
-      b.disabled = true;
-      b.textContent = '…';
-      try {
-        await postJSON('/api/plugin', { agent: a.agent, action: a.installed ? 'update' : 'install' });
-        toast(t('the Argus plugin is in {name} — sessions take it when they reload or start', { name: a.name }));
-        // Redrawn in place, not closed: what is left to do — the open sessions still on the old
-        // plugin, and the reload for them — is said right here.
-        sheet.close();
-        aboutThisArgus();
-      } catch (e) { toast(e.message, true); b.disabled = false; b.textContent = a.installed ? t('Update') : t('Install'); }
-    };
-    return b;
-  };
+  // Redrawn in place, not closed: what is left to do — the open sessions still on the old
+  // plugin, and the reload for them — is said right here.
+  const act = (a) => pluginButton(a, () => { sheet.close(); aboutThisArgus(); });
   const b = v?.build;
   const rows = [
     row(t('Version'), v?.running || '—'),

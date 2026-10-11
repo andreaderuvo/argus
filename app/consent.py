@@ -52,7 +52,13 @@ ACTIONS = {
     "start_agent": "start an agent with options its key may not choose (everything, no questions)",
     "remove_worktree": "remove a git worktree",
     "todo_delete": "take a to-do off the list",
+    "update_plugin": "install or update the Argus plugin in an agent (claude, codex)",
+    "reload_plugins": "reload the Argus plugin in the Claude sessions waiting at their prompt",
 }
+
+# Done at once, always: typing /reload-plugins into a Claude at its prompt changes nothing but
+# which plugin it runs — the one already installed. Shown ticked, and not to be unticked.
+ALWAYS_FREE = {"reload_plugins"}
 
 
 def without_asking(app) -> set[str]:
@@ -61,7 +67,7 @@ def without_asking(app) -> set[str]:
     Honoured for every action, the dangerous ones too — the person ticked them, with the warning
     in front of them. Reported: "rilancia il team", and half an hour later the Do it was still
     waiting."""
-    out = set(app.state.cfg.agents_without_asking or [])
+    out = set(app.state.cfg.agents_without_asking or []) | ALWAYS_FREE
     store_ = getattr(app.state, "prefs", None)
     if store_:
         try:
@@ -241,6 +247,24 @@ def plan(app, action: str, args: dict) -> dict:
         return {"calls": [("POST", f"/api/teams/{team['id']}/{verb}", {"kill": True} if kill else {})],
                 "text": {"go": "continue", "pause": "pause", "stop": "stop"}[verb] + f" the team {team['name']}"
                         + (" and end its sessions, with what runs in them" if kill else "")}
+    if action == "update_plugin":
+        agent = str(args.get("agent") or "").strip().lower()
+        if agent not in ("claude", "codex"):
+            raise ValueError("say which agent (`agent`: claude or codex)")
+        from pathlib import Path as _P
+        from . import pluginstate
+        got = next((a for a in pluginstate.state(_P.home(), {})["agents"] if a["agent"] == agent), {})
+        offered = pluginstate.repo_version()
+        if got.get("installed") and not got.get("outdated"):
+            raise ValueError(f"the Argus plugin in {got.get('name', agent)} is already {got['installed']}, the latest")
+        verb = "update" if got.get("installed") else "install"
+        return {"calls": [("POST", "/api/plugin", {"agent": agent, "action": verb})],
+                "text": f"{verb} the Argus plugin in {got.get('name', agent)}"
+                        + (f" ({got['installed']} → {offered})" if got.get("installed") else f" ({offered})")
+                        + " — its hooks, tools and skills; open sessions take it when they reload"}
+    if action == "reload_plugins":
+        return {"calls": [("POST", "/api/plugin/reload", {})],
+                "text": "reload the Argus plugin in the Claude sessions waiting at their prompt"}
     if action == "close_desk":
         name = " ".join(str(args.get("desk") or "").split())
         if not name:

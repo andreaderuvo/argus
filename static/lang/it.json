@@ -1399,6 +1399,13 @@
   "Remove the star (or right-click)": "Togli la stella (o clic destro)",
   "Remove the star": "Togli la stella",
   "Close a desk (its windows; sessions stay)": "Chiudere un desk (le finestre; le sessioni restano)",
-  "the desk {desk} was closed — its sessions keep running": "il desk {desk} è stato chiuso — le sue sessioni continuano"
+  "the desk {desk} was closed — its sessions keep running": "il desk {desk} è stato chiuso — le sue sessioni continuano",
+  "Install or update the Argus plugin in an agent": "Installare o aggiornare il plugin Argus in un agente",
+  "Reload the plugin in the sessions waiting at their prompt": "Ricaricare il plugin nelle sessioni ferme al prompt",
+  "always: it changes nothing but which plugin they run": "sempre: cambia solo quale plugin usano",
+  "Argus plugin {version} is out": "Il plugin Argus {version} è uscito",
+  "Its hooks, tools and skills are what let agents ring you, ask, and run a team. Updating takes a few seconds; nothing running stops.": "I suoi hook, strumenti e skill sono ciò che permette agli agenti di avvisarti, chiederti cose e lavorare in team. L'aggiornamento richiede pochi secondi; niente di ciò che è in esecuzione si ferma.",
+  "Updated. A session already open keeps the plugin it started with until it reloads.": "Aggiornato. Una sessione già aperta tiene il plugin con cui è partita finché non lo ricarica.",
+  "Update all": "Aggiorna tutti"
  }
 }

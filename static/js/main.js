@@ -13,7 +13,7 @@ import { offerRealBrowser, offerTheAddress } from '/js/inapp.js';
 import { translateMarkup } from '/js/markup.js';
 import { getJSON, loadFavourites, recallToken, rememberToken, serverInfo } from '/js/reconnect.js';
 import { render } from '/js/router.js';
-import { applyBottomBar, applyKeyBar, applyRail, applySidebar } from '/js/sidebar.js';
+import { applyBottomBar, applyKeyBar, applyRail, applySidebar, sayIfPluginOld } from '/js/sidebar.js';
 import { token } from '/js/state.js';
 import { teamgraphWords } from '/js/teamgraph.js';
 import { applyName, applyTheme } from '/js/theme.js';
@@ -92,7 +92,7 @@ for (const node of document.querySelectorAll('[data-icon]')) node.replaceChildre
 
 setInterval(() => { if (!document.hidden) { countSessions(); countTodo(); } }, SESSION_COUNT_EVERY);
 setInterval(() => { if (!document.hidden) readAgentStates(); }, AGENT_STATES_EVERY);
-document.addEventListener('visibilitychange', () => { if (!document.hidden) { countSessions(); countTodo(); readAgentStates(); } });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { countSessions(); countTodo(); readAgentStates(); sayIfPluginOld(); } });
 
 
 
@@ -130,5 +130,8 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) { co
   // and it is a no-op wherever `server` is already known by the time this resolves.
   if (token) serverInfo().then(markDrops).catch(() => {});
   if (token) watchVitals();
+  // After the first paint and the bells: a dialog over a page still drawing is one you close
+  // without reading. Asked again on coming back to the tab, at most every ten minutes.
+  if (token) setTimeout(sayIfPluginOld, 1500);
   if (!offerRealBrowser()) offerTheAddress();
 })();

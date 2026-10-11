@@ -39,7 +39,9 @@ def settle(c, ident, until=("done", "refused", "failed")):
 def test_the_list_of_what_may_be_asked_is_on_the_agent_key(tmp_path):
     with TestClient(make(tmp_path)) as c:
         said = c.get("/api/agent/actions", headers=AGENT).json()["actions"]
-        assert {a["action"] for a in said} == set(consent.ACTIONS) and all(a["asks"] for a in said)
+        assert {a["action"] for a in said} == set(consent.ACTIONS)
+        assert all(a["asks"] != a["always"] for a in said)
+        assert {a["action"] for a in said if a["always"]} == consent.ALWAYS_FREE == {"reload_plugins"}
 
 
 def test_asked_then_done_through_the_apps_own_routes(tmp_path):
@@ -286,3 +288,25 @@ def test_an_agent_may_ask_to_close_a_desk_and_a_page_cannot_bring_it_back(tmp_pa
         assert c.post("/api/desks/close", json={"desk": "Work"}, headers=MASTER).status_code == 409, "the last desk stays"
     with pytest.raises(ValueError, match="no desk called"):
         consent.plan(app, "close_desk", {"desk": "nope"})
+
+
+def test_updating_the_plugin_is_asked_and_reloading_it_never_is(tmp_path, monkeypatch):
+    import json as J
+    from pathlib import Path
+    from app import pluginstate
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    app = make(tmp_path)
+    with pytest.raises(ValueError, match="which agent"):
+        consent.plan(app, "update_plugin", {"agent": "gemini"})
+    plan = consent.plan(app, "update_plugin", {"agent": "claude"})
+    assert plan["calls"] == [("POST", "/api/plugin", {"agent": "claude", "action": "install"})], "none there: install"
+    record = tmp_path / ".claude" / "plugins" / "installed_plugins.json"
+    record.parent.mkdir(parents=True)
+    record.write_text(J.dumps({"plugins": {"argus@argus": [{"version": "0.0.1"}]}}))
+    plan = consent.plan(app, "update_plugin", {"agent": "Claude"})
+    assert plan["calls"][0][2]["action"] == "update" and f"0.0.1 → {pluginstate.repo_version()}" in plan["text"]
+    record.write_text(J.dumps({"plugins": {"argus@argus": [{"version": pluginstate.repo_version()}]}}))
+    with pytest.raises(ValueError, match="already"):
+        consent.plan(app, "update_plugin", {"agent": "claude"})
+    assert consent.plan(app, "reload_plugins", {})["calls"] == [("POST", "/api/plugin/reload", {})]
+    assert "reload_plugins" in consent.without_asking(app) and "update_plugin" not in consent.without_asking(app)

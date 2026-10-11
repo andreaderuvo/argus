@@ -1399,6 +1399,13 @@
   "Remove the star (or right-click)": "Remove the star (or right-click)",
   "Remove the star": "Remove the star",
   "Close a desk (its windows; sessions stay)": "Close a desk (its windows; sessions stay)",
-  "the desk {desk} was closed — its sessions keep running": "the desk {desk} was closed — its sessions keep running"
+  "the desk {desk} was closed — its sessions keep running": "the desk {desk} was closed — its sessions keep running",
+  "Install or update the Argus plugin in an agent": "Install or update the Argus plugin in an agent",
+  "Reload the plugin in the sessions waiting at their prompt": "Reload the plugin in the sessions waiting at their prompt",
+  "always: it changes nothing but which plugin they run": "always: it changes nothing but which plugin they run",
+  "Argus plugin {version} is out": "Argus plugin {version} is out",
+  "Its hooks, tools and skills are what let agents ring you, ask, and run a team. Updating takes a few seconds; nothing running stops.": "Its hooks, tools and skills are what let agents ring you, ask, and run a team. Updating takes a few seconds; nothing running stops.",
+  "Updated. A session already open keeps the plugin it started with until it reloads.": "Updated. A session already open keeps the plugin it started with until it reloads.",
+  "Update all": "Update all"
  }
 }

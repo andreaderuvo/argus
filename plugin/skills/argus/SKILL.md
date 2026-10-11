@@ -47,6 +47,8 @@ phone. You reach it with the Argus tools (or `argus-say` from a shell). Three ki
 | start an agent with no questions at all | `start_agent` | `launcher`, `name`, `folder`, `prompt`, `press_enter`, `options` (`{"permissions": "skip"}` …) |
 | remove a worktree | `remove_worktree` | `path` |
 | delete a to-do | `todo_delete` | `todo` (its number) |
+| install or update the Argus plugin in an agent | `update_plugin` | `agent` (`claude` or `codex`); refused when it is already the latest |
+| reload the plugin in the Claude sessions at their prompt | `reload_plugins` | none — never asked: it only makes them run the plugin already installed |
 
 Each is asked with Do it / No — unless the person ticked it in Settings → Agents: then it is
 done at once and `request` answers `done` straight away (`actions` says which: `asks: false`).

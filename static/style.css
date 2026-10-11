@@ -4323,3 +4323,4 @@ body:not(.railwide) #railfavs .railhead .railname { display: none; }
 }
 #drawerfavs .railunstar { display: grid; place-items: center; margin-left: auto; width: 32px; height: 32px; color: var(--dim); }
 #drawerfavs .railunstar .ico { width: 14px; height: 14px; }
+.pluginupdate-body > .hint { padding-inline: 0; }

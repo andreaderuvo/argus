@@ -158,11 +158,14 @@ TOOLS = [
                     "it; kill to end its sessions), team_reset / team_restart (team — delete what its reset: declares; "
                     "restart also starts it again from round 1), kill_session (session), rename_session (session, to), close_desk (desk — its windows go, sessions stay), "
                     "start_agent (launcher, name, folder, prompt, press_enter, options — e.g. permissions skip), "
-                    "remove_worktree (path), todo_delete (todo). Waits up to two minutes for the outcome; then "
+                    "remove_worktree (path), todo_delete (todo), update_plugin (agent: claude or codex — install or update the "
+                    "Argus plugin there), reload_plugins (no args; never asked — the Claude sessions at their prompt "
+                    "take the plugin installed). Waits up to two minutes for the outcome; then "
                     "request_status.",
      "inputSchema": {"type": "object", "properties": {
          "action": {"type": "string", "enum": ["start_team", "team_go", "team_pause", "team_stop", "team_reset", "team_restart", "close_desk", "kill_session",
-                                                "rename_session", "start_agent", "remove_worktree", "todo_delete"]},
+                                                "rename_session", "start_agent", "remove_worktree", "todo_delete",
+                                                "update_plugin", "reload_plugins"]},
          "args": {"type": "object", "description": "The action's arguments, as listed"},
          "why": {"type": "string", "description": "One line the person reads with the question"}},
          "required": ["action"]}},
