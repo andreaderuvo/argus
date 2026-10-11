@@ -22,6 +22,8 @@ export const ICONS = {
   // three the machine cuts.
   puzzle: 'M4.8 4.8h5.4a1.9 1.9 0 1 1 3.6 0h5.4v5.4a1.9 1.9 0 1 0 0 3.6v5.4H4.8z',
   home: 'M3.5 11 12 4l8.5 7M6 9.6V20h12V9.6',
+  // A branch: a trunk with a commit at its foot, and a second line leaving it for its own.
+  branch: 'M6.5 4v11M8.5 17a2 2 0 1 1-4 0 2 2 0 0 1 4 0M19.5 7a2 2 0 1 1-4 0 2 2 0 0 1 4 0M17.5 9c0 4.5-5 4-10.2 6.6',
   folderPlus: 'M3.5 6.8A1.8 1.8 0 0 1 5.3 5h3.4l1.8 2h8.2a1.8 1.8 0 0 1 1.8 1.8v8.4a1.8 1.8 0 0 1-1.8 1.8H5.3a1.8 1.8 0 0 1-1.8-1.8zM12 10.8v4.8M9.6 13.2h4.8',
   upload: 'M12 16.5v-12M7 9.5 12 4.5l5 5M4.5 19.5h15',
   download: 'M12 4.5v12M7 11.5l5 5 5-5M4.5 19.5h15',

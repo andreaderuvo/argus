@@ -210,21 +210,30 @@ class Page(Session):
         end = time.monotonic() + timeout
         last = None
         while time.monotonic() < end:
-            for ev in reversed(self.events):
-                if ev.get("method") != "Target.attachedToTarget":
+            # A frame is attached before it navigates (its url about:blank) and says where it
+            # went later, in targetInfoChanged; one redrawn is detached. Newest first.
+            sessions, urls, gone = {}, {}, set()
+            for ev in self.events:
+                m, p = ev.get("method"), ev.get("params", {})
+                if m == "Target.attachedToTarget":
+                    sessions[p["targetInfo"]["targetId"]] = p["sessionId"]
+                    urls[p["targetInfo"]["targetId"]] = p["targetInfo"].get("url", "")
+                elif m == "Target.targetInfoChanged":
+                    urls[p["targetInfo"]["targetId"]] = p["targetInfo"].get("url", "")
+                elif m == "Target.detachedFromTarget":
+                    gone.add(p.get("sessionId"))
+            for target, session in reversed(list(sessions.items())):
+                if session in gone or url_part not in urls.get(target, ""):
                     continue
-                info = ev["params"]["targetInfo"]
-                if url_part in info.get("url", ""):
-                    try:
-                        r = self.send("Runtime.evaluate", {"expression": expression, "returnByValue": True,
-                                                          "awaitPromise": True}, session=ev["params"]["sessionId"])
-                    except CDPError as e:
-                        last = e
-                        break
-                    if "exceptionDetails" not in r:
-                        return r.get("result", {}).get("value")
-                    last = r["exceptionDetails"]
-                    break
+                try:
+                    r = self.send("Runtime.evaluate", {"expression": expression, "returnByValue": True,
+                                                      "awaitPromise": True}, session=session)
+                except CDPError as e:
+                    last = e                      # a frame redrawn under us: try the next one
+                    continue
+                if "exceptionDetails" not in r:
+                    return r.get("result", {}).get("value")
+                last = r["exceptionDetails"]
             time.sleep(0.1)
         raise Timeout(f"no frame {url_part!r} to evaluate in ({last})")
 

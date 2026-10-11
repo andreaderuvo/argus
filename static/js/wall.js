@@ -1,6 +1,7 @@
 // <imports> generated from what this file uses; edit the code, not this list
 import { muteSession, muted, paintBells, quieten, ring, rung } from '/js/bells.js';
 import { chained, deskChain, toggleChain } from '/js/chains.js';
+import { attachChanges } from '/js/changes.js';
 import { savePrefs } from '/js/core.js';
 import { agentStates, paintAllSeen, paintDeskStates, seeEverything } from '/js/counts.js';
 import { ask, confirmBox, confirmWithCheck, copyText, modal, showText, toast, undoToast } from '/js/dialogs.js';
@@ -434,6 +435,7 @@ export async function screenWall() {
           : spec.kind === 'run' ? (runs.get(spec.id)?.name || t('a run'))
           : spec.kind === 'team' ? (spec.name || t('a team'))
           : spec.kind === 'note' ? t('Text')
+          : spec.kind === 'changes' ? t('Changes · {name}', { name: spec.path.split('/').pop() || spec.path })
             : (spec.path.split('/').pop() || spec.path);
 
       const isTray = spec.kind === 'links' || spec.kind === 'messages';
@@ -635,6 +637,7 @@ export async function screenWall() {
         : spec.kind === 'run' ? attachRun(body, spec, setLabel)
         : spec.kind === 'team' ? attachTeam(body, spec, setLabel, { openLog: (path) => openWindow({ kind: 'file', path }, undefined, { jump: false }) })
         : spec.kind === 'note' ? attachNote(body, spec, setLabel)
+        : spec.kind === 'changes' ? attachChanges(body, spec, setLabel)
         // Where a browser *lands* is the desk's business, not the folder it happened to
         // be left in: reopening a desk should put you where that desk starts.
         : isBrowser ? attachBrowser(body, spec, setLabel, landingFor(ws, spec))
@@ -777,6 +780,23 @@ export async function screenWall() {
         handle.onSubmitted?.((line) => submittedAlso(entry, line));
       }
       if (spec.kind === 'term') extras.append(copyButton(handle, 'winbtn'), relabel, doom, quiet, dress, chain, ...sizeButtons(handle, 'winbtn'));
+      /* What this session changed, beside it: shown once its folder turns out to be in a git
+       *  repository, so a shell in /tmp does not carry a button that can only say "not a repo". */
+      if (spec.kind === 'term' && facts) {
+        const changed = el('button', { className: 'winbtn', hidden: true, title: t('What changed here (git)') }, icon('branch'));
+        changed.onclick = () => openWindow({ kind: 'changes', path: facts.dataset.cwd, what: 'work' }, undefined, { jump: false });
+        extras.append(changed);
+        let asked = '';
+        const look = () => {
+          const cwd = facts.dataset.cwd || '';
+          if (!cwd || cwd === asked) return;
+          asked = cwd;
+          getJSON(`/api/git/status?quick=1&path=${encodeURIComponent(cwd)}`)
+            .then((s) => { changed.hidden = !s.repo; }).catch(() => { changed.hidden = true; });
+        };
+        new MutationObserver(look).observe(facts, { attributes: true, attributeFilter: ['data-cwd'] });
+        look();
+      }
       open.push(entry);
       if (chain) paintChain();
       paintTally();

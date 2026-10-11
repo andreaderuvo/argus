@@ -1836,6 +1836,132 @@
     ]
    }
   },
+  "/api/git/diff": {
+   "get": {
+    "description": "Plain text, as `git diff` writes it. `what`: work (not committed, new files included) |\nlast (the last commit) | ref (the work tree against `ref`, a branch or commit). `file`\nnarrows it to one file, relative to `path`. Past 4 MB it is cut and says so in\n`x-truncated`. Read only.",
+    "operationId": "getApiGitDiff",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "path",
+      "required": true,
+      "schema": {
+       "title": "Path",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "what",
+      "required": false,
+      "schema": {
+       "default": "work",
+       "title": "What",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "ref",
+      "required": false,
+      "schema": {
+       "default": "",
+       "title": "Ref",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "file",
+      "required": false,
+      "schema": {
+       "default": "",
+       "title": "File",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "The patch: uncommitted work, the last commit, or against a branch",
+    "tags": [
+     "Files"
+    ]
+   }
+  },
+  "/api/git/status": {
+   "get": {
+    "description": "`{repo, folder, under, branch, detached, head: {short, subject, author, when}, files:\n[{path, state, code, staged, was, add, del}], branches}` \u2014 `repo: null` outside a\nrepository. Paths are relative to the folder asked about, and only what is under it is\nlisted. `quick=1` answers `{repo}` alone \u2014 and `{repo: null}`, not a 403 or 404, for a\nfolder Argus does not serve: a terminal asks it about wherever its shell happens to be.\nRead only.",
+    "operationId": "getApiGitStatus",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "path",
+      "required": true,
+      "schema": {
+       "title": "Path",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "quick",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Quick",
+       "type": "boolean"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Git Status Api Git Status Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "What differs from the last commit, under a folder",
+    "tags": [
+     "Files"
+    ]
+   }
+  },
   "/api/git/worktree": {
    "delete": {
     "operationId": "deleteApiGitWorktree",
@@ -5066,6 +5192,30 @@
     "summary": "What is running here, and whether anything newer exists",
     "tags": [
      "Setup"
+    ]
+   }
+  },
+  "/api/viewers": {
+   "get": {
+    "description": "`{packs: [{name, title, description, files, entry, edits, binary, source}], broken:\n[{folder, source, error}], folder}` \u2014 `source` is builtin or yours; `folder` is where\nyours go (`<config>/viewers/<name>/viewer.json`). A pack of yours with a built-in's\nname replaces it.",
+    "operationId": "getApiViewers",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response List Viewers Api Viewers Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "The viewers and editors mounted for some files",
+    "tags": [
+     "Files"
     ]
    }
   },

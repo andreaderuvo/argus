@@ -1,4 +1,5 @@
 // <imports> generated from what this file uses; edit the code, not this list
+import { screenChanges } from '/js/changes.js';
 import { savePrefs } from '/js/core.js';
 import { measureFurniture } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
@@ -98,6 +99,7 @@ export async function render() {
     if (!favsLoaded) await loadFavourites();
     if (path === '/files') return await screenFiles(q.get('path'));
     if (path === '/preview') return await screenPreview(q.get('path'));
+    if (path === '/changes') return await screenChanges(q.get('path'));
     if (path === '/system') return await screenSystem();
     if (path === '/since') return await screenSince();
     if (path === '/journal') return await screenJournal();

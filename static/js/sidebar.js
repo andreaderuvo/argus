@@ -1002,6 +1002,7 @@ function railLabel(spec) {
   if (spec.kind === 'web') return spec.label || spec.url;
   if (spec.kind === 'run') return runs.get(spec.id)?.name || t('a run');
   if (spec.kind === 'note') return spec.name || t('Text');
+  if (spec.kind === 'changes') return t('Changes · {name}', { name: (spec.path || '').split('/').pop() || spec.path });
   return (spec.path || '').split('/').filter(Boolean).pop() || spec.path || '?';
 }
 

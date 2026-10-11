@@ -23,7 +23,7 @@ from fastapi import FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 
-from . import build, pluginstate, trust, viewerpacks
+from . import build, gitview, pluginstate, trust, viewerpacks
 from . import (agentflags, consent, readiness, teamlint, toolcopies, teams, teammermaid, wiring, agentstate, resume, announce, asks, bells, devices, favourites, files, fsops, gitwork, journal, labels,
                languages, launch, mounts, network, paths, ports, prefs, proxy, release, runner, runs,
                system, term, tmux, todo)
@@ -2139,6 +2139,39 @@ def create_app(cfg: Config) -> FastAPI:
         except gitwork.GitError as e:
             raise ApiError(502, str(e)) from e
         return {"repo": str(top), "worktrees": found}
+
+    @app.get("/api/git/status", tags=["Files"], summary="What differs from the last commit, under a folder")
+    async def git_status(request: Request, path: str, quick: bool = False) -> dict:
+        """`{repo, folder, under, branch, detached, head: {short, subject, author, when}, files:
+        [{path, state, code, staged, was, add, del}], branches}` — `repo: null` outside a
+        repository. Paths are relative to the folder asked about, and only what is under it is
+        listed. `quick=1` answers `{repo}` alone — and `{repo: null}`, not a 403 or 404, for a
+        folder Argus does not serve: a terminal asks it about wherever its shell happens to be.
+        Read only."""
+        try:
+            here = under_roots(request, path)
+        except ApiError as e:
+            if quick and e.status in (403, 404):
+                return {"repo": None}
+            raise
+        try:
+            return await asyncio.to_thread(gitview.status, here, quick)
+        except gitview.GitError as e:
+            raise ApiError(502, str(e)) from e
+
+    @app.get("/api/git/diff", tags=["Files"], summary="The patch: uncommitted work, the last commit, or against a branch")
+    async def git_diff(request: Request, path: str, what: str = "work", ref: str = "", file: str = "") -> Response:
+        """Plain text, as `git diff` writes it. `what`: work (not committed, new files included) |
+        last (the last commit) | ref (the work tree against `ref`, a branch or commit). `file`
+        narrows it to one file, relative to `path`. Past 4 MB it is cut and says so in
+        `x-truncated`. Read only."""
+        here = under_roots(request, path)
+        try:
+            text, cut = await asyncio.to_thread(gitview.diff, here, what, ref, file)
+        except gitview.GitError as e:
+            raise ApiError(400, str(e)) from e
+        return Response(text, media_type="text/plain; charset=utf-8",
+                        headers={"cache-control": "no-store", **({"x-truncated": "1"} if cut else {})})
 
     @app.post("/api/git/worktree", tags=["Sessions"], summary="Add a working directory on its own branch")
     async def add_worktree(request: Request, body: dict) -> dict:
