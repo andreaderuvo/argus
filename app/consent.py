@@ -210,6 +210,8 @@ def _team_plan(app, args: dict) -> dict:
             **({"layout": layout} if layout != "none" else {}),
             # Quiet unless asked: its agents' turns ending ring nothing (bells.quiet_team).
             "quiet_agents": not bool(args.get("ring_turns")),
+            # The desk starts in the team's folder: if it has none (default), always (true), never (false).
+            **({"desk_folder": bool(args["desk_folder"])} if isinstance(args.get("desk_folder"), bool) else {}),
             # The team file it came from, so Restart reads it again — as when started from the sheet.
             **({"file": extra["file"]} if extra.get("file") else {})}
     text = (f"start the team {name} in {folder}" + (f", in the desk {desk}" if desk else "")

@@ -21,6 +21,7 @@ phone. You reach it with the Argus tools (or `argus-say` from a shell). Three ki
 | a desk by name: open, make, switch to it | `open_desk` (`folder` optional) |
 | rename a desk | `rename_desk` |
 | put an existing session on a desk | `open_desk` with `session` |
+| set or change a desk's folder (where its browsers and new sessions start) | `open_desk` with `name`, `folder`, `show: false` |
 | close the windows of ended ("gone") sessions | `close_gone_windows` (`desk` to limit it to one) |
 | start an agent (Claude, Codex, Gemini, a shell), with a prompt, options, in a desk, in a worktree | `launchers` for what exists and its options; `start_agent` |
 | who is working or waiting | `who` |
@@ -38,7 +39,7 @@ phone. You reach it with the Argus tools (or `argus-say` from a shell). Three ki
 
 | Asked | action | args |
 |---|---|---|
-| start a team, in a desk | `start_team` | `team` (a proposal, one of their models, or a template: Optimise, Fix a bug, Build and review, Write, Tournament, Split the work, Feature with tests; the folder's team.yaml when `folder` is given), `desk`, `folder` (else the proposal's or the desk's), `goal` (else the team's own), `gate` (ask — default / auto / goal), `rounds` (default 10), `permissions` (ask / edit — default / everything; a team file's own is used), `check` (if a check step has no command), `agents` (`{step: launcher}`), `layout` (how the desk is arranged as its agents arrive: grid — default / cols / rows / none), `ring_turns` (true: ring the person at every agent's turn; off by default — only decisions and permissions ring) |
+| start a team, in a desk | `start_team` | `team` (a proposal, one of their models, or a template: Optimise, Fix a bug, Build and review, Write, Tournament, Split the work, Feature with tests; the folder's team.yaml when `folder` is given), `desk`, `folder` (else the proposal's or the desk's), `goal` (else the team's own), `gate` (ask — default / auto / goal), `rounds` (default 10), `permissions` (ask / edit — default / everything; a team file's own is used), `check` (if a check step has no command), `agents` (`{step: launcher}`), `layout` (how the desk is arranged as its agents arrive: grid — default / cols / rows / none), `ring_turns` (true: ring the person at every agent's turn; off by default — only decisions and permissions ring), `desk_folder` (the desk starts in the team's folder: when it has none — default; `true` always; `false` never) |
 | reset a stopped team / restart one from round 1 | `team_reset`, `team_restart` | `team` — deletes the files its `reset:` declares (the person sees the list); restart also ends its sessions, reads its team file again, starts it fresh and closes the desk's windows of ended sessions |
 | continue, pause, stop a team | `team_go`, `team_pause`, `team_stop` | `team` (its name exactly as `teams` shows it — "Kraken paper" became `Kraken-paper`); `kill: true` also ends its sessions |
 | close a desk (its windows; the sessions keep running) | `close_desk` | `desk` (its name); not the last one |

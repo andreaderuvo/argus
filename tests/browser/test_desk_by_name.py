@@ -71,3 +71,20 @@ def test_a_desk_closed_on_the_machine_goes_from_an_open_page(make_page, argus):
     import time
     time.sleep(1)
     assert [w["name"] for w in argus.api("/api/prefs")["prefs"]["workspaces"]] == ["Work"], "and not saved back"
+
+
+def test_an_agent_sets_the_folder_of_a_desk_that_exists_and_the_page_keeps_it(make_page, argus):
+    argus.api("/api/prefs", "PATCH", {"changes": {"ws": 1, "wsSeq": 1, "workspaces": [
+        {"id": 1, "name": "Work", "desktop": []}]}})
+    page = make_page(route="#/wall")
+    page.wait("!!document.querySelector('.wstab[data-ws=\"1\"]')", timeout=10)
+    docs = str(argus.root / "docs")
+    said = argus.api("/api/desks", "POST", {"name": "work", "folder": docs, "show": False})
+    assert said["made"] is False and said["folder"] == docs
+    page.wait(f"(window.__ws = null, true) && "
+              f"import('/js/tray.js').then(m => m.workspaces().find(w => w.id === 1)?.home === {docs!r})", timeout=10,
+              what="the page's own copy of the desk has the folder")
+    # The page saves its desks whole: the folder must survive that.
+    page.eval("document.querySelector('.wstab[data-ws=\"1\"]').click()")
+    eventually(lambda: argus.api("/api/prefs")["prefs"]["workspaces"][0].get("home") == docs, timeout=10,
+               what="and is still there after the page saved")

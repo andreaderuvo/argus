@@ -1151,6 +1151,15 @@ def create_app(cfg: Config) -> FastAPI:
         for n in filled["nodes"]:
             if n.get("launch") and n["id"] in team.get("launched", []):
                 sessions[n["id"]] = n["session"]
+        # The desk the team is in starts where the team works: its browsers land in the team's
+        # folder, a session made there starts in it. Only a desk with no folder of its own, unless
+        # the start says `desk_folder: true`; `false` leaves the desk alone.
+        if body.get("ws") is not None and body.get("desk_folder") is not False and getattr(state, "prefs", None):
+            changed = await asyncio.to_thread(set_desk_home, request, body["ws"], str(folder),
+                                              body.get("desk_folder") is not True)
+            if changed:
+                bells.announce(request, {"what": "desk", "id": changed["id"], "desk": changed["name"],
+                                         "home": str(folder), "show": False})
         state.proposals.drop(str(folder))             # taken up: no longer a proposal waiting
         return {"team": next(t for t in state.teams.public() if t["id"] == team["id"]), "sessions": sessions,
                 "worktrees": {k: v for k, v in folders.items() if v != str(folder)}}
@@ -2054,10 +2063,10 @@ def create_app(cfg: Config) -> FastAPI:
         """`{name, folder?, show?}` — what "open a desk called pippo" means to an agent;
         `{rename: "Desk 11", name: "Pippo"}` renames one.
 
-        Found by name (any case) if it exists, made empty if not, with `folder` as the place its
-        browsers and new sessions start. `show` (default true) asks the open pages to switch to
-        it; a page that is not open sees it the next time it is. Additive only: nothing here
-        removes, renames or rearranges a desk you have.
+        Found by name (any case) if it exists, made empty if not. `folder` is the place its
+        browsers and new sessions start — set on a new desk, and changed on one that exists.
+        `show` (default true) asks the open pages to switch to it; a page that is not open sees
+        it the next time it is. Nothing here removes or rearranges a desk you have.
         """
         name = " ".join(str(body.get("name") or "").split())[:40]
         if not name:
@@ -2092,6 +2101,14 @@ def create_app(cfg: Config) -> FastAPI:
             desk, made = await asyncio.to_thread(ensure_desk, request, name, folder)
         except (ValueError, OSError) as e:
             raise ApiError(500, str(e)) from e
+        # A desk that was already there takes the folder too: "make the folder of the desk X be Y"
+        # is the same call as making X with it. Told to the pages, which keep their desks in memory.
+        if folder and not made:
+            changed = await asyncio.to_thread(set_desk_home, request, desk["id"], folder)
+            if changed:
+                desk = changed
+                bells.announce(request, {"what": "desk", "id": desk["id"], "desk": desk["name"], "home": folder,
+                                         "show": False})
         if body.get("show", True):
             bells.announce(request, {"what": "desk", "id": desk["id"], "desk": desk["name"], "show": True})
         if shown:
@@ -2687,6 +2704,21 @@ def ensure_desk(request: Request, name: str, folder: str | None = None) -> tuple
     spaces.append(found)
     prefs.save(store, version + 1, prefs.merge(doc, {"workspaces": spaces, "wsSeq": seq}))
     return found, True
+
+
+def set_desk_home(request: Request, desk_id, folder: str, only_if_none: bool = False) -> dict | None:
+    """The desk `desk_id` starts its browsers and new sessions in `folder` from now on. Returns the
+    desk when it changed, None when it did not (no such desk, the same folder already, or one set
+    and `only_if_none`)."""
+    store = request.app.state.prefs
+    version, doc = prefs.load(store)
+    spaces = [dict(w) for w in (doc.get("workspaces") or []) if isinstance(w, dict)]
+    found = next((w for w in spaces if w.get("id") == desk_id), None)
+    if found is None or found.get("home") == folder or (only_if_none and found.get("home")):
+        return None
+    found["home"] = folder
+    prefs.save(store, version + 1, prefs.merge(doc, {"workspaces": spaces}))
+    return found
 
 
 def rename_desk(request: Request, was: str, name: str) -> dict:

@@ -82,10 +82,13 @@ TOOLS = [
     {"name": "open_desk",
      "description": "Open a desk in Argus — a named workspace of windows the person sees in the browser — making it "
                     "empty if there is none by that name, and switch the open pages to it. Use it when asked for "
-                    "\"a new desk called …\"; then start agents into it with start_agent's desk.",
+                    "\"a new desk called …\"; then start agents into it with start_agent's desk. With `folder` it "
+                    "also sets the desk's folder (where its browsers and new sessions start), for a desk that "
+                    "exists too — \"make ~/x the folder of the desk Trading\": open_desk(name, folder, show: false).",
      "inputSchema": {"type": "object", "properties": {
          "name": {"type": "string"},
-         "folder": {"type": "string", "description": "Where its file browsers and new sessions start"},
+         "folder": {"type": "string", "description": "Where its file browsers and new sessions start — set on a new desk, "
+                                                    "changed on one that exists"},
          "show": {"type": "boolean", "default": True},
          "session": {"type": "string", "description": "Also put a window on this existing tmux session in the desk"}},
          "required": ["name"]}},
@@ -154,7 +157,7 @@ TOOLS = [
      "description": "Ask the person to have something done that you cannot do yourself, and it is done on their "
                     "tap (Do it / No): start_team (args: team — a proposal, one of their models or a template, by "
                     "name — desk, folder, goal, gate ask|auto|goal, rounds, permissions ask|edit|everything, check, "
-                    "agents {step: launcher}, layout grid|cols|rows|none — how the desk is arranged, grid by default, ring_turns true to ring at every agent's turn — off by default), team_go / team_pause / team_stop (team — its name as `teams` shows "
+                    "agents {step: launcher}, layout grid|cols|rows|none — how the desk is arranged, grid by default, ring_turns true to ring at every agent's turn — off by default, desk_folder: the desk starts in the team's folder — if it has none by default, true always, false never), team_go / team_pause / team_stop (team — its name as `teams` shows "
                     "it; kill to end its sessions), team_reset / team_restart (team — delete what its reset: declares; "
                     "restart also starts it again from round 1), kill_session (session), rename_session (session, to), close_desk (desk — its windows go, sessions stay), "
                     "start_agent (launcher, name, folder, prompt, press_enter, options — e.g. permissions skip), "

@@ -389,7 +389,7 @@ function aside(said) {
   // A desk made on the machine — by an agent asked to "open a desk called pippo" — adopted here
   // and, when it asks to be shown, switched to.
   if (said.what === 'desk' && said.id) {
-    adoptDesks(said.renamed ? said : null).then(() => { if (said.show) showDesk(said.id); });
+    adoptDesks(said.renamed || said.home !== undefined ? said : null).then(() => { if (said.show) showDesk(said.id); });
     return;
   }
   // A desk closed on the machine (an agent's close_desk, on the person's OK): gone here too, and
@@ -459,8 +459,12 @@ export function adoptDesks(renamed = null) {
     // A rename said by the machine is taken as said: this page keeps its desks in memory and would
     // otherwise save the old name straight back.
     const ws = renamed && workspaces().find((w) => w.id === renamed.id);
-    if (ws && ws.name !== renamed.desk) {
-      ws.name = renamed.desk;
+    // And its folder, the same way: set on the machine (an agent's open_desk, a team), kept here.
+    const named = ws && renamed.renamed && ws.name !== renamed.desk;
+    const homed = ws && renamed.home !== undefined && ws.home !== renamed.home;
+    if (named) ws.name = renamed.desk;
+    if (homed) ws.home = renamed.home;
+    if (named || homed) {
       savePrefs();
       if (live?.key === 'wall') render();
     }

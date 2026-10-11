@@ -487,17 +487,22 @@ def test_a_whole_optimise_team_through_the_api(tmp_path, monkeypatch):
     project = tmp_path / "project"
     project.mkdir()
     app, c, name = api_app(tmp_path, agent)
+    from app import prefs as P
+    app.state.prefs = tmp_path / "prefs.json"
+    P.save(app.state.prefs, 1, {"ws": 1, "workspaces": [{"id": 1, "name": "Speed", "desktop": []}]})
     env = {k: v for k, v in os.environ.items() if k not in ("TMUX", "TMUX_PANE")}
     monkeypatch.setattr("app.launch.wait_until_settled", lambda *a, **k: True)
     try:
         r = c.post("/api/teams", json={
-            "name": "speed", "goal": "make it faster", "template": "optimise", "path": str(project),
+            "ws": 1, "name": "speed", "goal": "make it faster", "template": "optimise", "path": str(project),
             "agents": {"executor": {"launcher": "Stand-in", "worktree": False}, "reviewer": {"launcher": "Stand-in"}},
             "check": "test -f made-by-executor", "gate": "goal", "max_rounds": 3})
         assert r.status_code == 200, r.text
         said = r.json()
         # The reviewer is not started yet: an agent starts when its turn first comes.
         assert said["sessions"] == {"executor": "speed-executor", "check": "speed-check"}
+        assert P.load(app.state.prefs)[1]["workspaces"][0]["home"] == str(project), \
+            "the team's desk, which had no folder, starts where the team works"
         team = run_until_settled(app, said["team"]["id"])
         assert team["status"] == "done", team["history"]
         log = (project / "TEAM.argus.md").read_text()

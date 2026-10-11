@@ -310,3 +310,27 @@ def test_updating_the_plugin_is_asked_and_reloading_it_never_is(tmp_path, monkey
         consent.plan(app, "update_plugin", {"agent": "claude"})
     assert consent.plan(app, "reload_plugins", {})["calls"] == [("POST", "/api/plugin/reload", {})]
     assert "reload_plugins" in consent.without_asking(app) and "update_plugin" not in consent.without_asking(app)
+
+
+def test_a_desk_takes_a_folder_on_the_agent_key_and_a_team_start_can_say_how(tmp_path):
+    from app import prefs as P
+    app = make(tmp_path)
+    app.state.prefs = tmp_path / "prefs.json"
+    P.save(app.state.prefs, 1, {"ws": 1, "wsSeq": 2, "workspaces": [
+        {"id": 1, "name": "Work", "desktop": []}, {"id": 2, "name": "Trading", "desktop": [], "home": "/x"}]})
+    (tmp_path / "proj").mkdir()
+    with TestClient(app) as c:
+        said = c.post("/api/desks", json={"name": "work", "folder": str(tmp_path / "proj"), "show": False}, headers=AGENT).json()
+        assert said == {"id": 1, "name": "Work", "made": False, "folder": str(tmp_path / "proj")}
+        doc = c.get("/api/prefs", headers=MASTER).json()["prefs"]
+        assert doc["workspaces"][0]["home"] == str(tmp_path / "proj") and doc["workspaces"][1]["home"] == "/x"
+        assert c.post("/api/desks", json={"name": "work", "folder": "/etc"}, headers=AGENT).status_code == 403
+    from app.main import set_desk_home
+    import types
+    req = types.SimpleNamespace(app=app)
+    assert set_desk_home(req, 2, "/y", only_if_none=True) is None, "a team does not replace a desk's folder by default"
+    assert set_desk_home(req, 2, "/y")["home"] == "/y", "desk_folder: true does"
+    plan = consent.plan(app, "start_team", {"team": "Fix a bug", "folder": str(tmp_path / "proj"), "goal": "g", "check": "true", "desk_folder": False})
+    assert plan["calls"][0][2]["desk_folder"] is False
+    plan = consent.plan(app, "start_team", {"team": "Fix a bug", "folder": str(tmp_path / "proj"), "goal": "g", "check": "true"})
+    assert "desk_folder" not in plan["calls"][0][2]

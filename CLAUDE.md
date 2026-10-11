@@ -702,6 +702,9 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   (`adoptDesks`, serialised) and switch to it. Windows still go in from the page, on `started`
   with `desk_id`. A doc with no desks yet gets "Desk 1" (id 1) too, or the new desk would take
   the number a browser gives its first. On the agent key (the route guard in test_agent_key.py holds the count).
+  `folder` on a desk that exists *changes* its folder (`set_desk_home`, announced as `{what: desk,
+  home}`; `adoptDesks` takes it). A team started in a desk gives the desk its folder when it has
+  none (`desk_folder`: true always, false never).
 - **Two agents was folded into Teams** (2026-10-06). Its button and `pairSheet` are gone; its
   patterns are the templates *Build and review* and *Split the work* (two executors at once in
   the same folder, each on the files the planner gave it, no worktree). What reads an existing
