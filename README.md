@@ -38,6 +38,9 @@ of the job that is not typing: knowing, seeing, answering.
   asks, with every tab closed (off until you give it a topic).
 - **See what it produced.** Every path an agent prints is a link. Markdown, PDF, Word, images,
   logs and source open beside the session that made them, already rendered.
+- **See what it changed.** Beside a session in a git repository, **Changes**: what is not
+  committed yet, the last commit, or the work against another branch, drawn as a diff and
+  following the folder as the agent writes.
 - **Answer from anywhere.** The same sessions, still running, on your phone, with a key bar for
   Ctrl, Esc and the arrows. Close the tab and the work carries on.
 
