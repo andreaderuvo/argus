@@ -1,0 +1,37 @@
+{
+  "name": "diff",
+  "title": "Diff",
+  "description": "A patch drawn as changes, side by side or line by line (diff2html)",
+  "files": [
+    "*.diff",
+    "*.patch"
+  ],
+  "entry": "index.html",
+  "edits": false,
+  "words": {
+    "it": {
+      "Side by side": "Affiancato",
+      "Line by line": "Riga per riga",
+      "file": "file",
+      "files": "file",
+      "no changes in this file": "nessuna modifica in questo file",
+      "Nothing here reads as a diff.": "Qui non c'è niente che si legga come un diff."
+    },
+    "es": {
+      "Side by side": "En paralelo",
+      "Line by line": "Línea a línea",
+      "file": "archivo",
+      "files": "archivos",
+      "no changes in this file": "ningún cambio en este archivo",
+      "Nothing here reads as a diff.": "Nada aquí se lee como un diff."
+    },
+    "fr": {
+      "Side by side": "Côte à côte",
+      "Line by line": "Ligne par ligne",
+      "file": "fichier",
+      "files": "fichiers",
+      "no changes in this file": "aucune modification dans ce fichier",
+      "Nothing here reads as a diff.": "Rien ici ne se lit comme un diff."
+    }
+  }
+}

@@ -1201,6 +1201,10 @@ export function attachViewer(host, path, extras) {
     download: (fn) => { dl.onclick = fn; },
     fill: (on) => host.classList.toggle('fill', on),
     toBottom: () => { host.scrollTop = host.scrollHeight; },
+    // A viewer pack that edits in place: no reload while it holds unsaved work, and its own
+    // save is not "the file changed underneath".
+    watch: (on) => { watching = on; watchBtn.classList.toggle('on', on); },
+    wrote: (s) => { stamp = `${s.mtime}:${s.size}`; },
     edit: (ctx) => {
       editBtn.hidden = false;
       editBtn.onclick = () => editor(ctx, {

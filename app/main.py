@@ -23,7 +23,7 @@ from fastapi import FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 
-from . import build, pluginstate, trust
+from . import build, pluginstate, trust, viewerpacks
 from . import (agentflags, consent, readiness, teamlint, toolcopies, teams, teammermaid, wiring, agentstate, resume, announce, asks, bells, devices, favourites, files, fsops, gitwork, journal, labels,
                languages, launch, mounts, network, paths, ports, prefs, proxy, release, runner, runs,
                system, term, tmux, todo)
@@ -41,6 +41,7 @@ VERSION = "0.1.0"
 _HERE = Path(__file__).resolve().parent
 STATIC_DIR = _HERE / "static" if (_HERE / "static").is_dir() else _HERE.parent / "static"
 BUILTIN_LANG = STATIC_DIR / "lang"
+BUILTIN_VIEWERS = STATIC_DIR / "viewers"
 
 # Not every system's mime database knows these two, and getting them wrong is fatal:
 # a module served as octet-stream is refused by the browser, and so is the manifest.
@@ -531,6 +532,7 @@ def create_app(cfg: Config) -> FastAPI:
     app.state.devices = cfg.devices_store or Path("/nonexistent")
     app.state.journal = cfg.journal_store
     app.state.lang = Path("/nonexistent")
+    app.state.viewers = Path("/nonexistent")
     app.state.config_path = None
     app.state.addresses = []
 
@@ -1329,6 +1331,15 @@ def create_app(cfg: Config) -> FastAPI:
             # Asleep: take one reading now, so this answer is not empty while the sampler wakes.
             await asyncio.to_thread(watch.tick)
         return watch.states()
+
+    @app.get("/api/viewers", tags=["Files"], summary="The viewers and editors mounted for some files")
+    async def list_viewers(request: Request) -> dict:
+        """`{packs: [{name, title, description, files, entry, edits, binary, source}], broken:
+        [{folder, source, error}], folder}` — `source` is builtin or yours; `folder` is where
+        yours go (`<config>/viewers/<name>/viewer.json`). A pack of yours with a built-in's
+        name replaces it."""
+        packs, broken = viewerpacks.available(BUILTIN_VIEWERS, request.app.state.viewers)
+        return {"packs": packs, "broken": broken, "folder": str(request.app.state.viewers)}
 
     @app.get("/api/languages", tags=["Setup"], summary="The interface languages available")
     async def list_languages(request: Request) -> list[dict]:
@@ -2529,6 +2540,19 @@ def create_app(cfg: Config) -> FastAPI:
         return app_manifest(request.headers.get("host", ""))
 
     # Registered last so it never shadows the API: unknown paths are the frontend's.
+    @app.get("/viewers/{name}/{rel:path}", include_in_schema=False)
+    async def viewer_file(request: Request, name: str, rel: str) -> Response:
+        """A file of a viewer pack, in its box: the CSP sandbox travels with every answer, so a
+        pack is boxed even when its address is opened on its own. Not behind the token — the
+        frame has none to send, on purpose — and there is nothing here but the packs' own files."""
+        target = viewerpacks.locate(BUILTIN_VIEWERS, request.app.state.viewers, name, rel)
+        if target is None:
+            return Response("no such file in that viewer", status_code=404, media_type="text/plain")
+        media = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
+        return Response(target.read_bytes(), media_type=media, headers={
+            "cache-control": "no-cache", "content-security-policy": viewerpacks.CSP,
+            "x-content-type-options": "nosniff", "referrer-policy": "no-referrer"})
+
     @app.get("/{requested:path}", include_in_schema=False)
     async def static_handler(requested: str) -> Response:
         return serve_static(requested)
@@ -2713,9 +2737,12 @@ def serve_static(requested: str) -> Response:
     # app's own files must not be, or an update never reaches an installed PWA.
     cache = "public, max-age=31536000, immutable" if requested.startswith("vendor/") else "no-cache"
     media = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
-    return Response(
-        target.read_bytes(), media_type=media, headers={"cache-control": cache}
-    )
+    headers = {"cache-control": cache}
+    # A viewer pack runs at an opaque origin, and a module it imports is fetched with CORS:
+    # the vendored libraries are public files anyway, so they say anyone may load them.
+    if requested.startswith("vendor/"):
+        headers["access-control-allow-origin"] = "*"
+    return Response(target.read_bytes(), media_type=media, headers=headers)
 
 
 def reachable_addresses() -> list[str]:
@@ -2987,6 +3014,7 @@ def main(argv: list[str] | None = None) -> int:
     app.state.todo = todo.default_store(config_path)
     app.state.prefs = prefs.default_store(config_path)
     app.state.lang = config_path.parent / "lang"
+    app.state.viewers = config_path.parent / "viewers"
     app.state.port = port
     app.state.host = host
     app.state.addresses = preferred_first(reachable_addresses(), cfg.address)

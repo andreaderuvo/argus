@@ -6,6 +6,7 @@ import { ask, askPrompt, confirmBox, toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { BATONS, GROUND, LOOSE, PAIR_BATONS, SITUATIONAL, batonGroups, batonTemplates, bridgePath, deskSetName, fillBaton, groundVars, groupName, messagesChanged, pairEvery, pairLimit, pairTries, planPath, promptName, saidAs, unknownVars, varSetNamed, varSets, whyEmpty } from '/js/handover.js';
 import { icon } from '/js/icons.js';
+import { viewerPacks } from '/js/packs.js';
 import { bidi, colorFor, deskHome, getJSON, postJSON, serverInfo, setTitle, toggleFavourite } from '/js/reconnect.js';
 import { go, parseRoute } from '/js/router.js';
 import { fileBrowser } from '/js/screens.js';
@@ -1227,6 +1228,8 @@ export function viewersRow() {
   const box = el('div', { className: 'setting setviewers' });
   const rows = el('div', { className: 'setgrid' });
 
+  let packs = [];
+  const mounted = el('div', { className: 'packlist' });
   const draw = () => {
     rows.replaceChildren();
     const said = { ...(prefs.viewers || {}) };
@@ -1250,6 +1253,10 @@ export function viewersRow() {
       for (const one of VIEWERS) {
         pick.append(el('option', { value: one, textContent: t(one), selected: one === (how || 'auto') }));
       }
+      for (const pack of packs) {
+        const value = `pack:${pack.name}`;
+        pick.append(el('option', { value, textContent: pack.title, selected: value === how }));
+      }
       pick.onchange = () => {
         const clean = (name.value.trim().replace(/^\./, '') || ext).toLowerCase();
         if (!clean) return;
@@ -1272,7 +1279,28 @@ export function viewersRow() {
       el('span', { className: 'meta', textContent: t('markdown is rendered, code is coloured, the rest is plain — unless you say otherwise') }),
     ]),
     rows,
+    mounted,
   );
+  /* The viewers somebody mounted, and where a new one goes. A pack that does not read is listed
+   *  with the reason: one you are writing should say what is wrong, not just be missing. */
+  viewerPacks(true).then((said) => {
+    packs = said.packs || [];
+    draw();
+    const line = (pack) => el('div', { className: 'packrow' }, [
+      el('span', { className: 'packname', textContent: pack.title }),
+      el('span', { className: 'meta', textContent: [pack.files.join(' '), pack.edits ? t('edits') : t('reads'),
+        pack.source === 'yours' ? t('yours') : t('built in')].join(' · ') }),
+    ]);
+    mounted.replaceChildren(
+      el('p', { className: 'name packhead', textContent: t('Viewers mounted for some files') }),
+      ...packs.map(line),
+      ...(said.broken || []).map((b) => el('div', { className: 'packrow' }, [
+        el('span', { className: 'packname', textContent: b.folder }),
+        el('span', { className: 'meta warn', textContent: b.error }),
+      ])),
+      el('p', { className: 'meta', textContent: t('Add your own: a folder with a viewer.json in {folder} — see the wiki page Viewers of your own.', { folder: said.folder || '…' }) }),
+    );
+  });
   return box;
 }
 

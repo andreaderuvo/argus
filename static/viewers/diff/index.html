@@ -1,0 +1,151 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Diff</title>
+<link rel="stylesheet" href="/vendor/diff2html-3.4.56/diff2html.min.css">
+<style>
+  /* The page's colours, handed over by Argus — so a patch in a dark desk is not a white sheet. */
+  :root { --bg: #0b0e14; --panel: #11151d; --line: #1e2530; --text: #c5cad3; --dim: #6b7484;
+          --accent: #8fd6a0; --on-accent: #0b0e14; color-scheme: dark; }
+  :root.light { color-scheme: light; }
+  html, body { margin: 0; background: var(--bg); color: var(--text);
+               font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .bar { position: sticky; top: 0; z-index: 3; display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+         padding: 6px 10px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  .bar .sum { flex: 1; min-width: 0; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sum b { font-weight: 600; } .sum .add { color: #3fb950; } .sum .del { color: #f85149; }
+  :root.light .sum .add { color: #1a7f37; } :root.light .sum .del { color: #cf222e; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .seg button { font: inherit; border: 0; padding: 3px 10px; background: transparent; color: var(--text); cursor: pointer; }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+  .seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  #out { padding: 8px 10px 24px; }
+  .empty { padding: 24px; color: var(--dim); }
+  /* diff2html's frame, in our palette; its own greens and reds stay — they are the point. */
+  .d2h-wrapper, .d2h-file-list-wrapper { color: var(--text); }
+  .d2h-file-wrapper { border-color: var(--line); border-radius: 6px; margin-bottom: 12px; }
+  .d2h-file-header { background: var(--panel); border-color: var(--line); position: sticky; top: 37px; z-index: 2; }
+  .d2h-file-name { color: var(--text); }
+  .d2h-file-list-wrapper a { color: var(--accent); }
+  .d2h-file-list-header, .d2h-file-switch { color: var(--dim); }
+  .d2h-file-list-line { color: var(--text); }
+  .d2h-dark-color-scheme { background-color: var(--bg); }
+  .d2h-dark-color-scheme .d2h-file-header, .d2h-dark-color-scheme .d2h-file-wrapper { background: var(--panel); border-color: var(--line); }
+  .d2h-file-side-diff { overflow-x: auto; }
+  .hljs-keyword, .hljs-built_in, .hljs-selector-tag { color: #c792ea; }
+  .hljs-string, .hljs-attr { color: #c3e88d; } .hljs-number, .hljs-literal { color: #f78c6c; }
+  .hljs-comment { color: var(--dim); font-style: italic; } .hljs-title, .hljs-function { color: #82aaff; }
+  :root.light .hljs-keyword, :root.light .hljs-built_in { color: #8250df; }
+  :root.light .hljs-string, :root.light .hljs-attr { color: #0a3069; } :root.light .hljs-number { color: #953800; }
+  :root.light .hljs-title, :root.light .hljs-function { color: #6639ba; }
+</style>
+</head>
+<body>
+<div class="bar">
+  <span class="sum" id="sum">…</span>
+  <span class="seg" role="group" aria-label="Layout">
+    <button type="button" id="side" aria-pressed="false">Side by side</button>
+    <button type="button" id="line" aria-pressed="false">Line by line</button>
+  </span>
+</div>
+<div id="out"></div>
+<script src="/vendor/diff2html-3.4.56/diff2html-ui-base.min.js"></script>
+<script type="module">
+/* An Argus viewer pack: it is handed the file by the page (`open`), may remember a little
+ * (`state`), and never fetches anything — the frame it runs in could not if it tried. */
+const TONGUES = { js: 'javascript', mjs: 'javascript', cjs: 'javascript', jsx: 'javascript', ts: 'typescript',
+  tsx: 'typescript', py: 'python', rs: 'rust', go: 'go', rb: 'ruby', php: 'php', java: 'java', c: 'c', h: 'c',
+  cpp: 'cpp', cc: 'cpp', hpp: 'cpp', swift: 'swift', lua: 'lua', pl: 'perl', r: 'r', sh: 'bash', bash: 'bash',
+  json: 'json', yml: 'yaml', yaml: 'yaml', toml: 'ini', ini: 'ini', css: 'css', scss: 'scss', html: 'xml',
+  xml: 'xml', svg: 'xml', vue: 'xml', sql: 'sql', md: 'markdown', dockerfile: 'dockerfile', makefile: 'makefile' };
+const WORDS = {};
+const t = (s) => WORDS[s] || s;
+let text = '', state = {}, hljs = null;
+
+const say = (msg) => parent.postMessage({ argus: msg.argus, ...msg }, '*');
+const layout = () => state.layout || (innerWidth < 760 ? 'line-by-line' : 'side-by-side');
+
+async function highlighter(diff) {
+  try {
+    if (!hljs) hljs = (await import('/vendor/highlight-11.12.0/core.min.js')).default;
+    const wanted = new Set();
+    for (const m of diff.matchAll(/^\+\+\+ (?:b\/)?(.+)$/gm)) {
+      const leaf = m[1].trim().split('/').pop().toLowerCase();
+      const lang = TONGUES[leaf] || TONGUES[leaf.split('.').pop()];
+      if (lang) wanted.add(lang);
+    }
+    for (const lang of wanted) {
+      if (hljs.getLanguage(lang)) continue;
+      hljs.registerLanguage(lang, (await import(`/vendor/highlight-11.12.0/languages/${lang}.min.js`)).default);
+    }
+    return hljs;
+  } catch { return null; }
+}
+
+function summary(diff) {
+  let files = 0, add = 0, del = 0;
+  for (const line of diff.split('\n')) {
+    if (line.startsWith('+++ ')) files += 1;
+    else if (line.startsWith('+') && !line.startsWith('+++')) add += 1;
+    else if (line.startsWith('-') && !line.startsWith('---')) del += 1;
+  }
+  return { files, add, del };
+}
+
+async function draw() {
+  const out = document.getElementById('out');
+  const s = summary(text);
+  const sum = document.getElementById('sum');
+  sum.replaceChildren();
+  if (!s.files) {
+    sum.textContent = t('no changes in this file');
+    out.replaceChildren(Object.assign(document.createElement('p'), { className: 'empty', textContent: t('Nothing here reads as a diff.') }));
+    return;
+  }
+  const b = (cls, v) => Object.assign(document.createElement('b'), { className: cls, textContent: v });
+  sum.append(`${s.files} ${s.files === 1 ? t('file') : t('files')} · `, b('add', `+${s.add}`), ' ', b('del', `−${s.del}`));
+  for (const id of ['side', 'line']) {
+    document.getElementById(id).setAttribute('aria-pressed', String(layout().startsWith(id)));
+  }
+  const engine = await highlighter(text);
+  const ui = new Diff2HtmlUI(out, text, {
+    outputFormat: layout(), drawFileList: s.files > 1, fileListToggle: true, fileListStartVisible: false,
+    matching: 'lines', synchronisedScroll: true, highlight: !!engine, fileContentToggle: false,
+    colorScheme: document.documentElement.classList.contains('light') ? 'light' : 'dark',
+  }, engine || undefined);
+  ui.draw();
+  if (engine) ui.highlightCode();
+}
+
+function theme(msg) {
+  const root = document.documentElement;
+  root.classList.toggle('light', msg.theme === 'light');
+  for (const [k, v] of Object.entries(msg.colors || {})) root.style.setProperty(`--${k}`, v);
+}
+
+for (const [id, value] of [['side', 'side-by-side'], ['line', 'line-by-line']]) {
+  document.getElementById(id).onclick = () => { state = { ...state, layout: value }; say({ argus: 'state', state }); draw(); };
+}
+
+addEventListener('message', (e) => {
+  if (e.source !== parent) return;
+  const msg = e.data || {};
+  if (msg.argus === 'open') {
+    text = msg.text || '';
+    state = msg.state || {};
+    Object.assign(WORDS, msg.words || {});
+    for (const [id, s] of [['side', 'Side by side'], ['line', 'Line by line']]) document.getElementById(id).textContent = t(s);
+    theme(msg);
+    draw();
+  } else if (msg.argus === 'theme') {
+    theme(msg);
+    draw();
+  }
+});
+say({ argus: 'ready', v: 1 });
+</script>
+</body>
+</html>

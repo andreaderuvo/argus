@@ -3,6 +3,7 @@ import { savePrefs } from '/js/core.js';
 import { copies, copyText, showText, ticked, toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { icon } from '/js/icons.js';
+import { mountPack, packFor } from '/js/packs.js';
 import { setCurrent } from '/js/pointing.js';
 import { getJSON, human, parentOf, postJSON, setTitle, signOut, triggerDownload, when, withToken } from '/js/reconnect.js';
 import { go } from '/js/router.js';
@@ -644,6 +645,28 @@ export async function mountPreview(host, path, ctl) {
   }
 
   const type = r.headers.get('content-type') || '';
+
+  /* A viewer somebody mounted for this kind of file (packs.js) comes first: whoever installed a
+   *  viewer for .diff wants it over our plain text. The source toggle still gives Argus's own
+   *  view, so a pack that draws something wrong never hides the file. */
+  const pack = await packFor(path);
+  if (pack) {
+    ctl.fill?.(true);
+    const truncated = !!r.headers.get('x-truncated');
+    const mtime = Number(r.headers.get('x-mtime') || 0);
+    if (pack.binary) {
+      mountPack(host, pack, path, { bytes: await r.arrayBuffer(), mtime, truncated }, ctl);
+      return;
+    }
+    const text = await r.text();
+    const asText = () => el('pre', { className: `file ${prefs.wrap ? 'wrap' : 'nowrap'}`, textContent: text });
+    return ctl.source((rendered) => {
+      host.textContent = '';
+      ctl.fill?.(rendered);
+      if (rendered) mountPack(host, pack, path, { text, mtime, truncated }, ctl);
+      else host.append(asText());
+    });
+  }
 
   if (type.startsWith('image/')) {
     ctl.fill?.(false);

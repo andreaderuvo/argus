@@ -57,12 +57,14 @@ class Session:
         except ConnectionClosed:
             pass
 
-    def send(self, method: str, params: dict | None = None, timeout: float = 20.0) -> dict:
+    def send(self, method: str, params: dict | None = None, timeout: float = 20.0, session: str | None = None) -> dict:
         n = next(self._ids)
         box: queue.Queue = queue.Queue()
         with self._lock:
             self._pending[n] = box
-        self.ws.send(json.dumps({"id": n, "method": method, "params": params or {}}))
+        # `session`: a frame of another process (a sandboxed viewer pack), attached flat.
+        self.ws.send(json.dumps({"id": n, "method": method, "params": params or {},
+                                 **({"sessionId": session} if session else {})}))
         try:
             msg = box.get(timeout=timeout)
         except queue.Empty:
@@ -197,6 +199,34 @@ class Page(Session):
             d = r["exceptionDetails"]
             raise CDPError(f"eval failed: {(d.get('exception') or {}).get('description') or d.get('text')}\n  in: {expression[:200]}")
         return r.get("result", {}).get("value")
+
+    def frame_eval(self, url_part: str, expression: str, timeout: float = 10.0):
+        """Evaluate in the frame whose address contains `url_part` — a frame sandboxed at an
+        opaque origin, which the page's own eval cannot reach into. Chrome puts such frames in
+        a process of their own, so the frame is attached as a target of this session."""
+        if not getattr(self, "_auto", False):
+            self.send("Target.setAutoAttach", {"autoAttach": True, "waitForDebuggerOnStart": False, "flatten": True})
+            self._auto = True
+        end = time.monotonic() + timeout
+        last = None
+        while time.monotonic() < end:
+            for ev in reversed(self.events):
+                if ev.get("method") != "Target.attachedToTarget":
+                    continue
+                info = ev["params"]["targetInfo"]
+                if url_part in info.get("url", ""):
+                    try:
+                        r = self.send("Runtime.evaluate", {"expression": expression, "returnByValue": True,
+                                                          "awaitPromise": True}, session=ev["params"]["sessionId"])
+                    except CDPError as e:
+                        last = e
+                        break
+                    if "exceptionDetails" not in r:
+                        return r.get("result", {}).get("value")
+                    last = r["exceptionDetails"]
+                    break
+            time.sleep(0.1)
+        raise Timeout(f"no frame {url_part!r} to evaluate in ({last})")
 
     def wait(self, expression: str, timeout: float = 10.0, what: str | None = None):
         """Until `expression` is truthy *in JavaScript*. Wrapped so that an element counts as

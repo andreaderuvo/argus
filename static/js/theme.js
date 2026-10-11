@@ -1,4 +1,5 @@
 // <imports> generated from what this file uses; edit the code, not this list
+import { repaintPacks } from '/js/packs.js';
 import { prefs } from '/js/state.js';
 import { repaintDiagrams, repaintMeshes } from '/js/viewers.js';
 // </imports>
@@ -25,6 +26,7 @@ export function applyTheme() {
   // diagram has the palette written into its svg; a mesh has it written into a
   // WebGLRenderer's state, which is no more a CSS variable than the diagram's markup is.
   repaintDiagrams();
+  repaintPacks();
   repaintMeshes();
 }
 

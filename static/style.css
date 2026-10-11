@@ -4324,3 +4324,8 @@ body:not(.railwide) #railfavs .railhead .railname { display: none; }
 #drawerfavs .railunstar { display: grid; place-items: center; margin-left: auto; width: 32px; height: 32px; color: var(--dim); }
 #drawerfavs .railunstar .ico { width: 14px; height: 14px; }
 .pluginupdate-body > .hint { padding-inline: 0; }
+.packlist { display: grid; gap: .35rem; margin-top: .8rem; }
+.packlist .packhead { margin: 0; }
+.packrow { display: flex; flex-wrap: wrap; align-items: baseline; gap: .2rem .7rem; }
+.packrow .packname { font-weight: 600; color: var(--bright); }
+.packframe { border: 0; width: 100%; height: 100%; display: block; background: var(--bg); }
