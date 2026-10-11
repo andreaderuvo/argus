@@ -82,3 +82,28 @@ def test_the_settings_filter_is_top_left_above_the_sections(make_page, phone):
     import json
     said = json.loads(where)
     assert said["left"] <= 1 and said["above"], said
+
+
+# Anything past the right edge of a phone, except inside something that scrolls or clips on purpose
+# (a desk's tab strip, a terminal, a table). One element too wide makes the phone shrink the whole
+# page and it has to be scrolled sideways: a long path in the title did exactly that (2026-10-12).
+PAST_THE_EDGE = """(() => { const W = innerWidth, out = [];
+  const boxed = (e) => { for (let p = e.parentElement; p && p !== document.body; p = p.parentElement) {
+    const o = getComputedStyle(p).overflowX; if (o !== 'visible') return true; } return false; };
+  for (const e of document.querySelectorAll('body *')) {
+    const r = e.getBoundingClientRect();
+    if (!r.width || e.offsetParent === null || r.right <= W + 1 || boxed(e)) continue;
+    out.push(`${e.tagName.toLowerCase()}.${[...e.classList].join('.')} ends at ${Math.round(r.right)}`);
+  }
+  return { W, page: document.documentElement.scrollWidth, out: out.slice(0, 6) }; })()"""
+
+
+@pytest.mark.parametrize("route", ["#/files", "#/files?path={root}/docs", "#/preview?path={root}/notes.txt",
+                                   "#/preview?path={root}/script.py", "#/settings", "#/sessions", "#/system",
+                                   "#/wall", "#/prompts", "#/todo", "#/since", "#/changes?path={root}"])
+def test_no_screen_is_wider_than_a_phone(make_page, argus, route):
+    # The harness's root is a long path, which is the case that broke: it is in the title.
+    page = make_page(viewport=PHONE, route=route.format(root=argus.root))
+    page.settle()
+    said = page.eval(PAST_THE_EDGE)
+    assert said["W"] == PHONE["width"] and said["page"] <= said["W"] and not said["out"], said
