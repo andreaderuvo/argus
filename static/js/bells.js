@@ -374,7 +374,7 @@ function aside(said) {
     const names = new Set(Object.values(said.closed || {}).flat());
     // The machine has checked they are gone; this page may not have noticed yet.
     for (const w of document.querySelectorAll('#view .win[data-session]')) {
-      if (names.has(w.dataset.session)) w.querySelector('.closebtn')?.click();
+      if (names.has(w.dataset.session)) { const x = w.querySelector('.closebtn'); if (x?.shut) x.shut(); else x?.click(); }
     }
     for (const ws of workspaces()) ws.desktop = ws.desktop.filter((x) => !(x.kind === 'term' && names.has(x.name)));
     savePrefs();

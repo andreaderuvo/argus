@@ -4,7 +4,7 @@ import { chained, deskChain, toggleChain } from '/js/chains.js';
 import { attachChanges } from '/js/changes.js';
 import { savePrefs } from '/js/core.js';
 import { agentStates, paintAllSeen, paintDeskStates, seeEverything } from '/js/counts.js';
-import { ask, confirmBox, confirmWithCheck, copyText, modal, showText, toast, undoToast } from '/js/dialogs.js';
+import { ask, confirmBox, confirmWithCheck, copyText, modal, popMenu, showText, toast, undoToast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { holdFor } from '/js/filerows.js';
 import { GROUND, addTurn, allVars, attachMessages, bridgeDeadline, bridgePath, bridgeTurns, chooseDeskSet, deskSetName, fillBaton, messagesChanged, noteDeskFolder, ownSetFor, planPath, setRepaintPair, typeInto, unknownVars, varSetNamed, varSets } from '/js/handover.js';
@@ -808,7 +808,25 @@ export async function screenWall() {
         setAim(open.find((o) => o.win === win));
       }, true);
 
-      close.onclick = () => {
+      /* The cross on a session's window offers both, because both are what people mean by it: the
+       *  window goes and the session keeps running (first, and Enter), or the session ends too —
+       *  through the same question killSession always asks. Called with no event (a kill already
+       *  done, a desk tidied) it only closes; a session already gone has nothing to end. */
+      close.onclick = (ev) => {
+        if (!ev || spec.kind !== 'term' || win.classList.contains('gone')) return shut();
+        ev.stopPropagation();
+        const r = close.getBoundingClientRect();
+        const elsewhere = workspaces().filter((w) => w.id !== ws.id && (w.desktop || []).some((x) => x.kind === 'term' && x.name === spec.name)).length;
+        popMenu(r.right, r.bottom + 4, [
+          { icon: 'close', label: t('Close the window — {name} keeps running', { name: spec.name }), run: shut },
+          { icon: 'trash', label: elsewhere === 1 ? t('End the session too (also shown on another desk)')
+            : elsewhere ? t('End the session too (also shown on {n} other desks)', { n: elsewhere }) : t('End the session too'),
+            danger: true, run: () => killSession({ name: spec.name }, shut) },
+        ], spec.name);
+      };
+      // Reached by code that closes windows by name (bells.js): the window only, never the menu.
+      close.shut = () => shut();
+      const shut = () => {
         handle.dispose();
         win.remove();
         open.splice(open.indexOf(entry), 1);

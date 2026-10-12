@@ -1434,6 +1434,10 @@
   "filter files — py, *.py, tests/*, !*.lock": "filter files — py, *.py, tests/*, !*.lock",
   "Filter the files": "Filter the files",
   "{shown} of {total} files": "{shown} of {total} files",
-  "No file matches “{query}”.": "No file matches “{query}”."
+  "No file matches “{query}”.": "No file matches “{query}”.",
+  "Close the window — {name} keeps running": "Close the window — {name} keeps running",
+  "End the session too": "End the session too",
+  "End the session too (also shown on {n} other desks)": "End the session too (also shown on {n} other desks)",
+  "End the session too (also shown on another desk)": "End the session too (also shown on another desk)"
  }
 }

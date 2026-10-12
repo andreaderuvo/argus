@@ -1434,6 +1434,10 @@
   "filter files — py, *.py, tests/*, !*.lock": "filtra i file — py, *.py, tests/*, !*.lock",
   "Filter the files": "Filtra i file",
   "{shown} of {total} files": "{shown} di {total} file",
-  "No file matches “{query}”.": "Nessun file corrisponde a «{query}»."
+  "No file matches “{query}”.": "Nessun file corrisponde a «{query}».",
+  "Close the window — {name} keeps running": "Chiudi la finestra — {name} continua a girare",
+  "End the session too": "Termina anche la sessione",
+  "End the session too (also shown on {n} other desks)": "Termina anche la sessione (è anche su altri {n} desk)",
+  "End the session too (also shown on another desk)": "Termina anche la sessione (è anche su un altro desk)"
  }
 }
