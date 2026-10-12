@@ -4374,3 +4374,10 @@ body:not(.railwide) #railfavs .railhead .railname { display: none; }
 .sessdormant { font-size: .8rem; }
 .lookstrip { display: inline-flex; gap: 3px; padding: 4px 5px; border-radius: 5px; border: 1px solid var(--line); flex: none; }
 .lookstrip > span { width: 9px; height: 9px; border-radius: 50%; }
+/* How it looks: a preview, so it stands aside and leaves the page lit. */
+dialog.sheet.looksheet { margin: 0; position: fixed; top: calc(var(--bar) + 1rem); right: 1rem; left: auto; bottom: auto;
+  max-height: calc(100dvh - var(--bar) - 2rem); box-shadow: 0 12px 40px rgb(0 0 0 / .45); }
+dialog.sheet.looksheet::backdrop { background: transparent; }
+@media (max-width: 560px) {
+  dialog.sheet.looksheet { right: .5rem; left: .5rem; top: auto; bottom: .5rem; max-height: 55dvh; }
+}

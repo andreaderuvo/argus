@@ -25,4 +25,14 @@ def test_a_known_palette_dresses_the_session_and_its_colours(make_page, argus):
                == ["#282a36", "#ff5555", "#a4ffff"], timeout=10, what="the terminal in Dracula, its ANSI colours too")
     style = argus.tmux("show-options", "-t", "dressed", "status-style").stdout
     assert "#44475a" in style, style
+    # A preview: the sheet stays, the next one is tried on, the last one chosen is kept.
+    assert page.eval("!!document.querySelector('dialog.sheet.looksheet[open]')"), "still open after a pick"
+    assert page.eval(f"{ITEMS}.find(b => b.classList.contains('on'))?.textContent.includes('Dracula')")
+    page.click_at(*page._center(f"{ITEMS}.find(b => b.textContent.includes('Nord'))"))
+    eventually(lambda: page.eval("import('/js/theme.js').then(m => m.termTheme('dressed').background)") == "#2e3440",
+               timeout=10, what="Nord on, the sheet still there")
+    assert page.eval(f"{ITEMS}.filter(b => b.classList.contains('on')).map(b => b.querySelector('.name').textContent)") == ["Nord"]
+    page.key("Escape", "Escape")
+    page.wait("!document.querySelector('dialog.sheet.looksheet')", timeout=5)
+    assert page.eval("import('/js/theme.js').then(m => m.termTheme('dressed').background)") == "#2e3440", "the last one kept"
     argus.kill_sessions()

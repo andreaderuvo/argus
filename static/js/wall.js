@@ -3323,16 +3323,25 @@ function lookSheet(session = null) {
     const chosen = session
       ? prefs.termLookBy?.[session]?.background === look.term?.background && (!!look.term || !prefs.termLookBy?.[session])
       : prefs.tmuxLook === look.name;
-    body.append(el('button', {
+    /* Tried on in place: the sheet stays, so the next one is a press away and what each does is
+     *  seen on the terminal beside it — the one chosen last is the one kept. */
+    const row = el('button', {
       className: `ghost block${chosen ? ' on' : ''}`,
       onclick: async () => {
-        sheet.close();
+        if (row.disabled) return;
+        row.disabled = true;
         try {
-          toast(session ? await wearLookHere(look, session) : await wearLook(look));
+          const said = session ? await wearLookHere(look, session) : await wearLook(look);
+          for (const b of body.querySelectorAll('button.block.on')) b.classList.remove('on');
+          row.classList.add('on');
+          // Every session: the config was written, which is worth saying. One session: the
+          // terminal beside the sheet is the answer.
+          if (!session) toast(said);
         } catch (e) {
           // A refusal means nothing was applied: the test server took it instead.
           toast(e.message, true);
         }
+        row.disabled = false;
       },
     }, [
       swatch,
@@ -3341,7 +3350,8 @@ function lookSheet(session = null) {
         el('span', { className: 'meta', textContent: t(look.note) }),
       ]),
       strip,
-    ].filter(Boolean)));
+    ].filter(Boolean));
+    body.append(row);
   }
   body.append(el('div', { className: 'sheetsep' }));
   if (session) {
@@ -3364,4 +3374,6 @@ function lookSheet(session = null) {
   sheet = modal(session ? t('How {session} looks', { session }) : t('How it looks'), body, [
     el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),
   ]);
+  // To the side and without the shade, so the terminal it dresses stays in view.
+  sheet.classList.add('looksheet');
 }
