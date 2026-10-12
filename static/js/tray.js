@@ -334,7 +334,8 @@ export function attachTray(host, wsId, extras, deliver) {
       // (linkparts.js): the file it points at first, the host and the rest under it.
       const { name, where } = linkParts(item.text, !!item.url);
       const row = el('button', { className: 'trayrow', title: item.text }, [
-        item.url ? icon('link') : fileIcon({ name, type: item.dir ? 'directory' : 'file' }),
+        // A URL that points at a file wears that file's icon; one that does not, the link.
+        item.url && !/\.[a-z0-9]{1,8}$/i.test(name) ? icon('link') : fileIcon({ name, type: item.dir ? 'directory' : 'file' }),
         el('span', { className: 'traytext' }, [
           el('span', { className: 'trayleaf linkname' }, bidi(name)),
           where ? el('span', { className: 'linkwhere' }, bidi(where)) : null,

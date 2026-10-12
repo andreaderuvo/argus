@@ -1467,6 +1467,8 @@
   "green rain on black": "green rain on black",
   "Regular expression — /…/ works with this off too": "Regular expression — /…/ works with this off too",
   "not a regular expression: {why}": "not a regular expression: {why}",
-  "not a regular expression": "not a regular expression"
+  "not a regular expression": "not a regular expression",
+  "Coloured file icons": "Coloured file icons",
+  "one per kind of file — Material Icon Theme, and Argus’s own for sequences, alignments, variants, trees and annotations": "one per kind of file — Material Icon Theme, and Argus’s own for sequences, alignments, variants, trees and annotations"
  }
 }

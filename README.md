@@ -200,5 +200,5 @@ your machine helps even more.
 
 ## License
 
-MIT. Vendored browser libraries keep their upstream MIT, BSD-3-Clause or Apache-2.0 licenses
-under `static/vendor/`.
+MIT. Vendored browser libraries keep their upstream MIT, BSD-3-Clause, Apache-2.0 or LGPL-2.1
+licenses under `static/vendor/` — [the list, with what each is for](https://github.com/andreaderuvo/argus/wiki/Development#third-party-code).

@@ -865,6 +865,8 @@ export async function screenSettings() {
       () => prefs.split, (v) => { prefs.split = v; }),
     toggle(t('Tree view'), t('expand folders in place instead of navigating into them'),
       () => prefs.tree, (v) => { prefs.tree = v; renderSidebar(); }),
+    toggle(t('Coloured file icons'), t('one per kind of file — Material Icon Theme, and Argus\u2019s own for sequences, alignments, variants, trees and annotations'),
+      () => prefs.fileIcons !== 'simple', (v) => { prefs.fileIcons = v ? 'coloured' : 'simple'; renderSidebar(); }),
     toggle(t('Open files inside the desk'), t('a file opened from a window becomes a window, instead of taking the screen'),
       () => prefs.openInDesk !== false, (v) => { prefs.openInDesk = v; }),
     ...(server?.allow_write && server?.drop_dir ? [keepDropsRow()] : []),

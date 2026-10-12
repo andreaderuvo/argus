@@ -1,6 +1,8 @@
 // <imports> generated from what this file uses; edit the code, not this list
 import { svg } from '/js/dom.js';
+import { iconFor } from '/js/iconname.js';
 import { ICONS } from '/js/icons.js';
+import { prefs } from '/js/state.js';
 // </imports>
 /* --------------------------------------------------------------- file icons */
 
@@ -27,7 +29,35 @@ function badge(name) {
   return { label: ext.slice(0, 4).toUpperCase(), color: family ? family[1] : '#6b7484' };
 }
 
+/* The coloured set: Material Icon Theme (MIT, vendored) and Argus's own for genomics. The map is
+ *  fetched once, at boot (loadFileIcons, awaited briefly by main.js); until it is here, or with
+ *  "Coloured file icons" off in Settings, the line icon below with its extension badge. */
+const MATERIAL = '/vendor/material-icon-theme-5.39.0';
+let iconMap = null;
+export function loadFileIcons() {
+  if (iconMap) return Promise.resolve(iconMap);
+  return fetch(`${MATERIAL}/map.json`).then((r) => (r.ok ? r.json() : null)).then((m) => { iconMap = m; return m; }).catch(() => null);
+}
+
+/** The picture for a file name, or null: an `<img>` from the coloured set. */
+function colouredIcon(name) {
+  if (prefs.fileIcons === 'simple' || !iconMap) return null;
+  const found = iconFor(name, iconMap, document.documentElement.dataset.theme === 'light');
+  if (!found) return null;
+  const img = document.createElement('img');
+  img.className = 'ficon fimg';
+  img.alt = '';
+  img.draggable = false;
+  img.decoding = 'async';
+  img.src = found.set === 'bio' ? `/img/fileicons/${found.icon}.svg` : `${MATERIAL}/icons/${found.icon}.svg`;
+  return img;
+}
+
 export function fileIcon(entry) {
+  if (entry.type !== 'directory') {
+    const img = colouredIcon(entry.name || '');
+    if (img) return img;
+  }
   const stroke = { fill: 'none', 'stroke-width': '1.6', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' };
   if (entry.type === 'directory') {
     return svg('svg', { viewBox: '0 0 24 24', class: 'ficon' }, [

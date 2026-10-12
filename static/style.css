@@ -4389,3 +4389,4 @@ dialog.sheet.looksheet::backdrop { background: transparent; }
 .trayrx { font: 600 .78rem/1 ui-monospace, SFMono-Regular, Menlo, monospace; min-width: 2rem; }
 .trayrx.on { color: var(--accent); border-color: var(--accent); }
 .traysearch.bad { outline: 1px solid var(--danger); border-color: var(--danger); }
+img.ficon.fimg { object-fit: contain; flex: none; }

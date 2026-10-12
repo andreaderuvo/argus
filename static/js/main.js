@@ -8,6 +8,7 @@ import { listenForBells } from '/js/bells.js';
 import { markDrops, syncPrefs, watchVitals } from '/js/core.js';
 import { AGENT_STATES_EVERY, SESSION_COUNT_EVERY, countSessions, countTodo, readAgentStates } from '/js/counts.js';
 import { el } from '/js/dom.js';
+import { loadFileIcons } from '/js/fileicons.js';
 import { icon } from '/js/icons.js';
 import { offerRealBrowser, offerTheAddress } from '/js/inapp.js';
 import { translateMarkup } from '/js/markup.js';
@@ -108,7 +109,9 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) { co
     translateMarkup();
     teamgraphWords(t);
     // Before the first paint: the desks and the theme in it decide what is drawn.
-    await syncPrefs();
+    // The file icons' map with the preferences, not after: rows drawn before it arrives would wear
+    // the plain badges until the next redraw. Never more than a moment's wait for it.
+    await Promise.all([syncPrefs(), Promise.race([loadFileIcons(), new Promise((ok) => setTimeout(ok, 1500))])]);
     applyTheme();
     applyName();
     await loadFavourites();

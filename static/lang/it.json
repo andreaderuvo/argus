@@ -1467,6 +1467,8 @@
   "green rain on black": "pioggia verde sul nero",
   "Regular expression — /…/ works with this off too": "Espressione regolare — /…/ funziona anche a pulsante spento",
   "not a regular expression: {why}": "non è un'espressione regolare: {why}",
-  "not a regular expression": "non è un'espressione regolare"
+  "not a regular expression": "non è un'espressione regolare",
+  "Coloured file icons": "Icone dei file a colori",
+  "one per kind of file — Material Icon Theme, and Argus’s own for sequences, alignments, variants, trees and annotations": "una per tipo di file — Material Icon Theme, e quelle di Argus per sequenze, allineamenti, varianti, alberi e annotazioni"
  }
 }

@@ -79,3 +79,20 @@ def test_the_api_reference_is_current():
     done = subprocess.run([sys.executable, str(ROOT / "scripts" / "apiref.py"), "--check", str(WIKI / "API-reference.md")],
                           capture_output=True, text=True)
     assert done.returncode == 0, done.stdout + done.stderr
+
+
+def test_every_vendored_library_is_in_the_third_party_list():
+    """static/vendor/<name>-<version>: each named, with its version, in Development → Third-party
+    code. diff2html went in without it on 2026-10-11, and nothing noticed."""
+    import re
+    if not WIKI.is_dir():
+        pytest.skip("the wiki is not cloned")
+    text = (WIKI / "Development.md").read_text(encoding="utf-8")
+    section = text.split("## Third-party code", 1)[1].split("\n## ", 1)[0]
+    root = Path(__file__).resolve().parent.parent / "static" / "vendor"
+    missing = []
+    for d in sorted(p for p in root.iterdir() if p.is_dir()):
+        m = re.match(r"(.+?)-(\d[\w.]*)$", d.name)
+        if not m or m.group(2) not in section:
+            missing.append(d.name)
+    assert not missing, f"vendored but not in the wiki's Third-party code: {missing}"
