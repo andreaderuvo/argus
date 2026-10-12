@@ -27,3 +27,18 @@ def test_the_links_filter_takes_a_regular_expression(make_page, argus):
     typed("(unclosed")
     page.wait(f"{count} === 'not a regular expression' && {box}.classList.contains('bad')", timeout=5, what="said")
     eventually(lambda: argus.api("/api/prefs")["prefs"].get("trayRegex", {}).get("1") is True, timeout=10, what="kept for the desk")
+
+
+def test_a_link_shows_its_file_name_first(make_page, argus):
+    links = [{"text": "https://example.org/a/very/long/path/that/goes/on/and/on/My%20Report.pdf", "at": 9e12, "count": 1, "url": True},
+             {"text": "/mnt/data/projects/salmonella/cgmlst/runs/2026-10-11/results/distance_matrix.tsv", "at": 9e12, "count": 1}]
+    argus.api("/api/prefs", "PATCH", {"changes": {"ws": 1, "wsSeq": 1, "links": {"1": links}, "workspaces": [
+        {"id": 1, "name": "Main", "desktop": [{"kind": "links"}]}]}})
+    page = make_page(route="#/wall?ws=1")
+    page.wait("document.querySelectorAll('.linkname').length === 2", timeout=15)
+    names = page.eval("[...document.querySelectorAll('.linkname')].map(n => n.textContent)")
+    assert names == ["My Report.pdf", "distance_matrix.tsv"], names
+    # The name is never the part cut: it fits whole even with the window narrow.
+    page.eval("document.querySelector('.win[data-kind=\"links\"]').style.width = '300px'")
+    assert page.eval("[...document.querySelectorAll('.linkname')].every(n => n.scrollWidth <= n.clientWidth + 1)")
+    assert page.eval("document.querySelector('.linkwhere').textContent").startswith("example.org/a/very")

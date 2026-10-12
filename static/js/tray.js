@@ -2,9 +2,11 @@
 import { savePrefs } from '/js/core.js';
 import { copies, copyText, modal, showText, ticked, toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
+import { fileIcon } from '/js/fileicons.js';
 import { uploadTo } from '/js/filerows.js';
 import { allVars, batonTemplates, fillBaton, groupName, ownSetFor, promptName, situationOf } from '/js/handover.js';
 import { icon } from '/js/icons.js';
+import { linkParts } from '/js/linkparts.js';
 import { current, setCurrent } from '/js/pointing.js';
 import { bidi, colorFor, getJSON, openFileRaw, postJSON } from '/js/reconnect.js';
 import { go } from '/js/router.js';
@@ -327,11 +329,16 @@ export function attachTray(host, wsId, extras, deliver) {
       // in front of it takes the ellipsis instead. (Clipping the whole path from the left
       // with `direction: rtl` is the usual trick, and it moves the leading slash to the
       // far end — `tmp/…/report.md/`, which is not a path.)
-      const cut = item.url ? -1 : item.text.lastIndexOf('/');
+      // Two lines: the name you are looking for, bold, and under it where it is — clipped from the
+      // left, so the folder next to the name is the part that stays. A URL is split the same way
+      // (linkparts.js): the file it points at first, the host and the rest under it.
+      const { name, where } = linkParts(item.text, !!item.url);
       const row = el('button', { className: 'trayrow', title: item.text }, [
-        icon(item.url ? 'link' : item.dir ? 'folder' : 'file'),
-        el('span', { className: 'trayhead' }, bidi(cut > 0 ? item.text.slice(0, cut + 1) : '')),
-        el('span', { className: 'trayleaf' }, bidi(cut >= 0 ? item.text.slice(cut + 1) : item.text)),
+        item.url ? icon('link') : fileIcon({ name, type: item.dir ? 'directory' : 'file' }),
+        el('span', { className: 'traytext' }, [
+          el('span', { className: 'trayleaf linkname' }, bidi(name)),
+          where ? el('span', { className: 'linkwhere' }, bidi(where)) : null,
+        ].filter(Boolean)),
       ]);
       // Silent at 1 — a badge on every row would just be noise reporting the default. It
       // is the reason a row is ahead of another one, so it earns a spot before `.verb`,

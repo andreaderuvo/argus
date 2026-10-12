@@ -1992,7 +1992,7 @@ button.toend.fresh::after {
 
 
 /* ------------------------------------------------------------------ the link tray */
-.winbody.traybody { overflow: hidden; display: flex; }
+.winbody.traybody { overflow: hidden; display: flex; background: var(--bg); }  /* a list, like a file window: the page's own paper, light in the light theme */
 .traylist { flex: 1; overflow-y: auto; padding: .3rem; display: flex; flex-direction: column; gap: .12rem; }
 .traylist .empty { padding: .8rem; color: var(--dim); }
 .trayline { display: flex; align-items: stretch; gap: .15rem; }
@@ -2020,10 +2020,15 @@ button.trayrow {
   font: 12px/1.4 ui-monospace, "SF Mono", Menlo, monospace;
   text-align: left;
 }
-/* The folder gives way, the name stays whole. */
-.trayhead { flex: 0 999 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dim); }
-.trayhead:empty { display: none; }
+/* The name on top, whole and bold; where it is under it, small, clipped from the left so the
+   folder nearest the name survives (rtl around an isolated bdi keeps the slashes where they are). */
+.traytext { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: .05rem; padding-right: .5rem; }
 .trayleaf { flex: 0 1 auto; padding-right: .5rem; min-width: 2.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.traytext > .linkname { padding-right: 0; min-width: 0; color: var(--bright);
+  font: 600 12.5px/1.35 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+.linkwhere { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dim);
+  font-size: 11px; direction: rtl; text-align: left; }
+button.trayrow .ficon { width: 18px; height: 18px; flex: none; margin-right: .5rem; }
 button.trayrow bdi { unicode-bidi: isolate; }
 button.trayrow:hover { background: var(--bg); border-color: var(--line); color: var(--bright); }
 button.trayrow .ico { flex: none; color: var(--dim); margin-right: .45rem; }
