@@ -1438,6 +1438,19 @@
   "Close the window — {name} keeps running": "Close the window — {name} keeps running",
   "End the session too": "End the session too",
   "End the session too (also shown on {n} other desks)": "End the session too (also shown on {n} other desks)",
-  "End the session too (also shown on another desk)": "End the session too (also shown on another desk)"
+  "End the session too (also shown on another desk)": "End the session too (also shown on another desk)",
+  "Order the sessions": "Order the sessions",
+  "Select the {n} asleep": "Select the {n} asleep",
+  "Window buttons in the ⋮ menu": "Window buttons in the ⋮ menu",
+  "asleep": "asleep",
+  "by name": "by name",
+  "newest first": "newest first",
+  "oldest first": "oldest first",
+  "quietest first": "quietest first",
+  "nothing has happened in it for {age} — a candidate to end": "nothing has happened in it for {age} — a candidate to end",
+  "nothing has happened in them for {age} or more": "nothing has happened in them for {age} or more",
+  "quiet {age}": "quiet {age}",
+  "since {when}": "since {when}",
+  "the title bar keeps the name, ⋮ and ✕, as on a phone; off: every button on the bar while it fits": "the title bar keeps the name, ⋮ and ✕, as on a phone; off: every button on the bar while it fits"
  }
 }

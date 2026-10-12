@@ -1407,6 +1407,11 @@ if (moreBtn) {
 }
 if (hamburger) hamburger.onclick = () => openDrawer(!drawerOpen);
 
+/** A window's buttons: in its ⋮ menu (the default, as on a phone) or along its title bar. */
+export function applyWinButtons() {
+  document.body.classList.toggle('winbtnsbar', prefs.winButtons === 'bar');
+}
+
 export function applyKeyBar() {
   document.body.classList.toggle('keysalways', prefs.keyBar === 'always');
   document.body.classList.toggle('keysnever', prefs.keyBar === 'never');

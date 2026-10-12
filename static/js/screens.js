@@ -198,10 +198,31 @@ export async function screenSessions() {
   const picked = new Set();
   const allBox = el('input', { type: 'checkbox', className: 'sesspick', title: t('Select every session shown') });
   const pickedSay = el('span', { className: 'dim' });
-  const endPicked = el('button', { className: 'ghost inline danger', type: 'button', hidden: true });
-  const bulk = el('div', { className: 'sessbulk' }, [allBox, pickedSay, el('span', { className: 'grow' }), endPicked]);
-  const shownNow = () => sessions.filter((one) => (!needle || one.name.toLowerCase().includes(needle))
-    && (!teamOnly || teamOf.get(one.name) === teamOnly));
+  const endPicked = el('button', { className: 'ghost inline danger sessend', type: 'button', hidden: true });
+  /* The ones nothing has happened in for days — no output, no key: the likeliest to have been
+   *  forgotten. One press ticks them for "End N selected", which still asks. */
+  const dormant = sessions.filter(isDormant);
+  const pickDormant = el('button', { className: 'ghost inline sessdormant', type: 'button', hidden: !dormant.length,
+    textContent: t('Select the {n} asleep', { n: dormant.length }),
+    title: t('nothing has happened in them for {age} or more', { age: duration(DORMANT) }) });
+  pickDormant.onclick = () => { picked.clear(); for (const s of dormant) picked.add(s.name); paint(); };
+  const bulk = el('div', { className: 'sessbulk' }, [allBox, pickedSay, el('span', { className: 'grow' }), pickDormant, endPicked]);
+  // The order goes in the same row, after the list's own controls are made (see below).
+  /* In which order: by name (as tmux lists them), or by when they were started — the newest to
+   *  find what you just began, the oldest to find what you forgot about. Kept across visits. */
+  const ORDERS = [['name', t('by name')], ['newest', t('newest first')], ['oldest', t('oldest first')],
+    ['quiet', t('quietest first')]];
+  const order = el('select', { className: 'sessorder', 'aria-label': t('Order the sessions') },
+    ORDERS.map(([value, word]) => el('option', { value, textContent: word, selected: (prefs.sessionOrder || 'name') === value })));
+  order.onchange = () => { prefs.sessionOrder = order.value; savePrefs(); paint(); };
+  const sorted = (list) => {
+    const how = prefs.sessionOrder || 'name';
+    if (how === 'name') return list;
+    const at = (s) => (how === 'quiet' ? s.activity || s.created : s.created) || 0;
+    return [...list].sort((a, b) => (how === 'newest' ? at(b) - at(a) : at(a) - at(b)) || a.name.localeCompare(b.name));
+  };
+  const shownNow = () => sorted(sessions.filter((one) => (!needle || one.name.toLowerCase().includes(needle))
+    && (!teamOnly || teamOf.get(one.name) === teamOnly)));
   const sayPicked = () => {
     for (const name of [...picked]) if (!sessions.some((s) => s.name === name)) picked.delete(name);
     pickedSay.textContent = picked.size ? t('{n} selected', { n: picked.size }) : t('select sessions to end several at once');
@@ -270,6 +291,7 @@ export async function screenSessions() {
     }
     view.append(chips);
   }
+  if (sessions.length > 1) bulk.append(order);
   if (sessions.length > 1) view.append(bulk);
   view.append(list);
   // Under the list, because it is about the whole list: a row of words rather than a mark
@@ -291,10 +313,16 @@ export async function screenSessions() {
      *  difference between something you started this morning and something you have
      *  forgotten about. The exact moment is still there, on hover. */
     const age = s.created ? t('up {age}', { age: duration(Date.now() / 1000 - s.created) }) : null;
+    // And the day it started, asked for beside it: "up 3 d" and "since Fri 9 Oct" answer different
+    // questions — how long, and was it before or after the thing you are trying to place.
+    const began = s.created ? t('since {when}', { when: startedOn(s.created) }) : null;
+    // How long since anything happened in it, once that is long enough to be worth saying.
+    const idle = s.activity ? Date.now() / 1000 - s.activity : 0;
+    const quiet = idle >= 3600 ? t('quiet {age}', { age: duration(idle) }) : null;
     // Not the shell sitting in the pane, which never grows — everything it went on to
     // start. Absent rather than "0 B" wherever the server could not work it out.
     const ram = s.ram ? human(s.ram) : null;
-    const meta = [s.windows === 1 ? t('1 window') : t('{n} windows', { n: s.windows }), ram, s.attached ? t('attached') : null, age]
+    const meta = [s.windows === 1 ? t('1 window') : t('{n} windows', { n: s.windows }), ram, s.attached ? t('attached') : null, age, began, quiet]
       .filter(Boolean).join(' · ');
     const dot = el('span', { className: 'dot' });
     dot.style.background = colorFor(s.name);
@@ -309,6 +337,7 @@ export async function screenSessions() {
         el('span', { className: 'name' }, [
           el('span', { textContent: s.name }),
           teamOf.get(s.name) ? el('span', { className: 'teambadge team', textContent: teamOf.get(s.name), title: t('a session of the team {team}', { team: teamOf.get(s.name) }) }) : null,
+          isDormant(s) ? el('span', { className: 'teambadge asleep', textContent: t('asleep'), title: t('nothing has happened in it for {age} — a candidate to end', { age: duration(idle) }) }) : null,
         ].filter(Boolean)),
         el('span', { className: 'meta', textContent: running ? `${meta} · ${t('open here')}` : meta }),
       ]),
@@ -954,6 +983,25 @@ function lostAgents() {
   };
   getJSON('/api/resume').then((said) => draw(said.lost)).catch(() => {});
   return box;
+}
+
+/** When a session started, as a person says it: the time today, the day and time this year, the
+ *  date with its year before that. */
+/** Two days with no output and no key: asleep, and said so on its row. */
+export const DORMANT = 2 * 86400;
+export function isDormant(s) {
+  return !!s.activity && Date.now() / 1000 - s.activity >= DORMANT;
+}
+
+export function startedOn(secs) {
+  const d = new Date(secs * 1000);
+  const now = new Date();
+  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (d.toDateString() === now.toDateString()) return time;
+  if (d.getFullYear() === now.getFullYear()) {
+    return `${d.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' })} ${time}`;
+  }
+  return d.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 export async function killSession(session, then = null) {

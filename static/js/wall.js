@@ -521,18 +521,32 @@ export async function screenWall() {
        *  everything else moves in here — read off the bar itself, so a window carrying
        *  buttons of its own needs no special case. */
       const more = el('button', { className: 'winbtn winmore', title: t('More') }, icon('more'));
-      more.onclick = () => {
+      /* Everything the bar does not show, from the bar itself: whatever is hidden there right now
+       *  — all of it by default (Settings → Sessions → Window buttons), or what a narrow window
+       *  had no room for — so a window carrying buttons of its own needs no special case. With a
+       *  mouse a menu beside the button; with a finger the sheet, whose rows a thumb can hit. */
+      more.onclick = (ev) => {
+        ev?.stopPropagation();
+        const tucked = [...head.querySelectorAll('button')]
+          .filter((b) => b !== more && !b.offsetParent && !b.disabled && !b.hidden && !b.closest('[hidden]'));
+        if (!tucked.length) return;
+        const name = (b) => b.title || b.getAttribute('aria-label') || b.textContent.trim() || '—';
+        if (matchMedia('(pointer: fine)').matches) {
+          const r = more.getBoundingClientRect();
+          popMenu(r.right, r.bottom + 4, tucked.map((b) => ({
+            glyph: b.querySelector('svg')?.cloneNode(true), label: name(b), run: () => b.click(),
+            on: b.classList.contains('on'), danger: b.classList.contains('killbtn'),
+          })), label);
+          return;
+        }
         const body = el('div', { className: 'sheetbody actions' });
         let sheet;
-        const tucked = [...head.querySelectorAll('button')]
-          .filter((b) => b !== more && !b.offsetParent);       // the ones the width hid
-        if (!tucked.length) return;
         for (const button of tucked) {
           const glyph = button.querySelector('svg')?.cloneNode(true);
           body.append(el('button', {
-            className: 'ghost block',
+            className: `ghost block${button.classList.contains('on') ? ' on' : ''}${button.classList.contains('killbtn') ? ' danger' : ''}`,
             onclick: () => { sheet.close(); button.click(); },
-          }, [glyph || icon('more'), el('span', { textContent: button.title || '—' })]));
+          }, [glyph || icon('more'), el('span', { textContent: name(button) })]));
         }
         sheet = modal(label, body, [
           el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),

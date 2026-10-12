@@ -12,7 +12,7 @@ import { under } from '/js/pointing.js';
 import { colorFor, delJSON, deskHome, getJSON, homePath, human, parentOf, postJSON, serverInfo, setTitle, signOut, when, withToken } from '/js/reconnect.js';
 import { go, render } from '/js/router.js';
 import { keyFor, keyHelp, pluginBehind, prettyKey } from '/js/shortcuts.js';
-import { applyBottomBar, applyKeyBar, applySidebar, renderSidebar, versionRow, viewersRow } from '/js/sidebar.js';
+import { applyBottomBar, applyKeyBar, applySidebar, applyWinButtons, renderSidebar, versionRow, viewersRow } from '/js/sidebar.js';
 import { THEMES, prefs, server, view } from '/js/state.js';
 import { applyName, applyTheme } from '/js/theme.js';
 import { workspaces } from '/js/tray.js';
@@ -940,6 +940,9 @@ export async function screenSettings() {
 
   wrap.append(
     group(t('Sessions')),
+    // The bar carries the name, the facts, ⋮ and ✕; the rest is one press away — or all on the bar.
+    toggle(t('Window buttons in the ⋮ menu'), t('the title bar keeps the name, ⋮ and ✕, as on a phone; off: every button on the bar while it fits'),
+      () => prefs.winButtons !== 'bar', (v) => { prefs.winButtons = v ? 'menu' : 'bar'; applyWinButtons(); }),
     /* Where the key bar under a session shows up.
      *
      *  It sends Esc, Tab, the arrows and the control codes a touch keyboard cannot, so the

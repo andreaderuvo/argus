@@ -13,7 +13,7 @@ import { offerRealBrowser, offerTheAddress } from '/js/inapp.js';
 import { translateMarkup } from '/js/markup.js';
 import { getJSON, loadFavourites, recallToken, rememberToken, serverInfo } from '/js/reconnect.js';
 import { render } from '/js/router.js';
-import { applyBottomBar, applyKeyBar, applyRail, applySidebar, sayIfPluginOld } from '/js/sidebar.js';
+import { applyBottomBar, applyKeyBar, applyRail, applySidebar, applyWinButtons, sayIfPluginOld } from '/js/sidebar.js';
 import { token } from '/js/state.js';
 import { teamgraphWords } from '/js/teamgraph.js';
 import { applyName, applyTheme } from '/js/theme.js';
@@ -117,6 +117,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) { co
   applyRail();
   applySidebar();
   applyKeyBar();
+  applyWinButtons();
   applyBottomBar();
   countSessions();
   countTodo();

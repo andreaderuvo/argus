@@ -307,8 +307,10 @@ export function popMenu(x, y, items, title = '') {
   };
   for (const it of items) {
     if (it === '-') { menu.append(el('div', { className: 'popmenusep' })); continue; }
-    menu.append(el('button', { className: `popmenuitem${it.danger ? ' danger' : ''}`, type: 'button', role: 'menuitem',
-      onclick: () => { close(); it.run(); } }, [it.icon ? icon(it.icon) : el('span'), el('span', { textContent: it.label })]));
+    // `glyph`: an icon already drawn (a window's own button, cloned); `on`: a switch that is on.
+    menu.append(el('button', { className: `popmenuitem${it.danger ? ' danger' : ''}${it.on ? ' on' : ''}`, type: 'button',
+      role: it.on === undefined ? 'menuitem' : 'menuitemcheckbox', 'aria-checked': it.on === undefined ? null : String(!!it.on),
+      onclick: () => { close(); it.run(); } }, [it.glyph || (it.icon ? icon(it.icon) : el('span')), el('span', { textContent: it.label })]));
   }
   document.body.append(menu);
   const r = menu.getBoundingClientRect();

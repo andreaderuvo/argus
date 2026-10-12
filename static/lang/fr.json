@@ -1438,6 +1438,19 @@
   "Close the window — {name} keeps running": "Fermer la fenêtre — {name} continue de tourner",
   "End the session too": "Terminer aussi la session",
   "End the session too (also shown on {n} other desks)": "Terminer aussi la session (aussi sur {n} autres bureaux)",
-  "End the session too (also shown on another desk)": "Terminer aussi la session (aussi sur un autre bureau)"
+  "End the session too (also shown on another desk)": "Terminer aussi la session (aussi sur un autre bureau)",
+  "Order the sessions": "Trier les sessions",
+  "Select the {n} asleep": "Sélectionner les {n} endormies",
+  "Window buttons in the ⋮ menu": "Boutons des fenêtres dans le menu ⋮",
+  "asleep": "endormie",
+  "by name": "par nom",
+  "newest first": "les plus récentes d’abord",
+  "oldest first": "les plus anciennes d’abord",
+  "quietest first": "les moins actives d’abord",
+  "nothing has happened in it for {age} — a candidate to end": "rien ne s’y est passé depuis {age} — candidate à terminer",
+  "nothing has happened in them for {age} or more": "rien ne s’y est passé depuis {age} ou plus",
+  "quiet {age}": "calme depuis {age}",
+  "since {when}": "depuis {when}",
+  "the title bar keeps the name, ⋮ and ✕, as on a phone; off: every button on the bar while it fits": "la barre garde le nom, ⋮ et ✕, comme sur un téléphone ; désactivé : tous les boutons sur la barre tant qu’ils tiennent"
  }
 }

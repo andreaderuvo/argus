@@ -5,11 +5,20 @@ from app.tmux import Socket, is_no_server, parse_sessions
 
 
 def test_parses_the_standard_output():
-    out = "claude\t2\t1\t1753000000\ncodex\t1\t0\t1753000100\n"
+    out = "claude\t2\t1\t1753000000\t1753009000\ncodex\t1\t0\t1753000100\t1753000200\n"
     assert parse_sessions(out) == [
-        {"name": "claude", "windows": 2, "attached": 1, "created": 1753000000},
-        {"name": "codex", "windows": 1, "attached": 0, "created": 1753000100},
+        {"name": "claude", "windows": 2, "attached": 1, "created": 1753000000, "activity": 1753009000},
+        {"name": "codex", "windows": 1, "attached": 0, "created": 1753000100, "activity": 1753000200},
     ]
+
+
+def test_a_line_without_activity_counts_its_creation_as_its_last_activity():
+    assert parse_sessions("old\t1\t0\t1753000000\n")[0]["activity"] == 1753000000
+
+
+def test_a_name_ending_in_a_number_is_not_read_as_a_field():
+    # Five fields, the name being "run 7": the four after it are ours.
+    assert parse_sessions("run 7\t1\t0\t1753000000\t1753000500\n")[0]["name"] == "run 7"
 
 
 def test_keeps_session_names_that_contain_spaces_and_dashes():

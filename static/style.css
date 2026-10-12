@@ -2664,7 +2664,19 @@ button.keyrow kbd { flex: none; }
    buttons stayed on the bar and ate the session's name, which is the one thing on it that
    cannot be guessed from a picture. The name, the `i`, the menu and Close; everything else
    is one tap away. */
+/* By default the bar keeps the swatch, the name, the facts, ⋮ and ✕ at every width — the rest is
+   in ⋮, the way a phone always had it ("too many icons, and a narrow window is a mess",
+   2026-10-12). `winbtnsbar` (Settings) puts them back on the bar while the window is wide. */
+body:not(.winbtnsbar) .winbar > .winextras,
+body:not(.winbtnsbar) .winbar > .sendbtn,
+body:not(.winbtnsbar) .winbar > .behindbtn,
+body:not(.winbtnsbar) .winbar > .solobtn,
+body:not(.winbtnsbar) .winbar > .pinbtn { display: none; }
+body:not(.winbtnsbar) .winbar > .winmore { display: inline-flex; }
+.popmenuitem.on { color: var(--accent); }
+.popmenuitem.on::after { content: "✓"; margin-left: auto; padding-left: .8rem; }
 @container (max-width: 520px) {
+  .winbar > .pinbtn,
   .winbar > .winextras,
   .winbar > .sendbtn,
   .winbar > .behindbtn,
@@ -4356,3 +4368,7 @@ body:not(.railwide) #railfavs .railhead .railname { display: none; }
           border-radius: 6px; background: var(--bg); color: var(--text); }
 .chfind:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
 .chcount { flex: none; font-variant-numeric: tabular-nums; }
+.sessorder { margin-left: auto; font: inherit; font-size: .8rem; max-width: 12rem; padding: .25rem .45rem; border: 1px solid var(--line);
+  border-radius: 6px; background: var(--bg); color: var(--text); }
+.teambadge.asleep { color: var(--dim); border-color: var(--line); background: color-mix(in srgb, var(--dim) 12%, transparent); }
+.sessdormant { font-size: .8rem; }

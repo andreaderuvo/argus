@@ -269,11 +269,11 @@ def test_sessions_can_be_ticked_and_ended_together(make_page, argus):
     page = make_page(route="#/sessions")
     box = lambda name: f"document.querySelector('.sesspick[data-session=\"{name}\"]')"
     page.wait(f"!!{box('two')}", timeout=10, what="a box on each row")
-    assert page.eval("document.querySelector('.sessbulk button').hidden") is True, "nothing ticked, nothing offered"
+    assert page.eval("document.querySelector('.sessbulk .sessend').hidden") is True, "nothing ticked, nothing offered"
     page.click_at(*page._center(box("one")))
     page.click_at(*page._center(box("three")))
-    page.wait("document.querySelector('.sessbulk button').textContent === 'End 2 selected'", timeout=5, what="the bulk button")
-    page.click_at(*page._center("document.querySelector('.sessbulk button')"))
+    page.wait("document.querySelector('.sessbulk .sessend').textContent === 'End 2 selected'", timeout=5, what="the bulk button")
+    page.click_at(*page._center("document.querySelector('.sessbulk .sessend')"))
     page.wait("!!document.querySelector('dialog.sheet[open]')", timeout=5, what="one question naming them")
     text = page.eval("document.querySelector('dialog.sheet[open]').textContent")
     assert "one" in text and "three" in text and "two" not in text.split("will stop")[0]

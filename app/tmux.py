@@ -10,7 +10,9 @@ from dataclasses import dataclass
 
 # An explicit format string, so we parse fields we chose rather than tmux's
 # human-readable layout (which changes between versions).
-FORMAT = "#{session_name}\t#{session_windows}\t#{session_attached}\t#{session_created}"
+# `session_activity`: the last time anything happened in it — output or a key — which is what
+# tells a session that is quietly working from one forgotten for a week.
+FORMAT = "#{session_name}\t#{session_windows}\t#{session_attached}\t#{session_created}\t#{session_activity}"
 
 
 class TmuxError(Exception):
@@ -65,12 +67,17 @@ def parse_sessions(stdout: str) -> list[dict]:
     for line in stdout.splitlines():
         if not line.strip():
             continue
-        # Session names may contain anything except a tab, so split from the right:
-        # the last three fields are always ours.
-        parts = line.rsplit("\t", 3)
-        if len(parts) != 4:
-            continue
-        name, windows, attached, created = parts
+        # Session names may contain anything except a tab, so split from the right: the fields
+        # after the name are always ours (four of them; three from an older format).
+        parts = line.rsplit("\t", 4)
+        if len(parts) == 5 and parts[4].strip().isdigit() and parts[3].strip().isdigit():
+            name, windows, attached, created, activity = parts
+        else:
+            parts = line.rsplit("\t", 3)
+            if len(parts) != 4:
+                continue
+            name, windows, attached, created = parts
+            activity = created
         if not name:
             continue
         out.append(
@@ -79,6 +86,7 @@ def parse_sessions(stdout: str) -> list[dict]:
                 "windows": _int(windows),
                 "attached": _int(attached),
                 "created": _int(created),
+                "activity": _int(activity),
             }
         )
     return out
@@ -105,7 +113,23 @@ def list_sessions(sock: Socket) -> list[dict]:
         if is_no_server(p.stderr):
             return []
         raise TmuxError(p.stderr.strip() or "tmux failed")
-    return parse_sessions(p.stdout)
+    out = parse_sessions(p.stdout)
+    # `session_activity` moves only when a client does something; a program printing does not
+    # touch it. Its windows' `window_activity` does, so the last activity is the latest of them —
+    # one list-windows for the whole server, whatever the number of sessions.
+    try:
+        w = subprocess.run(["tmux", *sock.args(), "list-windows", "-a", "-F", "#{session_name}\t#{window_activity}"],
+                           capture_output=True, text=True, timeout=4)
+        latest: dict[str, int] = {}
+        for line in w.stdout.splitlines():
+            name, _, when = line.rpartition("\t")
+            if name and when.strip().isdigit():
+                latest[name] = max(latest.get(name, 0), int(when))
+        for s in out:
+            s["activity"] = max(s["activity"], latest.get(s["name"], 0))
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return out
 
 
 def declared(sock: Socket) -> dict[str, dict]:
