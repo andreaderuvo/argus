@@ -128,7 +128,17 @@ def credentials() -> tuple[str, str]:
     a port, mint a token or stop the server. A script that only needs those things should
     hold the key that only does them.
     """
-    text = config_path().read_text(encoding="utf-8")
+    # Both in the environment: nothing to read — a cron job, a container, another machine. The
+    # hooks (argus-bell, argus-stop) have always taken ARGUS_URL; this now does as well.
+    env_url, env_key = os.environ.get("ARGUS_URL", "").strip(), os.environ.get("ARGUS_TOKEN", "").strip()
+    if env_url and env_key:
+        return env_url.rstrip("/"), env_key
+    try:
+        text = config_path().read_text(encoding="utf-8")
+    except OSError as e:
+        # Said in words, like every other failure here: a traceback for "no config" is the first
+        # thing a fresh machine or a cron job with a bare HOME would show.
+        raise ArgusError(0, f"no Argus config at {config_path()} ({e.strerror}) — set ARGUS_CONFIG to the config of the Argus to call") from None
     listen, master, agent, section, cert = "127.0.0.1:8080", None, None, None, ""
     for line in text.splitlines():
         bare = line.strip()
@@ -152,7 +162,7 @@ def credentials() -> tuple[str, str]:
     key = os.environ.get("ARGUS_TOKEN") or agent or master
     if not key:
         raise ArgusError(0, f"no token in {config_path()} — is this the machine Argus runs on?")
-    return f"{scheme}://{where}", key
+    return (env_url.rstrip("/") if env_url else f"{scheme}://{where}"), key
 
 
 class Argus:
@@ -489,13 +499,41 @@ class Argus:
 
 # ------------------------------------------------------------------------ cli
 
+def _as_mcp(args) -> int:
+    """A verb answered by the MCP tool of the same purpose (argus_mcp.py, beside this file): one
+    implementation, so the command line and the MCP tools cannot drift apart."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import argus_mcp as m
+    argus = Argus()
+    if args.what == "launchers" and args.json:
+        print(json.dumps(argus.launchers(versions=True), indent=1))
+        return 0
+    tool, given = {
+        "ask": lambda: ("ask", {"question": args.question, "options": args.option or None, "wait_minutes": args.minutes}),
+        "desk": lambda: (("rename_desk", {"desk": args.name, "to": args.to}) if args.to else
+                         ("open_desk", {"name": args.name, "folder": args.folder, "session": args.session,
+                                        "show": not args.quiet})),
+        "launchers": lambda: ("launchers", {}),
+        "status": lambda: ("request_status", {"id": args.id}),
+        "todos": lambda: ("todos", {"all": args.all}),
+        "todo": lambda: (("todo_add", {"note": args.item}) if args.verb == "add" else
+                         ("todo_set", {"todo": args.item, "status": args.status, "note": args.note})),
+        "worktree": lambda: ("worktree", {"repo": args.repo, "branch": args.branch}),
+        "prompts": lambda: ("prompts", {}),
+    }[args.what]()
+    said = m.DO[tool](argus, {k: v for k, v in given.items() if v is not None})
+    print(said)
+    return 1 if args.what == "ask" and said.startswith("Nobody answered") else 0
+
+
 def main(argv: list[str] | None = None) -> int:
     """The command line: `who`, `relay`, `ring`, `start`, `teams`, `task`, `turn`, `team-check`,
-    `team-propose`, `request`, `close-gone`.
+    `team-propose`, `request`, `close-gone` — and `ask`, `desk`, `launchers`, `status`, `todos`,
+    `todo`, `worktree`, `prompts`, which run the MCP tools' own functions.
 
-    Eleven verbs and no more, because this is what an *agent* reaches for from inside a session:
-    the other agents, its team, and what it may only request. Anything larger is a script, and a
-    script should import the class.
+    Every MCP tool has its verb here (tests/test_argus_mcp.py holds the two lists together), so an
+    agent with no MCP — or a shell, or a cron job — can do whatever one with MCP can. Anything
+    larger is a script, and a script should import the class.
     """
     import argparse
 
@@ -540,8 +578,9 @@ def main(argv: list[str] | None = None) -> int:
     cg = subs.add_parser("close-gone", help="close the windows whose session has ended (every desk, or --desk NAME)")
     cg.add_argument("--desk", default="")
     rq = subs.add_parser("request", help="ask the person to have something done this key cannot do (they tap Do it / No)")
-    rq.add_argument("action", help="start_team, team_go, team_pause, team_stop, kill_session, rename_session, "
-                                   "start_agent, remove_worktree, todo_delete")
+    rq.add_argument("action", help="start_team, team_go, team_pause, team_stop, team_reset, team_restart, "
+                                   "kill_session, rename_session, close_desk, start_agent, remove_worktree, "
+                                   "todo_delete, update_plugin, reload_plugins")
     rq.add_argument("args", nargs="*", metavar="KEY=VALUE", help="e.g. team=\"Kraken paper\" desk=Trading")
     rq.add_argument("--why", default="")
     rq.add_argument("--wait", type=float, default=300)
@@ -551,7 +590,42 @@ def main(argv: list[str] | None = None) -> int:
     tp.add_argument("file", nargs="?", default="-")
     tp.add_argument("--in", dest="folder", default=os.getcwd(), help="the folder the team is for (default: here)")
 
+    # The rest of what the MCP tools do, so a shell or an agent with no MCP has every one of them:
+    # each verb below runs the MCP tool's own function, and prints what it would have answered.
+    ak = subs.add_parser("ask", help="ask the person a question and wait for the answer")
+    ak.add_argument("question")
+    ak.add_argument("--option", action="append", default=[], help="a button to offer; repeat for more")
+    ak.add_argument("--minutes", type=float, default=10, help="how long to wait (1-60, default 10)")
+    dk = subs.add_parser("desk", help="open a desk by name (made if there is none), set its folder, put a session on it, or rename it")
+    dk.add_argument("name")
+    dk.add_argument("--folder", help="where its browsers and new sessions start (changed on a desk that exists too)")
+    dk.add_argument("--session", help="also put a window on this existing session in the desk")
+    dk.add_argument("--to", help="rename the desk to this")
+    dk.add_argument("--quiet", action="store_true", help="do not switch the open pages to it")
+    lc = subs.add_parser("launchers", help="what this machine can start, with versions and options")
+    lc.add_argument("--json", action="store_true")
+    st = subs.add_parser("status", help="where a request stands (its id, as `request` printed it)")
+    st.add_argument("id")
+    td = subs.add_parser("todos", help="the person's to-do list (open ones; --all for done too)")
+    td.add_argument("--all", action="store_true")
+    to = subs.add_parser("todo", help="add a to-do, or change one: todo add \"note\" | todo set 3 --status doing")
+    to.add_argument("verb", choices=["add", "set"])
+    to.add_argument("item", help="the note (add), or the to-do's number (set)")
+    to.add_argument("--status", choices=["open", "doing", "done"])
+    to.add_argument("--note", help="new words for it (set)")
+    wt = subs.add_parser("worktree", help="a second checkout of a repository, on its own branch")
+    wt.add_argument("repo")
+    wt.add_argument("branch")
+    subs.add_parser("prompts", help="the person's prompt library")
+
     args = ap.parse_args(argv)
+    MCP_VERBS = {"ask", "desk", "launchers", "status", "todos", "todo", "worktree", "prompts"}
+    if args.what in MCP_VERBS:
+        try:
+            return _as_mcp(args)
+        except ArgusError as e:
+            sys.stderr.write(f"{e}\n")
+            return 1
     try:
         argus = Argus()
         if args.what == "who":

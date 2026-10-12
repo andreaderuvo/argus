@@ -106,3 +106,23 @@ def test_an_argus_with_a_certificate_is_called_over_https(config):
     assert credentials()[0] == "http://127.0.0.1:8090"
     assert argus_client._loopback_tls("https://127.0.0.1:8090") is not None, "its certificate names the public host"
     assert argus_client._loopback_tls("https://example.org") is None, "anything else is checked"
+
+
+def test_no_config_at_all_is_said_in_words(monkeypatch, tmp_path):
+    monkeypatch.setenv("ARGUS_CONFIG", str(tmp_path / "nowhere.yaml"))
+    monkeypatch.delenv("ARGUS_TOKEN", raising=False)
+    with pytest.raises(argus_client.ArgusError, match="no Argus config at .*nowhere.yaml"):
+        argus_client.credentials()
+
+
+def test_the_address_and_the_key_from_the_environment_need_no_config(monkeypatch, tmp_path):
+    monkeypatch.setenv("ARGUS_CONFIG", str(tmp_path / "nowhere.yaml"))
+    monkeypatch.setenv("ARGUS_URL", "https://box.example:8090/")
+    monkeypatch.setenv("ARGUS_TOKEN", "k" * 64)
+    assert argus_client.credentials() == ("https://box.example:8090", "k" * 64)
+
+
+def test_argus_url_alone_changes_only_the_address(config, monkeypatch):
+    config("listen: 127.0.0.1:8090\ntoken: " + "m" * 64 + "\n")
+    monkeypatch.setenv("ARGUS_URL", "http://10.0.0.5:8090")
+    assert argus_client.credentials() == ("http://10.0.0.5:8090", "m" * 64)

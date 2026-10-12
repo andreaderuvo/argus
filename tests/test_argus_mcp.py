@@ -218,3 +218,55 @@ def test_an_agent_key_cannot_start_an_agent_that_asks_nobody(tmp_path, monkeypat
     assert r.status_code == 502, "the person's key may choose it"
     assert agentflags.dangerous("claude", "--dangerously-skip-permissions", {"permissions": "skip"})
     assert not agentflags.dangerous("claude", "--dangerously-skip-permissions", {"permissions": "ask"})
+
+
+# ------------------------------------------------------------------- the command line, the same
+
+# Every MCP tool, and the argus-say verb that does the same — the verbs added for parity run the
+# tool's own function, so what they do cannot drift; this keeps the two lists together.
+CLI_FOR = {"who": "who", "ring": "ring", "ask": "ask", "relay": "relay", "open_desk": "desk",
+           "rename_desk": "desk", "launchers": "launchers", "start_agent": "start", "team_task": "task",
+           "team_done": "turn", "team_check": "team-check", "team_propose": "team-propose",
+           "close_gone_windows": "close-gone", "request": "request", "request_status": "status",
+           "todos": "todos", "todo_set": "todo", "todo_add": "todo", "teams": "teams",
+           "worktree": "worktree", "prompts": "prompts"}
+
+
+def test_every_mcp_tool_has_its_argus_say_verb():
+    import re
+    tools = {t["name"] for t in argus_mcp.TOOLS}
+    assert tools == set(CLI_FOR), f"a tool without its verb (or a stale entry): {tools ^ set(CLI_FOR)}"
+    verbs = set(re.findall(r'add_parser\(\s*"([a-z-]+)"', (ROOT / "tools" / "argus_client.py").read_text()))
+    assert set(CLI_FOR.values()) <= verbs, f"verbs missing from argus-say: {set(CLI_FOR.values()) - verbs}"
+
+
+@pytest.mark.skipif(not shutil.which("tmux"), reason="needs tmux")
+def test_argus_say_does_what_the_mcp_tools_do(live):
+    conf, folder = live
+    env = {k: v for k, v in os.environ.items() if k not in ("TMUX", "TMUX_PANE", "ARGUS_TOKEN", "ARGUS_SESSION")}
+    env["ARGUS_CONFIG"] = str(conf)
+
+    def say(*args):
+        done = subprocess.run([sys.executable, str(ROOT / "tools" / "argus-say"), *args], capture_output=True,
+                              text=True, env=env, cwd=folder, timeout=60)
+        return done.returncode, (done.stdout + done.stderr).strip()
+
+    code, out = say("todo", "add", "write the paper")
+    assert code == 0 and out.startswith("added #1"), out
+    code, out = say("todo", "set", "1", "--status", "doing")
+    assert code == 0 and "#1 is doing" in out, out
+    code, out = say("todos")
+    assert "#1 [doing] write the paper" in out, out
+    (folder / "proj").mkdir()
+    code, out = say("desk", "Trading", "--folder", str(folder / "proj"), "--quiet")
+    assert code == 0 and "made the desk Trading" in out, out
+    code, out = say("desk", "Trading", "--to", "Kraken")
+    assert code == 0 and "now called Kraken" in out, out
+    code, out = say("launchers")
+    assert code == 0 and "Shell" in out, out
+    code, out = say("launchers", "--json")
+    assert json.loads(out)[0]["name"] == "Shell"
+    code, out = say("prompts")
+    assert code == 0, out
+    code, out = say("status", "nope")
+    assert code == 1 and out, "an unknown request is said, not a traceback"
