@@ -35,17 +35,25 @@ matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
 });
 
 /** The terminal takes its colours from the same palette, read off the document. */
+const ANSI_KEYS = ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white', 'brightBlack', 'brightRed',
+  'brightGreen', 'brightYellow', 'brightBlue', 'brightMagenta', 'brightCyan', 'brightWhite'];
+
 export function termTheme(session = null) {
   const cs = getComputedStyle(document.documentElement);
   const v = (name, fallback) => cs.getPropertyValue(name).trim() || fallback;
   // A chosen look dresses the terminal here as well: tmux paints its own status line, but
   // the paper it sits on belongs to the browser. A session dressed on its own wins.
   const look = (session && prefs.termLookBy?.[session]) || prefs.termLook || null;
+  // The sixteen colours programs print in, when the look has them: a theme that changed only the
+  // paper left `ls` and git in xterm's default reds and blues, which is half a theme.
+  const ansi = Object.fromEntries(ANSI_KEYS.filter((k) => look?.[k]).map((k) => [k, look[k]]));
   return {
+    ...ansi,
     background: look?.background || v('--term-bg', '#000000'),
     foreground: look?.foreground || v('--term-fg', '#c5cad3'),
     cursor: look?.cursor || v('--accent', '#8fd6a0'),
-    selectionBackground: '#3a4657',
+    cursorAccent: look?.background || undefined,
+    selectionBackground: look?.selectionBackground || '#3a4657',
   };
 }
 

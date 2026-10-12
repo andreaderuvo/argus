@@ -4372,3 +4372,5 @@ body:not(.railwide) #railfavs .railhead .railname { display: none; }
   border-radius: 6px; background: var(--bg); color: var(--text); }
 .teambadge.asleep { color: var(--dim); border-color: var(--line); background: color-mix(in srgb, var(--dim) 12%, transparent); }
 .sessdormant { font-size: .8rem; }
+.lookstrip { display: inline-flex; gap: 3px; padding: 4px 5px; border-radius: 5px; border: 1px solid var(--line); flex: none; }
+.lookstrip > span { width: 9px; height: 9px; border-radius: 50%; }

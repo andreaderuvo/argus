@@ -769,6 +769,47 @@ export const TMUX_LOOKS = [
     ],
     term: { background: '#0f141d', foreground: '#c3cddd', cursor: '#8fb3d9' },
   },
+  // The palettes people already know, from their published colours. `lookFrom` writes the tmux
+  // half from a few roles and gives the terminal all sixteen colours.
+  lookFrom('Dracula', 'purple and pink on a dark violet', { bg: '#282a36', fg: '#f8f8f2', accent: '#bd93f9', dim: '#6272a4', line: '#44475a' },
+    ['#21222c', '#ff5555', '#50fa7b', '#f1fa8c', '#bd93f9', '#ff79c6', '#8be9fd', '#f8f8f2',
+      '#6272a4', '#ff6e6e', '#69ff94', '#ffffa5', '#d6acff', '#ff92df', '#a4ffff', '#ffffff']),
+  lookFrom('Nord', 'arctic blues and frost', { bg: '#2e3440', fg: '#d8dee9', accent: '#88c0d0', dim: '#4c566a', line: '#3b4252' },
+    ['#3b4252', '#bf616a', '#a3be8c', '#ebcb8b', '#81a1c1', '#b48ead', '#88c0d0', '#e5e9f0',
+      '#4c566a', '#bf616a', '#a3be8c', '#ebcb8b', '#81a1c1', '#b48ead', '#8fbcbb', '#eceff4']),
+  lookFrom('Solarized Dark', 'the low-contrast classic, dark', { bg: '#002b36', fg: '#839496', accent: '#268bd2', dim: '#586e75', line: '#073642' },
+    ['#073642', '#dc322f', '#859900', '#b58900', '#268bd2', '#d33682', '#2aa198', '#eee8d5',
+      '#586e75', '#cb4b16', '#586e75', '#657b83', '#839496', '#6c71c4', '#93a1a1', '#fdf6e3']),
+  lookFrom('Solarized Light', 'the same, on cream', { bg: '#fdf6e3', fg: '#657b83', accent: '#268bd2', dim: '#93a1a1', line: '#eee8d5', ink: '#fdf6e3' },
+    ['#073642', '#dc322f', '#859900', '#b58900', '#268bd2', '#d33682', '#2aa198', '#eee8d5',
+      '#002b36', '#cb4b16', '#586e75', '#657b83', '#839496', '#6c71c4', '#93a1a1', '#fdf6e3']),
+  lookFrom('Gruvbox', 'retro, warm and earthy', { bg: '#282828', fg: '#ebdbb2', accent: '#fabd2f', dim: '#928374', line: '#3c3836' },
+    ['#282828', '#cc241d', '#98971a', '#d79921', '#458588', '#b16286', '#689d6a', '#a89984',
+      '#928374', '#fb4934', '#b8bb26', '#fabd2f', '#83a598', '#d3869b', '#8ec07c', '#ebdbb2']),
+  lookFrom('Catppuccin Mocha', 'soft pastels, dark', { bg: '#1e1e2e', fg: '#cdd6f4', accent: '#cba6f7', dim: '#6c7086', line: '#313244' },
+    ['#45475a', '#f38ba8', '#a6e3a1', '#f9e2af', '#89b4fa', '#f5c2e7', '#94e2d5', '#bac2de',
+      '#585b70', '#f38ba8', '#a6e3a1', '#f9e2af', '#89b4fa', '#f5c2e7', '#94e2d5', '#a6adc8']),
+  lookFrom('Catppuccin Latte', 'soft pastels, light', { bg: '#eff1f5', fg: '#4c4f69', accent: '#8839ef', dim: '#8c8fa1', line: '#ccd0da', ink: '#eff1f5' },
+    ['#5c5f77', '#d20f39', '#40a02b', '#df8e1d', '#1e66f5', '#ea76cb', '#179299', '#acb0be',
+      '#6c6f85', '#d20f39', '#40a02b', '#df8e1d', '#1e66f5', '#ea76cb', '#179299', '#bcc0cc']),
+  lookFrom('Tokyo Night', 'neon on a night sky', { bg: '#1a1b26', fg: '#c0caf5', accent: '#7aa2f7', dim: '#565f89', line: '#292e42' },
+    ['#15161e', '#f7768e', '#9ece6a', '#e0af68', '#7aa2f7', '#bb9af7', '#7dcfff', '#a9b1d6',
+      '#414868', '#f7768e', '#9ece6a', '#e0af68', '#7aa2f7', '#bb9af7', '#7dcfff', '#c0caf5']),
+  lookFrom('One Dark', 'the editor everybody knows', { bg: '#282c34', fg: '#abb2bf', accent: '#61afef', dim: '#5c6370', line: '#3e4451' },
+    ['#282c34', '#e06c75', '#98c379', '#e5c07b', '#61afef', '#c678dd', '#56b6c2', '#abb2bf',
+      '#5c6370', '#e06c75', '#98c379', '#e5c07b', '#61afef', '#c678dd', '#56b6c2', '#ffffff']),
+  lookFrom('Monokai', 'loud greens and pinks', { bg: '#272822', fg: '#f8f8f2', accent: '#a6e22e', dim: '#75715e', line: '#3e3d32' },
+    ['#272822', '#f92672', '#a6e22e', '#f4bf75', '#66d9ef', '#ae81ff', '#a1efe4', '#f8f8f2',
+      '#75715e', '#f92672', '#a6e22e', '#f4bf75', '#66d9ef', '#ae81ff', '#a1efe4', '#f9f8f5']),
+  lookFrom('Rosé Pine', 'muted rose and pine', { bg: '#191724', fg: '#e0def4', accent: '#ebbcba', dim: '#6e6a86', line: '#26233a' },
+    ['#26233a', '#eb6f92', '#31748f', '#f6c177', '#9ccfd8', '#c4a7e7', '#ebbcba', '#e0def4',
+      '#6e6a86', '#eb6f92', '#31748f', '#f6c177', '#9ccfd8', '#c4a7e7', '#ebbcba', '#e0def4']),
+  lookFrom('GitHub Light', 'white, like the web page', { bg: '#ffffff', fg: '#24292f', accent: '#0969da', dim: '#6e7781', line: '#d0d7de', ink: '#ffffff' },
+    ['#24292f', '#cf222e', '#116329', '#4d2d00', '#0969da', '#8250df', '#1b7c83', '#6e7781',
+      '#57606a', '#a40e26', '#1a7f37', '#633c01', '#218bff', '#a475f9', '#3192aa', '#8c959f']),
+  lookFrom('Matrix', 'green rain on black', { bg: '#000000', fg: '#00ff41', accent: '#00ff41', dim: '#008f11', line: '#003b00' },
+    ['#000000', '#008f11', '#00ff41', '#7dff7a', '#00b32c', '#00d438', '#4dff7c', '#b3ffc4',
+      '#003b00', '#00c22a', '#5cff8a', '#b0ffb0', '#29e05a', '#3cff6e', '#8affa8', '#e6ffec']),
   {
     name: 'Plain',
     note: 'tmux as it comes, and the app\u2019s own colours back',
@@ -786,6 +827,30 @@ export const TMUX_LOOKS = [
     term: null,
   },
 ];
+
+/** A look from a palette: the tmux half from its roles (`ink` is text on the accent), the
+ *  terminal half with all sixteen colours. */
+function lookFrom(name, note, c, ansi) {
+  const ink = c.ink || c.bg;
+  const ANSI_ORDER = ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white', 'brightBlack', 'brightRed',
+    'brightGreen', 'brightYellow', 'brightBlue', 'brightMagenta', 'brightCyan', 'brightWhite'];
+  return {
+    name, note,
+    conf: [
+      `set -g status-style "bg=${c.line} fg=${c.fg}"`,
+      `set -g status-left "#[bg=${c.accent},fg=${ink},bold] #S #[default] "`,
+      `set -g status-right "#[fg=${c.dim}]#{?client_prefix,PREFIX ,}%H:%M "`,
+      `set -g window-status-current-style "fg=${c.accent},bold"`,
+      `set -g window-status-style "fg=${c.dim}"`,
+      `set -g pane-border-style "fg=${c.line}"`,
+      `set -g pane-active-border-style "fg=${c.accent}"`,
+      `set -g message-style "bg=${c.accent} fg=${ink}"`,
+      `set -g mode-style "bg=${c.accent} fg=${ink}"`,
+    ],
+    term: { background: c.bg, foreground: c.fg, cursor: c.accent, selectionBackground: `${c.accent}55`,
+      ...Object.fromEntries(ANSI_ORDER.map((k, i) => [k, ansi[i]])) },
+  };
+}
 
 // The block a look is written into, so applying another replaces it rather than piling
 // up, and anything you wrote yourself is never touched.

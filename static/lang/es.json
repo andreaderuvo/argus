@@ -1451,6 +1451,19 @@
   "nothing has happened in them for {age} or more": "no ha pasado nada en ellas en {age} o más",
   "quiet {age}": "quieta desde hace {age}",
   "since {when}": "desde {when}",
-  "the title bar keeps the name, ⋮ and ✕, as on a phone; off: every button on the bar while it fits": "la barra conserva el nombre, ⋮ y ✕, como en el teléfono; apagado: todos los botones en la barra mientras quepan"
+  "the title bar keeps the name, ⋮ and ✕, as on a phone; off: every button on the bar while it fits": "la barra conserva el nombre, ⋮ y ✕, como en el teléfono; apagado: todos los botones en la barra mientras quepan",
+  "purple and pink on a dark violet": "morado y rosa sobre violeta oscuro",
+  "arctic blues and frost": "azules árticos y escarcha",
+  "the low-contrast classic, dark": "el clásico de bajo contraste, oscuro",
+  "the same, on cream": "el mismo, sobre crema",
+  "retro, warm and earthy": "retro, cálido y terroso",
+  "soft pastels, dark": "pasteles suaves, oscuro",
+  "soft pastels, light": "pasteles suaves, claro",
+  "neon on a night sky": "neón sobre un cielo nocturno",
+  "the editor everybody knows": "el editor que todos conocen",
+  "loud greens and pinks": "verdes y rosas intensos",
+  "muted rose and pine": "rosa y pino apagados",
+  "white, like the web page": "blanco, como la página web",
+  "green rain on black": "lluvia verde sobre negro"
  }
 }

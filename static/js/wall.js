@@ -3310,6 +3310,16 @@ function lookSheet(session = null) {
       swatch.style.background = look.term.background;
       swatch.style.borderColor = look.term.cursor;
     }
+    // What a program prints in it: the six colours on its own paper, when the look has them.
+    // A look with no colours of its own keeps xterm's, so that is what it shows.
+    const XTERM = { red: '#cd3131', green: '#0dbc79', yellow: '#e5e510', blue: '#2472c8', magenta: '#bc3fbc', cyan: '#11a8cd' };
+    const strip = look.term ? el('span', { className: 'lookstrip', 'aria-hidden': 'true' },
+      ['red', 'green', 'yellow', 'blue', 'magenta', 'cyan'].map((k) => {
+        const dot = el('span');
+        dot.style.background = look.term[k] || XTERM[k];
+        return dot;
+      })) : null;
+    if (strip) strip.style.background = look.term.background;
     const chosen = session
       ? prefs.termLookBy?.[session]?.background === look.term?.background && (!!look.term || !prefs.termLookBy?.[session])
       : prefs.tmuxLook === look.name;
@@ -3330,7 +3340,8 @@ function lookSheet(session = null) {
         el('span', { className: 'name', textContent: look.name }),
         el('span', { className: 'meta', textContent: t(look.note) }),
       ]),
-    ]));
+      strip,
+    ].filter(Boolean)));
   }
   body.append(el('div', { className: 'sheetsep' }));
   if (session) {
