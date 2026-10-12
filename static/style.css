@@ -4381,3 +4381,6 @@ dialog.sheet.looksheet::backdrop { background: transparent; }
 @media (max-width: 560px) {
   dialog.sheet.looksheet { right: .5rem; left: .5rem; top: auto; bottom: .5rem; max-height: 55dvh; }
 }
+.trayrx { font: 600 .78rem/1 ui-monospace, SFMono-Regular, Menlo, monospace; min-width: 2rem; }
+.trayrx.on { color: var(--accent); border-color: var(--accent); }
+.traysearch.bad { outline: 1px solid var(--danger); border-color: var(--danger); }

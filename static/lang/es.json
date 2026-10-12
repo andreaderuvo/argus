@@ -1464,6 +1464,9 @@
   "loud greens and pinks": "verdes y rosas intensos",
   "muted rose and pine": "rosa y pino apagados",
   "white, like the web page": "blanco, como la página web",
-  "green rain on black": "lluvia verde sobre negro"
+  "green rain on black": "lluvia verde sobre negro",
+  "Regular expression — /…/ works with this off too": "Expresión regular — /…/ funciona también con esto apagado",
+  "not a regular expression: {why}": "no es una expresión regular: {why}",
+  "not a regular expression": "no es una expresión regular"
  }
 }

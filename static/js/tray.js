@@ -12,6 +12,7 @@ import { browserView, browsers, fileBrowser } from '/js/screens.js';
 import { paintRailWindows } from '/js/sidebar.js';
 import { live, prefs, server } from '/js/state.js';
 import { HARVEST_EVERY, HARVEST_ROWS, LOCATE_BATCH, locatePaths, logicalLine, normalizeUrl, openLocated, openUrl, pathCandidates } from '/js/termpaths.js';
+import { textMatcher } from '/js/textmatch.js';
 import { drawInto, editor, mountPreview, putStrip, strips, toggleStrips } from '/js/viewers.js';
 import { t } from '/js/words.js';
 // </imports>
@@ -269,7 +270,19 @@ export function attachTray(host, wsId, extras, deliver) {
     type: 'search', className: 'traysearch', spellcheck: false,
     placeholder: t('filter…'), autocomplete: 'off',
   });
-  sift.addEventListener('input', () => { needle = sift.value.trim().toLowerCase(); draw(); });
+  // `.*`: what is typed is a regular expression (`/…/` is one regardless). Kept per desk.
+  const regexOn = () => !!prefs.trayRegex?.[wsId];
+  const rxBtn = el('button', { className: 'winbtn trayrx', type: 'button', textContent: '.*',
+    title: t('Regular expression — /…/ works with this off too'), 'aria-pressed': String(regexOn()) });
+  rxBtn.classList.toggle('on', regexOn());
+  rxBtn.onclick = () => {
+    prefs.trayRegex = { ...(prefs.trayRegex || {}), [wsId]: !regexOn() };
+    savePrefs();
+    rxBtn.classList.toggle('on', regexOn());
+    rxBtn.setAttribute('aria-pressed', String(regexOn()));
+    draw();
+  };
+  sift.addEventListener('input', () => { needle = sift.value.trim(); draw(); });
 
   const ageRow = () => {
     const pick = el('select', { className: 'setpick' });
@@ -294,9 +307,13 @@ export function attachTray(host, wsId, extras, deliver) {
 
   const draw = () => {
     const all = deskLinks(wsId);
-    const items = needle ? all.filter((x) => x.text.toLowerCase().includes(needle)) : all;
+    const match = textMatcher(needle, regexOn());
+    const items = needle && !match.error ? all.filter((x) => match.test(x.text)) : all;
     list.replaceChildren();
-    found.textContent = needle ? t('{n} of {all}', { n: items.length, all: all.length }) : '';
+    sift.classList.toggle('bad', !!match.error);
+    sift.title = match.error ? t('not a regular expression: {why}', { why: match.error }) : '';
+    found.textContent = match.error ? t('not a regular expression')
+      : needle ? t('{n} of {all}', { n: items.length, all: all.length }) : '';
     if (!all.length) {
       list.append(el('p', { className: 'empty tiny', textContent: t('Paths and links printed in this desk\u2019s terminals collect here.') }));
       return;
@@ -367,7 +384,7 @@ export function attachTray(host, wsId, extras, deliver) {
   };
   extras.append(empty);
 
-  head.append(ageRow(), el('div', { className: 'trayfind' }, [sift, found]));
+  head.append(ageRow(), el('div', { className: 'trayfind' }, [sift, rxBtn, found]));
   trayWatch.set(wsId, draw);
   draw();
   sweep();

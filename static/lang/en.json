@@ -1464,6 +1464,9 @@
   "loud greens and pinks": "loud greens and pinks",
   "muted rose and pine": "muted rose and pine",
   "white, like the web page": "white, like the web page",
-  "green rain on black": "green rain on black"
+  "green rain on black": "green rain on black",
+  "Regular expression — /…/ works with this off too": "Regular expression — /…/ works with this off too",
+  "not a regular expression: {why}": "not a regular expression: {why}",
+  "not a regular expression": "not a regular expression"
  }
 }
