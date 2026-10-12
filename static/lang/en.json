@@ -1469,6 +1469,9 @@
   "not a regular expression: {why}": "not a regular expression: {why}",
   "not a regular expression": "not a regular expression",
   "Coloured file icons": "Coloured file icons",
-  "one per kind of file — Material Icon Theme, and Argus’s own for sequences, alignments, variants, trees and annotations": "one per kind of file — Material Icon Theme, and Argus’s own for sequences, alignments, variants, trees and annotations"
+  "one per kind of file — Material Icon Theme, and Argus’s own for sequences, alignments, variants, trees and annotations": "one per kind of file — Material Icon Theme, and Argus’s own for sequences, alignments, variants, trees and annotations",
+  "Starred — press to remove it from the favourites": "Starred — press to remove it from the favourites",
+  "Star it: kept in the sidebar": "Star it: kept in the sidebar",
+  "Starred files and folders": "Starred files and folders"
  }
 }

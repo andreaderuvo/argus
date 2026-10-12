@@ -8,11 +8,11 @@ import { allVars, batonTemplates, fillBaton, groupName, ownSetFor, promptName, s
 import { icon } from '/js/icons.js';
 import { linkParts } from '/js/linkparts.js';
 import { current, setCurrent } from '/js/pointing.js';
-import { bidi, colorFor, getJSON, openFileRaw, postJSON } from '/js/reconnect.js';
+import { bidi, colorFor, getJSON, openFileRaw, postJSON, toggleFavourite } from '/js/reconnect.js';
 import { go } from '/js/router.js';
 import { browserView, browsers, fileBrowser } from '/js/screens.js';
 import { paintRailWindows } from '/js/sidebar.js';
-import { live, prefs, server } from '/js/state.js';
+import { favs, live, prefs, server } from '/js/state.js';
 import { HARVEST_EVERY, HARVEST_ROWS, LOCATE_BATCH, locatePaths, logicalLine, normalizeUrl, openLocated, openUrl, pathCandidates } from '/js/termpaths.js';
 import { textMatcher } from '/js/textmatch.js';
 import { drawInto, editor, mountPreview, putStrip, strips, toggleStrips } from '/js/viewers.js';
@@ -378,7 +378,28 @@ export function attachTray(host, wsId, extras, deliver) {
         draw();
         trayTally?.(wsId);
       };
-      list.append(el('div', { className: 'trayline' }, [row, grab, drop]));
+      /* A star: kept among the favourites, so it is in the sidebar's starred section and in every
+       *  file browser's strip from then on — a link here goes when the tray empties. Paths only:
+       *  a favourite is a place on this machine. Resolved first, since what a terminal printed
+       *  may be relative to the session's folder. */
+      const starred = () => Object.values(favs || {}).flat().some((f) => f?.path === item.text);
+      const star = item.url ? null : el('button', { className: `winbtn traystar${starred() ? ' on' : ''}`,
+        title: starred() ? t('Starred — press to remove it from the favourites') : t('Star it: kept in the sidebar') }, icon('star'));
+      if (star) {
+        star.onclick = async (e) => {
+          e.stopPropagation();
+          const found = await locatePaths([item.text], item.from);
+          const hit = found[item.text];
+          if (!hit) { toast(t('No file at {path}', { path: item.text }), true); return; }
+          const groups = Object.entries(favs || {}).filter(([, l]) => (l || []).some((f) => f.path === hit.path)).map(([g]) => g);
+          if (groups.length) for (const g of groups) await toggleFavourite(hit.path, g);
+          else await toggleFavourite(hit.path, 'main');
+          // Kept under the name it resolved to, so the star reads right next time.
+          if (hit.path !== item.text && !item.url) { item.text = hit.path; savePrefs(); }
+          draw();
+        };
+      }
+      list.append(el('div', { className: 'trayline' }, [row, star, grab, drop].filter(Boolean)));
     }
   };
 

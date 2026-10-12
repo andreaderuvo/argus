@@ -45,3 +45,28 @@ def test_a_link_shows_its_file_name_first(make_page, argus):
     page.eval("document.querySelector('.win[data-kind=\"links\"]').style.width = '300px'")
     assert page.eval("[...document.querySelectorAll('.linkname')].every(n => n.scrollWidth <= n.clientWidth + 1)")
     assert page.eval("document.querySelector('.linkwhere').textContent").startswith("example.org/a/very")
+
+
+def test_a_link_can_be_starred_into_the_sidebar(make_page, argus):
+    target = argus.root / "notes.txt"
+    links = [{"text": str(target), "at": 9e12, "count": 1}, {"text": "https://example.org/x.pdf", "at": 9e12, "count": 1, "url": True}]
+    argus.api("/api/prefs", "PATCH", {"changes": {"ws": 1, "wsSeq": 1, "links": {"1": links}, "workspaces": [
+        {"id": 1, "name": "Main", "desktop": [{"kind": "links"}]}]}})
+    try:
+        page = make_page(route="#/wall?ws=1")
+        page.wait("document.querySelectorAll('.trayline').length === 2", timeout=15)
+        assert page.eval("document.querySelectorAll('.traystar').length") == 1, "paths only, not URLs"
+        page.click_at(*page._center("document.querySelector('.traystar')"))
+        eventually(lambda: str(target) in [f["path"] for f in argus.api("/api/favourites")["main"]],
+                   timeout=10, what="kept among the favourites")
+        page.wait("document.querySelector('.traystar').classList.contains('on')", timeout=5, what="the star lit")
+        page.wait("[...document.querySelectorAll('#railfavs .railfav .railname')].some(n => n.textContent === 'notes.txt')"
+                  " && document.querySelector('#railfavs .railhead .railname').textContent === 'Starred'", timeout=5,
+                  what="in the sidebar, under Starred")
+        page.click_at(*page._center("document.querySelector('.traystar')"))
+        eventually(lambda: str(target) not in [f["path"] for f in argus.api("/api/favourites")["main"]],
+                   timeout=10, what="and unstarred")
+    finally:
+        for g, items in argus.api("/api/favourites").items():
+            for f in items:
+                argus.api("/api/favourites", "POST", {"path": f["path"], "group": g})

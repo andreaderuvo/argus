@@ -4390,3 +4390,8 @@ dialog.sheet.looksheet::backdrop { background: transparent; }
 .trayrx.on { color: var(--accent); border-color: var(--accent); }
 .traysearch.bad { outline: 1px solid var(--danger); border-color: var(--danger); }
 img.ficon.fimg { object-fit: contain; flex: none; }
+button.winbtn.traystar.on { background: none; border-color: transparent; color: #e0b14a; opacity: 1; }
+button.winbtn.traystar.on svg, button.winbtn.traystar.on svg path { fill: currentColor; }
+.railfav img.ficon { width: 18px; height: 18px; }
+/* A starred file in the narrow rail: its coloured icon tells it apart; the initials are for folders. */
+body:not(.railwide) #railfavs .railfav.railfile .railinit, #railfavs .railfav.railfile .railinit { display: none; }

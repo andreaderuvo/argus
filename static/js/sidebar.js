@@ -4,6 +4,7 @@ import { savePrefs } from '/js/core.js';
 import { lastSessionCount, lastTodoCount, paintDeskStates, showCount } from '/js/counts.js';
 import { ask, askPrompt, confirmBox, toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
+import { fileIcon } from '/js/fileicons.js';
 import { BATONS, GROUND, LOOSE, PAIR_BATONS, SITUATIONAL, batonGroups, batonTemplates, bridgePath, deskSetName, fillBaton, groundVars, groupName, messagesChanged, pairEvery, pairLimit, pairTries, planPath, promptName, saidAs, unknownVars, varSetNamed, varSets, whyEmpty } from '/js/handover.js';
 import { icon } from '/js/icons.js';
 import { viewerPacks } from '/js/packs.js';
@@ -1111,19 +1112,22 @@ export function paintRailFavs() {
     }
   };
   const item = (f) => el('button', {
-    className: `railwin railfav${f.missing ? ' missing' : ''}`, type: 'button', title: f.path, onclick: (e) => {
+    className: `railwin railfav${f.missing ? ' missing' : ''}${f.type && f.type !== 'directory' ? ' railfile' : ''}`, type: 'button', title: f.path, onclick: (e) => {
       if (e.target.closest('.railunstar')) { e.stopPropagation(); unstar(f); return; }
       open(f);
     },
     oncontextmenu: (e) => { e.preventDefault(); unstar(f); },
-  }, [icon(f.type === 'directory' || !f.type ? 'folder' : 'file'),
+  }, [f.type === 'directory' || !f.type ? icon('folder') : fileIcon({ name: f.name || f.path, type: 'file' }),
     // Narrow, three folder glyphs are three of the same: the name's first letters tell them apart.
     el('span', { className: 'railinit', textContent: (f.name || '?').replace(/[^\p{L}\p{N}]/gu, '').slice(0, 2) || '?' }),
     el('span', { className: 'railname', textContent: f.name }),
     el('span', { className: 'railunstar', title: t('Remove the star (or right-click)'), role: 'button', 'aria-label': t('Remove the star') }, icon('close'))]);
   if (railFavs) {
     // Called what they are — folders, starred — rather than "favourites", which said nothing of what is in the list.
-    railFavs.replaceChildren(...(all.length ? [el('div', { className: 'railhead', title: t('Starred folders') }, [icon('folder'), el('span', { className: 'railname', textContent: t('Folders') })])] : []),
+    // "Starred" once a file is among them (a star from Links, a file pinned in Files).
+    const files = all.some((f) => f.type && f.type !== 'directory');
+    railFavs.replaceChildren(...(all.length ? [el('div', { className: 'railhead', title: files ? t('Starred files and folders') : t('Starred folders') },
+      [icon(files ? 'star' : 'folder'), el('span', { className: 'railname', textContent: files ? t('Starred') : t('Folders') })])] : []),
       ...all.map(item));
     railFavs.hidden = !all.length || !token;
   }

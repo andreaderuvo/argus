@@ -317,7 +317,7 @@
   "Split file panes": "Panneaux de fichiers côte à côte",
   "Split into two panes": "Diviser en deux panneaux",
   "Star it: put it at the top of a desk's Prompts window": "En favori : il ira en haut de la fenêtre Prompts d’un bureau",
-  "Starred": "Favoris",
+  "Starred": "Étoilés",
   "Starred — it sits at the top of a desk's Prompts window": "Favori : il est en haut de la fenêtre Prompts d’un bureau",
   "Start": "Démarrer",
   "Start a new session": "Démarrer une nouvelle session",
@@ -1469,6 +1469,9 @@
   "not a regular expression: {why}": "pas une expression régulière : {why}",
   "not a regular expression": "pas une expression régulière",
   "Coloured file icons": "Icônes de fichiers en couleur",
-  "one per kind of file — Material Icon Theme, and Argus’s own for sequences, alignments, variants, trees and annotations": "une par type de fichier — Material Icon Theme, et celles d’Argus pour séquences, alignements, variants, arbres et annotations"
+  "one per kind of file — Material Icon Theme, and Argus’s own for sequences, alignments, variants, trees and annotations": "une par type de fichier — Material Icon Theme, et celles d’Argus pour séquences, alignements, variants, arbres et annotations",
+  "Starred — press to remove it from the favourites": "Étoilé — appuyez pour le retirer des favoris",
+  "Star it: kept in the sidebar": "Mettez une étoile : il reste dans la barre latérale",
+  "Starred files and folders": "Fichiers et dossiers étoilés"
  }
 }
