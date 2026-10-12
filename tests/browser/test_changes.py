@@ -10,7 +10,7 @@ import subprocess
 from .test_flows import eventually
 
 DRAWN = """new Promise((ok) => { const t0 = Date.now(); (function look() {
-  const names = [...document.querySelectorAll('.d2h-file-name')].map((n) => n.textContent.trim());
+  const names = [...document.querySelectorAll('.d2h-file-header .d2h-file-name')].map((n) => n.textContent.trim());
   if (names.length || Date.now() - t0 > 8000) ok(names); else setTimeout(look, 100); })(); })"""
 
 
@@ -70,3 +70,27 @@ def test_a_session_in_a_repository_offers_its_changes_beside_it(make_page, argus
     assert page.frame_eval("/viewers/diff/", DRAWN, timeout=15) == ["score.py"]
     assert "Changes · proj" in page.text(".win[data-kind=\"changes\"] .wintitle")
     argus.kill_sessions()
+
+
+def test_the_files_are_filtered_as_you_type_and_the_filter_is_kept(make_page, argus):
+    repo = make_repo(argus)
+    (repo / "notes.md").write_text("# n\n")
+    (repo / "lib.js").write_text("x\n")
+    argus.api("/api/prefs", "PATCH", {"changes": {"ws": 1, "wsSeq": 1, "workspaces": [
+        {"id": 1, "name": "Main", "desktop": [{"kind": "changes", "path": str(repo), "what": "work"}]}]}})
+    page = make_page(route="#/wall?ws=1")
+    page.wait("!!document.querySelector('.win[data-kind=\"changes\"] iframe.packframe')", timeout=15)
+    eventually(lambda: sorted(page.frame_eval("/viewers/diff/", DRAWN, timeout=15)) == ["lib.js", "notes.md", "score.py"],
+               timeout=10, what="three files")
+    page.click_at(*page._center("document.querySelector('.chfind')"))
+    page.type("*.py, *.md")
+    page.wait("document.querySelector('.chcount').textContent === '2 of 3 files'", timeout=5)
+    eventually(lambda: sorted(page.frame_eval("/viewers/diff/", DRAWN, timeout=15)) == ["notes.md", "score.py"],
+               timeout=10, what="only the files asked for")
+    page.eval("document.querySelector('.chfind').value = 'nothing-here'; document.querySelector('.chfind').oninput()")
+    page.wait("document.querySelector('.chempty')?.textContent.includes('nothing-here')", timeout=5, what="said, not blank")
+    page.eval("document.querySelector('.chfind').value = '!*.js'; document.querySelector('.chfind').oninput()")
+    eventually(lambda: argus.api("/api/prefs")["prefs"]["workspaces"][0]["desktop"][0].get("filter") == "!*.js",
+               timeout=10, what="kept in the window")
+    page2 = make_page(route="#/wall?ws=1")
+    page2.wait("document.querySelector('.chfind')?.value === '!*.js'", timeout=15, what="and there after a reload")

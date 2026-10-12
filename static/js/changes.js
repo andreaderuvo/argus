@@ -13,6 +13,7 @@ import { savePrefs } from '/js/core.js';
 import { el } from '/js/dom.js';
 import { icon } from '/js/icons.js';
 import { mountPack, viewerPacks } from '/js/packs.js';
+import { filterPatch } from '/js/patchfilter.js';
 import { api, getJSON, setTitle } from '/js/reconnect.js';
 import { go } from '/js/router.js';
 import { bar, view } from '/js/state.js';
@@ -32,11 +33,18 @@ export function attachChanges(host, spec, setLabel) {
   const refPick = el('select', { className: 'chref', 'aria-label': t('Branch to compare with') });
   const sum = el('span', { className: 'meta chsum' });
   const again = el('button', { className: 'winbtn', title: t('Read it again now'), type: 'button' }, icon('refresh'));
-  const bar = el('div', { className: 'chbar' }, [seg, refPick, sum, again]);
+  /* Which files: kept in the window, applied to the patch already here — no request per key. */
+  const find = el('input', {
+    type: 'search', className: 'chfind', value: spec.filter || '', spellcheck: false, autocapitalize: 'off',
+    placeholder: t('filter files — py, *.py, tests/*, !*.lock'), 'aria-label': t('Filter the files'),
+  });
+  const count = el('span', { className: 'meta chcount' });
+  const bar = el('div', { className: 'chbar' }, [seg, refPick, sum, again, el('div', { className: 'chfindrow' }, [icon('search'), find, count])]);
   const body = el('div', { className: 'chbody' });
   host.replaceChildren(bar, body);
 
   let status = null;
+  let patch = '';                 // the whole patch, as fetched; the filter cuts it each time
   let shown = '';                 // the signature of what is drawn, so the poll redraws only on change
   let seq = 0;
 
@@ -109,15 +117,39 @@ export function attachChanges(host, spec, setLabel) {
     }
     if (mine !== seq || !host.isConnected) return;
     if (!text.trim()) {
+      count.textContent = '';
       say(what() === 'ref' ? t('No difference from {ref}.', { ref: spec.ref }) : t('Nothing to show.'));
+      return;
+    }
+    patch = text;
+    await draw();
+  }
+
+  /** The patch through the filter, into the diff viewer. */
+  async function draw() {
+    const cut = filterPatch(patch, find.value);
+    count.textContent = find.value.trim() ? t('{shown} of {total} files', { shown: cut.shown, total: cut.total }) : '';
+    if (!cut.shown) {
+      say(t('No file matches “{query}”.', { query: find.value.trim() }));
       return;
     }
     const { packs } = await viewerPacks();
     const pack = packs.find((p) => p.name === 'diff');
     body.replaceChildren();
-    if (pack) mountPack(body, pack, `${status.folder}/changes.diff`, { text, truncated: true });
-    else body.append(el('pre', { className: 'file nowrap', textContent: text }));
+    if (pack) mountPack(body, pack, `${status.folder}/changes.diff`, { text: cut.text, truncated: true });
+    else body.append(el('pre', { className: 'file nowrap', textContent: cut.text }));
   }
+
+  let typing = null;
+  find.oninput = () => {
+    clearTimeout(typing);
+    typing = setTimeout(() => {
+      spec.filter = find.value.trim() || undefined;
+      save();
+      if (patch) draw();
+    }, 180);
+  };
+  find.onkeydown = (e) => { if (e.key === 'Escape' && find.value) { e.stopPropagation(); find.value = ''; find.oninput(); } };
 
   refPick.onchange = () => { spec.ref = refPick.value; save(); load(true); };
   again.onclick = () => load(true);

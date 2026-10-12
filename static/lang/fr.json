@@ -1430,6 +1430,10 @@
   "Not committed": "Non commité",
   "Last commit": "Dernier commit",
   "Against": "Par rapport à",
-  "since {commit}": "depuis {commit}"
+  "since {commit}": "depuis {commit}",
+  "filter files — py, *.py, tests/*, !*.lock": "filtrer les fichiers — py, *.py, tests/*, !*.lock",
+  "Filter the files": "Filtrer les fichiers",
+  "{shown} of {total} files": "{shown} sur {total} fichiers",
+  "No file matches “{query}”.": "Aucun fichier ne correspond à « {query} »."
  }
 }

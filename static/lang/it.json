@@ -1430,6 +1430,10 @@
   "Not committed": "Non nel commit",
   "Last commit": "Ultimo commit",
   "Against": "Rispetto a",
-  "since {commit}": "da {commit}"
+  "since {commit}": "da {commit}",
+  "filter files — py, *.py, tests/*, !*.lock": "filtra i file — py, *.py, tests/*, !*.lock",
+  "Filter the files": "Filtra i file",
+  "{shown} of {total} files": "{shown} di {total} file",
+  "No file matches “{query}”.": "Nessun file corrisponde a «{query}»."
  }
 }
