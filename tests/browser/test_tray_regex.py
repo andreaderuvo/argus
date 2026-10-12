@@ -24,6 +24,9 @@ def test_the_links_filter_takes_a_regular_expression(make_page, argus):
     page.click_at(*page._center("document.querySelector('.trayrx')"))
     typed("run[12]/")
     page.wait(f"{count} === '2 of 4'", timeout=5, what="with the switch: a regex")
+    typed("*.pdf")
+    page.wait(f"{count} === '1 of 4' && !{box}.classList.contains('bad')", timeout=5,
+              what="a file pattern with the switch on: read as one, not refused")
     typed("(unclosed")
     page.wait(f"{count} === 'not a regular expression' && {box}.classList.contains('bad')", timeout=5, what="said")
     eventually(lambda: argus.api("/api/prefs")["prefs"].get("trayRegex", {}).get("1") is True, timeout=10, what="kept for the desk")

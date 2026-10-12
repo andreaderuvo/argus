@@ -13,6 +13,7 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 NODE = shutil.which("node")
 TEXTS = ["/data/run1/report.pdf", "/data/run2/a.b.txt", "https://localhost:5002/x", "http://example.org", "README.md"]
+URLS = ["https://x.org/files/My%20Report.pdf?v=1"]
 
 CASES = [
     ("", False, TEXTS, None),
@@ -25,6 +26,12 @@ CASES = [
     ("/readme/m", False, [], None),                                   # flags without i: exact case
     ("/README/m", False, ["README.md"], None),
     ("(unclosed", True, TEXTS, "Unterminated group"),                # broken: said, the list left alone
+    # File patterns: what everybody types, with the switch off or on.
+    ("*.pdf", False, ["/data/run1/report.pdf"], None),
+    ("*.pdf", True, ["/data/run1/report.pdf"], None),                # not a regex: read as the pattern it is
+    ("report*", False, ["/data/run1/report.pdf"], None),             # by its name
+    ("run?/*", False, ["/data/run1/report.pdf", "/data/run2/a.b.txt"], None),   # from any folder on
+    ("*localhost*", False, ["https://localhost:5002/x"], None),
 ]
 
 
@@ -41,3 +48,13 @@ console.log(JSON.stringify({{ kept: {json.dumps(TEXTS)}.filter((x) => m.test(x))
     got = json.loads(done.stdout)
     assert got["kept"] == expected, got
     assert (error is None and got["error"] is None) or (error and error in (got["error"] or "")), got
+
+
+@pytest.mark.skipif(not NODE, reason="needs node")
+def test_a_url_is_matched_by_its_file_decoded_without_its_query():
+    script = f"""
+import {{ textMatcher }} from '{ROOT / 'static/js/textmatch.js'}';
+console.log(JSON.stringify(["*.pdf", "my report*", "*.html"].map((q) => textMatcher(q).test({json.dumps(URLS[0])}))));
+"""
+    done = subprocess.run([NODE, "--input-type=module", "-e", script], capture_output=True, text=True, timeout=20)
+    assert json.loads(done.stdout) == [True, True, False], done.stdout + done.stderr
