@@ -5,11 +5,11 @@ import { el } from '/js/dom.js';
 import { icon } from '/js/icons.js';
 import { mountPack, packFor } from '/js/packs.js';
 import { setCurrent } from '/js/pointing.js';
-import { getJSON, human, parentOf, postJSON, setTitle, signOut, triggerDownload, when, withToken } from '/js/reconnect.js';
+import { getJSON, human, paintFileStars, parentOf, postJSON, setTitle, signOut, toggleFavourite, triggerDownload, when, withToken } from '/js/reconnect.js';
 import { go } from '/js/router.js';
 import { keepMyPlace, playedTo } from '/js/screens.js';
 import { paintRailDesks } from '/js/sidebar.js';
-import { bar, prefs, server, view } from '/js/state.js';
+import { bar, favs, prefs, server, view } from '/js/state.js';
 import { isTeamFile, teamFileCard, teamFileEditor } from '/js/teameditor.js';
 import { chooseDesk, nextWindowId, openWindow, watchers } from '/js/tray.js';
 import { t } from '/js/words.js';
@@ -1090,7 +1090,23 @@ function whereButtons(path) {
     copies(() => withToken(`${location.origin}/api/file?path=${encodeURIComponent(path)}`),
            'link', t('Copy a link to this file')),
     copies(() => path, 'clipboard', t('Copy the absolute path')),
+    starButton(path),
   ];
+}
+
+/** The star Links has, on the file itself: kept among the favourites, so it is in the
+ *  sidebar's Starred section. Pressed again it leaves every group it is in, as in Links. */
+function starButton(path) {
+  const star = el('button', { className: 'winbtn traystar filestar', type: 'button' }, icon('star'));
+  star.dataset.path = path;
+  star.onclick = async (e) => {
+    e.stopPropagation();
+    const groups = Object.entries(favs || {}).filter(([, l]) => (l || []).some((f) => f?.path === path)).map(([g]) => g);
+    if (groups.length) for (const g of groups) await toggleFavourite(path, g);
+    else await toggleFavourite(path, 'main');
+  };
+  paintFileStars(star);
+  return star;
 }
 
 /* The folder and when it last changed, as the terminals say things — but *only* as they

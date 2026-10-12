@@ -227,6 +227,7 @@ export async function serverInfo() {
 export async function loadFavourites() {
   try { setFavs(await getJSON('/api/favourites')); } catch { setFavs({}); }
   setFavsLoaded(true);   // an empty list is an answer, not a reason to keep asking
+  paintFileStars();
   paintRailFavs();
 }
 
@@ -240,9 +241,21 @@ export async function toggleFavourite(path, group) {
     const r = await postJSON('/api/favourites', { path, group });
     setFavs(r.favourites);
     paintRailFavs();
+    paintFileStars();
     toast(r.pinned ? t('pinned in {group}', { group: r.group }) : t('unpinned from {group}', { group: r.group }));
     refreshAllBrowsers();
   } catch (e) { toast(e.message, true); }
+}
+
+/** Every file window's star (or just `one`), lit when its file is among the favourites —
+ *  starred here, from Links or from Files, it reads the same in every window showing it. */
+export function paintFileStars(one) {
+  const kept = new Set(Object.values(favs || {}).flat().map((f) => f?.path));
+  for (const b of one ? [one] : document.querySelectorAll('.filestar')) {
+    const on = kept.has(b.dataset.path);
+    b.classList.toggle('on', on);
+    b.title = on ? t('Starred — press to remove it from the favourites') : t('Star it: kept in the sidebar');
+  }
 }
 
 // Declared here rather than beside the bell code below: `signOut` closes it, and a `let` is

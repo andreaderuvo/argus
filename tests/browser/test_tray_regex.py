@@ -70,3 +70,28 @@ def test_a_link_can_be_starred_into_the_sidebar(make_page, argus):
         for g, items in argus.api("/api/favourites").items():
             for f in items:
                 argus.api("/api/favourites", "POST", {"path": f["path"], "group": g})
+
+
+def test_a_file_window_has_the_same_star(make_page, argus):
+    target = argus.root / "notes.txt"
+    links = [{"text": str(target), "at": 9e12, "count": 1}]
+    argus.api("/api/prefs", "PATCH", {"changes": {"ws": 1, "wsSeq": 1, "links": {"1": links}, "workspaces": [
+        {"id": 1, "name": "Main", "desktop": [{"kind": "file", "path": str(target)}, {"kind": "links"}]}]}})
+    star = "document.querySelector('.win[data-kind=\"file\"] .filestar')"
+    try:
+        page = make_page(route="#/wall?ws=1")
+        page.wait(f"!!{star}", timeout=15, what="the star on the file's window")
+        page.click_at(*page._center(star))
+        eventually(lambda: str(target) in [f["path"] for f in argus.api("/api/favourites")["main"]],
+                   timeout=10, what="kept among the favourites")
+        page.wait(f"{star}.classList.contains('on')", timeout=5, what="the star lit")
+        page.wait("[...document.querySelectorAll('#railfavs .railfav .railname')].some(n => n.textContent === 'notes.txt')",
+                  timeout=5, what="in the sidebar")
+        # Unstarred from Links, the window's star goes out too.
+        page.click_at(*page._center("document.querySelector('.traystar')"))
+        page.wait(f"!{star}.classList.contains('on')", timeout=10, what="the window's star out")
+        assert str(target) not in [f["path"] for f in argus.api("/api/favourites").get("main", [])]
+    finally:
+        for g, items in argus.api("/api/favourites").items():
+            for f in items:
+                argus.api("/api/favourites", "POST", {"path": f["path"], "group": g})
