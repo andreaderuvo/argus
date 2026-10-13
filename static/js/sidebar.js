@@ -8,7 +8,8 @@ import { fileIcon } from '/js/fileicons.js';
 import { BATONS, GROUND, LOOSE, PAIR_BATONS, SITUATIONAL, batonGroups, batonTemplates, bridgePath, deskSetName, fillBaton, groundVars, groupName, messagesChanged, pairEvery, pairLimit, pairTries, planPath, promptName, saidAs, unknownVars, varSetNamed, varSets, whyEmpty } from '/js/handover.js';
 import { icon } from '/js/icons.js';
 import { viewerPacks } from '/js/packs.js';
-import { bidi, colorFor, deskHome, getJSON, homePath, postJSON, serverInfo, setTitle, toggleFavourite } from '/js/reconnect.js';
+import { pointAt } from '/js/pointing.js';
+import { bidi, colorFor, deskHome, getJSON, homePath, parentOf, postJSON, serverInfo, setTitle, toggleFavourite } from '/js/reconnect.js';
 import { go, parseRoute, render } from '/js/router.js';
 import { fileBrowser } from '/js/screens.js';
 import { aboutThisArgus, pluginUpdateDialog } from '/js/shortcuts.js';
@@ -1197,12 +1198,17 @@ export function paintRailFavs() {
     }
   };
   const folder = (f) => f.type === 'directory' || !f.type;
+  const openHolder = (f) => {
+    pointAt(f.path);
+    go(`#/files?path=${encodeURIComponent(parentOf(f.path))}`);
+  };
   // Right-click (or a long press): what can be done with it, rather than unstarring at once.
   const menu = (e, f) => {
     e.preventDefault();
     popMenu(e.clientX, e.clientY, [
       { icon: folder(f) ? 'folder' : 'file', label: folder(f) ? t('Open in Files') : t('Open'), run: () => open(f) },
       ...(folder(f) && !f.missing ? [{ icon: 'grid', label: t('New desk here'), run: () => deskHere(f.path) }] : []),
+      ...(!folder(f) && !f.missing ? [{ icon: 'folder', label: t('Open the folder it is in'), run: () => openHolder(f) }] : []),
       { icon: 'copy', label: t('Copy the path'), run: () => copyPath(f.path) },
       '-',
       { icon: 'star', label: t('Remove the star'), run: () => unstar(f) },
@@ -1213,6 +1219,7 @@ export function paintRailFavs() {
       if (e.target.closest('.railunstar')) { e.stopPropagation(); unstar(f); return; }
       if (e.target.closest('.raildesk')) { e.stopPropagation(); deskHere(f.path); return; }
       if (e.target.closest('.railcopy')) { e.stopPropagation(); copyPath(f.path); return; }
+      if (e.target.closest('.railup')) { e.stopPropagation(); openHolder(f); return; }
       open(f);
     },
     oncontextmenu: (e) => menu(e, f),
@@ -1228,6 +1235,9 @@ export function paintRailFavs() {
     // The row's actions together, over the end of the row on hover in the wide rail — taking no
     // room at rest, so the path has all of it (they had 40px of a 177px row, invisible).
     el('span', { className: 'railacts' }, [
+      // A file: the folder it is in, opened in Files with the file flashed (as a path clicked in a
+      // terminal is) — where the PDF's figures and its sources are.
+      !folder(f) && !f.missing ? el('span', { className: 'railup', title: t('Open the folder it is in'), role: 'button', 'aria-label': t('Open the folder it is in') }, icon('folder')) : null,
       el('span', { className: 'railcopy', title: t('Copy the full path'), role: 'button', 'aria-label': t('Copy the full path') }, icon('copy')),
       folder(f) && !f.missing ? el('span', { className: 'raildesk', title: t('New desk here — it starts in this folder'), role: 'button', 'aria-label': t('New desk here') }, icon('grid')) : null,
       el('span', { className: 'railunstar', title: t('Remove the star (right-click for more)'), role: 'button', 'aria-label': t('Remove the star') }, icon('close')),
@@ -1246,7 +1256,17 @@ export function paintRailFavs() {
   if (drawer) {
     const anyFile = all.some((f) => f.type && f.type !== 'directory');
     drawer.replaceChildren(...(all.length ? [el('div', { className: 'drawerhead', textContent: anyFile ? t('Starred') : t('Starred folders') })] : []),
-      ...all.map((f) => { const b = item(f); b.onclick = (e) => { if (e.target.closest('.railunstar')) { e.stopPropagation(); unstar(f); return; } openDrawer(false); open(f); }; return b; }));
+      // The row's own handler (open, copy, the folder it is in, unstar), the drawer closing first
+      // when it leads somewhere — not for an unstar or a copy, which stay where they are.
+      ...all.map((f) => {
+        const b = item(f);
+        const own = b.onclick;
+        b.onclick = (e) => {
+          if (!e.target.closest('.railunstar, .railcopy')) openDrawer(false);
+          own(e);
+        };
+        return b;
+      }));
     drawer.hidden = !all.length || !token;
     requestAnimationFrame(fitRailPaths);
   }

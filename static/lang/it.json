@@ -1535,6 +1535,7 @@
   "noted on {name}": "nota salvata su {name}",
   "note removed from {name}": "nota tolta da {name}",
   "printed {n} times in this desk": "stampato {n} volte in questo desk",
-  "from the session {name}": "dalla sessione {name}"
+  "from the session {name}": "dalla sessione {name}",
+  "Open the folder it is in": "Apri la cartella che lo contiene"
  }
 }

@@ -4516,6 +4516,7 @@ dialog.themesheet.busy .sheetbody { opacity: .55; pointer-events: none; }
 #drawerfavs .railacts > span { display: grid !important; place-items: center; width: 34px; height: 34px; color: var(--dim); }
 #drawerfavs .railacts .ico { width: 15px; height: 15px; }
 #drawerfavs .railacts > .raildesk { display: none !important; }
+#drawerfavs .railacts > .railcopy { display: none !important; }
 .row .sessnote { display: block; font-size: .78rem; color: var(--text); opacity: .85; font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Links: the row's actions over its end on hover (a fine pointer), always in the row on a touch screen. */
 .trayline { position: relative; }

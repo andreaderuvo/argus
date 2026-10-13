@@ -43,3 +43,23 @@ def test_a_long_path_is_cut_in_the_middle_and_the_buttons_stay(make_page, argus)
         page.wait(f"{where}.textContent === {shown!r}", timeout=5, what="the same path, fewer lines")
     finally:
         argus.api("/api/favourites", "POST", {"path": str(deep), "group": "main"})
+
+
+def test_a_starred_file_opens_the_folder_it_is_in(make_page, argus):
+    target = argus.root / "docs" / "paper.pdf"
+    argus.api("/api/favourites", "POST", {"path": str(target), "group": "main"})
+    try:
+        argus.api("/api/prefs", "PATCH", {"changes": {"railWide": True}})
+        page = make_page(route="#/sessions")
+        row = "[...document.querySelectorAll('#railfavs .railfav')].find(b => b.querySelector('.railname').textContent === 'paper.pdf')"
+        page.wait(f"!!{row}", timeout=10)
+        assert page.eval(f"!![...document.querySelectorAll('#railfavs .railfav')].find(b => b.querySelector('.railname').textContent !== 'paper.pdf' && b.querySelector('.railup'))") is False
+        x, y = page._center(row)
+        page.send("Input.dispatchMouseEvent", {"type": "mouseMoved", "x": x, "y": y, "button": "none"})
+        page.wait(f"getComputedStyle({row}.querySelector('.railacts')).opacity === '1'", timeout=3)
+        page.click_at(*page._center(f"{row}.querySelector('.railup')"))
+        page.wait(f"decodeURIComponent(location.hash).includes({str(target.parent)!r}) && location.hash.startsWith('#/files')", timeout=10,
+                  what="Files, on the folder it is in")
+        page.wait("!!document.querySelector('.row.pointed')", timeout=5, what="the file flashed in it")
+    finally:
+        argus.api("/api/favourites", "POST", {"path": str(target), "group": "main"})
