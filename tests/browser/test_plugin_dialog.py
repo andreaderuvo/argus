@@ -37,7 +37,7 @@ def test_an_old_plugin_is_said_in_a_dialog_once_per_version(make_page, argus, ol
         time.sleep(0.1)
     assert argus.api("/api/prefs")["prefs"].get("sawPlugin") == offered, "Later remembers this version"
 
-    page.eval("location.reload()")
+    page.reload()
     page.wait("document.readyState === 'complete' && !!document.querySelector('#view')", timeout=10)
     time.sleep(3)
     assert not page.eval(OPEN), "not again for the same version"

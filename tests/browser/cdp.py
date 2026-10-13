@@ -186,6 +186,14 @@ class Page(Session):
         if self.touch:
             self.send("Emulation.setTouchEmulationEnabled", {"enabled": True, "maxTouchPoints": 5})
 
+    def reload(self, timeout: float = 15.0) -> None:
+        """Reload and wait for the *new* document. `location.reload()` returns at once, and a wait
+        after it can be answered by the old page still on screen — then that page goes, and the
+        next look finds nothing (the rail test, flaky for exactly this)."""
+        self.eval("window.__argusOld = true")
+        self.send("Page.reload", {"ignoreCache": False})
+        self.wait("!window.__argusOld && document.readyState === 'complete'", timeout=timeout, what="the reloaded page")
+
     def goto(self, url: str) -> None:
         self.send("Page.navigate", {"url": url})
         self.wait("document.readyState === 'complete'")

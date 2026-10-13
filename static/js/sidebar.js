@@ -8,11 +8,11 @@ import { fileIcon } from '/js/fileicons.js';
 import { BATONS, GROUND, LOOSE, PAIR_BATONS, SITUATIONAL, batonGroups, batonTemplates, bridgePath, deskSetName, fillBaton, groundVars, groupName, messagesChanged, pairEvery, pairLimit, pairTries, planPath, promptName, saidAs, unknownVars, varSetNamed, varSets, whyEmpty } from '/js/handover.js';
 import { icon } from '/js/icons.js';
 import { viewerPacks } from '/js/packs.js';
-import { bidi, colorFor, deskHome, getJSON, postJSON, serverInfo, setTitle, toggleFavourite } from '/js/reconnect.js';
+import { bidi, colorFor, deskHome, getJSON, homePath, postJSON, serverInfo, setTitle, toggleFavourite } from '/js/reconnect.js';
 import { go, parseRoute, render } from '/js/router.js';
 import { fileBrowser } from '/js/screens.js';
 import { aboutThisArgus, pluginUpdateDialog } from '/js/shortcuts.js';
-import { SIDE_PATH_KEY, assignSidePath, bar, favs, hamburger, live, moreBtn, prefs, railDesks, railFavs, railToggle, railWins, side, sidePath, sideToggle, token, view } from '/js/state.js';
+import { SIDE_PATH_KEY, assignSidePath, bar, favs, hamburger, live, moreBtn, prefs, railDesks, railFavs, railToggle, railWins, server, side, sidePath, sideToggle, token, view } from '/js/state.js';
 import { redressTerminals } from '/js/theme.js';
 import { currentSpace, openWindow, runs, specId, workspaces } from '/js/tray.js';
 import { VIEWERS, editor } from '/js/viewers.js';
@@ -1131,6 +1131,13 @@ export async function deskHere(path) {
   } catch (e) { toast(e.message, true); }
 }
 
+/** The folder a path is in, said the short way: `~/…` under Argus's home. */
+function shortWhere(path) {
+  const parent = path.replace(/\/+$/, '').replace(/\/[^/]*$/, '') || '/';
+  const home = homePath(server?.roots || ['/']).replace(/\/+$/, '');
+  return home && home !== '/' && (parent === home || parent.startsWith(`${home}/`)) ? `~${parent.slice(home.length)}` : parent;
+}
+
 export function paintRailFavs() {
   const seen = new Set();
   const all = Object.values(favs || {}).flat().filter((f) => f?.path && !seen.has(f.path) && seen.add(f.path));
@@ -1163,7 +1170,12 @@ export function paintRailFavs() {
   }, [f.type === 'directory' || !f.type ? icon('folder') : fileIcon({ name: f.name || f.path, type: 'file' }),
     // Narrow, three folder glyphs are three of the same: the name's first letters tell them apart.
     el('span', { className: 'railinit', textContent: (f.name || '?').replace(/[^\p{L}\p{N}]/gu, '').slice(0, 2) || '?' }),
-    el('span', { className: 'railname', textContent: f.name }),
+    // Two lines, wide: the name, and under it where it is — clipped from the left, so the folder
+    // nearest it stays (asked for 2026-10-13: "so one sees the path", as Links does).
+    el('span', { className: 'railtext' }, [
+      el('span', { className: 'railname', textContent: f.name }),
+      el('span', { className: 'railwhere' }, bidi(shortWhere(f.path))),
+    ]),
     folder(f) && !f.missing ? el('span', { className: 'raildesk', title: t('New desk here — it starts in this folder'), role: 'button', 'aria-label': t('New desk here') }, icon('grid')) : null,
     el('span', { className: 'railunstar', title: t('Remove the star (right-click for more)'), role: 'button', 'aria-label': t('Remove the star') }, icon('close'))].filter(Boolean));
   if (railFavs) {
@@ -1177,7 +1189,8 @@ export function paintRailFavs() {
   }
   const drawer = document.getElementById('drawerfavs');
   if (drawer) {
-    drawer.replaceChildren(...(all.length ? [el('div', { className: 'drawerhead', textContent: t('Starred folders') })] : []),
+    const anyFile = all.some((f) => f.type && f.type !== 'directory');
+    drawer.replaceChildren(...(all.length ? [el('div', { className: 'drawerhead', textContent: anyFile ? t('Starred') : t('Starred folders') })] : []),
       ...all.map((f) => { const b = item(f); b.onclick = (e) => { if (e.target.closest('.railunstar')) { e.stopPropagation(); unstar(f); return; } openDrawer(false); open(f); }; return b; }));
     drawer.hidden = !all.length || !token;
   }

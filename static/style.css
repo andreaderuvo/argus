@@ -4463,3 +4463,15 @@ dialog.themesheet .themeall { flex-basis: 100%; margin: 0 0 .2rem; }
 dialog.sheet.looksheet[open] { display: flex; flex-direction: column; overflow: hidden; }
 dialog.sheet.looksheet > .sheetbody { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 dialog.sheet.looksheet > h2, dialog.sheet.looksheet > .sheetfoot { flex: none; }
+/* A starred folder in the wide rail (and the phone's drawer): its name, and where it is under it. */
+#railfavs .railtext, #drawerfavs .railtext { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; line-height: 1.25; }
+#railfavs .railwhere, #drawerfavs .railwhere { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  direction: rtl; text-align: left; font-size: .7rem; color: var(--dim); }
+#railfavs .railwhere bdi, #drawerfavs .railwhere bdi { unicode-bidi: isolate; }
+body:not(.railwide) #railfavs .railtext { display: none; }
+/* The phone's drawer: icon, name, and where — no initials (the narrow rail's), no buttons, nothing past its edge. */
+#drawerfavs .railwin { overflow: hidden; }
+#drawerfavs .railinit, #drawerfavs .raildesk { display: none !important; }
+#drawerfavs .railunstar { flex: none; }
+#drawerfavs .railwin > img.ficon, #drawerfavs .railwin > svg { flex: none; }
+#drawerfavs .railwhere { font-size: .75rem; }

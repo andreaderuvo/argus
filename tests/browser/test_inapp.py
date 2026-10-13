@@ -20,7 +20,8 @@ DIALOG = "[...document.querySelectorAll('dialog.sheet h2')].some(h => h.textCont
 
 def as_(page, ua):
     page.send("Emulation.setUserAgentOverride", {"userAgent": ua})
-    page.eval("sessionStorage.clear(); location.reload()")
+    page.eval("sessionStorage.clear()")
+    page.reload()
     page.wait("!!document.querySelector('#nav') && !document.querySelector('#nav').hidden", timeout=15, what="the app")
 
 
@@ -33,7 +34,7 @@ def test_the_scanners_browser_is_told_and_offered_chrome(make_page, argus):
     page.wait(DIALOG, timeout=10, what="the advice, in the scanner's browser")
     assert page.eval("[...document.querySelectorAll('dialog.sheet button')].some(b => b.textContent === 'Open in Chrome')")
     page.click_at(*page._center("[...document.querySelectorAll('dialog.sheet button')].find(b => b.textContent === 'Stay here')"))
-    page.eval("location.reload()")
+    page.reload()
     page.wait("!!document.querySelector('#nav') && !document.querySelector('#nav').hidden", timeout=15)
     page.settle(quiet=0.5, timeout=3)
     assert not page.eval(DIALOG), "once per visit"

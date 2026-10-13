@@ -424,7 +424,7 @@ def test_an_old_pair_left_on_a_desk_can_be_hidden(make_page, argus):
     page.wait("document.querySelector('.pairnote').hidden", timeout=5, what="hidden")
     eventually(lambda: (argus.api("/api/prefs")["prefs"].get("pairHidden") or {}).get(str(project)), timeout=10, what="remembered")
     assert (project / "PLAN.argus.md").exists() and (project / "BRIDGE.argus.md").exists(), "the files stay"
-    page.eval("location.reload()")
+    page.reload()
     page.wait("!!document.querySelector('.pairnote')", timeout=15)
     time.sleep(1.5)
     assert page.eval("document.querySelector('.pairnote').hidden") is True, "still hidden after a reload"
@@ -625,7 +625,7 @@ def test_the_browser_tab_says_which_argus_this_is(make_page, argus):
     page.eval("(() => { const b = document.querySelector('.namebox'); b.value = 'Argus · GPU'; b.dispatchEvent(new Event('change')); })()")
     page.wait("document.title === 'Argus · GPU'", timeout=5)
     eventually(lambda: argus.api("/api/prefs")["prefs"].get("instanceName") == "Argus · GPU", timeout=5, what="kept on the machine")
-    page.eval("location.reload()")
+    page.reload()
     page.wait("document.title === 'Argus · GPU'", timeout=10, what="and after a reload")
 
 

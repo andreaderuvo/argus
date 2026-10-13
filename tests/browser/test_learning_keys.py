@@ -81,7 +81,8 @@ def test_the_sidebar_keys_work_with_a_terminal_focused_unless_left_to_it(make_pa
         page.wait("location.hash.startsWith('#/sessions')", timeout=5, what="Sessions, without clicking out first")
         # Left to the terminal by choice (Emacs's C-M-…): the key goes to it, Argus stays put.
         argus.api("/api/prefs", "PATCH", {"changes": {"termCtrlAlt": False}})
-        page.eval("location.hash = '#/wall'; location.reload()")
+        page.eval("location.hash = '#/wall'")
+        page.reload()
         page.wait(f"!!{area}", timeout=15, what="the terminal again")
         time.sleep(0.8)
         page.eval(f"{area}.focus()")

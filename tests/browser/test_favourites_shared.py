@@ -52,7 +52,7 @@ def test_the_favourites_are_a_section_of_the_rail_from_anywhere(make_page, argus
         page.wait(f"decodeURIComponent(location.hash).includes({str(b)!r})", timeout=5, what="Files, on that folder")
         # Unstarred from the rail: gone from every list it was in.
         argus.api("/api/prefs", "PATCH", {"changes": {"railWide": True}})
-        page.eval("location.reload()")
+        page.reload()
         row = "[...document.querySelectorAll('#railfavs .railfav')].find(b => b.querySelector('.railname').textContent === 'rail-fav-a')"
         page.wait(f"!!{row}", timeout=10)
         x, y = page._center(row)

@@ -185,7 +185,7 @@ def test_a_diagram_file_becomes_the_folders_team(make_page, argus):
     page.wait("[...document.querySelectorAll('.teamfilecard button')].some(b => b.textContent.includes('Open in Team') && !b.hidden)", timeout=5)
     # Again, over a team.yaml with a duty: asked once, then replaced keeping the duty.
     team.write_text(team.read_text().replace("role: executor", "role: executor\n    duty: Mind the edge cases."))
-    page.eval("location.reload()")
+    page.reload()
     page.wait("document.querySelector('.teamfilecard .testatus')?.classList.contains('good')", timeout=15)
     save = "[...document.querySelectorAll('.teamfilecard button')].find(b => /team\\.yaml/.test(b.textContent))"
     page.wait(f"!!{save} && {save}.getClientRects().length > 0", timeout=10, what="the card again, with its button")
