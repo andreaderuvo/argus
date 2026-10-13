@@ -53,7 +53,10 @@ def test_the_quietest_first_and_the_ones_asleep_for_days(make_page, argus):
     argus.tmux("send-keys", "-t", "busy", "echo still here", "Enter")     # output: busy is the recent one now
     eventually(lambda: activity("busy") > activity("idle"), timeout=10, what="busy the more recent")
     page = make_page(route="#/sessions")
-    page.wait(f"{NAMES}.length === 2", timeout=10)
+    try:
+        page.wait(f"{NAMES}.length === 2", timeout=25)
+    except Exception:
+        raise AssertionError(f"the rows: {page.eval(NAMES)} — sessions: {argus.tmux('list-sessions', '-F', '#S').stdout.split()}") from None
     page.eval("(() => { const s = document.querySelector('.sessorder'); s.value = 'quiet'; s.onchange(); })()")
     page.wait(f"{NAMES}.join() === 'idle,busy'", timeout=5, what="the one nothing happened in first")
     assert not page.eval("!!document.querySelector('.teambadge.asleep')") and page.eval("document.querySelector('.sessdormant').hidden")

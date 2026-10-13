@@ -7,7 +7,8 @@ import { api, getJSON, patchJSON } from '/js/reconnect.js';
 import { go } from '/js/router.js';
 import { keyHelp } from '/js/shortcuts.js';
 import { applyRail } from '/js/sidebar.js';
-import { CAN_FULLSCREEN, MINE_ONLY, PREFS_KEY, VITALS_EVERY, bar, changedKeys, knownDesks, prefs, pushing, railToggle, server, setBaseline, setPrefsVersion, setPushing, setVitalsTimer, vitalsTimer } from '/js/state.js';
+import { CAN_FULLSCREEN, MINE_ONLY, PREFS_KEY, VITALS_EVERY, bar, baseline, changedKeys, knownDesks, prefs, pushing, railToggle, server, setBaseline, setPrefsVersion, setPushing, setVitalsTimer, vitalsTimer } from '/js/state.js';
+import { applyTheme } from '/js/theme.js';
 import { nextWindowId, openWindow } from '/js/tray.js';
 import { levelWord, worstVital } from '/js/vitals.js';
 import { t } from '/js/words.js';
@@ -159,6 +160,24 @@ export function savePrefs() {
 }
 
 /** Read what the machine has, once, before the first paint. */
+/** The theme and the windows' looks as the machine has them now, put on this page if they changed
+ *  elsewhere — another tab, the phone — when this one comes back into view. Only these keys: the
+ *  rest of a page's preferences are its own until it saves them. */
+const LOOK_KEYS = ['uiTheme', 'themeCache', 'theme', 'termLook', 'termLookBy', 'tmuxLook'];
+export async function refreshLooks() {
+  try {
+    const theirs = (await getJSON('/api/prefs')).prefs || {};
+    const changed = LOOK_KEYS.filter((k) => JSON.stringify(theirs[k] ?? null) !== JSON.stringify(prefs[k] ?? null));
+    if (!changed.length) return;
+    for (const k of changed) {
+      if (theirs[k] === undefined) delete prefs[k]; else prefs[k] = theirs[k];
+    }
+    setBaseline({ ...baseline, ...Object.fromEntries(changed.map((k) => [k, JSON.parse(JSON.stringify(prefs[k] ?? null))])) });
+    localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+    applyTheme();
+  } catch { /* offline for a moment: the next visit catches up */ }
+}
+
 export async function syncPrefs() {
   try {
     const said = await getJSON('/api/prefs');

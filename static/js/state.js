@@ -147,7 +147,7 @@ function readJSON(key) {
  */
 let prefsVersion = 0;
 export function setPrefsVersion(value) { prefsVersion = value; }
-let baseline = {};
+export let baseline = {};
 export function setBaseline(value) { baseline = value; }
 export let pushing = null;
 export function setPushing(value) { pushing = value; }

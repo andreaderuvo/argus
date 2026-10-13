@@ -87,8 +87,9 @@ export async function themeSheet() {
     title: t('An Argus theme, an iTerm2 .itermcolors, a Windows Terminal scheme or a VS Code colour theme') });
   const newBtn = el('button', { className: 'ghost', type: 'button', textContent: t('New theme') });
   // "Apply to everything": the windows that wear a look of their own, and tmux's status line, too.
-  const everywhere = el('input', { type: 'checkbox', checked: !!prefs.themeEverywhere });
-  everywhere.onchange = () => { prefs.themeEverywhere = everywhere.checked; savePrefs(); };
+  // An action, not a setting: off every time the gallery opens (a remembered tick applied to
+  // everything again on a later visit, unasked — 2026-10-13).
+  const everywhere = el('input', { type: 'checkbox' });
   const done = el('button', { className: 'primary inline', type: 'button', textContent: t('Done') });
   const sheet = modal(t('Theme'), body, [
     el('label', { className: 'themeall', title: t('Every terminal in this theme’s colours — a session given a look of its own too — and tmux’s status line dressed to match, written into the tmux config') },
@@ -96,8 +97,12 @@ export async function themeSheet() {
     importBtn, newBtn, done]);
   done.onclick = async () => {
     if (everywhere.checked) {
-      done.disabled = true;
-      try { toast(await applyEverywhere()); } catch (e) { toast(e.message, true); }
+      // Said while it happens: a session at a time, the button counting.
+      for (const b of sheet.querySelectorAll('button, input')) b.disabled = true;
+      sheet.classList.add('busy');
+      try {
+        toast(await applyEverywhere((n, total) => { done.textContent = t('Applying… {n}/{total}', { n, total }); }));
+      } catch (e) { toast(e.message, true); }
     }
     sheet.close();
   };
@@ -172,17 +177,27 @@ export async function themeSheet() {
 /** The theme worn now, on everything: every terminal (looks chosen for one session, or for all,
  *  set aside), and tmux's status line in its colours — written into the config like "How it looks"
  *  for every session, so it outlives a restart — and taken off each session that wore its own. */
-export async function applyEverywhere() {
+export async function applyEverywhere(progress = () => {}) {
   const theme = activeTheme();
   const look = theme ? lookFromTheme(theme) : TMUX_LOOKS.find((l) => l.name === 'Argus');
   // Each session back to the server's own style, so the config's applies to all of them.
   const unset = Object.fromEntries(Object.keys(lookOptions(look)).map((k) => [k, '']));
   const sessions = await getJSON('/api/tmux/sessions').catch(() => []);
-  for (const s of sessions) {
-    try { await postJSON('/api/tmux/style', { session: s.name, options: unset }); } catch { /* gone meanwhile */ }
-  }
+  // Four at a time: one tmux call each now, so thirteen sessions take a moment, not a freeze.
+  let n = 0;
+  const total = sessions.length + 1;
+  progress(0, total);
+  const queue = [...sessions];
+  const worker = async () => {
+    for (let s = queue.shift(); s; s = queue.shift()) {
+      try { await postJSON('/api/tmux/style', { session: s.name, options: unset }); } catch { /* gone meanwhile */ }
+      progress((n += 1), total);
+    }
+  };
+  await Promise.all([worker(), worker(), worker(), worker()]);
   let said = '';
   try { said = await wearLook(look); } catch (e) { said = e.message; }
+  progress(total, total);
   // The terminals follow the theme: no look of their own, none for all.
   prefs.termLookBy = {};
   prefs.termLook = null;

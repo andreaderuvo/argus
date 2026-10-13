@@ -4475,3 +4475,4 @@ body:not(.railwide) #railfavs .railtext { display: none; }
 #drawerfavs .railunstar { flex: none; }
 #drawerfavs .railwin > img.ficon, #drawerfavs .railwin > svg { flex: none; }
 #drawerfavs .railwhere { font-size: .75rem; }
+dialog.themesheet.busy .sheetbody { opacity: .55; pointer-events: none; }

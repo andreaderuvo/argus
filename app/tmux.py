@@ -480,16 +480,23 @@ def style(sock: Socket, session: str, options: dict[str, str]) -> None:
     nothing else — which is what "just this window" means. An empty value unsets it,
     putting that option back to whatever the server says.
     """
+    # One tmux for all of them, the commands chained with `;`: nine processes per session made
+    # "apply to everything" on thirteen sessions a long freeze (2026-10-13).
+    commands: list[list[str]] = []
     for name, value in options.items():
         if name not in STYLE_OPTIONS:
             raise TmuxError(f"{name} is not a style option")
         if not isinstance(value, str) or not SAFE_STYLE.match(value):
             raise TmuxError(f"that is not a style value for {name}")
-        argv = ["tmux", *sock.args(), "set-option", "-t", session]
-        argv += ["-u", name] if value == "" else [name, value]
-        try:
-            done = subprocess.run(argv, capture_output=True, text=True, timeout=5)
-        except (OSError, subprocess.SubprocessError) as e:
-            raise TmuxError(f"could not set {name}: {e}") from e
-        if done.returncode != 0:
-            raise TmuxError(complaint(done) or f"tmux refused {name}")
+        commands.append(["set-option", "-t", session] + (["-u", name] if value == "" else [name, value]))
+    if not commands:
+        return
+    argv = ["tmux", *sock.args()]
+    for i, command in enumerate(commands):
+        argv += ([";"] if i else []) + command
+    try:
+        done = subprocess.run(argv, capture_output=True, text=True, timeout=5)
+    except (OSError, subprocess.SubprocessError) as e:
+        raise TmuxError(f"could not set the style: {e}") from e
+    if done.returncode != 0:
+        raise TmuxError(complaint(done) or "tmux refused the style")

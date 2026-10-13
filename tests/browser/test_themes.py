@@ -82,7 +82,39 @@ def test_done_can_apply_the_theme_to_everything(make_page, argus):
     eventually(lambda: "#44475a" in argus.tmux("show-options", "-g", "status-style").stdout, timeout=10,
                what="tmux's status line in the theme, for every session")
     assert argus.tmux("show-options", "-t", "own-look", "status-style").stdout.strip() == "", "the session's own look taken off"
-    eventually(lambda: (lambda p: p.get("termLookBy") == {} and not p.get("termLook") and p.get("themeEverywhere") is True)(
+    eventually(lambda: (lambda p: p.get("termLookBy") == {} and not p.get("termLook"))(
         argus.api("/api/prefs")["prefs"]), timeout=10, what="the looks of single sessions set aside, kept")
     assert page.eval("import('/js/theme.js').then(m => m.termTheme('own-look').background)") == "#282a36"
+    # An action, not a setting: the box is empty when the gallery opens again.
+    open_gallery(page)
+    assert not page.eval("document.querySelector('dialog.themesheet .themeall input').checked")
     argus.kill_sessions()
+
+
+def test_every_open_terminal_takes_it_even_one_with_a_look_of_its_own(make_page, argus):
+    argus.kill_sessions()
+    for s in ("own", "plain"):
+        argus.tmux("new-session", "-d", "-s", s, "-x", "80", "-y", "24")
+    argus.api("/api/prefs", "PATCH", {"changes": {"termLookBy": {"own": {"background": "#140e04", "foreground": "#f5c877"}},
+        "ws": 1, "wsSeq": 1, "workspaces": [{"id": 1, "name": "A", "desktop": [{"kind": "term", "name": "own"}, {"kind": "term", "name": "plain"}]}]}})
+    page = make_page(route="#/wall?ws=1")
+    drawn = "Object.fromEntries([...document.querySelectorAll('.win[data-session]')].map(w => [w.dataset.session, w.querySelector('[data-term-bg]')?.dataset.termBg]))"
+    page.wait(f"Object.keys({drawn}).length === 2 && {drawn}.own === '#140e04'", timeout=15)
+    open_gallery(page)
+    page.click_at(*page._center(f"{CARDS}.find(c => c.querySelector('.tcname').textContent === 'Dracula')"))
+    page.wait(f"{drawn}.plain === '#282a36' && {drawn}.own === '#140e04'", timeout=5, what="the theme, but not over a window's own look")
+    page.click_at(*page._center("document.querySelector('dialog.themesheet .themeall input')"))
+    page.click_text("Done", within="dialog.themesheet button")
+    page.wait(f"{drawn}.own === '#282a36' && {drawn}.plain === '#282a36'", timeout=20, what="everything in the theme")
+    argus.kill_sessions()
+
+
+def test_another_page_takes_the_theme_when_it_comes_back_into_view(make_page, argus):
+    other = make_page(route="#/files")
+    page = make_page(route="#/files")
+    open_gallery(page)
+    page.click_at(*page._center(f"{CARDS}.find(c => c.querySelector('.tcname').textContent === 'Nord')"))
+    eventually(lambda: argus.api("/api/prefs")["prefs"].get("uiTheme") == "nord", timeout=10, what="saved")
+    assert other.eval(BG) != "#2e3440", "not yet: that page was not looking"
+    other.eval("document.dispatchEvent(new Event('visibilitychange'))")
+    other.wait(f"{BG} === '#2e3440'", timeout=5, what="taken when it comes back into view")

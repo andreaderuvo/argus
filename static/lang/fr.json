@@ -1523,6 +1523,7 @@
   "{n} more folders": "{n} dossiers de plus",
   "Apply to everything: every window and tmux too": "Appliquer à tout : chaque fenêtre et tmux aussi",
   "Every terminal in this theme’s colours — a session given a look of its own too — and tmux’s status line dressed to match, written into the tmux config": "Chaque terminal aux couleurs de ce thème — même une session à l’apparence propre — et la barre d’état de tmux assortie, écrite dans la configuration de tmux",
-  "{name} on everything — {n} sessions": "{name} partout — {n} sessions"
+  "{name} on everything — {n} sessions": "{name} partout — {n} sessions",
+  "Applying… {n}/{total}": "Application… {n}/{total}"
  }
 }

@@ -362,6 +362,9 @@ export function attachTerminal(container, name, { transform, onGone, onBack, onP
   const fit = new FitAddon();
   term.loadAddon(fit);
   term.open(container);
+  // The colours this terminal is drawn in, readable from outside: the canvas cannot be read back,
+  // and "did every window take the theme" is a question worth a test (2026-10-13).
+  container.dataset.termBg = term.options.theme?.background || '';
 
   /* Drop a file on a session and you are handed its path.
    *
@@ -604,7 +607,7 @@ export function attachTerminal(container, name, { transform, onGone, onBack, onP
   linkPaths(term, container, name, (hit) => (onPath || openLocated.bind(null, 'term'))(hit),
     () => { followedAt = Date.now(); });
 
-  const repaint = () => { term.options.theme = termTheme(name); };
+  const repaint = () => { term.options.theme = termTheme(name); container.dataset.termBg = term.options.theme.background || ''; };
   termThemeWatch.add(repaint);
 
   // Everything worth clicking that goes past in here, offered to the desk's tray.

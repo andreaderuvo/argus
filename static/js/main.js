@@ -5,7 +5,7 @@ import '/js/plumbing.js';
 // <imports> generated from what this file uses; edit the code, not this list
 import { loadAsks } from '/js/askcards.js';
 import { listenForBells } from '/js/bells.js';
-import { markDrops, syncPrefs, watchVitals } from '/js/core.js';
+import { markDrops, refreshLooks, syncPrefs, watchVitals } from '/js/core.js';
 import { AGENT_STATES_EVERY, SESSION_COUNT_EVERY, countSessions, countTodo, readAgentStates } from '/js/counts.js';
 import { el } from '/js/dom.js';
 import { loadFileIcons } from '/js/fileicons.js';
@@ -94,7 +94,7 @@ for (const node of document.querySelectorAll('[data-icon]')) node.replaceChildre
 
 setInterval(() => { if (!document.hidden) { countSessions(); countTodo(); } }, SESSION_COUNT_EVERY);
 setInterval(() => { if (!document.hidden) readAgentStates(); }, AGENT_STATES_EVERY);
-document.addEventListener('visibilitychange', () => { if (!document.hidden) { countSessions(); countTodo(); readAgentStates(); sayIfPluginOld(); } });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { countSessions(); countTodo(); readAgentStates(); sayIfPluginOld(); refreshLooks(); } });
 
 
 
