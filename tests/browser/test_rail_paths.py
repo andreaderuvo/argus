@@ -22,7 +22,7 @@ def test_a_long_path_is_cut_in_the_middle_and_the_buttons_stay(make_page, argus)
         page.wait(f"{where}.textContent.endsWith('salmonella-2026/surveillance')", timeout=5, what="the whole path")
         shown = page.eval(f"{where}.textContent")
         assert "…" not in shown, shown
-        assert page.eval(f"{where}.getClientRects().length && {where}.getBoundingClientRect().height > 14"), "on more than one line"
+        assert page.eval(f"{where}.scrollHeight <= {where}.clientHeight + 1 && {where}.scrollWidth <= {where}.clientWidth + 1"), "all of it shown, nothing cut"
         assert page.eval(f"{where}.title").endswith("salmonella-2026/surveillance"), "the whole path on hover"
         # The buttons are in the row, not pushed out of it.
         x, y = page._center(ROW)
