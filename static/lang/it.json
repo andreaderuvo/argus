@@ -1520,6 +1520,9 @@
   "How to write one →": "Come scriverne uno →",
   "How a theme file looks →": "Com'è fatto un file di tema →",
   "Where you are": "Dove sei",
-  "{n} more folders": "altre {n} cartelle"
+  "{n} more folders": "altre {n} cartelle",
+  "Apply to everything: every window and tmux too": "Applica a tutto: ogni finestra e anche tmux",
+  "Every terminal in this theme’s colours — a session given a look of its own too — and tmux’s status line dressed to match, written into the tmux config": "Ogni terminale nei colori di questo tema — anche una sessione con un look suo — e la barra di stato di tmux intonata, scritta nella configurazione di tmux",
+  "{name} on everything — {n} sessions": "{name} su tutto — {n} sessioni"
  }
 }

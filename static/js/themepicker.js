@@ -13,8 +13,10 @@ import { modal, popMenu, toast } from '/js/dialogs.js';
 import { el, wikiLink } from '/js/dom.js';
 import { icon } from '/js/icons.js';
 import { delJSON, getJSON, postJSON } from '/js/reconnect.js';
+import { TMUX_LOOKS, lookFromTheme, lookOptions } from '/js/sidebar.js';
 import { prefs } from '/js/state.js';
-import { UI_KEYS, activeTheme, applyTheme } from '/js/theme.js';
+import { UI_KEYS, activeTheme, applyTheme, redressTerminals } from '/js/theme.js';
+import { wearLook } from '/js/wall.js';
 import { t } from '/js/words.js';
 // </imports>
 
@@ -84,8 +86,21 @@ export async function themeSheet() {
   const importBtn = el('button', { className: 'ghost', type: 'button', textContent: t('Import…'),
     title: t('An Argus theme, an iTerm2 .itermcolors, a Windows Terminal scheme or a VS Code colour theme') });
   const newBtn = el('button', { className: 'ghost', type: 'button', textContent: t('New theme') });
-  const sheet = modal(t('Theme'), body, [importBtn, newBtn,
-    el('button', { className: 'primary inline', type: 'button', textContent: t('Done'), onclick: () => sheet.close() })]);
+  // "Apply to everything": the windows that wear a look of their own, and tmux's status line, too.
+  const everywhere = el('input', { type: 'checkbox', checked: !!prefs.themeEverywhere });
+  everywhere.onchange = () => { prefs.themeEverywhere = everywhere.checked; savePrefs(); };
+  const done = el('button', { className: 'primary inline', type: 'button', textContent: t('Done') });
+  const sheet = modal(t('Theme'), body, [
+    el('label', { className: 'themeall', title: t('Every terminal in this theme’s colours — a session given a look of its own too — and tmux’s status line dressed to match, written into the tmux config') },
+      [everywhere, el('span', { textContent: t('Apply to everything: every window and tmux too') })]),
+    importBtn, newBtn, done]);
+  done.onclick = async () => {
+    if (everywhere.checked) {
+      done.disabled = true;
+      try { toast(await applyEverywhere()); } catch (e) { toast(e.message, true); }
+    }
+    sheet.close();
+  };
   sheet.classList.add('looksheet', 'themesheet');
   sheet.append(fileIn);
   importBtn.onclick = () => fileIn.click();
@@ -152,6 +167,29 @@ export async function themeSheet() {
     );
   };
   draw();
+}
+
+/** The theme worn now, on everything: every terminal (looks chosen for one session, or for all,
+ *  set aside), and tmux's status line in its colours — written into the config like "How it looks"
+ *  for every session, so it outlives a restart — and taken off each session that wore its own. */
+export async function applyEverywhere() {
+  const theme = activeTheme();
+  const look = theme ? lookFromTheme(theme) : TMUX_LOOKS.find((l) => l.name === 'Argus');
+  // Each session back to the server's own style, so the config's applies to all of them.
+  const unset = Object.fromEntries(Object.keys(lookOptions(look)).map((k) => [k, '']));
+  const sessions = await getJSON('/api/tmux/sessions').catch(() => []);
+  for (const s of sessions) {
+    try { await postJSON('/api/tmux/style', { session: s.name, options: unset }); } catch { /* gone meanwhile */ }
+  }
+  let said = '';
+  try { said = await wearLook(look); } catch (e) { said = e.message; }
+  // The terminals follow the theme: no look of their own, none for all.
+  prefs.termLookBy = {};
+  prefs.termLook = null;
+  prefs.tmuxLook = look.name;
+  savePrefs();
+  redressTerminals();
+  return t('{name} on everything — {n} sessions', { name: theme?.name || 'Argus', n: sessions.length }) + (said ? ` · ${said}` : '');
 }
 
 function exportTheme(theme) {

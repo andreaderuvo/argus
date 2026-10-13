@@ -3260,7 +3260,7 @@ export function reorderFolder(item, list, onDone) {
  *  with the same throwaway-server check underneath, which is what makes it safe to offer
  *  as a single tap.
  */
-async function wearLook(look) {
+export async function wearLook(look) {
   const info = await serverInfo();
   const path = info.tmux_conf;
   let text = '';

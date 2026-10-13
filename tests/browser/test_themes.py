@@ -64,3 +64,25 @@ def test_the_contrast_is_measured_right(make_page):
     page = make_page(route="#/files")
     got = page.eval("import('/js/themepicker.js').then(m => [m.contrast('#a9b1d6', '#1a1b26'), m.contrast('#fff', '#000'), m.contrast('#777777', '#777777')])")
     assert round(got[0], 1) == 8.1 and round(got[1]) == 21 and round(got[2], 2) == 1.0, got
+
+
+def test_done_can_apply_the_theme_to_everything(make_page, argus):
+    argus.kill_sessions()
+    for name in ("own-look", "plain"):
+        argus.tmux("new-session", "-d", "-s", name, "-x", "80", "-y", "24")
+    # One session wears a look of its own (Amber), set the way "How it looks" sets it.
+    argus.api("/api/tmux/style", "POST", {"session": "own-look", "options": {"status-style": "bg=#1a1206 fg=#f5a623"}})
+    argus.api("/api/prefs", "PATCH", {"changes": {"termLookBy": {"own-look": {"background": "#140e04"}}}})
+    page = make_page(route="#/files")
+    open_gallery(page)
+    page.click_at(*page._center(f"{CARDS}.find(c => c.querySelector('.tcname').textContent === 'Dracula')"))
+    page.click_at(*page._center("document.querySelector('dialog.themesheet .themeall input')"))
+    page.click_text("Done", within="dialog.themesheet button")
+    page.wait("!document.querySelector('dialog.themesheet')", timeout=20, what="applied and closed")
+    eventually(lambda: "#44475a" in argus.tmux("show-options", "-g", "status-style").stdout, timeout=10,
+               what="tmux's status line in the theme, for every session")
+    assert argus.tmux("show-options", "-t", "own-look", "status-style").stdout.strip() == "", "the session's own look taken off"
+    eventually(lambda: (lambda p: p.get("termLookBy") == {} and not p.get("termLook") and p.get("themeEverywhere") is True)(
+        argus.api("/api/prefs")["prefs"]), timeout=10, what="the looks of single sessions set aside, kept")
+    assert page.eval("import('/js/theme.js').then(m => m.termTheme('own-look').background)") == "#282a36"
+    argus.kill_sessions()
