@@ -1,7 +1,7 @@
 // <imports> generated from what this file uses; edit the code, not this list
 import { savePrefs } from '/js/core.js';
 import { agentStates, paintAllSeen, paintState, seeEverything } from '/js/counts.js';
-import { ask, confirmBox, copyPath, copyText, modal, toast } from '/js/dialogs.js';
+import { ask, confirmBox, copyPath, copyText, modal, popMenu, toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { fileIcon } from '/js/fileicons.js';
 import { dropOnSession, entryRow, entryTile, fetchHere, placePicker, searchBox, takesDrops, uploadTo } from '/js/filerows.js';
@@ -549,8 +549,59 @@ export function fileBrowser({
    *  an address bar behaves: click it and write in it. Copying moves inside, where it is
    *  now a button that says so.
    */
-  const crumb = el('button', { className: 'crumb', type: 'button' }, bidi(path));
-  crumb.title = `${path}\n${t('click to type a path')}`;
+  /* Breadcrumbs: every folder on the way, each a click away — going back three folders was three
+   *  presses of ↑ (asked for 2026-10-13). From the root it is in (~ for home), since above that
+   *  nothing can be opened. The last one, where you are, opens the address to type in, as the
+   *  whole path did before; the middle folders fold into a … menu when the header is too narrow. */
+  const crumb = el('div', { className: 'crumbs', role: 'navigation', 'aria-label': t('Where you are') });
+  const home0 = homePath(roots);
+  const root = [...roots].sort((a, b) => b.length - a.length).find((r) => path === r || path.startsWith(`${r.replace(/\/$/, '')}/`)) || '/';
+  const steps = [];
+  {
+    const rel = path.slice(root.replace(/\/$/, '').length).split('/').filter(Boolean);
+    const base = root.replace(/\/$/, '') || '';
+    steps.push({ name: root === home0 ? '~' : (root === '/' ? '/' : root.split('/').filter(Boolean).pop()), path: root, title: root });
+    rel.forEach((name, i) => steps.push({ name, path: `${base}/${rel.slice(0, i + 1).join('/')}`, title: `${base}/${rel.slice(0, i + 1).join('/')}` }));
+  }
+  const stepButton = (s, last) => {
+    const b = el('button', { className: `crumbstep${last ? ' here' : ''}`, type: 'button', title: last ? `${s.title}\n${t('click to type a path')}` : s.title }, bidi(s.name));
+    b.onclick = (e) => { e.stopPropagation(); if (last) startEdit(); else setPath(s.path); };
+    return b;
+  };
+  const sep = () => el('span', { className: 'crumbsep', 'aria-hidden': 'true', textContent: '›' });
+  const drawCrumbs = (hidden = 0) => {
+    const kids = [];
+    // Hidden: that many folders after the root, behind a … that lists them.
+    steps.forEach((s, i) => {
+      const last = i === steps.length - 1;
+      if (hidden && i >= 1 && i <= hidden) {
+        if (i === 1) {
+          const more = el('button', { className: 'crumbstep crumbmore', type: 'button', title: t('{n} more folders', { n: hidden }), textContent: '…' });
+          more.onclick = (e) => {
+            e.stopPropagation();
+            const r = more.getBoundingClientRect();
+            popMenu(r.left, r.bottom + 4, steps.slice(1, hidden + 1).map((x) => ({ icon: 'folder', label: x.name, run: () => setPath(x.path) })));
+          };
+          kids.push(sep(), more);
+        }
+        return;
+      }
+      if (i) kids.push(sep());
+      kids.push(stepButton(s, last));
+    });
+    crumb.replaceChildren(...kids);
+  };
+  drawCrumbs();
+  // Fold the middle until it fits, once the header is laid out (and again when it is resized).
+  const fit = () => {
+    if (!crumb.isConnected) return;
+    let hidden = 0;
+    drawCrumbs(0);
+    while (crumb.scrollWidth > crumb.clientWidth + 1 && hidden < steps.length - 2) drawCrumbs((hidden += 1));
+  };
+
+  // Clicking the empty part of the strip types a path too.
+  crumb.onclick = () => startEdit();
   // Only on the first pane: it is one setting for the screen, and two of them would be two
   // switches for one thing.
   const split = splitToggle ? el('button', {
@@ -561,8 +612,16 @@ export function fileBrowser({
   }, icon('split')) : null;
 
   const head = el('div', { className: 'sidehead' }, [up, jump, ...(split ? [split] : []), crumb, again, views, pin]);
+  requestAnimationFrame(fit);
+  // Watched on the header's width, and only when it changes: refolding changes the strip's own
+  // children, and an observer on the strip would call itself.
+  let wide = 0;
+  new ResizeObserver(([e]) => {
+    const w = Math.round(e.contentRect.width);
+    if (w !== wide) { wide = w; requestAnimationFrame(fit); }
+  }).observe(head);
 
-  crumb.onclick = () => {
+  function startEdit() {
     const box = el('input', {
       className: 'crumbbox', type: 'text', value: path, spellcheck: false,
       autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off',

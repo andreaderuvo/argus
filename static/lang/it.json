@@ -1518,6 +1518,8 @@
   "Text on panels": "Testo sui pannelli",
   "Add your own: a folder with a viewer.json in {folder}.": "Aggiungine uno tuo: una cartella con un viewer.json in {folder}.",
   "How to write one →": "Come scriverne uno →",
-  "How a theme file looks →": "Com'è fatto un file di tema →"
+  "How a theme file looks →": "Com'è fatto un file di tema →",
+  "Where you are": "Dove sei",
+  "{n} more folders": "altre {n} cartelle"
  }
 }

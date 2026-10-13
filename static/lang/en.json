@@ -1518,6 +1518,8 @@
   "Text on panels": "Text on panels",
   "Add your own: a folder with a viewer.json in {folder}.": "Add your own: a folder with a viewer.json in {folder}.",
   "How to write one →": "How to write one →",
-  "How a theme file looks →": "How a theme file looks →"
+  "How a theme file looks →": "How a theme file looks →",
+  "Where you are": "Where you are",
+  "{n} more folders": "{n} more folders"
  }
 }

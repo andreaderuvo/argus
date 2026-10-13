@@ -227,7 +227,7 @@ button.icon:active { background: var(--line); }
    it showed, neither the start nor the folder you are in. The text is its own clipping box. */
 .sidehead .crumb bdi { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.sidehead button:not(.crumb) {
+.sidehead button:not(.crumb):not(.crumbstep) {
   flex: none;
   width: 30px;
   height: 30px;
@@ -4442,3 +4442,16 @@ dialog.sheet.themesheet { width: min(36rem, calc(100vw - 2rem)); }
 .themeedit .terow > .grow { flex: 1; min-width: 0; }
 a.doclink { color: var(--accent); text-decoration: none; white-space: nowrap; }
 a.doclink:hover { text-decoration: underline; }
+/* Breadcrumbs in a browser's header: each folder a click away, the middle folded into … when tight. */
+.sidehead .crumbs { flex: 1; min-width: 0; display: flex; align-items: center; gap: .1rem; overflow: hidden; white-space: nowrap;
+  font-size: .78rem; cursor: text; padding: .1rem .2rem; border-radius: 6px; }
+.sidehead .crumbs:hover { background: color-mix(in srgb, var(--line) 45%, transparent); }
+.sidehead .crumbs .crumbstep { flex: 0 1 auto; min-width: 0; max-width: 14rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  border: 0; background: none; color: var(--dim); font: inherit; padding: .15rem .3rem; border-radius: 5px; cursor: pointer; }
+.sidehead .crumbs .crumbstep:hover { color: var(--bright); background: var(--line); }
+.sidehead .crumbs .crumbstep.here { color: var(--text); font-weight: 600; flex-shrink: 0; }
+.sidehead .crumbs .crumbmore { flex: none; color: var(--dim); }
+.sidehead .crumbs .crumbsep { flex: none; color: var(--dim); opacity: .6; font-size: .8em; }
+.sidehead .crumbs bdi { unicode-bidi: isolate; }
+.sidehead .crumbs button.crumbstep { display: block; width: auto; height: auto; min-width: 0; min-height: 0; line-height: 1.3; }
+.sidehead .crumbs button.crumbstep.here { max-width: 60%; }
