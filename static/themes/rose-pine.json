@@ -1,0 +1,41 @@
+{
+  "name": "Rosé Pine",
+  "type": "dark",
+  "colors": {
+    "bg": "#191724",
+    "panel": "#1f1d2e",
+    "line": "#26233a",
+    "text": "#e0def4",
+    "dim": "#6e6a86",
+    "bright": "#ffffff",
+    "accent": "#ebbcba",
+    "on-accent": "#191724",
+    "danger": "#eb6f92",
+    "scroll": "#3d3b49",
+    "scroll-hover": "#514f5e",
+    "term-bg": "#191724",
+    "term-fg": "#e0def4"
+  },
+  "terminal": {
+    "background": "#191724",
+    "foreground": "#e0def4",
+    "cursor": "#ebbcba",
+    "black": "#26233a",
+    "red": "#eb6f92",
+    "green": "#31748f",
+    "yellow": "#f6c177",
+    "blue": "#9ccfd8",
+    "magenta": "#c4a7e7",
+    "cyan": "#ebbcba",
+    "white": "#e0def4",
+    "brightBlack": "#6e6a86",
+    "brightRed": "#eb6f92",
+    "brightGreen": "#31748f",
+    "brightYellow": "#f6c177",
+    "brightBlue": "#9ccfd8",
+    "brightMagenta": "#c4a7e7",
+    "brightCyan": "#ebbcba",
+    "brightWhite": "#e0def4"
+  },
+  "author": "Rosé Pine"
+}

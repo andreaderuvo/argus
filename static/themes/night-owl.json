@@ -1,0 +1,41 @@
+{
+  "name": "Night Owl",
+  "type": "dark",
+  "colors": {
+    "bg": "#011627",
+    "panel": "#011627",
+    "line": "#1d3b53",
+    "text": "#d6deeb",
+    "dim": "#637777",
+    "bright": "#ffffff",
+    "accent": "#82aaff",
+    "on-accent": "#011627",
+    "danger": "#ef5350",
+    "scroll": "#273a4a",
+    "scroll-hover": "#3d4e5e",
+    "term-bg": "#011627",
+    "term-fg": "#d6deeb"
+  },
+  "terminal": {
+    "background": "#011627",
+    "foreground": "#d6deeb",
+    "cursor": "#82aaff",
+    "black": "#011627",
+    "red": "#ef5350",
+    "green": "#22da6e",
+    "yellow": "#addb67",
+    "blue": "#82aaff",
+    "magenta": "#c792ea",
+    "cyan": "#21c7a8",
+    "white": "#ffffff",
+    "brightBlack": "#575656",
+    "brightRed": "#ef5350",
+    "brightGreen": "#22da6e",
+    "brightYellow": "#ffeb95",
+    "brightBlue": "#82aaff",
+    "brightMagenta": "#c792ea",
+    "brightCyan": "#7fdbca",
+    "brightWhite": "#ffffff"
+  },
+  "author": "Sarah Drasner"
+}

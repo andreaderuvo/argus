@@ -440,6 +440,15 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   must be under 70% of the desk on that axis — or every drop into open space would resize
   the window being dropped.
 
+- **Themes** (`app/themes.py`, `static/themes/` from `scripts/themes_build.py`, `static/js/themepicker.js`,
+  tests/test_themes.py and tests/browser/test_themes.py). A theme is the CSS variables (`colors`) and
+  xterm's theme (`terminal`, all sixteen) in one JSON; `type` sets `data-theme`, so the stylesheet's
+  dark/light rules still apply. Worn = `prefs.uiTheme` + the whole theme in `prefs.themeCache`, which
+  index.html's inline script paints before first paint (each value re-checked to be a colour).
+  Colours are validated server-side to `#hex`/`rgb()` only — they become CSS in a page holding the
+  token. termTheme: a window's look > the theme's terminal > the CSS variables. Import: iTerm2,
+  Windows Terminal, VS Code. UI text never says "see the wiki" — `wikiLink(page, text)` (dom.js);
+  test_wiki checks every linked page exists.
 - **Preferences** live in `localStorage` under `argus.prefs`: theme, hidden files, sidebar,
   tree view, wall layout, per-session colours, font size, wrap.
 - **Theme** is resolved in JS (including `auto`) onto `data-theme`, so the stylesheet has

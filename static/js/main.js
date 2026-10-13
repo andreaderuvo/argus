@@ -15,9 +15,10 @@ import { translateMarkup } from '/js/markup.js';
 import { getJSON, loadFavourites, recallToken, rememberToken, serverInfo } from '/js/reconnect.js';
 import { render } from '/js/router.js';
 import { applyBottomBar, applyKeyBar, applyRail, applySidebar, applyWinButtons, sayIfPluginOld } from '/js/sidebar.js';
-import { token } from '/js/state.js';
+import { prefs, token } from '/js/state.js';
 import { teamgraphWords } from '/js/teamgraph.js';
 import { applyName, applyTheme } from '/js/theme.js';
+import { loadThemes } from '/js/themepicker.js';
 import { loadLanguage, preferredLanguage, t } from '/js/words.js';
 // </imports>
 
@@ -114,6 +115,8 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) { co
     await Promise.all([syncPrefs(), Promise.race([loadFileIcons(), new Promise((ok) => setTimeout(ok, 1500))])]);
     applyTheme();
     applyName();
+    // The themes on disk, so a chosen one edited by hand (or replaced) is worn as it is now.
+    if (prefs.uiTheme) loadThemes();
     await loadFavourites();
   }
   await render();

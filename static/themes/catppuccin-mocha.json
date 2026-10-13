@@ -1,0 +1,41 @@
+{
+  "name": "Catppuccin Mocha",
+  "type": "dark",
+  "colors": {
+    "bg": "#1e1e2e",
+    "panel": "#181825",
+    "line": "#313244",
+    "text": "#cdd6f4",
+    "dim": "#7f849c",
+    "bright": "#ffffff",
+    "accent": "#cba6f7",
+    "on-accent": "#1e1e2e",
+    "danger": "#f38ba8",
+    "scroll": "#3d3f52",
+    "scroll-hover": "#4f5265",
+    "term-bg": "#1e1e2e",
+    "term-fg": "#cdd6f4"
+  },
+  "terminal": {
+    "background": "#1e1e2e",
+    "foreground": "#cdd6f4",
+    "cursor": "#cba6f7",
+    "black": "#45475a",
+    "red": "#f38ba8",
+    "green": "#a6e3a1",
+    "yellow": "#f9e2af",
+    "blue": "#89b4fa",
+    "magenta": "#f5c2e7",
+    "cyan": "#94e2d5",
+    "white": "#bac2de",
+    "brightBlack": "#585b70",
+    "brightRed": "#f38ba8",
+    "brightGreen": "#a6e3a1",
+    "brightYellow": "#f9e2af",
+    "brightBlue": "#89b4fa",
+    "brightMagenta": "#f5c2e7",
+    "brightCyan": "#94e2d5",
+    "brightWhite": "#a6adc8"
+  },
+  "author": "Catppuccin"
+}

@@ -4389,6 +4389,165 @@
     ]
    }
   },
+  "/api/themes": {
+   "get": {
+    "description": "`{themes: [{id, name, type, colors, terminal, author, source}], broken: [{file, source,\nerror}], folder}` \u2014 `source` is builtin or yours; yours are `<config>/themes/<id>.json`, and\none with a built-in's id replaces it.",
+    "operationId": "getApiThemes",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response List Themes Api Themes Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "The themes: Argus's interface and terminals, as one file each",
+    "tags": [
+     "Setup"
+    ]
+   },
+   "post": {
+    "description": "A theme as `/api/themes` lists them (`id` optional: made from the name). Every colour is\nchecked to be a colour \u2014 `#rgb`, `#rrggbb`, `#rrggbbaa`, `rgb()` \u2014 and nothing else is kept.",
+    "operationId": "postApiThemes",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Save Theme Api Themes Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Save a theme of yours",
+    "tags": [
+     "Setup"
+    ]
+   }
+  },
+  "/api/themes/import": {
+   "post": {
+    "description": "`{text, filename}` \u2192 the theme, not saved: what the editor opens to look at and save. An\nArgus theme, an `.itermcolors`, a Windows Terminal scheme (or its whole settings.json) or a\nVS Code colour theme.",
+    "operationId": "postApiThemesImport",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Import Theme Api Themes Import Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Read a theme from iTerm2, Windows Terminal or VS Code",
+    "tags": [
+     "Setup"
+    ]
+   }
+  },
+  "/api/themes/{theme_id}": {
+   "delete": {
+    "description": "Only one of yours: a built-in has no file here to delete (yours replacing it goes, and\nthe built-in is back).",
+    "operationId": "deleteApiThemesThemeId",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "theme_id",
+      "required": true,
+      "schema": {
+       "title": "Theme Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Delete Theme Api Themes  Theme Id  Delete",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Delete a theme of yours",
+    "tags": [
+     "Setup"
+    ]
+   }
+  },
   "/api/tmux/buffer": {
    "get": {
     "description": "The last thing copied inside tmux, so it can reach the device's clipboard.",

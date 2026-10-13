@@ -28,6 +28,17 @@
     var t = JSON.parse(raw).theme || 'dark';
     if (t === 'auto') t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
     document.documentElement.dataset.theme = t;
+    // A theme of the list (Settings → Theme), as it was last applied: its type and its colours,
+    // each checked to be a colour, before anything is painted.
+    var p = JSON.parse(raw), c = p.themeCache;
+    if (p.uiTheme && c && c.id === p.uiTheme && c.colors) {
+      document.documentElement.dataset.theme = c.type === 'light' ? 'light' : 'dark';
+      for (var k in c.colors) {
+        if (/^[a-z-]{2,14}$/.test(k) && /^(#[0-9a-fA-F]{3,8}|rgba?\([0-9., ]+\))$/.test(c.colors[k])) {
+          document.documentElement.style.setProperty('--' + k, c.colors[k]);
+        }
+      }
+    }
     // And the tab's name, so a second Argus is told apart before anything loads.
     var name = (JSON.parse(raw).instanceName || '').trim();
     if (name) document.title = name;

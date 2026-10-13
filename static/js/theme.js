@@ -15,13 +15,40 @@ export function applyName() {
   document.title = name || 'Argus';
 }
 
+/* A theme (app/themes.py, Settings → Theme) is the stylesheet's variables, set on the root: the
+ *  palette blocks in style.css stay the defaults, and `type` picks which half of the rules that
+ *  differ between dark and light apply. The theme chosen is kept whole in `prefs.themeCache`, so
+ *  the inline script in index.html can put it on before the first paint. */
+export const UI_KEYS = ['bg', 'panel', 'line', 'text', 'dim', 'bright', 'accent', 'on-accent', 'danger', 'scroll',
+  'scroll-hover', 'term-bg', 'term-fg'];
+
+/** The theme in use, or null for Argus's own two (dark, light, auto). */
+export function activeTheme() {
+  const c = prefs.themeCache;
+  return prefs.uiTheme && c?.id === prefs.uiTheme ? c : null;
+}
+
+/** Put `theme` on the page (a draft from the editor, or the chosen one), or Argus's own with null. */
+export function paintTheme(theme) {
+  const root = document.documentElement;
+  for (const k of UI_KEYS) root.style.removeProperty(`--${k}`);
+  if (theme) {
+    root.dataset.theme = theme.type === 'light' ? 'light' : 'dark';
+    for (const [k, v] of Object.entries(theme.colors || {})) if (UI_KEYS.includes(k)) root.style.setProperty(`--${k}`, v);
+  }
+}
+
 export function applyTheme() {
   const resolved = prefs.theme === 'auto'
     ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
     : prefs.theme;
+  const theme = activeTheme();
   document.documentElement.dataset.theme = resolved;
+  paintTheme(theme);
   document.querySelector('meta[name=theme-color]')
-    ?.setAttribute('content', resolved === 'light' ? '#ffffff' : '#0b0e14');
+    ?.setAttribute('content', theme?.colors?.panel || (resolved === 'light' ? '#ffffff' : '#0b0e14'));
+  // At boot this runs before the set of terminals exists (a const further down): nothing to redress.
+  try { redressTerminals(); } catch { /* not loaded yet */ }
   // Anything holding colours of its own rather than variables has to be told. A mermaid
   // diagram has the palette written into its svg; a mesh has it written into a
   // WebGLRenderer's state, which is no more a CSS variable than the diagram's markup is.
@@ -43,7 +70,9 @@ export function termTheme(session = null) {
   const v = (name, fallback) => cs.getPropertyValue(name).trim() || fallback;
   // A chosen look dresses the terminal here as well: tmux paints its own status line, but
   // the paper it sits on belongs to the browser. A session dressed on its own wins.
-  const look = (session && prefs.termLookBy?.[session]) || prefs.termLook || null;
+  // Under it all, the theme's own terminal: a look is a choice made for the windows, the theme
+  // is the default they wear when none was made.
+  const look = (session && prefs.termLookBy?.[session]) || prefs.termLook || activeTheme()?.terminal || null;
   // The sixteen colours programs print in, when the look has them: a theme that changed only the
   // paper left `ls` and git in xterm's default reds and blues, which is half a theme.
   const ansi = Object.fromEntries(ANSI_KEYS.filter((k) => look?.[k]).map((k) => [k, look[k]]));

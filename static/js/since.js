@@ -13,8 +13,9 @@ import { colorFor, delJSON, deskHome, getJSON, homePath, human, parentOf, postJS
 import { go, render } from '/js/router.js';
 import { keyFor, keyHelp, pluginBehind, prettyKey } from '/js/shortcuts.js';
 import { applyBottomBar, applyKeyBar, applySidebar, applyWinButtons, renderSidebar, versionRow, viewersRow } from '/js/sidebar.js';
-import { THEMES, prefs, server, view } from '/js/state.js';
-import { applyName, applyTheme } from '/js/theme.js';
+import { prefs, server, view } from '/js/state.js';
+import { applyName } from '/js/theme.js';
+import { themeName, themeSheet } from '/js/themepicker.js';
 import { workspaces } from '/js/tray.js';
 import { repaintDiagrams } from '/js/viewers.js';
 import { deviceRows, handoffSheet, languageSheet } from '/js/vitals.js';
@@ -724,6 +725,24 @@ export async function screenSettings() {
     return row;
   };
 
+  /* The theme: the whole look, interface and terminals — chosen from a gallery, made in an editor. */
+  const themeRow = () => {
+    const state = el('span', { className: 'sw on', textContent: themeName() });
+    const row = el('button', { className: 'row setting', type: 'button' }, [
+      el('span', { className: 'grow' }, [
+        el('span', { className: 'name', textContent: t('Theme') }),
+        el('span', { className: 'meta', textContent: t('Argus’s own, the VS Code themes people know, or yours — import one, or make it') }),
+      ]),
+      state,
+    ]);
+    row.onclick = async () => {
+      await themeSheet();
+      const sheet = document.querySelector('dialog.themesheet');
+      sheet?.addEventListener('close', () => { state.textContent = themeName(); });
+    };
+    return row;
+  };
+
   const conf = el('div', { className: 'row setting' }, [
     el('span', { className: 'grow' }, [
       el('span', { className: 'name', textContent: t('tmux configuration') }),
@@ -841,8 +860,7 @@ export async function screenSettings() {
     toggle(t('Bar along the bottom, on a phone'),
       t('off by default: the menu holds everything, and the waiting mark sits on it'),
       () => prefs.bottomBar === true, (v) => { prefs.bottomBar = v; applyBottomBar(); }),
-    choice(t('Theme'), t('auto follows the system setting'), THEMES,
-      () => prefs.theme, (v) => { prefs.theme = v; applyTheme(); }),
+    themeRow(),
     // Learning the keys without learning a list: see them over their buttons, be told after a click.
     toggle(t('Hold {key} to see the shortcuts', { key: prettyKey('ctrl+x').replace(/\+?X$/, '') }),
       t('a moment, alone: each button that has one shows its key'),

@@ -14,12 +14,13 @@ import { api, bidi, colorFor, deskHome, getJSON, homePath, pickColor, postJSON, 
 import { go, parseRoute } from '/js/router.js';
 import { killSession } from '/js/screens.js';
 import { keyFor } from '/js/shortcuts.js';
-import { TMUX_LOOKS, lookOptions, paintRailWindows, withLook } from '/js/sidebar.js';
+import { TMUX_LOOKS, lookFromTheme, lookOptions, paintRailWindows, withLook } from '/js/sidebar.js';
 import { bar, killLive, leaving, live, prefs, server, setLeaving, setLive, token, view } from '/js/state.js';
 import { attachTeam, teamSheet, teamStrip } from '/js/team.js';
 import { copyButton, sizeButtons } from '/js/terminal.js';
 import { attachTerminal, openLocated } from '/js/termpaths.js';
 import { redressTerminals } from '/js/theme.js';
+import { loadThemes } from '/js/themepicker.js';
 import { MIN_H, MIN_W, aeroZone, attachBrowser, attachNote, attachRun, attachTray, attachViewer, attachWeb, createSession, deskLinks, dockZone, gapZone, nextWindowId, noteLinks, openWindow, place, resizable, runs, setTrayTally, shellQuote, showGhost, showGuides, snapLines, snapTo, specId, workspaces } from '/js/tray.js';
 import { focusDesk, putDeskAway } from '/js/viewers.js';
 import { duration } from '/js/vitals.js';
@@ -3304,7 +3305,18 @@ async function wearLookHere(look, session) {
 function lookSheet(session = null) {
   const body = el('div', { className: 'sheetbody actions' });
   let sheet;
-  for (const look of TMUX_LOOKS) {
+  // The themes join the looks (yours too), after the ones of the same name: a window can wear a
+  // theme on its own, without the rest of Argus changing.
+  const offered = [...TMUX_LOOKS];
+  loadThemes().then((said) => {
+    const names = new Set(TMUX_LOOKS.map((l) => l.name.toLowerCase()));
+    const more = (said.themes || []).filter((th) => !th.id.startsWith('argus-') && !names.has(th.name.toLowerCase()));
+    if (!more.length || !sheet?.open) return;
+    const sep = body.querySelector('.sheetsep');
+    for (const th of more) sep.before(lookRow(lookFromTheme(th)));
+  });
+  for (const look of offered) body.append(lookRow(look));
+  function lookRow(look) {
     const swatch = el('span', { className: 'lookdot' });
     if (look.term) {
       swatch.style.background = look.term.background;
@@ -3351,7 +3363,7 @@ function lookSheet(session = null) {
       ]),
       strip,
     ].filter(Boolean));
-    body.append(row);
+    return row;
   }
   body.append(el('div', { className: 'sheetsep' }));
   if (session) {

@@ -4405,3 +4405,40 @@ body:not(.railwide) #railfavs .railfav.railfile .railinit, #railfavs .railfav.ra
   body.railwide #railfavs .raildesk:hover { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
   body.railwide #railfavs .raildesk .ico { width: 12px; height: 12px; }
 }
+/* Themes: the gallery and the editor (themepicker.js). */
+.themecards { display: grid; grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); gap: .6rem; }
+.themecard { position: relative; display: grid; gap: .25rem; padding: .45rem; border: 1px solid var(--line); border-radius: .6rem;
+  background: var(--panel); color: var(--text); text-align: left; font: inherit; cursor: pointer; }
+.themecard:hover { border-color: var(--dim); }
+.themecard.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.themecard .tcname { font-size: .82rem; font-weight: 600; color: var(--bright); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.themecard .tcmeta { font-size: .7rem; color: var(--dim); }
+.themecard .tcedit { position: absolute; top: .3rem; right: .3rem; display: grid; place-items: center; width: 22px; height: 22px;
+  border-radius: 6px; background: var(--panel); color: var(--dim); opacity: 0; transition: opacity .12s; }
+.themecard:hover .tcedit, .themecard:focus-visible .tcedit { opacity: 1; }
+.themecard .tcedit .ico { width: 12px; height: 12px; }
+@media (pointer: coarse) { .themecard .tcedit { opacity: 1; } }
+.themeprev { display: grid; grid-template-rows: 12px 6px 6px 1fr; gap: 5px; height: 64px; padding: 0 0 5px; border: 1px solid; border-radius: .4rem; overflow: hidden; }
+.themeprev .tpbar { display: flex; align-items: center; padding: 0 5px; border-bottom: 1px solid; }
+.themeprev .tpdot { width: 6px; height: 6px; border-radius: 50%; }
+.themeprev .tpline { height: 4px; width: 70%; margin-left: 7px; border-radius: 2px; opacity: .9; }
+.themeprev .tpline.short { width: 45%; opacity: .7; }
+.themeprev .tpstrip { display: flex; gap: 3px; align-items: center; margin: 0 6px; padding: 3px 4px; border-radius: 3px; }
+.themeprev .tpstrip > span { width: 7px; height: 7px; border-radius: 50%; }
+dialog.sheet.themesheet { width: min(36rem, calc(100vw - 2rem)); }
+.themeedit .tehead { display: flex; gap: .5rem; align-items: center; }
+.themeedit .tehead .startpath { flex: 1; min-width: 0; }
+.themeedit .tegroup { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); margin: .9rem 0 .3rem; }
+.themeedit .terow { display: flex; align-items: center; gap: .55rem; padding: .18rem 0; font-size: .82rem; }
+.themeedit .terow input[type=color] { width: 30px; height: 24px; padding: 0; border: 1px solid var(--line); border-radius: 5px; background: none; flex: none; }
+.themeedit input.tehex { flex: none; min-height: 0; height: 1.75rem; box-sizing: border-box; width: 6.5rem; font: 12px/1 ui-monospace, Menlo, monospace; padding: .25rem .4rem; border: 1px solid var(--line);
+  border-radius: 5px; background: var(--bg); color: var(--text); }
+.themeedit input.tehex.bad { border-color: var(--danger); }
+.themeedit .tehead select, .themeedit .tehead input { min-height: 0; height: 2rem; }
+.tecontrast { display: flex; flex-wrap: wrap; gap: .35rem .6rem; margin-top: .6rem; font-size: .72rem; color: var(--dim); }
+.techeck { display: inline-flex; align-items: center; gap: .35rem; }
+.techeck.warn { color: var(--st-warning); }
+.tesample { font-weight: 700; padding: 1px 5px; border-radius: 4px; border: 1px solid var(--line); }
+.themeedit .terow > .grow { flex: 1; min-width: 0; }
+a.doclink { color: var(--accent); text-decoration: none; white-space: nowrap; }
+a.doclink:hover { text-decoration: underline; }

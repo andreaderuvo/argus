@@ -1,0 +1,41 @@
+{
+  "name": "Light+",
+  "type": "light",
+  "colors": {
+    "bg": "#ffffff",
+    "panel": "#f3f3f3",
+    "line": "#e5e5e5",
+    "text": "#333333",
+    "dim": "#6e6e6e",
+    "bright": "#000000",
+    "accent": "#005fb8",
+    "on-accent": "#ffffff",
+    "danger": "#cd3131",
+    "scroll": "#dadada",
+    "scroll-hover": "#c6c6c6",
+    "term-bg": "#ffffff",
+    "term-fg": "#333333"
+  },
+  "terminal": {
+    "background": "#ffffff",
+    "foreground": "#333333",
+    "cursor": "#005fb8",
+    "black": "#000000",
+    "red": "#cd3131",
+    "green": "#00bc00",
+    "yellow": "#949800",
+    "blue": "#0451a5",
+    "magenta": "#bc05bc",
+    "cyan": "#0598bc",
+    "white": "#555555",
+    "brightBlack": "#666666",
+    "brightRed": "#cd3131",
+    "brightGreen": "#14ce14",
+    "brightYellow": "#b5ba00",
+    "brightBlue": "#0451a5",
+    "brightMagenta": "#bc05bc",
+    "brightCyan": "#0598bc",
+    "brightWhite": "#a5a5a5"
+  },
+  "author": "Visual Studio Code"
+}

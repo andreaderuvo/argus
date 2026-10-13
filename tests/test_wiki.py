@@ -96,3 +96,19 @@ def test_every_vendored_library_is_in_the_third_party_list():
         if not m or m.group(2) not in section:
             missing.append(d.name)
     assert not missing, f"vendored but not in the wiki's Third-party code: {missing}"
+
+
+def test_the_interface_links_to_the_wiki_rather_than_naming_it():
+    """"see the wiki page X" in a sentence sends somebody to look for it; a link takes them there.
+    Every wikiLink('Page') must be a page that exists (2026-10-13: a settings line named one)."""
+    import json
+    import re
+    root = Path(__file__).resolve().parent.parent
+    words = json.loads((root / "static" / "lang" / "en.json").read_text())["strings"]
+    named = [k for k in words if re.search(r"see the wiki|wiki page|in the wiki", k, re.I)]
+    assert not named, f"say it with wikiLink(): {named}"
+    pages = set(re.findall(r"wikiLink\('([^']+)'", "".join(p.read_text() for p in (root / "static" / "js").glob("*.js"))))
+    assert pages, "wikiLink is used"
+    if WIKI.is_dir():
+        missing = [p for p in pages if not (WIKI / f"{p.split('#')[0]}.md").is_file()]
+        assert not missing, f"links to wiki pages that do not exist: {missing}"

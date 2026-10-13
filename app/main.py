@@ -23,7 +23,7 @@ from fastapi import FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 
-from . import build, gitview, pluginstate, trust, viewerpacks
+from . import build, gitview, pluginstate, themes, trust, viewerpacks
 from . import (agentflags, consent, readiness, teamlint, toolcopies, teams, teammermaid, wiring, agentstate, resume, announce, asks, bells, devices, favourites, files, fsops, gitwork, journal, labels,
                languages, launch, mounts, network, paths, ports, prefs, proxy, release, runner, runs,
                system, term, tmux, todo)
@@ -42,6 +42,7 @@ _HERE = Path(__file__).resolve().parent
 STATIC_DIR = _HERE / "static" if (_HERE / "static").is_dir() else _HERE.parent / "static"
 BUILTIN_LANG = STATIC_DIR / "lang"
 BUILTIN_VIEWERS = STATIC_DIR / "viewers"
+BUILTIN_THEMES = STATIC_DIR / "themes"
 
 # Not every system's mime database knows these two, and getting them wrong is fatal:
 # a module served as octet-stream is refused by the browser, and so is the manifest.
@@ -533,6 +534,7 @@ def create_app(cfg: Config) -> FastAPI:
     app.state.journal = cfg.journal_store
     app.state.lang = Path("/nonexistent")
     app.state.viewers = Path("/nonexistent")
+    app.state.themes = Path("/nonexistent")
     app.state.config_path = None
     app.state.addresses = []
 
@@ -1340,6 +1342,46 @@ def create_app(cfg: Config) -> FastAPI:
             # Asleep: take one reading now, so this answer is not empty while the sampler wakes.
             await asyncio.to_thread(watch.tick)
         return watch.states()
+
+    @app.get("/api/themes", tags=["Setup"], summary="The themes: Argus's interface and terminals, as one file each")
+    async def list_themes(request: Request) -> dict:
+        """`{themes: [{id, name, type, colors, terminal, author, source}], broken: [{file, source,
+        error}], folder}` — `source` is builtin or yours; yours are `<config>/themes/<id>.json`, and
+        one with a built-in's id replaces it."""
+        found, broken = themes.available(BUILTIN_THEMES, request.app.state.themes)
+        return {"themes": found, "broken": broken, "folder": str(request.app.state.themes)}
+
+    @app.post("/api/themes", tags=["Setup"], summary="Save a theme of yours")
+    async def save_theme(request: Request, body: dict) -> dict:
+        """A theme as `/api/themes` lists them (`id` optional: made from the name). Every colour is
+        checked to be a colour — `#rgb`, `#rrggbb`, `#rrggbbaa`, `rgb()` — and nothing else is kept."""
+        if request.app.state.themes == Path("/nonexistent"):
+            raise ApiError(409, "this Argus has no config folder to keep themes in")
+        try:
+            return await asyncio.to_thread(themes.save, request.app.state.themes, body)
+        except themes.BadTheme as e:
+            raise ApiError(400, str(e)) from e
+
+    @app.delete("/api/themes/{theme_id}", tags=["Setup"], summary="Delete a theme of yours")
+    async def delete_theme(request: Request, theme_id: str) -> dict:
+        """Only one of yours: a built-in has no file here to delete (yours replacing it goes, and
+        the built-in is back)."""
+        if not await asyncio.to_thread(themes.delete, request.app.state.themes, theme_id):
+            raise ApiError(404, f"no theme of yours called {theme_id}")
+        return {"deleted": theme_id}
+
+    @app.post("/api/themes/import", tags=["Setup"], summary="Read a theme from iTerm2, Windows Terminal or VS Code")
+    async def import_theme(body: dict) -> dict:
+        """`{text, filename}` → the theme, not saved: what the editor opens to look at and save. An
+        Argus theme, an `.itermcolors`, a Windows Terminal scheme (or its whole settings.json) or a
+        VS Code colour theme."""
+        text = str(body.get("text") or "")
+        if len(text) > 2_000_000:
+            raise ApiError(413, "that file is far too big to be a theme")
+        try:
+            return await asyncio.to_thread(themes.import_theme, text, str(body.get("filename") or ""))
+        except themes.BadTheme as e:
+            raise ApiError(400, str(e)) from e
 
     @app.get("/api/viewers", tags=["Files"], summary="The viewers and editors mounted for some files")
     async def list_viewers(request: Request) -> dict:
@@ -3080,6 +3122,7 @@ def main(argv: list[str] | None = None) -> int:
     app.state.prefs = prefs.default_store(config_path)
     app.state.lang = config_path.parent / "lang"
     app.state.viewers = config_path.parent / "viewers"
+    app.state.themes = config_path.parent / "themes"
     app.state.port = port
     app.state.host = host
     app.state.addresses = preferred_first(reachable_addresses(), cfg.address)

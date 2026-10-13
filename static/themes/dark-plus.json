@@ -1,0 +1,41 @@
+{
+  "name": "Dark+",
+  "type": "dark",
+  "colors": {
+    "bg": "#1e1e1e",
+    "panel": "#252526",
+    "line": "#3c3c3c",
+    "text": "#d4d4d4",
+    "dim": "#858585",
+    "bright": "#ffffff",
+    "accent": "#0e70c0",
+    "on-accent": "#ffffff",
+    "danger": "#f14c4c",
+    "scroll": "#3f3f3f",
+    "scroll-hover": "#515151",
+    "term-bg": "#1e1e1e",
+    "term-fg": "#d4d4d4"
+  },
+  "terminal": {
+    "background": "#1e1e1e",
+    "foreground": "#d4d4d4",
+    "cursor": "#0e70c0",
+    "black": "#000000",
+    "red": "#cd3131",
+    "green": "#0dbc79",
+    "yellow": "#e5e510",
+    "blue": "#2472c8",
+    "magenta": "#bc3fbc",
+    "cyan": "#11a8cd",
+    "white": "#e5e5e5",
+    "brightBlack": "#666666",
+    "brightRed": "#f14c4c",
+    "brightGreen": "#23d18b",
+    "brightYellow": "#f5f543",
+    "brightBlue": "#3b8eea",
+    "brightMagenta": "#d670d6",
+    "brightCyan": "#29b8db",
+    "brightWhite": "#e5e5e5"
+  },
+  "author": "Visual Studio Code"
+}

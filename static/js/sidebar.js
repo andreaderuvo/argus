@@ -3,7 +3,7 @@ import { adoptDesks, rung } from '/js/bells.js';
 import { savePrefs } from '/js/core.js';
 import { lastSessionCount, lastTodoCount, paintDeskStates, showCount } from '/js/counts.js';
 import { ask, askPrompt, confirmBox, popMenu, toast } from '/js/dialogs.js';
-import { el } from '/js/dom.js';
+import { el, wikiLink } from '/js/dom.js';
 import { fileIcon } from '/js/fileicons.js';
 import { BATONS, GROUND, LOOSE, PAIR_BATONS, SITUATIONAL, batonGroups, batonTemplates, bridgePath, deskSetName, fillBaton, groundVars, groupName, messagesChanged, pairEvery, pairLimit, pairTries, planPath, promptName, saidAs, unknownVars, varSetNamed, varSets, whyEmpty } from '/js/handover.js';
 import { icon } from '/js/icons.js';
@@ -831,6 +831,19 @@ export const TMUX_LOOKS = [
 
 /** A look from a palette: the tmux half from its roles (`ink` is text on the accent), the
  *  terminal half with all sixteen colours. */
+/** A theme as a window's look: its terminal, and tmux's status line in its colours. */
+export function lookFromTheme(theme) {
+  const c = theme.colors || {};
+  const term = theme.terminal || {};
+  const order = ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white', 'brightBlack', 'brightRed',
+    'brightGreen', 'brightYellow', 'brightBlue', 'brightMagenta', 'brightCyan', 'brightWhite'];
+  const look = lookFrom(theme.name, theme.source === 'yours' ? 'your theme' : 'a theme',
+    { bg: term.background || c['term-bg'] || c.bg, fg: term.foreground || c['term-fg'] || c.text, accent: c.accent,
+      dim: c.dim, line: c.line, ink: c['on-accent'] }, order.map((k) => term[k]));
+  for (const k of order) if (!look.term[k]) delete look.term[k];
+  return look;
+}
+
 function lookFrom(name, note, c, ansi) {
   const ink = c.ink || c.bg;
   const ANSI_ORDER = ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white', 'brightBlack', 'brightRed',
@@ -1399,7 +1412,10 @@ export function viewersRow() {
         el('span', { className: 'packname', textContent: b.folder }),
         el('span', { className: 'meta warn', textContent: b.error }),
       ])),
-      el('p', { className: 'meta', textContent: t('Add your own: a folder with a viewer.json in {folder} — see the wiki page Viewers of your own.', { folder: said.folder || '…' }) }),
+      el('p', { className: 'meta' }, [
+        t('Add your own: a folder with a viewer.json in {folder}.', { folder: said.folder || '…' }), ' ',
+        wikiLink('Viewers-of-your-own', t('How to write one →')),
+      ]),
     );
   });
   return box;

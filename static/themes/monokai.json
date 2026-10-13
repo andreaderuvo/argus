@@ -1,0 +1,41 @@
+{
+  "name": "Monokai",
+  "type": "dark",
+  "colors": {
+    "bg": "#272822",
+    "panel": "#1e1f1c",
+    "line": "#3e3d32",
+    "text": "#f8f8f2",
+    "dim": "#75715e",
+    "bright": "#ffffff",
+    "accent": "#a6e22e",
+    "on-accent": "#272822",
+    "danger": "#f92672",
+    "scroll": "#4d4d47",
+    "scroll-hover": "#62625c",
+    "term-bg": "#272822",
+    "term-fg": "#f8f8f2"
+  },
+  "terminal": {
+    "background": "#272822",
+    "foreground": "#f8f8f2",
+    "cursor": "#a6e22e",
+    "black": "#333333",
+    "red": "#c4265e",
+    "green": "#86b42b",
+    "yellow": "#b3b42b",
+    "blue": "#6a7ec8",
+    "magenta": "#8c6bc8",
+    "cyan": "#56adbc",
+    "white": "#e3e3dd",
+    "brightBlack": "#666666",
+    "brightRed": "#f92672",
+    "brightGreen": "#a6e22e",
+    "brightYellow": "#e2e22e",
+    "brightBlue": "#819aff",
+    "brightMagenta": "#ae81ff",
+    "brightCyan": "#66d9ef",
+    "brightWhite": "#f8f8f2"
+  },
+  "author": "Wimer Hazenberg"
+}

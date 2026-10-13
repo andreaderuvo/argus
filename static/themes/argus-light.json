@@ -1,0 +1,24 @@
+{
+  "name": "Argus Light",
+  "type": "light",
+  "colors": {
+    "bg": "#f6f7f9",
+    "panel": "#ffffff",
+    "line": "#dde2ea",
+    "text": "#2c333d",
+    "dim": "#6c7583",
+    "bright": "#10141b",
+    "accent": "#17805a",
+    "on-accent": "#ffffff",
+    "danger": "#b53d31",
+    "scroll": "#d2d4d7",
+    "scroll-hover": "#bdc0c4",
+    "term-bg": "#1b1f27",
+    "term-fg": "#d7dbe2"
+  },
+  "terminal": {
+    "background": "#1b1f27",
+    "foreground": "#d7dbe2",
+    "cursor": "#17805a"
+  }
+}

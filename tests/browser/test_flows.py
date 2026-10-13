@@ -156,6 +156,10 @@ def test_the_theme_cycles_and_survives_a_reload(make_page, argus):
     start = page.eval("document.documentElement.dataset.theme")
     assert start in ("dark", "light")
     page.click_text("Theme", within=".row.setting")
+    # The gallery: a theme of the other kind, worn as it is pressed.
+    other = "GitHub Light" if start == "dark" else "GitHub Dark"
+    page.wait("document.querySelectorAll('dialog.themesheet .themecard').length > 5", what="the gallery")
+    page.click_at(*page._center(f"[...document.querySelectorAll('dialog.themesheet .themecard')].find(c => c.querySelector('.tcname').textContent === {json.dumps(other)})"))
     page.wait(f"document.documentElement.dataset.theme !== {json.dumps(start)}", what="the theme to change")
     now = page.eval("document.documentElement.dataset.theme")
     page.settle()

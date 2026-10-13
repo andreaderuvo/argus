@@ -1,0 +1,24 @@
+{
+  "name": "Argus Dark",
+  "type": "dark",
+  "colors": {
+    "bg": "#0b0e14",
+    "panel": "#11151d",
+    "line": "#1e2530",
+    "text": "#c5cad3",
+    "dim": "#6b7484",
+    "bright": "#e6e9ef",
+    "accent": "#8fd6a0",
+    "on-accent": "#0b0e14",
+    "danger": "#e5786d",
+    "scroll": "#2c3036",
+    "scroll-hover": "#3f4349",
+    "term-bg": "#000000",
+    "term-fg": "#c5cad3"
+  },
+  "terminal": {
+    "background": "#000000",
+    "foreground": "#c5cad3",
+    "cursor": "#8fd6a0"
+  }
+}

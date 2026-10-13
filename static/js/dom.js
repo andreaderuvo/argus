@@ -15,3 +15,10 @@ export function svg(tag, attrs = {}, kids = []) {
   for (const c of [].concat(kids)) n.append(c);
   return n;
 }
+
+/** A link to a page of the wiki, opened beside Argus. Every "see the wiki" in the interface is
+ *  one of these: telling somebody a page exists and leaving them to find it is not help. */
+export const WIKI = 'https://github.com/andreaderuvo/argus/wiki';
+export function wikiLink(page, text) {
+  return el('a', { className: 'doclink', href: `${WIKI}/${page}`, target: '_blank', rel: 'noopener', textContent: text });
+}
