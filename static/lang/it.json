@@ -1533,6 +1533,8 @@
   "filter by name or note": "filtra per nome o nota",
   "What is {name} for?": "A cosa serve {name}?",
   "noted on {name}": "nota salvata su {name}",
-  "note removed from {name}": "nota tolta da {name}"
+  "note removed from {name}": "nota tolta da {name}",
+  "printed {n} times in this desk": "stampato {n} volte in questo desk",
+  "from the session {name}": "dalla sessione {name}"
  }
 }

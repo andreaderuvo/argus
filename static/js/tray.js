@@ -344,8 +344,14 @@ export function attachTray(host, wsId, extras, deliver) {
       // Silent at 1 — a badge on every row would just be noise reporting the default. It
       // is the reason a row is ahead of another one, so it earns a spot before `.verb`,
       // which is about where a link came from rather than why it is where it is.
-      if (item.count > 1) row.append(el('span', { className: 'verb', textContent: `×${item.count}` }));
-      if (item.from) row.append(el('span', { className: 'verb', textContent: item.from }));
+      // How often, and from which session — two separate marks, each saying what it is: run together
+      // as "×3CLAUDE-ARGUS" they read as one cryptic word (2026-10-13).
+      if (item.count > 1) row.append(el('span', { className: 'traycount', textContent: `${item.count}×`, title: t('printed {n} times in this desk', { n: item.count }) }));
+      if (item.from) {
+        const dot = el('span', { className: 'trayfromdot' });
+        dot.style.background = colorFor(item.from);
+        row.append(el('span', { className: 'trayfrom', title: t('from the session {name}', { name: item.from }) }, [dot, el('span', { textContent: item.from })]));
+      }
       dragLink(row, item, deliver.find, deliver.drop);
       // Ctrl/Cmd+click here means the same thing it means on the terminal link this tray
       // is a record of: the real thing, in a new tab, none of Argus's own chrome around it.
