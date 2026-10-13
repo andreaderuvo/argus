@@ -4478,7 +4478,7 @@ dialog.sheet.looksheet > h2, dialog.sheet.looksheet > .sheetfoot { flex: none; }
 /* The whole path, small and wrapped — at any slash or letter — over up to three lines: cut short on
    one line it said too little to be worth showing (2026-10-13). */
 #railfavs .railwhere, #drawerfavs .railwhere { min-width: 0; overflow: hidden; white-space: normal; overflow-wrap: anywhere;
-  font-size: .58rem; line-height: 1.25; color: var(--dim); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+  font-size: .52rem; line-height: 1.25; color: var(--dim); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
 #railfavs .railwhere bdi, #drawerfavs .railwhere bdi { unicode-bidi: isolate; }
 body:not(.railwide) #railfavs .railtext { display: none; }
 /* The phone's drawer: icon, name, and where — no initials (the narrow rail's), no buttons, nothing past its edge. */
