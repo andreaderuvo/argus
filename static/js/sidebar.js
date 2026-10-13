@@ -2,7 +2,7 @@
 import { adoptDesks, rung } from '/js/bells.js';
 import { savePrefs } from '/js/core.js';
 import { lastSessionCount, lastTodoCount, paintDeskStates, showCount } from '/js/counts.js';
-import { ask, askPrompt, confirmBox, popMenu, toast } from '/js/dialogs.js';
+import { ask, askPrompt, confirmBox, copyPath, popMenu, toast } from '/js/dialogs.js';
 import { el, wikiLink } from '/js/dom.js';
 import { fileIcon } from '/js/fileicons.js';
 import { BATONS, GROUND, LOOSE, PAIR_BATONS, SITUATIONAL, batonGroups, batonTemplates, bridgePath, deskSetName, fillBaton, groundVars, groupName, messagesChanged, pairEvery, pairLimit, pairTries, planPath, promptName, saidAs, unknownVars, varSetNamed, varSets, whyEmpty } from '/js/handover.js';
@@ -1138,6 +1138,51 @@ function shortWhere(path) {
   return home && home !== '/' && (parent === home || parent.startsWith(`${home}/`)) ? `~${parent.slice(home.length)}` : parent;
 }
 
+/* A path that does not fit is cut in the middle, by whole folders — `~/…/projects/salmonella-2026`
+ *  — keeping where it starts and the folders nearest the end, which are what tell two apart: what
+ *  Finder and VS Code do. Cutting from the left left `…ella-2026`, which says nothing (2026-10-13). */
+let measurer = null;
+function textWidth(text, el) {
+  measurer = measurer || document.createElement('canvas').getContext('2d');
+  const cs = getComputedStyle(el);
+  measurer.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+  return measurer.measureText(text).width;
+}
+/** Every starred path on screen, fitted to its room — again whenever the rail or drawer changes width. */
+export function fitRailPaths() {
+  for (const w of document.querySelectorAll('.railwhere[data-path]')) fitPath(w, w.dataset.path);
+  if (fitRailPaths.watching) return;
+  fitRailPaths.watching = true;
+  let wide = new Map();
+  const ro = new ResizeObserver((entries) => {
+    let moved = false;
+    for (const e of entries) {
+      const w = Math.round(e.contentRect.width);
+      if (wide.get(e.target) !== w) { wide.set(e.target, w); moved = true; }
+    }
+    if (moved) requestAnimationFrame(() => { for (const w of document.querySelectorAll('.railwhere[data-path]')) fitPath(w, w.dataset.path); });
+  });
+  for (const id of ['nav', 'drawer', 'drawerfavs', 'railfavs']) {
+    const node = document.getElementById(id);
+    if (node) ro.observe(node);
+  }
+}
+
+export function fitPath(el, path) {
+  const room = el.clientWidth;
+  if (!room) return;
+  const parts = path.split('/');
+  const head = parts[0] === '' ? '' : parts[0];          // '' for an absolute path, '~' under home
+  const tail = parts.slice(1).filter(Boolean);
+  const lead = head === '' ? '/' : `${head}/`;
+  const tries = [path];
+  for (let k = tail.length - 1; k >= 1; k -= 1) tries.push(`${lead}…/${tail.slice(-k).join('/')}`);
+  tries.push(`…/${tail.at(-1) || path}`);
+  const fits = tries.find((s) => textWidth(s, el) <= room) || tries.at(-1);
+  el.textContent = fits;
+  el.title = path;
+}
+
 export function paintRailFavs() {
   const seen = new Set();
   const all = Object.values(favs || {}).flat().filter((f) => f?.path && !seen.has(f.path) && seen.add(f.path));
@@ -1156,6 +1201,7 @@ export function paintRailFavs() {
     popMenu(e.clientX, e.clientY, [
       { icon: folder(f) ? 'folder' : 'file', label: folder(f) ? t('Open in Files') : t('Open'), run: () => open(f) },
       ...(folder(f) && !f.missing ? [{ icon: 'grid', label: t('New desk here'), run: () => deskHere(f.path) }] : []),
+      { icon: 'copy', label: t('Copy the path'), run: () => copyPath(f.path) },
       '-',
       { icon: 'star', label: t('Remove the star'), run: () => unstar(f) },
     ], f.name);
@@ -1164,6 +1210,7 @@ export function paintRailFavs() {
     className: `railwin railfav${f.missing ? ' missing' : ''}${f.type && f.type !== 'directory' ? ' railfile' : ''}`, type: 'button', title: f.path, onclick: (e) => {
       if (e.target.closest('.railunstar')) { e.stopPropagation(); unstar(f); return; }
       if (e.target.closest('.raildesk')) { e.stopPropagation(); deskHere(f.path); return; }
+      if (e.target.closest('.railcopy')) { e.stopPropagation(); copyPath(f.path); return; }
       open(f);
     },
     oncontextmenu: (e) => menu(e, f),
@@ -1174,10 +1221,15 @@ export function paintRailFavs() {
     // nearest it stays (asked for 2026-10-13: "so one sees the path", as Links does).
     el('span', { className: 'railtext' }, [
       el('span', { className: 'railname', textContent: f.name }),
-      el('span', { className: 'railwhere' }, bidi(shortWhere(f.path))),
+      (() => { const w = el('span', { className: 'railwhere', textContent: shortWhere(f.path) }); w.dataset.path = shortWhere(f.path); return w; })(),
     ]),
-    folder(f) && !f.missing ? el('span', { className: 'raildesk', title: t('New desk here — it starts in this folder'), role: 'button', 'aria-label': t('New desk here') }, icon('grid')) : null,
-    el('span', { className: 'railunstar', title: t('Remove the star (right-click for more)'), role: 'button', 'aria-label': t('Remove the star') }, icon('close'))].filter(Boolean));
+    // The row's actions together, over the end of the row on hover in the wide rail — taking no
+    // room at rest, so the path has all of it (they had 40px of a 177px row, invisible).
+    el('span', { className: 'railacts' }, [
+      el('span', { className: 'railcopy', title: t('Copy the full path'), role: 'button', 'aria-label': t('Copy the full path') }, icon('copy')),
+      folder(f) && !f.missing ? el('span', { className: 'raildesk', title: t('New desk here — it starts in this folder'), role: 'button', 'aria-label': t('New desk here') }, icon('grid')) : null,
+      el('span', { className: 'railunstar', title: t('Remove the star (right-click for more)'), role: 'button', 'aria-label': t('Remove the star') }, icon('close')),
+    ].filter(Boolean))]);
   if (railFavs) {
     // Called what they are — folders, starred — rather than "favourites", which said nothing of what is in the list.
     // "Starred" once a file is among them (a star from Links, a file pinned in Files).
@@ -1186,6 +1238,7 @@ export function paintRailFavs() {
       [icon(files ? 'star' : 'folder'), el('span', { className: 'railname', textContent: files ? t('Starred') : t('Folders') })])] : []),
       ...all.map(item));
     railFavs.hidden = !all.length || !token;
+    requestAnimationFrame(fitRailPaths);
   }
   const drawer = document.getElementById('drawerfavs');
   if (drawer) {
@@ -1193,6 +1246,7 @@ export function paintRailFavs() {
     drawer.replaceChildren(...(all.length ? [el('div', { className: 'drawerhead', textContent: anyFile ? t('Starred') : t('Starred folders') })] : []),
       ...all.map((f) => { const b = item(f); b.onclick = (e) => { if (e.target.closest('.railunstar')) { e.stopPropagation(); unstar(f); return; } openDrawer(false); open(f); }; return b; }));
     drawer.hidden = !all.length || !token;
+    requestAnimationFrame(fitRailPaths);
   }
 }
 
@@ -1327,9 +1381,45 @@ function watchRailFades() {
   paintRailFades();
 }
 
+/* The wide rail's width, dragged from its right edge and remembered — a long starred path needs
+ *  room the default 178px does not have. Double-click puts it back. */
+const RAIL_MIN = 150;
+const RAIL_MAX = 420;
+function railResizer() {
+  const nav = document.getElementById('nav');
+  if (!nav || document.querySelector('.railgrip')) return;
+  const grip = el('div', { className: 'railgrip', title: t('Drag to widen the sidebar — double-click for the default'), 'aria-hidden': 'true' });
+  grip.addEventListener('pointerdown', (e) => {
+    if (!prefs.railWide) return;
+    e.preventDefault();
+    const x0 = e.clientX;
+    const w0 = nav.getBoundingClientRect().width;
+    document.body.classList.add('railsizing');
+    const move = (ev) => {
+      const w = Math.max(RAIL_MIN, Math.min(RAIL_MAX, Math.round(w0 + ev.clientX - x0)));
+      document.body.style.setProperty('--rail', `${w}px`);
+    };
+    const up = () => {
+      removeEventListener('pointermove', move);
+      removeEventListener('pointerup', up);
+      document.body.classList.remove('railsizing');
+      prefs.railWidth = Math.round(nav.getBoundingClientRect().width);
+      savePrefs();
+    };
+    addEventListener('pointermove', move);
+    addEventListener('pointerup', up);
+  });
+  grip.addEventListener('dblclick', () => { delete prefs.railWidth; savePrefs(); applyRail(); });
+  // On the page, not in the rail: the rail scrolls, and its scrollbar sat over a grip inside it.
+  document.body.append(grip);
+}
+
 export function applyRail() {
   watchRailFades();
   document.body.classList.toggle('railwide', !!prefs.railWide);
+  railResizer();
+  if (prefs.railWide && prefs.railWidth) document.body.style.setProperty('--rail', `${Math.max(RAIL_MIN, Math.min(RAIL_MAX, prefs.railWidth))}px`);
+  else document.body.style.removeProperty('--rail');
   const wide = !!prefs.railWide;
   // The label names the thing, the tooltip names the action. "Collapse" as a label described
   // what pressing it does to the rail, which is not what the rail is: it is the menu, and the

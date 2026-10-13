@@ -4464,9 +4464,12 @@ dialog.sheet.looksheet[open] { display: flex; flex-direction: column; overflow: 
 dialog.sheet.looksheet > .sheetbody { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 dialog.sheet.looksheet > h2, dialog.sheet.looksheet > .sheetfoot { flex: none; }
 /* A starred folder in the wide rail (and the phone's drawer): its name, and where it is under it. */
-#railfavs .railtext, #drawerfavs .railtext { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; line-height: 1.25; }
+/* The text gives way, the buttons do not: flex-basis 0, so a long path never pushes the desk button
+   and the unstar out of the row (2026-10-13). The path is cut in the middle by fitPath(). */
+#railfavs .railtext, #drawerfavs .railtext { display: flex; flex-direction: column; min-width: 0; flex: 1 1 0; overflow: hidden; line-height: 1.25; }
+#railfavs .railtext .railname, #drawerfavs .railtext .railname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #railfavs .railwhere, #drawerfavs .railwhere { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  direction: rtl; text-align: left; font-size: .7rem; color: var(--dim); }
+  font-size: .7rem; color: var(--dim); }
 #railfavs .railwhere bdi, #drawerfavs .railwhere bdi { unicode-bidi: isolate; }
 body:not(.railwide) #railfavs .railtext { display: none; }
 /* The phone's drawer: icon, name, and where — no initials (the narrow rail's), no buttons, nothing past its edge. */
@@ -4476,3 +4479,31 @@ body:not(.railwide) #railfavs .railtext { display: none; }
 #drawerfavs .railwin > img.ficon, #drawerfavs .railwin > svg { flex: none; }
 #drawerfavs .railwhere { font-size: .75rem; }
 dialog.themesheet.busy .sheetbody { opacity: .55; pointer-events: none; }
+/* The wide rail's right edge, to drag it wider. */
+.railgrip { display: none; }
+@media (min-width: 900px) {
+  body.railwide .railgrip { display: block; position: fixed; top: 0; bottom: 0; left: calc(var(--rail, 178px) - 3px); width: 7px;
+    cursor: col-resize; z-index: 50; }
+  body.railwide .railgrip:hover, body.railsizing .railgrip { background: color-mix(in srgb, var(--accent) 45%, transparent); }
+  body.railsizing { cursor: col-resize; user-select: none; }
+}
+
+/* The starred row's actions (copy, new desk, unstar). Wide rail: over the end of the row, on hover
+   only, on a fade — the text keeps the whole row. Drawer: always there, in the row. */
+#railfavs .railacts, #drawerfavs .railacts { display: none; }
+@media (min-width: 900px) {
+  body.railwide #railfavs .railfav { position: relative; }
+  body.railwide #railfavs .railacts { display: flex; position: absolute; right: .35rem; top: 50%; transform: translateY(-50%);
+    gap: 2px; padding-left: 1.2rem; opacity: 0; pointer-events: none; transition: opacity .12s;
+    background: linear-gradient(to right, transparent, var(--panel) 1.1rem); }
+  body.railwide #railfavs .railfav:hover .railacts, body.railwide #railfavs .railfav:focus-visible .railacts { opacity: 1; pointer-events: auto; }
+  body.railwide #railfavs .railacts > span { display: grid !important; place-items: center; width: 22px; height: 22px; margin: 0 !important;
+    border-radius: 6px; color: var(--dim); opacity: 1 !important; }
+  body.railwide #railfavs .railacts > span:hover { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+  body.railwide #railfavs .railacts > .railunstar:hover { color: var(--st-critical); background: color-mix(in srgb, var(--st-critical) 12%, transparent); }
+  body.railwide #railfavs .railacts .ico { width: 12px; height: 12px; }
+}
+#drawerfavs .railacts { display: flex; flex: none; gap: 2px; }
+#drawerfavs .railacts > span { display: grid !important; place-items: center; width: 34px; height: 34px; color: var(--dim); }
+#drawerfavs .railacts .ico { width: 15px; height: 15px; }
+#drawerfavs .railacts > .raildesk { display: none !important; }

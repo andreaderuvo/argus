@@ -1524,6 +1524,8 @@
   "Apply to everything: every window and tmux too": "Apply to everything: every window and tmux too",
   "Every terminal in this theme’s colours — a session given a look of its own too — and tmux’s status line dressed to match, written into the tmux config": "Every terminal in this theme’s colours — a session given a look of its own too — and tmux’s status line dressed to match, written into the tmux config",
   "{name} on everything — {n} sessions": "{name} on everything — {n} sessions",
-  "Applying… {n}/{total}": "Applying… {n}/{total}"
+  "Applying… {n}/{total}": "Applying… {n}/{total}",
+  "Copy the full path": "Copy the full path",
+  "Drag to widen the sidebar — double-click for the default": "Drag to widen the sidebar — double-click for the default"
  }
 }

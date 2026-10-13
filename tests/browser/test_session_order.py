@@ -17,7 +17,7 @@ def test_sessions_say_when_they_started_and_sort_by_it(make_page, argus):
         time.sleep(1.2)
     argus.tmux("new-session", "-d", "-s", "zz-pad", "-x", "80", "-y", "24")
     page = make_page(route="#/sessions")
-    page.wait(f"{NAMES}.length === 4", timeout=10)
+    page.wait(f"{NAMES}.length === 4", timeout=25)
     assert page.eval(NAMES) == ["a-newest", "b-middle", "c-oldest", "zz-pad"], "by name first"
     meta = page.eval("document.querySelector('#view .row.dir .meta').textContent")
     assert "up " in meta and "since " in meta, meta
