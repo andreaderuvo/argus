@@ -18,10 +18,11 @@ def test_a_long_path_is_cut_in_the_middle_and_the_buttons_stay(make_page, argus)
         page = make_page(route="#/files")
         page.wait(f"!!{ROW}", timeout=10)
         where = f"{ROW}.querySelector('.railwhere')"
-        page.wait(f"{where}.textContent.includes('…/')", timeout=5, what="cut in the middle")
+        # The whole path, wrapped onto more lines in a smaller type rather than cut.
+        page.wait(f"{where}.textContent.endsWith('salmonella-2026/surveillance')", timeout=5, what="the whole path")
         shown = page.eval(f"{where}.textContent")
-        assert shown.endswith("surveillance") and not shown.startswith("…ella"), shown
-        assert page.eval(f"{where}.scrollWidth <= {where}.clientWidth + 1"), "it fits"
+        assert "…" not in shown, shown
+        assert page.eval(f"{where}.getClientRects().length && {where}.getBoundingClientRect().height > 14"), "on more than one line"
         assert page.eval(f"{where}.title").endswith("salmonella-2026/surveillance"), "the whole path on hover"
         # The buttons are in the row, not pushed out of it.
         x, y = page._center(ROW)
@@ -39,6 +40,6 @@ def test_a_long_path_is_cut_in_the_middle_and_the_buttons_stay(make_page, argus)
         page.send("Input.dispatchMouseEvent", {"type": "mouseMoved", "x": nav[0] + 220, "y": nav[1], "button": "left", "buttons": 1})
         page.send("Input.dispatchMouseEvent", {"type": "mouseReleased", "x": nav[0] + 220, "y": nav[1], "button": "left", "clickCount": 1})
         eventually(lambda: (argus.api("/api/prefs")["prefs"].get("railWidth") or 0) > 300, timeout=10, what="the width kept")
-        page.wait(f"!{where}.textContent.includes('…') || {where}.textContent.length > {len(shown)}", timeout=5, what="more of the path")
+        page.wait(f"{where}.textContent === {shown!r}", timeout=5, what="the same path, fewer lines")
     finally:
         argus.api("/api/favourites", "POST", {"path": str(deep), "group": "main"})

@@ -2,6 +2,7 @@
    is always resolved by the script — including the `auto` case — so the CSS never has to
    duplicate a block behind a media query. */
 :root, :root[data-theme="dark"] {
+  --star: #e0b14a;               /* a lit star: amber that reads on this paper */
   --bg: #0b0e14;
   --panel: #11151d;
   --line: #1e2530;
@@ -19,6 +20,7 @@
 }
 
 :root[data-theme="light"] {
+  --star: #a8660b;
   --bg: #f6f7f9;
   --panel: #ffffff;
   --line: #dde2ea;
@@ -1919,7 +1921,10 @@ button.pdffind {
   border-radius: .3rem; border: 1px solid transparent; background: none; color: var(--dim);
   opacity: 1;
 }
-button.pdffind:hover, button.pdffind.on { color: var(--accent); border-color: var(--accent); }
+button.pdffind:hover { color: var(--accent); border-color: var(--accent); }
+/* On, it is pressed like every other window button: the accent behind, the icon in the colour that
+   reads on it. It was the accent on the accent — the lens vanished when it was on (2026-10-13). */
+button.pdffind.on, button.pdffind.on:hover { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
 
 /* Hung under the bar it belongs to. Floating, so it costs the document no room while it
    is open, and below rather than over, so it hides neither the bar nor the first line. */
@@ -2544,8 +2549,10 @@ button.keyrow kbd { flex: none; }
 .msgfolder.starred > summary { color: var(--bright); }
 .msgfolder.starred > summary .ico { color: var(--accent); }
 .msgcard > summary .winbtn.star { color: var(--dim); }
-.msgcard > summary .winbtn.star.on,
 .msgcard > summary .winbtn.star:hover { color: var(--accent); }
+/* On: a lit star, not a pressed button — yellow and filled, on no background (the generic
+   winbtn.on put the accent behind an accent star, and it disappeared). */
+.msgcard > summary .winbtn.star.on, .msgcard > summary .winbtn.star.on:hover { color: var(--star); background: none; border-color: transparent; }
 .msgcard > summary .winbtn.star.on .ico path { fill: currentColor; }
 
 /* The little list of things to do: three columns, and no fourth. */
@@ -4390,7 +4397,7 @@ dialog.sheet.looksheet::backdrop { background: transparent; }
 .trayrx.on { color: var(--accent); border-color: var(--accent); }
 .traysearch.bad { outline: 1px solid var(--danger); border-color: var(--danger); }
 img.ficon.fimg { object-fit: contain; flex: none; }
-button.winbtn.traystar.on { background: none; border-color: transparent; color: #e0b14a; opacity: 1; }
+button.winbtn.traystar.on { background: none; border-color: transparent; color: var(--star); opacity: 1; }
 button.winbtn.traystar.on svg, button.winbtn.traystar.on svg path { fill: currentColor; }
 .railfav img.ficon { width: 18px; height: 18px; }
 /* A starred file in the narrow rail: its coloured icon tells it apart; the initials are for folders. */
@@ -4468,8 +4475,10 @@ dialog.sheet.looksheet > h2, dialog.sheet.looksheet > .sheetfoot { flex: none; }
    and the unstar out of the row (2026-10-13). The path is cut in the middle by fitPath(). */
 #railfavs .railtext, #drawerfavs .railtext { display: flex; flex-direction: column; min-width: 0; flex: 1 1 0; overflow: hidden; line-height: 1.25; }
 #railfavs .railtext .railname, #drawerfavs .railtext .railname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#railfavs .railwhere, #drawerfavs .railwhere { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font-size: .7rem; color: var(--dim); }
+/* The whole path, small and wrapped — at any slash or letter — over up to three lines: cut short on
+   one line it said too little to be worth showing (2026-10-13). */
+#railfavs .railwhere, #drawerfavs .railwhere { min-width: 0; overflow: hidden; white-space: normal; overflow-wrap: anywhere;
+  font-size: .64rem; line-height: 1.25; color: var(--dim); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
 #railfavs .railwhere bdi, #drawerfavs .railwhere bdi { unicode-bidi: isolate; }
 body:not(.railwide) #railfavs .railtext { display: none; }
 /* The phone's drawer: icon, name, and where — no initials (the narrow rail's), no buttons, nothing past its edge. */
@@ -4508,3 +4517,17 @@ dialog.themesheet.busy .sheetbody { opacity: .55; pointer-events: none; }
 #drawerfavs .railacts .ico { width: 15px; height: 15px; }
 #drawerfavs .railacts > .raildesk { display: none !important; }
 .row .sessnote { display: block; font-size: .78rem; color: var(--text); opacity: .85; font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Links: the row's actions over its end on hover (a fine pointer), always in the row on a touch screen. */
+.trayline { position: relative; }
+.trayline .trayacts { display: flex; gap: .15rem; align-items: center; flex: none; }
+.trayline .traylit { display: none; }
+@media (pointer: fine) {
+  .trayline .trayacts { position: absolute; right: .2rem; top: 50%; transform: translateY(-50%); padding-left: 1.6rem;
+    opacity: 0; pointer-events: none; transition: opacity .12s; background: linear-gradient(to right, transparent, var(--bg) 1.4rem); }
+  .trayline:hover .trayacts, .trayline:focus-within .trayacts { opacity: 1; pointer-events: auto; }
+  .trayline .trayacts .winbtn { opacity: 1; }
+  .trayline .traylit { display: grid; place-items: center; flex: none; width: 24px; color: var(--star); }
+  .trayline .traylit svg, .trayline .traylit svg path { fill: currentColor; }
+  .trayline .traylit .ico { width: 13px; height: 13px; }
+  .trayline:hover .traylit { visibility: hidden; }
+}

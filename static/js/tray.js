@@ -399,7 +399,14 @@ export function attachTray(host, wsId, extras, deliver) {
           draw();
         };
       }
-      list.append(el('div', { className: 'trayline' }, [row, star, grab, drop].filter(Boolean)));
+      // The actions over the end of the row on hover, as the starred folders in the sidebar: the
+      // name and its place keep the row's width at rest. A lit star stays out, since it says something.
+      const lit = star?.classList.contains('on');
+      list.append(el('div', { className: 'trayline' }, [
+        row,
+        ...(lit ? [el('span', { className: 'traylit', 'aria-hidden': 'true' }, icon('star'))] : []),
+        el('span', { className: 'trayacts' }, [star, grab, drop].filter(Boolean)),
+      ]));
     }
   };
 

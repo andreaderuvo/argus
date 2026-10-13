@@ -1169,6 +1169,8 @@ export function fitRailPaths() {
 }
 
 export function fitPath(el, path) {
+  // Wrapped (the starred folders now are): the whole path, the lines do the fitting.
+  if (getComputedStyle(el).whiteSpace !== 'nowrap') { el.textContent = path; el.title = path; return; }
   const room = el.clientWidth;
   if (!room) return;
   const parts = path.split('/');
