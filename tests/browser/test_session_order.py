@@ -34,12 +34,24 @@ def test_sessions_say_when_they_started_and_sort_by_it(make_page, argus):
 
 def test_the_quietest_first_and_the_ones_asleep_for_days(make_page, argus):
     argus.kill_sessions()
+    activity = lambda s: int(argus.tmux("display-message", "-p", "-t", s, "#{window_activity}").stdout.strip() or 0)  # noqa: E731
+
+    def settled(s):
+        # A shell's start-up can print late under load (a login profile, conda): wait until quiet.
+        last, still = activity(s), 0
+        while still < 3:
+            time.sleep(0.5)
+            now = activity(s)
+            still = still + 1 if now == last else 0
+            last = now
+
     argus.tmux("new-session", "-d", "-s", "busy", "-x", "80", "-y", "24")
-    time.sleep(1.2)
     argus.tmux("new-session", "-d", "-s", "idle", "-x", "80", "-y", "24")
-    time.sleep(1.2)
+    settled("busy")
+    settled("idle")
+    time.sleep(1.1)
     argus.tmux("send-keys", "-t", "busy", "echo still here", "Enter")     # output: busy is the recent one now
-    time.sleep(1.2)
+    eventually(lambda: activity("busy") > activity("idle"), timeout=10, what="busy the more recent")
     page = make_page(route="#/sessions")
     page.wait(f"{NAMES}.length === 2", timeout=10)
     page.eval("(() => { const s = document.querySelector('.sessorder'); s.value = 'quiet'; s.onchange(); })()")
