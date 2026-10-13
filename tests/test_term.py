@@ -78,3 +78,12 @@ def test_a_tmux_that_is_gone_does_not_take_the_websocket_with_it(monkeypatch):
 
     monkeypatch.setattr(term.subprocess, "run", explode)
     term.set_passive(Socket.new(None), "/dev/pts/9", True)      # must not raise
+
+
+def test_a_keys_echo_is_sent_at_once_and_a_flood_is_still_gathered():
+    from app.term import COALESCE, ECHO_MAX, QUIET, is_echo
+    assert is_echo(1, 1.0), "one character after a pause: typing"
+    assert is_echo(ECHO_MAX, QUIET), "a line redrawn by readline is still an echo"
+    assert not is_echo(ECHO_MAX + 1, 1.0), "a screenful is gathered"
+    assert not is_echo(10, QUIET / 2), "output that keeps coming is gathered"
+    assert QUIET > COALESCE, "a pause longer than the gathering window"
