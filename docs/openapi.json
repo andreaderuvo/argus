@@ -4863,6 +4863,52 @@
     ]
    }
   },
+  "/api/tmux/note": {
+   "post": {
+    "description": "`{session, note}` \u2014 a line of your own about what the session is for, shown under its\nname. Kept in tmux as the session option `@argus_note`: it goes when the session goes, follows\na rename, and a new session with the same name starts without it. Empty removes it.",
+    "operationId": "postApiTmuxNote",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Session Note Api Tmux Note Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Write what a session is for",
+    "tags": [
+     "Sessions"
+    ]
+   }
+  },
   "/api/tmux/rename": {
    "post": {
     "operationId": "postApiTmuxRename",

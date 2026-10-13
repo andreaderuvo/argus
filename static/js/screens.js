@@ -221,7 +221,7 @@ export async function screenSessions() {
     const at = (s) => (how === 'quiet' ? s.activity || s.created : s.created) || 0;
     return [...list].sort((a, b) => (how === 'newest' ? at(b) - at(a) : at(a) - at(b)) || a.name.localeCompare(b.name));
   };
-  const shownNow = () => sorted(sessions.filter((one) => (!needle || one.name.toLowerCase().includes(needle))
+  const shownNow = () => sorted(sessions.filter((one) => (!needle || one.name.toLowerCase().includes(needle) || (one.note || '').toLowerCase().includes(needle))
     && (!teamOnly || teamOf.get(one.name) === teamOnly)));
   const sayPicked = () => {
     for (const name of [...picked]) if (!sessions.some((s) => s.name === name)) picked.delete(name);
@@ -265,7 +265,7 @@ export async function screenSessions() {
   if (sessions.length > 5) {
     view.append(el('div', { className: 'jbar sessfind' }, [
       el('input', {
-        type: 'search', className: 'jfind', placeholder: t('filter by name'), spellcheck: false,
+        type: 'search', className: 'jfind', placeholder: t('filter by name or note'), spellcheck: false,
         oninput: (e) => { needle = e.target.value.trim().toLowerCase(); paint(); },
       }),
       count,
@@ -340,7 +340,9 @@ export async function screenSessions() {
           isDormant(s) ? el('span', { className: 'teambadge asleep', textContent: t('asleep'), title: t('nothing has happened in it for {age} — a candidate to end', { age: duration(idle) }) }) : null,
         ].filter(Boolean)),
         el('span', { className: 'meta', textContent: running ? `${meta} · ${t('open here')}` : meta }),
-      ]),
+        // What it is for, in the person's own words (kept in tmux, @argus_note).
+        s.note ? el('span', { className: 'sessnote', textContent: s.note, title: s.note }) : null,
+      ].filter(Boolean)),
       pill,
       running ? el('span', { className: 'livedot' }) : el('span', { className: 'chev', textContent: '›' }),
     ]);
@@ -382,6 +384,7 @@ export async function screenSessions() {
       ...(sessions.length > 1 ? [pick] : []),
       row,
       toWall,
+      act('journal', s.note ? t('Change the note') : t('Add a note — what this session is for'), () => noteSession(s)),
       act('rename', t('Rename…'), () => renameSession(s)),
       act('trash', t('Kill session'), () => killSession(s), 'kill'),
       menu,
@@ -1063,6 +1066,17 @@ export function startedOn(secs) {
   return d.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+/** A line about what a session is for: written into tmux (@argus_note), so it goes with the session. */
+export async function noteSession(session) {
+  const said = await ask(t('What is {name} for?', { name: session.name }), session.note || '', t('Save'));
+  if (said === null || said === undefined) return;
+  try {
+    await postJSON('/api/tmux/note', { session: session.name, note: said });
+    toast(said.trim() ? t('noted on {name}', { name: session.name }) : t('note removed from {name}', { name: session.name }));
+    render();
+  } catch (e) { toast(e.message, true); }
+}
+
 export async function killSession(session, then = null) {
   // Everything running inside it dies with it, which is not what detaching does. This one
   // asks, and goes on asking however quick the rest of the screen gets.
@@ -1092,6 +1106,7 @@ function sessionActions(session) {
   );
 
   item('grid', t('Open in a window'), () => chooseDesk({ kind: 'term', name: session.name }, session.name));
+  item('journal', session.note ? t('Change the note') : t('Add a note'), () => noteSession(session));
   item('rename', t('Rename…'), () => renameSession(session));
   item('trash', t('Kill session'), () => killSession(session));
 

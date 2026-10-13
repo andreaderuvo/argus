@@ -1526,6 +1526,13 @@
   "{name} on everything — {n} sessions": "{name} su tutto — {n} sessioni",
   "Applying… {n}/{total}": "Applico… {n}/{total}",
   "Copy the full path": "Copia il percorso completo",
-  "Drag to widen the sidebar — double-click for the default": "Trascina per allargare la barra laterale — doppio clic per la larghezza normale"
+  "Drag to widen the sidebar — double-click for the default": "Trascina per allargare la barra laterale — doppio clic per la larghezza normale",
+  "Change the note": "Cambia la nota",
+  "Add a note — what this session is for": "Aggiungi una nota — a cosa serve questa sessione",
+  "Add a note": "Aggiungi una nota",
+  "filter by name or note": "filtra per nome o nota",
+  "What is {name} for?": "A cosa serve {name}?",
+  "noted on {name}": "nota salvata su {name}",
+  "note removed from {name}": "nota tolta da {name}"
  }
 }

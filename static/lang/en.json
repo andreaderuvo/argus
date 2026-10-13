@@ -1526,6 +1526,13 @@
   "{name} on everything — {n} sessions": "{name} on everything — {n} sessions",
   "Applying… {n}/{total}": "Applying… {n}/{total}",
   "Copy the full path": "Copy the full path",
-  "Drag to widen the sidebar — double-click for the default": "Drag to widen the sidebar — double-click for the default"
+  "Drag to widen the sidebar — double-click for the default": "Drag to widen the sidebar — double-click for the default",
+  "Change the note": "Change the note",
+  "Add a note — what this session is for": "Add a note — what this session is for",
+  "Add a note": "Add a note",
+  "filter by name or note": "filter by name or note",
+  "What is {name} for?": "What is {name} for?",
+  "noted on {name}": "noted on {name}",
+  "note removed from {name}": "note removed from {name}"
  }
 }

@@ -13,6 +13,10 @@ from dataclasses import dataclass
 # `session_activity`: the last time anything happened in it — output or a key — which is what
 # tells a session that is quietly working from one forgotten for a week.
 FORMAT = "#{session_name}\t#{session_windows}\t#{session_attached}\t#{session_created}\t#{session_activity}"
+# A note of the person's about what a session is for, kept in tmux as a session option: it lives and
+# dies with the session, follows a rename, and a new session under the same name does not inherit it.
+NOTE_OPTION = "@argus_note"
+NOTE_MAX = 300
 
 
 class TmuxError(Exception):
@@ -114,6 +118,20 @@ def list_sessions(sock: Socket) -> list[dict]:
             return []
         raise TmuxError(p.stderr.strip() or "tmux failed")
     out = parse_sessions(p.stdout)
+    # The notes, in one more call: a separate format so a note can never confuse the fields above.
+    try:
+        n = subprocess.run(["tmux", *sock.args(), "list-sessions", "-F", f"#{{session_name}}\t#{{{NOTE_OPTION}}}"],
+                           capture_output=True, text=True, timeout=4)
+        notes = {}
+        for line in n.stdout.splitlines():
+            name, _, note = line.partition("\t")
+            if name and note:
+                notes[name] = note
+        for s in out:
+            s["note"] = notes.get(s["name"], "")
+    except (OSError, subprocess.SubprocessError):
+        for s in out:
+            s["note"] = ""
     # `session_activity` moves only when a client does something; a program printing does not
     # touch it. Its windows' `window_activity` does, so the last activity is the latest of them —
     # one list-windows for the whole server, whatever the number of sessions.
@@ -500,3 +518,21 @@ def style(sock: Socket, session: str, options: dict[str, str]) -> None:
         raise TmuxError(f"could not set the style: {e}") from e
     if done.returncode != 0:
         raise TmuxError(complaint(done) or "tmux refused the style")
+
+
+def clean_note(text: str) -> str:
+    """One line, no control characters, at most NOTE_MAX: it is shown on a row, and tabs and
+    newlines would break the list it is read back from."""
+    flat = re.sub(r"[\x00-\x1f\x7f]+", " ", str(text or "")).strip()
+    return re.sub(r" {2,}", " ", flat)[:NOTE_MAX]
+
+
+def set_note(sock: Socket, session: str, text: str) -> str:
+    """Write (or, empty, remove) the note of a session. Argv, never a shell: the text is whatever
+    the person typed."""
+    note = clean_note(text)
+    argv = ["tmux", *sock.args(), "set-option", "-t", session] + (["-u", NOTE_OPTION] if not note else [NOTE_OPTION, note])
+    done = subprocess.run(argv, capture_output=True, text=True, timeout=5)
+    if done.returncode != 0:
+        raise TmuxError(complaint(done) or "tmux refused the note")
+    return note

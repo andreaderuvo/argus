@@ -2287,6 +2287,18 @@ def create_app(cfg: Config) -> FastAPI:
             raise ApiError(409, str(e)) from e
         return {"removed": str(here)}
 
+    @app.post("/api/tmux/note", tags=["Sessions"], summary="Write what a session is for")
+    async def session_note(request: Request, body: dict) -> dict:
+        """`{session, note}` — a line of your own about what the session is for, shown under its
+        name. Kept in tmux as the session option `@argus_note`: it goes when the session goes, follows
+        a rename, and a new session with the same name starts without it. Empty removes it."""
+        name = await _known(request, str(body.get("session", "")))
+        try:
+            note = await asyncio.to_thread(tmux.set_note, request.app.state.socket, name, str(body.get("note") or ""))
+        except tmux.TmuxError as e:
+            raise ApiError(400, str(e)) from e
+        return {"session": name, "note": note}
+
     @app.post("/api/tmux/rename", tags=["Sessions"], summary="Rename a session")
     async def rename_session(request: Request, body: dict) -> dict:
         state = request.app.state
