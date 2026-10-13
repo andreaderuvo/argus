@@ -1472,6 +1472,11 @@
   "one per kind of file — Material Icon Theme, and Argus’s own for sequences, alignments, variants, trees and annotations": "one per kind of file — Material Icon Theme, and Argus’s own for sequences, alignments, variants, trees and annotations",
   "Starred — press to remove it from the favourites": "Starred — press to remove it from the favourites",
   "Star it: kept in the sidebar": "Star it: kept in the sidebar",
-  "Starred files and folders": "Starred files and folders"
+  "Starred files and folders": "Starred files and folders",
+  "Open in Files": "Open in Files",
+  "New desk here": "New desk here",
+  "New desk here — it starts in this folder": "New desk here — it starts in this folder",
+  "Remove the star (right-click for more)": "Remove the star (right-click for more)",
+  "the desk {name} starts in {folder}": "the desk {name} starts in {folder}"
  }
 }

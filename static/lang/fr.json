@@ -1472,6 +1472,11 @@
   "one per kind of file — Material Icon Theme, and Argus’s own for sequences, alignments, variants, trees and annotations": "une par type de fichier — Material Icon Theme, et celles d’Argus pour séquences, alignements, variants, arbres et annotations",
   "Starred — press to remove it from the favourites": "Étoilé — appuyez pour le retirer des favoris",
   "Star it: kept in the sidebar": "Mettez une étoile : il reste dans la barre latérale",
-  "Starred files and folders": "Fichiers et dossiers étoilés"
+  "Starred files and folders": "Fichiers et dossiers étoilés",
+  "Open in Files": "Ouvrir dans Files",
+  "New desk here": "Nouveau bureau ici",
+  "New desk here — it starts in this folder": "Nouveau bureau ici — il démarre dans ce dossier",
+  "Remove the star (right-click for more)": "Retirer l’étoile (clic droit pour plus)",
+  "the desk {name} starts in {folder}": "le bureau {name} démarre dans {folder}"
  }
 }

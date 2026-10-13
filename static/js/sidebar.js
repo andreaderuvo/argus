@@ -1,20 +1,20 @@
 // <imports> generated from what this file uses; edit the code, not this list
-import { rung } from '/js/bells.js';
+import { adoptDesks, rung } from '/js/bells.js';
 import { savePrefs } from '/js/core.js';
 import { lastSessionCount, lastTodoCount, paintDeskStates, showCount } from '/js/counts.js';
-import { ask, askPrompt, confirmBox, toast } from '/js/dialogs.js';
+import { ask, askPrompt, confirmBox, popMenu, toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { fileIcon } from '/js/fileicons.js';
 import { BATONS, GROUND, LOOSE, PAIR_BATONS, SITUATIONAL, batonGroups, batonTemplates, bridgePath, deskSetName, fillBaton, groundVars, groupName, messagesChanged, pairEvery, pairLimit, pairTries, planPath, promptName, saidAs, unknownVars, varSetNamed, varSets, whyEmpty } from '/js/handover.js';
 import { icon } from '/js/icons.js';
 import { viewerPacks } from '/js/packs.js';
 import { bidi, colorFor, deskHome, getJSON, postJSON, serverInfo, setTitle, toggleFavourite } from '/js/reconnect.js';
-import { go, parseRoute } from '/js/router.js';
+import { go, parseRoute, render } from '/js/router.js';
 import { fileBrowser } from '/js/screens.js';
 import { aboutThisArgus, pluginUpdateDialog } from '/js/shortcuts.js';
-import { SIDE_PATH_KEY, assignSidePath, bar, favs, hamburger, moreBtn, prefs, railDesks, railFavs, railToggle, railWins, side, sidePath, sideToggle, token, view } from '/js/state.js';
+import { SIDE_PATH_KEY, assignSidePath, bar, favs, hamburger, live, moreBtn, prefs, railDesks, railFavs, railToggle, railWins, side, sidePath, sideToggle, token, view } from '/js/state.js';
 import { redressTerminals } from '/js/theme.js';
-import { currentSpace, openWindow, runs, specId } from '/js/tray.js';
+import { currentSpace, openWindow, runs, specId, workspaces } from '/js/tray.js';
 import { VIEWERS, editor } from '/js/viewers.js';
 import { reorderFolder } from '/js/wall.js';
 import { t } from '/js/words.js';
@@ -1100,6 +1100,24 @@ function railLabel(spec) {
  *  every list's favourites, once each, from anywhere: a click opens the folder in Files, a file
  *  in its viewer. Narrow, the folder glyph says enough; wide, its name.
  */
+/** A new desk that starts in `path`: named after the folder (numbered if that name is taken, so it
+ *  is always a new one), made on the machine like an agent's open_desk — every open page gets it —
+ *  and this page moved onto it. */
+export async function deskHere(path) {
+  const leaf = path.replace(/\/+$/, '').split('/').pop() || path;
+  const taken = new Set(workspaces().map((w) => String(w.name).trim().toLowerCase()));
+  let name = leaf;
+  for (let n = 2; taken.has(name.toLowerCase()); n += 1) name = `${leaf} ${n}`;
+  try {
+    const made = await postJSON('/api/desks', { name, folder: path, show: false });
+    await adoptDesks();
+    prefs.ws = made.id;
+    savePrefs();
+    toast(t('the desk {name} starts in {folder}', { name: made.name, folder: path }));
+    if (live?.key === 'wall') { live.activate?.(made.id); render(); } else go('#/wall');
+  } catch (e) { toast(e.message, true); }
+}
+
 export function paintRailFavs() {
   const seen = new Set();
   const all = Object.values(favs || {}).flat().filter((f) => f?.path && !seen.has(f.path) && seen.add(f.path));
@@ -1111,17 +1129,30 @@ export function paintRailFavs() {
       if ((list || []).some((x) => x.path === f.path)) await toggleFavourite(f.path, group);
     }
   };
+  const folder = (f) => f.type === 'directory' || !f.type;
+  // Right-click (or a long press): what can be done with it, rather than unstarring at once.
+  const menu = (e, f) => {
+    e.preventDefault();
+    popMenu(e.clientX, e.clientY, [
+      { icon: folder(f) ? 'folder' : 'file', label: folder(f) ? t('Open in Files') : t('Open'), run: () => open(f) },
+      ...(folder(f) && !f.missing ? [{ icon: 'grid', label: t('New desk here'), run: () => deskHere(f.path) }] : []),
+      '-',
+      { icon: 'star', label: t('Remove the star'), run: () => unstar(f) },
+    ], f.name);
+  };
   const item = (f) => el('button', {
     className: `railwin railfav${f.missing ? ' missing' : ''}${f.type && f.type !== 'directory' ? ' railfile' : ''}`, type: 'button', title: f.path, onclick: (e) => {
       if (e.target.closest('.railunstar')) { e.stopPropagation(); unstar(f); return; }
+      if (e.target.closest('.raildesk')) { e.stopPropagation(); deskHere(f.path); return; }
       open(f);
     },
-    oncontextmenu: (e) => { e.preventDefault(); unstar(f); },
+    oncontextmenu: (e) => menu(e, f),
   }, [f.type === 'directory' || !f.type ? icon('folder') : fileIcon({ name: f.name || f.path, type: 'file' }),
     // Narrow, three folder glyphs are three of the same: the name's first letters tell them apart.
     el('span', { className: 'railinit', textContent: (f.name || '?').replace(/[^\p{L}\p{N}]/gu, '').slice(0, 2) || '?' }),
     el('span', { className: 'railname', textContent: f.name }),
-    el('span', { className: 'railunstar', title: t('Remove the star (or right-click)'), role: 'button', 'aria-label': t('Remove the star') }, icon('close'))]);
+    folder(f) && !f.missing ? el('span', { className: 'raildesk', title: t('New desk here — it starts in this folder'), role: 'button', 'aria-label': t('New desk here') }, icon('grid')) : null,
+    el('span', { className: 'railunstar', title: t('Remove the star (right-click for more)'), role: 'button', 'aria-label': t('Remove the star') }, icon('close'))].filter(Boolean));
   if (railFavs) {
     // Called what they are — folders, starred — rather than "favourites", which said nothing of what is in the list.
     // "Starred" once a file is among them (a star from Links, a file pinned in Files).

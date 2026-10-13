@@ -4395,3 +4395,13 @@ button.winbtn.traystar.on svg, button.winbtn.traystar.on svg path { fill: curren
 .railfav img.ficon { width: 18px; height: 18px; }
 /* A starred file in the narrow rail: its coloured icon tells it apart; the initials are for folders. */
 body:not(.railwide) #railfavs .railfav.railfile .railinit, #railfavs .railfav.railfile .railinit { display: none; }
+/* "New desk here", beside the unstar: shown on hover in the wide rail, like it. */
+#railfavs .raildesk, #drawerfavs .raildesk { display: none; }
+@media (min-width: 900px) {
+  body.railwide #railfavs .raildesk { display: grid; place-items: center; margin-left: auto; width: 20px; height: 20px; border-radius: 6px;
+    color: var(--dim); opacity: 0; transition: opacity .12s; flex: none; }
+  body.railwide #railfavs .raildesk + .railunstar { margin-left: 2px; }
+  body.railwide #railfavs .railfav:hover .raildesk, body.railwide #railfavs .railfav:focus-visible .raildesk { opacity: 1; }
+  body.railwide #railfavs .raildesk:hover { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+  body.railwide #railfavs .raildesk .ico { width: 12px; height: 12px; }
+}

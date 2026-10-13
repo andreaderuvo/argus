@@ -1472,6 +1472,11 @@
   "one per kind of file — Material Icon Theme, and Argus’s own for sequences, alignments, variants, trees and annotations": "una per tipo di file — Material Icon Theme, e quelle di Argus per sequenze, allineamenti, varianti, alberi e annotazioni",
   "Starred — press to remove it from the favourites": "Con la stella — premi per toglierlo dai preferiti",
   "Star it: kept in the sidebar": "Mettigli la stella: resta nella barra laterale",
-  "Starred files and folders": "File e cartelle con la stella"
+  "Starred files and folders": "File e cartelle con la stella",
+  "Open in Files": "Apri in Files",
+  "New desk here": "Nuovo desk qui",
+  "New desk here — it starts in this folder": "Nuovo desk qui — parte da questa cartella",
+  "Remove the star (right-click for more)": "Togli la stella (tasto destro per altro)",
+  "the desk {name} starts in {folder}": "il desk {name} parte da {folder}"
  }
 }
