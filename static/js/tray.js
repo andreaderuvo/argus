@@ -37,9 +37,32 @@ const trayWatch = new Map();          // desk id -> redraw its tray window
 let trayTally = null;
 export function setTrayTally(value) { trayTally = value; }                 // and the toolbar's count, open window or not
 
+/* One preference key per desk, `links.<id>`: they were one key, `links`, for every desk — 311 KB
+ *  on a real machine, sent whole to the server whenever any terminal printed a new path, since a
+ *  save sends the keys that changed (measured 2026-10-14). The old key is taken apart once, and a
+ *  desk that no longer exists leaves its list behind no longer. */
+const linksKey = (id) => `links.${id}`;
+
+export function tidyLinks() {
+  if (prefs.links && typeof prefs.links === 'object') {
+    for (const [id, list] of Object.entries(prefs.links)) {
+      if (Array.isArray(list) && list.length && !prefs[linksKey(id)]) prefs[linksKey(id)] = list;
+    }
+    delete prefs.links;
+  }
+  // A desk this page knows was made (its id is not past wsSeq) and is no longer: its links go.
+  // One made elsewhere and not seen here yet has a higher id and is left alone.
+  const alive = new Set((prefs.workspaces || []).map((w) => String(w.id)));
+  for (const key of Object.keys(prefs)) {
+    if (!key.startsWith('links.')) continue;
+    const id = key.slice(6);
+    if (!alive.has(id) && Number(id) <= Number(prefs.wsSeq || 0)) delete prefs[key];
+  }
+}
+
 export function deskLinks(id) {
-  prefs.links = prefs.links || {};
-  return (prefs.links[id] = prefs.links[id] || []);
+  if (prefs.links) tidyLinks();
+  return (prefs[linksKey(id)] ||= []);
 }
 
 /** Most-mentioned first: a path an agent prints in every message is the one worth seeing
@@ -260,7 +283,7 @@ export function attachTray(host, wsId, extras, deliver) {
     for (const item of have) if (!item.at) item.at = Date.now();
     const left = have.filter((item) => item.at >= cutoff);
     if (left.length === have.length) return;
-    prefs.links[wsId] = left;
+    prefs[linksKey(wsId)] = left;
     savePrefs();
     draw();
     trayTally?.(wsId);
@@ -419,7 +442,7 @@ export function attachTray(host, wsId, extras, deliver) {
   const empty = el('button', { className: 'winbtn', title: t('Empty the tray') }, icon('trash'));
   empty.onclick = () => {
     if (!deskLinks(wsId).length) return;
-    prefs.links[wsId] = [];
+    prefs[linksKey(wsId)] = [];
     savePrefs();
     draw();
     trayTally?.(wsId);
