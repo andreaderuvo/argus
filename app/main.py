@@ -2160,7 +2160,7 @@ def create_app(cfg: Config) -> FastAPI:
             try:
                 desk = await asyncio.to_thread(rename_desk, request, " ".join(str(body["rename"]).split()), name)
             except KeyError:
-                raise ApiError(404, f"no desk called {body['rename']}") from None
+                raise ApiError(404, no_such_desk(request, str(body["rename"]), str(body.get("asker") or ""))) from None
             except ValueError as e:
                 raise ApiError(409, str(e)) from e
             bells.announce(request, {"what": "desk", "id": desk["id"], "desk": desk["name"], "renamed": True,
@@ -2839,6 +2839,23 @@ def set_desk_home(request: Request, desk_id, folder: str, only_if_none: bool = F
     found["home"] = folder
     prefs.save(store, version + 1, prefs.merge(doc, {"workspaces": spaces}))
     return found
+
+
+def no_such_desk(request: Request, asked: str, asker: str = "") -> str:
+    """The refusal that lets an agent get it right the next time: the desks there are, and — when
+    it said which session it is — the desk(s) its own session is in. An agent asked to "rename my
+    desk" guessed a name from its session's ("a-deruvo su codex") and got only "no desk called"."""
+    _, doc = prefs.load(request.app.state.prefs)
+    spaces = [w for w in (doc.get("workspaces") or []) if isinstance(w, dict)]
+    said = f"no desk called {asked!r} — the desks are: " + ", ".join(repr(str(w.get("name", ""))) for w in spaces)
+    if asker:
+        mine = [str(w.get("name", "")) for w in spaces
+                if any(x.get("kind") == "term" and x.get("name") == asker for x in (w.get("desktop") or []) if isinstance(x, dict))]
+        if mine:
+            said += f"; your session {asker} is in " + " and ".join(repr(n) for n in mine)
+        else:
+            said += f"; your session {asker} is in no desk"
+    return said
 
 
 def rename_desk(request: Request, was: str, name: str) -> dict:

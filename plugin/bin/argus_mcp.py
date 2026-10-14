@@ -94,7 +94,8 @@ TOOLS = [
          "required": ["name"]}},
     {"name": "rename_desk",
      "description": "Rename a desk in Argus: the desk called `desk` (any case) is called `to` from now on, in every "
-                    "open page too. Refused if another desk already has that name.",
+                    "open page too. Refused if another desk already has that name. A desk's name is not its "
+                    "session's: a wrong `desk` is answered with the desks there are and the one your session is in.",
      "inputSchema": {"type": "object", "properties": {
          "desk": {"type": "string", "description": "Its name now"},
          "to": {"type": "string", "description": "Its new name"}},
@@ -279,7 +280,11 @@ def _open_desk(a: Argus, args: dict) -> str:
 
 
 def _rename_desk(a: Argus, args: dict) -> str:
-    said = a.desk(args["to"], show=False, rename=args["desk"])
+    try:
+        me = a.me()
+    except Exception:
+        me = None
+    said = a.desk(args["to"], show=False, rename=args["desk"], asker=me)
     return f"the desk {args['desk']} is now called {said['name']}"
 
 

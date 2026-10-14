@@ -333,17 +333,20 @@ class Argus:
         return self.call("GET", f"/api/git/worktrees?path={quote(str(path))}")
 
     def desk(self, name: str, folder: str | Path | None = None, show: bool = True, rename: str | None = None,
-             session: str | None = None) -> dict:
+             session: str | None = None, asker: str | None = None) -> dict:
         """The desk called `name` — made empty if there is none — and, with `show`, switched to in
         every open page. `folder` is where its browsers and new sessions start. `rename="Desk 11"`
         instead gives that desk the name `name`, on every open page too. Returns
         `{id, name, made, folder}`. Nothing here removes a desk or what is in it. `session` also puts
-        a window on that (existing) session in the desk."""
+        a window on that (existing) session in the desk. `asker`: the session asking, so a rename of
+        a desk that is not there says which desk that session is in."""
         body = {"name": name, "show": show}
         if session:
             body["session"] = session
         if rename:
             body["rename"] = rename
+            if asker:
+                body["asker"] = asker          # a wrong name is answered with the desk this session is in
         if folder:
             body["folder"] = str(folder)
         return self.call("POST", "/api/desks", body)
