@@ -24,11 +24,20 @@ function guessOs() {
   return 'linux';
 }
 
-const HOMEBREW = '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"\n'
-  + 'eval "$(/opt/homebrew/bin/brew shellenv 2>/dev/null || /usr/local/bin/brew shellenv)"';
+// Where Homebrew lives: /opt/homebrew on a Mac with an Apple chip (M1, M2…), /usr/local on an Intel one.
+const BREW_AT = { apple: '/opt/homebrew', intel: '/usr/local' };
+const BREW_INSTALL = '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"';
+const FUSE_T = 'brew install macos-fuse-t/homebrew-cask/fuse-t macos-fuse-t/homebrew-cask/fuse-t-sshfs';
 
 // Mutagen's names: letters, digits and dashes, not starting with a digit.
 const syncName = (s) => { const n = s.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '').toLowerCase() || 'argus'; return /^\d/.test(n) ? `f-${n}` : n; };
+
+/** A guess at the Mac's chip, when the browser says (Chromium does, asked); Apple chips are the
+ *  likely answer now. The person picks the other in one press. */
+function guessChip() {
+  const arch = navigator.userAgentData?.architecture;
+  return arch === 'x86' ? 'intel' : 'apple';
+}
 
 const shq = (s) => (/^[\w@%+=:,./~-]+$/.test(s) ? s : `'${s.replace(/'/g, "'\\''")}'`);
 
@@ -79,7 +88,7 @@ export async function mountWizard(path) {
   const name = (path.replace(/\/+$/, '').split('/').pop() || 'argus').replace(/[^\w.-]+/g, '-');
   const said = await getJSON('/api/ssh/info').catch(() => ({ user: '', host: location.hostname, hosts: [], port: 22 }));
   const st = { os: guessOs(), user: said.user || '', host: said.host || location.hostname, port: said.port || 22, path,
-    point: `~/mnt/${name}`, drive: 'Z:', name };
+    point: `~/mnt/${name}`, drive: 'Z:', name, chip: guessChip() };
 
   const body = el('div', { className: 'sheetbody mountbody' });
   const sheet = modal(t('Mount {name} on your computer', { name }), body, [
@@ -151,6 +160,33 @@ export async function mountWizard(path) {
     );
   };
 
+  /* The Mac's step 2, both ways it can go: which chip (Homebrew lives in a different place), and
+   *  whether this account is an administrator — Homebrew and FUSE-T install system parts. */
+  const macTool = () => {
+    const brew = `${BREW_AT[st.chip]}/bin/brew`;
+    const env = `eval "$(${brew} shellenv)"`;
+    const chips = el('div', { className: 'mwtabs mwchips', role: 'tablist' }, [['apple', t('Apple chip (M1, M2…)')], ['intel', t('Intel')]].map(([k, label]) => {
+      const b = el('button', { type: 'button', role: 'tab', textContent: label });
+      b.setAttribute('aria-selected', String(st.chip === k));
+      b.onclick = () => { st.chip = k; paint(); };
+      return b;
+    }));
+    return [
+      note(t('Which Mac? “uname -m” answers arm64 on an Apple chip, x86_64 on Intel (or the Apple menu → About This Mac).')),
+      chips,
+      note(t('Your account is an administrator (it may run sudo): install Homebrew, then FUSE-T and sshfs.')),
+      block(`${BREW_INSTALL}\n${env}\necho '${env}' | tee -a ~/.zprofile ~/.bash_profile >/dev/null\n${FUSE_T}`),
+      note(t('Not an administrator, but another account on this Mac is: install as that one (its name for <admin-account>), then come back.')),
+      block('su - <admin-account>'),
+      note(t('It asks that account’s password. Then, as that account:')),
+      block(`${BREW_INSTALL}\n${env}\n${FUSE_T}\nexit`),
+      note(t('Back in your own account, so that brew and sshfs are found:')),
+      block(`${env}\necho '${env}' | tee -a ~/.zprofile ~/.bash_profile >/dev/null`),
+      note(t('No administrator at all: mounting is out of reach on a Mac — step 4, a copy kept in sync, needs none.')),
+      note(t('FUSE-T needs no change to macOS security settings (macFUSE does).')),
+    ];
+  };
+
   const paint = () => {
     tabs.replaceChildren(...OSES.map(([os, label]) => {
       const b = el('button', { type: 'button', role: 'tab', textContent: label });
@@ -178,14 +214,9 @@ export async function mountWizard(path) {
         block(c.test),
       ]),
       step(2, t('The tool that mounts it, once'), [
-        ...(st.os === 'mac' ? [
-          note(t('This needs an administrator account on the Mac: Homebrew and FUSE-T install system parts. Not one (“may not run sudo”)? Mounting is out of reach — skip to step 4, a synced copy needs no administrator.')),
-          note(t('No Homebrew yet? Install it first — it asks your Mac password once, then says how to add brew to your PATH:')),
-          block(HOMEBREW),
-          note(t('Then, with Homebrew. FUSE-T needs no change to macOS security settings (macFUSE does).')),
-        ] : []),
+        ...(st.os === 'mac' ? macTool() : []),
         ...(win ? [note(t('WinFsp and SSHFS-Win, from winget (or their installers).'))] : []),
-        block(c.install),
+        ...(st.os === 'mac' ? [] : [block(c.install)]),
         ...(win ? [el('p', { className: 'hint' }, [t('No winget? Install the two from their pages, WinFsp first:'), ' ',
           el('a', { href: 'https://github.com/winfsp/winfsp/releases/latest', target: '_blank', rel: 'noopener', textContent: 'WinFsp' }), ' · ',
           el('a', { href: 'https://github.com/winfsp/sshfs-win/releases/latest', target: '_blank', rel: 'noopener', textContent: 'SSHFS-Win' })])] : []),

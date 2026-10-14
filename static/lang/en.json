@@ -1570,11 +1570,17 @@
   "user": "user",
   "— or let it in from your computer (this one asks the password once):": "— or let it in from your computer (this one asks the password once):",
   "how it works": "how it works",
-  "No Homebrew yet? Install it first — it asks your Mac password once, then says how to add brew to your PATH:": "No Homebrew yet? Install it first — it asks your Mac password once, then says how to add brew to your PATH:",
-  "Then, with Homebrew. FUSE-T needs no change to macOS security settings (macFUSE does).": "Then, with Homebrew. FUSE-T needs no change to macOS security settings (macFUSE does).",
   "“ssh-keygen” not found? Turn on Windows’ OpenSSH client, in PowerShell as administrator:": "“ssh-keygen” not found? Turn on Windows’ OpenSSH client, in PowerShell as administrator:",
   "“ssh-keygen” not found? Install the SSH client:": "“ssh-keygen” not found? Install the SSH client:",
   "No winget? Install the two from their pages, WinFsp first:": "No winget? Install the two from their pages, WinFsp first:",
-  "This needs an administrator account on the Mac: Homebrew and FUSE-T install system parts. Not one (“may not run sudo”)? Mounting is out of reach — skip to step 4, a synced copy needs no administrator.": "This needs an administrator account on the Mac: Homebrew and FUSE-T install system parts. Not one (“may not run sudo”)? Mounting is out of reach — skip to step 4, a synced copy needs no administrator."
+  "Apple chip (M1, M2…)": "Apple chip (M1, M2…)",
+  "Intel": "Intel",
+  "Your account is an administrator (it may run sudo): install Homebrew, then FUSE-T and sshfs.": "Your account is an administrator (it may run sudo): install Homebrew, then FUSE-T and sshfs.",
+  "Not an administrator, but another account on this Mac is: install as that one (its name for <admin-account>), then come back.": "Not an administrator, but another account on this Mac is: install as that one (its name for <admin-account>), then come back.",
+  "No administrator at all: mounting is out of reach on a Mac — step 4, a copy kept in sync, needs none.": "No administrator at all: mounting is out of reach on a Mac — step 4, a copy kept in sync, needs none.",
+  "FUSE-T needs no change to macOS security settings (macFUSE does).": "FUSE-T needs no change to macOS security settings (macFUSE does).",
+  "Which Mac? “uname -m” answers arm64 on an Apple chip, x86_64 on Intel (or the Apple menu → About This Mac).": "Which Mac? “uname -m” answers arm64 on an Apple chip, x86_64 on Intel (or the Apple menu → About This Mac).",
+  "It asks that account’s password. Then, as that account:": "It asks that account’s password. Then, as that account:",
+  "Back in your own account, so that brew and sshfs are found:": "Back in your own account, so that brew and sshfs are found:"
  }
 }
