@@ -160,6 +160,9 @@ if [ "$(uname)" = Darwin ] && ! command -v sshfs >/dev/null 2>&1 && ! id -Gn | g
   echo "Mounting needs an administrator account on a Mac (FUSE-T adds a system component),"
   echo "and $(id -un) is not one. Instead: a copy of the folder in ~/{name}, kept in sync"
   echo "both ways by Mutagen — no administrator needed, and it works offline."
+  echo "(Another account on this Mac is an administrator? Then: su - <that account>, install"
+  echo " Homebrew and run: brew install macos-fuse-t/homebrew-cask/fuse-t macos-fuse-t/homebrew-cask/fuse-t-sshfs"
+  echo " — exit, and run this line again: it finds sshfs and mounts.)"
   SIZE=$(ssh -p $SSHP -i "$KEY" {at} du -sh {_sh_quote(spec['path'])} 2>/dev/null </dev/null | cut -f1)
   printf "The folder holds %s. Make the synced copy? [y/N] " "${{SIZE:-?}}"
   read -r YES </dev/tty || YES=""
