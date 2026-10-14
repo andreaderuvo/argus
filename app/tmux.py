@@ -440,6 +440,32 @@ def copy_mode(sock: Socket, session: str) -> dict:
     return {"in_mode": parts[0] == "1", "position": _int(parts[1]), "alternate": parts[2] == "1"}
 
 
+def copy_modes(sock: Socket, sessions: list[str]) -> dict[str, dict]:
+    """`copy_mode` for many sessions in ONE tmux call — the active pane of each one's active
+    window, which is what an attached client shows. A desk of four terminals asked once each
+    every 2.5 s, two tmux processes per question (is it there? what mode?): 32 a minute… per
+    page, and each tab or device its own. Sessions not listed come back `{gone: True}`."""
+    wanted = set(sessions)
+    out: dict[str, dict] = {}
+    try:
+        done = subprocess.run(
+            ["tmux", *sock.args(), "list-panes", "-a", "-F",
+             "#{window_active}#{pane_active}\t#{pane_in_mode}\t#{scroll_position}\t#{alternate_on}\t#{session_name}"],
+            capture_output=True, text=True, timeout=4,
+        )
+    except (OSError, subprocess.SubprocessError):
+        done = None
+    if done is not None and done.returncode == 0:
+        for line in done.stdout.splitlines():
+            parts = line.split("\t", 4)
+            if len(parts) < 5 or parts[0] != "11" or parts[4] not in wanted:
+                continue
+            out[parts[4]] = {"in_mode": parts[1] == "1", "position": _int(parts[2]), "alternate": parts[3] == "1"}
+    for name in wanted - out.keys():
+        out[name] = {"in_mode": False, "position": 0, "alternate": False, "gone": True}
+    return out
+
+
 def leave_copy_mode(sock: Socket, session: str) -> bool:
     """Back to the live end. Returns False when there was nothing to leave.
 

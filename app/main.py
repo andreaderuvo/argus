@@ -1841,6 +1841,13 @@ def create_app(cfg: Config) -> FastAPI:
                 return {"session": session, "gone": True, "in_mode": False}
             raise
 
+    @app.get("/api/tmux/copymodes", tags=["Sessions"], summary="Copy mode of several sessions, in one look")
+    async def read_copy_modes(request: Request, sessions: str = "") -> dict:
+        """`sessions`: names one per line. Every terminal on a page asks together, once per
+        round, with one tmux call — only what tmux lists is answered, the rest is `gone`."""
+        names = [s for s in sessions.split("\n") if s][:200]
+        return {"sessions": await asyncio.to_thread(tmux.copy_modes, request.app.state.socket, names)}
+
     @app.post("/api/tmux/copymode", tags=["Sessions"], summary="Back to the live end")
     async def exit_copy_mode(request: Request, body: dict) -> dict:
         """Leave history and return to the live end."""
