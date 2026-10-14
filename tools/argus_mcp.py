@@ -94,12 +94,13 @@ TOOLS = [
          "required": ["name"]}},
     {"name": "rename_desk",
      "description": "Rename a desk in Argus: the desk called `desk` (any case) is called `to` from now on, in every "
-                    "open page too. Refused if another desk already has that name. A desk's name is not its "
-                    "session's: a wrong `desk` is answered with the desks there are and the one your session is in.",
+                    "open page too. Leave `desk` out to rename the desk YOUR session is in — what \"rename the "
+                    "desk\" means when nobody names one. Refused if another desk already has that name. A desk's "
+                    "name is not its session's: a wrong `desk` is answered with the desks there are and yours.",
      "inputSchema": {"type": "object", "properties": {
-         "desk": {"type": "string", "description": "Its name now"},
+         "desk": {"type": "string", "description": "Its name now — leave out for the desk you are in"},
          "to": {"type": "string", "description": "Its new name"}},
-         "required": ["desk", "to"]}},
+         "required": ["to"]}},
     {"name": "launchers",
      "description": "What this machine can start (the launcher list in Argus's config), whether each is installed, "
                     "its version, and the options it takes by name — permissions, model, effort.",
@@ -284,8 +285,9 @@ def _rename_desk(a: Argus, args: dict) -> str:
         me = a.me()
     except Exception:
         me = None
-    said = a.desk(args["to"], show=False, rename=args["desk"], asker=me)
-    return f"the desk {args['desk']} is now called {said['name']}"
+    was = (args.get("desk") or "").strip()
+    said = a.desk(args["to"], show=False, rename=was or None, asker=me, rename_mine=not was)
+    return f"the desk {was or 'you are in'} is now called {said['name']}"
 
 
 def _team_task(a: Argus, _args: dict) -> str:

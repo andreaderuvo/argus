@@ -19,7 +19,7 @@ phone. You reach it with the Argus tools (or `argus-say` from a shell). Three ki
 | Asked | Tool |
 |---|---|
 | a desk by name: open, make, switch to it | `open_desk` (`folder` optional) |
-| rename a desk | `rename_desk` |
+| rename a desk — leave `desk` out for the desk you are in ("rename the desk") | `rename_desk` |
 | put an existing session on a desk | `open_desk` with `session` |
 | set or change a desk's folder (where its browsers and new sessions start) | `open_desk` with `name`, `folder`, `show: false` |
 | close the windows of ended ("gone") sessions | `close_gone_windows` (`desk` to limit it to one) |
