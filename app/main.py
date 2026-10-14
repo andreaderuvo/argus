@@ -32,6 +32,7 @@ import httpx
 from .auth import PROXY_COOKIE, TokenAuthMiddleware
 from .config import Config, ConfigError, default_path
 from .errors import ApiError
+from .jsongzip import JsonGzip
 from .safepath import Jail, PathError
 
 VERSION = "0.1.0"
@@ -2806,6 +2807,8 @@ def create_app(cfg: Config) -> FastAPI:
     # put on the scope. Written here rather than in twenty handlers so a route added next month
     # is recorded without anybody remembering to.
     app.add_middleware(JournalMiddleware, store_of=lambda: app.state.journal)
+    # Outermost: JSON answers leave compressed (app/jsongzip.py), files and streams as they are.
+    app.add_middleware(JsonGzip)
     return app
 
 

@@ -13,6 +13,8 @@ import subprocess
 import time
 from pathlib import Path
 
+from . import procs
+
 # used% thresholds → the status vocabulary from the visual language: good, warning,
 # critical. The UI pairs every one of them with a word, never colour alone.
 THRESHOLDS = {
@@ -130,7 +132,20 @@ def parse_nvidia(text: str) -> list[dict]:
     return out
 
 
+_gpus_seen: tuple[float, list[dict]] = (0.0, [])
+
+
 def gpus() -> list[dict]:
+    """nvidia-smi, kept for 3 s: 20 ms and a process to start, asked by every snapshot."""
+    global _gpus_seen
+    if time.monotonic() - _gpus_seen[0] < 3:
+        return _gpus_seen[1]
+    found = _gpus_read()
+    _gpus_seen = (time.monotonic(), found)
+    return found
+
+
+def _gpus_read() -> list[dict]:
     if not shutil.which("nvidia-smi"):
         return []
     try:
@@ -146,6 +161,16 @@ def gpus() -> list[dict]:
 
 
 def processes(limit: int = 6) -> list[dict]:
+    table = procs.table()              # /proc, shared (app/procs.py); `ps` where there is none
+    if table is not None:
+        up = procs.uptime()
+        # %CPU the way `ps` computes it: CPU time over the whole life of the process.
+        rows = [{"pid": p.pid, "rss": p.rss,
+                 "cpu": round(100 * p.cpu / (up - p.start), 1) if up > p.start else 0.0, "name": p.comm}
+                for p in sorted(table.values(), key=lambda p: -p.rss)[:limit]]
+        for row in rows:
+            row["command"] = command_of(row["pid"])[:300]
+        return rows
     try:
         p = subprocess.run(
             ["ps", "-eo", "pid=,rss=,pcpu=,comm=", "--sort=-rss"],
@@ -178,6 +203,9 @@ def process_tree() -> dict[int, tuple[int, int]]:
     """pid -> (ppid, rss bytes), for every process on the machine. One `ps`, the same
     tool and the same reasoning as `processes()`, rather than a `/proc/<pid>/status` read
     per process."""
+    table = procs.table()
+    if table is not None:
+        return {p.pid: (p.ppid, p.rss) for p in table.values()}
     try:
         p = subprocess.run(["ps", "-eo", "pid=,ppid=,rss="], capture_output=True, text=True, timeout=4)
     except (OSError, subprocess.SubprocessError):
@@ -263,6 +291,32 @@ def pretending() -> dict | None:
         return None
 
 
+# The previous /proc/stat reading. CPU% is a difference between two readings; every snapshot used
+# to take both, 120 ms apart, sleeping in between — on a screen asking every second. The last
+# snapshot's reading is the first of the next one's whenever it is recent enough.
+_last_stat: tuple[float, object] | None = None
+_last_pct: tuple[float, float] | None = None       # (when, %): two asks in the same instant share it
+
+
+def cpu_now() -> float:
+    global _last_stat, _last_pct
+    now = time.monotonic()
+    if _last_pct is not None and now - _last_pct[0] < 0.1:
+        return _last_pct[1]
+    after = parse_stat(Path("/proc/stat").read_text())
+    if _last_stat is not None and 0.1 <= now - _last_stat[0] <= 10:
+        before = _last_stat[1]
+    else:
+        before = after
+        time.sleep(0.12)   # the shortest window that still gives a stable percentage
+        after = parse_stat(Path("/proc/stat").read_text())
+        now = time.monotonic()
+    _last_stat = (now, after)
+    pct = cpu_percent(before, after)
+    _last_pct = (now, pct)
+    return pct
+
+
 def snapshot(paths: list[Path], brief: bool = False) -> dict:
     """`brief` skips the process listing, which plays no part in any `level` and costs a
     `ps` over the whole process table — worth avoiding for a reading nobody is looking at
@@ -271,10 +325,7 @@ def snapshot(paths: list[Path], brief: bool = False) -> dict:
     if made_up is not None:
         # Straight through, with the timestamp made now so ages and freshness still move.
         return {**made_up, "at": time.time()}
-    before = parse_stat(Path("/proc/stat").read_text())
-    time.sleep(0.12)   # the shortest window that still gives a stable percentage
-    after = parse_stat(Path("/proc/stat").read_text())
-    cpu = cpu_percent(before, after)
+    cpu = cpu_now()
 
     cores = os.cpu_count() or 1
     load1, load5, load15 = os.getloadavg()

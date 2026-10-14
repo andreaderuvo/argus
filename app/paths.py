@@ -24,7 +24,7 @@ from pathlib import Path
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
-from . import tmux
+from . import procs, tmux
 from .errors import ApiError
 from .safepath import PathError
 
@@ -109,6 +109,11 @@ def foreground_pid(tty: str) -> int | None:
         3882697  614513 3882697 3882912 bash     <- the pane's pid, not in the fg group
         3882912 3882697 3882912 3882912 sleep    <- pgid == tpgid, and its cwd is /tmp
     """
+    here = procs.on_tty(tty) if tty else []
+    if here is not None:                       # /proc: no process to start (app/procs.py)
+        rows = [(p.pid, p.pgid, p.tpgid) for p in here]
+        group = next((pgid for _pid, pgid, tpgid in rows if pgid == tpgid), None)
+        return None if group is None else next((pid for pid, pgid, _t in rows if pgid == group), None)
     name = tty.rsplit("/", 1)[-1]
     if not name:
         return None
@@ -141,6 +146,9 @@ AGENTS = ("claude", "codex", "gemini", "aider", "opencode", "goose", "cursor-age
 
 def _tty_rows(tty: str) -> list[dict]:
     """Every process on this terminal, as `{pid, pgid, tpgid, comm, args}`."""
+    here = procs.on_tty(tty) if tty else []
+    if here is not None:
+        return [{"pid": p.pid, "pgid": p.pgid, "tpgid": p.tpgid, "comm": p.comm, "args": p.args} for p in here]
     name = tty.rsplit("/", 1)[-1]
     if not name:
         return []
