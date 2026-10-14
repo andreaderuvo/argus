@@ -29,7 +29,7 @@ def test_a_starred_folder_opens_a_new_desk_that_starts_there(make_page, argus):
         x, y = page2._center(row)
         page2.send("Input.dispatchMouseEvent", {"type": "mousePressed", "x": x, "y": y, "button": "right", "clickCount": 1})
         page2.send("Input.dispatchMouseEvent", {"type": "mouseReleased", "x": x, "y": y, "button": "right", "clickCount": 1})
-        page2.wait("document.querySelectorAll('.popmenu .popmenuitem').length === 4", timeout=5, what="Open, New desk here, Copy the path, Remove the star")
+        page2.wait("document.querySelectorAll('.popmenu .popmenuitem').length === 5", timeout=5, what="Open, New desk here, Copy the path, Mount, Remove the star")
         assert str(folder) in [f["path"] for f in argus.api("/api/favourites")["main"]], "still starred"
     finally:
         argus.api("/api/favourites", "POST", {"path": str(folder), "group": "main"})

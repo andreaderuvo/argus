@@ -135,7 +135,8 @@ SAME_IN = {
     "es": {"Prompts", "tester", "No", "1 error", "General", "Terminal", "Cursor"},
     "fr": {"Actions", "Documents", "Interruptions", "Journal", "Menu", "Prompts", "Version", "Pause",
            "code", "document", "extension", "page", "agent", "Agent", "Agents", "{n} agents",
-           "session", "Sessions", "{n} sessions", "Terminal", "Interface", "Accent", "Danger"},
+           "session", "Sessions", "{n} sessions", "Terminal", "Interface", "Accent", "Danger",
+           "machine", "port"},
 }
 # Compact units: "15s", "{n} min", "p. {n}", "{h}h {m}m" — what is left once the numbers and
 # the holes are gone is only a unit, and the unit is the same letter in that language.

@@ -23,7 +23,7 @@ from fastapi import FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 
-from . import build, gitview, pluginstate, themes, trust, viewerpacks
+from . import build, gitview, pluginstate, sshmount, themes, trust, viewerpacks
 from . import (agentflags, consent, readiness, teamlint, toolcopies, teams, teammermaid, wiring, agentstate, resume, announce, asks, bells, devices, favourites, files, fsops, gitwork, journal, labels,
                languages, launch, mounts, network, paths, ports, prefs, proxy, release, runner, runs,
                system, term, tmux, todo)
@@ -535,6 +535,7 @@ def create_app(cfg: Config) -> FastAPI:
     app.state.lang = Path("/nonexistent")
     app.state.viewers = Path("/nonexistent")
     app.state.themes = Path("/nonexistent")
+    app.state.ssh_setups = sshmount.Setups()
     app.state.config_path = None
     app.state.addresses = []
 
@@ -1342,6 +1343,45 @@ def create_app(cfg: Config) -> FastAPI:
             # Asleep: take one reading now, so this answer is not empty while the sampler wakes.
             await asyncio.to_thread(watch.tick)
         return watch.states()
+
+    @app.get("/api/ssh/info", tags=["Files"], summary="Where to reach this machine over SSH, for the mount wizard")
+    async def ssh_info(request: Request) -> dict:
+        """`{user, hosts, host, port}` — the user Argus runs as, the names and addresses this machine
+        answers to (the config's `address` first), and sshd's port. What the commands are written with."""
+        return await asyncio.to_thread(sshmount.info, request.app.state.addresses, request.app.state.cfg.address)
+
+    @app.post("/api/ssh/setup", tags=["Files"], summary="One command that mounts a folder on your computer")
+    async def ssh_setup(request: Request, body: dict) -> dict:
+        """`{path, user, host, port, point, drive, base}` → `{sh, ps1, until}`: one-line commands
+        for macOS/Linux and Windows, behind a link usable once for 15 minutes, that make a key, let
+        it in here, install the tool and mount the folder. Full token only (it can let a key in)."""
+        here = under_roots(request, str(body.get("path") or ""))
+        info = await asyncio.to_thread(sshmount.info, request.app.state.addresses, request.app.state.cfg.address)
+        name = re.sub(r"[^\w.-]+", "-", here.name or "argus")
+        spec = {"path": str(here), "user": str(body.get("user") or info["user"]), "host": str(body.get("host") or info["host"]),
+                "port": int(body.get("port") or info["port"]), "point": str(body.get("point") or f"~/mnt/{name}"),
+                "drive": str(body.get("drive") or "Z:"), "name": name}
+        for k in ("user", "host", "point", "drive"):
+            if not re.fullmatch(r"[\w.@~/:+-]{1,200}", spec[k]):
+                raise ApiError(400, f"{k} has characters that do not belong in it")
+        base = str(body.get("base") or "").rstrip("/")
+        if not re.fullmatch(r"https?://[\w.:\[\]-]+(/proxy/\d+)?", base):
+            raise ApiError(400, "base is the address Argus is reached at, like http://host:8090")
+        ident = request.app.state.ssh_setups.make({**spec, "base": base})
+        return {"sh": f"curl -fsSLk {base}/ssh-setup/{ident}.sh | sh",
+                "ps1": f"irm {base}/ssh-setup/{ident}.ps1 | iex", "minutes": sshmount.SETUP_TTL // 60}
+
+    @app.post("/api/ssh/authorize", tags=["Files"], summary="Let a public key in, so SSH asks no password")
+    async def ssh_authorize(body: dict) -> dict:
+        """`{key}` — one public key line (id_ed25519.pub…), appended to ~/.ssh/authorized_keys of the
+        user Argus runs as, unless it is there already. It gives that key a shell on this machine:
+        the full token only (it already has a terminal here), and the journal records it."""
+        try:
+            return await asyncio.to_thread(sshmount.authorize, str(body.get("key") or ""))
+        except sshmount.BadKey as e:
+            raise ApiError(400, str(e)) from e
+        except OSError as e:
+            raise ApiError(500, f"could not write the key: {e.strerror}") from e
 
     @app.get("/api/themes", tags=["Setup"], summary="The themes: Argus's interface and terminals, as one file each")
     async def list_themes(request: Request) -> dict:
@@ -2644,6 +2684,29 @@ def create_app(cfg: Config) -> FastAPI:
         return app_manifest(request.headers.get("host", ""))
 
     # Registered last so it never shadows the API: unknown paths are the frontend's.
+    @app.get("/ssh-setup/{ident}.{kind}", include_in_schema=False)
+    async def ssh_setup_script(request: Request, ident: str, kind: str) -> Response:
+        """The script a setup link stands for. No token: the link is the secret, short-lived."""
+        one = request.app.state.ssh_setups.get(ident)
+        if not one or kind not in ("sh", "ps1"):
+            return Response("this link has expired — make a new one in Argus\n", status_code=404, media_type="text/plain")
+        text = (sshmount.script_sh if kind == "sh" else sshmount.script_ps1)(one, one["base"], ident)
+        return Response(text, media_type="text/plain; charset=utf-8", headers={"cache-control": "no-store"})
+
+    @app.post("/ssh-setup/{ident}/key", include_in_schema=False)
+    async def ssh_setup_key(request: Request, ident: str) -> Response:
+        """The public key a setup script sends back: let in once, then the link takes no other."""
+        one = request.app.state.ssh_setups.get(ident)
+        if not one or one["keyed"]:
+            return Response("this link has expired or was used\n", status_code=410, media_type="text/plain")
+        raw = (await request.body())[:16384].decode("utf-8", "replace")
+        try:
+            said = await asyncio.to_thread(sshmount.authorize, raw)
+        except sshmount.BadKey as e:
+            return Response(f"{e}\n", status_code=400, media_type="text/plain")
+        one["keyed"] = True
+        return Response(f"key let in: {said['key']}\n", media_type="text/plain")
+
     @app.get("/viewers/{name}/{rel:path}", include_in_schema=False)
     async def viewer_file(request: Request, name: str, rel: str) -> Response:
         """A file of a viewer pack, in its box: the CSP sandbox travels with every answer, so a

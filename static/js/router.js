@@ -30,6 +30,7 @@ export let renderSeq = 0;
 
 export async function render() {
   renderSeq += 1;
+  const mine = renderSeq;
   if (leaving) { leaving(); setLeaving(null); }
 
   const route = parseRoute();
@@ -97,6 +98,9 @@ export async function render() {
   try {
     await serverInfo();
     if (!favsLoaded) await loadFavourites();
+    // A screen reads renderSeq when it starts, which is after these awaits: two renders that
+    // overlapped here would both read the newer number and both draw (Sessions listed twice).
+    if (mine !== renderSeq) return;
     if (path === '/files') return await screenFiles(q.get('path'));
     if (path === '/preview') return await screenPreview(q.get('path'));
     if (path === '/changes') return await screenChanges(q.get('path'));

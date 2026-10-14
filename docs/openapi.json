@@ -3339,6 +3339,122 @@
     ]
    }
   },
+  "/api/ssh/authorize": {
+   "post": {
+    "description": "`{key}` \u2014 one public key line (id_ed25519.pub\u2026), appended to ~/.ssh/authorized_keys of the\nuser Argus runs as, unless it is there already. It gives that key a shell on this machine:\nthe full token only (it already has a terminal here), and the journal records it.",
+    "operationId": "postApiSshAuthorize",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Ssh Authorize Api Ssh Authorize Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Let a public key in, so SSH asks no password",
+    "tags": [
+     "Files"
+    ]
+   }
+  },
+  "/api/ssh/info": {
+   "get": {
+    "description": "`{user, hosts, host, port}` \u2014 the user Argus runs as, the names and addresses this machine\nanswers to (the config's `address` first), and sshd's port. What the commands are written with.",
+    "operationId": "getApiSshInfo",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Ssh Info Api Ssh Info Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Where to reach this machine over SSH, for the mount wizard",
+    "tags": [
+     "Files"
+    ]
+   }
+  },
+  "/api/ssh/setup": {
+   "post": {
+    "description": "`{path, user, host, port, point, drive, base}` \u2192 `{sh, ps1, until}`: one-line commands\nfor macOS/Linux and Windows, behind a link usable once for 15 minutes, that make a key, let\nit in here, install the tool and mount the folder. Full token only (it can let a key in).",
+    "operationId": "postApiSshSetup",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Ssh Setup Api Ssh Setup Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "One command that mounts a folder on your computer",
+    "tags": [
+     "Files"
+    ]
+   }
+  },
   "/api/stat": {
    "get": {
     "description": "Just enough to notice a file has changed: a window watching a report being\nregenerated polls this rather than re-downloading the whole thing. `missing_ok=1`:\na file that is not there answers `{missing: true}` rather than 404 \u2014 a window watching\na file that was deleted (a team's log after a Reset) asked every few seconds and got an\nerror each time.",

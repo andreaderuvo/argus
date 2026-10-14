@@ -7,6 +7,7 @@ import { el, wikiLink } from '/js/dom.js';
 import { fileIcon } from '/js/fileicons.js';
 import { BATONS, GROUND, LOOSE, PAIR_BATONS, SITUATIONAL, batonGroups, batonTemplates, bridgePath, deskSetName, fillBaton, groundVars, groupName, messagesChanged, pairEvery, pairLimit, pairTries, planPath, promptName, saidAs, unknownVars, varSetNamed, varSets, whyEmpty } from '/js/handover.js';
 import { icon } from '/js/icons.js';
+import { mountWizard } from '/js/mountwizard.js';
 import { viewerPacks } from '/js/packs.js';
 import { pointAt } from '/js/pointing.js';
 import { bidi, colorFor, deskHome, getJSON, homePath, parentOf, postJSON, serverInfo, setTitle, toggleFavourite } from '/js/reconnect.js';
@@ -1210,6 +1211,7 @@ export function paintRailFavs() {
       ...(folder(f) && !f.missing ? [{ icon: 'grid', label: t('New desk here'), run: () => deskHere(f.path) }] : []),
       ...(!folder(f) && !f.missing ? [{ icon: 'folder', label: t('Open the folder it is in'), run: () => openHolder(f) }] : []),
       { icon: 'copy', label: t('Copy the path'), run: () => copyPath(f.path) },
+      ...(folder(f) && !f.missing ? [{ icon: 'layers', label: t('Mount on your computer…'), run: () => mountWizard(f.path) }] : []),
       '-',
       { icon: 'star', label: t('Remove the star'), run: () => unstar(f) },
     ], f.name);

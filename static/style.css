@@ -4540,3 +4540,33 @@ button.trayrow .trayfrom { flex: none; display: inline-flex; align-items: center
 button.trayrow .traycount + .trayfrom { margin-left: .4rem; }
 button.trayrow .traytext + .trayfrom { margin-left: auto; }
 .trayfromdot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+/* The mount wizard. */
+dialog.sheet.mountwizard { width: min(46rem, calc(100vw - 2rem)); }
+.mwtabs { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin-bottom: .7rem; }
+.mwtabs button { font: inherit; font-size: .85rem; border: 0; padding: .35rem .9rem; background: transparent; color: var(--text); cursor: pointer; }
+.mwtabs button + button { border-left: 1px solid var(--line); }
+.mwtabs button[aria-selected="true"] { background: var(--accent); color: var(--on-accent); }
+.mwfields { display: flex; flex-wrap: wrap; gap: .5rem .7rem; }
+.mwfield { display: grid; gap: .15rem; font-size: .72rem; color: var(--dim); }
+.mountbody .mwfield input[type=text] { font: 12.5px/1.2 ui-monospace, Menlo, monospace; padding: .3rem .45rem; min-height: 0; height: 1.9rem; border: 1px solid var(--line);
+  border-radius: 6px; background: var(--bg); color: var(--text); width: 12rem; max-width: 100%; }
+.mountbody .mwfield input[size] { width: auto; }
+.mwpath { margin: .6rem 0 0; overflow-wrap: anywhere; font-size: .8rem; color: var(--dim); }
+.mwfast .hint button { min-height: 0; padding: .1rem .55rem; font-size: .8rem; }
+.mwsteps { display: grid; gap: 1rem; margin-top: .8rem; }
+.mwstep h3 { display: flex; align-items: center; gap: .55rem; margin: 0 0 .35rem; font-size: .92rem; color: var(--bright); }
+.mwstep .mwn { display: grid; place-items: center; width: 1.45rem; height: 1.45rem; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: .78rem; font-weight: 700; flex: none; }
+.mwstep .hint { padding: 0; margin: .35rem 0 .25rem; }
+.mwblock { position: relative; }
+.mwcmd { margin: 0; padding: .55rem 2.6rem .55rem .7rem; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); color: var(--text);
+  font: 12px/1.45 ui-monospace, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+.mountbody .mwblock button.mwcopy { position: absolute; top: .3rem; right: .3rem; }
+.mwkeyrow { display: flex; gap: .5rem; align-items: flex-start; }
+.mwkey { flex: 1; min-width: 0; font: 12px/1.4 ui-monospace, Menlo, monospace; padding: .4rem .5rem; border: 1px solid var(--line); border-radius: 7px;
+  background: var(--bg); color: var(--text); resize: vertical; }
+.mwok { color: var(--st-good); }
+.mwfast { margin-top: .8rem; padding: .7rem .8rem; border: 1px solid var(--accent); border-radius: 9px; background: color-mix(in srgb, var(--accent) 7%, var(--panel)); }
+.mwfast h3 { margin: 0 0 .4rem; font-size: .92rem; color: var(--bright); }
+.mwfast .hint { padding: 0; margin: .45rem 0 0; }
+.mwmanual { margin-top: .9rem; }
+.mwmanual > summary { cursor: pointer; color: var(--dim); font-size: .85rem; }

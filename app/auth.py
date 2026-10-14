@@ -182,7 +182,7 @@ def is_protected(path: str) -> bool:
 
 
 # Managing devices is the one thing the master token keeps to itself.
-MASTER_PATHS = ("/api/devices", "/api/journal")
+MASTER_PATHS = ("/api/devices", "/api/journal", "/api/ssh/authorize", "/api/ssh/setup")   # a key added gives a shell here
 MASTER_PREFIX = "/api/devices/"
 
 
