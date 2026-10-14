@@ -2728,8 +2728,8 @@ def create_app(cfg: Config) -> FastAPI:
             "x-content-type-options": "nosniff", "referrer-policy": "no-referrer"})
 
     @app.get("/{requested:path}", include_in_schema=False)
-    async def static_handler(requested: str) -> Response:
-        return serve_static(requested)
+    async def static_handler(request: Request, requested: str) -> Response:
+        return serve_static(requested, request)
 
     @app.middleware("http")
     async def say_nothing_outward(request: Request, call_next):
@@ -2943,7 +2943,15 @@ def app_manifest(host: str) -> Response:
     )
 
 
-def serve_static(requested: str) -> Response:
+# The app's own files, compressed once per version of each and kept: 1.9 MB of JavaScript and CSS
+# went out uncompressed on every load — and, `no-cache` with nothing to revalidate against, in
+# full on every reload. On an old PC over a VPN that was the slowness (measured 2026-10-14).
+COMPRESSIBLE = ("text/", "application/javascript", "application/json", "image/svg+xml", "application/manifest+json")
+_gzipped: dict[tuple[str, int, int], bytes] = {}
+
+
+def serve_static(requested: str, request: Request | None = None) -> Response:
+    import gzip
     target = (STATIC_DIR / (requested or "index.html")).resolve()
     # Never serve outside the static directory, whatever the URL says.
     if not (target == STATIC_DIR or target.is_relative_to(STATIC_DIR)) or not target.is_file():
@@ -2953,15 +2961,32 @@ def serve_static(requested: str) -> Response:
         target = index
 
     # Vendored libraries carry their version in the path, so they are safe to pin. The
-    # app's own files must not be, or an update never reaches an installed PWA.
+    # app's own files must not be, or an update never reaches an installed PWA — but they say
+    # which version they are (ETag), so a reload asks "still this one?" and gets 304, not the file.
     cache = "public, max-age=31536000, immutable" if requested.startswith("vendor/") else "no-cache"
     media = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
-    headers = {"cache-control": cache}
+    st = target.stat()
+    etag = f'"{st.st_mtime_ns:x}-{st.st_size:x}"'
+    headers = {"cache-control": cache, "etag": etag, "vary": "accept-encoding"}
     # A viewer pack runs at an opaque origin, and a module it imports is fetched with CORS:
     # the vendored libraries are public files anyway, so they say anyone may load them.
     if requested.startswith("vendor/"):
         headers["access-control-allow-origin"] = "*"
-    return Response(target.read_bytes(), media_type=media, headers=headers)
+    if request is not None and etag in (request.headers.get("if-none-match") or ""):
+        return Response(status_code=304, headers=headers)
+    body = target.read_bytes()
+    wants_gzip = request is not None and "gzip" in (request.headers.get("accept-encoding") or "")
+    if wants_gzip and len(body) > 1024 and media.startswith(COMPRESSIBLE):
+        key = (str(target), st.st_mtime_ns, st.st_size)
+        packed = _gzipped.get(key)
+        if packed is None:
+            packed = gzip.compress(body, compresslevel=6, mtime=0)
+            if len(_gzipped) > 400:
+                _gzipped.clear()
+            _gzipped[key] = packed
+        headers["content-encoding"] = "gzip"
+        return Response(packed, media_type=media, headers=headers)
+    return Response(body, media_type=media, headers=headers)
 
 
 def reachable_addresses() -> list[str]:
