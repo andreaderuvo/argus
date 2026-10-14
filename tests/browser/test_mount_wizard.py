@@ -42,3 +42,16 @@ def test_the_wizard_writes_the_commands_for_the_folder(make_page, argus):
         assert "sshfs.kr" in steps and "id_rsa" in steps and "Z:" in steps, steps
     finally:
         argus.api("/api/favourites", "POST", {"path": str(folder), "group": "main"})
+
+
+def test_copy_works_inside_a_sheet_without_the_clipboard_api(make_page, argus):
+    """Over plain http to a LAN name there is no navigator.clipboard; the old way's hidden field was
+    put in <body>, which a modal sheet makes inert — Copy in the wizard copied nothing on a Mac."""
+    page = make_page(route="#/files")
+    page.wait("!!document.querySelector('#view')", timeout=10)
+    page.eval("Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true })")
+    page.eval(f"import('/js/mountwizard.js').then(m => m.mountWizard({str(argus.root / 'docs')!r}))")
+    page.wait("!!document.querySelector('dialog.mountwizard[open] .mwfast pre')", timeout=10)
+    page.eval("document.addEventListener('copy', () => { window.copied = String(getSelection()) || document.activeElement?.value?.slice(document.activeElement.selectionStart, document.activeElement.selectionEnd); }, true)")
+    assert page.eval("import('/js/dialogs.js').then(m => m.copyText('hello'))") is True
+    assert page.eval("window.copied") == "hello", "what was selected when the copy happened"

@@ -122,6 +122,9 @@ def script_sh(spec: dict, base: str, ident: str) -> str:
     port = int(spec.get("port") or 22)
     point = spec["point"].replace("~", "$HOME", 1) if spec["point"].startswith("~") else spec["point"]
     name = spec["name"]
+    sync = re.sub(r"[^A-Za-z0-9]+", "-", name).strip("-").lower() or "argus"   # Mutagen names: letters, digits, -
+    if sync[0].isdigit():
+        sync = "f-" + sync
     return f"""#!/bin/sh
 # Argus: mount {spec['path']} from {spec['host']} here. Made for you, usable once, for 15 minutes.
 set -e
@@ -146,12 +149,38 @@ fi
 echo "· letting the key in on {spec['host']}"
 curl -fsS -k -X POST --data-binary @"$KEY.pub" {_sh_quote(base + '/ssh-setup/' + ident + '/key')} >/dev/null || {{
   echo "✗ this link has expired, or let in another key: press New link in Argus and paste the new line"; exit 1; }}
+SSHP={port}
+ssh -p $SSHP -o StrictHostKeyChecking=accept-new -o BatchMode=yes -i "$KEY" {at} true </dev/null \
+  || {{ echo "✗ the key was let in, but ssh to {spec['host']} still fails — is port $SSHP reachable from here?"; exit 1; }}
+for b in /opt/homebrew/bin/brew /usr/local/bin/brew; do [ -x "$b" ] && eval "$("$b" shellenv)"; done
+if [ "$(uname)" = Darwin ] && ! command -v sshfs >/dev/null 2>&1 && ! id -Gn | grep -qw admin; then
+  # Homebrew and FUSE-T both install system parts: an account that is not an administrator can
+  # not mount at all. What it can have is a copy kept in sync both ways — Mutagen, in your home.
+  echo
+  echo "Mounting needs an administrator account on a Mac (FUSE-T adds a system component),"
+  echo "and $(id -un) is not one. Instead: a copy of the folder in ~/{name}, kept in sync"
+  echo "both ways by Mutagen — no administrator needed, and it works offline."
+  SIZE=$(ssh -p $SSHP -i "$KEY" {at} du -sh {_sh_quote(spec['path'])} 2>/dev/null </dev/null | cut -f1)
+  printf "The folder holds %s. Make the synced copy? [y/N] " "${{SIZE:-?}}"
+  read -r YES </dev/tty || YES=""
+  case "$YES" in y|Y|yes|s|si|sì) ;; *) echo "Nothing done. The key stays: ssh {at} needs no password now."; exit 0;; esac
+  M="$HOME/.local/mutagen"
+  if [ ! -x "$M/mutagen" ]; then
+    echo "· fetching Mutagen into $M"
+    ARCH=$(uname -m | sed s/x86_64/amd64/)
+    URL=$(curl -fsSL https://api.github.com/repos/mutagen-io/mutagen/releases/latest \
+      | grep -o 'https://[^"]*mutagen_darwin_'"${{ARCH}}"'_v[^"]*[.]tar[.]gz' | head -1)
+    mkdir -p "$M" && curl -fsSL "$URL" | tar -xz -C "$M"
+  fi
+  mkdir -p "$HOME/{name}"
+  "$M/mutagen" sync create --name={sync} "$HOME/{name}" "{at}:$SSHP:"{_sh_quote(spec['path'])}
+  echo "✓ syncing into ~/{name} — state: $M/mutagen sync list · stop: $M/mutagen sync terminate {sync}"
+  open "$HOME/{name}" || true
+  exit 0
+fi
 if ! command -v sshfs >/dev/null 2>&1; then
   echo "· installing sshfs"
   if [ "$(uname)" = Darwin ]; then
-    if ! command -v brew >/dev/null 2>&1; then
-      for b in /opt/homebrew/bin/brew /usr/local/bin/brew; do [ -x "$b" ] && eval "$("$b" shellenv)"; done
-    fi
     if ! command -v brew >/dev/null 2>&1; then
       echo "· installing Homebrew first (https://brew.sh) — it asks your Mac password once"
       # From the terminal, not from this script's pipe: the installer reads its answers there.

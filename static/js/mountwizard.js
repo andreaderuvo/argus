@@ -27,6 +27,9 @@ function guessOs() {
 const HOMEBREW = '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"\n'
   + 'eval "$(/opt/homebrew/bin/brew shellenv 2>/dev/null || /usr/local/bin/brew shellenv)"';
 
+// Mutagen's names: letters, digits and dashes, not starting with a digit.
+const syncName = (s) => { const n = s.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '').toLowerCase() || 'argus'; return /^\d/.test(n) ? `f-${n}` : n; };
+
 const shq = (s) => (/^[\w@%+=:,./~-]+$/.test(s) ? s : `'${s.replace(/'/g, "'\\''")}'`);
 
 /** The commands, for one system, from what the fields say. */
@@ -46,7 +49,7 @@ export function mountCommands(os, { user, host, port, path, point, drive, name }
       sshClient: 'Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0',
       mount: `net use ${drive} \\\\sshfs.kr\\${at}${p ? `!${p}` : ''}\\${win}`,
       unmount: `net use ${drive} /delete`,
-      sync: `mutagen sync create --name=${name} "%USERPROFILE%\\${name}" ${at}:${path}`,
+      sync: `mutagen sync create --name=${syncName(name)} "%USERPROFILE%\\${name}" ${at}:${p ? `${p}:` : ''}${path}`,
     };
   }
   const opts = os === 'mac' ? `reconnect,ServerAliveInterval=15,ServerAliveCountMax=3,volname=${name},noappledouble`
@@ -64,7 +67,10 @@ export function mountCommands(os, { user, host, port, path, point, drive, name }
     sshClient: os === 'mac' ? '' : 'sudo apt install openssh-client   # Debian, Ubuntu\nsudo dnf install openssh-clients  # Fedora, AlmaLinux, RHEL',
     mount: `mkdir -p ${shq(point)}\nsshfs${sshP} ${at}:${shq(path)} ${shq(point)} -o ${opts}`,
     unmount: os === 'mac' ? `umount ${shq(point)}` : `fusermount -u ${shq(point)}   # fusermount3 -u on newer systems`,
-    sync: `${os === 'mac' ? 'brew install mutagen-io/mutagen/mutagen\n' : ''}mutagen sync create --name=${name} ~/${shq(name)} ${at}:${shq(path)}`,
+    sync: os === 'mac'
+      ? `mkdir -p ~/.local/mutagen && curl -fsSL "$(curl -fsSL https://api.github.com/repos/mutagen-io/mutagen/releases/latest | grep -o 'https://[^"]*mutagen_darwin_'"$(uname -m | sed s/x86_64/amd64/)"'_v[^"]*[.]tar[.]gz' | head -1)" | tar -xz -C ~/.local/mutagen\n`
+        + `~/.local/mutagen/mutagen sync create --name=${syncName(name)} ~/${shq(name)} ${at}:${p ? `${p}:` : ''}${shq(path)}`
+      : `mutagen sync create --name=${syncName(name)} ~/${shq(name)} ${at}:${p ? `${p}:` : ''}${shq(path)}`,
   };
 }
 
@@ -173,6 +179,7 @@ export async function mountWizard(path) {
       ]),
       step(2, t('The tool that mounts it, once'), [
         ...(st.os === 'mac' ? [
+          note(t('This needs an administrator account on the Mac: Homebrew and FUSE-T install system parts. Not one (“may not run sudo”)? Mounting is out of reach — skip to step 4, a synced copy needs no administrator.')),
           note(t('No Homebrew yet? Install it first — it asks your Mac password once, then says how to add brew to your PATH:')),
           block(HOMEBREW),
           note(t('Then, with Homebrew. FUSE-T needs no change to macOS security settings (macFUSE does).')),

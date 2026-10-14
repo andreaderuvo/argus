@@ -2847,10 +2847,19 @@ function dragBy(grabber, win, bounds, onDone, ignore = [], peers = () => [], onT
       win.style.top = `${snapTo(y, box.height, yLines, hy)}px`;
       showGuides(bounds, hx.line, hy.line);
     };
-    const up = () => {
+    // Ended by a release — or by a gesture taken away (pointercancel, a lost capture: another app,
+    // a touch turned into a scroll). Listening for the release alone left the window `dragging`,
+    // which is `pointer-events: none`: it ignored every click after, its ✕ included — "frozen".
+    let ended = false;
+    const up = (ev) => {
+      if (ended) return;
+      ended = true;
       grabber.removeEventListener('pointermove', move);
       grabber.removeEventListener('pointerup', up);
+      grabber.removeEventListener('pointercancel', up);
+      grabber.removeEventListener('lostpointercapture', up);
       win.classList.remove('dragging');
+      if (ev?.type !== 'pointerup') { showGhost(bounds, null); showGuides(bounds, null, null); overTab?.classList.remove('dropinto'); if (moved) onDone(); return; }
       showGhost(bounds, null);
       showGuides(bounds, null, null);
       if (overTab) {
@@ -2872,8 +2881,15 @@ function dragBy(grabber, win, bounds, onDone, ignore = [], peers = () => [], onT
     };
     grabber.addEventListener('pointermove', move);
     grabber.addEventListener('pointerup', up);
+    grabber.addEventListener('pointercancel', up);
+    grabber.addEventListener('lostpointercapture', up);
   });
 }
+
+// Whatever happened to an earlier drag, a new press means it is over: no window stays see-through.
+addEventListener('pointerdown', () => {
+  for (const w of document.querySelectorAll('.win.dragging')) w.classList.remove('dragging');
+}, true);
 
 /** Room on the free side of the window a file was opened from.
  *

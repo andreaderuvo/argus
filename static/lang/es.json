@@ -1574,6 +1574,7 @@
   "Then, with Homebrew. FUSE-T needs no change to macOS security settings (macFUSE does).": "Luego, con Homebrew. FUSE-T no necesita cambiar los ajustes de seguridad de macOS (macFUSE sí).",
   "“ssh-keygen” not found? Turn on Windows’ OpenSSH client, in PowerShell as administrator:": "¿No se encuentra “ssh-keygen”? Activa el cliente OpenSSH de Windows, en PowerShell como administrador:",
   "“ssh-keygen” not found? Install the SSH client:": "¿No se encuentra “ssh-keygen”? Instala el cliente SSH:",
-  "No winget? Install the two from their pages, WinFsp first:": "¿Sin winget? Instala los dos desde sus páginas, primero WinFsp:"
+  "No winget? Install the two from their pages, WinFsp first:": "¿Sin winget? Instala los dos desde sus páginas, primero WinFsp:",
+  "This needs an administrator account on the Mac: Homebrew and FUSE-T install system parts. Not one (“may not run sudo”)? Mounting is out of reach — skip to step 4, a synced copy needs no administrator.": "Hace falta una cuenta de administrador en el Mac: Homebrew y FUSE-T instalan partes del sistema. ¿No lo eres (“may not run sudo”)? Montar no es posible — pasa al paso 4: una copia sincronizada no necesita administrador."
  }
 }

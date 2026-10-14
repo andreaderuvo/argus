@@ -152,7 +152,11 @@ export async function copyText(text) {
   }
   const ta = el('textarea', { value: text, readOnly: true });
   Object.assign(ta.style, { position: 'fixed', top: '0', left: '-9999px' });
-  document.body.append(ta);
+  // Inside the open modal when there is one: a modal makes the rest of the page inert, and a
+  // field out there can be neither focused nor selected — every Copy in a sheet copied nothing.
+  const host = [...document.querySelectorAll('dialog[open]')].pop() || document.body;
+  host.append(ta);
+  ta.focus({ preventScroll: true });
   ta.select();
   let ok = false;
   try { ok = document.execCommand('copy'); } catch { ok = false; }
