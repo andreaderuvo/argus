@@ -729,31 +729,27 @@ export function fileBrowser({
       .filter((x) => x.list.length);
     if (!mine.length && !theirs.length) return;
 
-    const strip = el('div', { className: 'favs' });
-    strip.append(el('div', { className: 'favhead' }, [
-      icon('star'), el('span', { textContent: t('Favourites') }), el('span', { className: 'favwhere', textContent: groupWord(favGroup) }),
-    ]));
+    /* A strip of small chips, not rows: drawn like the listing, the favourites read as the first
+     *  entries of the folder you are in ("the user does not tell the folder from the favourites",
+     *  2026-10-14). A browser's bookmarks bar is the shape everybody already knows. */
+    const strip = el('div', { className: 'favs', role: 'toolbar', ariaLabel: t('Favourites') });
+    strip.append(el('span', { className: 'favhead', title: t('Favourites') + ' — ' + groupWord(favGroup) }, [icon('star')]));
     const rows = [...mine.map((f) => ({ f, group: favGroup })), ...theirs.flatMap((x) => [{ head: x.group }, ...x.list.map((f) => ({ f, group: x.group }))])];
     for (const { f, group, head } of rows) {
       if (head) {
-        strip.append(el('div', { className: 'favfrom', textContent: t('pinned in {where}', { where: groupWord(head) }) }));
+        strip.append(el('span', { className: 'favfrom', textContent: t('pinned in {where}', { where: groupWord(head) }) }));
         continue;
       }
-      const row = el('button', {
-        className: `row fav${f.missing ? ' missing' : ''}`,
+      const chip = el('button', {
+        className: `favchip fav${f.missing ? ' missing' : ''}${f.path === path ? ' here' : ''}`,
         type: 'button',
-        title: f.path,
+        title: f.missing ? `${t('missing')} · ${f.path}` : f.path,
         onclick: () => (f.missing ? toast(t('this one is gone'), true)
           : f.type === 'directory' ? setPath(f.path) : openFile(f)),
-      }, [
-        fileIcon(f),
-        el('span', { className: 'grow' }, [
-          el('span', { className: 'name', textContent: f.name }),
-          el('span', { className: 'meta' }, bidi(f.missing ? `${t('missing')} · ${f.path}` : parentOf(f.path))),
-        ]),
-      ]);
-      const off = el('button', { className: 'more', title: t('Unpin'), onclick: (ev) => { ev.stopPropagation(); toggleFavourite(f.path, group); } }, icon('close'));
-      strip.append(el('div', { className: 'rowwrap' }, [row, off]));
+      }, [fileIcon(f), el('span', { className: 'favname', textContent: f.name })]);
+      const off = el('button', { className: 'favoff', type: 'button', title: t('Unpin'), ariaLabel: t('Unpin'),
+        onclick: (ev) => { ev.stopPropagation(); toggleFavourite(f.path, group); } }, icon('close'));
+      strip.append(el('span', { className: 'favitem' }, [chip, off]));
     }
     favsHolder.append(strip);
   };

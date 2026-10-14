@@ -352,26 +352,33 @@ button.icon .ico { width: 22px; height: 22px; }
 
 /* ---------- favourites ---------- */
 
-.favs { border-bottom: 2px solid var(--line); background: color-mix(in srgb, var(--accent) 5%, transparent); }
-
-.favhead {
-  display: flex;
-  align-items: center;
-  gap: .4rem;
-  padding: .45rem .8rem .2rem;
-  color: var(--dim);
-  font-size: .68rem;
-  letter-spacing: .07em;
-  text-transform: uppercase;
+.favs {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .35rem;
+  padding: .4rem .6rem; border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--accent) 4%, var(--panel));
 }
-
-.favhead .ico { width: 13px; height: 13px; color: var(--accent); }
-.favwhere { margin-left: auto; opacity: .65; font-size: .62rem; }
-.row.fav { min-height: 40px; border-bottom: 0; }
-.row.fav .meta { font-size: .68rem; direction: rtl; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.row.fav .meta bdi { unicode-bidi: isolate; }
-.row.fav.missing .name { color: var(--dim); text-decoration: line-through; }
-.favs .more .ico { width: 13px; height: 13px; }
+.favhead { display: inline-flex; align-items: center; color: var(--accent); padding-right: .1rem; }
+.favhead .ico { width: 13px; height: 13px; }
+.favitem { position: relative; display: inline-flex; max-width: 100%; }
+.favchip {
+  display: inline-flex; align-items: center; gap: .3rem; max-width: 16rem; min-height: 0;
+  padding: .18rem .55rem; border: 1px solid var(--line); border-radius: 999px;
+  background: var(--bg); color: var(--text); font-size: .74rem; line-height: 1.3; cursor: pointer;
+}
+.favchip .ico, .favchip img, .favchip svg { width: 13px; height: 13px; flex: none; }
+.favname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.favchip:hover { border-color: var(--accent); color: var(--bright); }
+.favchip.here { border-color: var(--accent); color: var(--accent); }
+.favchip.missing .favname { color: var(--dim); text-decoration: line-through; }
+.favoff {
+  position: absolute; top: -.35rem; right: -.35rem; width: 1rem; height: 1rem; min-height: 0; padding: 0;
+  display: none; place-items: center; border-radius: 50%; border: 1px solid var(--line);
+  background: var(--panel); color: var(--dim); cursor: pointer;
+}
+.favoff .ico { width: 9px; height: 9px; }
+.favitem:hover .favoff, .favoff:focus-visible { display: grid; }
+.favoff:hover { color: var(--danger); border-color: var(--danger); }
+@media (hover: none) { .favoff { display: grid; } }
 .sidehead button.on { color: var(--accent); border-color: var(--accent); }
 
 /* something is attached in the background */
@@ -4266,7 +4273,7 @@ dialog.sheet.teamsheet:has(.tcanvas) { width: min(1240px, 96vw); }
 .keytipslegend { display: inline-flex; align-items: center; gap: .35rem; }
 .keytipshint { color: var(--dim); }
 /* Favourites kept by another tool, shown below this one's own (screens.js renderFavs). */
-.favfrom { padding: .35rem .85rem .15rem; font-size: .62rem; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); border-top: 1px dashed var(--line); margin-top: .15rem; }
+.favfrom { font-size: .64rem; color: var(--dim); padding: 0 .1rem 0 .35rem; border-left: 1px solid var(--line); margin-left: .15rem; }
 /* Favourite folders in the rail: a section of their own, under the destinations (paintRailFavs). */
 #railfavs { display: flex; flex-direction: column; border-top: 1px solid var(--line); margin-top: .3rem; padding: .3rem 0; }
 #railfavs[hidden] { display: none; }
