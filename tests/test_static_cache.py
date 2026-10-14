@@ -67,3 +67,10 @@ def test_index_gives_every_module_a_versioned_address_and_preloads_it(tmp_path):
     again = c.get("/", headers={"if-none-match": c.get("/").headers["etag"]})
     assert again.status_code == 304
     assert c.get("/files/somewhere").text == html, "an app route is the same page"
+
+
+def test_a_module_loaded_on_demand_is_mapped_but_not_preloaded(tmp_path):
+    html = client(tmp_path).get("/").text
+    assert '"/js/mountwizard.js":"/js/mountwizard.js?v=' in html, "its import() still gets the versioned address"
+    assert 'modulepreload" href="/js/mountwizard.js' not in html, "but it is not fetched at start"
+    assert 'modulepreload" href="/js/main.js' in html

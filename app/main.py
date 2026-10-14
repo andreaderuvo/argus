@@ -3006,6 +3006,23 @@ def versioned_modules() -> dict[str, str]:
     return out
 
 
+def booted_modules() -> list[str]:
+    """The modules app.js loads at start: its static imports, followed."""
+    seen: list[str] = []
+    todo = ["/app.js"]
+    while todo:
+        rel = todo.pop()
+        if rel in seen:
+            continue
+        path = STATIC_DIR / rel.lstrip("/")
+        if not path.is_file():
+            continue
+        seen.append(rel)
+        text = path.read_text(encoding="utf-8")
+        todo += re.findall(r"""^\s*import\s+(?:[^'";]*?\s+from\s+)?['"](/js/[\w.-]+\.js)['"]""", text, re.M)
+    return seen
+
+
 def render_index(html: str) -> str:
     import json as _json
     mods = versioned_modules()
@@ -3025,7 +3042,9 @@ def render_index(html: str) -> str:
         html = html[:m.start(2)] + merged + html[m.end(2):]
     else:
         html = html.replace("</head>", f'<script type="importmap">{merged}</script>\n</head>', 1)
-    preload = "".join(f'<link rel="modulepreload" href="{v}">' for v in mods.values())
+    # Preloaded: what app.js imports, directly or not — a module loaded only on demand
+    # (`import('/js/…')`, the mount wizard) keeps its versioned address but is not fetched at start.
+    preload = "".join(f'<link rel="modulepreload" href="{mods[m]}">' for m in booted_modules() if m in mods)
     return html.replace("</head>", preload + "\n</head>", 1)
 
 
