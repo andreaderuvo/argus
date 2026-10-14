@@ -15,6 +15,7 @@ import { go, parseRoute, render } from '/js/router.js';
 import { fileBrowser } from '/js/screens.js';
 import { aboutThisArgus, pluginUpdateDialog } from '/js/shortcuts.js';
 import { SIDE_PATH_KEY, assignSidePath, bar, favs, hamburger, live, moreBtn, prefs, railDesks, railFavs, railToggle, railWins, server, side, sidePath, sideToggle, token, view } from '/js/state.js';
+import { syncSheet } from '/js/syncsheet.js';
 import { redressTerminals } from '/js/theme.js';
 import { currentSpace, openWindow, runs, specId, workspaces } from '/js/tray.js';
 import { VIEWERS, editor } from '/js/viewers.js';
@@ -1212,6 +1213,7 @@ export function paintRailFavs() {
       ...(!folder(f) && !f.missing ? [{ icon: 'folder', label: t('Open the folder it is in'), run: () => openHolder(f) }] : []),
       { icon: 'copy', label: t('Copy the path'), run: () => copyPath(f.path) },
       ...(folder(f) && !f.missing ? [{ icon: 'layers', label: t('Mount on your computer…'), run: () => mountWizard(f.path) }] : []),
+      ...(folder(f) && !f.missing ? [{ icon: 'refresh', label: t('Sync to your computer…'), run: () => syncSheet(f.path) }] : []),
       '-',
       { icon: 'star', label: t('Remove the star'), run: () => unstar(f) },
     ], f.name);

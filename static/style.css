@@ -4572,3 +4572,13 @@ dialog.sheet.mountwizard { width: min(46rem, calc(100vw - 2rem)); }
 .mwmanual > summary { cursor: pointer; color: var(--dim); font-size: .85rem; }
 .mwchips { margin: .1rem 0 .3rem; }
 .mwchips button { font-size: .8rem; padding: .25rem .7rem; }
+.syncgo { margin: .7rem 0 .4rem; }
+.syncmade { display: grid; gap: .4rem; }
+.syncmade a.syncopen { display: inline-block; padding: .3rem .75rem; border-radius: 7px; background: var(--accent); color: var(--on-accent); text-decoration: none; font-weight: 600; }
+.synckeys h3 { margin: 1rem 0 .3rem; font-size: .85rem; color: var(--dim); }
+.synckey { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .7rem; padding: .35rem 0; border-top: 1px solid var(--line); }
+.synckeyname { font-weight: 600; color: var(--bright); }
+.synckey .meta { flex: 1; min-width: 12rem; }
+.syncbody .mwblock button.winbtn { position: absolute; top: .3rem; right: .3rem; }
+.syncbody > .hint { padding: 0; margin: 0 0 .3rem; }
+.syncbody .syncmade .hint { padding: 0; margin: .2rem 0 0; }

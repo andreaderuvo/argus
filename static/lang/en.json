@@ -1581,6 +1581,22 @@
   "FUSE-T needs no change to macOS security settings (macFUSE does).": "FUSE-T needs no change to macOS security settings (macFUSE does).",
   "Which Mac? “uname -m” answers arm64 on an Apple chip, x86_64 on Intel (or the Apple menu → About This Mac).": "Which Mac? “uname -m” answers arm64 on an Apple chip, x86_64 on Intel (or the Apple menu → About This Mac).",
   "It asks that account’s password. Then, as that account:": "It asks that account’s password. Then, as that account:",
-  "Back in your own account, so that brew and sshfs are found:": "Back in your own account, so that brew and sshfs are found:"
+  "Back in your own account, so that brew and sshfs are found:": "Back in your own account, so that brew and sshfs are found:",
+  "Sync to your computer…": "Sync to your computer…",
+  "Sync {name} to your computer": "Sync {name} to your computer",
+  "Both ways": "Both ways",
+  "Read only": "Read only",
+  "Make the link": "Make the link",
+  "The link": "The link",
+  "Open in argus-sync": "Open in argus-sync",
+  "— or paste the link into argus-sync. It is shown once; keep it to yourself: it opens this folder.": "— or paste the link into argus-sync. It is shown once; keep it to yourself: it opens this folder.",
+  "This Argus is read-only (no --allow-write): the computer will receive, not send.": "This Argus is read-only (no --allow-write): the computer will receive, not send.",
+  "Computers syncing this folder": "Computers syncing this folder",
+  "both ways": "both ways",
+  "read only": "read only",
+  "last seen {when}": "last seen {when}",
+  "not used yet": "not used yet",
+  "Take back": "Take back",
+  "A folder on your computer that stays the same as this one — files open with a double-click, work offline, and changes go both ways. With the argus-sync app, for macOS, Windows and Linux; no administrator needed.": "A folder on your computer that stays the same as this one — files open with a double-click, work offline, and changes go both ways. With the argus-sync app, for macOS, Windows and Linux; no administrator needed."
  }
 }
