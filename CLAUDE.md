@@ -464,6 +464,29 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   and applied on request instead of reloading under someone's fingers. It only registers
   in a secure context: over plain http to a LAN address there is no worker and no install.
 
+## Performance (the pass of 2026-10-14)
+
+Measured on headless Chromium with the CPU slowed 6× and a 100 ms link, each fix with a test that
+fails if it comes back. Before adding anything, keep these true:
+
+- **Idle is idle** (`tests/browser/test_idle_cost.py`): a screen left alone runs < 0.3 s of script
+  and < 120 style recalculations in 5 s. A MutationObserver must never write what it observes
+  unless the value changed (the rail's fades did, 60 times a second: 4 s of CPU per 10 s).
+- **Static files**: gzip + ETag/304 (`serve_static`); index.html is rendered with an import map
+  giving every module a `?v=<hash>` address (cached for ever) and `modulepreload` for what app.js
+  imports at boot (`booted_modules`). A module loaded with `import('/js/…')` is mapped, not preloaded.
+- **JSON answers are gzipped** by `app/jsongzip.py` — JSON only, never files or streams.
+- **Processes from /proc, once** (`app/procs.py`, shared 0.5 s): never `ps` in a request path where
+  /proc exists. `list_sessions` is ONE tmux call (`;`-joined commands); per-terminal questions are
+  batched (`/api/tmux/copymodes`, `/api/tmux/cwds`) — one request and one tmux call per round.
+- **System's CPU%** comes from the previous /proc/stat reading; it sleeps only on the first.
+- **Long listings** are drawn by `drawInBatches` (200 at once, the rest between frames) with
+  `content-visibility: auto`; `list.finishRows()` before looking a row up by path. Icons and file
+  pictures are cloned from one built copy; date formatters are made once.
+- **Preferences**: never one key that grows with every desk — links are `links.<desk>`; a save sends
+  the changed keys only, compared against a per-key serialised baseline.
+- Server CPU was never the bottleneck (~1.5% with three tabs); the costs were in the page.
+
 ## Design notes
 
 - **An agent's options, in words** (`app/agentflags.py`, `tests/test_agentflags.py`). The New
