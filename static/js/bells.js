@@ -8,6 +8,7 @@ import { bellStream, getJSON, setBellStream } from '/js/reconnect.js';
 import { go, render } from '/js/router.js';
 import { paintRailDesks, sayIfNewer } from '/js/sidebar.js';
 import { live, prefs, token } from '/js/state.js';
+import { teamsChanged } from '/js/team.js';
 import { openWindow, runs, watchers, workspaces } from '/js/tray.js';
 import { arrangeDesk, openProposedTeam } from '/js/wall.js';
 import { t } from '/js/words.js';
@@ -62,6 +63,7 @@ export function ring(bell) {
    *  for "shall I overwrite it" the useful destination is the two buttons. */
   // A proposed team goes where it can be started: Team, on its folder, with the team chosen.
   // A question is not a passing message: it waits in the corner with its answers (askcards.js).
+  if (bell.team_proposal) teamsChanged();
   if (bell.ask) askFromBell(bell.ask);
   else {
     toast(label + said, why === 'failed',
@@ -409,6 +411,7 @@ function aside(said) {
   // A team started on the person's OK to an agent's request: its window and its agents' windows
   // go into the desk it was asked for, as they would from the Team sheet.
   if (said.what === 'team-started' && said.team?.id) {
+    teamsChanged();
     adoptDesks().then(() => {
       const ws = workspaces().find((w) => w.id === said.desk_id) || workspaces().find((w) => w.id === prefs.ws);
       const specs = [{ kind: 'team', id: said.team.id, name: said.team.name },

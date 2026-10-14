@@ -932,11 +932,40 @@ function drawTeam(team, { graph, story, goal, refresh, openLog, openTeam, toggle
 
 /** Every few seconds while `node` is on the page: the desk parks its parts while you are on another
  *  screen and puts them back, so being off screen for a while is not a reason to stop for good. */
-function keepAsking(node, refresh) {
+/* /api/teams for everything on the page that wants it, one request per moment: every desk's strip
+ *  and every team window asked on its own every 3 s, and redrew itself whether or not anything had
+ *  changed (measured 2026-10-14, the optimisation pass). */
+let teamsAsking = null;
+let teamsHeard = null;
+let teamsAt = 0;
+export function teamsNow(fresh = 1500) {
+  if (teamsAsking) return teamsAsking;
+  if (teamsHeard && Date.now() - teamsAt < fresh) return Promise.resolve(teamsHeard);
+  teamsAsking = getJSON('/api/teams')
+    .then((said) => { teamsHeard = said; teamsAt = Date.now(); return said; })
+    .finally(() => { teamsAsking = null; });
+  return teamsAsking;
+}
+
+// Woken when the server says a team started or one was proposed (bells.js), so a quiet desk can
+// ask seldom and still show a new team at once.
+const wakers = new Set();
+export function teamsChanged() {
+  teamsAt = 0;
+  for (const wake of wakers) wake();
+}
+
+/** `quiet()`: nothing of this kind to show — then once every 15 s, not every 3. */
+function keepAsking(node, refresh, quiet = () => false) {
   let away = 0;
+  let skipped = 0;
+  const wake = () => { skipped = 0; if (node.isConnected) refresh(); };
+  wakers.add(wake);
   const timer = setInterval(() => {
-    if (!node.isConnected) { if (++away > 400) clearInterval(timer); return; }
+    if (!node.isConnected) { if (++away > 400) { clearInterval(timer); wakers.delete(wake); } return; }
     away = 0;
+    if (quiet() && ++skipped < 5) return;
+    skipped = 0;
     if (!document.hidden && document.contains(node) && node.closest('#view')) refresh();
   }, 3000);
   requestAnimationFrame(refresh);
@@ -946,12 +975,19 @@ function keepAsking(node, refresh) {
 export function teamStrip({ wsId, openLog, openTeam }) {
   const strip = el('div', { className: 'teamstrip', hidden: true });
   let busy = false;
+  let drawnSig = '';
+  // After something was done to a team: from the server, not from the round's copy.
+  const afresh = () => { teamsAt = 0; drawnSig = ''; return refresh(); };
   const refresh = async () => {
     if (busy || !strip.isConnected) return;
     busy = true;
     try {
-      const said = await getJSON('/api/teams');
+      const said = await teamsNow();
       const mineOnes = (said.teams || []).filter((team) => String(team.ws) === String(wsId()));
+      // Redrawn only when it changed: a strip rebuilt every round costs a style pass for nothing.
+      const sig = JSON.stringify([mineOnes, said.proposals || []]);
+      if (sig === drawnSig) { busy = false; return; }
+      drawnSig = sig;
       // A team an agent proposed stays in sight until it is started or dismissed: its bell is a
       // toast of six seconds, and the folder it is in may be nowhere near this desk.
       const offered = (said.proposals || []).map((p) => el('div', { className: 'teamline teamproposal' }, [
@@ -961,17 +997,17 @@ export function teamStrip({ wsId, openLog, openTeam }) {
         el('button', { className: 'ghost', type: 'button', textContent: t('Open'), onclick: () => openProposedTeam(p.folder) }),
         el('button', { className: 'ghost', type: 'button', textContent: t('Dismiss'), title: t('Its team.yaml stays in the folder'), onclick: async () => {
           try { await delJSON(`/api/teams/proposals?folder=${encodeURIComponent(p.folder)}`); } catch (e) { toast(e.message, true); }
-          refresh();
+          afresh();
         } }),
       ]));
       // An agent's request for your OK is a card in the corner (askcards.js), on every screen.
-      strip.replaceChildren(...offered, ...mineOnes.flatMap((team) => drawTeam(team, { refresh, openLog, openTeam })));
+      strip.replaceChildren(...offered, ...mineOnes.flatMap((team) => drawTeam(team, { refresh: afresh, openLog, openTeam })));
       strip.hidden = !mineOnes.length && !offered.length;
     } catch { /* asked again in a moment */ }
     busy = false;
   };
-  strip.refresh = refresh;
-  keepAsking(strip, refresh);
+  strip.refresh = afresh;
+  keepAsking(strip, refresh, () => strip.hidden);
   return strip;
 }
 
@@ -987,8 +1023,9 @@ export function attachTeam(host, spec, setLabel, { openLog }) {
   const refresh = async (force = false) => {
     if (busy) return;
     busy = true;
+    if (force) teamsAt = 0;          // after a press: the server's answer, not the round's copy
     try {
-      const said = await getJSON('/api/teams');
+      const said = await teamsNow();
       const team = (said.teams || []).find((x) => x.id === spec.id);
       // Drawn again only when something changed — the team, or an agent's working/waiting —
       // and where you had scrolled to is kept: redrawn every three seconds, the story you were

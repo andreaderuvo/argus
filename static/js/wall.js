@@ -1816,20 +1816,26 @@ export async function screenWall() {
    */
   async function readWhere() {
     const here = activeSpace();
-    for (const strip of document.querySelectorAll(`.winfacts[data-ws="${here?.id}"]`)) {
-      const name = strip.dataset.session;
-      if (!name) continue;
-      try {
-        const answer = await getJSON(`/api/tmux/cwd?session=${encodeURIComponent(name)}&missing_ok=1`);
-        strip.dataset.cwd = answer.cwd || '';
-        strip.dataset.began = answer.started_in || '';
-        strip.dataset.from = answer.cwd_source || '';
-        strip.dataset.live = answer.cwd_live ? '1' : '';
-        strip.dataset.model = answer.model || '';
-        strip.dataset.agent = answer.agent || answer.command || '';
-      } catch { /* a session that has gone keeps the last thing it said */ }
+    const strips = [...document.querySelectorAll(`.winfacts[data-ws="${here?.id}"]`)].filter((s) => s.dataset.session);
+    if (!strips.length) return;
+    // The whole desk in one request (one tmux call): it was one request per terminal.
+    let all = {};
+    try {
+      const names = [...new Set(strips.map((s) => s.dataset.session))];
+      all = (await getJSON(`/api/tmux/cwds?sessions=${encodeURIComponent(names.join('\n'))}`)).sessions || {};
+    } catch { return; }
+    let changed = false;
+    for (const strip of strips) {
+      const answer = all[strip.dataset.session];
+      if (!answer || answer.gone) continue;     // a session that has gone keeps the last thing it said
+      const now = { cwd: answer.cwd || '', began: answer.started_in || '', from: answer.cwd_source || '',
+        live: answer.cwd_live ? '1' : '', model: answer.model || '', agent: answer.agent || answer.command || '' };
+      // Written only when it changed: each data attribute written is a style pass.
+      for (const [k, v] of Object.entries(now)) {
+        if (strip.dataset[k] !== v) { strip.dataset[k] = v; changed = true; }
+      }
     }
-    paintStray();
+    if (changed) paintStray();
   }
 
   /** The five facts, written out.

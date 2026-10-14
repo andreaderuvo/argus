@@ -4888,6 +4888,52 @@
     ]
    }
   },
+  "/api/tmux/cwds": {
+   "get": {
+    "description": "`sessions`: names one per line \u2014 a desk's terminals, together, with one tmux call.\nOnly what tmux lists is answered; the rest is `{gone: true}`.",
+    "operationId": "getApiTmuxCwds",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "sessions",
+      "required": false,
+      "schema": {
+       "default": "",
+       "title": "Sessions",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Pane Directories Api Tmux Cwds Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Where several sessions are, in one look",
+    "tags": [
+     "Sessions"
+    ]
+   }
+  },
   "/api/tmux/kill": {
    "post": {
     "description": "Killing a session ends everything running in it. The UI asks first.",

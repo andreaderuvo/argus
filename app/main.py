@@ -1812,6 +1812,17 @@ def create_app(cfg: Config) -> FastAPI:
         # read off the process holding the terminal, one tmux observed, and the one the pane
         # was made in are four different degrees of true, and a browser that is told which
         # can say the right sentence instead of a plausible one.
+        return where_answer(name, found)
+
+    @app.get("/api/tmux/cwds", tags=["Sessions"], summary="Where several sessions are, in one look")
+    async def pane_directories(request: Request, sessions: str = "") -> dict:
+        """`sessions`: names one per line — a desk's terminals, together, with one tmux call.
+        Only what tmux lists is answered; the rest is `{gone: true}`."""
+        names = [s for s in sessions.split("\n") if s][:200]
+        found = await asyncio.to_thread(paths.pane_wheres, request.app.state.socket, names)
+        return {"sessions": {n: (where_answer(n, f) if f else {"session": n, "gone": True}) for n, f in found.items()}}
+
+    def where_answer(name: str, found: dict) -> dict:
         return {
             "session": name,
             "cwd": found["cwd"],

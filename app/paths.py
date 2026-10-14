@@ -270,11 +270,38 @@ def pane_where(sock: tmux.Socket, session: str) -> dict:
     child: the child moves, the agent does not, and there is no cwd inherited backwards. That
     is exactly why (1) exists and why it wins.
     """
-    line = _say(sock, session, "\t".join([
-        "#{pane_tty}", "#{pane_current_path}", "#{pane_current_command}",
-        "#{@argus_cwd}", "#{pane_start_path}", "#{@argus_model}", "#{@argus_agent}",
-    ]))
-    bits = (line.split("\t") + [""] * 7)[:7]
+    line = _say(sock, session, "\t".join(WHERE_FIELDS))
+    return _where_from((line.split("\t") + [""] * 7)[:7])
+
+
+WHERE_FIELDS = ["#{pane_tty}", "#{pane_current_path}", "#{pane_current_command}",
+                "#{@argus_cwd}", "#{pane_start_path}", "#{@argus_model}", "#{@argus_agent}"]
+
+
+def pane_wheres(sock: tmux.Socket, sessions: list[str]) -> dict[str, dict | None]:
+    """`pane_where` for many sessions with ONE tmux call (the active pane of each one's active
+    window, what an attached client shows). A desk asked once per terminal every 10 s. A session
+    tmux does not list is None."""
+    wanted = set(sessions)
+    found: dict[str, dict | None] = {}
+    try:
+        p = subprocess.run(["tmux", *sock.args(), "list-panes", "-a", "-F",
+                            "\t".join(["#{window_active}#{pane_active}", "#{session_name}", *WHERE_FIELDS])],
+                           capture_output=True, text=True, timeout=4)
+        lines = p.stdout.splitlines() if p.returncode == 0 else []
+    except (OSError, subprocess.SubprocessError):
+        lines = []
+    for line in lines:
+        parts = line.split("\t")
+        if len(parts) < 9 or parts[0] != "11" or parts[1] not in wanted:
+            continue
+        found[parts[1]] = _where_from(parts[2:9])
+    for name in wanted - found.keys():
+        found[name] = None
+    return found
+
+
+def _where_from(bits: list[str]) -> dict:
     tty, current, command, told, began, model, whom = (b.strip() for b in bits)
 
     answer = {"cwd": None, "source": None, "live": False, "command": command,
