@@ -120,7 +120,21 @@ const FILLED = new Set(['github']);
  *  It was there. It was one pixel. Dots get a weight of their own. */
 const ONLY_DOTS = /^(?:M[\d.]+ [\d.]+[hv]\.01)+$/;
 
+// Built once per name and cloned after: a listing of 5,000 files drew 20,000 of these from nothing
+// (0.7 s on a slow computer, measured 2026-10-14). A clone is a fraction of that.
+const drawn = new Map();
+
 export function icon(name, extra = '') {
+  const key = `${name}|${extra}`;
+  let made = drawn.get(key);
+  if (!made) {
+    made = drawIcon(name, extra);
+    drawn.set(key, made);
+  }
+  return made.cloneNode(true);
+}
+
+function drawIcon(name, extra) {
   const solid = FILLED.has(name);
   const d = ICONS[name] || '';
   const path = svg('path', {

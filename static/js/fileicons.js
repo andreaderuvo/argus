@@ -39,18 +39,32 @@ export function loadFileIcons() {
   return fetch(`${MATERIAL}/map.json`).then((r) => (r.ok ? r.json() : null)).then((m) => { iconMap = m; return m; }).catch(() => null);
 }
 
+// One of each picture, cloned: a folder of 5,000 files built 5,000 of them (measured 2026-10-14).
+const pictures = new Map();
+const cloned = (key, make) => {
+  let made = pictures.get(key);
+  if (!made) {
+    made = make();
+    pictures.set(key, made);
+  }
+  return made.cloneNode(true);
+};
+
 /** The picture for a file name, or null: an `<img>` from the coloured set. */
 function colouredIcon(name) {
   if (prefs.fileIcons === 'simple' || !iconMap) return null;
   const found = iconFor(name, iconMap, document.documentElement.dataset.theme === 'light');
   if (!found) return null;
-  const img = document.createElement('img');
-  img.className = 'ficon fimg';
-  img.alt = '';
-  img.draggable = false;
-  img.decoding = 'async';
-  img.src = found.set === 'bio' ? `/img/fileicons/${found.icon}.svg` : `${MATERIAL}/icons/${found.icon}.svg`;
-  return img;
+  const src = found.set === 'bio' ? `/img/fileicons/${found.icon}.svg` : `${MATERIAL}/icons/${found.icon}.svg`;
+  return cloned(`img:${src}`, () => {
+    const img = document.createElement('img');
+    img.className = 'ficon fimg';
+    img.alt = '';
+    img.draggable = false;
+    img.decoding = 'async';
+    img.src = src;
+    return img;
+  });
 }
 
 export function fileIcon(entry) {
@@ -58,6 +72,12 @@ export function fileIcon(entry) {
     const img = colouredIcon(entry.name || '');
     if (img) return img;
   }
+  if (entry.type === 'directory') return cloned('dir', () => drawFileIcon(entry));
+  const { label, color } = badge(entry.name);
+  return cloned(`f:${label}:${color}`, () => drawFileIcon(entry));
+}
+
+function drawFileIcon(entry) {
   const stroke = { fill: 'none', 'stroke-width': '1.6', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' };
   if (entry.type === 'directory') {
     return svg('svg', { viewBox: '0 0 24 24', class: 'ficon' }, [

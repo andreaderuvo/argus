@@ -111,6 +111,39 @@ export function screenLogin() {
   input.focus();
 }
 
+/* A long listing drawn a part at a time: the first rows at once, the rest in batches between
+ *  frames, so a folder of 5,000 files shows its top in a blink instead of after 8 s of a slow
+ *  computer building every row (measured 2026-10-14). `list.finishRows()` draws the rest now,
+ *  for whoever needs a row that may not be there yet (pointing.js). A newer draw stops an older. */
+const FIRST_ROWS = 200;
+const ROWS_PER_BATCH = 400;
+
+export function drawInBatches(list, items, make, done = () => {}) {
+  const gen = (list.drawGen = (list.drawGen || 0) + 1);
+  let i = 0;
+  const add = (upto) => {
+    const frag = document.createDocumentFragment();
+    for (; i < upto; i++) frag.append(make(items[i]));
+    list.append(frag);
+  };
+  add(Math.min(items.length, FIRST_ROWS));
+  const finish = () => {
+    if (list.drawGen !== gen) return;
+    list.finishRows = null;
+    done();
+  };
+  if (i >= items.length) { list.finishRows = null; done(); return; }
+  list.finishRows = () => { if (list.drawGen === gen && i < items.length) { add(items.length); finish(); } };
+  const more = () => {
+    if (list.drawGen !== gen || !list.isConnected || i >= items.length) return;
+    add(Math.min(items.length, i + ROWS_PER_BATCH));
+    if (i < items.length) setTimeout(more, 0);
+    else finish();
+  };
+  done();                         // what is drawn so far can be chosen and marked already
+  setTimeout(more, 0);
+}
+
 export async function screenSessions() {
   setTitle(t('Sessions'));
   const drawing = renderSeq;
@@ -470,29 +503,15 @@ export function fileBrowser({
         textContent: hidden === 1 ? t('Nothing but one hidden item.') : hidden ? t('Nothing but {n} hidden items.', { n: hidden }) : t('Nothing here.'),
       }));
     }
-    if (getView() === 'tiles') {
-      list.classList.add('tiles');
-      for (const e of shown) {
-        list.append(entryTile(e, {
-          onClick: () => (e.type === 'directory' ? setPath(e.path) : openFile(e)),
-          refresh: reload,
-          dest: other,
-          favGroup,
-        }));
-      }
-      picker.sync();
-      return;
-    }
-    list.classList.remove('tiles');
-    for (const e of shown) {
-      list.append(entryRow(e, {
-        onClick: () => (e.type === 'directory' ? setPath(e.path) : openFile(e)),
-        refresh: reload,
-        dest: other,
-        favGroup,
-      }));
-    }
-    picker.sync();
+    const tiles = getView() === 'tiles';
+    list.classList.toggle('tiles', tiles);
+    const make = (e) => (tiles ? entryTile : entryRow)(e, {
+      onClick: () => (e.type === 'directory' ? setPath(e.path) : openFile(e)),
+      refresh: reload,
+      dest: other,
+      favGroup,
+    });
+    drawInBatches(list, shown, make, () => { picker.sync(); markCurrent(list); });
   };
 
   // Search results span folders, so they are always a flat list — clearing the box puts
