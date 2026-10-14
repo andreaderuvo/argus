@@ -24,6 +24,9 @@ function guessOs() {
   return 'linux';
 }
 
+const HOMEBREW = '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"\n'
+  + 'eval "$(/opt/homebrew/bin/brew shellenv 2>/dev/null || /usr/local/bin/brew shellenv)"';
+
 const shq = (s) => (/^[\w@%+=:,./~-]+$/.test(s) ? s : `'${s.replace(/'/g, "'\\''")}'`);
 
 /** The commands, for one system, from what the fields say. */
@@ -40,6 +43,7 @@ export function mountCommands(os, { user, host, port, path, point, drive, name }
       copyId: `Get-Content ${key} | ssh${sshP} ${at} "mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"`,
       test: `ssh${sshP} ${at} echo ok`,
       install: 'winget install -e --id WinFsp.WinFsp\nwinget install -e --id SSHFS-Win.SSHFS-Win',
+      sshClient: 'Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0',
       mount: `net use ${drive} \\\\sshfs.kr\\${at}${p ? `!${p}` : ''}\\${win}`,
       unmount: `net use ${drive} /delete`,
       sync: `mutagen sync create --name=${name} "%USERPROFILE%\\${name}" ${at}:${path}`,
@@ -55,7 +59,9 @@ export function mountCommands(os, { user, host, port, path, point, drive, name }
     test: `ssh${sshP} ${at} echo ok`,
     install: os === 'mac'
       ? 'brew install macos-fuse-t/homebrew-cask/fuse-t macos-fuse-t/homebrew-cask/fuse-t-sshfs'
-      : 'sudo apt install sshfs        # Debian, Ubuntu\nsudo dnf install fuse-sshfs   # Fedora, AlmaLinux, RHEL',
+      : 'sudo apt install sshfs        # Debian, Ubuntu\nsudo dnf install fuse-sshfs   # Fedora, AlmaLinux, RHEL\n'
+        + 'sudo zypper install sshfs     # openSUSE\nsudo pacman -S sshfs          # Arch',
+    sshClient: os === 'mac' ? '' : 'sudo apt install openssh-client   # Debian, Ubuntu\nsudo dnf install openssh-clients  # Fedora, AlmaLinux, RHEL',
     mount: `mkdir -p ${shq(point)}\nsshfs${sshP} ${at}:${shq(path)} ${shq(point)} -o ${opts}`,
     unmount: os === 'mac' ? `umount ${shq(point)}` : `fusermount -u ${shq(point)}   # fusermount3 -u on newer systems`,
     sync: `${os === 'mac' ? 'brew install mutagen-io/mutagen/mutagen\n' : ''}mutagen sync create --name=${name} ~/${shq(name)} ${at}:${shq(path)}`,
@@ -151,6 +157,11 @@ export async function mountWizard(path) {
     steps.replaceChildren(
       step(1, t('No password, ever: a key'), [
         note(win ? t('In PowerShell: make a key if there is none, and copy it.') : t('In a terminal: make a key if there is none, and copy it.')),
+        ...(c.sshClient ? [
+          note(win ? t('“ssh-keygen” not found? Turn on Windows’ OpenSSH client, in PowerShell as administrator:')
+            : t('“ssh-keygen” not found? Install the SSH client:')),
+          block(c.sshClient),
+        ] : []),
         block(c.key),
         note(t('Then paste it here, and Argus lets it in on this machine:')),
         el('div', { className: 'mwkeyrow' }, [keyBox, keyGo]),
@@ -161,9 +172,16 @@ export async function mountWizard(path) {
         block(c.test),
       ]),
       step(2, t('The tool that mounts it, once'), [
-        ...(st.os === 'mac' ? [note(t('With Homebrew. FUSE-T needs no change to macOS security settings (macFUSE does).'))] : []),
+        ...(st.os === 'mac' ? [
+          note(t('No Homebrew yet? Install it first — it asks your Mac password once, then says how to add brew to your PATH:')),
+          block(HOMEBREW),
+          note(t('Then, with Homebrew. FUSE-T needs no change to macOS security settings (macFUSE does).')),
+        ] : []),
         ...(win ? [note(t('WinFsp and SSHFS-Win, from winget (or their installers).'))] : []),
         block(c.install),
+        ...(win ? [el('p', { className: 'hint' }, [t('No winget? Install the two from their pages, WinFsp first:'), ' ',
+          el('a', { href: 'https://github.com/winfsp/winfsp/releases/latest', target: '_blank', rel: 'noopener', textContent: 'WinFsp' }), ' · ',
+          el('a', { href: 'https://github.com/winfsp/sshfs-win/releases/latest', target: '_blank', rel: 'noopener', textContent: 'SSHFS-Win' })])] : []),
       ]),
       step(3, t('Mount it'), [
         note(win ? t('It appears as the drive {drive} in Explorer.', { drive: st.drive }) : t('It appears in {point}, and in the Finder or your file manager.', { point: st.point })),

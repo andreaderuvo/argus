@@ -2695,16 +2695,19 @@ def create_app(cfg: Config) -> FastAPI:
 
     @app.post("/ssh-setup/{ident}/key", include_in_schema=False)
     async def ssh_setup_key(request: Request, ident: str) -> Response:
-        """The public key a setup script sends back: let in once, then the link takes no other."""
+        """The public key a setup script sends back: let in once, then the link takes no other. The
+        same key again is fine — a script that stopped half-way (no Homebrew, no sudo) is run again."""
         one = request.app.state.ssh_setups.get(ident)
-        if not one or one["keyed"]:
-            return Response("this link has expired or was used\n", status_code=410, media_type="text/plain")
         raw = (await request.body())[:16384].decode("utf-8", "replace")
+        body = sshmount.key_body(raw)
+        if not one or (one["keyed"] and one["keyed"] != body):
+            return Response("this link has expired or let in another key — make a new one in Argus\n",
+                            status_code=410, media_type="text/plain")
         try:
             said = await asyncio.to_thread(sshmount.authorize, raw)
         except sshmount.BadKey as e:
             return Response(f"{e}\n", status_code=400, media_type="text/plain")
-        one["keyed"] = True
+        one["keyed"] = body
         return Response(f"key let in: {said['key']}\n", media_type="text/plain")
 
     @app.get("/viewers/{name}/{rel:path}", include_in_schema=False)

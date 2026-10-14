@@ -47,6 +47,12 @@ def info(addresses: list[str], preferred: str = "") -> dict:
             "port": ssh_port()}
 
 
+def key_body(key_text: str) -> str:
+    """The kind and base64 of a public key, without its comment: what makes two lines the same key."""
+    m = KEY.match(" ".join(str(key_text or "").strip().split()))
+    return f"{m.group(1)} {m.group(2)}" if m else ""
+
+
 def authorize(key_text: str, home: Path | None = None) -> dict:
     """Append one public key to ~/.ssh/authorized_keys of the user Argus runs as, unless it is
     there already. `{added, already, fingerprint_hint}`."""
@@ -120,21 +126,40 @@ def script_sh(spec: dict, base: str, ident: str) -> str:
 # Argus: mount {spec['path']} from {spec['host']} here. Made for you, usable once, for 15 minutes.
 set -e
 KEY="$HOME/.ssh/id_ed25519"
+pkg() {{  # install with whatever this Linux has
+  if command -v apt-get >/dev/null 2>&1; then sudo apt-get install -y "$1"
+  elif command -v dnf >/dev/null 2>&1; then sudo dnf install -y "$2"
+  elif command -v zypper >/dev/null 2>&1; then sudo zypper install -y "$3"
+  elif command -v pacman >/dev/null 2>&1; then sudo pacman -S --noconfirm "$4"
+  else echo "install $1 with your package manager, then run this again"; exit 1
+  fi
+}}
+if ! command -v ssh-keygen >/dev/null 2>&1; then
+  echo "· installing the SSH client"
+  pkg openssh-client openssh-clients openssh openssh
+fi
 mkdir -p "$HOME/.ssh" && chmod 700 "$HOME/.ssh"
 if [ ! -f "$KEY.pub" ]; then
   echo "· making an SSH key (no passphrase) in $KEY"
   ssh-keygen -t ed25519 -N "" -f "$KEY" -q
 fi
 echo "· letting the key in on {spec['host']}"
-curl -fsS -k -X POST --data-binary @"$KEY.pub" {_sh_quote(base + '/ssh-setup/' + ident + '/key')} >/dev/null
+curl -fsS -k -X POST --data-binary @"$KEY.pub" {_sh_quote(base + '/ssh-setup/' + ident + '/key')} >/dev/null || {{
+  echo "✗ this link has expired, or let in another key: press New link in Argus and paste the new line"; exit 1; }}
 if ! command -v sshfs >/dev/null 2>&1; then
   echo "· installing sshfs"
   if [ "$(uname)" = Darwin ]; then
-    command -v brew >/dev/null 2>&1 || {{ echo "Homebrew is needed first: https://brew.sh"; exit 1; }}
+    if ! command -v brew >/dev/null 2>&1; then
+      for b in /opt/homebrew/bin/brew /usr/local/bin/brew; do [ -x "$b" ] && eval "$("$b" shellenv)"; done
+    fi
+    if ! command -v brew >/dev/null 2>&1; then
+      echo "· installing Homebrew first (https://brew.sh) — it asks your Mac password once"
+      # From the terminal, not from this script's pipe: the installer reads its answers there.
+      NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" </dev/tty
+      for b in /opt/homebrew/bin/brew /usr/local/bin/brew; do [ -x "$b" ] && eval "$("$b" shellenv)"; done
+    fi
     brew install macos-fuse-t/homebrew-cask/fuse-t macos-fuse-t/homebrew-cask/fuse-t-sshfs
-  elif command -v apt-get >/dev/null 2>&1; then sudo apt-get install -y sshfs
-  elif command -v dnf >/dev/null 2>&1; then sudo dnf install -y fuse-sshfs
-  else echo "install sshfs with your package manager, then run this again"; exit 1
+  else pkg sshfs fuse-sshfs sshfs sshfs
   fi
 fi
 POINT="{point}"
@@ -157,6 +182,19 @@ def script_ps1(spec: dict, base: str, ident: str) -> str:
     return f"""# Argus: mount {spec['path']} from {spec['host']} as {drive}. Made for you, usable once, for 15 minutes.
 $ErrorActionPreference = 'Stop'
 $key = "$env:USERPROFILE\\.ssh\\id_rsa"
+function Install-Msi($repo, $pattern) {{
+  # No winget (an older Windows, or App Installer missing): the installer from the project's releases.
+  $rel = Invoke-RestMethod "https://api.github.com/repos/$repo/releases/latest"
+  $asset = $rel.assets | Where-Object {{ $_.name -like $pattern }} | Select-Object -First 1
+  $msi = Join-Path $env:TEMP $asset.name
+  Invoke-WebRequest $asset.browser_download_url -OutFile $msi
+  Start-Process msiexec.exe -ArgumentList "/i `"$msi`" /qn" -Verb RunAs -Wait
+}}
+if (!(Get-Command ssh-keygen -ErrorAction SilentlyContinue)) {{
+  Write-Host "· turning on Windows' OpenSSH client (it asks to run as administrator)"
+  Start-Process powershell -Verb RunAs -Wait -ArgumentList '-NoProfile -Command Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0'
+  $env:Path += ";$env:WINDIR\\System32\\OpenSSH"
+}}
 New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\\.ssh" | Out-Null
 if (!(Test-Path "$key.pub")) {{
   Write-Host "· making an SSH key in $key"
@@ -164,11 +202,17 @@ if (!(Test-Path "$key.pub")) {{
 }}
 Write-Host "· letting the key in on {spec['host']}"
 try {{ [System.Net.ServicePointManager]::ServerCertificateValidationCallback = {{ $true }} }} catch {{}}
-Invoke-RestMethod -Method Post -Uri '{base}/ssh-setup/{ident}/key' -InFile "$key.pub" -ContentType 'text/plain' | Out-Null
+try {{ Invoke-RestMethod -Method Post -Uri '{base}/ssh-setup/{ident}/key' -InFile "$key.pub" -ContentType 'text/plain' | Out-Null }}
+catch {{ Write-Host "x this link has expired, or let in another key: press New link in Argus and paste the new line"; exit 1 }}
 if (!(Test-Path "$env:ProgramFiles\\SSHFS-Win")) {{
   Write-Host "· installing WinFsp and SSHFS-Win"
-  winget install -e --id WinFsp.WinFsp --accept-source-agreements --accept-package-agreements
-  winget install -e --id SSHFS-Win.SSHFS-Win --accept-source-agreements --accept-package-agreements
+  if (Get-Command winget -ErrorAction SilentlyContinue) {{
+    winget install -e --id WinFsp.WinFsp --accept-source-agreements --accept-package-agreements
+    winget install -e --id SSHFS-Win.SSHFS-Win --accept-source-agreements --accept-package-agreements
+  }} else {{
+    Install-Msi 'winfsp/winfsp' 'winfsp-*.msi'
+    Install-Msi 'winfsp/sshfs-win' 'sshfs-win-*-x64.msi'
+  }}
 }}
 Write-Host "· mounting {spec['path']} as {drive}"
 net use {drive} '\\\\sshfs.kr\\{host_part}\\{win}'

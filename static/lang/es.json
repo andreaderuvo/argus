@@ -1561,7 +1561,6 @@
   "Then paste it here, and Argus lets it in on this machine:": "Luego pégala aquí, y Argus la autoriza en esta máquina:",
   "Unmount:": "Desmontar:",
   "WinFsp and SSHFS-Win, from winget (or their installers).": "WinFsp y SSHFS-Win, desde winget (o sus instaladores).",
-  "With Homebrew. FUSE-T needs no change to macOS security settings (macFUSE does).": "Con Homebrew. FUSE-T no necesita cambiar los ajustes de seguridad de macOS (macFUSE sí).",
   "already let in: {key}": "ya autorizada: {key}",
   "drive (Windows)": "unidad (Windows)",
   "let in: {key} — no password from now on": "autorizada: {key} — sin contraseña a partir de ahora",
@@ -1570,6 +1569,11 @@
   "port": "puerto",
   "user": "usuario",
   "— or let it in from your computer (this one asks the password once):": "— o autorízala desde tu ordenador (este pide la contraseña una vez):",
-  "how it works": "cómo funciona"
+  "how it works": "cómo funciona",
+  "No Homebrew yet? Install it first — it asks your Mac password once, then says how to add brew to your PATH:": "¿Aún no tienes Homebrew? Instálalo primero — pide una vez la contraseña del Mac y luego dice cómo añadir brew al PATH:",
+  "Then, with Homebrew. FUSE-T needs no change to macOS security settings (macFUSE does).": "Luego, con Homebrew. FUSE-T no necesita cambiar los ajustes de seguridad de macOS (macFUSE sí).",
+  "“ssh-keygen” not found? Turn on Windows’ OpenSSH client, in PowerShell as administrator:": "¿No se encuentra “ssh-keygen”? Activa el cliente OpenSSH de Windows, en PowerShell como administrador:",
+  "“ssh-keygen” not found? Install the SSH client:": "¿No se encuentra “ssh-keygen”? Instala el cliente SSH:",
+  "No winget? Install the two from their pages, WinFsp first:": "¿Sin winget? Instala los dos desde sus páginas, primero WinFsp:"
  }
 }

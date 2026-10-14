@@ -70,7 +70,11 @@ def test_one_command_link_lets_one_key_in_once(tmp_path, monkeypatch):
     assert c.post(f"/ssh-setup/{ident}/key", content=b"not a key").status_code == 400
     assert c.post(f"/ssh-setup/{ident}/key", content=KEY.encode()).status_code == 200
     assert (tmp_path / ".ssh" / "authorized_keys").read_text().count("ssh-ed25519") == 1
-    assert c.post(f"/ssh-setup/{ident}/key", content=KEY.replace("me@laptop", "other").encode()).status_code == 410, "once"
+    # Run again (it stopped half-way): the same key is fine, and still in once; another key is not.
+    assert c.post(f"/ssh-setup/{ident}/key", content=KEY.replace("me@laptop", "again").encode()).status_code == 200
+    assert (tmp_path / ".ssh" / "authorized_keys").read_text().count("ssh-ed25519") == 1
+    other = KEY.split()[0] + " " + "B" * 68 + " other"
+    assert c.post(f"/ssh-setup/{ident}/key", content=other.encode()).status_code == 410, "one key per link"
     assert c.get("/ssh-setup/" + "0" * 32 + ".sh").status_code == 404
     assert c.post("/api/ssh/setup", json={"path": str(tmp_path), "base": "http://x:1", "user": "me; rm -rf ~"}, headers=h).status_code == 400
     assert c.post("/api/ssh/setup", json={"path": "/etc", "base": "http://x:1"}, headers=h).status_code == 403
