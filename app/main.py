@@ -2971,6 +2971,64 @@ COMPRESSIBLE = ("text/", "application/javascript", "application/json", "image/sv
 _gzipped: dict[tuple[str, int, int], bytes] = {}
 
 
+# Versioned addresses for the app's own modules and stylesheet.
+#
+# The page is 51 ES modules and no bundler. Over plain http (no service worker) a reload asked the
+# server about every one of them ("still the same?" → 304), and the browser found them one level
+# of imports at a time: on a 100 ms link the page took 1.9 s to open and 1.8 s to reload
+# (measured 2026-10-14). index.html is now served with an import map that gives every module an
+# address carrying its content's hash (`/js/wall.js?v=3f9c…`), which the browser may keep for
+# ever — a changed file has a new address — and a `modulepreload` for each, so they are asked for
+# all at once instead of in waves. Only index.html is asked again on a reload.
+_versions: dict[tuple[str, int, int], str] = {}
+
+
+def version_of(path: Path) -> str:
+    st = path.stat()
+    key = (str(path), st.st_mtime_ns, st.st_size)
+    found = _versions.get(key)
+    if found is None:
+        import hashlib
+        found = hashlib.sha1(path.read_bytes()).hexdigest()[:12]
+        if len(_versions) > 2000:
+            _versions.clear()
+        _versions[key] = found
+    return found
+
+
+def versioned_modules() -> dict[str, str]:
+    """'/js/wall.js' → '/js/wall.js?v=<hash>', for app.js and every module under js/."""
+    out = {}
+    for path in [STATIC_DIR / "app.js", *sorted((STATIC_DIR / "js").glob("*.js"))]:
+        if path.is_file():
+            rel = "/" + path.relative_to(STATIC_DIR).as_posix()
+            out[rel] = f"{rel}?v={version_of(path)}"
+    return out
+
+
+def render_index(html: str) -> str:
+    import json as _json
+    mods = versioned_modules()
+    style = STATIC_DIR / "style.css"
+    if style.is_file():
+        html = html.replace('href="/style.css"', f'href="/style.css?v={version_of(style)}"', 1)
+    html = html.replace('src="/app.js"', f'src="{mods.get("/app.js", "/app.js")}"', 1)
+    m = re.search(r'(<script type="importmap">\s*)(\{.*?\})(\s*</script>)', html, re.S)
+    imports = {}
+    if m:
+        try:
+            imports = _json.loads(m.group(2)).get("imports", {})
+        except ValueError:
+            imports = {}
+    merged = _json.dumps({"imports": {**imports, **mods}}, separators=(",", ":"))
+    if m:
+        html = html[:m.start(2)] + merged + html[m.end(2):]
+    else:
+        html = html.replace("</head>", f'<script type="importmap">{merged}</script>\n</head>', 1)
+    preload = "".join(f'<link rel="modulepreload" href="{v}">' for v in mods.values())
+    return html.replace("</head>", preload + "\n</head>", 1)
+
+
 def serve_static(requested: str, request: Request | None = None) -> Response:
     import gzip
     target = (STATIC_DIR / (requested or "index.html")).resolve()
@@ -2981,13 +3039,27 @@ def serve_static(requested: str, request: Request | None = None) -> Response:
             return Response(PLACEHOLDER, media_type="text/html", status_code=503)
         target = index
 
-    # Vendored libraries carry their version in the path, so they are safe to pin. The
-    # app's own files must not be, or an update never reaches an installed PWA — but they say
-    # which version they are (ETag), so a reload asks "still this one?" and gets 304, not the file.
-    cache = "public, max-age=31536000, immutable" if requested.startswith("vendor/") else "no-cache"
+    # Vendored libraries carry their version in the path, so they are safe to pin; so does a
+    # module asked for under the address index.html gave it (`?v=` its hash, render_index). The
+    # app's own files otherwise must not be, or an update never reaches an installed PWA — but
+    # they say which version they are (ETag), so a reload asks "still this one?" and gets 304.
+    asked_v = request.query_params.get("v") if request is not None else None
+    pinned = requested.startswith("vendor/") or (asked_v is not None and asked_v == version_of(target))
+    cache = "public, max-age=31536000, immutable" if pinned else "no-cache"
     media = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
     st = target.stat()
     etag = f'"{st.st_mtime_ns:x}-{st.st_size:x}"'
+    if target.name == "index.html":
+        body = render_index(target.read_text(encoding="utf-8")).encode()
+        import hashlib
+        etag = f'"i{hashlib.sha1(body).hexdigest()[:16]}"'
+        headers = {"cache-control": "no-cache", "etag": etag, "vary": "accept-encoding"}
+        if request is not None and etag in (request.headers.get("if-none-match") or ""):
+            return Response(status_code=304, headers=headers)
+        if request is not None and "gzip" in (request.headers.get("accept-encoding") or ""):
+            headers["content-encoding"] = "gzip"
+            body = gzip.compress(body, compresslevel=6, mtime=0)
+        return Response(body, media_type="text/html", headers=headers)
     headers = {"cache-control": cache, "etag": etag, "vary": "accept-encoding"}
     # A viewer pack runs at an opaque origin, and a module it imports is fetched with CORS:
     # the vendored libraries are public files anyway, so they say anyone may load them.
