@@ -20,14 +20,16 @@ def test_files_favourites_show_in_the_sidebar_and_can_be_unpinned_there(make_pag
     side = "document.querySelector('#side')"
     page.wait(f"!!{side}.querySelector('.favfrom')", timeout=10, what="the Files favourites, in the sidebar")
     assert "Files" in page.eval(f"{side}.querySelector('.favfrom').textContent")
-    row = f"[...{side}.querySelectorAll('.row.fav')].find(r => r.textContent.includes('pinned-in-files'))"
+    row = f"[...{side}.querySelectorAll('.favchip')].find(r => r.textContent.includes('pinned-in-files'))"
     page.wait(f"!!{row}", timeout=5)
     page.click_at(*page._center(row))
     page.wait(f"[...{side}.querySelectorAll('*')].some(n => n.textContent === '{folder}' || n.title === '{folder}') || "
               f"{side}.textContent.includes('pinned-in-files')", timeout=5)
     # Unpinned from the sidebar: from the list it belongs to.
-    off = f"{row}.parentElement.querySelector('.more')"
+    off = f"{row}.parentElement.querySelector('.favoff')"
     page.wait(f"!!{row}", timeout=5)
+    x, y = page._center(row)
+    page.send("Input.dispatchMouseEvent", {"type": "mouseMoved", "x": x, "y": y, "button": "none"})   # the × shows on hover
     page.click_at(*page._center(off))
     eventually(lambda: not any(f["path"] == str(folder) for f in argus.api("/api/favourites").get("main", [])),
                timeout=5, what="unpinned from Files' own list")
