@@ -1,7 +1,7 @@
 {
   "name": "argus-frontend-checks",
   "private": true,
-  "description": "Development-only checks for static/. The frontend itself has no build step and no dependencies.",
+  "description": "Development-only checks for static/, and esbuild, which the server uses (if present) to serve the JavaScript minified. The frontend itself has no build step and no dependencies.",
   "type": "module",
   "scripts": {
     "lint": "eslint static",
@@ -10,6 +10,7 @@
     "test:quick": "python3 -m pytest -q -n 16 -m 'not browser'"
   },
   "devDependencies": {
+    "esbuild": "0.25.12",
     "eslint": "9.39.1",
     "eslint-scope": "8.4.0",
     "espree": "10.4.0",

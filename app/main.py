@@ -33,6 +33,7 @@ from .auth import PROXY_COOKIE, TokenAuthMiddleware
 from .config import Config, ConfigError, default_path
 from .errors import ApiError
 from .jsongzip import JsonGzip
+from . import minify
 from .safepath import Jail, PathError
 
 VERSION = "0.1.0"
@@ -504,6 +505,8 @@ def create_app(cfg: Config) -> FastAPI:
         lifespan=announcing,
     )
     app.state.cfg = cfg
+    if getattr(cfg, "minify", False):
+        minify.warm(STATIC_DIR)                 # every module minified once, in the background
     # When this process started, so a board can tell "the machine has been up for months"
     # apart from "this Argus came up ten minutes ago". Set here rather than in the lifespan
     # so it is right in tests too, which build the app without ever starting it.
@@ -3052,6 +3055,14 @@ def render_index(html: str) -> str:
 
 def serve_static(requested: str, request: Request | None = None) -> Response:
     import gzip
+    minify_on = request is not None and getattr(request.app.state.cfg, "minify", False)
+    # The source map of a module served minified (app/minify.py): what developer tools ask for.
+    if requested.endswith(".js.map") and minify_on:
+        source = (STATIC_DIR / requested[:-4]).resolve()
+        if source.is_relative_to(STATIC_DIR) and source.is_file():
+            made = minify.minified(source, "/" + source.relative_to(STATIC_DIR).as_posix())
+            if made:
+                return Response(made[1], media_type="application/json", headers={"cache-control": "no-cache"})
     target = (STATIC_DIR / (requested or "index.html")).resolve()
     # Never serve outside the static directory, whatever the URL says.
     if not (target == STATIC_DIR or target.is_relative_to(STATIC_DIR)) or not target.is_file():
@@ -3069,7 +3080,7 @@ def serve_static(requested: str, request: Request | None = None) -> Response:
     cache = "public, max-age=31536000, immutable" if pinned else "no-cache"
     media = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
     st = target.stat()
-    etag = f'"{st.st_mtime_ns:x}-{st.st_size:x}"'
+    etag = f'"{st.st_mtime_ns:x}-{st.st_size:x}{"m" if minify_on and minify.esbuild() else ""}"'
     if target.name == "index.html":
         body = render_index(target.read_text(encoding="utf-8")).encode()
         import hashlib
@@ -3088,10 +3099,18 @@ def serve_static(requested: str, request: Request | None = None) -> Response:
         headers["access-control-allow-origin"] = "*"
     if request is not None and etag in (request.headers.get("if-none-match") or ""):
         return Response(status_code=304, headers=headers)
-    body = target.read_bytes()
+    body = None
+    module = target.suffix == ".js" and (target == STATIC_DIR / "app.js" or target.parent == STATIC_DIR / "js")
+    if module and minify_on:
+        made = minify.minified(target, "/" + target.relative_to(STATIC_DIR).as_posix())
+        if made:
+            body = made[0]
+    small = body is not None
+    if body is None:
+        body = target.read_bytes()
     wants_gzip = request is not None and "gzip" in (request.headers.get("accept-encoding") or "")
     if wants_gzip and len(body) > 1024 and media.startswith(COMPRESSIBLE):
-        key = (str(target), st.st_mtime_ns, st.st_size)
+        key = (str(target) + ("#min" if small else ""), st.st_mtime_ns, st.st_size)
         packed = _gzipped.get(key)
         if packed is None:
             packed = gzip.compress(body, compresslevel=6, mtime=0)
