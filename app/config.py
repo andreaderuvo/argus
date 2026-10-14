@@ -195,6 +195,9 @@ class Config:
     # Ask github.com once a day whether a newer tag exists. It sends nothing — not even
     # which version is running — and it never updates anything. Off is a supported answer.
     check_releases: bool = True
+    # Serve the app's JavaScript minified, made on the fly by esbuild when it is installed
+    # (app/minify.py): half the bytes, half the reading. The files on disk stay as written.
+    minify: bool = True
     # Optional delivery to an ntfy server, for the case an open browser cannot cover: the
     # phone is locked or the tab has been closed. The topic is effectively a password on a
     # public ntfy server, so the generated config leaves this empty and the documentation
@@ -406,6 +409,7 @@ class Config:
             drop_dir=_drop_dir(raw),
             drop_keep_days=int(raw.get("drop_keep_days", 0) or 0),
             check_releases=bool(raw.get("check_releases", True)),
+            minify=bool(raw.get("minify", True)),
             ntfy=dict(raw.get("ntfy") or {}),
             report_to=dict(raw.get("report_to") or {}),
             obey_board=bool(raw.get("obey_board", False)),

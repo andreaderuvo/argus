@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import gzip
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 
@@ -25,7 +26,7 @@ def test_compressed_when_asked_and_identical_once_unpacked(tmp_path):
     assert packed.headers["content-encoding"] == "gzip" and packed.headers["vary"] == "accept-encoding"
     assert packed.content == plain.content, "httpx unpacks it: the same file"
     raw = c.get("/js/wall.js", headers={"accept-encoding": "gzip"}, extensions={})
-    assert len(gzip.compress(plain.content)) < len(plain.content) / 3
+    assert len(gzip.compress(plain.content)) < len(plain.content) / 2
 
 
 def test_a_reload_asks_and_gets_304(tmp_path):
@@ -74,3 +75,21 @@ def test_a_module_loaded_on_demand_is_mapped_but_not_preloaded(tmp_path):
     assert '"/js/mountwizard.js":"/js/mountwizard.js?v=' in html, "its import() still gets the versioned address"
     assert 'modulepreload" href="/js/mountwizard.js' not in html, "but it is not fetched at start"
     assert 'modulepreload" href="/js/main.js' in html
+
+
+def test_modules_go_out_minified_with_their_map_and_as_written_when_off(tmp_path):
+    import pytest
+    from app import minify
+    if not minify.esbuild():
+        pytest.skip("no esbuild here (npm ci)")
+    source = (Path(__file__).resolve().parents[1] / "static" / "js" / "wall.js").read_bytes()
+    c = client(tmp_path)
+    small = c.get("/js/wall.js")
+    assert len(small.content) < len(source) / 2 and small.text.rstrip().endswith("//# sourceMappingURL=wall.js.map")
+    sourcemap = c.get("/js/wall.js.map").json()
+    assert sourcemap["sources"] == ["/js/wall.js"] and sourcemap["sourcesContent"][0] == source.decode()
+    cfg = Config(token="m" * 64, roots=[tmp_path])
+    cfg.minify = False
+    plain = TestClient(create_app(cfg)).get("/js/wall.js")
+    assert plain.content == source, "minify: false — the file as written"
+    assert small.headers["etag"] != plain.headers["etag"]

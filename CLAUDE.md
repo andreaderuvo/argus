@@ -476,6 +476,11 @@ fails if it comes back. Before adding anything, keep these true:
   giving every module a `?v=<hash>` address (cached for ever) and `modulepreload` for what app.js
   imports at boot (`booted_modules`). A module loaded with `import('/js/…')` is mapped, not preloaded.
 - **JSON answers are gzipped** by `app/jsongzip.py` — JSON only, never files or streams.
+- **JavaScript is served minified** by `app/minify.py` (esbuild from `npm ci`, `--keep-names`, source
+  map beside it): 1.27 MB → 0.63 MB. Never committed minified; `minify: false` in the config or
+  `ARGUS_ESBUILD=off` serves the files as written, and so does a machine without esbuild. Measured
+  honestly: no faster at 20 Mbit/s (round trips dominate), 12% faster at 2 Mbit/s. The browser suite
+  runs against the minified code whenever esbuild is installed.
 - **Processes from /proc, once** (`app/procs.py`, shared 0.5 s): never `ps` in a request path where
   /proc exists. `list_sessions` is ONE tmux call (`;`-joined commands); per-terminal questions are
   batched (`/api/tmux/copymodes`, `/api/tmux/cwds`) — one request and one tmux call per round.
