@@ -1381,18 +1381,35 @@ export function paintRailFades() {
   const bottom = nav.querySelector('.railfade.bottom');
   const above = nav.scrollTop > 2;
   const below = nav.scrollTop + nav.clientHeight < nav.scrollHeight - 2;
+  // Every write below only when the value changes. This runs from a MutationObserver on the rail,
+  // and writing the same `hidden` or the same text is still a mutation: it called itself again on
+  // the next frame, sixty times a second for ever — 40% of an old PC's CPU with nothing on screen
+  // moving (measured 2026-10-14: 6,600 style recalculations in 10 idle seconds).
   nav.classList.toggle('more-above', above);
   nav.classList.toggle('more-below', below);
-  if (top) top.hidden = !above;
+  if (top && top.hidden !== !above) top.hidden = !above;
   // Held right against the file-panel toggle, whatever its height: a gap there showed a row through it.
-  nav.style.setProperty('--sideh', `${document.getElementById('sidetoggle')?.offsetHeight || 0}px`);
+  const sideh = `${document.getElementById('sidetoggle')?.offsetHeight || 0}px`;
+  if (nav.style.getPropertyValue('--sideh') !== sideh) nav.style.setProperty('--sideh', sideh);
   if (bottom) {
-    bottom.hidden = !below;
-    const edge = nav.getBoundingClientRect().bottom - (document.getElementById('sidetoggle')?.offsetHeight || 0);
-    const hidden = [...nav.querySelectorAll('a[data-tab], .railwin')].filter((n) => n.getClientRects().length && n.getBoundingClientRect().top >= edge).length;
+    if (bottom.hidden !== !below) bottom.hidden = !below;
     const more = bottom.querySelector('.railmore');
-    if (more) more.textContent = hidden ? t('{n} more', { n: hidden }) : '';
+    let said = '';
+    if (below && more) {
+      const edge = nav.getBoundingClientRect().bottom - (document.getElementById('sidetoggle')?.offsetHeight || 0);
+      const hidden = [...nav.querySelectorAll('a[data-tab], .railwin')].filter((n) => n.getClientRects().length && n.getBoundingClientRect().top >= edge).length;
+      said = hidden ? t('{n} more', { n: hidden }) : '';
+    }
+    if (more && more.textContent !== said) more.textContent = said;
   }
+}
+
+// One paint per frame however many changes arrive in it.
+let fadesQueued = false;
+function queueRailFades() {
+  if (fadesQueued) return;
+  fadesQueued = true;
+  requestAnimationFrame(() => { fadesQueued = false; paintRailFades(); });
 }
 
 let fadesWatched = false;
@@ -1402,7 +1419,7 @@ function watchRailFades() {
   fadesWatched = true;
   nav.addEventListener('scroll', paintRailFades, { passive: true });
   addEventListener('resize', paintRailFades, { passive: true });
-  new MutationObserver(() => requestAnimationFrame(paintRailFades)).observe(nav, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden'] });
+  new MutationObserver(queueRailFades).observe(nav, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden'] });
   nav.querySelector('.railfade.bottom')?.addEventListener('click', () => nav.scrollBy({ top: nav.clientHeight * 0.75, behavior: 'smooth' }));
   paintRailFades();
 }

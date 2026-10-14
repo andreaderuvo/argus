@@ -2158,11 +2158,15 @@ def create_app(cfg: Config) -> FastAPI:
         # `rename`: the desk called that is called `name` from now on. Done here, on the machine,
         # and told to the pages: a page keeps its desks in memory and saves them whole, so a name
         # changed only in the stored preferences came back the next time any page saved.
+        # "Rename the desk" from an agent means *its* desk: no `rename`, but the session asking —
+        # the desk holding that session, when there is exactly one.
+        if not body.get("rename") and body.get("rename_mine") and body.get("asker"):
+            body["rename"] = desk_of_session(request, str(body["asker"]))
         if body.get("rename"):
             try:
                 desk = await asyncio.to_thread(rename_desk, request, " ".join(str(body["rename"]).split()), name)
             except KeyError:
-                raise ApiError(404, f"no desk called {body['rename']}") from None
+                raise ApiError(404, no_such_desk(request, str(body["rename"]), str(body.get("asker") or ""))) from None
             except ValueError as e:
                 raise ApiError(409, str(e)) from e
             bells.announce(request, {"what": "desk", "id": desk["id"], "desk": desk["name"], "renamed": True,
@@ -2841,6 +2845,36 @@ def set_desk_home(request: Request, desk_id, folder: str, only_if_none: bool = F
     found["home"] = folder
     prefs.save(store, version + 1, prefs.merge(doc, {"workspaces": spaces}))
     return found
+
+
+def desk_of_session(request: Request, session: str) -> str:
+    """The name of the one desk with a window on `session`; ApiError when there is none or several
+    (then which ones, so the agent can say)."""
+    _, doc = prefs.load(request.app.state.prefs)
+    mine = [str(w.get("name", "")) for w in (doc.get("workspaces") or []) if isinstance(w, dict)
+            and any(isinstance(x, dict) and x.get("kind") == "term" and x.get("name") == session for x in (w.get("desktop") or []))]
+    if not mine:
+        raise ApiError(404, f"your session {session} is in no desk — name the desk to rename")
+    if len(mine) > 1:
+        raise ApiError(409, f"your session {session} is in several desks: " + ", ".join(repr(n) for n in mine) + " — name the one to rename")
+    return mine[0]
+
+
+def no_such_desk(request: Request, asked: str, asker: str = "") -> str:
+    """The refusal that lets an agent get it right the next time: the desks there are, and — when
+    it said which session it is — the desk(s) its own session is in. An agent asked to "rename my
+    desk" guessed a name from its session's ("a-deruvo su codex") and got only "no desk called"."""
+    _, doc = prefs.load(request.app.state.prefs)
+    spaces = [w for w in (doc.get("workspaces") or []) if isinstance(w, dict)]
+    said = f"no desk called {asked!r} — the desks are: " + ", ".join(repr(str(w.get("name", ""))) for w in spaces)
+    if asker:
+        mine = [str(w.get("name", "")) for w in spaces
+                if any(x.get("kind") == "term" and x.get("name") == asker for x in (w.get("desktop") or []) if isinstance(x, dict))]
+        if mine:
+            said += f"; your session {asker} is in " + " and ".join(repr(n) for n in mine)
+        else:
+            said += f"; your session {asker} is in no desk"
+    return said
 
 
 def rename_desk(request: Request, was: str, name: str) -> dict:

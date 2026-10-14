@@ -333,17 +333,24 @@ class Argus:
         return self.call("GET", f"/api/git/worktrees?path={quote(str(path))}")
 
     def desk(self, name: str, folder: str | Path | None = None, show: bool = True, rename: str | None = None,
-             session: str | None = None) -> dict:
+             session: str | None = None, asker: str | None = None, rename_mine: bool = False) -> dict:
         """The desk called `name` — made empty if there is none — and, with `show`, switched to in
         every open page. `folder` is where its browsers and new sessions start. `rename="Desk 11"`
         instead gives that desk the name `name`, on every open page too. Returns
         `{id, name, made, folder}`. Nothing here removes a desk or what is in it. `session` also puts
-        a window on that (existing) session in the desk."""
+        a window on that (existing) session in the desk. `asker`: the session asking, so a rename of
+        a desk that is not there says which desk that session is in; `rename_mine=True` (with `asker`)
+        renames the desk that session is in, without naming it."""
         body = {"name": name, "show": show}
         if session:
             body["session"] = session
-        if rename:
-            body["rename"] = rename
+        if rename or rename_mine:
+            if rename:
+                body["rename"] = rename
+            else:
+                body["rename_mine"] = True     # the desk holding the asking session
+            if asker:
+                body["asker"] = asker          # a wrong name is answered with the desk this session is in
         if folder:
             body["folder"] = str(folder)
         return self.call("POST", "/api/desks", body)
@@ -508,9 +515,12 @@ def _as_mcp(args) -> int:
     if args.what == "launchers" and args.json:
         print(json.dumps(argus.launchers(versions=True), indent=1))
         return 0
+    if args.what == "desk" and not args.name and not args.to:
+        print("argus-say desk: name the desk — or --to <name> to rename the desk you are in", file=sys.stderr)
+        return 2
     tool, given = {
         "ask": lambda: ("ask", {"question": args.question, "options": args.option or None, "wait_minutes": args.minutes}),
-        "desk": lambda: (("rename_desk", {"desk": args.name, "to": args.to}) if args.to else
+        "desk": lambda: (("rename_desk", {"desk": args.name or "", "to": args.to}) if args.to else
                          ("open_desk", {"name": args.name, "folder": args.folder, "session": args.session,
                                         "show": not args.quiet})),
         "launchers": lambda: ("launchers", {}),
@@ -597,7 +607,7 @@ def main(argv: list[str] | None = None) -> int:
     ak.add_argument("--option", action="append", default=[], help="a button to offer; repeat for more")
     ak.add_argument("--minutes", type=float, default=10, help="how long to wait (1-60, default 10)")
     dk = subs.add_parser("desk", help="open a desk by name (made if there is none), set its folder, put a session on it, or rename it")
-    dk.add_argument("name")
+    dk.add_argument("name", nargs="?", help="the desk; with --to and no name, the desk you are in")
     dk.add_argument("--folder", help="where its browsers and new sessions start (changed on a desk that exists too)")
     dk.add_argument("--session", help="also put a window on this existing session in the desk")
     dk.add_argument("--to", help="rename the desk to this")
