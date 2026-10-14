@@ -28,7 +28,7 @@ import subprocess
 import time
 from pathlib import Path
 
-from . import tmux
+from . import procs, tmux
 from .agentstate import KNOWN, agent_in, parse_ps
 
 KEEP_LOST = 14 * 86400          # a loss nobody acted on for two weeks is not going to be
@@ -148,11 +148,14 @@ def snapshot(sock: tmux.Socket, names: frozenset[str], told: dict[str, str]) -> 
     p = _tmux(sock, "list-panes", "-a", "-F", "#{session_name}\t#{pane_pid}\t#{pane_current_path}")
     if p is None or p.returncode != 0:
         return None
-    try:
-        ps = subprocess.run(["ps", "-ww", "-eo", "pid=,ppid=,args="], capture_output=True, text=True, timeout=5)
-        tree = parse_ps(ps.stdout) if ps.returncode == 0 else {}
-    except (OSError, subprocess.SubprocessError):
-        return None
+    # /proc (app/procs.py), read fresh: every 30 s, and right after a server died is when it matters.
+    tree = procs.tree(fresh_for=0)
+    if tree is None:
+        try:
+            ps = subprocess.run(["ps", "-ww", "-eo", "pid=,ppid=,args="], capture_output=True, text=True, timeout=5)
+            tree = parse_ps(ps.stdout) if ps.returncode == 0 else {}
+        except (OSError, subprocess.SubprocessError):
+            return None
     out: dict[str, dict] = {}
     for line in p.stdout.splitlines():
         parts = line.split("\t")

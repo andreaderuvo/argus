@@ -1,6 +1,6 @@
 // App shell only. The API and the terminal must never be served from a cache — stale
 // file listings are confusing, and a cached WebSocket is meaningless.
-const CACHE = 'argus-v337s';
+const CACHE = 'argus-v343s';
 const SHELL = [
   '/',
   '/style.css',
@@ -110,7 +110,9 @@ self.addEventListener('fetch', (e) => {
        *  is a page with no behaviour and no explanation. Failing properly is better — the
        *  console then says which file did not load.
        */
-      .catch(() => caches.match(e.request).then((hit) => hit
+      // ignoreSearch: the page asks for `/js/x.js?v=<hash>` (versioned by the server), the
+      // shell was cached as `/js/x.js` — offline, either answers.
+      .catch(() => caches.match(e.request, { ignoreSearch: true }).then((hit) => hit
         || (e.request.mode === 'navigate' ? caches.match('/') : Response.error()))),
   );
 });

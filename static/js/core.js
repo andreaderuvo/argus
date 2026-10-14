@@ -7,9 +7,9 @@ import { api, getJSON, patchJSON } from '/js/reconnect.js';
 import { go } from '/js/router.js';
 import { keyHelp } from '/js/shortcuts.js';
 import { applyRail } from '/js/sidebar.js';
-import { CAN_FULLSCREEN, MINE_ONLY, PREFS_KEY, VITALS_EVERY, bar, baseline, changedKeys, knownDesks, prefs, pushing, railToggle, server, setBaseline, setPrefsVersion, setPushing, setVitalsTimer, vitalsTimer } from '/js/state.js';
+import { CAN_FULLSCREEN, MINE_ONLY, PREFS_KEY, VITALS_EVERY, bar, baseline, baselineSent, changedKeys, knownDesks, prefs, pushing, railToggle, server, setBaseline, setPrefsVersion, setPushing, setVitalsTimer, vitalsTimer } from '/js/state.js';
 import { applyTheme } from '/js/theme.js';
-import { nextWindowId, openWindow } from '/js/tray.js';
+import { nextWindowId, openWindow, tidyLinks } from '/js/tray.js';
 import { levelWord, worstVital } from '/js/vitals.js';
 import { t } from '/js/words.js';
 // </imports>
@@ -140,7 +140,8 @@ export function savePrefs() {
    */
   clearTimeout(pushing);
   setPushing(setTimeout(async () => {
-    const changes = changedKeys();
+    const texts = {};
+    const changes = changedKeys(texts);
     if (!Object.keys(changes).length) return;
     try {
       const said = await patchJSON('/api/prefs', {
@@ -149,7 +150,9 @@ export function savePrefs() {
       setPrefsVersion(said.version);
       // The machine kept a desk this page had not seen: take it in, so the next save carries it.
       if (said.workspaces?.some((w) => !(prefs.workspaces || []).some((m) => m.id === w.id))) adoptDesks();
-      setBaseline(JSON.parse(JSON.stringify(prefs)));
+      // What went is what the machine now has — not the whole document copied again, and not
+      // whatever changed here while the request was out (that goes with the next save).
+      baselineSent(changes, texts);
     } catch (e) {
       // Offline, or a server too old to have this: the browser goes on working from its own
       // copy and tries again on the next save. Not a toast — this happens in the background and
@@ -205,6 +208,11 @@ export async function syncPrefs() {
     }
     setPrefsVersion(said.version);
     setBaseline(JSON.parse(JSON.stringify(prefs)));
+    // Links kept one key per desk now, and none for a desk that is gone (tray.js): done after the
+    // baseline, so that what it changes is what the next save sends.
+    const before = Object.keys(prefs).filter((k) => k === 'links' || k.startsWith('links.')).join();
+    tidyLinks();
+    if (Object.keys(prefs).filter((k) => k === 'links' || k.startsWith('links.')).join() !== before) savePrefs();
   } catch (e) {
     console.warn(`argus: the machine's preferences could not be read — ${e.message}`);
   }

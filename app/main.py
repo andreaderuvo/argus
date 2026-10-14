@@ -32,6 +32,7 @@ import httpx
 from .auth import PROXY_COOKIE, TokenAuthMiddleware
 from .config import Config, ConfigError, default_path
 from .errors import ApiError
+from .jsongzip import JsonGzip
 from .safepath import Jail, PathError
 
 VERSION = "0.1.0"
@@ -1814,6 +1815,17 @@ def create_app(cfg: Config) -> FastAPI:
         # read off the process holding the terminal, one tmux observed, and the one the pane
         # was made in are four different degrees of true, and a browser that is told which
         # can say the right sentence instead of a plausible one.
+        return where_answer(name, found)
+
+    @app.get("/api/tmux/cwds", tags=["Sessions"], summary="Where several sessions are, in one look")
+    async def pane_directories(request: Request, sessions: str = "") -> dict:
+        """`sessions`: names one per line — a desk's terminals, together, with one tmux call.
+        Only what tmux lists is answered; the rest is `{gone: true}`."""
+        names = [s for s in sessions.split("\n") if s][:200]
+        found = await asyncio.to_thread(paths.pane_wheres, request.app.state.socket, names)
+        return {"sessions": {n: (where_answer(n, f) if f else {"session": n, "gone": True}) for n, f in found.items()}}
+
+    def where_answer(name: str, found: dict) -> dict:
         return {
             "session": name,
             "cwd": found["cwd"],
@@ -1842,6 +1854,13 @@ def create_app(cfg: Config) -> FastAPI:
             if missing_ok:
                 return {"session": session, "gone": True, "in_mode": False}
             raise
+
+    @app.get("/api/tmux/copymodes", tags=["Sessions"], summary="Copy mode of several sessions, in one look")
+    async def read_copy_modes(request: Request, sessions: str = "") -> dict:
+        """`sessions`: names one per line. Every terminal on a page asks together, once per
+        round, with one tmux call — only what tmux lists is answered, the rest is `gone`."""
+        names = [s for s in sessions.split("\n") if s][:200]
+        return {"sessions": await asyncio.to_thread(tmux.copy_modes, request.app.state.socket, names)}
 
     @app.post("/api/tmux/copymode", tags=["Sessions"], summary="Back to the live end")
     async def exit_copy_mode(request: Request, body: dict) -> dict:
@@ -2730,8 +2749,8 @@ def create_app(cfg: Config) -> FastAPI:
             "x-content-type-options": "nosniff", "referrer-policy": "no-referrer"})
 
     @app.get("/{requested:path}", include_in_schema=False)
-    async def static_handler(requested: str) -> Response:
-        return serve_static(requested)
+    async def static_handler(request: Request, requested: str) -> Response:
+        return serve_static(requested, request)
 
     @app.middleware("http")
     async def say_nothing_outward(request: Request, call_next):
@@ -2790,6 +2809,8 @@ def create_app(cfg: Config) -> FastAPI:
     # put on the scope. Written here rather than in twenty handlers so a route added next month
     # is recorded without anybody remembering to.
     app.add_middleware(JournalMiddleware, store_of=lambda: app.state.journal)
+    # Outermost: JSON answers leave compressed (app/jsongzip.py), files and streams as they are.
+    app.add_middleware(JsonGzip)
     return app
 
 
@@ -2945,7 +2966,92 @@ def app_manifest(host: str) -> Response:
     )
 
 
-def serve_static(requested: str) -> Response:
+# The app's own files, compressed once per version of each and kept: 1.9 MB of JavaScript and CSS
+# went out uncompressed on every load — and, `no-cache` with nothing to revalidate against, in
+# full on every reload. On an old PC over a VPN that was the slowness (measured 2026-10-14).
+COMPRESSIBLE = ("text/", "application/javascript", "application/json", "image/svg+xml", "application/manifest+json")
+_gzipped: dict[tuple[str, int, int], bytes] = {}
+
+
+# Versioned addresses for the app's own modules and stylesheet.
+#
+# The page is 51 ES modules and no bundler. Over plain http (no service worker) a reload asked the
+# server about every one of them ("still the same?" → 304), and the browser found them one level
+# of imports at a time: on a 100 ms link the page took 1.9 s to open and 1.8 s to reload
+# (measured 2026-10-14). index.html is now served with an import map that gives every module an
+# address carrying its content's hash (`/js/wall.js?v=3f9c…`), which the browser may keep for
+# ever — a changed file has a new address — and a `modulepreload` for each, so they are asked for
+# all at once instead of in waves. Only index.html is asked again on a reload.
+_versions: dict[tuple[str, int, int], str] = {}
+
+
+def version_of(path: Path) -> str:
+    st = path.stat()
+    key = (str(path), st.st_mtime_ns, st.st_size)
+    found = _versions.get(key)
+    if found is None:
+        import hashlib
+        found = hashlib.sha1(path.read_bytes()).hexdigest()[:12]
+        if len(_versions) > 2000:
+            _versions.clear()
+        _versions[key] = found
+    return found
+
+
+def versioned_modules() -> dict[str, str]:
+    """'/js/wall.js' → '/js/wall.js?v=<hash>', for app.js and every module under js/."""
+    out = {}
+    for path in [STATIC_DIR / "app.js", *sorted((STATIC_DIR / "js").glob("*.js"))]:
+        if path.is_file():
+            rel = "/" + path.relative_to(STATIC_DIR).as_posix()
+            out[rel] = f"{rel}?v={version_of(path)}"
+    return out
+
+
+def booted_modules() -> list[str]:
+    """The modules app.js loads at start: its static imports, followed."""
+    seen: list[str] = []
+    todo = ["/app.js"]
+    while todo:
+        rel = todo.pop()
+        if rel in seen:
+            continue
+        path = STATIC_DIR / rel.lstrip("/")
+        if not path.is_file():
+            continue
+        seen.append(rel)
+        text = path.read_text(encoding="utf-8")
+        todo += re.findall(r"""^\s*import\s+(?:[^'";]*?\s+from\s+)?['"](/js/[\w.-]+\.js)['"]""", text, re.M)
+    return seen
+
+
+def render_index(html: str) -> str:
+    import json as _json
+    mods = versioned_modules()
+    style = STATIC_DIR / "style.css"
+    if style.is_file():
+        html = html.replace('href="/style.css"', f'href="/style.css?v={version_of(style)}"', 1)
+    html = html.replace('src="/app.js"', f'src="{mods.get("/app.js", "/app.js")}"', 1)
+    m = re.search(r'(<script type="importmap">\s*)(\{.*?\})(\s*</script>)', html, re.S)
+    imports = {}
+    if m:
+        try:
+            imports = _json.loads(m.group(2)).get("imports", {})
+        except ValueError:
+            imports = {}
+    merged = _json.dumps({"imports": {**imports, **mods}}, separators=(",", ":"))
+    if m:
+        html = html[:m.start(2)] + merged + html[m.end(2):]
+    else:
+        html = html.replace("</head>", f'<script type="importmap">{merged}</script>\n</head>', 1)
+    # Preloaded: what app.js imports, directly or not — a module loaded only on demand
+    # (`import('/js/…')`, the mount wizard) keeps its versioned address but is not fetched at start.
+    preload = "".join(f'<link rel="modulepreload" href="{mods[m]}">' for m in booted_modules() if m in mods)
+    return html.replace("</head>", preload + "\n</head>", 1)
+
+
+def serve_static(requested: str, request: Request | None = None) -> Response:
+    import gzip
     target = (STATIC_DIR / (requested or "index.html")).resolve()
     # Never serve outside the static directory, whatever the URL says.
     if not (target == STATIC_DIR or target.is_relative_to(STATIC_DIR)) or not target.is_file():
@@ -2954,16 +3060,47 @@ def serve_static(requested: str) -> Response:
             return Response(PLACEHOLDER, media_type="text/html", status_code=503)
         target = index
 
-    # Vendored libraries carry their version in the path, so they are safe to pin. The
-    # app's own files must not be, or an update never reaches an installed PWA.
-    cache = "public, max-age=31536000, immutable" if requested.startswith("vendor/") else "no-cache"
+    # Vendored libraries carry their version in the path, so they are safe to pin; so does a
+    # module asked for under the address index.html gave it (`?v=` its hash, render_index). The
+    # app's own files otherwise must not be, or an update never reaches an installed PWA — but
+    # they say which version they are (ETag), so a reload asks "still this one?" and gets 304.
+    asked_v = request.query_params.get("v") if request is not None else None
+    pinned = requested.startswith("vendor/") or (asked_v is not None and asked_v == version_of(target))
+    cache = "public, max-age=31536000, immutable" if pinned else "no-cache"
     media = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
-    headers = {"cache-control": cache}
+    st = target.stat()
+    etag = f'"{st.st_mtime_ns:x}-{st.st_size:x}"'
+    if target.name == "index.html":
+        body = render_index(target.read_text(encoding="utf-8")).encode()
+        import hashlib
+        etag = f'"i{hashlib.sha1(body).hexdigest()[:16]}"'
+        headers = {"cache-control": "no-cache", "etag": etag, "vary": "accept-encoding"}
+        if request is not None and etag in (request.headers.get("if-none-match") or ""):
+            return Response(status_code=304, headers=headers)
+        if request is not None and "gzip" in (request.headers.get("accept-encoding") or ""):
+            headers["content-encoding"] = "gzip"
+            body = gzip.compress(body, compresslevel=6, mtime=0)
+        return Response(body, media_type="text/html", headers=headers)
+    headers = {"cache-control": cache, "etag": etag, "vary": "accept-encoding"}
     # A viewer pack runs at an opaque origin, and a module it imports is fetched with CORS:
     # the vendored libraries are public files anyway, so they say anyone may load them.
     if requested.startswith("vendor/"):
         headers["access-control-allow-origin"] = "*"
-    return Response(target.read_bytes(), media_type=media, headers=headers)
+    if request is not None and etag in (request.headers.get("if-none-match") or ""):
+        return Response(status_code=304, headers=headers)
+    body = target.read_bytes()
+    wants_gzip = request is not None and "gzip" in (request.headers.get("accept-encoding") or "")
+    if wants_gzip and len(body) > 1024 and media.startswith(COMPRESSIBLE):
+        key = (str(target), st.st_mtime_ns, st.st_size)
+        packed = _gzipped.get(key)
+        if packed is None:
+            packed = gzip.compress(body, compresslevel=6, mtime=0)
+            if len(_gzipped) > 400:
+                _gzipped.clear()
+            _gzipped[key] = packed
+        headers["content-encoding"] = "gzip"
+        return Response(packed, media_type=media, headers=headers)
+    return Response(body, media_type=media, headers=headers)
 
 
 def reachable_addresses() -> list[str]:

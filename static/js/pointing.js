@@ -61,6 +61,7 @@ export async function applyPointed(list, path, isTree) {
   if (Date.now() - pointedAt > POINT_TTL) { pointed = null; return; }
   if (!(isTree ? under(path, target) : parentOf(target) === path)) return;
   pointed = null;
+  list.finishRows?.();            // the row may be in the part of a long listing not drawn yet
 
   if (isTree) {
     for (const step of trail(path, target).slice(0, -1)) {

@@ -104,9 +104,18 @@ def _int(s: str) -> int:
 
 
 def list_sessions(sock: Socket) -> list[dict]:
+    """Every session, with its note and its last activity — in ONE tmux call (three commands
+    joined by `;`). It was three processes one after the other, on every Sessions screen, every
+    overview a board asks for and every count in the header (measured 2026-10-14)."""
     try:
         p = subprocess.run(
-            ["tmux", *sock.args(), "list-sessions", "-F", FORMAT],
+            ["tmux", *sock.args(),
+             "list-sessions", "-F", "S\t" + FORMAT, ";",
+             # The notes: their own lines, so a note can never confuse the fields above.
+             "list-sessions", "-F", f"N\t#{{session_name}}\t#{{{NOTE_OPTION}}}", ";",
+             # `session_activity` moves only when a client does something; a program printing does
+             # not touch it. Its windows' `window_activity` does: the last activity is the latest.
+             "list-windows", "-a", "-F", "W\t#{session_name}\t#{window_activity}"],
             capture_output=True,
             text=True,
         )
@@ -117,36 +126,23 @@ def list_sessions(sock: Socket) -> list[dict]:
         if is_no_server(p.stderr):
             return []
         raise TmuxError(p.stderr.strip() or "tmux failed")
-    out = parse_sessions(p.stdout)
-    # The notes, in one more call: a separate format so a note can never confuse the fields above.
-    try:
-        n = subprocess.run(["tmux", *sock.args(), "list-sessions", "-F", f"#{{session_name}}\t#{{{NOTE_OPTION}}}"],
-                           capture_output=True, text=True, timeout=4)
-        notes = {}
-        for line in n.stdout.splitlines():
-            name, _, note = line.partition("\t")
+    rows, notes, latest = [], {}, {}
+    for line in p.stdout.splitlines():
+        kind, _, rest = line.partition("\t")
+        if kind == "S":
+            rows.append(rest)
+        elif kind == "N":
+            name, _, note = rest.partition("\t")
             if name and note:
                 notes[name] = note
-        for s in out:
-            s["note"] = notes.get(s["name"], "")
-    except (OSError, subprocess.SubprocessError):
-        for s in out:
-            s["note"] = ""
-    # `session_activity` moves only when a client does something; a program printing does not
-    # touch it. Its windows' `window_activity` does, so the last activity is the latest of them —
-    # one list-windows for the whole server, whatever the number of sessions.
-    try:
-        w = subprocess.run(["tmux", *sock.args(), "list-windows", "-a", "-F", "#{session_name}\t#{window_activity}"],
-                           capture_output=True, text=True, timeout=4)
-        latest: dict[str, int] = {}
-        for line in w.stdout.splitlines():
-            name, _, when = line.rpartition("\t")
+        elif kind == "W":
+            name, _, when = rest.rpartition("\t")
             if name and when.strip().isdigit():
                 latest[name] = max(latest.get(name, 0), int(when))
-        for s in out:
-            s["activity"] = max(s["activity"], latest.get(s["name"], 0))
-    except (OSError, subprocess.SubprocessError):
-        pass
+    out = parse_sessions("\n".join(rows))
+    for s in out:
+        s["note"] = notes.get(s["name"], "")
+        s["activity"] = max(s["activity"], latest.get(s["name"], 0))
     return out
 
 
@@ -438,6 +434,32 @@ def copy_mode(sock: Socket, session: str) -> dict:
     if done.returncode != 0 or len(parts) < 3:
         return {"in_mode": False, "position": 0, "alternate": False}
     return {"in_mode": parts[0] == "1", "position": _int(parts[1]), "alternate": parts[2] == "1"}
+
+
+def copy_modes(sock: Socket, sessions: list[str]) -> dict[str, dict]:
+    """`copy_mode` for many sessions in ONE tmux call — the active pane of each one's active
+    window, which is what an attached client shows. A desk of four terminals asked once each
+    every 2.5 s, two tmux processes per question (is it there? what mode?): 32 a minute… per
+    page, and each tab or device its own. Sessions not listed come back `{gone: True}`."""
+    wanted = set(sessions)
+    out: dict[str, dict] = {}
+    try:
+        done = subprocess.run(
+            ["tmux", *sock.args(), "list-panes", "-a", "-F",
+             "#{window_active}#{pane_active}\t#{pane_in_mode}\t#{scroll_position}\t#{alternate_on}\t#{session_name}"],
+            capture_output=True, text=True, timeout=4,
+        )
+    except (OSError, subprocess.SubprocessError):
+        done = None
+    if done is not None and done.returncode == 0:
+        for line in done.stdout.splitlines():
+            parts = line.split("\t", 4)
+            if len(parts) < 5 or parts[0] != "11" or parts[4] not in wanted:
+                continue
+            out[parts[4]] = {"in_mode": parts[1] == "1", "position": _int(parts[2]), "alternate": parts[3] == "1"}
+    for name in wanted - out.keys():
+        out[name] = {"in_mode": False, "position": 0, "alternate": False, "gone": True}
+    return out
 
 
 def leave_copy_mode(sock: Socket, session: str) -> bool:

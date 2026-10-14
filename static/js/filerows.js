@@ -4,14 +4,12 @@ import { ask, confirmBox, copyPath, copyText, modal, popMenu, toast } from '/js/
 import { el } from '/js/dom.js';
 import { fileIcon } from '/js/fileicons.js';
 import { icon } from '/js/icons.js';
-import { mountWizard } from '/js/mountwizard.js';
 import { pickable } from '/js/picking.js';
 import { bidi, getJSON, homePath, human, isFavourite, parentOf, postJSON, setHome, toggleFavourite, triggerDownload, visible, when, withToken } from '/js/reconnect.js';
 import { go } from '/js/router.js';
 import { refreshAllBrowsers } from '/js/screens.js';
 import { deskHere } from '/js/sidebar.js';
 import { prefs, server, token } from '/js/state.js';
-import { syncSheet } from '/js/syncsheet.js';
 import { chooseDesk, createSession, nextWindowId } from '/js/tray.js';
 import { t } from '/js/words.js';
 // </imports>
@@ -393,8 +391,8 @@ function fileItems(entry, refresh, dest, favGroup = 'main') {
       ? chooseDesk({ kind: 'changes', path: entry.path, what: 'work' }, t('Changes · {name}', { name: entry.name }))
       : go(`#/changes?path=${encodeURIComponent(entry.path)}`)) });
     items.push({ icon: 'grid', label: t('New desk here'), run: () => deskHere(entry.path) });
-    items.push({ icon: 'layers', label: t('Mount on your computer…'), run: () => mountWizard(entry.path) });
-    items.push({ icon: 'refresh', label: t('Sync to your computer…'), run: () => syncSheet(entry.path) });
+    items.push({ icon: 'layers', label: t('Mount on your computer…'), run: () => import('/js/mountwizard.js').then((m) => m.mountWizard(entry.path)) });
+    items.push({ icon: 'refresh', label: t('Sync to your computer…'), run: () => import('/js/syncsheet.js').then((m) => m.syncSheet(entry.path)) });
     items.push({ icon: 'terminal', label: t('Open a shell here'), run: async () => {
       const name = await createSession({ path: entry.path, suggest: entry.name });
       if (name) chooseDesk({ kind: 'term', name }, name);

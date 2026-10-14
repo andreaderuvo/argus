@@ -539,8 +539,6 @@ export function attachTerminal(container, name, { transform, onGone, onBack, onP
   const toEnd = el('button', { className: 'toend', title: t('Back to the live end'), hidden: true }, icon('down'));
   container.append(toEnd);
 
-  const ASK_EVERY = 2500;
-  let asking = null;
 
   const onScreen = () => !document.hidden && container.getClientRects().length > 0;
   // The terminal's own scrollback, for a session tmux is not driving the mouse for.
@@ -552,8 +550,7 @@ export function attachTerminal(container, name, { transform, onGone, onBack, onP
 
   let historyNow = false;            // tmux in copy mode, as last asked
   const check = async () => {
-    if (disposed) { clearInterval(asking); asking = null; return; }
-    if (!onScreen()) return;
+    if (disposed || !onScreen()) return;
     let inMode = false;
     try {
       const where = await getJSON(`/api/tmux/copymode?session=${encodeURIComponent(name)}&missing_ok=1`);
@@ -566,9 +563,14 @@ export function attachTerminal(container, name, { transform, onGone, onBack, onP
     toEnd.hidden = !(inMode || ownScrollback());
   };
 
-  const startAsking = () => { if (!asking) asking = setInterval(check, ASK_EVERY); };
-  const stopAsking = () => { clearInterval(asking); asking = null; };
-  startAsking();
+  // The round: every terminal on the page together (watchCopyMode), one request, one tmux call.
+  const heard = (where) => {
+    if (disposed) return;
+    historyNow = !!where.in_mode;
+    fullScreen = !!where.alternate;
+    toEnd.hidden = !(historyNow || ownScrollback());
+  };
+  const stopAsking = watchCopyMode(name, onScreen, heard);
 
   // A wheel is not proof of anything — the program under the pointer may have taken it —
   // but it is the moment to ask rather than wait out the interval. Capture phase: xterm
@@ -1392,4 +1394,34 @@ export async function screenTerm(name) {
       handle.dispose();
     },
   });
+}
+
+/* "Is this session showing history?", for every terminal on the page at once.
+ *
+ *  Each terminal used to ask on its own, every 2.5 s, and each question cost two tmux processes on
+ *  the server: a desk of four was 32 a minute per tab (measured 2026-10-14, "everything is slow on
+ *  an old PC"). Now one round asks for all the terminals on screen in one request — one tmux call.
+ *  A wheel still asks at once, for its own terminal (check above). */
+const COPY_EVERY = 2500;
+const copyWatchers = new Map();       // heard → { name, visible }
+let copyRound = null;
+
+async function askCopyModes() {
+  const live = [...copyWatchers].filter(([, w]) => w.visible());
+  if (!live.length) return;
+  const names = [...new Set(live.map(([, w]) => w.name))];
+  let all = {};
+  try {
+    all = (await getJSON(`/api/tmux/copymodes?sessions=${encodeURIComponent(names.join('\n'))}`)).sessions || {};
+  } catch { return; }
+  for (const [heard, w] of live) heard(all[w.name] || { in_mode: false, gone: true });
+}
+
+export function watchCopyMode(name, visible, heard) {
+  copyWatchers.set(heard, { name, visible });
+  if (!copyRound) copyRound = setInterval(() => { if (!document.hidden) askCopyModes(); }, COPY_EVERY);
+  return () => {
+    copyWatchers.delete(heard);
+    if (!copyWatchers.size) { clearInterval(copyRound); copyRound = null; }
+  };
 }

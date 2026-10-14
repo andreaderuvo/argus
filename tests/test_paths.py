@@ -219,6 +219,13 @@ def test_a_pane_with_no_agent_names_none(monkeypatch):
     assert paths.agent_in("/dev/pts/7") is None
 
 
+@pytest.fixture(autouse=True)
+def _ps_road(monkeypatch):
+    """These tests describe `ps` output — the road where there is no /proc (macOS). The /proc road
+    gets the same cases below (test_the_proc_road_decides_the_same)."""
+    monkeypatch.setattr(paths.procs, "on_tty", lambda _tty: None)
+
+
 def _rows(text):
     class Answer:
         returncode = 0
@@ -277,3 +284,44 @@ def test_an_agent_that_names_itself_is_believed(monkeypatch):
     and nothing has to be inferred from a process tree."""
     monkeypatch.setattr(paths, "_tty_rows", lambda _tty: [])
     assert paths.agent_in("/dev/pts/3", "Codex") == "codex"
+
+
+def test_the_proc_road_decides_the_same(monkeypatch):
+    """The same decisions from /proc (app/procs.py) as from `ps`: the foreground group's deepest
+    agent, a wrapper read through, nothing named when nothing is there."""
+    from app import procs
+
+    def fake(rows):
+        out = []
+        for pid, pgid, tpgid, comm, args in rows:
+            p = procs.Proc(pid=pid, ppid=1, pgid=pgid, tpgid=tpgid, tty=0, comm=comm, rss=0, cpu=0, start=0)
+            p.argv._words = args.split()
+            out.append(p)
+        return lambda _tty: out
+
+    monkeypatch.setattr(paths.procs, "on_tty", fake([
+        (4001, 4001, 4009, "claude", "claude --dangerously-skip-permissions"),
+        (4009, 4009, 4009, "node", "node /home/me/.nvm/bin/codex resume"),
+        (4010, 4009, 4009, "codex", "/home/me/.nvm/lib/@openai/codex-linux-x64/codex"),
+    ]))
+    assert paths.agent_in("/dev/pts/4") == "codex"
+    assert paths.foreground_pid("/dev/pts/4") == 4009
+    monkeypatch.setattr(paths.procs, "on_tty", fake([(5001, 5001, 5001, "node", "node /x/bin/codex resume")]))
+    assert paths.agent_in("/dev/pts/9") == "codex"
+    monkeypatch.setattr(paths.procs, "on_tty", fake([(6001, 6001, 6001, "vim", "vim /home/me/codex-andrea/notes.md")]))
+    assert paths.agent_in("/dev/pts/9") is None
+    monkeypatch.setattr(paths.procs, "on_tty", lambda _tty: [])
+    assert paths.agent_in("/dev/pts/9") is None and paths.foreground_pid("/dev/pts/9") is None
+
+
+def test_the_process_table_reads_this_process():
+    """/proc read for real: this test's own process, its parent and its command line."""
+    import os
+    from app import procs
+    table = procs.table(fresh_for=0)
+    if table is None:
+        pytest.skip("no /proc here")
+    me = table[os.getpid()]
+    assert me.ppid == os.getppid() and me.rss > 0
+    assert any("pytest" in w or "python" in w for w in me.argv)
+    assert procs.table() is procs.table(), "shared for half a second"

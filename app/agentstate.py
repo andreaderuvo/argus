@@ -31,6 +31,8 @@ import subprocess
 import time
 from collections import deque
 
+from . import procs
+
 # Names a coding agent answers to, as argv[0] or — for node and python launchers — argv[1].
 KNOWN = frozenset({
     "claude", "codex", "gemini", "aider", "opencode", "cursor-agent", "goose", "amp", "qwen",
@@ -190,11 +192,14 @@ class Watch:
                 panes.append((parts[0], int(parts[1])))
         if not panes:
             return {}
-        try:
-            ps = subprocess.run(["ps", "-ww", "-eo", "pid=,ppid=,args="], capture_output=True, text=True, timeout=4)
-            tree = parse_ps(ps.stdout) if ps.returncode == 0 else {}
-        except (OSError, subprocess.SubprocessError):
-            tree = {}
+        # /proc, shared with the rest of Argus for half a second (app/procs.py); `ps` where there is none.
+        tree = procs.tree()
+        if tree is None:
+            try:
+                ps = subprocess.run(["ps", "-ww", "-eo", "pid=,ppid=,args="], capture_output=True, text=True, timeout=4)
+                tree = parse_ps(ps.stdout) if ps.returncode == 0 else {}
+            except (OSError, subprocess.SubprocessError):
+                tree = {}
         found: dict[str, str] = {}
         for window, pid in panes:
             name = agent_under(pid, tree, self.names)

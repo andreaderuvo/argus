@@ -148,7 +148,22 @@ function readJSON(key) {
 let prefsVersion = 0;
 export function setPrefsVersion(value) { prefsVersion = value; }
 export let baseline = {};
-export function setBaseline(value) { baseline = value; }
+// Each key of the baseline as JSON, made once: changedKeys compared the whole of both documents
+// as text on every save (330 KB on a real machine, several times a minute).
+let baselineText = new Map();
+export function setBaseline(value) { baseline = value; baselineText = new Map(); }
+const baselineOf = (key) => {
+  if (!baselineText.has(key)) baselineText.set(key, JSON.stringify(baseline[key]));
+  return baselineText.get(key);
+};
+/** After a save: the keys that went, as they went — not a copy of the whole document. */
+export function baselineSent(changes, texts) {
+  for (const [key, value] of Object.entries(changes)) {
+    if (value === null) { delete baseline[key]; baselineText.delete(key); continue; }
+    baseline[key] = JSON.parse(texts[key]);
+    baselineText.set(key, texts[key]);
+  }
+}
 export let pushing = null;
 export function setPushing(value) { pushing = value; }
 
@@ -176,11 +191,12 @@ export function knownDesks() {
   return (baseline.workspaces || []).map((w) => w.id);
 }
 
-export function changedKeys() {
+export function changedKeys(texts = {}) {
   const changes = {};
   for (const [key, value] of Object.entries(prefs)) {
     if (MINE_ONLY.has(key)) continue;
-    if (JSON.stringify(baseline[key]) !== JSON.stringify(value)) changes[key] = value;
+    const now = JSON.stringify(value);
+    if (baselineOf(key) !== now) { changes[key] = value; texts[key] = now; }
   }
   // A key this browser has dropped is a key to remove, not one to leave behind: null says so.
   for (const key of Object.keys(baseline)) {

@@ -1064,6 +1064,9 @@ body.term.keysnever #keybar { display: none; }
 }
 
 .panelist { overflow: auto; flex: 1; min-height: 0; }
+/* Rows off screen are neither laid out nor painted: a folder of thousands of files costs what is
+   in view (measured 2026-10-14, the optimisation pass). */
+.panelist:not(.tiles) > .rowwrap, .panelist:not(.tiles) > .row { content-visibility: auto; contain-intrinsic-size: auto 50px; }
 .pane .sidehead { flex: none; }
 .pane .pad { flex: none; }
 

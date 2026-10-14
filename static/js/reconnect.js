@@ -321,12 +321,16 @@ export const human = (n) => {
   return `${activeLang === 'en' ? num : num.replace('.', (1.5).toLocaleString(activeLang).charAt(1))} ${u[i]}`;
 };
 
+// Formatters made once: toLocaleTimeString builds a new one on every call, and a listing of
+// 5,000 files spent 1.9 s of a slow computer on just that (measured 2026-10-14).
+let clockFmt = null;
+let dayFmt = null;
 export const when = (secs) => {
   if (!secs) return '';
   const d = new Date(secs * 1000);
-  return (Date.now() - d) / 86400000 < 1
-    ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    : d.toLocaleDateString([], { day: '2-digit', month: 'short' });
+  clockFmt ||= new Intl.DateTimeFormat([], { hour: '2-digit', minute: '2-digit' });
+  dayFmt ||= new Intl.DateTimeFormat([], { day: '2-digit', month: 'short' });
+  return (Date.now() - d) / 86400000 < 1 ? clockFmt.format(d) : dayFmt.format(d);
 };
 
 /** A session has been renamed: move everything that was filed under the old name.
