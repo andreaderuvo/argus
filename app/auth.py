@@ -8,7 +8,7 @@ from urllib.parse import parse_qs
 
 from starlette.responses import PlainTextResponse
 
-from . import devices
+from . import devices, syncapi
 
 PROTECTED_PREFIXES = ("/api", "/ws", "/proxy")
 # A proxied page loads its own stylesheets and scripts, and cannot put an Authorization
@@ -182,8 +182,11 @@ def is_protected(path: str) -> bool:
 
 
 # Managing devices is the one thing the master token keeps to itself.
-MASTER_PATHS = ("/api/devices", "/api/journal", "/api/ssh/authorize", "/api/ssh/setup")   # a key added gives a shell here
+MASTER_PATHS = ("/api/devices", "/api/journal", "/api/ssh/authorize", "/api/ssh/setup", "/api/sync/keys")   # a key added gives a shell here
 MASTER_PREFIX = "/api/devices/"
+MASTER_PREFIXES = (MASTER_PREFIX, "/api/sync/keys/")
+# What an argus-sync key reaches: its own folder, through these, and nothing else.
+SYNC_PREFIX = "/api/sync/"
 
 
 class TokenAuthMiddleware:
@@ -200,6 +203,7 @@ class TokenAuthMiddleware:
         # a device has to take effect now, and a board or a phone retrying a second later must
         # not still get in because the list was loaded at startup.
         self.devices_store = devices_store
+        self.sync_store = syncapi.default_store(devices_store) if devices_store else None
 
     def device_for(self, presented: str) -> dict | None:
         if not self.devices_store:
@@ -282,7 +286,7 @@ class TokenAuthMiddleware:
 
         device = self.device_for(token) if token is not None else None
         if device:
-            if scope["path"] in MASTER_PATHS or scope["path"].startswith(MASTER_PREFIX):
+            if scope["path"] in MASTER_PATHS or scope["path"].startswith(MASTER_PREFIXES):
                 # A device may do everything except manage devices. That asymmetry is the
                 # point of the feature: a phone that is lost cannot be used to lock its owner
                 # out of their own machine.
@@ -294,6 +298,26 @@ class TokenAuthMiddleware:
                     return await response(scope, receive, send)
             scope["argus_device"] = device
             self.remember(device)
+            return await self.app(scope, receive, send)
+
+        synced = syncapi.matching(self.sync_store, token) if token is not None else None
+        if synced:
+            # One folder's files, over plain HTTP: no WebSocket (the terminal), no other route,
+            # and never the routes that make or take back sync keys.
+            path = scope["path"]
+            if scope["type"] != "http" or not path.startswith(SYNC_PREFIX) or path == "/api/sync/keys" \
+                    or path.startswith("/api/sync/keys/"):
+                if scope["type"] != "http":
+                    await receive()
+                    return await send({"type": "websocket.close", "code": 1008})
+                response = PlainTextResponse("a sync key opens its own folder through /api/sync/ and nothing else",
+                                             status_code=403)
+                return await response(scope, receive, send)
+            scope["argus_sync"] = synced
+            try:
+                syncapi.touch(self.sync_store, synced)
+            except Exception:
+                pass
             return await self.app(scope, receive, send)
 
         agent = self.agent_for(token) if token is not None else None

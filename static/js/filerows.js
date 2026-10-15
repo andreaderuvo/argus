@@ -392,6 +392,7 @@ function fileItems(entry, refresh, dest, favGroup = 'main') {
       : go(`#/changes?path=${encodeURIComponent(entry.path)}`)) });
     items.push({ icon: 'grid', label: t('New desk here'), run: () => deskHere(entry.path) });
     items.push({ icon: 'layers', label: t('Mount on your computer…'), run: () => import('/js/mountwizard.js').then((m) => m.mountWizard(entry.path)) });
+    items.push({ icon: 'refresh', label: t('Sync to your computer…'), run: () => import('/js/syncsheet.js').then((m) => m.syncSheet(entry.path)) });
     items.push({ icon: 'terminal', label: t('Open a shell here'), run: async () => {
       const name = await createSession({ path: entry.path, suggest: entry.name });
       if (name) chooseDesk({ kind: 'term', name }, name);

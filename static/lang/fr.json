@@ -1583,6 +1583,22 @@
   "FUSE-T needs no change to macOS security settings (macFUSE does).": "FUSE-T ne demande aucun changement des réglages de sécurité de macOS (macFUSE, si).",
   "Which Mac? “uname -m” answers arm64 on an Apple chip, x86_64 on Intel (or the Apple menu → About This Mac).": "Quel Mac ? « uname -m » répond arm64 avec une puce Apple, x86_64 avec Intel (ou menu Apple → À propos de ce Mac).",
   "It asks that account’s password. Then, as that account:": "Il demande le mot de passe de ce compte. Puis, en tant que ce compte :",
-  "Back in your own account, so that brew and sshfs are found:": "De retour dans votre compte, pour que brew et sshfs soient trouvés :"
+  "Back in your own account, so that brew and sshfs are found:": "De retour dans votre compte, pour que brew et sshfs soient trouvés :",
+  "Sync to your computer…": "Synchroniser sur votre ordinateur…",
+  "Sync {name} to your computer": "Synchroniser {name} sur votre ordinateur",
+  "Both ways": "Dans les deux sens",
+  "Read only": "Lecture seule",
+  "Make the link": "Créer le lien",
+  "The link": "Le lien",
+  "Open in argus-sync": "Ouvrir dans argus-sync",
+  "— or paste the link into argus-sync. It is shown once; keep it to yourself: it opens this folder.": "— ou collez le lien dans argus-sync. Il n’est montré qu’une fois ; gardez-le pour vous : il ouvre ce dossier.",
+  "This Argus is read-only (no --allow-write): the computer will receive, not send.": "Cet Argus est en lecture seule (sans --allow-write) : l’ordinateur recevra, sans envoyer.",
+  "Computers syncing this folder": "Ordinateurs qui synchronisent ce dossier",
+  "both ways": "dans les deux sens",
+  "read only": "lecture seule",
+  "last seen {when}": "dernière connexion {when}",
+  "not used yet": "pas encore utilisé",
+  "Take back": "Révoquer",
+  "A folder on your computer that stays the same as this one — files open with a double-click, work offline, and changes go both ways. With the argus-sync app, for macOS, Windows and Linux; no administrator needed.": "Un dossier sur votre ordinateur qui reste identique à celui-ci — les fichiers s’ouvrent d’un double-clic, marchent hors ligne et les modifications vont dans les deux sens. Avec l’app argus-sync, pour macOS, Windows et Linux ; pas besoin d’administrateur."
  }
 }
