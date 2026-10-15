@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 
 def test_a_link_is_made_listed_and_taken_back(make_page, argus):
     folder = argus.root / "docs"
@@ -26,5 +28,6 @@ def test_a_link_is_made_listed_and_taken_back(make_page, argus):
 def test_the_folder_menu_offers_it(make_page, argus):
     page = make_page(route="#/files")
     page.wait("!!document.querySelector('.row')")
-    src = page.eval("fetch('/js/filerows.js').then(r => r.text())")
+    # Read from disk: the server may serve the module minified.
+    src = (Path(__file__).resolve().parents[2] / "static/js/filerows.js").read_text()
     assert "Sync to your computer…" in src and "syncSheet(entry.path)" in src
