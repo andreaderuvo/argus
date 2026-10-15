@@ -26,3 +26,17 @@ def test_a_question_is_drawn_as_markdown_and_never_as_html(make_page, argus):
     page.wait("[...document.querySelectorAll('#view .agentmd')].some(m => m.querySelector('li'))", timeout=15,
               what="the same question, drawn, in While you were away")
     argus.api(f"/api/ask/{said['id']}/answer", "POST", {"answer": "Later"})
+
+
+def test_a_bell_with_words_is_drawn_as_markdown_too(make_page, argus):
+    """The toasts in the corner — "finished", "waiting", with what the agent said — not only the questions."""
+    page = make_page(route="#/files")
+    page.eval("window.__ready = true")
+    argus.api("/api/bell", "POST", {"session": "agent-2", "why": "done",
+                                    "text": "Done:\n\n- **3 tests** fixed\n- `total.ts` now applies the coupon first\n\n<img src=x onerror=\"window.pwned=2\">"})
+    toast = "[...document.querySelectorAll('.toast:not(.askcard)')].find(t => t.textContent.includes('agent-2'))"
+    page.wait(f"!!{toast}?.querySelector('.agentmd li')", timeout=15, what="the bell's toast, drawn")
+    assert page.eval(f"{toast}.querySelector('strong').textContent") == "3 tests"
+    assert page.eval(f"{toast}.querySelector('code').textContent") == "total.ts"
+    assert page.eval(f"{toast}.querySelector('b').textContent") == "agent-2: "
+    assert page.eval(f"!{toast}.querySelector('img')") and not page.eval("window.pwned")

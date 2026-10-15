@@ -225,7 +225,7 @@ export function toastLasts(message, lasts = null) {
   const by = prefs.toastSecs || '3';
   if (by === 'close') return null;
   const ms = by === 'auto'
-    ? Math.min(20000, Math.max(3000, 1500 + String(message).length * 65))
+    ? Math.min(20000, Math.max(3000, 1500 + String(message instanceof Node ? message.textContent : message).length * 65))
     : Number(by) * 1000 || 3000;
   return Math.max(ms, lasts || 0);
 }
@@ -252,8 +252,9 @@ export function toastStack() {
 export function toast(message, bad = false, onTap = null, lasts = null) {
   measureFurniture();
   const stack = toastStack();
+  // A string is text; a node is drawn as it is (an agent's words, as Markdown — bells.js).
   const box = el('div', { className: `toast${bad ? ' bad' : ''}${onTap ? ' tappable' : ''}`, tabIndex: onTap ? 0 : -1 }, [
-    el('span', { className: 'toasttext', textContent: message }),
+    message instanceof Node ? el('span', { className: 'toasttext' }, message) : el('span', { className: 'toasttext', textContent: message }),
   ]);
   const go = () => {
     box.classList.add('leaving');
