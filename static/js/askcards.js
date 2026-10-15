@@ -2,6 +2,7 @@
 import { toast, toastStack } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { getJSON, postJSON } from '/js/reconnect.js';
+import { agentWords } from '/js/viewers.js';
 import { t } from '/js/words.js';
 // </imports>
 /* ------------------------------------------------------------------ questions, in the corner */
@@ -20,7 +21,7 @@ export function showAsk(question) {
   const card = el('div', { className: 'toast askcard', role: 'alertdialog' }, [
     el('span', { className: 'toasttext' }, [
       el('b', { textContent: `${question.session || question.who || t('an agent')}: ` }),
-      el('span', { textContent: question.text }),
+      agentWords(question.text),
       answers,
     ]),
     el('button', { className: 'toastx', type: 'button', title: t('Hide it here — it stays open in While you were away'), textContent: '✕',

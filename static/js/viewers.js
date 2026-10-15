@@ -1296,6 +1296,17 @@ function headerSourceToggle(paint) {
   return apply();
 }
 
+/** An agent's words, as Markdown: its questions and requests are written that way — lists,
+ *  **bold**, `code` — and shown as plain text they were one undivided block ("sembra un testo
+ *  amorfo", 2026-10-15). The same renderer as a document, so the same escaping first: an agent
+ *  cannot put markup into a page that holds the token. The plain text shows until it is drawn. */
+export function agentWords(text) {
+  const box = el('div', { className: 'md agentmd', textContent: text || '' });
+  const drawn = el('div');
+  renderMarkdown(text || '', drawn).then(() => box.replaceChildren(...drawn.childNodes)).catch(() => {});
+  return box;
+}
+
 /** Markdown, loaded only when a .md is actually opened.
  *
  *  The source is HTML-escaped *before* parsing, so raw tags in a document someone else

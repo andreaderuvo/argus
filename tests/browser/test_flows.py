@@ -200,6 +200,26 @@ def test_a_new_session_on_a_desk_becomes_a_window(make_page, argus):
     page.wait(f"document.body.innerText.includes({json.dumps(name)})", what="the window titled with the session")
 
 
+def test_the_shell_button_opens_a_shell_on_the_desk_at_once(make_page, argus):
+    """No box in between: one press, a session, a terminal window on the desk, a working shell."""
+    page = make_page(route="#/wall")
+    page.wait("document.body.classList.contains('wall')")
+    page.click("button[title^='Open a shell now']")
+    eventually(lambda: len(argus.sessions()) == 1, timeout=20, what="a session in tmux")
+    assert not page.eval("!!document.querySelector('dialog')"), "no box to answer"
+    name = argus.sessions()[0]
+    assert name.startswith("shell"), name
+    page.wait("document.querySelectorAll('.xterm').length >= 1", timeout=15, what="a terminal window on the desk")
+    # A second press is a second shell, not a refusal for a name already taken.
+    page.click("button[title^='Open a shell now']")
+    eventually(lambda: len(argus.sessions()) == 2, timeout=20, what="a second session in tmux")
+    marker = argus.root / "quick-shell.txt"
+    time.sleep(0.8)                      # the shell's prompt, before typing into it
+    type_in_terminal(page, f"echo quick > {marker}")
+    eventually(lambda: marker.exists() and marker.read_text().strip() == "quick",
+               what="the typed command to run in the shell")
+
+
 def test_the_login_token_is_kept_across_a_reload(make_page, argus):
     page = make_page(route="#/files")
     page.goto(argus.url + "/")

@@ -4582,3 +4582,15 @@ dialog.sheet.mountwizard { width: min(46rem, calc(100vw - 2rem)); }
 .mwmanual > summary { cursor: pointer; color: var(--dim); font-size: .85rem; }
 .mwchips { margin: .1rem 0 .3rem; }
 .mwchips button { font-size: .8rem; padding: .25rem .7rem; }
+
+/* An agent's question or request, in a card or a list: Markdown, but sized for a card — no page
+   margins, headings barely bigger than the text, long answers scroll inside the card. */
+.md.agentmd { padding: 0; margin: .15rem 0 0; max-width: none; white-space: normal; font-size: .9rem;
+  max-height: min(55vh, 26rem); overflow: auto; overscroll-behavior: contain; }
+.md.agentmd > :first-child { margin-top: 0; }
+.md.agentmd > :last-child { margin-bottom: 0; }
+.md.agentmd p, .md.agentmd li { line-height: 1.45; margin: .3em 0; }
+.md.agentmd ul, .md.agentmd ol { padding-left: 1.3em; margin: .3em 0; }
+.md.agentmd h1, .md.agentmd h2, .md.agentmd h3, .md.agentmd h4 { font-size: .95rem; margin: .6em 0 .25em; border: 0; padding: 0; }
+.md.agentmd pre { margin: .4em 0; font-size: .8rem; max-height: 14rem; }
+.md.agentmd table { font-size: .82rem; }

@@ -21,7 +21,7 @@ import { copyButton, sizeButtons } from '/js/terminal.js';
 import { attachTerminal, openLocated } from '/js/termpaths.js';
 import { redressTerminals } from '/js/theme.js';
 import { loadThemes } from '/js/themepicker.js';
-import { MIN_H, MIN_W, aeroZone, attachBrowser, attachNote, attachRun, attachTray, attachViewer, attachWeb, createSession, deskLinks, dockZone, gapZone, nextWindowId, noteLinks, openWindow, place, resizable, runs, setTrayTally, shellQuote, showGhost, showGuides, snapLines, snapTo, specId, workspaces } from '/js/tray.js';
+import { MIN_H, MIN_W, aeroZone, attachBrowser, attachNote, attachRun, attachTray, attachViewer, attachWeb, createSession, deskLinks, dockZone, gapZone, nextWindowId, noteLinks, openWindow, place, quickShell, resizable, runs, setTrayTally, shellQuote, showGhost, showGuides, snapLines, snapTo, specId, workspaces } from '/js/tray.js';
 import { focusDesk, putDeskAway } from '/js/viewers.js';
 import { duration } from '/js/vitals.js';
 import { t } from '/js/words.js';
@@ -2071,6 +2071,18 @@ export async function screenWall() {
       if (name) openWindow({ kind: 'term', name });
     },
   }, [icon('plus'), el('span', { textContent: t('New session') })]));
+
+  /* And a plain shell with no box at all: the most common "new session" of all is a terminal
+   *  in the desk's folder, which has nothing to choose. */
+  tools.append(el('button', {
+    className: 'winbtn wide',
+    title: t('Open a shell now, in this desk\u2019s folder'),
+    onclick: async () => {
+      const ws = activeSpace();
+      const name = await quickShell(deskHome(ws));
+      if (name) openWindow({ kind: 'term', name });
+    },
+  }, [icon('shell'), el('span', { textContent: t('Shell') })]));
 
   tools.append(el('button', {
     className: 'winbtn wide',
