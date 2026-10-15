@@ -58,3 +58,37 @@ def test_the_settings_keep_them_or_turn_them_off(make_page, argus):
     say(page, "it failed", bad=True)
     page.wait(f"{TOASTS}.length === 1", timeout=3)
     assert "it failed" in page.eval(f"{TOASTS}[0].textContent"), "off keeps only failures"
+
+
+LOOK = """(() => {
+  const t = [...document.querySelectorAll('#toasts .toast')].find(x => x.textContent.includes('Ⓣ'));
+  const rgb = (c) => c.match(/[\\d.]+/g).slice(0, 3).map(Number);
+  const lum = (c) => { const [r, g, b] = rgb(c).map(v => { v /= 255; return v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; });
+    return .2126 * r + .7152 * g + .0722 * b; };
+  const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + .05) / (y + .05); };
+  const bg = getComputedStyle(t).backgroundColor;
+  const probe = document.createElement('div'); probe.style.color = getComputedStyle(document.documentElement).getPropertyValue('--panel');
+  document.body.append(probe); const panel = getComputedStyle(probe).color; probe.remove();
+  const h = t.querySelector('h2, h3, strong') || t;
+  return { bg, panel, text: ratio(getComputedStyle(t).color, bg), heading: ratio(getComputedStyle(h).color, bg) };
+})()"""
+
+
+@pytest.mark.parametrize("theme", ["dark", "light", "dracula"])
+def test_a_toast_wears_the_theme_and_its_markdown_reads(make_page, theme):
+    """A toast used to be an inverted block (--bright behind --bg): white on every dark theme, and the
+    Markdown of an agent's words drew its headings in --bright on --bright."""
+    page = make_page(route="#/files")
+    if theme == "dracula":
+        page.eval("import('/js/themepicker.js').then(m => m.themeSheet())")
+        page.wait("document.querySelectorAll('dialog.themesheet .themecard').length >= 19", timeout=10, what="the gallery")
+        page.click_at(*page._center("[...document.querySelectorAll('dialog.themesheet .themecard')].find(c => c.querySelector('.tcname').textContent === 'Dracula')"))
+        page.wait("getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() === '#282a36'", timeout=5)
+        page.eval("document.querySelector('dialog.themesheet').close()")
+    else:
+        page.eval(f"document.documentElement.dataset.theme = {theme!r}")
+    page.eval("Promise.all([import('/js/dialogs.js'), import('/js/viewers.js')]).then(([d, v]) => d.toast(v.agentWords('Ⓣ ## Done\\n\\nAll **green**.')))")
+    page.wait("[...document.querySelectorAll('#toasts .toast')].some(x => x.textContent.includes('Ⓣ'))", timeout=5)
+    got = page.eval(LOOK)
+    assert got["bg"] == got["panel"], got
+    assert got["text"] >= 4.5 and got["heading"] >= 4.5, got

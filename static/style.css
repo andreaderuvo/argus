@@ -1248,11 +1248,14 @@ button.ghost.inline.danger:hover {
   max-width: 100%;
   padding: .6rem .6rem .6rem 1rem;
   border-radius: .6rem;
-  background: var(--bright);
-  color: var(--bg);
+  /* The theme's own surface, as the ask cards are: an inverted block (--bright behind --bg) was a
+     white slab on every dark theme, and Markdown inside it drew its headings in --bright, on --bright. */
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--line);
   font-size: .85rem;
   line-height: 1.35;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, .4);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .35);
   animation: toastin .18s ease-out;
   transition: opacity .35s ease, transform .35s ease;
 }
