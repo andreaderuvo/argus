@@ -127,7 +127,7 @@ def test_each_catalogue_says_which_language_it_is():
 # Product and tool names, a key label, a loanword the glossary keeps (scratchpad glossaries:
 # it keeps desk/home/team/log; fr shares Actions, Journal, Session…). Anything else equal to its
 # key is a string nobody translated, which is invisible to everyone reading in English.
-SAME_EVERYWHERE = {"Ctrl", "auto", "Auto", "markdown", "link-local", "Commit", "Intel",
+SAME_EVERYWHERE = {"Ctrl", "auto", "Auto", "markdown", "link-local", "Commit", "Intel", "Shell",
                    "B KB MB GB TB"}           # French alone writes octets: o Ko Mo Go To
 SAME_IN = {
     "it": {"Browser", "Menu", "desk", "home", "in", "in {folder}", "Log", "Team", "tester", "Release", "No",

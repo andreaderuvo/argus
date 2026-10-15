@@ -977,8 +977,19 @@ export function chooseDesk(spec, label) {
   ]);
 }
 
+/* The terminal a person just asked for: once its window is on the desk, it takes the keyboard
+ *  (wall.js keyboardTo). Not for a window an agent or a script opened — that one must not take
+ *  the typing away from wherever the person is. */
+let arriving = null;
+export function arrived() {
+  const id = arriving;
+  arriving = null;
+  return id;
+}
+
 export function openWindow(spec, geom, { jump = true } = {}) {
   const id = specId(spec);
+  if (jump && spec.kind === 'term') arriving = id;
   const ws = currentSpace();
   if (!ws.desktop.some((x) => specId(x) === id)) {
     ws.desktop = [...ws.desktop, spec];
