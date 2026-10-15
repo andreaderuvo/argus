@@ -40,7 +40,7 @@ from . import devices
 from .errors import ApiError
 from .safepath import Denied, NotFound, PathError
 
-router = APIRouter(include_in_schema=False)      # private until argus-sync is published
+router = APIRouter(tags=["sync"])
 
 KEY_PREFIX = "as_"                  # a sync key says what it is, in a log or a config
 MAX_KEYS = 64

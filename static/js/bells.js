@@ -10,6 +10,7 @@ import { paintRailDesks, sayIfNewer } from '/js/sidebar.js';
 import { live, prefs, token } from '/js/state.js';
 import { teamsChanged } from '/js/team.js';
 import { openWindow, runs, watchers, workspaces } from '/js/tray.js';
+import { agentWords } from '/js/viewers.js';
 import { arrangeDesk, openProposedTeam } from '/js/wall.js';
 import { t } from '/js/words.js';
 // </imports>
@@ -66,7 +67,11 @@ export function ring(bell) {
   if (bell.team_proposal) teamsChanged();
   if (bell.ask) askFromBell(bell.ask);
   else {
-    toast(label + said, why === 'failed',
+    // What the agent wrote is Markdown — lists, **bold**, `code`: drawn so, under its name in bold.
+    const words = text
+      ? el('span', {}, [session ? el('b', { textContent: `${session}: ` }) : null, agentWords(text)].filter(Boolean))
+      : label + said;
+    toast(words, why === 'failed',
       bell.team_proposal?.folder ? () => openProposedTeam(bell.team_proposal.folder)
         : session ? () => showSession(session) : null);
   }

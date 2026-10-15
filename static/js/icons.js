@@ -45,6 +45,8 @@ export const ICONS = {
   maximise: 'M5 5h14v14H5z',
   folder: 'M3.5 6.8A1.8 1.8 0 0 1 5.3 5h3.4l1.8 2h8.2a1.8 1.8 0 0 1 1.8 1.8v8.4a1.8 1.8 0 0 1-1.8 1.8H5.3a1.8 1.8 0 0 1-1.8-1.8z',
   terminal: 'M3.5 5.5h17v13h-17zM7 10l2.6 2L7 14M12.8 14.3H17',
+  // The prompt alone, without the window round it: a plain shell, started at once.
+  shell: 'M5 7.5l4.5 4.5L5 16.5M12 16.5h7',
   // Six dots, the handle everything draggable has had since the first list you could
   // rearrange. Drawn rather than typed: ⠿ was there first and is a braille character, so on
   // any machine whose fonts do not carry that block it is an eighteen-pixel box of nothing —

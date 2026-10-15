@@ -17,7 +17,7 @@ import { prefs, server, view } from '/js/state.js';
 import { applyName } from '/js/theme.js';
 import { themeName, themeSheet } from '/js/themepicker.js';
 import { workspaces } from '/js/tray.js';
-import { repaintDiagrams } from '/js/viewers.js';
+import { agentWords, repaintDiagrams } from '/js/viewers.js';
 import { deviceRows, handoffSheet, languageSheet } from '/js/vitals.js';
 import { SEARCH_ENGINES, searchEngine } from '/js/wall.js';
 import { activeLang, t } from '/js/words.js';
@@ -107,7 +107,7 @@ function askRow(question) {
     question.session ? sessionDot(question.session) : runIcon('st-warning'),
     el('span', { className: 'grow' }, [
       el('span', { className: 'name', textContent: question.session || question.who || t('a session') }),
-      el('span', { className: 'meta', textContent: question.text }),
+      agentWords(question.text),
       answers,
     ]),
   );

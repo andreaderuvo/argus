@@ -518,6 +518,33 @@ function placeIn(ws, spec) {
   go('#/wall');
 }
 
+/** A plain shell, at once: no box and no choices — a new session in the folder, named after it.
+ *
+ *  The New-session box is for when there is something to choose. "A terminal here, now" has
+ *  nothing to choose, and three presses through a box to get one was asked about by name
+ *  ("la bash immediata, apre una bash al volo"). The name is the box's own suggestion for a
+ *  shell — `shell-<folder>`, numbered until it is free — and the session runs whatever tmux
+ *  runs by default, which is your login shell.
+ */
+export async function quickShell(path) {
+  const nameable = (s) => s.replace(/[^\w -]+/g, '-').replace(/-{2,}/g, '-').replace(/^-|-$/g, '');
+  const leaf = nameable((path || '').replace(/\/+$/, '').split('/').pop() || '');
+  const base = (leaf ? `shell-${leaf}` : 'shell').slice(0, 56);
+  let taken = new Set();
+  try {
+    taken = new Set((await getJSON('/api/tmux/sessions') || []).map((one) => one.name));
+  } catch { /* then the server says whether the name is free */ }
+  let name = base;
+  for (let n = 2; taken.has(name) && n < 1000; n++) name = `${base}-${n}`;
+  try {
+    const made = await postJSON('/api/tmux/new', path ? { name, path } : { name });
+    return made.name || name;
+  } catch (e) {
+    toast(e.message, true);
+    return null;
+  }
+}
+
 /** Make a session and hand back its name.
  *
  *  "A shell on the machine" and "a new tmux session" are the same thing here, and making
@@ -950,8 +977,19 @@ export function chooseDesk(spec, label) {
   ]);
 }
 
+/* The terminal a person just asked for: once its window is on the desk, it takes the keyboard
+ *  (wall.js keyboardTo). Not for a window an agent or a script opened — that one must not take
+ *  the typing away from wherever the person is. */
+let arriving = null;
+export function arrived() {
+  const id = arriving;
+  arriving = null;
+  return id;
+}
+
 export function openWindow(spec, geom, { jump = true } = {}) {
   const id = specId(spec);
+  if (jump && spec.kind === 'term') arriving = id;
   const ws = currentSpace();
   if (!ws.desktop.some((x) => specId(x) === id)) {
     ws.desktop = [...ws.desktop, spec];

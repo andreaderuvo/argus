@@ -202,12 +202,49 @@ details p { color: var(--ink2); margin-top: 10px; max-width: 68ch; }
 .close { padding-block: 110px; }
 .close h2 { font-size: clamp(2.1rem, 4.4vw, 3.3rem); font-weight: 800; max-width: 17ch; line-height: 1.05; }
 .close .actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 28px; }
+#fleet .actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 24px; }
 .status { background: #1f7f55; color: #06150e; font: 600 .82rem/1 var(--mono); }
 .status .wrap { display: flex; gap: 18px; align-items: center; min-height: 34px; flex-wrap: wrap; padding-block: 8px; }
 .status a { color: #06150e; text-decoration: none; }
 .status a:hover { text-decoration: underline; }
 .status .right { margin-left: auto; }
 .status .cur { background: #06150e; color: #9fe2c6; padding: 3px 6px; border-radius: 2px; }
+
+/* The slideshow: real screenshots of the invented lab (scripts/showcase.py). */
+.show { display: grid; grid-template-columns: minmax(0, 15rem) minmax(0, 1fr); gap: 28px; margin-top: 40px; align-items: start; }
+.showlist { display: flex; flex-direction: column; gap: 4px; }
+.showlist button { display: flex; gap: 12px; align-items: baseline; text-align: left; padding: 11px 14px; border: 1px solid transparent;
+  border-radius: 8px; background: none; color: var(--ink2); font: 500 .98rem/1.3 var(--body); cursor: pointer; }
+.showlist button .n { font: 600 .75rem var(--mono); color: var(--ink3); }
+.showlist button:hover { color: var(--ink); background: var(--paper2); }
+.showlist button[aria-selected="true"] { color: var(--ink); background: var(--paper2); border-color: var(--rule); }
+.showlist button[aria-selected="true"] .n { color: var(--teal); }
+.showlist button:focus-visible, .shownav button:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+.showstage { border: 1px solid var(--rule); border-radius: 12px; overflow: hidden; background: var(--paper2);
+  box-shadow: 0 18px 50px -24px rgb(0 0 0 / .35); }
+.showbar { display: flex; align-items: center; gap: 7px; padding: 10px 14px; border-bottom: 1px solid var(--rule); }
+.showbar i { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--ink3); }
+.showbar span { margin-inline: auto; font: .78rem var(--mono); color: var(--ink3); padding: 3px 14px; border: 1px solid var(--rule); border-radius: 99px; }
+.slides { position: relative; background: var(--paper); }
+.slide { margin: 0; display: flex; flex-direction: column; }
+.slide[hidden] { display: none; }
+.slide picture { aspect-ratio: 16 / 10; background: var(--paper); }
+.slide picture { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+.slide img { max-width: 100%; max-height: 100%; width: auto; height: auto; display: block; object-fit: contain; }
+.slide:not([hidden]) { animation: showin .45s ease-out; }
+@keyframes showin { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .slide:not([hidden]) { animation: none; } }
+.slide figcaption { padding: 14px 18px 4px; font-size: .98rem; color: var(--ink2); background: var(--paper2); border-top: 1px solid var(--rule); }
+.slide figcaption b { color: var(--ink); }
+.shownav { display: flex; align-items: center; gap: 8px; padding: 6px 14px 14px; background: var(--paper2); }
+.shownav button { border: 1px solid var(--rule); background: var(--paper); color: var(--ink); border-radius: 7px; padding: 6px 12px; font: 600 .9rem var(--body); cursor: pointer; }
+.shownav .showplay { margin-left: auto; font: .8rem var(--mono); color: var(--ink2); }
+.showcount { font: .82rem var(--mono); color: var(--ink3); min-width: 4ch; text-align: center; }
+@media (max-width: 860px) {
+  .show { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .showlist { flex-direction: row; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+  .showlist button { flex: none; padding: 8px 12px; font-size: .9rem; }
+}
 </style>
 </head>
 <body>
@@ -220,6 +257,7 @@ details p { color: var(--ink2); margin-top: 10px; max-width: 68ch; }
       <a class="opt" href="#how">How it works</a>
       <a class="opt" href="#install">Install</a>
       <a class="opt" href="https://github.com/andreaderuvo/argus/wiki">Docs</a>
+      <a class="opt" href="#fleet">Panoptes</a>
       <a class="gh" href="https://github.com/andreaderuvo/argus">GitHub</a>
     </nav>
   </div>
@@ -332,10 +370,99 @@ details p { color: var(--ink2); margin-top: 10px; max-width: 68ch; }
   </div>
 </section>
 
+<section id="see" aria-labelledby="see-h">
+  <div class="wrap">
+    <div class="head">
+      <span class="win"><b>1:at-work*</b></span>
+      <h2 id="see-h">Seven things it does, on a lab that does not exist.</h2>
+      <p>Real screenshots of Argus, taken by a script on an invented lab: a Salmonella study and a small web shop,
+        with agents on both. Every name, path and number in them is made up.</p>
+    </div>
+    <div class="show" aria-roledescription="carousel" aria-label="Argus at work">
+      <div class="showlist" role="tablist" aria-label="What it does">
+        <button type="button" role="tab" id="see-tab-desk" aria-controls="see-desk" aria-selected="true" tabindex="0">
+          <span class="n">01</span><span class="t">Every agent at a glance</span></button>
+        <button type="button" role="tab" id="see-tab-report" aria-controls="see-report" aria-selected="false" tabindex="-1">
+          <span class="n">02</span><span class="t">Open what it wrote</span></button>
+        <button type="button" role="tab" id="see-tab-phone" aria-controls="see-phone" aria-selected="false" tabindex="-1">
+          <span class="n">03</span><span class="t">Answer from your phone</span></button>
+        <button type="button" role="tab" id="see-tab-team" aria-controls="see-team" aria-selected="false" tabindex="-1">
+          <span class="n">04</span><span class="t">A team on one goal</span></button>
+        <button type="button" role="tab" id="see-tab-changes" aria-controls="see-changes" aria-selected="false" tabindex="-1">
+          <span class="n">05</span><span class="t">Review what changed</span></button>
+        <button type="button" role="tab" id="see-tab-sessions" aria-controls="see-sessions" aria-selected="false" tabindex="-1">
+          <span class="n">06</span><span class="t">Every session, and what it waits for</span></button>
+        <button type="button" role="tab" id="see-tab-system" aria-controls="see-system" aria-selected="false" tabindex="-1">
+          <span class="n">07</span><span class="t">Know the machine</span></button>
+      </div>
+      <div class="showstage">
+        <div class="showbar" aria-hidden="true"><i></i><i></i><i></i><span>worklab-01:8090</span></div>
+        <div class="slides">
+        <figure class="slide" role="tabpanel" id="see-desk" aria-labelledby="see-tab-desk">
+          <picture>
+            <source srcset="img/showcase/desk-dark.webp" media="(prefers-color-scheme: dark)">
+            <img src="img/showcase/desk-light.webp" alt="Argus: every agent at a glance — Four agents on one shop, each in its own window: two working, one waiting with a question you answer right there, in the corner." width="1600" height="1000" decoding="async">
+          </picture>
+          <figcaption><b>Every agent at a glance.</b> Four agents on one shop, each in its own window: two working, one waiting with a question you answer right there, in the corner.</figcaption>
+        </figure>
+        <figure class="slide" role="tabpanel" id="see-report" aria-labelledby="see-tab-report" hidden>
+          <picture>
+            <source srcset="img/showcase/report-dark.webp" media="(prefers-color-scheme: dark)">
+            <img src="img/showcase/report-light.webp" alt="Argus: open what it wrote — A path in the terminal is a link. The report opens beside the agent that wrote it, tables and figures rendered." width="1600" height="1000" loading="lazy" decoding="async">
+          </picture>
+          <figcaption><b>Open what it wrote.</b> A path in the terminal is a link. The report opens beside the agent that wrote it, tables and figures rendered.</figcaption>
+        </figure>
+        <figure class="slide" role="tabpanel" id="see-phone" aria-labelledby="see-tab-phone" hidden>
+          <picture>
+            <source srcset="img/showcase/phone-dark.webp" media="(prefers-color-scheme: dark)">
+            <img src="img/showcase/phone-light.webp" alt="Argus: answer from your phone — The same sessions in your pocket: who is working, who is waiting, a key bar for Ctrl and Esc, the report readable." width="1600" height="1000" loading="lazy" decoding="async">
+          </picture>
+          <figcaption><b>Answer from your phone.</b> The same sessions in your pocket: who is working, who is waiting, a key bar for Ctrl and Esc, the report readable.</figcaption>
+        </figure>
+        <figure class="slide" role="tabpanel" id="see-team" aria-labelledby="see-tab-team" hidden>
+          <picture>
+            <source srcset="img/showcase/team-dark.webp" media="(prefers-color-scheme: dark)">
+            <img src="img/showcase/team-light.webp" alt="Argus: a team on one goal — Say what has to get done and pick a shape: here one agent fixes and a check decides. Argus keeps it going, with the tab closed." width="1600" height="945" loading="lazy" decoding="async">
+          </picture>
+          <figcaption><b>A team on one goal.</b> Say what has to get done and pick a shape: here one agent fixes and a check decides. Argus keeps it going, with the tab closed.</figcaption>
+        </figure>
+        <figure class="slide" role="tabpanel" id="see-changes" aria-labelledby="see-tab-changes" hidden>
+          <picture>
+            <source srcset="img/showcase/changes-dark.webp" media="(prefers-color-scheme: dark)">
+            <img src="img/showcase/changes-light.webp" alt="Argus: review what changed — The uncommitted work beside the agent that made it, as a diff you can read and filter by file." width="1600" height="1000" loading="lazy" decoding="async">
+          </picture>
+          <figcaption><b>Review what changed.</b> The uncommitted work beside the agent that made it, as a diff you can read and filter by file.</figcaption>
+        </figure>
+        <figure class="slide" role="tabpanel" id="see-sessions" aria-labelledby="see-tab-sessions" hidden>
+          <picture>
+            <source srcset="img/showcase/sessions-dark.webp" media="(prefers-color-scheme: dark)">
+            <img src="img/showcase/sessions-light.webp" alt="Argus: every session, and what it waits for — Working, or waiting for you and for how long, with a note of what each one is for." width="1600" height="1000" loading="lazy" decoding="async">
+          </picture>
+          <figcaption><b>Every session, and what it waits for.</b> Working, or waiting for you and for how long, with a note of what each one is for.</figcaption>
+        </figure>
+        <figure class="slide" role="tabpanel" id="see-system" aria-labelledby="see-tab-system" hidden>
+          <picture>
+            <source srcset="img/showcase/system-dark.webp" media="(prefers-color-scheme: dark)">
+            <img src="img/showcase/system-light.webp" alt="Argus: know the machine — Memory, swap, disks, the GPU and the ports, and the line that reaches the box, on one screen." width="1600" height="1000" loading="lazy" decoding="async">
+          </picture>
+          <figcaption><b>Know the machine.</b> Memory, swap, disks, the GPU and the ports, and the line that reaches the box, on one screen.</figcaption>
+        </figure>
+        </div>
+        <div class="shownav">
+          <button type="button" class="showprev" aria-label="Previous">←</button>
+          <span class="showcount" aria-live="polite">1 / 7</span>
+          <button type="button" class="shownext" aria-label="Next">→</button>
+          <button type="button" class="showplay" aria-label="Pause the slideshow">pause</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section id="why" aria-labelledby="why-h">
   <div class="wrap">
     <div class="head">
-      <span class="win"><b>1:why*</b></span>
+      <span class="win"><b>2:why*</b></span>
       <h2 id="why-h">Agents work for minutes. Then they stop and wait for you.</h2>
       <p>You find out forty minutes later, over ssh, squinting at a pane. Argus takes care of the part of
         the job that is not typing: knowing, seeing, answering.</p>
@@ -381,7 +508,7 @@ details p { color: var(--ink2); margin-top: 10px; max-width: 68ch; }
 <section id="how" aria-labelledby="how-h">
   <div class="wrap">
     <div class="head">
-      <span class="win"><b>2:how*</b></span>
+      <span class="win"><b>3:how*</b></span>
       <h2 id="how-h">It attaches to the sessions you already have.</h2>
       <p>Argus is one more client of your tmux server. It does not wrap your agent or move your work, and
         closing the browser never stops anything.</p>
@@ -429,7 +556,7 @@ details p { color: var(--ink2); margin-top: 10px; max-width: 68ch; }
 <section id="work" aria-labelledby="work-h">
   <div class="wrap">
     <div class="head">
-      <span class="win"><b>3:hand-offs*</b></span>
+      <span class="win"><b>4:hand-offs*</b></span>
       <h2 id="work-h">Pass work from one agent to the next.</h2>
       <p>Keep your prompts in a library, with placeholders filled in for each project. Drag one onto a session
         and it is typed there. The Enter is left for you, so the last word is yours.</p>
@@ -470,7 +597,7 @@ details p { color: var(--ink2); margin-top: 10px; max-width: 68ch; }
 <section id="team" aria-labelledby="team-h">
   <div class="wrap">
     <div class="head">
-      <span class="win"><b>4:team*</b></span>
+      <span class="win"><b>5:team*</b></span>
       <h2 id="team-h">A team of agents on one goal.</h2>
       <p>Write the goal in words and pick a shape. Argus prompts each agent in turn, runs your tests or your
         benchmark between turns, and moves on from the numbers and the reviewer's verdict. It keeps going with
@@ -535,7 +662,7 @@ details p { color: var(--ink2); margin-top: 10px; max-width: 68ch; }
 <section id="plugin" aria-labelledby="plugin-h">
   <div class="wrap">
     <div class="head">
-      <span class="win"><b>5:plugin*</b></span>
+      <span class="win"><b>6:plugin*</b></span>
       <h2 id="plugin-h">Ask your agent. It sets up the desk.</h2>
       <p>Install the Argus plugin in Claude Code or Codex and Argus becomes one of the agent's own tools.
         Say <i>open a desk called pippo with a Claude and a Codex</i> and the tab appears with both of them
@@ -592,7 +719,7 @@ details p { color: var(--ink2); margin-top: 10px; max-width: 68ch; }
   <div class="wrap">
     <div class="pair flip">
       <div class="head">
-        <span class="win"><b>6:phone*</b></span>
+        <span class="win"><b>7:phone*</b></span>
         <h2 id="phone-h">Your desk, in your pocket.</h2>
         <p>It is the session that was already running, not a copy of it. You get a key bar for the keys a phone
           has not got, a long press to open a path, and a box to write a line in when the keyboard fights the
@@ -635,7 +762,7 @@ details p { color: var(--ink2); margin-top: 10px; max-width: 68ch; }
 <section id="more" aria-labelledby="more-h">
   <div class="wrap">
     <div class="head">
-      <span class="win"><b>7:more*</b></span>
+      <span class="win"><b>8:more*</b></span>
       <h2 id="more-h">Everything an agent's work points at.</h2>
     </div>
     <div class="list">
@@ -655,7 +782,7 @@ details p { color: var(--ink2); margin-top: 10px; max-width: 68ch; }
 <section id="yours" aria-labelledby="yours-h">
   <div class="wrap">
     <div class="head">
-      <span class="win"><b>8:yours*</b></span>
+      <span class="win"><b>9:yours*</b></span>
       <h2 id="yours-h">It runs on your machine, and nothing leaves it.</h2>
     </div>
     <div class="three">
@@ -667,10 +794,27 @@ details p { color: var(--ink2); margin-top: 10px; max-width: 68ch; }
   </div>
 </section>
 
+<section id="fleet" aria-labelledby="fleet-h">
+  <div class="wrap">
+    <div class="head">
+      <span class="win"><b>10:fleet*</b></span>
+      <h2 id="fleet-h">Several machines? Panoptes.</h2>
+      <p>Argus is the workspace for one machine. <b>Panoptes</b> is one page over all of them, ordered by which one
+        needs you: which agents are working, which machine is unhealthy, who is waiting. It holds restricted watcher
+        keys and never sends a machine's key to the browser. Use Argus alone first; add Panoptes when one tab per
+        machine stops scaling.</p>
+      <div class="actions">
+        <a class="btn ink" href="https://andreaderuvo.github.io/panoptes/">See Panoptes</a>
+        <a class="btn" href="https://github.com/andreaderuvo/panoptes">Its code</a>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section id="install" aria-labelledby="install-h">
   <div class="wrap">
     <div class="head">
-      <span class="win"><b>9:install*</b></span>
+      <span class="win"><b>11:install*</b></span>
       <h2 id="install-h">Running in a minute.</h2>
       <p>Linux and macOS, or Windows through WSL or Docker. It needs Python 3.11 or newer and tmux, and it prints
         a link: open it, or scan its QR code with your phone.</p>
@@ -703,7 +847,7 @@ python3 -m app.main          <span class="c"># prints a URL with a token in it</
 <section id="faq" aria-labelledby="faq-h">
   <div class="wrap">
     <div class="head">
-      <span class="win"><b>10:faq*</b></span>
+      <span class="win"><b>12:faq*</b></span>
       <h2 id="faq-h">Before you try it.</h2>
     </div>
     <div class="faq">
@@ -754,6 +898,7 @@ python3 -m app.main          <span class="c"># prints a URL with a token in it</
     <a href="https://github.com/andreaderuvo/argus/wiki">1:docs</a>
     <a href="https://github.com/andreaderuvo/argus">2:github</a>
     <a href="api.html">3:api</a>
+    <a href="https://andreaderuvo.github.io/panoptes/">4:panoptes</a>
     <span class="right">MIT · Andrea de Ruvo · named for the herdsman of a hundred eyes</span>
   </div>
 </footer>
@@ -779,6 +924,53 @@ for (const btn of document.querySelectorAll('.copy')) {
     setTimeout(() => { btn.textContent = 'copy'; }, 1500);
   });
 }
+
+// The slideshow: tabs, arrows, keys, a swipe; on by itself every seven seconds, off while
+// somebody points at it, has focus in it, or prefers no motion.
+(() => {
+  const show = document.querySelector('.show');
+  if (!show) return;
+  const tabs = [...show.querySelectorAll('[role="tab"]')];
+  const slides = tabs.map((t) => document.getElementById(t.getAttribute('aria-controls')));
+  const count = show.querySelector('.showcount');
+  const play = show.querySelector('.showplay');
+  let at = 0;
+  let playing = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let held = false;
+  const go = (i, focus = false) => {
+    at = (i + tabs.length) % tabs.length;
+    tabs.forEach((t, n) => { const on = n === at; t.setAttribute('aria-selected', String(on)); t.tabIndex = on ? 0 : -1; slides[n].hidden = !on; });
+    count.textContent = `${at + 1} / ${tabs.length}`;
+    if (focus) tabs[at].focus();
+    tabs[at].scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    const next = slides[(at + 1) % slides.length]?.querySelector('img');
+    if (next) next.loading = 'eager';                      // the next one is ready when it comes
+  };
+  const paintPlay = () => { play.textContent = playing ? 'pause' : 'play'; play.setAttribute('aria-label', playing ? 'Pause the slideshow' : 'Play the slideshow'); };
+  tabs.forEach((t, i) => t.addEventListener('click', () => { playing = false; paintPlay(); go(i); }));
+  show.querySelector('.showlist').addEventListener('keydown', (e) => {
+    const step = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[e.key];
+    if (step) { e.preventDefault(); playing = false; paintPlay(); go(at + step, true); }
+  });
+  show.querySelector('.showprev').addEventListener('click', () => { playing = false; paintPlay(); go(at - 1); });
+  show.querySelector('.shownext').addEventListener('click', () => { playing = false; paintPlay(); go(at + 1); });
+  play.addEventListener('click', () => { playing = !playing; paintPlay(); });
+  show.addEventListener('pointerenter', () => { held = true; });
+  show.addEventListener('pointerleave', () => { held = false; });
+  show.addEventListener('focusin', () => { held = true; });
+  show.addEventListener('focusout', () => { held = false; });
+  let x0 = null;
+  const stage = show.querySelector('.slides');
+  stage.addEventListener('touchstart', (e) => { x0 = e.touches[0].clientX; }, { passive: true });
+  stage.addEventListener('touchend', (e) => {
+    if (x0 === null) return;
+    const dx = e.changedTouches[0].clientX - x0;
+    x0 = null;
+    if (Math.abs(dx) > 40) { playing = false; paintPlay(); go(at + (dx < 0 ? 1 : -1)); }
+  });
+  setInterval(() => { if (playing && !held && !document.hidden) go(at + 1); }, 7000);
+  paintPlay();
+})();
 </script>
 </body>
 </html>

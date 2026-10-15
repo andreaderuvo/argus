@@ -186,6 +186,8 @@
   "New folder": "New folder",
   "New group": "New group",
   "New session": "New session",
+  "Shell": "Shell",
+  "Open a shell now, in this desk’s folder": "Open a shell now, in this desk’s folder",
   "{agent}, worked out from whether its pane is still drawing": "{agent}, worked out from whether its pane is still drawing",
   "waiting for you · {age}": "waiting for you · {age}",
   "waiting for you": "waiting for you",

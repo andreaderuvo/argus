@@ -21,7 +21,7 @@ import { copyButton, sizeButtons } from '/js/terminal.js';
 import { attachTerminal, openLocated } from '/js/termpaths.js';
 import { redressTerminals } from '/js/theme.js';
 import { loadThemes } from '/js/themepicker.js';
-import { MIN_H, MIN_W, aeroZone, attachBrowser, attachNote, attachRun, attachTray, attachViewer, attachWeb, createSession, deskLinks, dockZone, gapZone, nextWindowId, noteLinks, openWindow, place, resizable, runs, setTrayTally, shellQuote, showGhost, showGuides, snapLines, snapTo, specId, workspaces } from '/js/tray.js';
+import { MIN_H, MIN_W, aeroZone, arrived, attachBrowser, attachNote, attachRun, attachTray, attachViewer, attachWeb, createSession, deskLinks, dockZone, gapZone, nextWindowId, noteLinks, openWindow, place, quickShell, resizable, runs, setTrayTally, shellQuote, showGhost, showGuides, snapLines, snapTo, specId, workspaces } from '/js/tray.js';
 import { focusDesk, putDeskAway } from '/js/viewers.js';
 import { duration } from '/js/vitals.js';
 import { t } from '/js/words.js';
@@ -29,6 +29,8 @@ import { t } from '/js/words.js';
 
 // The desk's "close the gone ones" button, repainted when a window's session goes or comes back.
 let paintGone = () => {};
+// The terminal last pressed on, per desk: where the keyboard goes back to on returning to it.
+const lastTyped = new Map();
 // Arrange the desk on screen (grid, cols, rows) — a team asks for its own when its agents arrive.
 let arrangeNow = () => {};
 
@@ -820,8 +822,29 @@ export async function screenWall() {
         win.style.zIndex = ++top;
         if (spec.kind !== 'term') return;
         quieten(spec.name);
+        lastTyped.set(ws.id, specId(spec));
         setAim(open.find((o) => o.win === win));
       }, true);
+      // A press on a terminal window's bar — not on one of its buttons — means "this one":
+      // the keyboard goes to it, as a click inside the screen already did.
+      // On the release, not the click: the bar is a drag handle, and its pointer capture sends the
+      // click elsewhere. A release that did not travel is a press on the bar.
+      if (spec.kind === 'term') {
+        // Whichever way it got the keyboard — a press, a click on its bar, arriving — this is the
+        // terminal to give it back to on coming back to this desk.
+        win.addEventListener('focusin', () => lastTyped.set(ws.id, specId(spec)));
+        let downAt = null;
+        win.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY, e.target]; }, true);
+        win.addEventListener('pointerup', (e) => {
+          const at = downAt;
+          downAt = null;
+          if (!at || Math.hypot(e.clientX - at[0], e.clientY - at[1]) > 4) return;
+          const where = at[2];
+          if (!where?.closest || where.closest('button, a, input, textarea, select, .xterm')) return;
+          if (!where.closest('.winbar, .winfacts')) return;
+          setTimeout(() => open.find((o) => o.win === win)?.handle.focus?.(), 0);
+        }, true);
+      }
 
       /* The cross on a session's window offers both, because both are what people mean by it: the
        *  window goes and the session keeps running (first, and Enter), or the session ends too —
@@ -1482,6 +1505,25 @@ export async function screenWall() {
     paintLayoutButton();
     drawTabs();
     requestAnimationFrame(() => deck.open.forEach((o) => o.handle.relayout()));
+    keyboardTo(deck, arrived());
+  }
+
+  /** The keyboard to a terminal of this desk: the one asked for, else the one touched last here,
+   *  else the first. "When a session opens, put the focus in tmux — otherwise I have to click in it
+   *  every time" (2026-10-15): arriving on a desk, switching to one, opening a session on it all
+   *  left the keyboard nowhere. Never taken from a field, a dialog or a menu someone is using. */
+  function keyboardTo(deck, wanted = null) {
+    const terms = deck.open.filter((o) => o.win.dataset.kind === 'term' && !o.win.classList.contains('gone'));
+    const o = (wanted && terms.find((x) => x.name === wanted))
+      || terms.find((x) => x.name === lastTyped.get(deck.ws.id))
+      || terms[0];
+    if (!o) return;
+    setTimeout(() => {
+      const a = document.activeElement;
+      const busy = a && a !== document.body && !a.classList?.contains('xterm-helper-textarea')
+        && !!a.closest?.('input, textarea, select, [contenteditable="true"], dialog, .popmenu');
+      if (!busy && o.win.isConnected) o.handle.focus?.();
+    }, 60);
   }
 
   /** Write the strip's order back into the workspaces, which is where it is stored.
@@ -2071,6 +2113,18 @@ export async function screenWall() {
       if (name) openWindow({ kind: 'term', name });
     },
   }, [icon('plus'), el('span', { textContent: t('New session') })]));
+
+  /* And a plain shell with no box at all: the most common "new session" of all is a terminal
+   *  in the desk's folder, which has nothing to choose. */
+  tools.append(el('button', {
+    className: 'winbtn wide',
+    title: t('Open a shell now, in this desk\u2019s folder'),
+    onclick: async () => {
+      const ws = activeSpace();
+      const name = await quickShell(deskHome(ws));
+      if (name) openWindow({ kind: 'term', name });
+    },
+  }, [icon('shell'), el('span', { textContent: t('Shell') })]));
 
   tools.append(el('button', {
     className: 'winbtn wide',
@@ -2735,12 +2789,17 @@ export async function screenWall() {
       const already = deck.open.find((o) => o.name === id);
       if (already) {
         raiseWindow(already);
+        const asked = arrived();
+        if (asked) keyboardTo(deck, asked);
         return;
       }
       const entry = deck.addWindow(spec);
       applyGeom(entry.win, prefs.winGeom?.[geomKey(ws, id)] || geom || DEFAULT_GEOM);
       entry.win.style.zIndex = ++top;
       requestAnimationFrame(() => entry.handle.relayout());
+      // The session just asked for takes the keyboard: it was opened so as to type in it.
+      const asked = arrived();
+      if (asked) keyboardTo(deck, asked);
     },
     dispose: () => {
       setTrayTally(null);

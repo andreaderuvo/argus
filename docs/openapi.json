@@ -3510,6 +3510,424 @@
     ]
    }
   },
+  "/api/sync/dir": {
+   "delete": {
+    "operationId": "deleteApiSyncDir",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "p",
+      "required": true,
+      "schema": {
+       "title": "P",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Remove Dir Api Sync Dir Delete",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Remove an empty folder",
+    "tags": [
+     "Sync",
+     "sync"
+    ]
+   },
+   "post": {
+    "operationId": "postApiSyncDir",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "p",
+      "required": true,
+      "schema": {
+       "title": "P",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Make Dir Api Sync Dir Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Make a folder",
+    "tags": [
+     "Sync",
+     "sync"
+    ]
+   }
+  },
+  "/api/sync/file": {
+   "delete": {
+    "operationId": "deleteApiSyncFile",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "p",
+      "required": true,
+      "schema": {
+       "title": "P",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "base",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Base"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Delete File Api Sync File Delete",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Remove one file (into the trash)",
+    "tags": [
+     "Sync",
+     "sync"
+    ]
+   },
+   "get": {
+    "operationId": "getApiSyncFile",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "p",
+      "required": true,
+      "schema": {
+       "title": "P",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "One file of the synced folder",
+    "tags": [
+     "Sync",
+     "sync"
+    ]
+   },
+   "put": {
+    "description": "The body is the file. `m`: its modification time (ns) on the client, given to the copy here.",
+    "operationId": "putApiSyncFile",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "p",
+      "required": true,
+      "schema": {
+       "title": "P",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "m",
+      "required": true,
+      "schema": {
+       "title": "M",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "query",
+      "name": "base",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Base"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Put File Api Sync File Put",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Write one file of the synced folder",
+    "tags": [
+     "Sync",
+     "sync"
+    ]
+   }
+  },
+  "/api/sync/hello": {
+   "get": {
+    "operationId": "getApiSyncHello",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Hello Api Sync Hello Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Who this sync key is",
+    "tags": [
+     "Sync",
+     "sync"
+    ]
+   }
+  },
+  "/api/sync/keys": {
+   "get": {
+    "operationId": "getApiSyncKeys",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response List Keys Api Sync Keys Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "The sync keys",
+    "tags": [
+     "Sync",
+     "sync"
+    ]
+   },
+   "post": {
+    "operationId": "postApiSyncKeys",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Make Key Api Sync Keys Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Make a sync key for one folder",
+    "tags": [
+     "Sync",
+     "sync"
+    ]
+   }
+  },
+  "/api/sync/keys/{key_id}": {
+   "delete": {
+    "operationId": "deleteApiSyncKeysKeyId",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "key_id",
+      "required": true,
+      "schema": {
+       "title": "Key Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Take Back Api Sync Keys  Key Id  Delete",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Take a sync key back",
+    "tags": [
+     "Sync",
+     "sync"
+    ]
+   }
+  },
+  "/api/sync/manifest": {
+   "get": {
+    "operationId": "getApiSyncManifest",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "since",
+      "required": false,
+      "schema": {
+       "default": "",
+       "title": "Since",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Get Manifest Api Sync Manifest Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Every file in the synced folder, with size and time",
+    "tags": [
+     "Sync",
+     "sync"
+    ]
+   }
+  },
   "/api/system": {
    "get": {
     "operationId": "getApiSystem",

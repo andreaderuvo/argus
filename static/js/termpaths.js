@@ -609,8 +609,19 @@ export function attachTerminal(container, name, { transform, onGone, onBack, onP
   linkPaths(term, container, name, (hit) => (onPath || openLocated.bind(null, 'term'))(hit),
     () => { followedAt = Date.now(); });
 
-  const repaint = () => { term.options.theme = termTheme(name); container.dataset.termBg = term.options.theme.background || ''; };
+  /* The viewport under the grid is xterm's own element, black whatever the theme: the cells cover
+   *  it but for the pixels left over at the bottom and the right, which drew a black frame round
+   *  every light terminal (GitHub Light, Catppuccin Latte, Solarized Light; seen 2026-10-15). It wears
+   *  the terminal's background like the cells do. */
+  const repaint = () => {
+    term.options.theme = termTheme(name);
+    const bg = term.options.theme.background || '';
+    container.dataset.termBg = bg;
+    const under = term.element?.querySelector('.xterm-viewport');
+    if (under) under.style.backgroundColor = bg;
+  };
   termThemeWatch.add(repaint);
+  repaint();
 
   // Everything worth clicking that goes past in here, offered to the desk's tray.
   const harvest = onLinks ? linkHarvester(term, name, onLinks) : null;
