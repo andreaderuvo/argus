@@ -1599,6 +1599,8 @@
   "last seen {when}": "ultimo accesso {when}",
   "not used yet": "non ancora usato",
   "Take back": "Revoca",
-  "A folder on your computer that stays the same as this one — files open with a double-click, work offline, and changes go both ways. With the argus-sync app, for macOS, Windows and Linux; no administrator needed.": "Una cartella sul tuo computer che resta uguale a questa — i file si aprono con un doppio click, funzionano offline e le modifiche vanno nei due sensi. Con l’app argus-sync, per macOS, Windows e Linux; non serve l’amministratore."
+  "A folder on your computer that stays the same as this one — files open with a double-click, work offline, and changes go both ways. With the argus-sync app, for macOS, Windows and Linux; no administrator needed.": "Una cartella sul tuo computer che resta uguale a questa — i file si aprono con un doppio click, funzionano offline e le modifiche vanno nei due sensi. Con l’app argus-sync, per macOS, Windows e Linux; non serve l’amministratore.",
+  "No app yet?": "Non hai ancora l’app?",
+  "Download argus-sync": "Scarica argus-sync"
  }
 }

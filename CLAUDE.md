@@ -747,6 +747,16 @@ fails if it comes back. Before adding anything, keep these true:
   the same folder, each on the files the planner gave it, no worktree). What reads an existing
   pair stays — the desk card on `BRIDGE.argus.md`, the REDO loop, Also's "partner first" — so a
   pair started before keeps working; there is just no way to start a new one.
+- **argus-sync: a folder kept in sync with a computer** (`app/syncapi.py`, `static/js/syncsheet.js`,
+  tests/test_syncapi.py and tests/browser/test_sync_sheet.py; the client is its own public repo,
+  `andreaderuvo/argus-sync`, Rust + Tauri, released by CI on a `v*` tag). A folder's menu → *Sync to
+  your computer…* makes a key `as_…` for that folder alone (hashed in `sync-keys.json`), shown once
+  inside an `argus-sync://pair?…` link. The key reaches `/api/sync/hello|manifest|file|dir` only, under
+  that folder only; `/api/sync/keys` (make, list, take back) is for the full token. A write needs
+  `base` to match what the client last saw (else 409, kept as a conflict copy by the client), obeys
+  `max_upload_bytes`, lands through a part file; a delete goes to a trash beside the config. The
+  client is Rust because it is installed on people's own computers, without admin: one binary, no
+  runtime, small installers.
 - **A browser is remembered by the server too** (`/api/remember`, in the auth gate, `tests/test_remember.py`).
   localStorage is the page's copy, and a phone loses it (Safari clears script storage after
   seven days away; a link opened from a chat lands in that app's own browser). After a token

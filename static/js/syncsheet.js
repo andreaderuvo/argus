@@ -72,6 +72,8 @@ export async function syncSheet(path) {
 
   body.append(
     el('p', { className: 'hint' }, t('A folder on your computer that stays the same as this one — files open with a double-click, work offline, and changes go both ways. With the argus-sync app, for macOS, Windows and Linux; no administrator needed.')),
+    el('p', { className: 'hint' }, [t('No app yet?') + ' ',
+      el('a', { className: 'doclink', href: 'https://github.com/andreaderuvo/argus-sync/releases/latest', target: '_blank', rel: 'noopener', textContent: t('Download argus-sync') })]),
     el('p', { className: 'meta mwpath', textContent: t('Folder: {path}', { path }) }),
     ways,
     el('div', { className: 'syncgo' }, [make]),
