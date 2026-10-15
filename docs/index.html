@@ -202,6 +202,7 @@ details p { color: var(--ink2); margin-top: 10px; max-width: 68ch; }
 .close { padding-block: 110px; }
 .close h2 { font-size: clamp(2.1rem, 4.4vw, 3.3rem); font-weight: 800; max-width: 17ch; line-height: 1.05; }
 .close .actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 28px; }
+#fleet .actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 24px; }
 .status { background: #1f7f55; color: #06150e; font: 600 .82rem/1 var(--mono); }
 .status .wrap { display: flex; gap: 18px; align-items: center; min-height: 34px; flex-wrap: wrap; padding-block: 8px; }
 .status a { color: #06150e; text-decoration: none; }
@@ -256,6 +257,7 @@ details p { color: var(--ink2); margin-top: 10px; max-width: 68ch; }
       <a class="opt" href="#how">How it works</a>
       <a class="opt" href="#install">Install</a>
       <a class="opt" href="https://github.com/andreaderuvo/argus/wiki">Docs</a>
+      <a class="opt" href="#fleet">Panoptes</a>
       <a class="gh" href="https://github.com/andreaderuvo/argus">GitHub</a>
     </nav>
   </div>
@@ -792,10 +794,27 @@ details p { color: var(--ink2); margin-top: 10px; max-width: 68ch; }
   </div>
 </section>
 
+<section id="fleet" aria-labelledby="fleet-h">
+  <div class="wrap">
+    <div class="head">
+      <span class="win"><b>10:fleet*</b></span>
+      <h2 id="fleet-h">Several machines? Panoptes.</h2>
+      <p>Argus is the workspace for one machine. <b>Panoptes</b> is one page over all of them, ordered by which one
+        needs you: which agents are working, which machine is unhealthy, who is waiting. It holds restricted watcher
+        keys and never sends a machine's key to the browser. Use Argus alone first; add Panoptes when one tab per
+        machine stops scaling.</p>
+      <div class="actions">
+        <a class="btn ink" href="https://andreaderuvo.github.io/panoptes/">See Panoptes</a>
+        <a class="btn" href="https://github.com/andreaderuvo/panoptes">Its code</a>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section id="install" aria-labelledby="install-h">
   <div class="wrap">
     <div class="head">
-      <span class="win"><b>10:install*</b></span>
+      <span class="win"><b>11:install*</b></span>
       <h2 id="install-h">Running in a minute.</h2>
       <p>Linux and macOS, or Windows through WSL or Docker. It needs Python 3.11 or newer and tmux, and it prints
         a link: open it, or scan its QR code with your phone.</p>
@@ -828,7 +847,7 @@ python3 -m app.main          <span class="c"># prints a URL with a token in it</
 <section id="faq" aria-labelledby="faq-h">
   <div class="wrap">
     <div class="head">
-      <span class="win"><b>11:faq*</b></span>
+      <span class="win"><b>12:faq*</b></span>
       <h2 id="faq-h">Before you try it.</h2>
     </div>
     <div class="faq">
@@ -879,6 +898,7 @@ python3 -m app.main          <span class="c"># prints a URL with a token in it</
     <a href="https://github.com/andreaderuvo/argus/wiki">1:docs</a>
     <a href="https://github.com/andreaderuvo/argus">2:github</a>
     <a href="api.html">3:api</a>
+    <a href="https://andreaderuvo.github.io/panoptes/">4:panoptes</a>
     <span class="right">MIT · Andrea de Ruvo · named for the herdsman of a hundred eyes</span>
   </div>
 </footer>
