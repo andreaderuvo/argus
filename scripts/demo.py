@@ -59,6 +59,8 @@ and it is the one worth a phone call: eleven isolates, three regions, six weeks.
 | **C3**  |   **11** |   **3** | **6 weeks** | **1** |
 | C4      |        8 |       1 | 2026      | 4 |
 
+![Isolates by week and region](epicurve.png)
+
 ## C3
 
 Median pairwise distance of 1 allele, maximum 3. That is tight enough that a common
@@ -67,6 +69,8 @@ which happens, but not across three regions in six weeks.
 
 Two of the eleven carry an extra plasmid. It is not in the others, which means it says
 nothing about the transmission and should not be in the tree.
+
+![The isolates at the 5-allele threshold](tree.png)
 
 ## What is not settled
 
@@ -161,12 +165,12 @@ def build_files(root: Path) -> None:
                     for i in range(1, 12)) + "\n"
     )
 
-    figure = HERE / "docs" / "img" / "mark-192.png"
-    if figure.exists():
-        shutil.copy(figure, project / "results" / "tree.png")
-    paper = Path.home() / "phd_thesis" / "thesis_abstract.pdf"
-    if paper.exists():
-        shutil.copy(paper, project / "results" / "cluster-report.pdf")
+    # Drawn from made-up numbers (demo_figures.py). This used to copy the logo in as the tree
+    # and a real PDF from the home folder as the report — a private file, one screenshot away
+    # from a public page.
+    sys.path.insert(0, str(HERE / "scripts"))
+    import demo_figures
+    demo_figures.make(project / "results")
 
 
 # ------------------------------------------------------- the other world: a web project
@@ -549,6 +553,8 @@ def write_config() -> None:
 # ordinary furniture of a machine somebody analyses data on.
 FAKE_MACHINE = {
     "hostname": "worklab-01",
+    "user": "lab",
+    "address": "192.0.2.24",
     "uptime": 47 * 86400 + 12 * 3600,
     "cpu": {"pct": 0.5, "cores": 32, "load": [0.24, 0.29, 0.28], "load_pct": 0.8, "level": "ok"},
     "memory": {

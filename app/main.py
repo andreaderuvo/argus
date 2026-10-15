@@ -2538,6 +2538,19 @@ def create_app(cfg: Config) -> FastAPI:
         said = network.summary(int(getattr(request.app.state, "port", 0) or 0), peer, claimed)
         said["may_ask_outside"] = bool(request.app.state.cfg.ask_outside)
         said["would_ask"] = network.OUTSIDE[0]
+        # The invented machine of the pictures (ARGUS_PRETEND): its name, its user and an address
+        # from the documentation range — this card printed the real hostname, user and LAN address
+        # into a published screenshot (caught by scripts/showcase.py's check, 2026-10-15).
+        fake = system.pretending()
+        if fake is not None:
+            text = json.dumps(said)
+            swaps = [(said.get("hostname") or "", fake.get("hostname", "worklab-01")),
+                     (said.get("user") or "", fake.get("user", "lab"))]
+            swaps += [(a.get("address", ""), fake.get("address", "192.0.2.24")) for a in said.get("addresses") or []]
+            for real, made_up in sorted(swaps, key=lambda s: -len(s[0])):
+                if real:
+                    text = text.replace(real, made_up)
+            said = json.loads(text)
         return said
 
     @app.post("/api/network/outside", tags=["The machine"],
