@@ -110,3 +110,13 @@ def test_read_only_keys_and_servers(tmp_path):
     _, h2 = key_for(c2, root2)
     assert c2.get("/api/sync/hello", headers=h2).json()["write"] is False
     assert c2.delete("/api/sync/file", params={"p": "a.txt"}, headers=h2).status_code == 403
+
+
+def test_a_write_over_the_upload_limit_is_refused_and_leaves_nothing(tmp_path):
+    c, root = make(tmp_path)
+    c.app.state.cfg.max_upload_bytes = 1000
+    _, h = key_for(c, root)
+    r = c.put("/api/sync/file", params={"p": "big.bin", "m": 1, "base": "none"}, content=b"x" * 5000, headers=h)
+    assert r.status_code == 413
+    assert not (root / "data" / "big.bin").exists()
+    assert not [f for f in os.listdir(root / "data") if f.startswith(".argus-sync-")], "no part file left"

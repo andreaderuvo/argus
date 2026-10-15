@@ -316,10 +316,15 @@ async def put_file(request: Request, p: str, m: int, base: str | None = None) ->
     part = real.parent / f"{PART_PREFIX}{secrets.token_hex(6)}.part"
     size = 0
     try:
+        limit = int(getattr(request.app.state.cfg, "max_upload_bytes", 0) or 0)
         with open(part, "wb") as f:
             async for chunk in request.stream():
-                f.write(chunk)
                 size += len(chunk)
+                # The same ceiling as any upload (max_upload_bytes): a key that opens one folder
+                # must not be a way to fill the disk.
+                if limit and size > limit:
+                    raise ApiError(413, f"bigger than this server takes ({limit // (1024 * 1024)} MB, max_upload_bytes)")
+                f.write(chunk)
             f.flush()
             os.fsync(f.fileno())
         _check_base(real, base)                     # again: the upload may have taken a while
