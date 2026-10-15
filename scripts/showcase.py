@@ -38,6 +38,7 @@ SOCKET = "argus-showcase"
 TOKEN = demo.TOKEN
 CONFIG = Path("/tmp/lab-showcase.yaml")
 OUT = HERE / "docs" / "img" / "showcase"
+LIGHT_LOOK = "github-light"
 WIDE = {"width": 1440, "height": 900, "deviceScaleFactor": 0, "mobile": False}   # 0: the browser's own, 2 (--force-device-scale-factor)
 PHONE = {"width": 390, "height": 844, "deviceScaleFactor": 3, "mobile": True}
 
@@ -204,7 +205,13 @@ class Shooter:
         if viewport.get("mobile"):
             page.send("Emulation.setTouchEmulationEnabled", {"enabled": True, "maxTouchPoints": 5})
             page.touch = True
-        api("/api/prefs", "PATCH", {"changes": {"theme": theme, "lang": "en"}})
+        # Light means light terminals too: Argus Light keeps them dark on purpose, GitHub Light does not.
+        look = None
+        if theme == "light":
+            listed = api("/api/themes")
+            look = next((x for x in (listed.get("themes") if isinstance(listed, dict) else listed) if x.get("id") == LIGHT_LOOK), None)
+        api("/api/prefs", "PATCH", {"changes": {"theme": theme, "lang": "en",
+                                                "uiTheme": look["id"] if look else None, "themeCache": look}})
         page.goto(f"http://127.0.0.1:{PORT}/#token={TOKEN}")
         page.wait("!!document.querySelector('#nav') && !document.querySelector('#nav').hidden", timeout=20)
         page.eval(f"location.hash = {route!r}")
