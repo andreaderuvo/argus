@@ -168,3 +168,21 @@ def test_an_agent_with_hooks_is_not_rung_for_by_the_pane(app, client):
     agent(app, "other", "working")
     agent(app, "other", "waiting")
     assert bells(client) == []
+
+
+def test_one_stop_heard_through_two_hooks_rings_once(app, client):
+    """The hooks left in ~/.claude/settings.json and the plugin's own both fire on one Stop: the
+    same words, the same second. Read off a live server, 2026-10-15: every turn rang twice."""
+    agent(app, "api", "working")
+    first = client.post("/api/bell", json={"session": "api", "why": "done", "text": "Tests pass."}).json()
+    again = client.post("/api/bell", json={"session": "api", "why": "done", "text": "Tests pass."}).json()
+    assert "repeat" not in first and again.get("repeat") is True
+    assert len(bells(client)) == 1
+    other = client.post("/api/bell", json={"session": "web", "why": "done", "text": "Tests pass."}).json()
+    assert "repeat" not in other, "another session saying the same is its own bell"
+
+
+def test_the_same_words_said_twice_by_something_that_is_not_an_agent_ring_once(client):
+    for _ in range(2):
+        client.post("/api/bell", json={"session": "build", "why": "failed", "text": "make: *** [all] Error 2"})
+    assert len(bells(client)) == 1

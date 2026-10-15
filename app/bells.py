@@ -49,6 +49,10 @@ NEEDS = {"done", "asking"}
 # How long a turn the server noticed by itself (the sampler) waits for the hook that will say the
 # same thing with more words, before the hook counts as a turn of its own.
 HOOK_LATE = 15
+# The same words about the same session within this long are one bell said twice: the hooks left in
+# ~/.claude/settings.json and the plugin's own both fire on one Stop (2026-10-15: every turn rang
+# twice, the same second, the same text). Only with words: two bare "done"s can be two short turns.
+SAID_TWICE = 10
 UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
 
 
@@ -112,6 +116,19 @@ def repeat_of(request, why: str, session: str | None, source: str) -> dict | Non
     return next((b for b in kept["list"] if b["seq"] == seq), {"seq": seq})
 
 
+def said_twice(request, why: str, session: str | None, text: str) -> dict | None:
+    """The bell this one says again word for word, a moment later, or None."""
+    if not text or not session:
+        return None
+    now = time.time()
+    for bell in reversed(store(request)["list"]):
+        if now - bell["at"] > SAID_TWICE + 1:
+            break
+        if bell["session"] == session and bell["why"] == why and bell["text"] == str(text)[:MAX_TEXT]:
+            return bell
+    return None
+
+
 def plugin_seen(request, session: str, version: str) -> None:
     """Which Argus plugin version a session's agent said it is running."""
     store(request).setdefault("plugins", {})[session] = version.strip()[:20]
@@ -162,7 +179,7 @@ async def ring(request: Request, body: dict) -> dict:
         team = quiet_team(request.app, session)
         if team and not PERMISSION.search(text):
             return {"quiet": True, "team": team, "session": session}
-    earlier = repeat_of(request, why, session, "hook")
+    earlier = said_twice(request, why, session, text) or repeat_of(request, why, session, "hook")
     if earlier is not None:
         return {**earlier, "repeat": True}
     return rung(request, why, session=session, text=text, source="hook")
