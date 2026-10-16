@@ -1,6 +1,6 @@
 // <imports> generated from what this file uses; edit the code, not this list
 import { savePrefs } from '/js/core.js';
-import { copies, copyText, modal, showText, ticked, toast } from '/js/dialogs.js';
+import { ask, copies, copyText, modal, showText, ticked, toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { fileIcon } from '/js/fileicons.js';
 import { uploadTo } from '/js/filerows.js';
@@ -1133,7 +1133,8 @@ export const watchers = new Set();
  *  It lands where dropped files land, or in `spec.path` when it was opened from a folder.
  */
 export function attachNote(host, spec, setLabel) {
-  const where = spec.path || server?.drop_dir || '';
+  // The desk's folder when it was opened from a desk that has one (wall.js), else the drops.
+  let where = spec.path || server?.drop_dir || '';
   /* The draft, so a reload does not eat forty thousand characters somebody pasted an hour ago.
    *
    *  `sessionStorage` and not the preferences: the preferences are one document that every
@@ -1147,10 +1148,38 @@ export function attachNote(host, spec, setLabel) {
     placeholder: t('paste it here — it is saved as a file and you are given the path'),
   });
   try { box.value = sessionStorage.getItem(draftKey) || ''; } catch { /* private mode */ }
+  /* No name typed: the server takes the first free note-N.txt, as it does for a pasted
+   *  screenshot — a folder you chose refuses a name that is taken, and the second note of the
+   *  afternoon would have been refused. A name you typed is kept, and refused if it is taken. */
   const named = el('input', {
-    type: 'text', className: 'linkbox notename', value: 'note.txt',
-    spellcheck: false, autocapitalize: 'off', title: t('call it'),
+    type: 'text', className: 'linkbox notename', value: '', placeholder: 'note.txt',
+    spellcheck: false, autocapitalize: 'off', title: t('call it — left empty: note-1.txt, note-2.txt…'),
   });
+  // Where it goes, said before it goes there, and changed with a press.
+  const whereName = el('span', { className: 'notewherepath' });
+  const whereBtn = el('button', { className: 'ghost inline notewhere', type: 'button', title: t('Save into another folder') },
+    [icon('folder'), whereName]);
+  const paintWhere = () => {
+    // The mark keeps the leading / where it belongs: the path is cut from its start (rtl in the CSS).
+    whereName.textContent = where ? `\u200E${where}` : t('nowhere yet');
+    whereBtn.title = where ? `${t('Save into another folder')} — ${where}` : t('Save into another folder');
+  };
+  whereBtn.onclick = async () => {
+    const dest = (await ask(t('Save into which folder?'), where, t('Choose')))?.trim();
+    if (!dest || dest === where) return;
+    try {
+      await getJSON(`/api/files?path=${encodeURIComponent(dest)}`);
+    } catch (e) {
+      toast(t('{path} is not a folder this server can show: {why}', { path: dest, why: e.message || e }), true);
+      return;
+    }
+    where = dest;
+    spec.path = dest;
+    savePrefs();
+    paintWhere();
+    relabel();
+    measure();
+  };
   const said = el('span', { className: 'meta notecount' });
   const go = el('button', { className: 'winbtn wide', disabled: true }, [icon('save'), el('span', { textContent: t('Save') })]);
   const landed = el('div', { className: 'noteland', hidden: true });
@@ -1170,7 +1199,8 @@ export function attachNote(host, spec, setLabel) {
   const save = () => {
     const text = box.value;
     if (!text || !where) return;
-    const name = named.value.trim() || 'note.txt';
+    const typed = named.value.trim();
+    const name = typed || 'note.txt';
     go.disabled = true;
     uploadTo(where, [new File([text], name, { type: 'text/plain' })], (result) => {
       const saved = result?.files?.[0]?.path;
@@ -1191,18 +1221,21 @@ export function attachNote(host, spec, setLabel) {
         if (ok) toast(t('path copied: {path}', { path: saved }));
         else toast(t('tap to copy {path}', { path: saved }), false, () => copyText(saved).then((done) => toast(done ? t('copied') : saved)));
       });
-    }, { quiet: true, drop: !spec.path, called: name });
+    }, { quiet: true, drop: !spec.path, called: name, sequence: typed ? '' : 'note' });
   };
   go.onclick = save;
   // Ctrl+Enter saves. Enter cannot: this is a box for text with newlines in it, and the whole
   // reason it exists is that there are a great many of them.
   box.onkeydown = (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); save(); } };
 
+  // A form, not a terminal: the page's ground, not the terminal's (dark on a light theme).
+  host.classList.add('notewin');
   host.replaceChildren(el('div', { className: 'notebody' }, [
     box,
-    el('div', { className: 'noterow' }, [named, said, go]),
+    el('div', { className: 'noterow' }, [whereBtn, named, said, go]),
     landed,
   ]));
+  paintWhere();
   measure();
   relabel();
   if (!where) said.textContent = t('this server takes no drops — set drop_dir in the config');

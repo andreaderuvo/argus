@@ -3584,7 +3584,17 @@ body:not(.railwide) .railwin.raildesk .railcount { display: none; }
 .noterow { display: flex; align-items: center; gap: .5rem .4rem; flex: none; flex-wrap: wrap; }
 /* The name is the wide one: it is the part you change. The count reads itself out of the way,
    and goes first to the wrap, being the one thing here you can also just look at the text for. */
-.noterow .notename { flex: 1 1 7rem; min-width: 0; }
+.noterow .notename { flex: 1 1 7rem; min-width: 0; padding: .35rem .55rem; font: inherit; font-size: .85rem;
+  background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 7px; }
+.noterow .notename:focus { outline: none; border-color: var(--accent); }
+.noterow .notename::placeholder { color: var(--dim); }
+/* The folder it goes into: shown whole as far as there is room, its end kept (the folder's own name). */
+.winbody.notewin { background: var(--bg); }
+.noterow .notewhere { flex: 1 1 100%; min-width: 0; max-width: 100%; display: flex; background: var(--panel); align-items: center; gap: .3rem;
+  padding: .3rem .5rem; color: var(--dim); font-size: .8rem; border: 1px solid var(--line); border-radius: 7px; }
+.noterow .notewhere:hover { color: var(--text); border-color: var(--accent); }
+.noterow .notewhere svg { flex: none; width: 15px; height: 15px; }
+.noterow .notewherepath { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
 .noterow .notecount { flex: 1 1 auto; color: var(--dim); white-space: nowrap; text-align: right; }
 .noterow .winbtn { flex: none; }
 /* Where it went, kept on the window rather than only in a message that fades. */

@@ -1601,6 +1601,12 @@
   "Take back": "Take back",
   "A folder on your computer that stays the same as this one — files open with a double-click, work offline, and changes go both ways. With the argus-sync app, for macOS, Windows and Linux; no administrator needed.": "A folder on your computer that stays the same as this one — files open with a double-click, work offline, and changes go both ways. With the argus-sync app, for macOS, Windows and Linux; no administrator needed.",
   "No app yet?": "No app yet?",
-  "Download argus-sync": "Download argus-sync"
+  "Download argus-sync": "Download argus-sync",
+  "call it — left empty: note-1.txt, note-2.txt…": "call it — left empty: note-1.txt, note-2.txt…",
+  "Save into another folder": "Save into another folder",
+  "nowhere yet": "nowhere yet",
+  "Save into which folder?": "Save into which folder?",
+  "Choose": "Choose",
+  "{path} is not a folder this server can show: {why}": "{path} is not a folder this server can show: {why}"
  }
 }

@@ -2611,11 +2611,12 @@ export async function screenWall() {
    *  an agent can open. Only where the server can write, like everything else that makes a
    *  file — a button that can only apologise is worse than one that is not there.
    */
-  if (server?.allow_write && server?.drop_dir) {
+  if (server?.allow_write && (server?.drop_dir || activeSpace()?.home)) {
     tools.append(el('button', {
       className: 'winbtn wide',
       title: t('Paste a large piece of text and get a path to it'),
-      onclick: () => openWindow({ kind: 'note', id: nextWindowId() }),
+      // Into the desk's folder when the desk has one: that is where its sessions work.
+      onclick: () => openWindow({ kind: 'note', id: nextWindowId(), ...(activeSpace()?.home ? { path: deskFolder() } : {}) }),
     }, [icon('file'), el('span', { textContent: t('Text') })]));
   }
 

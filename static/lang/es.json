@@ -1601,6 +1601,12 @@
   "Take back": "Revocar",
   "A folder on your computer that stays the same as this one — files open with a double-click, work offline, and changes go both ways. With the argus-sync app, for macOS, Windows and Linux; no administrator needed.": "Una carpeta en tu ordenador que sigue igual a esta — los archivos se abren con doble clic, funcionan sin conexión y los cambios van en ambos sentidos. Con la app argus-sync, para macOS, Windows y Linux; no hace falta administrador.",
   "No app yet?": "¿Aún no tienes la app?",
-  "Download argus-sync": "Descargar argus-sync"
+  "Download argus-sync": "Descargar argus-sync",
+  "call it — left empty: note-1.txt, note-2.txt…": "ponle un nombre — vacío: note-1.txt, note-2.txt…",
+  "Save into another folder": "Guardar en otra carpeta",
+  "nowhere yet": "todavía en ningún sitio",
+  "Save into which folder?": "¿En qué carpeta guardarlo?",
+  "Choose": "Elegir",
+  "{path} is not a folder this server can show: {why}": "{path} no es una carpeta que este servidor pueda mostrar: {why}"
  }
 }
