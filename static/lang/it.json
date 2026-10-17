@@ -1637,6 +1637,16 @@
   "Insert a Mermaid diagram": "Inserisci un diagramma Mermaid",
   "Diagram": "Diagramma",
   "Insert a diagram": "Inserisci un diagramma",
-  "Wrap": "A capo"
+  "Wrap": "A capo",
+  "Updating…": "Aggiornamento…",
+  "Installing…": "Installazione…",
+  "waiting its turn": "in attesa del suo turno",
+  "updating…": "aggiornamento…",
+  "failed: {why}": "non riuscito: {why}",
+  "updated to {v} ✓": "aggiornato a {v} ✓",
+  "Updating — a few seconds for each agent; nothing running stops.": "Aggiornamento in corso — pochi secondi per agente; niente di ciò che gira si ferma.",
+  "Updating {i} of {n}…": "Aggiornamento {i} di {n}…",
+  "{n} could not be updated": "{n} non aggiornati",
+  "the Argus plugin is up to date": "il plugin Argus è aggiornato"
  }
 }

@@ -4684,3 +4684,12 @@ dialog.sheet.mountwizard { width: min(46rem, calc(100vw - 2rem)); }
   .nsbody[data-view="split"] { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
   .nsbody[data-view="split"] .nspreview { border-left: 0; border-top: 1px solid var(--line); }
 }
+
+/* Something happening now: a turning arrow beside the words that say what (busySpin). */
+.spin { display: inline-flex; animation: weighing 1s linear infinite; }
+.spin svg, .spin .ico { width: 14px; height: 14px; }
+button .spin { margin-right: .35rem; vertical-align: -2px; }
+.pluginstep { display: inline-flex; align-items: center; gap: .35rem; }
+.pluginstep.bad { color: var(--danger); }
+.pluginstep.good { color: var(--ok, var(--accent)); }
+@media (prefers-reduced-motion: reduce) { .spin { animation: none; } }

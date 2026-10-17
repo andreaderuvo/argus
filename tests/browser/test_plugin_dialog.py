@@ -56,3 +56,21 @@ def test_on_a_phone_it_fits_the_screen(make_page, old_plugin):
     r = page.eval("(() => { const r = document.querySelector('dialog.pluginupdate').getBoundingClientRect();"
                   " return [r.left, r.right, innerWidth]; })()")
     assert r[0] >= 0 and r[1] <= r[2], r
+
+
+def test_updating_says_what_it_is_doing_while_it_does_it(make_page, old_plugin):
+    """'I see dots on a button and cannot tell whether it is working' (2026-10-17): the button and
+    the agent's line say Updating…, with a turning mark, until the answer comes back."""
+    page = make_page(route="#/files")
+    page.wait(OPEN, timeout=10)
+    # The update itself held for a moment, and answered as done: nothing is installed by a test.
+    page.eval("""(() => { const real = window.fetch; window.fetch = (u, o) => (String(u).endsWith('/api/plugin') && o?.method === 'POST')
+      ? new Promise((ok) => setTimeout(() => ok(new Response('{"ok": true}', { headers: { 'Content-Type': 'application/json' } })), 1500))
+      : real(u, o); })()""")
+    page.click_text("Update", within="dialog.pluginupdate .sheetbtns button, dialog.pluginupdate button.primary")
+    page.wait("(() => { const b = document.querySelector('dialog.pluginupdate button.primary');"
+              " return b.disabled && b.textContent.includes('Updating') && !!b.querySelector('.spin'); })()", timeout=3,
+              what="the button says it is updating")
+    page.wait("[...document.querySelectorAll('dialog.pluginupdate .pluginstep')].some(s => s.textContent.includes('updating') && s.querySelector('.spin'))",
+              timeout=3, what="and so does the agent's line")
+    page.wait("!document.querySelector('dialog.pluginupdate button.primary').disabled", timeout=6, what="then it is over")

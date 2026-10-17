@@ -334,7 +334,8 @@ export function pluginButton(a, after) {
   const b = el('button', { className: 'ghost inline', type: 'button', textContent: label() });
   b.onclick = async () => {
     b.disabled = true;
-    b.textContent = '…';
+    // Said while it happens: three dots on a button read as nothing at all.
+    b.replaceChildren(busySpin(), el('span', { textContent: a.installed ? t('Updating…') : t('Installing…') }));
     try {
       await postJSON('/api/plugin', { agent: a.agent, action: a.installed ? 'update' : 'install' });
       toast(t('the Argus plugin is in {name} — sessions take it when they reload or start', { name: a.name }));
@@ -362,36 +363,67 @@ export async function pluginUpdateDialog({ force = false } = {}) {
   const seen = () => { prefs.sawPlugin = info.version; savePrefs(); };
   later.onclick = () => { seen(); sheet.close(); };
   sheet.addEventListener('close', seen);
-  const paint = async () => {
-    try { info = await getJSON('/api/plugin'); } catch { /* the last answer will do */ }
+  /* While Update all runs, each agent's own line says where it is — waiting its turn, updating
+   *  (turning), updated, or failed with the reason — and the button counts "Updating 1 of 2…".
+   *  It used to read "…" on a button, which could be working or stuck. */
+  const progress = new Map();
+  let running = false;
+  const stepOf = (a, left) => {
+    const step = progress.get(a.agent);
+    if (step === 'waiting') return [el('span', { className: 'meta', textContent: t('waiting its turn') })];
+    if (step === 'doing') return [el('span', { className: 'pluginstep' }, [busySpin(), el('span', { textContent: t('updating…') })])];
+    if (step?.error) return [el('span', { className: 'pluginstep bad', textContent: t('failed: {why}', { why: step.error }) })];
+    if (step === 'done' && !a.outdated) return [el('span', { className: 'pluginstep good', textContent: t('updated to {v} ✓', { v: a.installed }) })];
+    return [el('span', { textContent: a.outdated ? t('{have} — {offered} is out', { have: a.installed, offered: info.version }) : `${a.installed} ✓` }),
+      // One agent behind: the dialog's own Update is that button; a second beside it says nothing more.
+      left.length > 1 && !progress.size ? pluginButton(a, () => paint(true)) : null];
+  };
+  const paint = async (fresh = true) => {
+    if (fresh) { try { info = await getJSON('/api/plugin'); } catch { /* the last answer will do */ } }
     const left = (info?.agents || []).filter((a) => a.outdated);
-    const rows = (info?.agents || []).filter((a) => a.outdated || (a.installed && old.some((o) => o.agent === a.agent))).map((a) =>
+    const rows = (info?.agents || []).filter((a) => a.outdated || progress.has(a.agent)
+      || (a.installed && old.some((o) => o.agent === a.agent))).map((a) =>
       el('div', { className: 'aboutrow' }, [
         el('span', { className: 'meta', textContent: t('The Argus plugin in {name}', { name: a.name }) }),
-        el('span', { className: `aboutval${a.outdated ? ' warn' : ''}` }, [
-          el('span', { textContent: a.outdated ? t('{have} — {offered} is out', { have: a.installed, offered: info.version }) : `${a.installed} ✓` }),
-          // One agent behind: the dialog's own Update is that button; a second beside it says nothing more.
-          left.length > 1 ? pluginButton(a, paint) : null,
-        ].filter(Boolean))]));
-    const behind = pluginBehind(info, paint);
+        el('span', { className: `aboutval${a.outdated && !progress.has(a.agent) ? ' warn' : ''}` }, stepOf(a, left).filter(Boolean)),
+      ]));
+    const behind = running ? null : pluginBehind(info, () => paint(true));
     body.replaceChildren(
-      el('p', { className: 'hint', textContent: left.length
-        ? t('Its hooks, tools and skills are what let agents ring you, ask, and run a team. Updating takes a few seconds; nothing running stops.')
-        : t('Updated. A session already open keeps the plugin it started with until it reloads.') }),
+      el('p', { className: 'hint', textContent: running ? t('Updating — a few seconds for each agent; nothing running stops.')
+        : left.length ? t('Its hooks, tools and skills are what let agents ring you, ask, and run a team. Updating takes a few seconds; nothing running stops.')
+          : t('Updated. A session already open keeps the plugin it started with until it reloads.') }),
       ...rows, ...(behind ? [behind] : []));
+    if (running) return;
     later.hidden = !left.length;
     all.textContent = left.length > 1 ? t('Update all') : left.length ? t('Update') : t('Done');
     all.onclick = left.length ? async () => {
+      const todo = [...left];
+      running = true;
       all.disabled = true;
-      all.textContent = '…';
-      for (const a of left) {
-        try { await postJSON('/api/plugin', { agent: a.agent, action: 'update' }); } catch (e) { toast(e.message, true); }
+      later.disabled = true;
+      for (const a of todo) progress.set(a.agent, 'waiting');
+      for (const [i, a] of todo.entries()) {
+        progress.set(a.agent, 'doing');
+        all.replaceChildren(busySpin(), el('span', { textContent: todo.length > 1
+          ? t('Updating {i} of {n}…', { i: i + 1, n: todo.length }) : t('Updating…') }));
+        paint(false);
+        try { await postJSON('/api/plugin', { agent: a.agent, action: 'update' }); progress.set(a.agent, 'done'); }
+        catch (e) { progress.set(a.agent, { error: e.message || String(e) }); }
       }
+      running = false;
       all.disabled = false;
-      paint();
+      later.disabled = false;
+      await paint(true);
+      const failed = todo.filter((a) => progress.get(a.agent)?.error);
+      toast(failed.length ? t('{n} could not be updated', { n: failed.length }) : t('the Argus plugin is up to date'), !!failed.length);
     } : () => sheet.close();
   };
-  await paint();
+  await paint(true);
+}
+
+/** A turning arrow: something is happening now, and the label beside it says what. */
+function busySpin() {
+  return el('span', { className: 'spin', 'aria-hidden': 'true' }, icon('refresh'));
 }
 
 export async function aboutThisArgus() {
