@@ -52,3 +52,26 @@ def test_a_snapshot_reads_the_process_table_once():
     t = time.monotonic()
     system.snapshot(roots)
     assert time.monotonic() - t < 0.1
+
+
+@pytest.mark.parametrize("stdout,stderr,want", [
+    # A session ended between the commands of the one call: tmux answered the first, then failed.
+    ("S\twriter\t1\t0\t1700000000\t1700000001\n", "can't find session: checker", ["writer"]),
+    # The server holding no session for a moment as it ends.
+    ("", "no sessions", []),
+    ("", "no server running on /tmp/tmux-1/x", []),
+])
+def test_a_session_list_caught_mid_change_is_still_a_list(monkeypatch, stdout, stderr, want):
+    """Found by CI (2026-10-17): a page counting sessions while a team restarted got a 502."""
+    from app import tmux
+
+    monkeypatch.setattr(tmux.subprocess, "run", lambda *a, **k: subprocess.CompletedProcess(a[0], 1, stdout, stderr))
+    assert [s["name"] for s in tmux.list_sessions(tmux.Socket.new("x"))] == want
+
+
+def test_a_real_failure_is_still_said(monkeypatch):
+    from app import tmux
+
+    monkeypatch.setattr(tmux.subprocess, "run", lambda *a, **k: subprocess.CompletedProcess(a[0], 1, "", "unknown option -- Z"))
+    with pytest.raises(tmux.TmuxError):
+        tmux.list_sessions(tmux.Socket.new("x"))

@@ -62,7 +62,7 @@ def is_no_server(stderr: str) -> bool:
     return any(
         m in s
         for m in ("no server running", "error connecting", "no current client", "failed to connect to server",
-                  "server exited unexpectedly", "lost server")
+                  "server exited unexpectedly", "lost server", "no sessions")
     )
 
 
@@ -122,7 +122,11 @@ def list_sessions(sock: Socket) -> list[dict]:
     except OSError as e:
         raise TmuxError(f"could not run tmux: {e}") from e
 
-    if p.returncode != 0:
+    # Three commands in one call: when a session (or the server) goes in the middle of it — a team
+    # restarting ends its sessions while a page is counting them — tmux stops at the command that
+    # found nothing and says so, after answering the first. What it answered is the answer.
+    answered = any(line.startswith("S\t") for line in p.stdout.splitlines())
+    if p.returncode != 0 and not answered:
         if is_no_server(p.stderr):
             return []
         raise TmuxError(p.stderr.strip() or "tmux failed")
