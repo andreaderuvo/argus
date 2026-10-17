@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import shutil
+
+import pytest
 import os
 import subprocess
 import uuid
@@ -9,6 +12,7 @@ import uuid
 from app import tmux
 
 
+@pytest.mark.skipif(not shutil.which("tmux"), reason="needs tmux")
 def test_one_call_answers_for_every_session():
     sock = tmux.Socket(f"argus-test-cm-{os.getpid()}-{uuid.uuid4().hex[:6]}")
     run = lambda *a: subprocess.run(["tmux", *sock.args(), *a], capture_output=True, text=True, timeout=10)  # noqa: E731
@@ -25,6 +29,7 @@ def test_one_call_answers_for_every_session():
         run("kill-server")
 
 
+@pytest.mark.skipif(not shutil.which("tmux"), reason="needs tmux")
 def test_where_every_session_is_in_one_call(tmp_path):
     from app import paths
     sock = tmux.Socket(f"argus-test-cw-{os.getpid()}-{uuid.uuid4().hex[:6]}")

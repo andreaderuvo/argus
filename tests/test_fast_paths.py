@@ -3,6 +3,9 @@ slow, and each test fails if it comes back."""
 
 from __future__ import annotations
 
+import shutil
+
+import pytest
 import subprocess
 import time
 from pathlib import Path
@@ -10,6 +13,7 @@ from pathlib import Path
 from app import system, tmux
 
 
+@pytest.mark.skipif(not shutil.which("tmux"), reason="needs tmux")
 def test_the_session_list_is_one_tmux_call(monkeypatch):
     calls = []
     real = subprocess.run

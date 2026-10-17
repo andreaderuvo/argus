@@ -8,6 +8,7 @@ short. A route added to `AGENT_ROUTES` without a reason should make one of these
 
 from __future__ import annotations
 
+import shutil
 import pytest
 from fastapi.testclient import TestClient
 
@@ -34,6 +35,7 @@ def agent(app_with_agent):
     return client
 
 
+@pytest.mark.skipif(not shutil.which("tmux"), reason="needs tmux")
 def test_it_may_ask_what_is_happening(agent):
     assert agent.get("/api/who").status_code == 200
     assert agent.get("/api/tmux/sessions").status_code == 200

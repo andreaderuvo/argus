@@ -10,6 +10,7 @@ manage devices. That asymmetry is what stops a lost phone being used to lock its
 
 from __future__ import annotations
 
+import shutil
 import json
 import time
 
@@ -66,6 +67,7 @@ def test_the_file_is_only_readable_by_its_owner(tmp_path):
 
 # ------------------------------------------------------------------ what a device may do
 
+@pytest.mark.skipif(not shutil.which("tmux"), reason="needs tmux")
 def test_a_device_token_does_the_work(tmp_path):
     client, _ = running(tmp_path)
     token, _ = mint(client)

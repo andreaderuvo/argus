@@ -741,6 +741,7 @@ def test_a_model_may_suggest_permissions_and_nothing_else():
     assert from_yaml(to_yaml(g, "m"))["permissions"] == "everything"
 
 
+@pytest.mark.skipif(not shutil.which("tmux"), reason="needs tmux")
 def test_a_second_team_of_the_same_name_gets_a_number(tmp_path, monkeypatch):
     """Two teams called 'Team' shared their session names and stepped on each other."""
     from fastapi.testclient import TestClient

@@ -12,6 +12,9 @@ jobs:
   pytest:
     runs-on: ubuntu-latest
     strategy:
+      # Every version reports: a failure on one used to cancel the other two, and hid whatever
+      # they would have said.
+      fail-fast: false
       matrix:
         # 3.11 is the floor: the PTY bridge uses os.login_tty.
         python: ['3.11', '3.12', '3.13']

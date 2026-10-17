@@ -3,6 +3,7 @@ taps Do it / No, Argus does it through its own routes with the full key."""
 
 from __future__ import annotations
 
+import shutil
 import time
 
 import pytest
@@ -158,6 +159,7 @@ def test_a_proposed_team_is_found_by_name_in_its_own_folder(tmp_path, monkeypatc
     assert body["path"] == str(folder) and body["goal"] == "paper-trade it" and body["name"] == "Kraken paper"
 
 
+@pytest.mark.skipif(not shutil.which("tmux"), reason="needs tmux")
 def test_a_session_is_put_on_a_desk_without_asking(tmp_path):
     with TestClient(make(tmp_path)) as c:
         said = c.post("/api/desks", json={"name": "Trading", "session": "nope", "show": False}, headers=AGENT)
@@ -312,8 +314,11 @@ def test_updating_the_plugin_is_asked_and_reloading_it_never_is(tmp_path, monkey
     assert "reload_plugins" in consent.without_asking(app) and "update_plugin" not in consent.without_asking(app)
 
 
-def test_a_desk_takes_a_folder_on_the_agent_key_and_a_team_start_can_say_how(tmp_path):
+def test_a_desk_takes_a_folder_on_the_agent_key_and_a_team_start_can_say_how(tmp_path, monkeypatch):
     from app import prefs as P
+    # A stand-in agent, as the other plans here have: the CI machine has no Claude installed, and
+    # this test used to plan with whatever this machine had (red on CI from 2026-10-12).
+    monkeypatch.setattr(consent.launch, "describe", lambda cfg, versions=False: [{"name": "Claude Code", "agent": "claude", "available": True}])
     app = make(tmp_path)
     app.state.prefs = tmp_path / "prefs.json"
     P.save(app.state.prefs, 1, {"ws": 1, "wsSeq": 2, "workspaces": [
