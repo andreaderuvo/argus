@@ -193,6 +193,35 @@ TOOLS = [
     {"name": "todo_add",
      "description": "Add something to the person's to-do list — a follow-up you found but should not do now.",
      "inputSchema": {"type": "object", "properties": {"note": {"type": "string"}}, "required": ["note"]}},
+    {"name": "notes",
+     "description": "The person's notes in Argus (the Notes screen), the latest first: name, first line, and the "
+                    "path of the plain file. When asked about \"my notes\" or \"the note on X\", look here first.",
+     "inputSchema": {"type": "object", "properties": {}}},
+    {"name": "note_read",
+     "description": "One note's whole text.",
+     "inputSchema": {"type": "object", "properties": {"name": {"type": "string", "description": "e.g. plan.md"}},
+                     "required": ["name"]}},
+    {"name": "note_new",
+     "description": "A new note, shown at once in the person's Notes. Without a name it is note-N.md.",
+     "inputSchema": {"type": "object", "properties": {
+         "text": {"type": "string", "description": "Its words (Markdown; ```mermaid fences are drawn as diagrams)"},
+         "name": {"type": "string", "description": "A file name; .md is added if it has no suffix"}}}},
+    {"name": "note_add",
+     "description": "Add words at the end of a note, after a blank line — a finding, a result, a follow-up. "
+                    "The note is made if there is none of that name.",
+     "inputSchema": {"type": "object", "properties": {"name": {"type": "string"}, "text": {"type": "string"}},
+                     "required": ["name", "text"]}},
+    {"name": "note_write",
+     "description": "Replace a note's whole text. Prefer note_add unless asked to rewrite it.",
+     "inputSchema": {"type": "object", "properties": {"name": {"type": "string"}, "text": {"type": "string"}},
+                     "required": ["name", "text"]}},
+    {"name": "note_rename",
+     "description": "Give a note another name; refused when the new name is taken.",
+     "inputSchema": {"type": "object", "properties": {"name": {"type": "string"}, "to": {"type": "string"}},
+                     "required": ["name", "to"]}},
+    {"name": "note_delete",
+     "description": "Delete a note: it goes into the notes' trash beside them, where it can be taken back.",
+     "inputSchema": {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}},
     {"name": "teams",
      "description": "The teams of agents Argus is directing on this machine: goal, round, status, whose turn it is "
                     "and each step's outcome. Read only.",
@@ -388,6 +417,42 @@ def _todo_add(a: Argus, args: dict) -> str:
     return f"added #{said['n']}: {said['note']}"
 
 
+def _notes(a: Argus, _args: dict) -> str:
+    said = a.notes()
+    lines = [f"{n['name']}: {n['title'] or '(empty)'}" for n in said.get("notes") or []]
+    return (f"notes in {said['dir']}:\n" + "\n".join(lines)) if lines else f"no notes yet (they go in {said['dir']})"
+
+
+def _note_read(a: Argus, args: dict) -> str:
+    said = a.note(args["name"])
+    return f"{said['path']}\n\n{said['text']}"
+
+
+def _note_new(a: Argus, args: dict) -> str:
+    said = a.note_new(args.get("text") or "", args.get("name") or "")
+    return f"made {said['name']}: {said['path']}"
+
+
+def _note_add(a: Argus, args: dict) -> str:
+    said = a.note_add(args["name"], args["text"])
+    return f"added to {said['name']}: {said['path']}"
+
+
+def _note_write(a: Argus, args: dict) -> str:
+    said = a.note_write(args["name"], args["text"])
+    return f"wrote {said['name']}: {said['path']}"
+
+
+def _note_rename(a: Argus, args: dict) -> str:
+    said = a.note_rename(args["name"], args["to"])
+    return f"{args['name']} is now {said['name']}"
+
+
+def _note_delete(a: Argus, args: dict) -> str:
+    said = a.note_delete(args["name"])
+    return f"deleted {said['deleted']} — kept in the notes' trash: {said['kept']}"
+
+
 def _teams(a: Argus, _args: dict) -> str:
     teams = a.teams()
     if not teams:
@@ -413,7 +478,7 @@ def _prompts(a: Argus, _args: dict) -> str:
 
 
 DO = {"who": _who, "ring": _ring, "ask": _ask, "relay": _relay, "open_desk": _open_desk, "rename_desk": _rename_desk, "launchers": _launchers,
-      "start_agent": _start, "team_task": _team_task, "team_done": _team_done, "team_check": _team_check, "team_propose": _team_propose, "request": _request, "request_status": _request_status, "close_gone_windows": _close_gone, "todos": _todos, "todo_set": _todo_set, "todo_add": _todo_add, "teams": _teams, "worktree": _worktree, "prompts": _prompts}
+      "start_agent": _start, "team_task": _team_task, "team_done": _team_done, "team_check": _team_check, "team_propose": _team_propose, "request": _request, "request_status": _request_status, "close_gone_windows": _close_gone, "todos": _todos, "todo_set": _todo_set, "todo_add": _todo_add, "notes": _notes, "note_read": _note_read, "note_new": _note_new, "note_add": _note_add, "note_write": _note_write, "note_rename": _note_rename, "note_delete": _note_delete, "teams": _teams, "worktree": _worktree, "prompts": _prompts}
 
 
 # ------------------------------------------------------------------ the wire

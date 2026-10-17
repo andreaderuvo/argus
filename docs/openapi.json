@@ -2551,6 +2551,52 @@
     ]
    }
   },
+  "/api/notes/append": {
+   "post": {
+    "description": "What an agent does most: put a finding at the bottom of a note without reading it first. A\nblank line before it unless the note is empty or already ends with one.",
+    "operationId": "postApiNotesAppend",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Append Note Api Notes Append Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Add text at the end of a note (made if it is not there)",
+    "tags": [
+     "Notes"
+    ]
+   }
+  },
   "/api/notes/note": {
    "delete": {
     "operationId": "deleteApiNotesNote",

@@ -28,6 +28,7 @@ phone. You reach it with the Argus tools (or `argus-say` from a shell). Three ki
 | tell another session something | `relay` (`press_enter: true` to send it, not just type it) |
 | ask the person and wait / tell them you are done | `ask` / `ring` |
 | the to-do list: read, add, mark doing/done | `todos`, `todo_add`, `todo_set` |
+| the notes (the Notes screen): list, read, make, add to, rewrite, rename, delete | `notes`, `note_read`, `note_new`, `note_add` (prefer it to rewriting), `note_write`, `note_rename`, `note_delete` (kept in the notes' trash) |
 | teams: how they are doing | `teams` |
 | design a team | `team_check`, then `team_propose` (skill `argus-team-author`) |
 | in a team: your task, your report | `team_task`, `team_done` (skill `argus-team`) |

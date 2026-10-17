@@ -41,6 +41,9 @@ export function attachNotes(host, spec, setLabel) {
   const copyBtn = el('button', { className: 'winbtn', type: 'button', title: t('Copy the absolute path') }, [icon('clipboard'), el('span', { textContent: t('Copy path') })]);
   const delBtn = el('button', { className: 'winbtn danger', type: 'button', title: t('Delete this note') }, icon('trash'));
   const gutter = el('div', { className: 'nsgutter', 'aria-hidden': 'true' });
+  const mirror = el('div', { className: 'nsmirror', 'aria-hidden': 'true' });
+  const wrapBtn = el('button', { className: 'nsview nswrap', type: 'button', title: t('Wrap long lines'), 'aria-pressed': 'true' },
+    [el('span', { textContent: t('Wrap') })]);
   const area = el('textarea', { className: 'nsarea', spellcheck: false, wrap: 'off',
     placeholder: t('Write, or paste — it is saved as you type'), 'aria-label': t('Note') });
   const banner = el('div', { className: 'nsbanner', hidden: true });
@@ -96,9 +99,9 @@ export function attachNotes(host, spec, setLabel) {
     el('p', { textContent: t('No notes yet.') }),
     el('button', { className: 'primary inline', type: 'button', textContent: t('New note'), onclick: () => make() }),
   ]);
-  const body = el('div', { className: 'nsbody' }, [el('div', { className: 'nswrite' }, [gutter, area]), preview]);
+  const body = el('div', { className: 'nsbody' }, [el('div', { className: 'nswrite' }, [gutter, area, mirror]), preview]);
   const editor = el('div', { className: 'nseditor' }, [
-    el('div', { className: 'nshead' }, [nameBox, diagramBtn, viewBar, copyBtn, delBtn]),
+    el('div', { className: 'nshead' }, [nameBox, diagramBtn, wrapBtn, viewBar, copyBtn, delBtn]),
     banner,
     body,
     el('div', { className: 'nsstatus' }, [pathLine, caret, state]),
@@ -117,14 +120,47 @@ export function attachNotes(host, spec, setLabel) {
       : d.toLocaleDateString([], { day: 'numeric', month: 'short' });
   };
 
+  /* The line numbers. Unwrapped, one number per row of text, and a join is all it takes. Wrapped,
+   *  a long line takes several rows and its number has to stand as tall as they are — so each
+   *  line is laid out once in a hidden copy of the box, at the box's width, and measured. */
+  let measuring = 0;
   function paintGutter() {
-    const n = area.value.split('\n').length;
-    if (gutter.childElementCount !== n) {
-      gutter.textContent = Array.from({ length: n }, (_, i) => i + 1).join('\n');
-      gutter.dataset.n = n;
+    const lines = area.value.split('\n');
+    if (!wrapOn() || lines.length > 5000) {
+      if (gutter.dataset.mode !== 'flat' || Number(gutter.dataset.n) !== lines.length) {
+        gutter.replaceChildren(lines.map((_, i) => i + 1).join('\n'));
+        gutter.dataset.n = lines.length;
+        gutter.dataset.mode = 'flat';
+      }
+      gutter.scrollTop = area.scrollTop;
+      return;
     }
-    gutter.scrollTop = area.scrollTop;
+    cancelAnimationFrame(measuring);
+    measuring = requestAnimationFrame(() => {
+      const cs = getComputedStyle(area);
+      mirror.style.width = `${area.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)}px`;
+      mirror.replaceChildren(...lines.map((line) => el('div', { textContent: line || '\u200B' })));
+      const tall = [...mirror.children].map((row) => row.getBoundingClientRect().height);
+      gutter.replaceChildren(...tall.map((h, i) => el('div', { textContent: String(i + 1), style: `height:${h}px` })));
+      gutter.dataset.mode = 'wrap';
+      gutter.dataset.n = lines.length;
+      mirror.replaceChildren();
+      gutter.scrollTop = area.scrollTop;
+    });
   }
+  const wrapOn = () => spec.wrap !== false;
+  function paintWrap() {
+    const on = wrapOn();
+    area.wrap = on ? 'soft' : 'off';
+    area.classList.toggle('wrapped', on);
+    wrapBtn.classList.toggle('on', on);
+    wrapBtn.setAttribute('aria-pressed', String(on));
+    gutter.dataset.mode = '';
+    paintGutter();
+  }
+  wrapBtn.onclick = () => { spec.wrap = !wrapOn(); savePrefs(); paintWrap(); };
+  // A narrower box wraps differently: measured again when it changes size.
+  new ResizeObserver(() => { if (wrapOn()) paintGutter(); }).observe(area);
   function paintCaret() {
     const before = area.value.slice(0, area.selectionStart);
     const line = before.split('\n').length;
@@ -331,6 +367,7 @@ export function attachNotes(host, spec, setLabel) {
   setLabel?.(t('Notes'), '');
   say('');
   paintView();
+  paintWrap();
   refresh().then(() => { if (open && spec.fresh) { delete spec.fresh; area.focus(); } });
 
   return {

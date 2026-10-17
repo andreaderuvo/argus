@@ -32,7 +32,21 @@ def test_notes_are_listed_written_in_place_and_drawn(make_page, argus):
                    timeout=10, what="saved as typed, with no Save")
         page.wait(f"{APP}.querySelector('.nsitem.on .nstitle').textContent === 'Listeria ST6'", timeout=10,
                   what="the list shows its first line")
-        page.wait(f"{APP}.querySelector('.nsgutter').textContent === '1\\n2\\n3\\n4'", timeout=5, what="a number per line")
+        page.wait(f"{APP}.querySelector('.nsgutter').children.length === 4", timeout=5, what="a number per line")
+
+        # Wrapped (the default): a long line takes several rows, and its number stands as tall.
+        typed(page, "short\n" + "a long line about the farm cluster " * 12 + "\nlast")
+        page.wait(f"{APP}.querySelector('.nsgutter').children.length === 3", timeout=5)
+        rows = page.eval(f"[...{APP}.querySelector('.nsgutter').children].map(d => d.getBoundingClientRect().height)")
+        assert rows[1] > 2 * rows[0], rows
+        page.click_text("Wrap", within=".nshead button")
+        page.wait(f"{APP}.querySelector('.nsgutter').textContent === '1\\n2\\n3'", timeout=5, what="unwrapped: a row each")
+        assert page.eval(f"{APP}.querySelector('.nsarea').wrap") == "off"
+        page.click_text("Wrap", within=".nshead button")
+        typed(page, "# Listeria ST6\n\n- **four** isolates\n- one farm")
+        eventually(lambda: "one farm" in (where / "note-1.md").read_text() and "long line" not in (where / "note-1.md").read_text(),
+                   timeout=10, what="saved again")
+        page.wait(f"{APP}.querySelector('.nsstate').textContent === 'saved'", timeout=5)
 
         # Markdown beside the text.
         page.click_text("Both", within=".nsview")

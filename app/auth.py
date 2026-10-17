@@ -100,6 +100,15 @@ AGENT_ROUTES = frozenset({
     # team.yaml, for the person to start. Starting a team stays theirs.
     ("POST", "/api/teams/check"),
     ("POST", "/api/teams/propose"),
+    # The notes (app/notes.py): Argus's own folder of plain files. Read, write, add to, rename,
+    # delete — a delete goes into the notes' .trash, so nothing an agent does here is lost.
+    ("GET", "/api/notes"),
+    ("GET", "/api/notes/note"),
+    ("POST", "/api/notes"),
+    ("PUT", "/api/notes/note"),
+    ("POST", "/api/notes/append"),
+    ("POST", "/api/notes/rename"),
+    ("DELETE", "/api/notes/note"),
     # Anything else on a fixed list, with the person's OK (app/consent.py): asked as Do it / No,
     # carried out by Argus with the full key. The list of what may be asked, and asking.
     ("GET", "/api/agent/actions"),
@@ -344,7 +353,7 @@ class TokenAuthMiddleware:
                     "(/api/relay), start something from the launcher list (/api/tmux/launch), "
                     "make a worktree (/api/git/worktree), report a run (/api/runs), make or "
                     "rename a desk (/api/desks), read, add to and move along the to-do list "
-                    "(/api/todo), and in a team read its task and report its turn "
+                    "(/api/todo), read and write the notes (/api/notes), and in a team read its task and report its turn "
                     "(/api/teams/task, /api/teams/done), and check or propose a team "
                     "(/api/teams/check, /api/teams/propose). Anything else on the list at "
                     "/api/agent/actions it may request (POST /api/agent/request): the person taps "

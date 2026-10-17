@@ -147,10 +147,15 @@ def test_the_list_of_what_an_agent_may_do_is_short():
     GET of one's own request by prefix): anything else on a fixed list — start a team in a desk,
     end a session… — *requested*, put to the person as Do it / No, and done by Argus with the full
     key only on their tap (app/consent.py). The key itself still does none of it.
+
+    Twenty-eight to thirty-five on 2026-10-17, for the notes (app/notes.py): list, read, make, add
+    to, write, rename and delete — Argus's own folder of plain files, a delete kept in its .trash.
+    Nothing outside that folder is reached.
     """
-    assert len(AGENT_ROUTES) <= 28
+    assert len(AGENT_ROUTES) <= 35
     assert ("POST", "/api/teams") not in AGENT_ROUTES
-    assert all(method in ("GET", "POST") for method, _ in AGENT_ROUTES)
+    # PUT and DELETE only on the notes: Argus's own folder, a delete kept in its .trash.
+    assert all(method in ("GET", "POST") or path.startswith("/api/notes") for method, path in AGENT_ROUTES)
     assert not any(path.startswith("/api/fs") or path.startswith("/api/devices")
                    for _, path in AGENT_ROUTES)
     assert ("POST", "/api/ask/{ident}/answer") not in AGENT_ROUTES

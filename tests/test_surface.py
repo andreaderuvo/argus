@@ -50,7 +50,9 @@ def test_the_surface_is_small_enough_to_document():
     # 32 to 33 the same day, for me(): the session a program runs in, asked of Argus by pid when its
     # environment does not say (Codex's MCP servers).
     # 33 to 34 for close_gone(): windows of ended sessions, closed by an agent asked to tidy a desk.
-    assert counted["argus_client"] <= 34, counted
+    # 34 to 41 on 2026-10-17, for notes(), note(), note_new(), note_add(), note_write(), note_rename()
+    # and note_delete(): "the MCP should be able to work with the notes — list, delete, rename, add".
+    assert counted["argus_client"] <= 41, counted
     assert counted["argus_orchestra"] <= 30, counted
 
 

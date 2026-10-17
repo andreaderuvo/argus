@@ -155,6 +155,23 @@ async def new_note(request: Request, body: dict | None = None) -> dict:
     return describe(path)
 
 
+@router.post("/api/notes/append", summary="Add text at the end of a note (made if it is not there)")
+async def append_note(request: Request, body: dict) -> dict:
+    """What an agent does most: put a finding at the bottom of a note without reading it first. A
+    blank line before it unless the note is empty or already ends with one."""
+    path = _path(request, str(body.get("name") or ""))
+    text = str(body.get("text") or "")
+    if not text.strip():
+        raise ApiError(400, "nothing to add")
+    old = path.read_text(encoding="utf-8", errors="replace") if path.exists() else ""
+    sep = "" if not old or old.endswith("\n\n") else "\n" if old.endswith("\n") else "\n\n"
+    new = old + sep + text + ("" if text.endswith("\n") else "\n")
+    if len(new.encode("utf-8")) > MAX_NOTE:
+        raise ApiError(413, f"the note would be bigger than a note ({MAX_NOTE // (1024 * 1024)} MB)")
+    _write(path, new)
+    return describe(path)
+
+
 @router.post("/api/notes/rename", summary="Give a note another name")
 async def rename_note(request: Request, body: dict) -> dict:
     path = _path(request, str(body.get("name") or ""))

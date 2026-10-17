@@ -412,6 +412,38 @@ class Argus:
         return self.call("POST", "/api/teams/propose", {"text": text, "folder": str(folder),
                                                         "session": self.me(session)})
 
+    def notes(self) -> dict:
+        """The notes kept in Argus: `{dir, notes: [{name, path, title, size, mtime}]}`, the latest
+        first. Each is a plain file at `path`."""
+        return self.call("GET", "/api/notes")
+
+    def note(self, name: str) -> dict:
+        """One note: `{name, path, title, mtime, text}`."""
+        from urllib.parse import quote
+        return self.call("GET", f"/api/notes/note?name={quote(name)}")
+
+    def note_new(self, text: str = "", name: str = "") -> dict:
+        """A new note — `name` (refused when taken; `.md` added if it has no suffix), else the
+        first free note-N.md — holding `text`."""
+        return self.call("POST", "/api/notes", {"text": text, **({"name": name} if name else {})})
+
+    def note_add(self, name: str, text: str) -> dict:
+        """`text` at the end of the note, after a blank line; the note is made if it is not there."""
+        return self.call("POST", "/api/notes/append", {"name": name, "text": text})
+
+    def note_write(self, name: str, text: str) -> dict:
+        """The note's whole text replaced by `text` (made if it is not there)."""
+        return self.call("PUT", "/api/notes/note", {"name": name, "text": text, "base": None})
+
+    def note_rename(self, name: str, to: str) -> dict:
+        """Another name for a note; refused when `to` is taken."""
+        return self.call("POST", "/api/notes/rename", {"name": name, "to": to})
+
+    def note_delete(self, name: str) -> dict:
+        """Move a note into the notes' trash (`.trash` beside them): `{deleted, kept}`."""
+        from urllib.parse import quote
+        return self.call("DELETE", f"/api/notes/note?name={quote(name)}")
+
     def todos(self) -> list[dict]:
         """The to-do list kept in Argus: `{n, note, status, by, ...}` each, newest first. `n` is the
         number shown beside it ("#3"), given once and never reused."""
@@ -506,6 +538,21 @@ class Argus:
 
 # ------------------------------------------------------------------------ cli
 
+def _note_call(args) -> tuple[str, dict]:
+    """argus-say note <verb>: the MCP note tool of that verb, the words from --text or --file."""
+    words = args.text
+    if words is None and args.file:
+        words = sys.stdin.read() if args.file == "-" else Path(args.file).read_text(encoding="utf-8")
+    return {
+        "read": ("note_read", {"name": args.name}),
+        "new": ("note_new", {"name": args.name or None, "text": words}),
+        "add": ("note_add", {"name": args.name, "text": words}),
+        "write": ("note_write", {"name": args.name, "text": words}),
+        "rename": ("note_rename", {"name": args.name, "to": args.to}),
+        "delete": ("note_delete", {"name": args.name}),
+    }[args.verb]
+
+
 def _as_mcp(args) -> int:
     """A verb answered by the MCP tool of the same purpose (argus_mcp.py, beside this file): one
     implementation, so the command line and the MCP tools cannot drift apart."""
@@ -530,6 +577,8 @@ def _as_mcp(args) -> int:
                          ("todo_set", {"todo": args.item, "status": args.status, "note": args.note})),
         "worktree": lambda: ("worktree", {"repo": args.repo, "branch": args.branch}),
         "prompts": lambda: ("prompts", {}),
+        "notes": lambda: ("notes", {}),
+        "note": lambda: _note_call(args),
     }[args.what]()
     said = m.DO[tool](argus, {k: v for k, v in given.items() if v is not None})
     print(said)
@@ -539,7 +588,7 @@ def _as_mcp(args) -> int:
 def main(argv: list[str] | None = None) -> int:
     """The command line: `who`, `relay`, `ring`, `start`, `teams`, `task`, `turn`, `team-check`,
     `team-propose`, `request`, `close-gone` — and `ask`, `desk`, `launchers`, `status`, `todos`,
-    `todo`, `worktree`, `prompts`, which run the MCP tools' own functions.
+    `todo`, `worktree`, `prompts`, `notes`, `note`, which run the MCP tools' own functions.
 
     Every MCP tool has its verb here (tests/test_argus_mcp.py holds the two lists together), so an
     agent with no MCP — or a shell, or a cron job — can do whatever one with MCP can. Anything
@@ -623,13 +672,20 @@ def main(argv: list[str] | None = None) -> int:
     to.add_argument("item", help="the note (add), or the to-do's number (set)")
     to.add_argument("--status", choices=["open", "doing", "done"])
     to.add_argument("--note", help="new words for it (set)")
+    subs.add_parser("notes", help="the notes kept in Argus, the latest first")
+    nt = subs.add_parser("note", help="a note: note read NAME | new [NAME] | add NAME | write NAME | rename NAME --to NEW | delete NAME")
+    nt.add_argument("verb", choices=["read", "new", "add", "write", "rename", "delete"])
+    nt.add_argument("name", nargs="?", default="", help="the note (new: optional)")
+    nt.add_argument("--text", help="the words (add, write, new); else read from --file")
+    nt.add_argument("--file", help="read the words from this file, - for stdin")
+    nt.add_argument("--to", help="the new name (rename)")
     wt = subs.add_parser("worktree", help="a second checkout of a repository, on its own branch")
     wt.add_argument("repo")
     wt.add_argument("branch")
     subs.add_parser("prompts", help="the person's prompt library")
 
     args = ap.parse_args(argv)
-    MCP_VERBS = {"ask", "desk", "launchers", "status", "todos", "todo", "worktree", "prompts"}
+    MCP_VERBS = {"ask", "desk", "launchers", "status", "todos", "todo", "worktree", "prompts", "notes", "note"}
     if args.what in MCP_VERBS:
         try:
             return _as_mcp(args)

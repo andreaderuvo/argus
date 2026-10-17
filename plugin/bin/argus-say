@@ -1,0 +1,24 @@
+#!/usr/bin/env python3
+"""What an agent uses to talk to Argus, and to the other agents on this machine.
+
+    argus-say who                                  who else is here, and who is waiting
+    argus-say relay reviewer "look at the diff"    hand a sentence to another session
+    argus-say ring "stuck on the credentials"      call the person
+    argus-say start "Claude Code" --name fix \\
+              --in ~/proj --worktree fix-42 --prompt "read the failing test"
+
+A three-line front door onto `argus_client.py`, which sits beside it: the same reading of the
+config, the same preference for the narrow agent key, the same words on failure. It was a copy
+of that code until the library existed, which is exactly the duplication a library is for.
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from argus_client import main          # noqa: E402
+
+if __name__ == "__main__":
+    raise SystemExit(main())

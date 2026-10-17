@@ -61,7 +61,7 @@ def test_the_handshake_and_the_tool_list():
     # A version it does not know is answered with the newest it does, as the spec asks.
     assert call(Fake(), "initialize", {"protocolVersion": "1999-01-01"})["result"]["protocolVersion"] == argus_mcp.VERSIONS[0]
     names = [t["name"] for t in call(Fake(), "tools/list")["result"]["tools"]]
-    assert names == ["who", "ring", "ask", "relay", "open_desk", "rename_desk", "launchers", "start_agent", "team_task", "team_done", "team_check", "team_propose", "close_gone_windows", "request", "request_status", "todos", "todo_set", "todo_add", "teams", "worktree", "prompts"]
+    assert names == ["who", "ring", "ask", "relay", "open_desk", "rename_desk", "launchers", "start_agent", "team_task", "team_done", "team_check", "team_propose", "close_gone_windows", "request", "request_status", "todos", "todo_set", "todo_add", "notes", "note_read", "note_new", "note_add", "note_write", "note_rename", "note_delete", "teams", "worktree", "prompts"]
     assert all(t["inputSchema"]["type"] == "object" for t in call(Fake(), "tools/list")["result"]["tools"])
     assert argus_mcp.answer({"jsonrpc": "2.0", "method": "notifications/initialized"}, Fake) is None
     assert call(Fake(), "nope")["error"]["code"] == -32601
@@ -100,6 +100,7 @@ def live(tmp_path):
     port = free_port()
     sock = f"argus-t-mcp-{os.getpid()}"
     cfg = Config(token=MASTER, roots=[tmp_path], listen=f"127.0.0.1:{port}")
+    cfg.notes_dir = tmp_path / "notes"
     cfg.agents = [{"name": "in-session", "token": AGENT}]
     cfg.tmux_socket = sock
     cfg.allow_write = True
@@ -141,7 +142,7 @@ def test_an_agent_client_over_stdio(live):
     try:
         assert rpc("initialize", {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "test"}})["result"]["serverInfo"]["name"] == "argus"
         proc.stdin.write(json.dumps({"jsonrpc": "2.0", "method": "notifications/initialized"}) + "\n")
-        assert len(rpc("tools/list")["result"]["tools"]) == 21
+        assert len(rpc("tools/list")["result"]["tools"]) == 28
 
         def tool(tool_name, **args):
             return rpc("tools/call", {"name": tool_name, "arguments": args})["result"]
@@ -181,6 +182,16 @@ def test_an_agent_client_over_stdio(live):
         assert tool("todos")["content"][0]["text"] == "#1 [doing] fix the parser\n#2 [open] write the docs"
         tool("todo_set", todo="1", status="done")
         assert "#1" not in tool("todos")["content"][0]["text"] and "#1 [done]" in tool("todos", all=True)["content"][0]["text"]
+        assert tool("notes")["content"][0]["text"].startswith("no notes yet")
+        made = tool("note_new", text="# Listeria ST6\n\nfour isolates")["content"][0]["text"]
+        assert made.startswith("made note-1.md: ") and made.endswith("note-1.md")
+        assert tool("note_add", name="note-1.md", text="- one farm")["isError"] is False
+        assert tool("note_read", name="note-1.md")["content"][0]["text"].endswith("four isolates\n\n- one farm\n")
+        assert tool("note_rename", name="note-1.md", to="listeria")["content"][0]["text"] == "note-1.md is now listeria.md"
+        assert "listeria.md: Listeria ST6" in tool("notes")["content"][0]["text"]
+        assert tool("note_write", name="listeria.md", text="rewritten")["isError"] is False
+        assert "kept in the notes' trash" in tool("note_delete", name="listeria.md")["content"][0]["text"]
+        assert tool("note_read", name="listeria.md")["isError"], "gone: said, not raised"
         refused = tool("worktree", repo=str(folder), branch="x")
         assert refused["isError"] and "Argus refused" in refused["content"][0]["text"], "not a repository: said, not raised"
     finally:
@@ -229,6 +240,8 @@ CLI_FOR = {"who": "who", "ring": "ring", "ask": "ask", "relay": "relay", "open_d
            "team_done": "turn", "team_check": "team-check", "team_propose": "team-propose",
            "close_gone_windows": "close-gone", "request": "request", "request_status": "status",
            "todos": "todos", "todo_set": "todo", "todo_add": "todo", "teams": "teams",
+           "notes": "notes", "note_read": "note", "note_new": "note", "note_add": "note", "note_write": "note",
+           "note_rename": "note", "note_delete": "note",
            "worktree": "worktree", "prompts": "prompts"}
 
 

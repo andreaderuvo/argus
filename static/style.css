@@ -4664,6 +4664,13 @@ dialog.sheet.mountwizard { width: min(46rem, calc(100vw - 2rem)); }
 .nsarea { flex: 1; min-width: 0; resize: none; border: 0; outline: none; padding-inline: .7rem; background: var(--bg); color: var(--text);
   white-space: pre; overflow: auto; tab-size: 2; }
 .nsarea::placeholder { color: var(--dim); }
+.nsarea.wrapped { white-space: pre-wrap; overflow-wrap: anywhere; overflow-x: hidden; }
+.nsgutter > div { overflow: hidden; }
+/* The wrapped box laid out again, out of sight, to measure how tall each line stands. */
+.nswrite { position: relative; }
+.nsmirror { position: absolute; left: -99999px; top: 0; visibility: hidden; white-space: pre-wrap; overflow-wrap: anywhere;
+  font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace); font-size: 13px; line-height: 1.55; tab-size: 2; }
+.nshead .nswrap { border: 1px solid var(--line); border-radius: 6px; }
 .nspreview { min-width: 0; overflow: auto; padding: .6rem .9rem 1.4rem; border-left: 1px solid var(--line); }
 .nsbody[data-view="preview"] .nspreview { border-left: 0; }
 .nsstatus { display: flex; gap: .9rem; align-items: center; padding: .25rem .6rem; border-top: 1px solid var(--line); flex: none;
