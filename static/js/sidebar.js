@@ -1,7 +1,7 @@
 // <imports> generated from what this file uses; edit the code, not this list
 import { adoptDesks, rung } from '/js/bells.js';
 import { savePrefs } from '/js/core.js';
-import { lastSessionCount, lastTodoCount, paintDeskStates, showCount } from '/js/counts.js';
+import { lastNotesCount, lastSessionCount, lastTodoCount, paintDeskStates, showCount } from '/js/counts.js';
 import { ask, askPrompt, confirmBox, copyPath, popMenu, toast } from '/js/dialogs.js';
 import { el, wikiLink } from '/js/dom.js';
 import { fileIcon } from '/js/fileicons.js';
@@ -1656,6 +1656,7 @@ export function applyBottomBar() {
   // made after the last count went out would otherwise sit blank until the next one.
   showCount('sessions', lastSessionCount);
   showCount('todo', lastTodoCount);
+  showCount('notes', lastNotesCount);
   paintRailWindows();
 }
 

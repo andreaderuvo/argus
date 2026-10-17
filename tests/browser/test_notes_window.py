@@ -64,6 +64,7 @@ def test_notes_are_listed_written_in_place_and_drawn(make_page, argus):
         page.wait(f"[...{APP}.querySelectorAll('.nsitem .nstitle')].some(s => s.textContent === 'Rerun cgDist on the batch')",
                   timeout=15, what="a note written elsewhere listed")
         assert page.eval(f"{APP}.querySelector('.nscount').textContent") == "2 notes"
+        page.wait("document.querySelector('#nav a[data-tab=notes] .tally')?.textContent === '2'", timeout=5, what="and the rail says so")
         page.eval(f"(() => {{ const f = {APP}.querySelector('.nsfilter'); f.value = 'cgdist'; f.dispatchEvent(new Event('input')); }})()")
         assert page.eval(f"{APP}.querySelector('.nscount').textContent") == "1 of 2 notes"
         page.eval(f"(() => {{ const f = {APP}.querySelector('.nsfilter'); f.value = ''; f.dispatchEvent(new Event('input')); }})()")

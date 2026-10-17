@@ -1,5 +1,6 @@
 // <imports> generated from what this file uses; edit the code, not this list
 import { savePrefs } from '/js/core.js';
+import { showCount } from '/js/counts.js';
 import { confirmBox, copyText, popMenu, showText, ticked, toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { icon } from '/js/icons.js';
@@ -197,6 +198,7 @@ export function attachNotes(host, spec, setLabel) {
       const said = await getJSON('/api/notes');
       dir = said.dir;
       notes = said.notes || [];
+      showCount('notes', notes.length);
     } catch (e) {
       say(e.message || String(e), 'bad');
       return;
@@ -242,6 +244,7 @@ export function attachNotes(host, spec, setLabel) {
     try {
       const made = await postJSON('/api/notes', { text });
       notes = [made, ...notes];
+      showCount('notes', notes.length);
       await load(made.name);
       paintList();
       area.focus();
@@ -330,6 +333,7 @@ export function attachNotes(host, spec, setLabel) {
     try {
       await api(`/api/notes/note?name=${encodeURIComponent(open.name)}`, { method: 'DELETE' });
       notes = notes.filter((n) => n.name !== open.name);
+      showCount('notes', notes.length);
       open = null;
       spec.note = '';
       savePrefs();

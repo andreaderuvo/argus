@@ -37,8 +37,19 @@ export async function countTodo() {
   } catch { /* the server will be asked again shortly */ }
 }
 
+/** How many notes there are, on Notes — asked for on 2026-10-17. Every note counts: a note is
+ *  not a task to finish, so this one says how many there are, and never turns amber. */
+export async function countNotes() {
+  if (!token) return;
+  try {
+    const said = await getJSON('/api/notes');
+    showCount('notes', (said.notes || []).length);
+  } catch { /* no notes folder, or the server will be asked again shortly */ }
+}
+
 export let lastSessionCount = 0;
 export let lastTodoCount = 0;
+export let lastNotesCount = 0;
 
 /** Which agents are working and which are waiting for you, worked out on the server.
  *
@@ -306,6 +317,7 @@ const RINGS = new Set(['sessions', 'wall']);
 export function showCount(tab, n) {
   if (tab === 'sessions') lastSessionCount = n;
   if (tab === 'todo') lastTodoCount = n;
+  if (tab === 'notes') lastNotesCount = n;
   const wants = RINGS.has(tab) && ([...rung.values()].some((b) => b.why === 'asking')
     || [...agentStates.values()].some((st) => st.state === 'waiting' && !st.seen));
   // The same two facts wherever the navigation happens to be living: how many, and whether
