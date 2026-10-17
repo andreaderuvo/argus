@@ -35,6 +35,7 @@ export function attachNotes(host, spec, setLabel) {
     [icon('plus'), el('span', { textContent: t('New') })]);
   const list = el('div', { className: 'nslist', role: 'listbox', 'aria-label': t('Notes') });
   const where = el('div', { className: 'nsdir meta' });
+  const count = el('div', { className: 'nscount meta', 'aria-live': 'polite' });
 
   const nameBox = el('input', { type: 'text', className: 'nsname', spellcheck: false, autocomplete: 'off',
     title: t('Rename: type a name and press Enter'), 'aria-label': t('Name') });
@@ -108,7 +109,7 @@ export function attachNotes(host, spec, setLabel) {
   ]);
 
   host.replaceChildren(el('div', { className: 'notesapp' }, [
-    el('div', { className: 'nsside' }, [el('div', { className: 'nstools' }, [filter, newBtn]), list, where]),
+    el('div', { className: 'nsside' }, [el('div', { className: 'nstools' }, [filter, newBtn]), list, count, where]),
     editor, empty,
   ]));
 
@@ -186,6 +187,8 @@ export function attachNotes(host, spec, setLabel) {
     empty.hidden = !none;
     editor.hidden = none;
     where.textContent = dir ? `\u200E${dir}` : '';
+    count.textContent = !notes.length ? '' : q ? t('{shown} of {n} notes', { shown: shown.length, n: notes.length })
+      : notes.length === 1 ? t('1 note') : t('{n} notes', { n: notes.length });
     where.title = dir;
   }
 

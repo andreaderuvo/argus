@@ -63,6 +63,10 @@ def test_notes_are_listed_written_in_place_and_drawn(make_page, argus):
         (where / "plan.md").write_text("Rerun cgDist on the batch")
         page.wait(f"[...{APP}.querySelectorAll('.nsitem .nstitle')].some(s => s.textContent === 'Rerun cgDist on the batch')",
                   timeout=15, what="a note written elsewhere listed")
+        assert page.eval(f"{APP}.querySelector('.nscount').textContent") == "2 notes"
+        page.eval(f"(() => {{ const f = {APP}.querySelector('.nsfilter'); f.value = 'cgdist'; f.dispatchEvent(new Event('input')); }})()")
+        assert page.eval(f"{APP}.querySelector('.nscount').textContent") == "1 of 2 notes"
+        page.eval(f"(() => {{ const f = {APP}.querySelector('.nsfilter'); f.value = ''; f.dispatchEvent(new Event('input')); }})()")
 
         # A diagram from the starters: drawn in the preview, blocks included (Mermaid's block-beta).
         page.click_text("note-1.md", within=".nsitem")

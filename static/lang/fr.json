@@ -1647,6 +1647,9 @@
   "Updating — a few seconds for each agent; nothing running stops.": "Mise à jour — quelques secondes par agent ; rien de ce qui tourne ne s’arrête.",
   "Updating {i} of {n}…": "Mise à jour {i} sur {n}…",
   "{n} could not be updated": "{n} n’ont pas pu être mis à jour",
-  "the Argus plugin is up to date": "le plugin Argus est à jour"
+  "the Argus plugin is up to date": "le plugin Argus est à jour",
+  "{shown} of {n} notes": "{shown} sur {n} notes",
+  "1 note": "1 note",
+  "{n} notes": "{n} notes"
  }
 }

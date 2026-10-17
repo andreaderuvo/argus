@@ -1647,6 +1647,9 @@
   "Updating — a few seconds for each agent; nothing running stops.": "Aggiornamento in corso — pochi secondi per agente; niente di ciò che gira si ferma.",
   "Updating {i} of {n}…": "Aggiornamento {i} di {n}…",
   "{n} could not be updated": "{n} non aggiornati",
-  "the Argus plugin is up to date": "il plugin Argus è aggiornato"
+  "the Argus plugin is up to date": "il plugin Argus è aggiornato",
+  "{shown} of {n} notes": "{shown} di {n} note",
+  "1 note": "1 nota",
+  "{n} notes": "{n} note"
  }
 }

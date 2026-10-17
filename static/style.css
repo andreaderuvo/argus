@@ -4639,6 +4639,7 @@ dialog.sheet.mountwizard { width: min(46rem, calc(100vw - 2rem)); }
 .nstitle { font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--bright); }
 .nsmeta { font-size: .7rem; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .nsnone { padding: .5rem; }
+.nscount { flex: none; padding: .3rem .6rem 0; font-size: .72rem; font-variant-numeric: tabular-nums; }
 .nsdir { flex: none; padding: .35rem .6rem; border-top: 1px solid var(--line); font-size: .7rem; overflow: hidden;
   text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
 .nseditor { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--bg); }
