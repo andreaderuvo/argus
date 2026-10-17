@@ -9,6 +9,7 @@ import { dropOnSession, takesDrops } from '/js/filerows.js';
 import { allVars, fillBaton, mark, markRe, situationOf, typeInto, valueFor } from '/js/handover.js';
 import { icon } from '/js/icons.js';
 import { fixPhoneKeyboards } from '/js/imefix.js';
+import { joinRows } from '/js/linejoin.js';
 import { pointAt } from '/js/pointing.js';
 import { deskHome, getJSON, openFileRaw, postJSON, setTitle, withToken } from '/js/reconnect.js';
 import { go } from '/js/router.js';
@@ -32,7 +33,6 @@ import { t } from '/js/words.js';
 const HAS_EXT = /\.[A-Za-z0-9_+-]{1,8}(:\d+(:\d+)?)?$/;
 const TRIM_LEAD = /^['"`([{<]+/;
 const TRIM_TAIL = /['"`)\]}>.,;:!?]+$/;
-const MAX_WRAP_ROWS = 24;      // a "line" longer than this is not a path, it is a paste
 
 // A bare URL in the output. Terminals wrap them and prose puts them in brackets, so the
 // trailing punctuation comes off the same way a path's does.
@@ -61,22 +61,31 @@ export function pathCandidates(text) {
   return out;
 }
 
-/** The whole line the terminal wrapped across several rows, plus the row it starts on.
- *
- *  A path is exactly the thing most likely to be cut in half by the right edge, so
- *  reading one row at a time would miss the long ones — which here are most of them. */
+/** The whole line row `y` (1-based) belongs to: the rows the terminal wrapped, and the rows a
+ *  program broke itself in the middle of a link or a path (linejoin.js), as one text — with
+ *  `cells[k]` the [row, col] of each character, so a link can be underlined on every piece of it.
+ *  `first`/`last` are 0-based rows; `joins` the offsets where a program-broken row was joined. */
 export function logicalLine(term, y) {
   const buf = term.buffer.active;
-  const row = (i) => buf.getLine(i)?.translateToString(false) ?? '';
+  const row = (i) => {
+    const line = buf.getLine(i);
+    return { text: line?.translateToString(false) ?? '', wrapped: !!line?.isWrapped };
+  };
+  return joinRows(row, y - 1, buf.length, term.cols);
+}
 
-  let first = y - 1;
-  while (first > 0 && buf.getLine(first)?.isWrapped && y - first < MAX_WRAP_ROWS) first--;
-  let last = y - 1;
-  while (buf.getLine(last + 1)?.isWrapped && last - first < MAX_WRAP_ROWS) last++;
-
-  let text = '';
-  for (let i = first; i <= last; i++) text += row(i);
-  return { text, first, last };
+/** A candidate's text, and its pieces at each place a program-broken row was joined: when the
+ *  whole is not a file, a piece may be (two paths that merely sat at the end and start of rows). */
+function piecesOf(cand, joins) {
+  const cuts = joins.filter((j) => j > cand.start && j < cand.end);
+  if (!cuts.length) return [];
+  const at = [cand.start, ...cuts, cand.end];
+  const out = [];
+  for (let i = 0; i < at.length - 1; i++) {
+    const text = cand.text.slice(at[i] - cand.start, at[i + 1] - cand.start);
+    if (text) out.push({ text, start: at[i], end: at[i + 1] });
+  }
+  return out;
 }
 
 // One lookup per distinct line, not per pointer move: the same line is offered again
@@ -167,22 +176,6 @@ export function openLocated(where, hit, from) {
   go(`#${route}?path=${encodeURIComponent(hit.path)}`);
 }
 
-/** A candidate cut in half by the edge of the pane.
- *
- *  A program that lays out its own text writes each row separately, so nothing is marked
- *  as wrapped and a long path comes out in two pieces. The tell is a candidate that
- *  reaches the very end of what is written on the row: whatever is below may be the rest
- *  of it. Joining costs nothing when it is wrong — the result is looked up like any other
- *  path, and one that is not there is dropped. */
-function carriedOn(term, last, text, cand) {
-  if (!cand || cand.url) return null;
-  if (cand.end < text.replace(/\s+$/, '').length) return null;
-  const below = term.buffer.active.getLine(last + 1);
-  if (!below || below.isWrapped) return null;
-  const rest = below.translateToString(true).trimStart().split(/\s/)[0] || '';
-  return rest ? cand.text + rest : null;
-}
-
 /** Make the paths in this terminal clickable.
  *
  *  Hovering asks the server which words on that line are real files; only those get
@@ -190,19 +183,21 @@ function carriedOn(term, last, text, cand) {
  *  a long press does the same job for whatever is under the finger.
  */
 function linkPaths(term, container, session, open, following = () => {}) {
-  const at = (offset, first) => ({
-    x: (offset % term.cols) + 1,
-    y: first + Math.floor(offset / term.cols) + 1,
-  });
+  // Where the k-th character of a line is on screen, for xterm's ranges (1-based).
+  const cellOf = (line, k) => ({ x: line.cells[k][1] + 1, y: line.cells[k][0] + 1 });
+  const rangeOf = (line, c) => ({ start: cellOf(line, c.start), end: cellOf(line, c.end - 1) });
+  const touches = (line, c, row) => line.cells.slice(c.start, c.end).some(([r]) => r === row);
 
   term.registerLinkProvider({
     provideLinks(y, done) {
-      const { text, first, last } = logicalLine(term, y);
-      const cands = pathCandidates(text);
+      const line = logicalLine(term, y);
+      // Only what is on this row: the provider is asked row by row, and a link that started two
+      // rows up is still offered here, so its second half opens it too.
+      const cands = pathCandidates(line.text).filter((c) => touches(line, c, y - 1));
       if (!cands.length) return done(undefined);
       const urls = cands.filter((c) => c.url).map((c) => ({
         text: c.text,
-        range: { start: at(c.start, first), end: at(c.end - 1, first) },
+        range: rangeOf(line, c),
         // Ctrl/Cmd+click means one thing everywhere on the web — this exact address, in a
         // new tab, no interpretation — so it skips the loopback-through-Argus proxying a
         // plain click does: that is a helpful guess for the common case, and a guess is
@@ -215,30 +210,32 @@ function linkPaths(term, container, session, open, following = () => {}) {
       const paths = cands.filter((c) => !c.url);
       if (!paths.length) return done(urls.length ? urls : undefined);
 
-      // The last candidate on the line may be a path the pane cut in two; ask about the
-      // joined-up version as well and prefer it when it is the one that exists.
-      const tail = cands[cands.length - 1];
-      const joined = carriedOn(term, last, text, tail);
-      const asking = paths.map((c) => c.text);
-      if (joined) asking.unshift(joined);
-
-      locatePaths(asking, session).then((found) => {
-        const links = paths.filter((c) => found[c.text] || (joined && c === tail && found[joined])).map((c) => ({
-          text: c.text,
-          range: { start: at(c.start, first), end: at(c.end - 1, first) },
-          activate: (event) => {
-            const hit = (c === tail && joined && found[joined]) || found[c.text];
-            // Same escape hatch as a URL: the raw file, in a new tab, none of Argus's own
-            // chrome around it. Not offered for a directory — there is no raw file behind
-            // one to hand the browser, only the same in-app browser a plain click already
-            // opens.
-            if ((event.ctrlKey || event.metaKey) && hit?.type !== 'directory') {
-              openFileRaw(hit.path);
-              return;
-            }
-            following(); open(hit);
-          },
-        }));
+      // The whole of each, and its pieces where rows were joined: the whole when it exists, else
+      // the piece on this row that does.
+      const asking = new Set();
+      for (const c of paths) { asking.add(c.text); for (const p of piecesOf(c, line.joins)) asking.add(p.text); }
+      locatePaths([...asking], session).then((found) => {
+        const links = [];
+        for (const c of paths) {
+          const pick = found[c.text] ? c : piecesOf(c, line.joins).find((p) => found[p.text] && touches(line, p, y - 1));
+          if (!pick) continue;
+          const hit = found[pick.text];
+          links.push({
+            text: pick.text,
+            range: rangeOf(line, pick),
+            activate: (event) => {
+              // Same escape hatch as a URL: the raw file, in a new tab, none of Argus's own
+              // chrome around it. Not offered for a directory — there is no raw file behind
+              // one to hand the browser, only the same in-app browser a plain click already
+              // opens.
+              if ((event.ctrlKey || event.metaKey) && hit?.type !== 'directory') {
+                openFileRaw(hit.path);
+                return;
+              }
+              following(); open(hit);
+            },
+          });
+        }
         done(urls.concat(links).length ? urls.concat(links) : undefined);
       }).catch(() => done(urls.length ? urls : undefined));
     },
@@ -262,17 +259,18 @@ function linkPaths(term, container, session, open, following = () => {}) {
 
   const openUnderFinger = async (spot) => {
     const y = term.buffer.active.viewportY + spot.row + 1;
-    const { text, first, last } = logicalLine(term, y);
-    const offset = (y - 1 - first) * term.cols + spot.col;
-    const cand = pathCandidates(text).find((c) => offset >= c.start && offset < c.end);
+    const line = logicalLine(term, y);
+    const offset = line.cells.findIndex(([r, c]) => r === y - 1 && c === spot.col);
+    if (offset < 0) return;
+    const cand = pathCandidates(line.text).find((c) => offset >= c.start && offset < c.end);
     if (!cand) return;
     if (cand.url) return openUrl(cand.text);
-    // Ask about the joined-up version as well: in a narrow pane a path is more often than
-    // not broken across two rows, and half a path opens the wrong thing or nothing.
-    const joined = carriedOn(term, last, text, cand);
-    const asked = joined ? [joined, cand.text] : [cand.text];
+    // In a narrow pane a path is more often than not broken over rows: the whole first, then
+    // the piece under the finger.
+    const piece = piecesOf(cand, line.joins).find((p) => offset >= p.start && offset < p.end);
+    const asked = piece ? [cand.text, piece.text] : [cand.text];
     const found = await locatePaths(asked, session);
-    const hit = found[asked[0]] || found[cand.text];
+    const hit = found[cand.text] || (piece && found[piece.text]);
     if (hit) { following(); open(hit); }
     else toast(t('No file at {path}', { path: cand.text }), true);
   };
@@ -365,6 +363,8 @@ export function attachTerminal(container, name, { transform, onGone, onBack, onP
   // The colours this terminal is drawn in, readable from outside: the canvas cannot be read back,
   // and "did every window take the theme" is a question worth a test (2026-10-13).
   container.dataset.termBg = term.options.theme?.background || '';
+  // The terminal itself, for the tests that need its rows and columns (never enumerated).
+  Object.defineProperty(container, '_term', { value: term, configurable: true });
 
   /* Drop a file on a session and you are handed its path.
    *

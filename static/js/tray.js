@@ -124,33 +124,22 @@ export function linkHarvester(term, session, hand) {
     for (let y = from; y < to; y++) {
       const line = buf.getLine(y);
       if (!line || line.isWrapped) continue;        // a wrapped line is read from its head
-      const { text, last } = logicalLine(term, y + 1);
-      const cands = pathCandidates(text);
-      for (const c of cands) {
+      // The line, joined where the terminal wrapped it and where a program broke a link or a
+      // path over rows (linejoin.js): a URL cut in two is one link in the tray, not two halves.
+      const { text, last, joins } = logicalLine(term, y + 1);
+      y = Math.max(y, last);
+      for (const c of pathCandidates(text)) {
         if (seen.has(c.text)) continue;
         if (c.url) { seen.add(c.text); urls.push(c.text); continue; }
-        if (!c.text.startsWith('/') && !c.text.startsWith('~/')) continue;
-        seen.add(c.text);
-        paths.push(c.text);
+        // A path joined over rows is looked up whole and in its pieces; only the real ones stay.
+        const cuts = joins.filter((j) => j > c.start && j < c.end).map((j) => j - c.start);
+        const tries = [c.text, ...[0, ...cuts].map((a, i, all) => c.text.slice(a, all[i + 1]))].filter((s, i) => i === 0 || cuts.length);
+        for (const one of tries) {
+          if (seen.has(one) || (!one.startsWith('/') && !one.startsWith('~/'))) continue;
+          seen.add(one);
+          paths.push(one);
+        }
       }
-
-      // A program that lays out its own text — any full-screen one — writes each row
-      // separately, so nothing is marked as wrapped even where the sentence plainly runs
-      // on, and a long path comes out cut in half. The tell is a candidate that reaches
-      // the very end of what is written on the row: whatever it is, it may continue below.
-      // Guessing costs nothing when it is wrong, because the joined path is looked up like
-      // any other and a path that is not there is dropped.
-      const tail = cands[cands.length - 1];
-      const written = text.replace(/\s+$/, '').length;
-      if (!tail || tail.url || tail.end < written) continue;
-      const below = buf.getLine(last + 1);
-      if (!below || below.isWrapped) continue;
-      const carried = below.translateToString(true).trimStart().split(/\s/)[0] || '';
-      const joined = tail.text + carried;
-      if (!carried || seen.has(joined)) continue;
-      if (!joined.startsWith('/') && !joined.startsWith('~/')) continue;
-      seen.add(joined);
-      paths.push(joined);
     }
     if (seen.size > 4000) seen.clear();
     if (urls.length) hand(urls.map((text) => ({ text, url: true, from: session })));
