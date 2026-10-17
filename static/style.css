@@ -4694,3 +4694,23 @@ button .spin { margin-right: .35rem; vertical-align: -2px; }
 .pluginstep.bad { color: var(--danger); }
 .pluginstep.good { color: var(--ok, var(--accent)); }
 @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+
+/* A to-do's deadline (todowhen.js): quiet until it has one, then a chip that warms as it nears. */
+.todowhenchip { display: inline-flex; align-items: center; gap: .3rem; flex: none; padding: .15rem .5rem; font: inherit; font-size: .75rem;
+  color: var(--dim); background: none; border: 1px dashed var(--line); border-radius: 999px; cursor: pointer; font-variant-numeric: tabular-nums; }
+.todowhenchip svg { width: 13px; height: 13px; }
+.todowhenchip:hover { color: var(--text); border-color: var(--accent); }
+.todowhenchip.has { border-style: solid; color: var(--text); }
+.todowhenchip.soon { border-color: color-mix(in srgb, var(--warn, #d9a441) 60%, var(--line)); }
+.todowhenchip.today { color: var(--warn, #d9a441); border-color: var(--warn, #d9a441); }
+.todowhenchip.late { color: var(--danger); border-color: var(--danger); }
+.todorow.done .todowhenchip { opacity: .55; }
+.todowhen.sheetbody { display: grid; gap: .65rem; }
+.todowhennote { margin: 0; font-weight: 600; color: var(--bright); }
+.todowhenrow { display: grid; grid-template-columns: 7rem 1fr; align-items: center; gap: .6rem; }
+.todowhenrow input[type=date], .todowhenrow input[type=time], .todowhenrow select { font: inherit; padding: .35rem .5rem; color: var(--text);
+  background: var(--panel); border: 1px solid var(--line); border-radius: 6px; min-width: 0; }
+.todowhentimed { display: inline-flex; align-items: center; gap: .4rem; }
+.todowhenrow input:disabled { opacity: .45; }
+.todocal { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .5rem; padding-top: .5rem; border-top: 1px solid var(--line); }
+@media (max-width: 420px) { .todowhenrow { grid-template-columns: 1fr; gap: .25rem; } }

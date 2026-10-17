@@ -5,7 +5,9 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 
 export function el(tag, props = {}, kids = []) {
   const n = Object.assign(document.createElement(tag), props);
-  for (const k of [].concat(kids)) n.append(k);
+  // A child left out by a condition (`one.by ? … : null`) is left out: append() writes "null" —
+  // which every to-do not moved by an agent showed beside its words until 2026-10-17.
+  for (const k of [].concat(kids)) if (k != null && k !== false) n.append(k);
   return n;
 }
 

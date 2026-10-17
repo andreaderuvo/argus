@@ -27,7 +27,7 @@ phone. You reach it with the Argus tools (or `argus-say` from a shell). Three ki
 | who is working or waiting | `who` |
 | tell another session something | `relay` (`press_enter: true` to send it, not just type it) |
 | ask the person and wait / tell them you are done | `ask` / `ring` |
-| the to-do list: read, add, mark doing/done | `todos`, `todo_add`, `todo_set` |
+| the to-do list: read, add, mark doing/done, a deadline Argus rings for ("remind me tomorrow at 3 to…") | `todos`, `todo_add`, `todo_set` (`due`: 2026-10-20 or 2026-10-20T15:00, `remind`: minutes before — 0, 15, 60, 1440, 10080) |
 | the notes (the Notes screen): list, read, make, add to, rewrite, rename, delete | `notes`, `note_read`, `note_new`, `note_add` (prefer it to rewriting), `note_write`, `note_rename`, `note_delete` (kept in the notes' trash) |
 | teams: how they are doing | `teams` |
 | design a team | `team_check`, then `team_propose` (skill `argus-team-author`) |

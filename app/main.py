@@ -289,6 +289,32 @@ async def sweeping_the_journal(store) -> None:
 DAY = 86400
 
 
+def remind_todos(app: FastAPI, now: float | None = None) -> list[dict]:
+    """Ring for every to-do whose reminder is due, once each: a bell (so ntfy, so the phone) that
+    says what and when. Returns what rang."""
+    store = getattr(app.state, "todo", None)
+    if not store:
+        return []
+    items = todo.load(store)
+    due = todo.reminders_due(items, now)
+    if not due:
+        return []
+    for one in due:
+        bells.rung(types.SimpleNamespace(app=app), "asking", text=f"⏰ {todo.reminder_words(one)}", todo=one["n"])
+    todo.save(store, todo.mark_reminded(items, {x["id"] for x in due}, now))
+    return due
+
+
+async def reminding(app: FastAPI) -> None:
+    """Every half minute: is a to-do's reminder due? A file read, nothing more, when none is."""
+    while True:
+        try:
+            remind_todos(app)
+        except Exception as e:      # a broken list must not end the loop that rings for it
+            print(f"argus: to-do reminders: {e}", file=sys.stderr)
+        await asyncio.sleep(30)
+
+
 async def sweeping_the_drops(app: FastAPI) -> None:
     """Take out the old drops, if a number of days has been set.
 
@@ -459,6 +485,7 @@ async def announcing(app: FastAPI):
     app.state.loop = asyncio.get_running_loop()
     sweeper = asyncio.create_task(sweeping_the_journal(app.state.journal))
     drops = asyncio.create_task(sweeping_the_drops(app))
+    reminders = asyncio.create_task(reminding(app))
     # Sampling agents with nobody looking is what lets one that stops ring a phone through ntfy
     # with every browser shut. Only when the server is really running (main sets `always`): the
     # tests build apps by the dozen and must not start a watcher for each.
@@ -477,7 +504,7 @@ async def announcing(app: FastAPI):
     try:
         yield
     finally:
-        for one in (sweeper, drops):
+        for one in (sweeper, drops, reminders):
             one.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await one
@@ -1657,20 +1684,21 @@ def create_app(cfg: Config) -> FastAPI:
         store = request.app.state.todo
         try:
             items, made = todo.add(todo.load(store), str(body.get("note", "")),
-                                   str(body.get("status", "open")))
+                                   str(body.get("status", "open")), str(body.get("due") or ""), body.get("remind"))
         except ValueError as e:
             raise ApiError(400, str(e)) from e
         todo.save(store, items)
         return made
 
-    @app.patch("/api/todo/{ident}", tags=["Setup"], summary="Change one: its words or its state (by id or #number)")
+    @app.patch("/api/todo/{ident}", tags=["Setup"], summary="Change one: its words, its state, its deadline or reminder (by id or #number)")
     async def edit_todo(request: Request, ident: str, body: dict) -> dict:
         store = request.app.state.todo
         try:
             # Who moved it, when an agent did: its name in the journal, and the session it said.
             by = str(body.get("by") or "") if request.scope.get("argus_agent") else ""
+            when = {k: body[k] for k in ("due", "remind") if k in body}
             items, found = todo.change(todo.load(store), ident,
-                                       body.get("note"), body.get("status"), by)
+                                       body.get("note"), body.get("status"), by, **when)
         except ValueError as e:
             raise ApiError(400, str(e)) from e
         if not found:

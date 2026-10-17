@@ -8,6 +8,7 @@ import { translateMarkup } from '/js/markup.js';
 import { delJSON, getJSON, human, patchJSON, postJSON, serverInfo, setTitle, when, withToken } from '/js/reconnect.js';
 import { render } from '/js/router.js';
 import { prefs, setLeaving, view } from '/js/state.js';
+import { dueChip } from '/js/todowhen.js';
 import { openWindow } from '/js/tray.js';
 import { activeLang, loadLanguage, t } from '/js/words.js';
 // </imports>
@@ -1115,6 +1116,8 @@ export async function screenTodo() {
         state,
         note,
         one.by ? el('span', { className: 'todoby', textContent: t('by {who}', { who: one.by }), title: t('the agent that last moved it') }) : null,
+        // The deadline, and the reminder Argus rings for it (todowhen.js).
+        dueChip(one, paint),
         el('span', { className: 'todowhen', textContent: when(one.at), title: new Date(one.at * 1000).toLocaleString() }),
         el('button', {
           className: 'winbtn', title: t('Take it off the list'),

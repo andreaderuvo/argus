@@ -182,6 +182,10 @@ def test_an_agent_client_over_stdio(live):
         assert tool("todos")["content"][0]["text"] == "#1 [doing] fix the parser\n#2 [open] write the docs"
         tool("todo_set", todo="1", status="done")
         assert "#1" not in tool("todos")["content"][0]["text"] and "#1 [done]" in tool("todos", all=True)["content"][0]["text"]
+        said = tool("todo_add", note="call the lab", due="2026-10-20T15:00", remind=60)["content"][0]["text"]
+        assert said == "added #3: call the lab — due 2026-10-20 15:00, Argus rings 60 minutes before", said
+        assert "#3 [open] call the lab  (due 2026-10-20 15:00)" in tool("todos")["content"][0]["text"]
+        assert tool("todo_add", note="x", due="soon")["isError"], "a deadline that does not read: said"
         assert tool("notes")["content"][0]["text"].startswith("no notes yet")
         made = tool("note_new", text="# Listeria ST6\n\nfour isolates")["content"][0]["text"]
         assert made.startswith("made note-1.md: ") and made.endswith("note-1.md")

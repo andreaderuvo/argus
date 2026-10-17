@@ -747,6 +747,24 @@ fails if it comes back. Before adding anything, keep these true:
   the same folder, each on the files the planner gave it, no worktree). What reads an existing
   pair stays — the desk card on `BRIDGE.argus.md`, the REDO loop, Also's "partner first" — so a
   pair started before keeps working; there is just no way to start a new one.
+- **Notes** (`app/notes.py`, `static/js/notes.js`, rail → `#/notes`, tests/test_notes.py and
+  tests/browser/test_notes_window.py). Sublime-like: the list (latest first, filter, count), the text with
+  line numbers (Wrap on by default: each line measured in a hidden mirror so its number stands as tall
+  as its rows), Write/Both/Preview with `renderMarkdown` (mermaid fences drawn; a Diagram menu of
+  starters, block-beta included), saved 700 ms after typing. Plain .md files in `notes` beside the
+  config (`notes_dir`): Argus's own folder, so no `allow_write`; names are one file name, symlinks
+  refused, deletes into `.trash`. A write carries `base` (the mtime read): changed meanwhile → 200
+  `{conflict, note}` and a Keep mine / Take theirs banner, never a silent overwrite. On the agent key
+  (MCP `notes`, `note_read/new/add/write/rename/delete`, `argus-say note …`; PUT/DELETE allowed there
+  only). The module is imported on first visit; an error in it lands in the router's catch, not the
+  console — the harness does not see it, so test the screen itself.
+- **To-do deadlines and reminders** (`app/todo.py` due/remind/reminded, `remind_todos` + `reminding`
+  in main.py every 30 s, `static/js/todowhen.js`, tests/test_todo_reminders.py and
+  tests/browser/test_todo_deadline.py). `due` is local "YYYY-MM-DD[THH:MM]"; a day alone rings from
+  09:00 and is late after 23:59. A reminder rings once (`asking`, so ntfy), again only if due/remind
+  move. Calendars without accounts or SMTP: a Google Calendar template link and an .ics built in the
+  page (floating local times, VALARM). `el()` now skips null/false children — it used to print "null"
+  on every to-do not moved by an agent.
 - **argus-sync: a folder kept in sync with a computer** (`app/syncapi.py`, `static/js/syncsheet.js`,
   tests/test_syncapi.py and tests/browser/test_sync_sheet.py; the client is its own public repo,
   `andreaderuvo/argus-sync`, Rust + Tauri, released by CI on a `v*` tag). A folder's menu → *Sync to

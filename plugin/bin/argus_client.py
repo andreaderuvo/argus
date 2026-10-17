@@ -450,13 +450,16 @@ class Argus:
         return self.call("GET", "/api/todo").get("items") or []
 
     def todo(self, note: str | None = None, ident: str | int | None = None, status: str | None = None,
-             by: str = "") -> dict:
+             by: str = "", due: str | None = None, remind: int | None = None) -> dict:
         """Add a to-do (`note` alone), or change one: `ident` is its number (3, "#3") or id,
         `status` one of open, doing, done. `by` signs the change with your session, which the
-        list shows ("done by pippo-claude"). There is no removing one from here."""
+        list shows ("done by pippo-claude"). `due` is a deadline in local time — "2026-10-20" or
+        "2026-10-20T15:00", "" to take it away — and `remind` the minutes before it that Argus
+        rings (0, 15, 60, 1440, 10080). There is no removing one from here."""
+        when = {k: v for k, v in (("due", due), ("remind", remind)) if v is not None}
         if ident is None:
-            return self.call("POST", "/api/todo", {"note": note or ""})
-        body: dict = {"by": by or os.environ.get("ARGUS_SESSION", "")}
+            return self.call("POST", "/api/todo", {"note": note or "", **when})
+        body: dict = {"by": by or os.environ.get("ARGUS_SESSION", ""), **when}
         if note is not None:
             body["note"] = note
         if status is not None:
@@ -573,8 +576,9 @@ def _as_mcp(args) -> int:
         "launchers": lambda: ("launchers", {}),
         "status": lambda: ("request_status", {"id": args.id}),
         "todos": lambda: ("todos", {"all": args.all}),
-        "todo": lambda: (("todo_add", {"note": args.item}) if args.verb == "add" else
-                         ("todo_set", {"todo": args.item, "status": args.status, "note": args.note})),
+        "todo": lambda: (("todo_add", {"note": args.item, "due": args.due, "remind": args.remind}) if args.verb == "add" else
+                         ("todo_set", {"todo": args.item, "status": args.status, "note": args.note,
+                                       "due": args.due, "remind": args.remind})),
         "worktree": lambda: ("worktree", {"repo": args.repo, "branch": args.branch}),
         "prompts": lambda: ("prompts", {}),
         "notes": lambda: ("notes", {}),
@@ -672,6 +676,8 @@ def main(argv: list[str] | None = None) -> int:
     to.add_argument("item", help="the note (add), or the to-do's number (set)")
     to.add_argument("--status", choices=["open", "doing", "done"])
     to.add_argument("--note", help="new words for it (set)")
+    to.add_argument("--due", help="a deadline: 2026-10-20 or 2026-10-20T15:00 (\"\" takes it away)")
+    to.add_argument("--remind", type=int, choices=[0, 15, 60, 1440, 10080], help="ring this many minutes before it")
     subs.add_parser("notes", help="the notes kept in Argus, the latest first")
     nt = subs.add_parser("note", help="a note: note read NAME | new [NAME] | add NAME | write NAME | rename NAME --to NEW | delete NAME")
     nt.add_argument("verb", choices=["read", "new", "add", "write", "rename", "delete"])

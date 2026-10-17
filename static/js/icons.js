@@ -58,6 +58,7 @@ export const ICONS = {
   // says what is being made.
   plus: 'M12 5.5v13M5.5 12h13',
   notes: 'M6.5 3.5h8l3 3v14h-11zM14.5 3.5v3h3M9 11h6M9 14h6M9 17h3.5',
+  calendar: 'M4.5 6.5h15v13h-15zM4.5 10.5h15M8.5 4v4M15.5 4v4',
   // Copied. Shown for a moment in place of whatever was there: an action with no visible
   // result is an action you do twice.
   tick: 'M5 12.8l4.4 4.2L19 7.5',

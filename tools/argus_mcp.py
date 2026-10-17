@@ -188,11 +188,20 @@ TOOLS = [
      "inputSchema": {"type": "object", "properties": {
          "todo": {"type": "string", "description": "Its number, e.g. \"#3\" or \"3\""},
          "status": {"type": "string", "enum": ["open", "doing", "done"]},
-         "note": {"type": "string", "description": "New words for it, if they should change"}},
+         "note": {"type": "string", "description": "New words for it, if they should change"},
+         "due": {"type": "string", "description": "A deadline in the machine's local time: 2026-10-20, or 2026-10-20T15:00 — \"\" takes it away"},
+         "remind": {"type": "integer", "enum": [0, 15, 60, 1440, 10080],
+                    "description": "Minutes before the deadline that Argus rings the person (a day alone: from 9:00 that day)"},
+         },
          "required": ["todo"]}},
     {"name": "todo_add",
-     "description": "Add something to the person's to-do list — a follow-up you found but should not do now.",
-     "inputSchema": {"type": "object", "properties": {"note": {"type": "string"}}, "required": ["note"]}},
+     "description": "Add something to the person's to-do list — a follow-up you found but should not do now. With "
+                    "`due` (and `remind`), Argus rings them when it is time: \"remind me tomorrow at 3 to call the lab\".",
+     "inputSchema": {"type": "object", "properties": {"note": {"type": "string"},
+         "due": {"type": "string", "description": "A deadline in the machine's local time: 2026-10-20, or 2026-10-20T15:00"},
+         "remind": {"type": "integer", "enum": [0, 15, 60, 1440, 10080],
+                    "description": "Minutes before the deadline that Argus rings the person (a day alone: from 9:00 that day)"},
+         }, "required": ["note"]}},
     {"name": "notes",
      "description": "The person's notes in Argus (the Notes screen), the latest first: name, first line, and the "
                     "path of the plain file. When asked about \"my notes\" or \"the note on X\", look here first.",
@@ -403,18 +412,28 @@ def _todos(a: Argus, args: dict) -> str:
     items = sorted(a.todos(), key=lambda x: x.get("n", 0))
     if not args.get("all"):
         items = [x for x in items if x.get("status") != "done"]
-    return "\n".join(f"#{x['n']} [{x['status']}] {x['note']}" + (f"  (by {x['by']})" if x.get("by") else "")
+    return "\n".join(f"#{x['n']} [{x['status']}] {x['note']}" + (f"  (due {x['due'].replace('T', ' ')})" if x.get("due") else "")
+                     + (f"  (by {x['by']})" if x.get("by") else "")
                      for x in items) or "nothing on the list"
 
 
 def _todo_set(a: Argus, args: dict) -> str:
-    said = a.todo(note=args.get("note"), ident=str(args["todo"]), status=args.get("status"), by=a.me())
-    return f"#{said['n']} is {said['status']}: {said['note']}"
+    said = a.todo(note=args.get("note"), ident=str(args["todo"]), status=args.get("status"), by=a.me(),
+                  due=args.get("due"), remind=args.get("remind"))
+    return f"#{said['n']} is {said['status']}: {said['note']}" + _due_words(said)
 
 
 def _todo_add(a: Argus, args: dict) -> str:
-    said = a.todo(note=args["note"])
-    return f"added #{said['n']}: {said['note']}"
+    said = a.todo(note=args["note"], due=args.get("due"), remind=args.get("remind"))
+    return f"added #{said['n']}: {said['note']}" + _due_words(said)
+
+
+def _due_words(item: dict) -> str:
+    if not item.get("due"):
+        return ""
+    ring = item.get("remind")
+    return f" — due {item['due'].replace('T', ' ')}" + ("" if ring is None else
+        ", Argus rings at the time" if ring == 0 else f", Argus rings {ring} minutes before")
 
 
 def _notes(a: Argus, _args: dict) -> str:
