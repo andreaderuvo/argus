@@ -61,7 +61,7 @@ def test_the_handshake_and_the_tool_list():
     # A version it does not know is answered with the newest it does, as the spec asks.
     assert call(Fake(), "initialize", {"protocolVersion": "1999-01-01"})["result"]["protocolVersion"] == argus_mcp.VERSIONS[0]
     names = [t["name"] for t in call(Fake(), "tools/list")["result"]["tools"]]
-    assert names == ["who", "ring", "ask", "relay", "open_desk", "rename_desk", "launchers", "start_agent", "team_task", "team_done", "team_check", "team_propose", "close_gone_windows", "request", "request_status", "todos", "todo_set", "todo_add", "notes", "note_read", "note_new", "note_add", "note_write", "note_rename", "note_delete", "teams", "worktree", "prompts"]
+    assert names == ["who", "ring", "ask", "relay", "open_desk", "rename_desk", "launchers", "start_agent", "team_task", "team_done", "team_check", "team_propose", "close_gone_windows", "request", "request_status", "todos", "todo_set", "todo_add", "notes", "note_read", "note_new", "note_add", "note_write", "note_rename", "note_delete", "teams", "worktree", "prompts", "worktrees", "actions", "bells", "wait_for_files"]
     assert all(t["inputSchema"]["type"] == "object" for t in call(Fake(), "tools/list")["result"]["tools"])
     assert argus_mcp.answer({"jsonrpc": "2.0", "method": "notifications/initialized"}, Fake) is None
     assert call(Fake(), "nope")["error"]["code"] == -32601
@@ -142,7 +142,7 @@ def test_an_agent_client_over_stdio(live):
     try:
         assert rpc("initialize", {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "test"}})["result"]["serverInfo"]["name"] == "argus"
         proc.stdin.write(json.dumps({"jsonrpc": "2.0", "method": "notifications/initialized"}) + "\n")
-        assert len(rpc("tools/list")["result"]["tools"]) == 28
+        assert len(rpc("tools/list")["result"]["tools"]) == 32
 
         def tool(tool_name, **args):
             return rpc("tools/call", {"name": tool_name, "arguments": args})["result"]
@@ -196,6 +196,11 @@ def test_an_agent_client_over_stdio(live):
         assert tool("note_write", name="listeria.md", text="rewritten")["isError"] is False
         assert "kept in the notes' trash" in tool("note_delete", name="listeria.md")["content"][0]["text"]
         assert tool("note_read", name="listeria.md")["isError"], "gone: said, not raised"
+        assert "finished the parser" in tool("bells", last=5)["content"][0]["text"]
+        assert "start_team" in tool("actions")["content"][0]["text"]
+        (folder / "result.md").write_text("done")
+        waited = tool("wait_for_files", paths=[str(folder / "result.md")], minutes=0.1)["content"][0]["text"]
+        assert waited.startswith("arrived: ") and "result.md" in waited and "missing" not in waited
         refused = tool("worktree", repo=str(folder), branch="x")
         assert refused["isError"] and "Argus refused" in refused["content"][0]["text"], "not a repository: said, not raised"
     finally:
@@ -246,6 +251,7 @@ CLI_FOR = {"who": "who", "ring": "ring", "ask": "ask", "relay": "relay", "open_d
            "todos": "todos", "todo_set": "todo", "todo_add": "todo", "teams": "teams",
            "notes": "notes", "note_read": "note", "note_new": "note", "note_add": "note", "note_write": "note",
            "note_rename": "note", "note_delete": "note",
+           "worktrees": "worktrees", "actions": "actions", "bells": "bells", "wait_for_files": "wait",
            "worktree": "worktree", "prompts": "prompts"}
 
 
@@ -287,3 +293,26 @@ def test_argus_say_does_what_the_mcp_tools_do(live):
     assert code == 0, out
     code, out = say("status", "nope")
     assert code == 1 and out, "an unknown request is said, not a traceback"
+
+
+# Every method of the Python library is reachable from an agent too — an MCP tool and its argus-say
+# verb — unless it is here, with the reason. "The power of integration must be the same everywhere"
+# (2026-10-17): an agent with MCP, a shell with argus-say, a script with the class.
+LIBRARY_ONLY = {
+    "call": "any route at all: the escape hatch a program has; a tool per route is the tools above",
+    "sessions": "who answers the same and more",
+    "prefs": "the whole document; prompts and open_desk are the parts an agent acts on",
+    "bells": "the open stream, for a program's loop; an agent reads what rang with the bells tool",
+}
+
+
+def test_every_library_method_reaches_an_agent_too():
+    import ast
+    import re
+    tree = ast.parse((ROOT / "tools" / "argus_client.py").read_text())
+    cls = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "Argus")
+    methods = {m.name for m in cls.body if isinstance(m, ast.FunctionDef) and not m.name.startswith("_")}
+    used = set(re.findall(r"\ba\.(\w+)\(", (ROOT / "tools" / "argus_mcp.py").read_text()))
+    missing = methods - used - set(LIBRARY_ONLY)
+    assert not missing, f"in the library but reached by no MCP tool (add one, or say why in LIBRARY_ONLY): {sorted(missing)}"
+    assert set(LIBRARY_ONLY) <= methods, "a stale entry in LIBRARY_ONLY"

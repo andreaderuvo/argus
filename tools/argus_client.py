@@ -581,6 +581,10 @@ def _as_mcp(args) -> int:
                                        "due": args.due, "remind": args.remind})),
         "worktree": lambda: ("worktree", {"repo": args.repo, "branch": args.branch}),
         "prompts": lambda: ("prompts", {}),
+        "worktrees": lambda: ("worktrees", {"path": args.path}),
+        "actions": lambda: ("actions", {}),
+        "bells": lambda: ("bells", {"last": args.last}),
+        "wait": lambda: ("wait_for_files", {"paths": args.paths, "minutes": args.minutes}),
         "notes": lambda: ("notes", {}),
         "note": lambda: _note_call(args),
     }[args.what]()
@@ -592,7 +596,8 @@ def _as_mcp(args) -> int:
 def main(argv: list[str] | None = None) -> int:
     """The command line: `who`, `relay`, `ring`, `start`, `teams`, `task`, `turn`, `team-check`,
     `team-propose`, `request`, `close-gone` — and `ask`, `desk`, `launchers`, `status`, `todos`,
-    `todo`, `worktree`, `prompts`, `notes`, `note`, which run the MCP tools' own functions.
+    `todo`, `worktree`, `prompts`, `notes`, `note`, `worktrees`, `actions`, `bells`, `wait`, which run
+    the MCP tools' own functions.
 
     Every MCP tool has its verb here (tests/test_argus_mcp.py holds the two lists together), so an
     agent with no MCP — or a shell, or a cron job — can do whatever one with MCP can. Anything
@@ -678,6 +683,14 @@ def main(argv: list[str] | None = None) -> int:
     to.add_argument("--note", help="new words for it (set)")
     to.add_argument("--due", help="a deadline: 2026-10-20 or 2026-10-20T15:00 (\"\" takes it away)")
     to.add_argument("--remind", type=int, choices=[0, 15, 60, 1440, 10080], help="ring this many minutes before it")
+    wl = subs.add_parser("worktrees", help="the repository a path is in, and every checkout of it")
+    wl.add_argument("path", nargs="?", default=os.getcwd())
+    subs.add_parser("actions", help="what this key may request, for the person's Do it / No")
+    bl = subs.add_parser("bells", help="what rang lately")
+    bl.add_argument("--last", type=int, default=10)
+    wf = subs.add_parser("wait", help="wait until files exist, woken by bells")
+    wf.add_argument("paths", nargs="+")
+    wf.add_argument("--minutes", type=float, default=10)
     subs.add_parser("notes", help="the notes kept in Argus, the latest first")
     nt = subs.add_parser("note", help="a note: note read NAME | new [NAME] | add NAME | write NAME | rename NAME --to NEW | delete NAME")
     nt.add_argument("verb", choices=["read", "new", "add", "write", "rename", "delete"])
@@ -691,7 +704,7 @@ def main(argv: list[str] | None = None) -> int:
     subs.add_parser("prompts", help="the person's prompt library")
 
     args = ap.parse_args(argv)
-    MCP_VERBS = {"ask", "desk", "launchers", "status", "todos", "todo", "worktree", "prompts", "notes", "note"}
+    MCP_VERBS = {"ask", "desk", "launchers", "status", "todos", "todo", "worktree", "prompts", "notes", "note", "worktrees", "actions", "bells", "wait"}
     if args.what in MCP_VERBS:
         try:
             return _as_mcp(args)

@@ -32,7 +32,10 @@ phone. You reach it with the Argus tools (or `argus-say` from a shell). Three ki
 | teams: how they are doing | `teams` |
 | design a team | `team_check`, then `team_propose` (skill `argus-team-author`) |
 | in a team: your task, your report | `team_task`, `team_done` (skill `argus-team`) |
-| a git worktree | `worktree` |
+| a git worktree / the checkouts of a repository | `worktree` / `worktrees` |
+| what rang lately (who finished, failed, waits) | `bells` |
+| wait for another agent's result file | `wait_for_files` (woken by bells, up to 60 min) |
+| what you may ask the person to let you do | `actions`, then `request` |
 | their saved prompts | `prompts` |
 | files | your own tools — you work on the disk directly |
 

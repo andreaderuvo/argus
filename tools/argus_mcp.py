@@ -24,6 +24,7 @@ Anything written to stdout that is not a message breaks the client, so nothing e
 from __future__ import annotations
 
 import json
+import time
 import os
 import subprocess
 import sys
@@ -244,6 +245,24 @@ TOOLS = [
     {"name": "prompts",
      "description": "The person's prompt library in Argus: saved prompts by name, with their text.",
      "inputSchema": {"type": "object", "properties": {}}},
+    {"name": "worktrees",
+     "description": "The git repository a path is in, and every checkout of it (worktrees an earlier run left too).",
+     "inputSchema": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]}},
+    {"name": "actions",
+     "description": "What this key cannot do by itself but may `request` (the person taps Do it / No), and which "
+                    "the person lets through without asking.",
+     "inputSchema": {"type": "object", "properties": {}}},
+    {"name": "bells",
+     "description": "What rang lately on this machine: which session finished, failed or is waiting, with its words.",
+     "inputSchema": {"type": "object", "properties": {
+         "last": {"type": "integer", "default": 10, "description": "How many, the latest last (1-50)"}}}},
+    {"name": "wait_for_files",
+     "description": "Wait until files exist (another agent's result), woken by bells; says which arrived and which "
+                    "did not when the time is up.",
+     "inputSchema": {"type": "object", "properties": {
+         "paths": {"type": "array", "items": {"type": "string"}},
+         "minutes": {"type": "number", "default": 10, "description": "How long to wait (at most 60)"}},
+         "required": ["paths"]}},
 ]
 
 
@@ -491,13 +510,37 @@ def _worktree(a: Argus, args: dict) -> str:
     return f"checkout of {said.get('branch', args['branch'])} at {said.get('path')}"
 
 
+def _worktrees(a: Argus, args: dict) -> str:
+    said = a.worktrees(args["path"])
+    rows = [f"{w.get('branch') or '(detached)'}: {w.get('path')}" for w in said.get("worktrees") or []]
+    return (f"{said.get('repo') or said.get('top') or args['path']}\n" + "\n".join(rows)) if rows else "not in a git repository"
+
+
+def _actions(a: Argus, _args: dict) -> str:
+    return "\n".join(f"{x['action']}: {x['what']}" + ("" if x.get("asks", True) else "  (done without asking)")
+                     + ("  [risky]" if x.get("danger") else "") for x in a.actions()) or "nothing to request"
+
+
+def _bells(a: Argus, args: dict) -> str:
+    last = max(1, min(50, int(args.get("last") or 10)))
+    rang = (a.call("GET", "/api/bells?since=0").get("bells") or [])[-last:]
+    return "\n".join(f"{time.strftime('%H:%M', time.localtime(b.get('at', 0)))} {b.get('session') or '-'} {b.get('why')}: "
+                     f"{(b.get('text') or '').splitlines()[0][:160] if b.get('text') else ''}" for b in rang) or "nothing rang"
+
+
+def _wait_for_files(a: Argus, args: dict) -> str:
+    minutes = max(0.1, min(60.0, float(args.get("minutes") or 10)))
+    arrived, missing = a.wait_for(args["paths"], time.monotonic() + minutes * 60)
+    return "arrived: " + (", ".join(map(str, arrived)) or "none") + (f"\nstill missing: {', '.join(map(str, missing))}" if missing else "")
+
+
 def _prompts(a: Argus, _args: dict) -> str:
     out = [f"## {p.get('name', '?')}\n{p.get('text', '')}" for p in a.prompts()]
     return "\n\n".join(out) or "the prompt library is empty"
 
 
 DO = {"who": _who, "ring": _ring, "ask": _ask, "relay": _relay, "open_desk": _open_desk, "rename_desk": _rename_desk, "launchers": _launchers,
-      "start_agent": _start, "team_task": _team_task, "team_done": _team_done, "team_check": _team_check, "team_propose": _team_propose, "request": _request, "request_status": _request_status, "close_gone_windows": _close_gone, "todos": _todos, "todo_set": _todo_set, "todo_add": _todo_add, "notes": _notes, "note_read": _note_read, "note_new": _note_new, "note_add": _note_add, "note_write": _note_write, "note_rename": _note_rename, "note_delete": _note_delete, "teams": _teams, "worktree": _worktree, "prompts": _prompts}
+      "start_agent": _start, "team_task": _team_task, "team_done": _team_done, "team_check": _team_check, "team_propose": _team_propose, "request": _request, "request_status": _request_status, "close_gone_windows": _close_gone, "todos": _todos, "todo_set": _todo_set, "todo_add": _todo_add, "notes": _notes, "note_read": _note_read, "note_new": _note_new, "note_add": _note_add, "note_write": _note_write, "note_rename": _note_rename, "note_delete": _note_delete, "teams": _teams, "worktree": _worktree, "prompts": _prompts, "worktrees": _worktrees, "actions": _actions, "bells": _bells, "wait_for_files": _wait_for_files}
 
 
 # ------------------------------------------------------------------ the wire
