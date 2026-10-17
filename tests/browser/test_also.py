@@ -35,12 +35,23 @@ def desk(argus, tmp_path):
     return a, b
 
 
+TERM_OF = ("(name => [...document.querySelectorAll(`.win[data-session=\"${name}\"] *`)].find(n => n._term)?._term)")
+
+
+def shows(page, name, text):
+    """The session's terminal has drawn `text`: connected, and the program in it has spoken."""
+    return (f"(() => {{ const t = {TERM_OF}({name!r}); if (!t) return false; const b = t.buffer.active;"
+            f" for (let i = 0; i < b.length; i++) if ((b.getLine(i)?.translateToString(true) || '').includes({text!r})) return true;"
+            " return false; })()")
+
+
 def into_writer(page):
-    page.wait("!!document.querySelector('.win[data-session=\"writer\"] .xterm-screen')", timeout=15, what="the writer")
-    page.wait("!!document.querySelector('.win[data-session=\"checker\"] .xterm-screen')", timeout=15, what="the checker")
-    time.sleep(1)
+    # Waited for, not slept for: on a slow runner the keys typed before the terminal was connected
+    # were lost and the button never came (CI, 2026-10-17).
+    page.wait(shows(page, "writer", "ready"), timeout=20, what="the writer connected")
+    page.wait(shows(page, "checker", "ready"), timeout=20, what="the checker connected")
     page.click_at(*page._center("document.querySelector('.win[data-session=\"writer\"] .xterm-screen')"))
-    time.sleep(0.3)
+    page.wait("!!document.activeElement?.closest('.win[data-session=\"writer\"]')", timeout=5, what="the keyboard in the writer")
 
 
 def chip(page):
@@ -54,7 +65,7 @@ def test_a_press_sends_it_to_the_other_agent_now(make_page, argus, tmp_path):
     page = make_page(route="#/wall")
     into_writer(page)
     page.type("touch pressed")
-    page.wait(f"{chip(page)} && !{chip(page)}.hidden", timeout=5, what="the also button while typing")
+    page.wait(f"{chip(page)} && !{chip(page)}.hidden", timeout=10, what="the also button while typing")
     assert "checker" in page.eval(f"{chip(page)}.textContent")
     page.click_at(*page._center(f"{chip(page)}.querySelector('.alsomain')"))
     eventually(lambda: (b / "pressed").exists(), timeout=10, what="the checker to have it, on the press")
@@ -90,7 +101,7 @@ def test_a_line_it_cannot_be_sure_of_is_not_offered(make_page, argus, tmp_path):
     page = make_page(route="#/wall")
     into_writer(page)
     page.type("touch x")
-    page.wait(f"{chip(page)} && !{chip(page)}.hidden", timeout=5, what="the button")
+    page.wait(f"{chip(page)} && !{chip(page)}.hidden", timeout=10, what="the button")
     page.key("ArrowLeft", "ArrowLeft")                    # now what is on the line is not known
     page.wait(f"{chip(page)}.hidden", timeout=3, what="the button to go")
     page.key("Enter", "Enter", text="\r")
@@ -108,6 +119,6 @@ def test_a_chain_of_one_does_not_hide_it(make_page, argus, tmp_path):
     page = make_page(route="#/wall")
     into_writer(page)
     page.type("touch chained")
-    page.wait(f"{chip(page)} && !{chip(page)}.hidden", timeout=5, what="the also button, chain of one or not")
+    page.wait(f"{chip(page)} && !{chip(page)}.hidden", timeout=10, what="the also button, chain of one or not")
     for s in ("writer", "checker"):
         argus.tmux("kill-session", "-t", s, check=False)
