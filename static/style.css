@@ -1272,6 +1272,8 @@ button.ghost.inline.danger:hover {
 /* ---------- window wall ---------- */
 
 body.wall #view { display: flex; flex-direction: column; }
+body.notesmode #view { display: flex; flex-direction: column; overflow: hidden; }
+.notesscreen { flex: 1; min-height: 0; }
 
 #walltools {
   display: flex;
@@ -4617,3 +4619,61 @@ dialog.sheet.mountwizard { width: min(46rem, calc(100vw - 2rem)); }
 .md.agentmd h1, .md.agentmd h2, .md.agentmd h3, .md.agentmd h4 { font-size: .95rem; margin: .6em 0 .25em; border: 0; padding: 0; }
 .md.agentmd pre { margin: .4em 0; font-size: .8rem; max-height: 14rem; }
 .md.agentmd table { font-size: .82rem; }
+
+/* Notes (notes.js): the list down the side, the text with its line numbers, a status line — the
+   way Sublime Text keeps a project. The gutter and the textarea share font, line height and top
+   padding, or the numbers drift away from their lines. */
+.notesapp { container-type: inline-size; height: 100%; display: grid; grid-template-columns: minmax(10rem, 14rem) 1fr; min-height: 0; }
+.notesapp .nsside { display: flex; flex-direction: column; min-height: 0; background: var(--panel); border-right: 1px solid var(--line); }
+.nstools { display: flex; align-items: center; gap: .35rem; padding: .5rem; flex: none; }
+.nstools .nsfilter { flex: 1; min-width: 0; padding: .35rem .5rem; font: inherit; font-size: .8rem; color: var(--text);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 6px; }
+.nstools .nsfilter:focus, .nshead .nsname:focus { outline: none; border-color: var(--accent); }
+.nstools .nsnew { flex: none; }
+.nslist { flex: 1; min-height: 0; overflow: auto; padding: 0 .3rem .4rem; display: flex; flex-direction: column; gap: 1px; }
+.nsitem { display: grid; gap: .1rem; text-align: left; padding: .4rem .55rem; border: 0; border-radius: 6px; background: none;
+  color: var(--text); font: inherit; cursor: pointer; }
+.nsitem:hover { background: color-mix(in srgb, var(--text) 7%, transparent); }
+.nsitem.on { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.nsitem:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.nstitle { font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--bright); }
+.nsmeta { font-size: .7rem; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.nsnone { padding: .5rem; }
+.nsdir { flex: none; padding: .35rem .6rem; border-top: 1px solid var(--line); font-size: .7rem; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+.nseditor { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--bg); }
+.nseditor[hidden], .nsempty[hidden] { display: none; }
+.nshead { display: flex; align-items: center; gap: .35rem; padding: .4rem .5rem; border-bottom: 1px solid var(--line); flex: none; flex-wrap: wrap; }
+.nshead .nsname { flex: 1 1 8rem; min-width: 0; padding: .3rem .5rem; font: inherit; font-size: .85rem; font-weight: 600; color: var(--bright);
+  background: transparent; border: 1px solid transparent; border-radius: 6px; }
+.nshead .nsname:hover { border-color: var(--line); }
+.nsviews { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; flex: none; }
+.nsview { border: 0; background: none; color: var(--dim); font: inherit; font-size: .75rem; padding: .25rem .55rem; cursor: pointer; }
+.nsview + .nsview { border-left: 1px solid var(--line); }
+.nsview.on { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--bright); }
+.nsbanner { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .6rem; padding: .45rem .6rem; font-size: .8rem;
+  background: color-mix(in srgb, var(--danger) 14%, var(--bg)); border-bottom: 1px solid var(--line); }
+.nsbanner > span { flex: 1 1 14rem; }
+.nsbody { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr; }
+.nsbody[data-view="split"] { grid-template-columns: 1fr 1fr; }
+.nsbody[data-view="preview"] .nswrite, .nsbody[data-view="write"] .nspreview { display: none; }
+.nswrite { display: flex; min-width: 0; min-height: 0; }
+.nsgutter, .nsarea { font-family: var(--mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace); font-size: 13px; line-height: 1.55; padding-top: .55rem; padding-bottom: .55rem; }
+.nsgutter { flex: none; min-width: 2.6rem; padding-inline: .5rem .6rem; text-align: right; white-space: pre; overflow: hidden; color: var(--dim);
+  opacity: .7; user-select: none; background: var(--bg); border-right: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.nsarea { flex: 1; min-width: 0; resize: none; border: 0; outline: none; padding-inline: .7rem; background: var(--bg); color: var(--text);
+  white-space: pre; overflow: auto; tab-size: 2; }
+.nsarea::placeholder { color: var(--dim); }
+.nspreview { min-width: 0; overflow: auto; padding: .6rem .9rem 1.4rem; border-left: 1px solid var(--line); }
+.nsbody[data-view="preview"] .nspreview { border-left: 0; }
+.nsstatus { display: flex; gap: .9rem; align-items: center; padding: .25rem .6rem; border-top: 1px solid var(--line); flex: none;
+  font-size: .72rem; color: var(--dim); background: var(--panel); font-variant-numeric: tabular-nums; }
+.nsstatus .nspath { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+.nsstatus .nsstate.bad { color: var(--danger); }
+.nsempty { display: grid; place-content: center; justify-items: center; gap: .6rem; color: var(--dim); }
+@container (max-width: 34rem) {
+  .notesapp { grid-template-columns: 1fr; grid-template-rows: minmax(6rem, 30%) 1fr; }
+  .notesapp .nsside { border-right: 0; border-bottom: 1px solid var(--line); }
+  .nsbody[data-view="split"] { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+  .nsbody[data-view="split"] .nspreview { border-left: 0; border-top: 1px solid var(--line); }
+}

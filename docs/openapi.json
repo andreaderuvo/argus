@@ -2478,6 +2478,254 @@
     ]
    }
   },
+  "/api/notes": {
+   "get": {
+    "operationId": "getApiNotes",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response List Notes Api Notes Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Every note, the latest first",
+    "tags": [
+     "Notes"
+    ]
+   },
+   "post": {
+    "description": "`name` if given (refused when taken), else the first free `note-N.md`; `text` its first\nwords \u2014 a paste becomes a note in one call.",
+    "operationId": "postApiNotes",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "anyOf": [
+         {
+          "additionalProperties": true,
+          "type": "object"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Body"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response New Note Api Notes Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "A new note",
+    "tags": [
+     "Notes"
+    ]
+   }
+  },
+  "/api/notes/note": {
+   "delete": {
+    "operationId": "deleteApiNotesNote",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "name",
+      "required": true,
+      "schema": {
+       "title": "Name",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Delete Note Api Notes Note Delete",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Put a note in the notes' trash",
+    "tags": [
+     "Notes"
+    ]
+   },
+   "get": {
+    "operationId": "getApiNotesNote",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "name",
+      "required": true,
+      "schema": {
+       "title": "Name",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Read Note Api Notes Note Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "One note's text",
+    "tags": [
+     "Notes"
+    ]
+   },
+   "put": {
+    "description": "`base` is the `mtime` the page last read: when the file has changed since \u2014 an agent wrote\nin it \u2014 nothing is written and the answer is `{conflict: true, note}`, the note as it is now,\nso nothing is overwritten unseen. A 200: it is an ordinary turn of events, not a mistake (and\nthe browser harness counts every 4xx as one). `base: null` writes whatever is there.",
+    "operationId": "putApiNotesNote",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Write Note Api Notes Note Put",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Write a note (made if it is not there)",
+    "tags": [
+     "Notes"
+    ]
+   }
+  },
+  "/api/notes/rename": {
+   "post": {
+    "operationId": "postApiNotesRename",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Rename Note Api Notes Rename Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Give a note another name",
+    "tags": [
+     "Notes"
+    ]
+   }
+  },
   "/api/overview": {
    "get": {
     "description": "Everything a board watching several machines needs, and nothing it does not.\n\nThis is the one door a watcher token opens, and the same answer a machine\nannounces to a board that cannot reach it.",

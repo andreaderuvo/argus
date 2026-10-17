@@ -49,7 +49,7 @@ export async function render() {
   // Move it out of the way *before* the view is emptied, or innerHTML would take it.
   if (live && live.key !== wanted) parkLive();
 
-  document.body.classList.remove('term', 'wall');
+  document.body.classList.remove('term', 'wall', 'notesmode');
   bar.back.hidden = true;
   bar.action.hidden = true;
   bar.action.onclick = null;
@@ -108,6 +108,8 @@ export async function render() {
     if (path === '/since') return await screenSince();
     if (path === '/journal') return await screenJournal();
     if (path === '/todo') return await screenTodo();
+    // Loaded the first time it is opened: most visits never are.
+    if (path === '/notes') return await (await import('/js/notes.js')).screenNotes();
     if (path === '/settings') return await screenSettings();
     if (path === '/tmuxconf') return await screenTmuxConf();
     if (path === '/placeholders') return await screenMessages('vars');

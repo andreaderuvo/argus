@@ -1,0 +1,66 @@
+"""Notes, in the rail: every note listed, written in place and saved as you type, a note an agent
+changed taken in, Markdown drawn beside the text."""
+
+from __future__ import annotations
+
+import os
+import shutil
+import time
+from pathlib import Path
+
+from .test_flows import eventually
+
+APP = "document.querySelector('.notesapp')"
+
+
+def typed(page, text):
+    page.eval(f"(() => {{ const a = {APP}.querySelector('.nsarea'); a.value = {text!r}; a.dispatchEvent(new Event('input')); }})()")
+
+
+def test_notes_are_listed_written_in_place_and_drawn(make_page, argus):
+    where = Path(argus.api("/api/notes")["dir"])
+    shutil.rmtree(where, ignore_errors=True)
+    try:
+        page = make_page(route="#/files")
+        page.click_at(*page._center("document.querySelector('#nav a[data-tab=notes]')"))
+        page.wait(f"!!{APP} && !{APP}.querySelector('.nsempty').hidden", timeout=10, what="no notes yet: the empty state")
+        page.click_text("New note", within=".nsempty button")
+        page.wait(f"{APP}.querySelectorAll('.nsitem').length === 1", timeout=10, what="the new note listed")
+
+        typed(page, "# Listeria ST6\n\n- **four** isolates\n- one farm")
+        eventually(lambda: (where / "note-1.md").exists() and "four" in (where / "note-1.md").read_text(),
+                   timeout=10, what="saved as typed, with no Save")
+        page.wait(f"{APP}.querySelector('.nsitem.on .nstitle').textContent === 'Listeria ST6'", timeout=10,
+                  what="the list shows its first line")
+        page.wait(f"{APP}.querySelector('.nsgutter').textContent === '1\\n2\\n3\\n4'", timeout=5, what="a number per line")
+
+        # Markdown beside the text.
+        page.click_text("Both", within=".nsview")
+        page.wait(f"{APP}.querySelector('.nspreview h1')?.textContent === 'Listeria ST6' && "
+                  f"{APP}.querySelector('.nspreview strong')?.textContent === 'four'", timeout=10, what="drawn")
+
+        # An agent writes in it: taken in, since nothing is typed over it.
+        (where / "note-1.md").write_text("# Listeria ST6\n\nconfirmed by the agent")
+        later = time.time() + 5
+        os.utime(where / "note-1.md", (later, later))
+        page.wait(f"{APP}.querySelector('.nsarea').value.includes('confirmed by the agent')", timeout=15, what="taken in")
+
+        # A second note, from outside: it turns up in the list.
+        (where / "plan.md").write_text("Rerun cgDist on the batch")
+        page.wait(f"[...{APP}.querySelectorAll('.nsitem .nstitle')].some(s => s.textContent === 'Rerun cgDist on the batch')",
+                  timeout=15, what="a note written elsewhere listed")
+
+        # A diagram from the starters: drawn in the preview, blocks included (Mermaid's block-beta).
+        page.click_text("note-1.md", within=".nsitem")
+        page.wait(f"{APP}.querySelector('.nsname').value === 'note-1.md'", timeout=5)
+        page.click_text("Diagram", within=".nshead button")
+        page.wait("!!document.querySelector('.popmenu')", timeout=5)
+        page.click_text("Blocks", within=".popmenu button")
+        page.wait(f"{APP}.querySelector('.nsarea').value.includes('block-beta')", timeout=5, what="inserted")
+        page.wait(f"!!{APP}.querySelector('.nspreview svg')", timeout=20, what="the diagram drawn")
+        assert "Assembly" in page.eval(f"{APP}.querySelector('.nspreview svg').textContent")
+
+        # The path to hand an agent.
+        assert page.eval(f"{APP}.querySelector('.nspath').textContent.replace(/\\u200E/g, '')") == str(where / "note-1.md")
+    finally:
+        shutil.rmtree(where, ignore_errors=True)

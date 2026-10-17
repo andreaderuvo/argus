@@ -1082,6 +1082,7 @@ function railLabel(spec) {
   if (spec.kind === 'web') return spec.label || spec.url;
   if (spec.kind === 'run') return runs.get(spec.id)?.name || t('a run');
   if (spec.kind === 'note') return spec.name || t('Text');
+  if (spec.kind === 'notes') return t('Notes');
   if (spec.kind === 'changes') return t('Changes · {name}', { name: (spec.path || '').split('/').pop() || spec.path });
   return (spec.path || '').split('/').filter(Boolean).pop() || spec.path || '?';
 }
@@ -1578,9 +1579,9 @@ export function viewersRow() {
  *  three slide in from the left with their names on. Standard advice, arrived at from the
  *  badge rather than from the advice.
  */
-const DRAWER = ['placeholders', 'todo', 'system', 'journal'];
+const DRAWER = ['placeholders', 'todo', 'notes', 'system', 'journal'];
 // With the bottom bar off, the drawer *is* the navigation and carries all of them.
-const EVERYTHING = ['files', 'sessions', 'wall', 'prompts', 'placeholders', 'todo', 'system', 'since', 'journal'];
+const EVERYTHING = ['files', 'sessions', 'wall', 'prompts', 'placeholders', 'todo', 'notes', 'system', 'since', 'journal'];
 // Drawer only, unless somebody asks for the bar back. Asked for plainly, and the bar was
 // left in place by mistake the first time.
 const noBar = () => prefs.bottomBar !== true;

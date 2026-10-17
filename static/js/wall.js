@@ -438,6 +438,7 @@ export async function screenWall() {
           : spec.kind === 'run' ? (runs.get(spec.id)?.name || t('a run'))
           : spec.kind === 'team' ? (spec.name || t('a team'))
           : spec.kind === 'note' ? t('Text')
+          : spec.kind === 'notes' ? t('Notes')
           : spec.kind === 'changes' ? t('Changes · {name}', { name: spec.path.split('/').pop() || spec.path })
             : (spec.path.split('/').pop() || spec.path);
 
@@ -562,6 +563,7 @@ export async function screenWall() {
           : spec.kind === 'team' ? t('A team of agents, live')
           : spec.kind === 'messages' ? t('What to hand to an agent')
           : spec.kind === 'note' ? t('Text into a file')
+          : spec.kind === 'notes' ? t('Every note, saved as you type')
             : isTray ? t('What went past in this desk') : (spec.path || spec.url),
         textContent: label,
       });
@@ -654,6 +656,7 @@ export async function screenWall() {
         : spec.kind === 'run' ? attachRun(body, spec, setLabel)
         : spec.kind === 'team' ? attachTeam(body, spec, setLabel, { openLog: (path) => openWindow({ kind: 'file', path }, undefined, { jump: false }) })
         : spec.kind === 'note' ? attachNote(body, spec, setLabel)
+        : spec.kind === 'notes' ? notesLater(body, spec, setLabel)
         : spec.kind === 'changes' ? attachChanges(body, spec, setLabel)
         // Where a browser *lands* is the desk's business, not the folder it happened to
         // be left in: reopening a desk should put you where that desk starts.
@@ -2457,7 +2460,7 @@ export async function screenWall() {
 
       const under = el('span', {
         className: 'meta',
-        textContent: t(kind === 'term' ? 'session' : kind === 'browser' ? 'files' : kind === 'web' ? 'page' : kind === 'links' ? 'the tray' : kind === 'note' ? 'Text' : 'document'),
+        textContent: kind === 'notes' ? t('Notes') : t(kind === 'term' ? 'session' : kind === 'browser' ? 'files' : kind === 'web' ? 'page' : kind === 'links' ? 'the tray' : kind === 'note' ? 'Text' : 'document'),
       });
       // For a terminal the useful second line is not the word "session" — it is where
       // that session actually is, which is otherwise written down nowhere.
@@ -2611,14 +2614,7 @@ export async function screenWall() {
    *  an agent can open. Only where the server can write, like everything else that makes a
    *  file — a button that can only apologise is worse than one that is not there.
    */
-  if (server?.allow_write && (server?.drop_dir || activeSpace()?.home)) {
-    tools.append(el('button', {
-      className: 'winbtn wide',
-      title: t('Paste a large piece of text and get a path to it'),
-      // Into the desk's folder when the desk has one: that is where its sessions work.
-      onclick: () => openWindow({ kind: 'note', id: nextWindowId(), ...(activeSpace()?.home ? { path: deskFolder() } : {}) }),
-    }, [icon('file'), el('span', { textContent: t('Text') })]));
-  }
+  // Notes are a place of their own in the rail (#/notes), not a window of a desk.
 
   /* Everything above this line answers "what is on the desk"; everything below it answers
    *  "how is it arranged". Flat in a flat row they read as nine things of equal weight, so
@@ -3470,4 +3466,16 @@ function lookSheet(session = null) {
   ]);
   // To the side and without the shade, so the terminal it dresses stays in view.
   sheet.classList.add('looksheet');
+}
+
+/** Notes is loaded the first time a desk shows it: most desks never do. The window needs its
+ *  handle at once, so this one passes the calls on once the module has arrived. */
+function notesLater(body, spec, setLabel) {
+  let real = null;
+  let gone = false;
+  import('/js/notes.js').then((m) => { if (!gone) real = m.attachNotes(body, spec, setLabel); });
+  return {
+    relayout: () => real?.relayout?.(),
+    dispose: () => { gone = true; real?.dispose?.(); },
+  };
 }

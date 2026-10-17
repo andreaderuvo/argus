@@ -1,4 +1,4 @@
-"""Text into a file, from a desk with a folder: it goes into the desk's folder, says so before it
+"""Text into a file, opened on a folder: it goes into that folder, says so before it
 saves, and can be sent elsewhere. Left unnamed, each save takes the next free note-N.txt —
 a folder you chose refuses a name that is taken, and the second note would have been refused."""
 
@@ -16,7 +16,8 @@ def test_a_note_goes_into_the_desks_folder_and_says_where(make_page, argus):
     argus.api("/api/prefs", "PATCH", {"changes": {"ws": 1, "wsSeq": 1, "workspaces": [
         {"id": 1, "name": "Main", "home": str(desk), "desktop": []}]}})
     page = make_page(route="#/wall")
-    page.click_text("Text")
+    # Opened as a folder's menu opens it (the desk's own button became Notes, in the rail).
+    page.eval(f"import('/js/tray.js').then(m => m.openWindow({{ kind: 'note', id: m.nextWindowId(), path: {str(desk)!r} }}))")
     page.wait(f"!!{NOTE}", timeout=10, what="the note window")
     assert page.eval(WHERE) == str(desk), "the folder is shown before saving"
 

@@ -24,7 +24,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 
 from . import build, gitview, pluginstate, sshmount, themes, trust, viewerpacks
-from . import (syncapi, agentflags, consent, readiness, teamlint, toolcopies, teams, teammermaid, wiring, agentstate, resume, announce, asks, bells, devices, favourites, files, fsops, gitwork, journal, labels,
+from . import (notes, syncapi, agentflags, consent, readiness, teamlint, toolcopies, teams, teammermaid, wiring, agentstate, resume, announce, asks, bells, devices, favourites, files, fsops, gitwork, journal, labels,
                languages, launch, mounts, network, paths, ports, prefs, proxy, release, runner, runs,
                system, term, tmux, todo)
 import httpx
@@ -517,6 +517,8 @@ def create_app(cfg: Config) -> FastAPI:
     # Where process labels are kept; set by main() beside the config. None: labels are read as
     # none and cannot be written, rather than written somewhere nobody chose.
     app.state.labels = None
+    # Where Notes are kept: notes_dir, else set by main() beside the config. None: no notes.
+    app.state.notes = getattr(cfg, "notes_dir", None)
     # Whether each agent is working or waiting, worked out from tmux and /proc; it samples only
     # while somebody reads it (app/agentstate.py).
     app.state.agents = agentstate.Watch(app.state.socket, [one.command for one in launch.configured(cfg)])
@@ -577,6 +579,7 @@ def create_app(cfg: Config) -> FastAPI:
     app.openapi = described
 
     app.include_router(files.router)
+    app.include_router(notes.router)
     app.include_router(proxy.router)
     app.include_router(bells.router)
     app.include_router(asks.router)
@@ -3398,6 +3401,7 @@ def main(argv: list[str] | None = None) -> int:
     app.state.config_path = config_path
     app.state.favourites = favourites.default_store(config_path)
     app.state.labels = labels.default_store(config_path)
+    app.state.notes = cfg.notes_dir or notes.default_dir(config_path)
     app.state.resume = resume.Ledger(resume.default_store(config_path))
     app.state.teams = teams.Director(config_path.parent / "teams.json", TeamIO(app))
     app.state.proposals = teams.Proposals(config_path.parent / "proposals.json")

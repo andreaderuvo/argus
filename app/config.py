@@ -130,6 +130,8 @@ class Config:
     # Cap on a single uploaded file. 0 means no cap; the default keeps a stray drag of
     # something enormous from filling a disk that is already at 94%.
     max_upload_bytes: int = 2 * 1024 * 1024 * 1024
+    # Where Notes keeps its notes; empty: `notes` beside the config (notes.py).
+    notes_dir: Path | None = None
     # Where a file dropped onto a session lands. A terminal is not a folder: the drop has to
     # go somewhere nobody chose, and it has to be the *same* somewhere every time, or the
     # absolute path handed back means nothing tomorrow.
@@ -408,6 +410,7 @@ class Config:
             max_upload_bytes=int(raw.get("max_upload_bytes", 2 * 1024 * 1024 * 1024)),
             drop_dir=_drop_dir(raw),
             drop_keep_days=int(raw.get("drop_keep_days", 0) or 0),
+            notes_dir=Path(os.path.expanduser(str(raw["notes_dir"]))) if raw.get("notes_dir") else None,
             check_releases=bool(raw.get("check_releases", True)),
             minify=bool(raw.get("minify", True)),
             ntfy=dict(raw.get("ntfy") or {}),
@@ -463,6 +466,7 @@ class Config:
             "max_upload_bytes": self.max_upload_bytes,
             "drop_dir": str(self.drop_dir) if self.drop_dir else "",
             "drop_keep_days": self.drop_keep_days,
+            "notes_dir": str(self.notes_dir) if self.notes_dir else "",
             "tls_cert": str(self.tls_cert) if self.tls_cert else None,
             "tls_key": str(self.tls_key) if self.tls_key else None,
         }

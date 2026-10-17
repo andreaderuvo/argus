@@ -10,7 +10,7 @@ import { t } from '/js/words.js';
  *  but English. */
 const TAB_WORD = {
   files: 'Files', sessions: 'Sessions', wall: 'Windows', prompts: 'Prompts',
-  placeholders: 'Values', todo: 'To do', system: 'System', since: 'Since', journal: 'Journal',
+  placeholders: 'Values', todo: 'To do', notes: 'Notes', system: 'System', since: 'Since', journal: 'Journal',
 };
 
 /** Name a button of the markup for a screen reader and, where the markup gives it one, for a

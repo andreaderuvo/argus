@@ -1313,7 +1313,7 @@ export function agentWords(text) {
  *  wrote render as text instead of executing in a page that holds the access token.
  *  Anything that survives as a link or an image is then checked again.
  */
-async function renderMarkdown(text, container, from = '') {
+export async function renderMarkdown(text, container, from = '') {
   container.textContent = t('rendering…');
   let marked;
   try {
