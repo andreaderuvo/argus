@@ -174,13 +174,21 @@ export function attachNotes(host, spec, setLabel) {
     const q = filterText.toLowerCase();
     const shown = notes.filter((n) => !q || n.name.toLowerCase().includes(q) || (n.title || '').toLowerCase().includes(q));
     list.replaceChildren(...shown.map((n) => {
-      const row = el('button', { type: 'button', className: `nsitem${open?.name === n.name ? ' on' : ''}`, role: 'option',
-        'aria-selected': String(open?.name === n.name), title: n.path }, [
+      const pick = el('button', { type: 'button', className: 'nspick', title: n.path }, [
         el('span', { className: 'nstitle', textContent: n.title || n.name }),
         el('span', { className: 'nsmeta', textContent: `${n.name} · ${when(n.mtime)}` }),
       ]);
+      pick.onclick = () => choose(n.name);
+      // Rename and delete on the row itself, so neither needs the note opened first.
+      const ren = el('button', { type: 'button', className: 'nsact', title: t('Rename {name}', { name: n.name }),
+        'aria-label': t('Rename {name}', { name: n.name }) }, icon('rename'));
+      ren.onclick = (e) => { e.stopPropagation(); renameInRow(row, n); };
+      const del = el('button', { type: 'button', className: 'nsact danger', title: t('Delete {name}', { name: n.name }),
+        'aria-label': t('Delete {name}', { name: n.name }) }, icon('trash'));
+      del.onclick = (e) => { e.stopPropagation(); removeNote(n.name); };
+      const row = el('div', { className: `nsitem${open?.name === n.name ? ' on' : ''}`, role: 'option',
+        'aria-selected': String(open?.name === n.name) }, [pick, el('span', { className: 'nsacts' }, [ren, del])]);
       row.dataset.name = n.name;
-      row.onclick = () => choose(n.name);
       return row;
     }));
     if (!shown.length && notes.length) list.append(el('p', { className: 'meta nsnone', textContent: t('No note matches') }));
@@ -325,43 +333,73 @@ export function attachNotes(host, spec, setLabel) {
     if (await copyText(open.path)) { ticked(copyBtn, 'clipboard'); toast(t('path copied: {path}', { path: open.path })); }
     else showText(t('The path'), open.path);
   };
-  delBtn.onclick = async () => {
-    if (!open) return;
-    if (!await confirmBox(t('Delete {name}?', { name: open.name }), t('It goes to the notes’ trash, beside them: {dir}/.trash', { dir }))) return;
-    clearTimeout(timer);
-    dirty = false;
+  async function removeNote(name) {
+    if (!await confirmBox(t('Delete {name}?', { name }), t('It goes to the notes’ trash, beside them: {dir}/.trash', { dir }))) return;
+    const wasOpen = open?.name === name;
+    if (wasOpen) { clearTimeout(timer); dirty = false; }
     try {
-      await api(`/api/notes/note?name=${encodeURIComponent(open.name)}`, { method: 'DELETE' });
-      notes = notes.filter((n) => n.name !== open.name);
+      await api(`/api/notes/note?name=${encodeURIComponent(name)}`, { method: 'DELETE' });
+      notes = notes.filter((n) => n.name !== name);
       showCount('notes', notes.length);
-      open = null;
-      spec.note = '';
-      savePrefs();
-      if (notes.length) await load(notes[0].name);
+      if (wasOpen) {
+        open = null;
+        spec.note = '';
+        savePrefs();
+        if (notes.length) await load(notes[0].name);
+      }
       paintList();
+      toast(t('{name} is in the notes’ trash', { name }));
     } catch (e) { toast(e.message || String(e), true); }
-  };
+  }
+
+  /** Another name for a note, open or not; the open one's header and path follow. */
+  async function renameNote(name, to) {
+    if (!to || to === name) return true;
+    if (open?.name === name) await flush();
+    try {
+      const done = await postJSON('/api/notes/rename', { name, to });
+      const row = notes.find((n) => n.name === name);
+      if (row) Object.assign(row, done);
+      if (open?.name === name) {
+        open.name = done.name;
+        open.path = done.path;
+        nameBox.value = done.name;
+        pathLine.textContent = `\u200E${done.path}`;
+        spec.note = done.name;
+        savePrefs();
+        setLabel?.(t('Notes'), done.name);
+      }
+      paintList();
+      return true;
+    } catch (err) { toast(err.message || String(err), true); return false; }
+  }
+
+  /** The row's name becomes a box: Enter renames, Escape or leaving it keeps the name. */
+  function renameInRow(row, n) {
+    const box = el('input', { type: 'text', className: 'nsrename', value: n.name, spellcheck: false, autocomplete: 'off',
+      'aria-label': t('Rename {name}', { name: n.name }) });
+    let busy = false;
+    box.onkeydown = async (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); paintList(); return; }
+      if (e.key !== 'Enter' || busy) return;
+      e.preventDefault();
+      busy = true;
+      if (!await renameNote(n.name, box.value.trim())) { busy = false; box.select(); }
+    };
+    box.onblur = () => { if (!busy) paintList(); };
+    row.replaceChildren(box);
+    box.focus();
+    // The name without its suffix chosen, as a file manager does.
+    box.setSelectionRange(0, n.name.replace(/\.(md|txt)$/i, '').length);
+  }
+
+  delBtn.onclick = () => { if (open) removeNote(open.name); };
   nameBox.addEventListener('keydown', async (e) => {
     if (e.key === 'Escape') { nameBox.value = open?.name || ''; nameBox.blur(); return; }
     if (e.key !== 'Enter' || !open) return;
     e.preventDefault();
-    const to = nameBox.value.trim();
-    if (!to || to === open.name) return;
-    await flush();
-    try {
-      const done = await postJSON('/api/notes/rename', { name: open.name, to });
-      const row = notes.find((n) => n.name === open.name);
-      if (row) Object.assign(row, done);
-      open.name = done.name;
-      open.path = done.path;
-      nameBox.value = done.name;
-      pathLine.textContent = `\u200E${done.path}`;
-      spec.note = done.name;
-      savePrefs();
-      setLabel?.(t('Notes'), done.name);
-      paintList();
-      area.focus();
-    } catch (err) { toast(err.message || String(err), true); nameBox.select(); }
+    if (await renameNote(open.name, nameBox.value.trim())) area.focus();
+    else nameBox.select();
   });
   nameBox.addEventListener('blur', () => { if (open) nameBox.value = open.name; });
 

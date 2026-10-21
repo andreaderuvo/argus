@@ -83,3 +83,36 @@ def test_notes_are_listed_written_in_place_and_drawn(make_page, argus):
         assert page.eval(f"{APP}.querySelector('.nspath').textContent.replace(/\\u200E/g, '')") == str(where / "note-1.md")
     finally:
         shutil.rmtree(where, ignore_errors=True)
+
+
+def test_each_note_in_the_list_can_be_renamed_and_deleted_from_its_row(make_page, argus):
+    where = Path(argus.api("/api/notes")["dir"])
+    shutil.rmtree(where, ignore_errors=True)
+    where.mkdir(parents=True)
+    (where / "plan.md").write_text("Plan\n")
+    (where / "draft.md").write_text("Draft\n")
+    later = time.time() + 5
+    os.utime(where / "plan.md", (later, later))          # plan first: open, draft below it
+    try:
+        page = make_page(route="#/notes")
+        row = lambda name: f"[...document.querySelectorAll('.nsitem')].find(r => r.dataset.name === {name!r})"  # noqa: E731
+        page.wait(f"!!{row('draft.md')} && {APP}.querySelector('.nsname').value === 'plan.md'", timeout=10)
+
+        # Rename the one not open, from its row: Enter keeps it.
+        page.eval(f"{row('draft.md')}.querySelector('.nsact[title^=Rename]').click()")
+        page.wait("document.activeElement?.classList.contains('nsrename')", timeout=5, what="its name as a box")
+        page.eval("(() => { const b = document.querySelector('.nsrename'); b.value = 'listeria-draft'; })()")
+        page.key("Enter")
+        eventually(lambda: (where / "listeria-draft.md").exists() and not (where / "draft.md").exists(), timeout=5, what="renamed")
+        page.wait(f"!!{row('listeria-draft.md')}", timeout=5)
+        assert page.eval(f"{APP}.querySelector('.nsname').value") == "plan.md", "the open note stays open"
+
+        # Delete it from its row, through the confirmation.
+        page.eval(f"{row('listeria-draft.md')}.querySelector('.nsact.danger').click()")
+        page.wait("!!document.querySelector('dialog[open] button.danger')", timeout=5)
+        page.click_text("Delete", within="dialog[open] button.danger")
+        eventually(lambda: not (where / "listeria-draft.md").exists(), timeout=5, what="deleted")
+        assert any(p.name.endswith("listeria-draft.md") for p in (where / ".trash").iterdir()), "into the trash"
+        page.wait(f"!{row('listeria-draft.md')} && {APP}.querySelector('.nscount').textContent === '1 note'", timeout=5)
+    finally:
+        shutil.rmtree(where, ignore_errors=True)

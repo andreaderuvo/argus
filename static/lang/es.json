@@ -1674,6 +1674,9 @@
   "deadline set: {when}": "fecha límite fijada: {when}",
   "deadline set: {when} — Argus will remind you": "fecha límite fijada: {when} — Argus te lo recordará",
   "No deadline": "Sin fecha límite",
-  "To-do #{n} in Argus": "Tarea #{n} en Argus"
+  "To-do #{n} in Argus": "Tarea #{n} en Argus",
+  "Rename {name}": "Renombrar {name}",
+  "Delete {name}": "Eliminar {name}",
+  "{name} is in the notes’ trash": "{name} está en la papelera de las notas"
  }
 }

@@ -4631,11 +4631,31 @@ dialog.sheet.mountwizard { width: min(46rem, calc(100vw - 2rem)); }
 .nstools .nsfilter:focus, .nshead .nsname:focus { outline: none; border-color: var(--accent); }
 .nstools .nsnew { flex: none; }
 .nslist { flex: 1; min-height: 0; overflow: auto; padding: 0 .3rem .4rem; display: flex; flex-direction: column; gap: 1px; }
-.nsitem { display: grid; gap: .1rem; text-align: left; padding: .4rem .55rem; border: 0; border-radius: 6px; background: none;
-  color: var(--text); font: inherit; cursor: pointer; }
+.nsitem { position: relative; display: flex; align-items: center; gap: .2rem; border-radius: 6px; min-width: 0; }
+.nspick { flex: 1; min-width: 0; display: grid; gap: .1rem; text-align: left; padding: .4rem .55rem; border: 0; border-radius: 6px;
+  background: none; color: var(--text); font: inherit; cursor: pointer; }
+.nspick:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* Rename and delete on each row: shown on hover, on the open note, and always where there is no hover. */
+/* Over the end of the row, so a title has the whole width until the pointer is on it. */
+.nsacts { position: absolute; right: .3rem; top: 50%; transform: translateY(-50%); display: inline-flex; gap: .1rem;
+  padding: .1rem; border: 1px solid var(--line); border-radius: 7px; background: var(--panel);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .18); opacity: 0; pointer-events: none; transition: opacity .12s; }
+.nsitem:hover .nsacts, .nsitem:focus-within .nsacts { opacity: 1; pointer-events: auto; }
+/* Where nothing hovers, they are always there, in a place of their own. */
+@media (hover: none) {
+  .nsacts { position: static; transform: none; opacity: 1; pointer-events: auto; border: 0; box-shadow: none; background: none; }
+}
+.nsact { display: grid; place-items: center; width: 1.7rem; height: 1.7rem; padding: 0; border: 0; border-radius: 5px;
+  background: none; color: var(--dim); cursor: pointer; }
+.nsact svg { width: 15px; height: 15px; }
+.nsact:hover, .nsact:focus-visible { color: var(--text); background: color-mix(in srgb, var(--text) 10%, transparent); outline: none; }
+/* Not the filled red block the global button.danger is: an icon that goes red when aimed at. */
+.nsacts .nsact.danger { background: none; color: var(--dim); border: 0; }
+.nsacts .nsact.danger:hover, .nsacts .nsact.danger:focus-visible { color: var(--danger); background: color-mix(in srgb, var(--danger) 14%, transparent); }
+.nsrename { flex: 1; min-width: 0; margin: .2rem; padding: .35rem .5rem; font: inherit; font-size: .85rem; color: var(--bright);
+  background: var(--bg); border: 1px solid var(--accent); border-radius: 6px; outline: none; }
 .nsitem:hover { background: color-mix(in srgb, var(--text) 7%, transparent); }
 .nsitem.on { background: color-mix(in srgb, var(--accent) 18%, transparent); }
-.nsitem:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .nstitle { font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--bright); }
 .nsmeta { font-size: .7rem; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .nsnone { padding: .5rem; }

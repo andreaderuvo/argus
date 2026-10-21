@@ -1674,6 +1674,9 @@
   "deadline set: {when}": "deadline set: {when}",
   "deadline set: {when} — Argus will remind you": "deadline set: {when} — Argus will remind you",
   "No deadline": "No deadline",
-  "To-do #{n} in Argus": "To-do #{n} in Argus"
+  "To-do #{n} in Argus": "To-do #{n} in Argus",
+  "Rename {name}": "Rename {name}",
+  "Delete {name}": "Delete {name}",
+  "{name} is in the notes’ trash": "{name} is in the notes’ trash"
  }
 }
