@@ -3,12 +3,12 @@ import { savePrefs } from '/js/core.js';
 import { ask, copies, copyText, modal, showText, ticked, toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { fileIcon } from '/js/fileicons.js';
-import { uploadTo } from '/js/filerows.js';
+import { ensureFolder, uploadTo } from '/js/filerows.js';
 import { allVars, batonTemplates, fillBaton, groupName, ownSetFor, promptName, situationOf } from '/js/handover.js';
 import { icon } from '/js/icons.js';
 import { linkParts } from '/js/linkparts.js';
 import { current, setCurrent } from '/js/pointing.js';
-import { bidi, colorFor, getJSON, openFileRaw, postJSON, toggleFavourite } from '/js/reconnect.js';
+import { bidi, colorFor, getJSON, homePath, openFileRaw, postJSON, toggleFavourite } from '/js/reconnect.js';
 import { go } from '/js/router.js';
 import { browserView, browsers, fileBrowser } from '/js/screens.js';
 import { paintRailWindows } from '/js/sidebar.js';
@@ -894,6 +894,15 @@ export async function createSession({ path, suggest = 'shell', wsId = null, shel
     go.disabled = true;
     let folder = where.value.trim();
     try {
+      // A folder that is not there yet is asked about — "Create it?" — and then the start goes on.
+      if (folder && !wtOn.checked) {
+        const home = homePath(server?.roots || ['/']);
+        const abs = folder === '~' ? home : folder.startsWith('~/') ? home.replace(/\/$/, '') + folder.slice(1) : folder;
+        const ready = await ensureFolder(abs, t('It can be made now, and the session will start in it.'));
+        if (!ready) { go.disabled = false; where.focus(); return; }
+        folder = ready;
+        where.value = ready;
+      }
       if (wtOn.checked) {
         const made = await postJSON('/api/git/worktree', { path: folder, branch: branch.value.trim() });
         folder = made.path;

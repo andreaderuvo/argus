@@ -939,3 +939,69 @@ export function treeNode(entry, depth, onFile, refresh, dest, favGroup = 'main')
   };
   return holder;
 }
+
+
+/** Make a folder that is not there, one level at a time.
+ *
+ *  `/api/fs/mkdir` makes exactly one, under a parent that exists — which is the right shape for an
+ *  API and the wrong shape for `work/2026/run-3` typed in one go. So the deepest ancestor that *is*
+ *  there is found first and the rest are made in order. Each one goes through the same jail check
+ *  as any other write, and each returns the path it really made: the server may tidy a name, and
+ *  then the folder you get is not quite the one you typed and you had better be told which it is.
+ */
+export async function makeFolders(abs) {
+  const parts = abs.replace(/\/+$/, '').split('/').filter(Boolean);
+  let at = parts.length;
+  let base = '';
+  for (; at > 0; at--) {
+    const upto = `/${parts.slice(0, at).join('/')}`;
+    try {
+      if ((await getJSON(`/api/stat?path=${encodeURIComponent(upto)}&missing_ok=1`)).missing) continue;
+      base = upto;
+      break;
+    } catch { /* not this one either */ }
+  }
+  if (!base) throw new Error(t('none of that path exists, not even its start'));
+  for (let i = at; i < parts.length; i++) {
+    base = (await postJSON('/api/fs/mkdir', { path: base, name: parts[i] })).path;
+  }
+  return base;
+}
+
+/** Ask, then make it. A folder appearing on disk because a name was typed into a box would be a
+ *  surprise, so it is asked once — and then the errand goes on, rather than stopping at a refusal. */
+export function offerToMake(abs, after = '') {
+  return new Promise((settle) => {
+    const body = el('div', { className: 'sheetbody' });
+    body.append(el('p', { textContent: t('There is no folder at {path}.', { path: abs }) }));
+    if (after) body.append(el('p', { className: 'hint', textContent: after }));
+    let sheet;
+    const done = (v) => { sheet.close(); settle(v); };
+    sheet = modal(t('Create it?'), body, [
+      el('button', { className: 'ghost', textContent: t('Cancel'), onclick: () => done(false) }),
+      el('button', { className: 'primary inline', textContent: t('Create it'), onclick: () => done(true) }),
+    ]);
+    sheet.addEventListener('cancel', () => settle(false));
+  });
+}
+
+/** The folder `abs`, there to use: as it is when it exists, made (after asking) when it does not.
+ *  Null when there is no going on — a file of that name, a server that may not write, a No. */
+export async function ensureFolder(abs, after = '') {
+  let found;
+  try { found = await getJSON(`/api/stat?path=${encodeURIComponent(abs)}&missing_ok=1`); } catch (e) { toast(e.message, true); return null; }
+  if (!found.missing) {
+    if (found.type && found.type !== 'directory') { toast(t('{path} is a file, not a folder', { path: abs }), true); return null; }
+    return found.path || abs;
+  }
+  if (!server?.allow_write) {
+    toast(t('There is no folder at {path}, and this Argus may not make one (start it with --allow-write).', { path: abs }), true);
+    return null;
+  }
+  if (!await offerToMake(abs, after)) return null;
+  try {
+    const made = await makeFolders(abs);
+    toast(t('made {path}', { path: made }));
+    return made;
+  } catch (e) { toast(e.message, true); return null; }
+}

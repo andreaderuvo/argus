@@ -1762,7 +1762,9 @@ def create_app(cfg: Config) -> FastAPI:
         except Denied:
             raise ApiError(403, "outside the configured roots") from None
         st = target.stat()
-        return {"path": str(target), "mtime": int(st.st_mtime), "size": st.st_size}
+        # Whether it is a folder: "is this a place a session can start" is asked of it too.
+        return {"path": str(target), "mtime": int(st.st_mtime), "size": st.st_size,
+                "type": "directory" if target.is_dir() else "file"}
 
     @app.post("/api/tmux/source", tags=["Setup"], summary="Hand the tmux config to every session, after trying it safely")
     async def source_conf(request: Request, body: dict) -> dict:

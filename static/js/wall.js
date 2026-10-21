@@ -6,7 +6,7 @@ import { savePrefs } from '/js/core.js';
 import { agentStates, paintAllSeen, paintDeskStates, seeEverything } from '/js/counts.js';
 import { ask, confirmBox, confirmWithCheck, copyText, modal, popMenu, showText, toast, undoToast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
-import { holdFor } from '/js/filerows.js';
+import { holdFor, makeFolders, offerToMake } from '/js/filerows.js';
 import { GROUND, addTurn, allVars, attachMessages, bridgeDeadline, bridgePath, bridgeTurns, chooseDeskSet, deskSetName, fillBaton, messagesChanged, noteDeskFolder, ownSetFor, planPath, setRepaintPair, typeInto, unknownVars, varSetNamed, varSets } from '/js/handover.js';
 import { icon } from '/js/icons.js';
 import { pointAt } from '/js/pointing.js';
@@ -1188,53 +1188,6 @@ export async function screenWall() {
       }
     });
 
-    /** Make a folder that is not there, one level at a time.
-     *
-     *  `/api/fs/mkdir` makes exactly one, under a parent that exists — which is the right
-     *  shape for an API and the wrong shape for `work/2026/run-3` typed in one go. So the
-     *  deepest ancestor that *is* there is found first and the rest are made in order.
-     *  Each one goes through the same jail check as any other write, and each returns the
-     *  path it really made: the server may tidy a name, and then the folder you get is not
-     *  quite the one you typed and you had better be told which it is.
-     */
-    const makeFolders = async (abs) => {
-      const parts = abs.replace(/\/+$/, '').split('/').filter(Boolean);
-      let at = parts.length;
-      let base = '';
-      for (; at > 0; at--) {
-        const upto = `/${parts.slice(0, at).join('/')}`;
-        try {
-          if ((await getJSON(`/api/stat?path=${encodeURIComponent(upto)}&missing_ok=1`)).missing) continue;
-          base = upto;
-          break;
-        } catch { /* not this one either */ }
-      }
-      if (!base) throw new Error(t('none of that path exists, not even its start'));
-      for (let i = at; i < parts.length; i++) {
-        base = (await postJSON('/api/fs/mkdir', { path: base, name: parts[i] })).path;
-      }
-      return base;
-    };
-
-    /** Ask, then make it. A folder appearing on disk because you typed a name into a box
-     *  and pressed a button called "Use it" would be a surprise, and this is the one action
-     *  in this sheet that changes anything outside the browser. */
-    const offerToMake = (abs) => new Promise((settle) => {
-      const body = el('div', { className: 'sheetbody' });
-      body.append(
-        el('p', { textContent: t('There is no folder at {path}.', { path: abs }) }),
-        el('p', { className: 'hint', textContent: t('It can be made now, and then this desk will start there.') }),
-      );
-      let sheet;
-      sheet = modal(t('Create it?'), body, [
-        el('button', { className: 'ghost', textContent: t('Cancel'), onclick: () => { sheet.close(); settle(false); } }),
-        el('button', {
-          className: 'primary inline', textContent: t('Create it'),
-          onclick: () => { sheet.close(); settle(true); },
-        }),
-      ]);
-    });
-
     const confirm = async () => {
       if (!field.value.trim()) return apply('');        // cleared by hand: no folder of its own
       const written = expand(field.value).replace(/(.)\/+$/, '$1');
@@ -1260,7 +1213,7 @@ export async function screenWall() {
           field.focus();
           return;
         }
-        if (!await offerToMake(path)) { field.focus(); return; }
+        if (!await offerToMake(path, t('It can be made now, and then this desk will start there.'))) { field.focus(); return; }
         try {
           const made = await makeFolders(path);
           // Stored as typed when the server made exactly what was asked for, so a path

@@ -1688,6 +1688,9 @@
   "{n} chosen": "{n} choisies",
   "Delete {n} notes?": "Supprimer {n} notes ?",
   "They go to the notes’ trash, beside them: {dir}/.trash": "Elles vont dans la corbeille des notes, à côté d’elles : {dir}/.trash",
-  "{n} notes are in the notes’ trash": "{n} notes sont dans la corbeille des notes"
+  "{n} notes are in the notes’ trash": "{n} notes sont dans la corbeille des notes",
+  "{path} is a file, not a folder": "{path} est un fichier, pas un dossier",
+  "There is no folder at {path}, and this Argus may not make one (start it with --allow-write).": "Il n’y a pas de dossier à {path}, et cet Argus ne peut pas en créer (lancez-le avec --allow-write).",
+  "It can be made now, and the session will start in it.": "Il peut être créé maintenant, et la session y démarrera."
  }
 }
