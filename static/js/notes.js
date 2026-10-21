@@ -34,7 +34,14 @@ export function attachNotes(host, spec, setLabel) {
     spellcheck: false, autocomplete: 'off', 'aria-label': t('Filter notes') });
   const newBtn = el('button', { className: 'winbtn nsnew', type: 'button', title: t('New note') },
     [icon('plus'), el('span', { textContent: t('New') })]);
-  const list = el('div', { className: 'nslist', role: 'listbox', 'aria-label': t('Notes') });
+  const list = el('div', { className: 'nslist', role: 'listbox', 'aria-label': t('Notes'), 'aria-multiselectable': 'true', tabIndex: -1 });
+  /* Several notes at once, as in the file browser: Ctrl/⌘+click one more, Shift+click a run, Ctrl+A
+   *  all shown, Escape none, Delete them; on a phone a long press starts choosing and a tap goes on.
+   *  A bar over the list says how many, and offers Copy paths and Delete. */
+  const picked = new Set();
+  let anchor = '';
+  let shownNow = [];
+  const pickBar = el('div', { className: 'nspickbar', hidden: true });
   const where = el('div', { className: 'nsdir meta' });
   const count = el('div', { className: 'nscount meta', 'aria-live': 'polite' });
 
@@ -110,7 +117,7 @@ export function attachNotes(host, spec, setLabel) {
   ]);
 
   host.replaceChildren(el('div', { className: 'notesapp' }, [
-    el('div', { className: 'nsside' }, [el('div', { className: 'nstools' }, [filter, newBtn]), list, count, where]),
+    el('div', { className: 'nsside' }, [el('div', { className: 'nstools' }, [filter, newBtn]), pickBar, list, count, where]),
     editor, empty,
   ]));
 
@@ -173,12 +180,22 @@ export function attachNotes(host, spec, setLabel) {
   function paintList() {
     const q = filterText.toLowerCase();
     const shown = notes.filter((n) => !q || n.name.toLowerCase().includes(q) || (n.title || '').toLowerCase().includes(q));
+    shownNow = shown;
+    for (const name of [...picked]) if (!notes.some((n) => n.name === name)) picked.delete(name);
+    paintPickBar();
     list.replaceChildren(...shown.map((n) => {
       const pick = el('button', { type: 'button', className: 'nspick', title: n.path }, [
         el('span', { className: 'nstitle', textContent: n.title || n.name }),
         el('span', { className: 'nsmeta', textContent: `${n.name} · ${when(n.mtime)}` }),
       ]);
-      pick.onclick = () => choose(n.name);
+      pick.onclick = (e) => {
+        if (e.ctrlKey || e.metaKey) { togglePick(n.name); return; }
+        if (e.shiftKey) { pickRun(n.name); return; }
+        if (picked.size && touchy) { togglePick(n.name); return; }
+        if (picked.size) { picked.clear(); paintList(); }
+        choose(n.name);
+      };
+      holdToPick(pick, n.name);
       // Rename and delete on the row itself, so neither needs the note opened first.
       const ren = el('button', { type: 'button', className: 'nsact', title: t('Rename {name}', { name: n.name }),
         'aria-label': t('Rename {name}', { name: n.name }) }, icon('rename'));
@@ -186,8 +203,8 @@ export function attachNotes(host, spec, setLabel) {
       const del = el('button', { type: 'button', className: 'nsact danger', title: t('Delete {name}', { name: n.name }),
         'aria-label': t('Delete {name}', { name: n.name }) }, icon('trash'));
       del.onclick = (e) => { e.stopPropagation(); removeNote(n.name); };
-      const row = el('div', { className: `nsitem${open?.name === n.name ? ' on' : ''}`, role: 'option',
-        'aria-selected': String(open?.name === n.name) }, [pick, el('span', { className: 'nsacts' }, [ren, del])]);
+      const row = el('div', { className: `nsitem${open?.name === n.name ? ' on' : ''}${picked.has(n.name) ? ' picked' : ''}`, role: 'option',
+        'aria-selected': String(picked.has(n.name) || (!picked.size && open?.name === n.name)) }, [pick, el('span', { className: 'nsacts' }, [ren, del])]);
       row.dataset.name = n.name;
       return row;
     }));
@@ -327,6 +344,95 @@ export function attachNotes(host, spec, setLabel) {
     }
   });
   filter.addEventListener('input', () => { filterText = filter.value.trim(); paintList(); });
+
+  // ------------------------------------------------------------- choosing several
+  let touchy = false;
+  function togglePick(name) {
+    if (picked.has(name)) picked.delete(name); else picked.add(name);
+    anchor = name;
+    paintList();
+  }
+  function pickRun(name) {
+    const names = shownNow.map((n) => n.name);
+    const from = names.indexOf(anchor || open?.name || name);
+    const to = names.indexOf(name);
+    if (from < 0 || to < 0) return togglePick(name);
+    for (const one of names.slice(Math.min(from, to), Math.max(from, to) + 1)) picked.add(one);
+    paintList();
+  }
+  function holdToPick(node, name) {
+    let timer = null;
+    node.addEventListener('touchstart', () => {
+      touchy = true;
+      timer = setTimeout(() => { timer = null; node.dataset.held = '1'; togglePick(name); }, 500);
+    }, { passive: true });
+    const stop = () => { clearTimeout(timer); timer = null; };
+    node.addEventListener('touchmove', stop, { passive: true });
+    node.addEventListener('touchend', stop, { passive: true });
+    // The click that follows a long press is the press itself, not a second choice.
+    node.addEventListener('click', (e) => { if (node.dataset.held) { delete node.dataset.held; e.stopImmediatePropagation(); e.preventDefault(); } }, true);
+  }
+  function paintPickBar() {
+    pickBar.hidden = !picked.size;
+    if (!picked.size) return pickBar.replaceChildren();
+    // Icons, named in the tooltip: the column is narrow, and words wrapped over each other.
+    const copy = el('button', { type: 'button', className: 'nsbaract', title: t('Copy their absolute paths, one per line'),
+      'aria-label': t('Copy paths') }, icon('clipboard'));
+    copy.onclick = async () => {
+      const paths = notes.filter((n) => picked.has(n.name)).map((n) => n.path).join('\n');
+      if (await copyText(paths)) toast(t('{n} paths copied', { n: picked.size })); else showText(t('The paths'), paths);
+    };
+    const del = el('button', { type: 'button', className: 'nsbaract danger', title: t('Delete the chosen notes'),
+      'aria-label': t('Delete the chosen notes') }, icon('trash'));
+    del.onclick = () => removeMany([...picked]);
+    const clear = el('button', { type: 'button', className: 'nsbaract', title: t('Choose none (Escape)'), 'aria-label': t('Choose none (Escape)') }, icon('close'));
+    clear.onclick = () => { picked.clear(); paintList(); };
+    pickBar.replaceChildren(el('span', { className: 'nspickn', textContent: picked.size === 1 ? t('1 chosen') : t('{n} chosen', { n: picked.size }) }), copy, del, clear);
+  }
+  async function removeMany(names) {
+    if (!names.length) return;
+    if (names.length === 1) { await removeNote(names[0]); picked.clear(); paintList(); return; }
+    if (!await confirmBox(t('Delete {n} notes?', { n: names.length }), t('They go to the notes’ trash, beside them: {dir}/.trash', { dir }))) return;
+    const gone = [];
+    for (const name of names) {
+      if (open?.name === name) { clearTimeout(timer); dirty = false; }
+      try { await api(`/api/notes/note?name=${encodeURIComponent(name)}`, { method: 'DELETE' }); gone.push(name); }
+      catch (e) { toast(e.message || String(e), true); }
+    }
+    notes = notes.filter((n) => !gone.includes(n.name));
+    showCount('notes', notes.length);
+    picked.clear();
+    if (open && gone.includes(open.name)) {
+      open = null;
+      spec.note = '';
+      savePrefs();
+      if (notes.length) await load(notes[0].name);
+    }
+    paintList();
+    toast(t('{n} notes are in the notes’ trash', { n: gone.length }));
+  }
+  list.addEventListener('keydown', (e) => {
+    if (e.target.closest?.('input')) return;
+    // With the keyboard in the notes, these keys are the notes': never the file browser's beside
+    // them, which would act on files chosen there earlier (picking.js listens on the page).
+    if (['Delete', 'Backspace', 'Escape'].includes(e.key) || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a')) e.stopPropagation();
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
+      // Ours, not the file browser's beside it (picking.js listens on the whole page).
+      e.preventDefault();
+      e.stopPropagation();
+      for (const n of shownNow) picked.add(n.name);
+      paintList();
+    } else if (e.key === 'Escape' && picked.size) {
+      e.preventDefault();
+      e.stopPropagation();
+      picked.clear();
+      paintList();
+    } else if ((e.key === 'Delete' || e.key === 'Backspace') && picked.size) {
+      e.preventDefault();
+      e.stopPropagation();
+      removeMany([...picked]);
+    }
+  });
   newBtn.onclick = () => make();
   copyBtn.onclick = async () => {
     if (!open) return;
@@ -360,6 +466,7 @@ export function attachNotes(host, spec, setLabel) {
       const done = await postJSON('/api/notes/rename', { name, to });
       const row = notes.find((n) => n.name === name);
       if (row) Object.assign(row, done);
+      if (picked.delete(name)) picked.add(done.name);
       if (open?.name === name) {
         open.name = done.name;
         open.path = done.path;

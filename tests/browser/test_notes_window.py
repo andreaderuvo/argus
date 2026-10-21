@@ -116,3 +116,45 @@ def test_each_note_in_the_list_can_be_renamed_and_deleted_from_its_row(make_page
         page.wait(f"!{row('listeria-draft.md')} && {APP}.querySelector('.nscount').textContent === '1 note'", timeout=5)
     finally:
         shutil.rmtree(where, ignore_errors=True)
+
+
+def test_several_notes_are_chosen_and_deleted_together(make_page, argus):
+    where = Path(argus.api("/api/notes")["dir"])
+    shutil.rmtree(where, ignore_errors=True)
+    where.mkdir(parents=True)
+    for i, name in enumerate(["a.md", "b.md", "c.md", "d.md"]):
+        (where / name).write_text(f"{name}\n")
+        os.utime(where / name, (time.time() - i * 10, time.time() - i * 10))   # a newest: a, b, c, d
+    try:
+        page = make_page(route="#/notes")
+        row = lambda name: f"[...document.querySelectorAll('.nsitem')].find(r => r.dataset.name === {name!r})"  # noqa: E731
+        page.wait(f"!!{row('d.md')}", timeout=10)
+
+        def press(name, **mods):
+            x, y = page._center(f"{row(name)}.querySelector('.nspick')")
+            flags = (2 if mods.get("ctrl") else 0) | (8 if mods.get("shift") else 0)
+            for kind in ("mousePressed", "mouseReleased"):
+                page.send("Input.dispatchMouseEvent", {"type": kind, "x": x, "y": y, "button": "left", "clickCount": 1, "modifiers": flags})
+
+        press("b.md", ctrl=True)
+        press("d.md", shift=True)                    # b to d
+        page.wait("document.querySelectorAll('.nsitem.picked').length === 3", timeout=5, what="a run chosen")
+        assert page.eval(f"{APP}.querySelector('.nspickn').textContent") == "3 chosen"
+        press("c.md", ctrl=True)                     # one taken out again
+        page.wait("document.querySelectorAll('.nsitem.picked').length === 2", timeout=5)
+        assert page.eval(f"{APP}.querySelector('.nsname').value") == "a.md", "choosing opens nothing"
+
+        page.eval(f"{APP}.querySelector('.nspickbar .nsbaract.danger').click()")
+        page.wait("!!document.querySelector('dialog[open] button.danger')", timeout=5)
+        page.click_text("Delete", within="dialog[open] button.danger")
+        eventually(lambda: sorted(p.name for p in where.glob("*.md")) == ["a.md", "c.md"], timeout=5, what="b and d deleted")
+        page.wait(f"{APP}.querySelector('.nspickbar').hidden && {APP}.querySelector('.nscount').textContent === '2 notes'", timeout=5)
+
+        # Ctrl+A in the list, Escape out of it.
+        page.eval(f"{row('a.md')}.querySelector('.nspick').focus()")
+        page.eval(f"document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {{ key: 'a', ctrlKey: true, bubbles: true }}))")
+        page.wait("document.querySelectorAll('.nsitem.picked').length === 2", timeout=5, what="all chosen")
+        page.eval(f"{APP}.querySelector('.nslist').dispatchEvent(new KeyboardEvent('keydown', {{ key: 'Escape', bubbles: true }}))")
+        page.wait("document.querySelectorAll('.nsitem.picked').length === 0", timeout=5, what="none")
+    finally:
+        shutil.rmtree(where, ignore_errors=True)

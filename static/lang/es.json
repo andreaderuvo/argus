@@ -1677,6 +1677,17 @@
   "To-do #{n} in Argus": "Tarea #{n} en Argus",
   "Rename {name}": "Renombrar {name}",
   "Delete {name}": "Eliminar {name}",
-  "{name} is in the notes’ trash": "{name} está en la papelera de las notas"
+  "{name} is in the notes’ trash": "{name} está en la papelera de las notas",
+  "Copy their absolute paths, one per line": "Copiar sus rutas absolutas, una por línea",
+  "Copy paths": "Copiar rutas",
+  "{n} paths copied": "{n} rutas copiadas",
+  "The paths": "Las rutas",
+  "Delete the chosen notes": "Eliminar las notas elegidas",
+  "Choose none (Escape)": "No elegir ninguna (Esc)",
+  "1 chosen": "1 elegida",
+  "{n} chosen": "{n} elegidas",
+  "Delete {n} notes?": "¿Eliminar {n} notas?",
+  "They go to the notes’ trash, beside them: {dir}/.trash": "Van a la papelera de las notas, junto a ellas: {dir}/.trash",
+  "{n} notes are in the notes’ trash": "{n} notas están en la papelera de las notas"
  }
 }

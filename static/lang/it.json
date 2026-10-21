@@ -1677,6 +1677,17 @@
   "To-do #{n} in Argus": "To do #{n} in Argus",
   "Rename {name}": "Rinomina {name}",
   "Delete {name}": "Elimina {name}",
-  "{name} is in the notes’ trash": "{name} è nel cestino delle note"
+  "{name} is in the notes’ trash": "{name} è nel cestino delle note",
+  "Copy their absolute paths, one per line": "Copia i loro percorsi assoluti, uno per riga",
+  "Copy paths": "Copia i percorsi",
+  "{n} paths copied": "{n} percorsi copiati",
+  "The paths": "I percorsi",
+  "Delete the chosen notes": "Elimina le note scelte",
+  "Choose none (Escape)": "Non sceglierne nessuna (Esc)",
+  "1 chosen": "1 scelta",
+  "{n} chosen": "{n} scelte",
+  "Delete {n} notes?": "Eliminare {n} note?",
+  "They go to the notes’ trash, beside them: {dir}/.trash": "Finiscono nel cestino delle note, accanto a loro: {dir}/.trash",
+  "{n} notes are in the notes’ trash": "{n} note sono nel cestino delle note"
  }
 }
