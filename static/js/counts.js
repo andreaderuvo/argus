@@ -50,6 +50,7 @@ export async function countNotes() {
 export let lastSessionCount = 0;
 export let lastTodoCount = 0;
 export let lastNotesCount = 0;
+export let lastWallCount = 0;
 
 /** Which agents are working and which are waiting for you, worked out on the server.
  *
@@ -91,8 +92,11 @@ export function applyAgentStates(states) {
     if (st?.state === 'working' && st.since > (bell.said || 0)) quieten(name);
     else if (st?.seen) quieten(name);
   }
-  // The amber follows too: an agent that stopped is somebody waiting, whether or not it rang.
+  // The amber follows too: an agent that stopped is somebody waiting, whether or not it rang. Both
+  // counts that wear it — Windows' too, which is otherwise repainted only when the windows change,
+  // so after "Got it" it stayed amber (found by CI, 2026-10-23).
   showCount('sessions', lastSessionCount);
+  showCount('wall', lastWallCount);
 }
 
 /** "plugin 0.1.4 — reload" in a window's title bar, while its session runs an Argus plugin older
@@ -318,6 +322,7 @@ export function showCount(tab, n) {
   if (tab === 'sessions') lastSessionCount = n;
   if (tab === 'todo') lastTodoCount = n;
   if (tab === 'notes') lastNotesCount = n;
+  if (tab === 'wall') lastWallCount = n;
   const wants = RINGS.has(tab) && ([...rung.values()].some((b) => b.why === 'asking')
     || [...agentStates.values()].some((st) => st.state === 'waiting' && !st.seen));
   // The same two facts wherever the navigation happens to be living: how many, and whether
