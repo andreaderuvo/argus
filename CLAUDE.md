@@ -807,8 +807,9 @@ fails if it comes back. Before adding anything, keep these true:
 - **A link broken over rows by the program** (`static/js/linejoin.js`, a leaf tested in Node by
   tests/test_linejoin.py; tests/browser/test_broken_links.py). Claude Code and Codex write a newline +
   indent where a long URL or path meets their width, so nothing is `isWrapped`. Two rows are joined when
-  the upper one reaches the widest nearby row (the program's edge) and ends link-shaped, and the lower
-  one carries straight on (not a capitalised sentence). `logicalLine` returns `cells` (row, col per
+  the upper one ends link-shaped and the lower carries straight on (not a capitalised sentence), and
+  either the upper reaches the program's edge (the widest nearby row, at least half the terminal) or —
+  Codex breaking after a `/` — the lower's first piece would not have fitted beside it. `logicalLine` returns `cells` (row, col per
   character) so the link is underlined and opened from either half; a path crossing a join is also
   asked about in its pieces, the whole preferred. The tray harvests from the same joined lines.
 - **Clickable paths**: `app/paths.py` + `linkPaths()` in the frontend. Hovering a line

@@ -42,12 +42,20 @@ CASES = [
     # A path over three rows, cut the way Claude Code cuts: at its own width, the rest indented.
     (lay("⏺ Wrote the matrix to /data/lab/cgdist/listeria/st6-farm-cluster/2026-10/distances/snp-matrix-final-v2.tsv"),
      0, "⏺ Wrote the matrix to /data/lab/cgdist/listeria/st6-farm-cluster/2026-10/distances/snp-matrix-final-v2.tsv", None),
+    # Codex: broken after a slash because the next piece would not fit — the row stops short
+    # (the screenshot of 2026-10-23, at a 60-column pane).
+    ([pad("Sì, finito."), pad(""), pad("La versione definitiva è qui:"), pad(""),
+      pad("/data/lab/freemap_revision/rev2/"), pad("mm2geo_cert_ont_v3_with_a_long_name"), pad(""),
+      pad("Risultati completi e tabella comparativa:"), pad("")], 5,
+     "/data/lab/freemap_revision/rev2/mm2geo_cert_ont_v3_with_a_long_name", None),
     # Wrapped by the terminal: joined as it always was, with no indent to take away.
     ([("x" * 40) + "http://localhost:5002/a/b/c/d/e/f/g/h", "ij/k", pad("next")], 1,
      ("x" * 40) + "http://localhost:5002/a/b/c/d/e/f/g/hij/k" + " " * (COLS - 4), [False, True, False]),
 ]
 
 APART = [
+    # A folder ending in / on a row of its own, then a word that would have fitted beside it.
+    ([pad("Look in /data/lab/out/"), pad("then run it again")], 0),
     # A row that stops short ended its line, whatever is below.
     ([pad("  see /tmp/out.txt"), pad("  and/then more")], 0),
     # A sentence below a path at the edge.

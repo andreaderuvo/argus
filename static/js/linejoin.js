@@ -29,17 +29,25 @@ function widthAround(row, y, count) {
   return wide;
 }
 
-/** Whether row `a` breaks off into row `b` in the middle of a link or a path. */
+/** Whether row `a` breaks off into row `b` in the middle of a link or a path.
+ *
+ *  Two ways a program breaks one: at its edge, in the middle of a word (the row is full); or, as
+ *  Codex does, at a `/` or a `-`, because the next piece would not fit — then the row stops short,
+ *  but the piece that starts the row below would have taken it past the widest row there is
+ *  (screenshot of 2026-10-23: `…/freemap_revision/rev2/` then `mm2geo_cert_ont_v3`). */
 export function brokenBetween(a, b, width, cols) {
   const upper = a.text.replace(/\s+$/, '');
   if (!upper || b.wrapped) return false;
-  // Full: at the program's own edge (or the terminal's). A row that stops short ended a line.
-  if (upper.length < Math.max(width, Math.floor(cols * 0.5)) - 1) return false;
   const tail = upper.match(LINKISH_TAIL);
   if (!tail || !ENDS_OPEN.test(upper)) return false;
   const lower = b.text.replace(/^\s+/, '');
   const head = lower.match(CARRIES_ON);
   if (!head) return false;
+  const edge = Math.max(width, Math.floor(cols * 0.5));
+  const full = upper.length >= edge - 1;
+  // At a break a wrapper takes (after / - _ . ? & =), the head did not fit on the row above.
+  const pushed = /[/\-_.?&=]$/.test(upper) && upper.length + head[0].length > edge;
+  if (!full && !pushed) return false;
   // "…/report" then "And then…": a capital and a space soon after is a sentence, not the rest.
   if (/^[A-Z][a-z]+\s/.test(lower) && !/[/.]/.test(head[0])) return false;
   return true;
