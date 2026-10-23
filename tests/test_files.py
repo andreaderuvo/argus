@@ -11,10 +11,10 @@ def test_content_disposition_neutralises_hostile_filenames():
 
 
 def test_content_disposition_keeps_unicode_in_the_extended_form():
-    cd = content_disposition("relazione-più.pdf")
-    # The ASCII fallback substitutes per character, so `ù` becomes a single `_`.
-    assert 'filename="relazione-pi_.pdf"' in cd
-    assert "filename*=UTF-8''relazione-pi%C3%B9.pdf" in cd
+    cd = content_disposition("résumé-final.pdf")
+    # The ASCII fallback substitutes per character, so each `é` becomes a single `_`.
+    assert 'filename="r_sum_-final.pdf"' in cd
+    assert "filename*=UTF-8''r%C3%A9sum%C3%A9-final.pdf" in cd
 
 
 def test_content_disposition_survives_a_fully_unprintable_name():
@@ -91,10 +91,10 @@ def test_the_whole_list_is_capped():
 def test_an_inline_file_still_carries_its_name():
     """The PDF viewer's own save button takes the name from the URL, and every URL here
     ends in /api/file — which is how every download came out called "file.pdf"."""
-    cd = content_disposition("Relazione finale.pdf", inline=True)
+    cd = content_disposition("Final report.pdf", inline=True)
     assert cd.startswith("inline; ")
-    assert 'filename="Relazione finale.pdf"' in cd
-    assert "filename*=UTF-8''Relazione%20finale.pdf" in cd
+    assert 'filename="Final report.pdf"' in cd
+    assert "filename*=UTF-8''Final%20report.pdf" in cd
 
 
 def test_inline_names_are_neutralised_the_same_way():
@@ -111,14 +111,14 @@ def test_a_pdf_is_served_for_reading_with_its_name(tmp_path):
     token = "testtoken-0123456789abcdef"
     # Enough of a PDF for the type to be guessed from the suffix; the bytes never matter
     # to the header.
-    (tmp_path / "Relazione finale.pdf").write_bytes(b"%PDF-1.4\n%%EOF\n")
+    (tmp_path / "Final report.pdf").write_bytes(b"%PDF-1.4\n%%EOF\n")
     client = TestClient(create_app(Config(token=token, roots=[tmp_path])))
-    r = client.get(f"/api/file?path={tmp_path / 'Relazione finale.pdf'}",
+    r = client.get(f"/api/file?path={tmp_path / 'Final report.pdf'}",
                    headers={"Authorization": f"Bearer {token}"})
     assert r.status_code == 200
     assert r.headers["content-type"] == "application/pdf"
     assert r.headers["content-disposition"].startswith("inline; ")
-    assert "Relazione finale.pdf" in r.headers["content-disposition"]
+    assert "Final report.pdf" in r.headers["content-disposition"]
 
 
 def test_a_pdf_is_stamped_with_its_version(tmp_path):
@@ -329,7 +329,7 @@ def test_raw_serves_the_real_bytes_not_a_rendered_document(tmp_path):
     from app.main import create_app
 
     (tmp_path / "root").mkdir()
-    doc = tmp_path / "root" / "relazione.docx"
+    doc = tmp_path / "root" / "report.docx"
     with zipfile.ZipFile(doc, "w") as z:
         z.writestr("word/document.xml", "<w:document/>")
     client = TestClient(create_app(Config(token=TOKEN, roots=[tmp_path / "root"])))

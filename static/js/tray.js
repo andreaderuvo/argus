@@ -572,8 +572,8 @@ export async function createSession({ path, suggest = 'shell', wsId = null, shel
    *
    *  Asking the machine what it can start means asking a login shell, which costs the better
    *  part of a second the first time — and an empty space where the choices go is a box that
-   *  looks broken. Reported exactly that way: "premo e non succede nulla e poi scopro che si
-   *  stava caricando". So: a line that says it is looking, and a Start that cannot be pressed
+   *  looks broken. Reported exactly that way: "I press and nothing happens, and then I find
+   *  out it was loading". So: a line that says it is looking, and a Start that cannot be pressed
    *  until there is something to start.
    */
   picks.append(el('div', { className: 'startwait' }, [

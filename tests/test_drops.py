@@ -47,9 +47,9 @@ def test_the_folder_is_made_on_the_first_drop_and_not_before(tree):
     landing = tree / "root" / "argus-drops"
     assert not landing.exists(), "a machine nobody drops on should not grow the folder"
 
-    r = drop(client, ("notes.txt", b"ciao\n"))
+    r = drop(client, ("notes.txt", b"hello\n"))
     assert r.status_code == 200, r.text
-    assert (landing / "notes.txt").read_bytes() == b"ciao\n"
+    assert (landing / "notes.txt").read_bytes() == b"hello\n"
 
 
 def test_it_answers_with_the_absolute_path(tree):
@@ -84,14 +84,14 @@ def test_several_at_once_all_come_back(tree):
 
 
 def test_a_read_only_server_takes_nothing(tree):
-    r = drop(make_client(tree, allow_write=False), ("notes.txt", b"ciao"))
+    r = drop(make_client(tree, allow_write=False), ("notes.txt", b"hello"))
     assert r.status_code == 403
     assert "read-only" in r.json()["error"]
     assert not (tree / "root" / "argus-drops").exists()
 
 
 def test_an_empty_drop_dir_means_no_drops(tree):
-    r = drop(make_client(tree, drop_dir=None), ("notes.txt", b"ciao"))
+    r = drop(make_client(tree, drop_dir=None), ("notes.txt", b"hello"))
     assert r.status_code == 404
     assert "drop_dir" in r.json()["error"]
 
@@ -112,7 +112,7 @@ def test_the_default_follows_the_roots_rather_than_the_home_directory(tree):
 def test_a_path_written_by_hand_is_taken_as_written(tree):
     mine = tree / "root" / "scratch" / "incoming"
     client = make_client(tree, drop_dir=mine)
-    landed = drop(client, ("notes.txt", b"ciao")).json()["files"][0]["path"]
+    landed = drop(client, ("notes.txt", b"hello")).json()["files"][0]["path"]
     assert landed == str(mine / "notes.txt")
     assert mine.is_dir(), "parents are made too — it is one decision, not three"
 
@@ -136,7 +136,7 @@ def test_the_endpoint_refuses_it_too(tree):
     somebody else having checked.
     """
     client = make_client(tree, drop_dir=tree / "outside" / "drops")
-    r = drop(client, ("notes.txt", b"ciao"))
+    r = drop(client, ("notes.txt", b"hello"))
     assert r.status_code == 403
     assert not (tree / "outside" / "drops").exists()
 

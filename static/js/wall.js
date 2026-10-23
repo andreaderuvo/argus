@@ -1799,7 +1799,7 @@ export async function screenWall() {
    *
    *  A folder read once at the moment the window opened is a folder that was true once. You
    *  `cd` in a shell and the mark goes on saying where you *were* — measured: the chip still
-   *  said `prima-qui` while tmux had been in `/tmp/poi-la` for three seconds, which is worse
+   *  said `first-here` while tmux had been in `/tmp/later-there` for three seconds, which is worse
    *  than not showing it, because a wrong answer is believed.
    *
    *  Only the desk you are looking at, only while the tab is in front of you, and one small
@@ -1847,7 +1847,7 @@ export async function screenWall() {
     if (prefs.winFacts === false) return;
     /* Whole paths, not leaves.
      *
-     *  `desk-qui` beside `desk-qui` looks like agreement even when one of them is three
+     *  `desk-here` beside `desk-here` looks like agreement even when one of them is three
      *  directories away from the other, and a leaf is exactly the part two folders are most
      *  likely to share. Home is written `~` because that is how a person writes it and it
      *  buys back the width; everything else is literal, and the tooltip has it in full.

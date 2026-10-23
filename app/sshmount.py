@@ -166,7 +166,7 @@ if [ "$(uname)" = Darwin ] && ! command -v sshfs >/dev/null 2>&1 && ! id -Gn | g
   SIZE=$(ssh -p $SSHP -i "$KEY" {at} du -sh {_sh_quote(spec['path'])} 2>/dev/null </dev/null | cut -f1)
   printf "The folder holds %s. Make the synced copy? [y/N] " "${{SIZE:-?}}"
   read -r YES </dev/tty || YES=""
-  case "$YES" in y|Y|yes|s|si|sì) ;; *) echo "Nothing done. The key stays: ssh {at} needs no password now."; exit 0;; esac
+  case "$YES" in y|Y|yes|YES) ;; *) echo "Nothing done. The key stays: ssh {at} needs no password now."; exit 0;; esac
   M="$HOME/.local/mutagen"
   if [ ! -x "$M/mutagen" ]; then
     echo "· fetching Mutagen into $M"

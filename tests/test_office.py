@@ -32,15 +32,15 @@ RELS = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 
 DOCUMENT = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>
-<w:p><w:r><w:t>Prima riga con </w:t></w:r>
-<w:r><w:rPr><w:b/></w:rPr><w:t>grassetto</w:t></w:r><w:r><w:t> dentro.</w:t></w:r></w:p>
+<w:p><w:r><w:t>First line with </w:t></w:r>
+<w:r><w:rPr><w:b/></w:rPr><w:t>bold words</w:t></w:r><w:r><w:t> inside.</w:t></w:r></w:p>
 </w:body></w:document>"""
 
 
 @pytest.fixture
 def tree(tmp_path):
     (tmp_path / "root").mkdir()
-    with zipfile.ZipFile(tmp_path / "root" / "relazione.docx", "w") as z:
+    with zipfile.ZipFile(tmp_path / "root" / "report.docx", "w") as z:
         z.writestr("[Content_Types].xml", CONTENT_TYPES)
         z.writestr("_rels/.rels", RELS)
         z.writestr("word/document.xml", DOCUMENT)
@@ -61,18 +61,18 @@ needs_pandoc = pytest.mark.skipif(files.find_pandoc() is None, reason="pandoc is
 
 @needs_pandoc
 def test_a_word_file_comes_back_as_a_document(client, tree):
-    r = get(client, tree / "root" / "relazione.docx")
+    r = get(client, tree / "root" / "report.docx")
     assert r.status_code == 200
     assert r.headers["content-type"].startswith("text/html")
     assert r.headers["x-rendered"] == "document"
-    assert "<strong>grassetto</strong>" in r.text, "the formatting is the whole point"
+    assert "<strong>bold words</strong>" in r.text, "the formatting is the whole point"
 
 
 @needs_pandoc
 def test_the_rendered_document_is_sandboxed_like_any_other_html(client, tree):
     """It is somebody else's document rendered into our origin's page: without the
     sandbox it could read the token out of localStorage."""
-    r = get(client, tree / "root" / "relazione.docx")
+    r = get(client, tree / "root" / "report.docx")
     assert "sandbox" in r.headers["content-security-policy"]
     assert r.headers["x-content-type-options"] == "nosniff"
 
@@ -81,30 +81,30 @@ def test_the_rendered_document_is_sandboxed_like_any_other_html(client, tree):
 def test_the_name_is_not_printed_twice(client, tree):
     """The viewer already shows the file name in its header; pandoc's template would put
     it at the top of the page as a heading as well."""
-    r = get(client, tree / "root" / "relazione.docx")
+    r = get(client, tree / "root" / "report.docx")
     assert 'class="title"' not in r.text
 
 
 def test_without_pandoc_it_falls_back_to_plain_text(client, tree, monkeypatch):
     monkeypatch.setattr(files, "find_pandoc", lambda: None)
-    r = get(client, tree / "root" / "relazione.docx")
+    r = get(client, tree / "root" / "report.docx")
     assert r.status_code == 200
     assert r.headers["content-type"].startswith("text/plain")
-    assert "grassetto" in r.text, "the words survive even when the formatting cannot"
+    assert "bold words" in r.text, "the words survive even when the formatting cannot"
 
 
 def test_a_pandoc_that_fails_falls_back_rather_than_erroring(client, tree, monkeypatch):
     monkeypatch.setattr(files, "pandoc_html", lambda *a: None)
-    r = get(client, tree / "root" / "relazione.docx")
+    r = get(client, tree / "root" / "report.docx")
     assert r.status_code == 200
-    assert "grassetto" in r.text
+    assert "bold words" in r.text
 
 
 @needs_pandoc
 def test_a_document_that_renders_enormous_falls_back(client, tree, monkeypatch):
     """Inlined figures can turn a small file into a page a phone cannot hold."""
     monkeypatch.setattr(files, "PANDOC_MAX_HTML", 10)
-    r = get(client, tree / "root" / "relazione.docx")
+    r = get(client, tree / "root" / "report.docx")
     assert r.headers["content-type"].startswith("text/plain")
 
 

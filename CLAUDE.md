@@ -378,7 +378,7 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
 
 - **An agent with hooks is believed over its pane.** Measured 2026-10-01: a Claude in a long
   command left its pane still for minutes (read as *waiting*), then rang every time the
-  command's output landed — the "LED a caso". So Claude is wired with a third hook,
+  command's output landed — "the LED at random". So Claude is wired with a third hook,
   `UserPromptSubmit` → `argus-bell start` (rings nothing, `bells.told`): from it until Stop or
   Notification the agent is *working*, whatever the pane does; after it stopped, only drawing at
   every one of four readings (`agentstate.busy`), 5 s on, counts as back at work. The pane never
@@ -575,8 +575,8 @@ fails if it comes back. Before adding anything, keep these true:
   `httpx.ASGITransport` with the full token — every check, the jail and the journal still apply.
   Settings → Agents (`prefs.agentsWithoutAsking`, never writable by an agent key) and
   `agents_without_asking` let listed actions through at once — *any* of them, the dangerous ones
-  (`consent.DANGEROUS`, marked red) included: asked for on 2026-10-08 ("deve poter essere
-  bypassabile"). A team started this way is announced `team-started` with its desk, and the pages
+  (`consent.DANGEROUS`, marked red) included: asked for on 2026-10-08 ("it must be possible
+  to bypass it"). A team started this way is announced `team-started` with its desk, and the pages
   put its windows there. `start_team` finds the team by name: a proposal, a model in
   `prefs.teamModels`, a template, the folder's team.yaml; launchers are described *with versions*
   (without them nothing is recognised as an agent). The `argus` skill and the wiki's

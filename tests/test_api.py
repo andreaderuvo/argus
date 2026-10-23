@@ -15,7 +15,7 @@ TOKEN = "testtoken-0123456789abcdef"
 @pytest.fixture
 def tree(tmp_path):
     (tmp_path / "root").mkdir()
-    (tmp_path / "root" / "hello.txt").write_text("ciao\n")
+    (tmp_path / "root" / "hello.txt").write_text("hello\n")
     (tmp_path / "root" / "blob.bin").write_bytes(b"\x00\x01\x02")
     (tmp_path / "root" / "dir").mkdir()
     (tmp_path / "outside").mkdir()
@@ -62,7 +62,7 @@ def test_listing_puts_directories_first(client, tree):
 def test_reading_a_text_file(client, tree):
     r = get(client, f"/api/file?path={tree / 'root' / 'hello.txt'}")
     assert r.status_code == 200
-    assert r.text == "ciao\n"
+    assert r.text == "hello\n"
 
 
 def test_binary_files_are_refused_with_the_error_shape(client, tree):
@@ -165,7 +165,7 @@ def test_stat_reports_mtime_and_size(client, tree):
 def test_stat_moves_when_the_file_does(client, tree):
     target = tree / "root" / "hello.txt"
     before = get(client, f"/api/stat?path={target}").json()
-    target.write_text("ciao ciao\n")
+    target.write_text("hello hello\n")
     after = get(client, f"/api/stat?path={target}").json()
     assert after["size"] != before["size"], "a watching window needs to see this change"
 

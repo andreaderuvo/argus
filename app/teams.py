@@ -1440,18 +1440,27 @@ def suggest_check(folder: str) -> list[str]:
     return uniq
 
 
+# What a goal is about, from its words — in each language Argus speaks, since a person writes the
+# goal in theirs. Kept per language, like the catalogues, rather than mixed into one pattern.
+TEMPLATE_WORDS = {
+    "tournament": {"en": r"two ideas|in parallel|tournament|compare", "it": r"due idee|in parallelo|torneo|confront",
+                   "es": r"dos ideas|en paralelo|torneo|compar", "fr": r"deux idées|en parallèle|tournoi|compar"},
+    "split": {"en": r"split|divide|together|both work|share the work", "it": r"dividi|insieme|a metà",
+              "es": r"divid|juntos|a medias|reparti", "fr": r"divis|ensemble|partag"},
+    "optimise": {"en": r"fast|faster|speed|slow|optimi|perform|memor|throughput|latenc", "it": r"ottimizz|veloc|lent",
+                 "es": r"rápid|lent|optimiz|rendimiento", "fr": r"rapide|lent|optimis|vitesse"},
+    "fix": {"en": r"\bbug|fix|crash|error|broken|fails?\b", "it": r"errore|sistema|correggi|rotto",
+            "es": r"arregl|corrig|roto|fallo", "fr": r"corrig|répar|cassé|plant"},
+    "feature": {"en": r"feature|add |implement", "it": r"aggiungi|implementa|nuova funzion",
+                "es": r"añad|implement|nueva funci", "fr": r"ajout|implément|nouvelle fonction"},
+    "write": {"en": r"paper|report|write|draft|article|document", "it": r"scriv|bozza|articolo|relazione",
+              "es": r"escrib|borrador|artículo|informe", "fr": r"écri|brouillon|article|rapport"},
+}
+
+
 def suggest_template(goal: str) -> str:
     g = (goal or "").lower()
-    if re.search(r"two ideas|in parallel|tournament|compare|confront|due idee|in parallelo|torneo", g):
-        return "tournament"
-    if re.search(r"split|divide|together|both work|share the work|dividet|dividi|insieme|a metà", g):
-        return "split"
-    if re.search(r"fast|faster|speed|slow|optimi|perform|ottimizz|veloc|lent|memor|throughput|latenc", g):
-        return "optimise"
-    if re.search(r"\bbug|fix|crash|error|broken|fails?\b|errore|sistema|correggi|rotto", g):
-        return "fix"
-    if re.search(r"feature|add |implement|aggiungi|implementa|nuova funzion", g):
-        return "feature"
-    if re.search(r"paper|report|write|draft|article|scriv|bozza|articolo|relazione|document", g):
-        return "write"
+    for template, words in TEMPLATE_WORDS.items():
+        if any(re.search(pattern, g) for pattern in words.values()):
+            return template
     return "review"

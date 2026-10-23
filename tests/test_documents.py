@@ -11,7 +11,7 @@ DOCX = """<?xml version="1.0"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
   <w:body>
     <w:p><w:r><w:t>Titolo del documento</w:t></w:r></w:p>
-    <w:p><w:r><w:t xml:space="preserve">Prima riga, </w:t></w:r><w:r><w:t>continua.</w:t></w:r></w:p>
+    <w:p><w:r><w:t xml:space="preserve">First line, </w:t></w:r><w:r><w:t>continued.</w:t></w:r></w:p>
     <w:p/>
     <w:p><w:r><w:t>Dopo un paragrafo vuoto</w:t></w:r></w:p>
   </w:body>
@@ -22,8 +22,8 @@ ODT = """<?xml version="1.0"?>
     xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"
     xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0">
   <office:body><office:text>
-    <text:h>Relazione</text:h>
-    <text:p>Corpo del testo.</text:p>
+    <text:h>Report</text:h>
+    <text:p>Body text.</text:p>
   </office:text></office:body>
 </office:document-content>"""
 
@@ -38,7 +38,7 @@ def test_docx_becomes_readable_lines(tmp_path):
     text = document_text(make(tmp_path / "r.docx", "word/document.xml", DOCX))
     lines = text.strip().splitlines()
     assert lines[0] == "Titolo del documento"
-    assert "Prima riga, continua." in lines, "runs inside one paragraph stay on one line"
+    assert "First line, continued." in lines, "runs inside one paragraph stay on one line"
     assert "Dopo un paragrafo vuoto" in lines
 
 
@@ -49,7 +49,7 @@ def test_docx_does_not_pile_up_blank_lines(tmp_path):
 
 def test_odt_headings_and_paragraphs(tmp_path):
     text = document_text(make(tmp_path / "r.odt", "content.xml", ODT))
-    assert text.strip().splitlines() == ["Relazione", "Corpo del testo."]
+    assert text.strip().splitlines() == ["Report", "Body text."]
 
 
 def test_a_document_that_is_not_a_zip_is_415_not_500(tmp_path):

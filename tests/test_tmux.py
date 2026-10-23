@@ -142,11 +142,11 @@ def test_the_paste_buffer_is_read_with_show_buffer_not_capture_pane(monkeypatch)
 
     class Done:
         returncode = 0
-        stdout = "quello che ho selezionato"
+        stdout = "what I selected — with a non-ASCII dash"
         stderr = ""
 
     monkeypatch.setattr(tmux.subprocess, "run", lambda argv, **kw: (seen.append(argv), Done())[1])
-    assert tmux.show_buffer(Socket.new("argus-test")) == "quello che ho selezionato"
+    assert tmux.show_buffer(Socket.new("argus-test")) == "what I selected — with a non-ASCII dash"
     assert seen[-1] == ["tmux", "-L", "argus-test", "show-buffer"]
     assert not any("capture-pane" in a for a in seen[-1])
 

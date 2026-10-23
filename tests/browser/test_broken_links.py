@@ -95,7 +95,7 @@ def test_a_path_broken_after_a_slash_opens_whole_from_either_half(make_page, arg
         upper = f"{folder}/"
         # Prose wider than the path's row, so that row is not full; and a second half that would
         # not have fitted beside the first, as Codex's wrapper found.
-        prose = ("Risultati completi e tabella comparativa, con tutte le righe che servono " * 4)[: cols - 12]
+        prose = ("Full results and the comparison table, with every row they need " * 4)[: cols - 12]
         name = ("mm2geo_cert_ont_v3_" + "x" * cols)[: max(10, cols - 12 - len(upper) + 6)]
         deep = folder / name
         deep.mkdir(parents=True, exist_ok=True)
@@ -103,7 +103,7 @@ def test_a_path_broken_after_a_slash_opens_whole_from_either_half(make_page, arg
         target.write_text("# results\n")
         lower = f"{name}/R.md"
         assert len(upper) < len(prose) - 2 and len(upper) + len(lower) > len(prose) and len(lower) < cols
-        rows = ["Sì, finito.", prose, "", upper, lower, ""]
+        rows = ["Yes, done.", prose, "", upper, lower, ""]
         script = argus.root / "print2.sh"
         script.write_text("clear\n" + "".join(f"printf '%s\\n' {json.dumps(r)}\n" for r in rows))
         argus.tmux("send-keys", "-t", "codexish", f"sh {script}", "Enter")

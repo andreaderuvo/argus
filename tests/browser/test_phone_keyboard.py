@@ -82,12 +82,12 @@ def screen(make_page, argus, tmp_path):
 
 def test_an_accent_is_one_letter_changed_not_the_line_again(make_page, argus, tmp_path):
     page, area, got, key, typed, since = screen(make_page, argus, tmp_path)
-    typed("ciao come stai perche")
+    typed("meet me at the cafe")
     time.sleep(0.5)
     mark = got()
-    assert mark == "ciao come stai perche"
-    key("a.value = a.value.slice(0, -1) + 'è'")            # the keyboard turns that e into è
-    assert since(mark) == "\x7fè", "one DEL, then è — not the whole line again"
+    assert mark == "meet me at the cafe"
+    key("a.value = a.value.slice(0, -1) + 'é'")            # the keyboard turns that e into é
+    assert since(mark) == "\x7fé", "one DEL, then é — not the whole line again"
 
 
 def test_an_autocorrection_replaces_the_word(make_page, argus, tmp_path):
@@ -140,10 +140,11 @@ def test_a_real_composition_still_types_each_word_once(make_page, argus, tmp_pat
     def commit(text):
         page.send("Input.insertText", {"text": text})
         time.sleep(0.05)
-    for steps, want in ((lambda: (comp("p"), comp("perch"), comp("perchè"), commit("perchè"), commit(" ")), "perchè "),
-                        (lambda: (comp("perche"), commit("perché"), commit(" ")), "perché "),
-                        (lambda: (comp("è"), commit("è"), commit(" ")), "è "),
-                        (lambda: (comp("ciao"), commit("ciao"), commit(" ")), "ciao ")):
+    # Accents composed on a phone keyboard (the bug was e → è): words with accents, in English use.
+    for steps, want in ((lambda: (comp("c"), comp("caf"), comp("café"), commit("café"), commit(" ")), "café "),
+                        (lambda: (comp("cafe"), commit("café"), commit(" ")), "café "),
+                        (lambda: (comp("é"), commit("é"), commit(" ")), "é "),
+                        (lambda: (comp("hello"), commit("hello"), commit(" ")), "hello ")):
         mark = got()
         steps()
         assert since(mark) == want

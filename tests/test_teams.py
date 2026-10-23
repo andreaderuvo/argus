@@ -390,7 +390,10 @@ def test_what_a_folder_and_a_goal_suggest(tmp_path):
     (tmp_path / "benchmarks").mkdir()
     (tmp_path / "benchmarks" / "run_benchmarks.sh").write_text("#!/bin/sh\n")
     assert suggest_check(str(tmp_path))[:2] == ["cargo test --release", "cargo test --release && ./benchmarks/run_benchmarks.sh --quick"]
+    # A goal is written in the person's language: each one Argus speaks is understood (TEMPLATE_WORDS).
     assert suggest_template("rendi cgdist più veloce") == "optimise"
+    assert suggest_template("corrige el fallo del parser") == "fix"
+    assert suggest_template("écrire le brouillon du rapport") == "write"
     assert suggest_template("prova due idee in parallelo per velocizzarlo") == "tournament"
     assert suggest_template("fix the crash on empty input") == "fix"
     assert suggest_template("aggiungi l'export in CSV") == "feature"

@@ -15,7 +15,7 @@ TOKEN = "testtoken-0123456789abcdef"
 def tree(tmp_path):
     (tmp_path / "root" / "dir").mkdir(parents=True)
     (tmp_path / "root" / "dir" / "inner.txt").write_text("in\n")
-    (tmp_path / "root" / "hello.txt").write_text("ciao\n")
+    (tmp_path / "root" / "hello.txt").write_text("hello\n")
     (tmp_path / "root" / "target").mkdir()
     (tmp_path / "outside").mkdir()
     return tmp_path
@@ -53,9 +53,9 @@ def test_mkdir(client, tree):
 
 
 def test_rename(client, tree):
-    r = post(client, "/api/fs/rename", {"path": str(tree / "root" / "hello.txt"), "name": "ciao.txt"})
+    r = post(client, "/api/fs/rename", {"path": str(tree / "root" / "hello.txt"), "name": "greeting.txt"})
     assert r.status_code == 200
-    assert (tree / "root" / "ciao.txt").read_text() == "ciao\n"
+    assert (tree / "root" / "greeting.txt").read_text() == "hello\n"
     assert not (tree / "root" / "hello.txt").exists()
 
 
@@ -69,7 +69,7 @@ def test_copy_keeps_the_original(client, tree):
     r = post(client, "/api/fs/copy", {"path": str(tree / "root" / "hello.txt"), "dest": str(tree / "root" / "target")})
     assert r.status_code == 200
     assert (tree / "root" / "hello.txt").exists()
-    assert (tree / "root" / "target" / "hello.txt").read_text() == "ciao\n"
+    assert (tree / "root" / "target" / "hello.txt").read_text() == "hello\n"
 
 
 def test_copy_a_whole_directory(client, tree):
@@ -141,10 +141,10 @@ def upload(client, path, files, token=TOKEN):
 
 
 def test_upload_writes_the_file(client, tree):
-    r = upload(client, tree / "root", [("files", ("note.txt", b"ciao\n", "text/plain"))])
+    r = upload(client, tree / "root", [("files", ("note.txt", b"hello\n", "text/plain"))])
     assert r.status_code == 200
-    assert (tree / "root" / "note.txt").read_bytes() == b"ciao\n"
-    assert r.json()["files"][0]["size"] == 5
+    assert (tree / "root" / "note.txt").read_bytes() == b"hello\n"
+    assert r.json()["files"][0]["size"] == 6
 
 
 def test_upload_takes_several_files_at_once(client, tree):
@@ -159,7 +159,7 @@ def test_upload_takes_several_files_at_once(client, tree):
 def test_upload_never_overwrites(client, tree):
     r = upload(client, tree / "root", [("files", ("hello.txt", b"mine", "text/plain"))])
     assert r.status_code == 409
-    assert (tree / "root" / "hello.txt").read_text() == "ciao\n", "the original is untouched"
+    assert (tree / "root" / "hello.txt").read_text() == "hello\n", "the original is untouched"
 
 
 def test_a_traversing_filename_is_flattened_into_the_destination(client, tree):
@@ -236,7 +236,7 @@ def test_a_file_that_moved_on_is_refused(client, tree):
     stale = int(target.stat().st_mtime) - 10
     r = write(client, target, "sovrascrivo", mtime=stale)
     assert r.status_code == 409
-    assert target.read_text() == "ciao\n", "the running job's work is untouched"
+    assert target.read_text() == "hello\n", "the running job's work is untouched"
 
 
 def test_the_matching_mtime_goes_through(client, tree):
@@ -267,7 +267,7 @@ def test_writing_outside_the_roots_is_refused(client, tree):
 def test_writing_is_refused_on_a_read_only_server(tree):
     ro = make_client(tree, allow_write=False)
     assert write(ro, tree / "root" / "hello.txt", "x").status_code == 403
-    assert (tree / "root" / "hello.txt").read_text() == "ciao\n"
+    assert (tree / "root" / "hello.txt").read_text() == "hello\n"
 
 
 def test_a_directory_is_not_a_text_file(client, tree):

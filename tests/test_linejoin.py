@@ -44,9 +44,9 @@ CASES = [
      0, "⏺ Wrote the matrix to /data/lab/cgdist/listeria/st6-farm-cluster/2026-10/distances/snp-matrix-final-v2.tsv", None),
     # Codex: broken after a slash because the next piece would not fit — the row stops short
     # (the screenshot of 2026-10-23, at a 60-column pane).
-    ([pad("Sì, finito."), pad(""), pad("La versione definitiva è qui:"), pad(""),
+    ([pad("Yes, done."), pad(""), pad("The final version is here:"), pad(""),
       pad("/data/lab/freemap_revision/rev2/"), pad("mm2geo_cert_ont_v3_with_a_long_name"), pad(""),
-      pad("Risultati completi e tabella comparativa:"), pad("")], 5,
+      pad("Full results and the comparison table:"), pad("")], 5,
      "/data/lab/freemap_revision/rev2/mm2geo_cert_ont_v3_with_a_long_name", None),
     # Wrapped by the terminal: joined as it always was, with no indent to take away.
     ([("x" * 40) + "http://localhost:5002/a/b/c/d/e/f/g/h", "ij/k", pad("next")], 1,
