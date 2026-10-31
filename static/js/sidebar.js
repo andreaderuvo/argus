@@ -1212,7 +1212,7 @@ export function paintRailFavs() {
       ...(!folder(f) && !f.missing ? [{ icon: 'folder', label: t('Open the folder it is in'), run: () => openHolder(f) }] : []),
       { icon: 'copy', label: t('Copy the path'), run: () => copyPath(f.path) },
       ...(folder(f) && !f.missing ? [{ icon: 'layers', label: t('Mount on your computer…'), run: () => import('/js/mountwizard.js').then((m) => m.mountWizard(f.path)) }] : []),
-      ...(folder(f) && !f.missing ? [{ icon: 'refresh', label: t('Sync to your computer…'), run: () => import('/js/syncsheet.js').then((m) => m.syncSheet(f.path)) }] : []),
+      ...(folder(f) && !f.missing ? [{ icon: 'sync', label: t('Sync to your computer…'), run: () => import('/js/syncsheet.js').then((m) => m.syncSheet(f.path)) }] : []),
       '-',
       { icon: 'star', label: t('Remove the star'), run: () => unstar(f) },
     ], f.name);

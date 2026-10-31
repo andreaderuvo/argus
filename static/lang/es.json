@@ -1691,6 +1691,7 @@
   "{n} notes are in the notes’ trash": "{n} notas están en la papelera de las notas",
   "{path} is a file, not a folder": "{path} es un archivo, no una carpeta",
   "There is no folder at {path}, and this Argus may not make one (start it with --allow-write).": "No hay ninguna carpeta en {path}, y este Argus no puede crearla (arráncalo con --allow-write).",
-  "It can be made now, and the session will start in it.": "Se puede crear ahora, y la sesión empezará en ella."
+  "It can be made now, and the session will start in it.": "Se puede crear ahora, y la sesión empezará en ella.",
+  "Sync this folder to your computer…": "Sincronizar esta carpeta con tu ordenador…"
  }
 }

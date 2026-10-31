@@ -818,6 +818,13 @@ export function fileBrowser({
     // meaning when two of them are side by side.
     takesDrops(node, (files) => uploadTo(path, files));
   }
+  /* This folder, kept in sync with your computer (argus-sync). Here as well as in a folder's menu:
+   *  the folder you are looking at is the one you most often mean, and on a desk its window had no
+   *  way to say so. Outside allow_write: a read-only sync needs no writing here. */
+  tools.append(el('button', {
+    className: 'ghost syncthis', title: t('Sync this folder to your computer…'), 'aria-label': t('Sync this folder to your computer…'),
+    onclick: () => import('/js/syncsheet.js').then((m) => m.syncSheet(path)),
+  }, icon('sync')));
   node.append(tools, list);              // the selection's bar lives at the foot of the list (picking.js)
 
   // What the folder looked like last time we drew it. Comparing this is what lets the

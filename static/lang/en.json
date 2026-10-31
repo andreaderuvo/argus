@@ -1691,6 +1691,7 @@
   "{n} notes are in the notes’ trash": "{n} notes are in the notes’ trash",
   "{path} is a file, not a folder": "{path} is a file, not a folder",
   "There is no folder at {path}, and this Argus may not make one (start it with --allow-write).": "There is no folder at {path}, and this Argus may not make one (start it with --allow-write).",
-  "It can be made now, and the session will start in it.": "It can be made now, and the session will start in it."
+  "It can be made now, and the session will start in it.": "It can be made now, and the session will start in it.",
+  "Sync this folder to your computer…": "Sync this folder to your computer…"
  }
 }

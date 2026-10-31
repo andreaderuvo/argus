@@ -31,3 +31,17 @@ def test_the_folder_menu_offers_it(make_page, argus):
     # Read from disk: the server may serve the module minified.
     src = (Path(__file__).resolve().parents[2] / "static/js/filerows.js").read_text()
     assert "Sync to your computer…" in src and "syncSheet(entry.path)" in src
+
+
+def test_a_browser_window_on_a_desk_syncs_the_folder_it_shows(make_page, argus):
+    """The folder a window is looking at, from the window's own toolbar — a folder's menu offered it
+    only for the folders listed inside."""
+    folder = argus.root / "docs"
+    argus.api("/api/prefs", "PATCH", {"changes": {"ws": 1, "wsSeq": 1, "workspaces": [
+        {"id": 1, "name": "Main", "desktop": [{"kind": "browser", "id": 7, "path": str(folder), "fresh": True}]}]}})
+    page = make_page(route="#/wall")
+    button = "document.querySelector('.win .syncthis')"
+    page.wait(f"!!{button}", timeout=15, what="the sync button in the window's toolbar")
+    page.click_at(*page._center(button))
+    page.wait("!!document.querySelector('dialog.syncsheet[open]')", timeout=10, what="the sync sheet")
+    assert str(folder) in page.eval("document.querySelector('dialog.syncsheet').textContent"), "for the folder the window shows"
