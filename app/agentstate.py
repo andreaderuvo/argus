@@ -200,6 +200,10 @@ class Watch:
             return {}
         # /proc, shared with the rest of Argus for half a second (app/procs.py); `ps` where there is none.
         tree = procs.tree()
+        # Shared for half a second: a pane born since then is not in it, and its agent would go
+        # unseen until the next reading of agents. Read again, fresh, when one is missing.
+        if tree is not None and any(pid not in tree for _w, pid in panes):
+            tree = procs.tree(fresh_for=0)
         if tree is None:
             try:
                 ps = subprocess.run(["ps", "-ww", "-eo", "pid=,ppid=,args="], capture_output=True, text=True, timeout=4)

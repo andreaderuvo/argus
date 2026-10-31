@@ -382,6 +382,11 @@ def start(sock: tmux.Socket, name: str, folder: str | None, command: str) -> Non
         # `argus-say` on the PATH otherwise (seen on a real team, 2026-10-07).
         line = (f"export ARGUS_SESSION={shell_quote(name)}; "
                 f"export PATH={shell_quote(str(TOOLS))}:\"$PATH\"; {line}")
+        # And in the folder, said again after the login profile: Ubuntu 26.04's tmux 3.6 started a
+        # session in the server's own directory despite -c (seen on CI, 2026-10-31), and a
+        # profile may move too. An agent started anywhere else works on the wrong files.
+        if folder:
+            line = f"cd {shell_quote(folder)} 2>/dev/null; {line}"
         # The user's shell, told to log in, so profiles are read. `-c` takes the whole line,
         # which is why a launcher may be `conda activate x && claude` rather than a bare word.
         argv += ["sh", "-c", f'exec "${{SHELL:-/bin/sh}}" -l -c {shell_quote(line)}']
@@ -470,18 +475,22 @@ def wait_until_settled(sock: tmux.Socket, session: str,
     # than `quiet` to start, so an empty pane read as "finished starting" before the agent had
     # begun, and the prompt went into a shell still reading its profile.
     moved = False
+    # The screen as it was while tmux still named the pane's command `tmux` — the instant before
+    # its program is exec'd (tmux 3.6). That name becoming the shell is not drawing (it settled a
+    # pane at 1.7 s, on CI), but the screen changing from what it was then is.
+    before = None
     deadline = began + timeout
     while time.monotonic() < deadline:
         now = _pulse(sock, session)
         if now is None:
             return False
-        # The instant before the pane's program is exec'd, tmux 3.6 names its command `tmux`:
-        # that becoming the shell is not the program drawing (it settled a pane at 1.7 s, CI).
-        if now.endswith(" tmux"):
+        screen, _, command = now.rpartition(" ")
+        if command == "tmux":
+            before = screen
             time.sleep(LOOK_EVERY)
             continue
         if now != last:
-            moved = moved or last is not None
+            moved = moved or last is not None or (before is not None and screen != before)
             last, still_since = now, time.monotonic()
         elif (moved and still_since and time.monotonic() - still_since >= quiet
               and time.monotonic() - began >= NEVER_BEFORE):
