@@ -27,6 +27,8 @@ jobs:
       # tmux is not needed — nothing here drives a real server — but pandoc decides
       # whether the Word-document tests run or skip, so it is worth having.
       - run: sudo apt-get update && sudo apt-get install -y pandoc
+      # Which tmux the runner has: the tests that drive a real one depend on it, and the image moves.
+      - run: tmux -V; uname -a; cat /etc/os-release | head -2
       # The wiki is a separate repository, and one test wants to read it: every public name in
       # `tools/` has to be named on a page. Without this the test skips, which is right on a
       # laptop and wrong here — here is the only place the two repositories are ever seen
