@@ -4,22 +4,38 @@ jobs:
   look:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: { python-version: '3.13' }
+      - run: pip install -q -r requirements.txt
       - run: |
-          set -x
-          ls -l /bin/sh; echo "SHELL=$SHELL"; getent passwd "$USER"; id
-          ls /etc/profile.d/; tmux -V
-          bash -lc 'echo LOGIN-SHELL-DONE' 2>&1 | head -20
-          printf '#!/bin/sh\nwhile :; do printf .; sleep 0.2; done\n' > /tmp/claude; chmod +x /tmp/claude
-          tmux -L dbg -f /dev/null new-session -d -s busy -x 80 -y 20 /tmp/claude
-          sleep 2
-          tmux -L dbg list-panes -a -F '#{session_name} pid=#{pane_pid} cmd=#{pane_current_command} start=#{pane_start_command} tty=#{pane_tty}'
-          P=$(tmux -L dbg list-panes -a -F '#{pane_pid}' | head -1)
-          ps -o pid,ppid,comm,args --ppid "$P" -p "$P"
-          cat /proc/$P/cmdline | tr '\0' ' '; echo; cut -c1-80 /proc/$P/stat
-          ps -ww -eo pid,ppid,tty,comm,args | grep -v grep | grep -E 'claude|tmux' | head
-          printf '#!/bin/sh\nsleep 3\nprintf "banner\\n> "\nread x\n' > /tmp/late; chmod +x /tmp/late
-          tmux -L dbg new-session -d -s late -x 80 -y 20 "sleep 0.3; exec \"\${SHELL:-/bin/sh}\" -l -c 'exec /tmp/late'"
-          tmux -L dbg pipe-pane -o -t late 'cat >> /tmp/late.out'
-          for i in 1 2 3 4 5 6 7 8; do sleep 0.5; echo "t=$i activity=$(tmux -L dbg display -p -t late '#{window_activity}') bytes=$(wc -c < /tmp/late.out 2>/dev/null)"; done
-          od -c /tmp/late.out | head -20
-          tmux -L dbg kill-server
+          python - <<'PY'
+          import subprocess, time, os, tempfile, pathlib
+          from app import launch, tmux
+          from app.agentstate import Watch
+          d = pathlib.Path(tempfile.mkdtemp())
+          s = d / "late"; s.write_text("#!/bin/sh\nsleep 3\nprintf 'banner\\n> '\nread x\n"); s.chmod(0o755)
+          sock = tmux.Socket.new("dbg")
+          t0 = time.monotonic()
+          launch.start(sock, "late", str(d), str(s))
+          print("start command:", subprocess.run(["tmux", "-L", "dbg", "list-panes", "-a", "-F", "#{pane_start_command}"], capture_output=True, text=True).stdout)
+          subprocess.run(["tmux", "-L", "dbg", "pipe-pane", "-o", "-t", "late", f"cat >> {d}/out"])
+          for i in range(16):
+              r = subprocess.run(["tmux", "-L", "dbg", "display", "-p", "-t", "late", "#{window_activity} #{pane_current_command} #{pane_pid}"], capture_output=True, text=True).stdout.strip()
+              n = (d / "out").stat().st_size if (d / "out").exists() else 0
+              print(f"{time.monotonic()-t0:5.2f} {r} bytes={n}")
+              time.sleep(0.25)
+          print(repr((d / "out").read_bytes()[:400]) if (d / "out").exists() else "no out")
+          t1 = time.monotonic(); ok = launch.wait_until_settled(sock, "late", timeout=20); print("settled", ok, "after", round(time.monotonic()-t0, 2))
+          subprocess.run(["tmux", "-L", "dbg", "kill-server"])
+          # the agent sampler
+          c = d / "claude"; c.write_text("#!/bin/sh\nwhile :; do printf .; sleep 0.2; done\n"); c.chmod(0o755)
+          subprocess.run(["tmux", "-L", "dbg2", "-f", "/dev/null", "new-session", "-d", "-s", "busy", "-x", "80", "-y", "20", str(c)])
+          w = Watch(tmux.Socket.new("dbg2"))
+          for _ in range(6):
+              w.tick(); time.sleep(1)
+          print("states", w.states())
+          from app import agentstate
+          print([n for n in dir(agentstate) if 'agent' in n.lower()][:20])
+          subprocess.run(["tmux", "-L", "dbg2", "kill-server"])
+          PY
