@@ -1084,7 +1084,8 @@ function whereButtons(path) {
   const here = parentOf(path);
   return [
     el('button', {
-      className: 'winbtn', type: 'button', title: `${here} — ${t('A file browser here, in this desk')}`,
+      // Short: it is read as a line of the window's ⋮, where the whole path ran over four lines.
+      className: 'winbtn', type: 'button', title: t('Its folder, in a file browser on this desk'),
       onclick: () => openWindow({ kind: 'browser', id: nextWindowId(), path: here, fresh: true }),
     }, icon('split')),
     copies(() => withToken(`${location.origin}/api/file?path=${encodeURIComponent(path)}`),
@@ -1195,7 +1196,7 @@ function wholeButtons(into) {
   return [all, grab];
 }
 
-export function putStrip(into, path) {
+export function putStrip(into, path, buttonsInto = null) {
   /* The facts go directly under the title bar, exactly where a terminal keeps its own — that
    *  is the whole point of using the same strip and the same `i`, and putting them under the
    *  page controls instead made them a third bar rather than the same one.
@@ -1214,7 +1215,10 @@ export function putStrip(into, path) {
   into.querySelector(':scope > .prevwhere')?.remove();
   into.querySelector('.pdfbar > .docwherebtns')?.remove();
   const own = into.querySelector('.pdfbar');
-  if (own) own.append(el('span', { className: 'docwherebtns' }, whereButtons(path)));
+  // In a window the buttons go to its title bar, with the window's own (buttonsInto); the full-screen
+  // preview has no title bar of its own, so there they keep their row.
+  if (buttonsInto) buttonsInto.replaceChildren(...wholeButtons(into), ...whereButtons(path));
+  else if (own) own.append(el('span', { className: 'docwherebtns' }, whereButtons(path)));
   else into.prepend(el('div', { className: 'prevwhere' }, [...wholeButtons(into), ...whereButtons(path)]));
   into.prepend(whereFacts(path));
 }

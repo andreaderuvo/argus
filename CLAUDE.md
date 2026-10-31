@@ -206,6 +206,14 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   `dragBy`'s settle handler rewrites the geometry and clears the maximised state before the
   `dblclick` even arrives; and moving or resizing by hand forgets the remembered size,
   because that is now where you want the window.
+- **A window's actions live in its title bar, and so its ⋮** (2026-10-31, tests/browser/
+  test_window_actions.py). Nothing under the title is a row of actions: a file browser's (star, new
+  folder, upload, fetch, text, sync) go in through `fileBrowser({actionsInto})`, a document's (select,
+  copy, a browser here, link, path, star) through `putStrip(host, path, buttonsInto)`; both into a
+  `.winacts` span (display: contents) of `.winextras`, redrawn as the folder or file changes. What
+  changes what you see stays in the content: a folder's path and view, a PDF's pages, filters. The ⋮
+  draws a rule between the content's actions and the window's own. `page.window_action(win, label)`
+  in tests/browser/cdp.py reaches one the way a person does.
 - **No button in a title bar is a drag handle.** `dragBy` used to skip an explicit list of
   the four buttons that existed when it was written; every button added since — the
   viewer's download, edit, source and watch, the terminal's copy and size — began a drag

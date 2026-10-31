@@ -1267,7 +1267,10 @@ export function attachWeb(host, spec, setLabel) {
 
 /** A file browser inside a window. It keeps its own folder, so two of them side by side
  *  is how you look at two filesystems at once — no hidden mode, just two windows. */
-export function attachBrowser(host, spec, setLabel, landing) {
+export function attachBrowser(host, spec, setLabel, landing, extras = null) {
+  // The folder's actions, in the window's title bar: redrawn with each folder it shows.
+  const acts = extras ? el('span', { className: 'winacts' }) : null;
+  if (acts) extras.append(acts);
   let entry = null;
   // The first draw lands where the desk says; every draw after it is you navigating.
   let here = landing || spec.path;
@@ -1283,6 +1286,7 @@ export function attachBrowser(host, spec, setLabel, landing) {
       getView: () => spec.view || browserView(spec.tree !== undefined ? spec : prefs),
       setView: (v) => { spec.view = v; savePrefs(); },
       favGroup: 'windows',
+      actionsInto: acts,
       setPath: (p) => {
         here = p;
         // Kept so the window says where it is now; the landing folder above is what it
@@ -1332,7 +1336,10 @@ export function attachViewer(host, path, extras) {
     onclick: toggleStrips,
   }, icon('info'));
   const dl = el('button', { className: 'winbtn', title: t('Download') }, icon('download'));
-  extras.append(srcBtn, editBtn, again, watchBtn, whereBtn, dl);
+  // The document's own buttons (select all, copy, a browser here, link, path, star) join these, in
+  // the title bar — they had a row of their own under it.
+  const docActs = el('span', { className: 'winacts' });
+  extras.append(srcBtn, editBtn, again, watchBtn, whereBtn, dl, docActs);
 
   let rendered = true;
   /* Kept for a document that cannot come back to where you were.
@@ -1382,7 +1389,7 @@ export function attachViewer(host, path, extras) {
     await mountPreview(host, path, ctl);
     // The same caption as the full-screen viewer: mounting empties the host, so it goes back
     // on afterwards, every time the file is reloaded under you.
-    putStrip(host, path);
+    putStrip(host, path, docActs);
   };
   load();
 

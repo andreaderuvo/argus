@@ -465,6 +465,9 @@ export function fileBrowser({
   getView = () => browserView(prefs),
   setView = (v) => { prefs.browserView = v; savePrefs(); },
   favGroup = 'main',
+  // In a window, where its actions go: the window's title bar (and so its ⋮), with every other
+  // window's — not a row of their own under the title (2026-10-31: "they must all be in one place").
+  actionsInto = null,
 }) {
   const node = el('div', { className: `pane${compact ? ' compact' : ''}` });
   const list = el('div', { className: 'panelist' });
@@ -633,7 +636,8 @@ export function fileBrowser({
     onclick: () => { prefs.split = !prefs.split; savePrefs(); render(); },
   }, icon('split')) : null;
 
-  const head = el('div', { className: 'sidehead' }, [up, jump, ...(split ? [split] : []), crumb, again, views, pin]);
+  // In a window the star is an action of the window's title bar, with the folder's others (actionsInto).
+  const head = el('div', { className: 'sidehead' }, [up, jump, ...(split ? [split] : []), crumb, again, views, ...(actionsInto ? [] : [pin])]);
   requestAnimationFrame(fit);
   // Watched on the header's width, and only when it changes: refolding changes the strip's own
   // children, and an observer on the strip would call itself.
@@ -736,7 +740,7 @@ export function fileBrowser({
   const renderFavs = () => {
     VIEWS.forEach(([key], i) => viewBtns[i].classList.toggle('on', getView() === key));
     const mine = favsIn(favGroup);
-    pin.className = isFavourite(path, favGroup) ? 'on' : '';
+    pin.className = `${actionsInto ? 'winbtn ' : ''}${isFavourite(path, favGroup) ? 'on' : ''}`.trim();
     pin.title = isFavourite(path, favGroup) ? t('Unpin from {group} favourites', { group: favGroup }) : t('Pin this folder in {group} favourites', { group: favGroup });
     favsHolder.textContent = '';
     /* The others' favourites too, under their own heading: each tool still pins into its own
@@ -775,6 +779,7 @@ export function fileBrowser({
   node.append(favsHolder);
 
   const tools = el('div', { className: 'pad tools' }, searchBox(path, show, compact ? t('search…') : undefined));
+  const acts = [];
   if (server?.allow_write) {
     const mkdirBtn = el('button', { className: 'ghost', title: t('New folder') }, icon('folderPlus'));
     Object.assign(mkdirBtn, {
@@ -788,13 +793,13 @@ export function fileBrowser({
         } catch (e) { toast(e.message, true); }
       },
     });
-    tools.append(mkdirBtn);
+    acts.push(mkdirBtn);
 
     const picker = el('input', { type: 'file', multiple: true, hidden: true });
     picker.onchange = () => { uploadTo(path, picker.files); picker.value = ''; };
-    tools.append(
+    tools.append(picker);
+    acts.push(
       el('button', { className: 'ghost', title: t('Upload files'), onclick: () => picker.click() }, icon('upload')),
-      picker,
       /* The other way a file arrives: as an address.
        *
        *  Uploading something you have not got is three moves — find a terminal, wget, come back
@@ -821,10 +826,15 @@ export function fileBrowser({
   /* This folder, kept in sync with your computer (argus-sync). Here as well as in a folder's menu:
    *  the folder you are looking at is the one you most often mean, and on a desk its window had no
    *  way to say so. Outside allow_write: a read-only sync needs no writing here. */
-  tools.append(el('button', {
+  acts.push(el('button', {
     className: 'ghost syncthis', title: t('Sync this folder to your computer…'), 'aria-label': t('Sync this folder to your computer…'),
     onclick: () => import('/js/syncsheet.js').then((m) => m.syncSheet(path)),
   }, icon('sync')));
+  if (actionsInto) {
+    // Title-bar buttons, as the rest of the window's: the same look, the same overflow into ⋮.
+    for (const b of acts) b.className = `winbtn${b.classList.contains('syncthis') ? ' syncthis' : ''}`;
+    actionsInto.replaceChildren(pin, ...acts);
+  } else tools.append(...acts);
   node.append(tools, list);              // the selection's bar lives at the foot of the list (picking.js)
 
   // What the folder looked like last time we drew it. Comparing this is what lets the

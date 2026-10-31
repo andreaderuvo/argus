@@ -343,6 +343,17 @@ class Page(Session):
         self.wait(f"!!({finder})", what=f"visible element with text {text!r}")
         self.click_at(*self._center(finder))
 
+    def window_action(self, win: str, label: str) -> None:
+        """A window's action, the way a person reaches it: its ⋮, then the item whose words start
+        with `label`. The title bar keeps its actions there (2026-10-31), not in rows under it."""
+        more = f"document.querySelector({json.dumps(win + ' .winmore')})"
+        self.wait(f"!!{more}", what=f"the ⋮ of {win}")
+        self.click_at(*self._center(more))
+        item = (f"[...document.querySelectorAll('.popmenu .popmenuitem')]"
+                f".find(b => b.textContent.trim().startsWith({json.dumps(label)}))")
+        self.wait(f"!!({item})", what=f"{label!r} in the window's menu")
+        self.click_at(*self._center(item))
+
     def type(self, text: str) -> None:
         self.send("Input.insertText", {"text": text})
 

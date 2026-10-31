@@ -4747,3 +4747,7 @@ button .spin { margin-right: .35rem; vertical-align: -2px; }
 .todowhenrow input:disabled { opacity: .45; }
 .todocal { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .5rem; padding-top: .5rem; border-top: 1px solid var(--line); }
 @media (max-width: 420px) { .todowhenrow { grid-template-columns: 1fr; gap: .25rem; } }
+
+/* A window's own actions (a folder's, a document's), redrawn as it changes: buttons of the title bar like
+   the rest, so a marker with no box of its own. */
+.winacts { display: contents; }

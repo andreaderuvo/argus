@@ -535,23 +535,32 @@ export async function screenWall() {
           .filter((b) => b !== more && !b.offsetParent && !b.disabled && !b.hidden && !b.closest('[hidden]'));
         if (!tucked.length) return;
         const name = (b) => b.title || b.getAttribute('aria-label') || b.textContent.trim() || '—';
+        // Two kinds in one list: what this window holds (the folder's, the document's, the session's
+        // actions) and the window itself (pin, move, behind, full screen) — a rule between them.
+        const own = (b) => !!b.closest('.winextras');
         if (matchMedia('(pointer: fine)').matches) {
           const r = more.getBoundingClientRect();
-          popMenu(r.right, r.bottom + 4, tucked.map((b) => ({
-            glyph: b.querySelector('svg')?.cloneNode(true), label: name(b), run: () => b.click(),
-            on: b.classList.contains('on'), danger: b.classList.contains('killbtn'),
-          })), label);
+          const items = [];
+          tucked.forEach((b, i) => {
+            if (i && own(tucked[i - 1]) !== own(b)) items.push('-');
+            items.push({
+              glyph: b.querySelector('svg')?.cloneNode(true), label: name(b), run: () => b.click(),
+              on: b.classList.contains('on'), danger: b.classList.contains('killbtn'),
+            });
+          });
+          popMenu(r.right, r.bottom + 4, items, label);
           return;
         }
         const body = el('div', { className: 'sheetbody actions' });
         let sheet;
-        for (const button of tucked) {
+        tucked.forEach((button, i) => {
+          if (i && own(tucked[i - 1]) !== own(button)) body.append(el('div', { className: 'sheetsep' }));
           const glyph = button.querySelector('svg')?.cloneNode(true);
           body.append(el('button', {
             className: `ghost block${button.classList.contains('on') ? ' on' : ''}${button.classList.contains('killbtn') ? ' danger' : ''}`,
             onclick: () => { sheet.close(); button.click(); },
           }, [glyph || icon('more'), el('span', { textContent: name(button) })]));
-        }
+        });
         sheet = modal(label, body, [
           el('button', { className: 'ghost', textContent: t('Close'), onclick: () => sheet.close() }),
         ]);
@@ -660,7 +669,7 @@ export async function screenWall() {
         : spec.kind === 'changes' ? attachChanges(body, spec, setLabel)
         // Where a browser *lands* is the desk's business, not the folder it happened to
         // be left in: reopening a desk should put you where that desk starts.
-        : isBrowser ? attachBrowser(body, spec, setLabel, landingFor(ws, spec))
+        : isBrowser ? attachBrowser(body, spec, setLabel, landingFor(ws, spec), extras)
           : isFile ? attachViewer(body, spec.path, extras)
             : attachTerminal(body, spec.name, {
             // A path clicked in here opens beside it, not instead of it: that is the

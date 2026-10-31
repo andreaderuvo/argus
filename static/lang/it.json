@@ -1692,6 +1692,7 @@
   "{path} is a file, not a folder": "{path} è un file, non una cartella",
   "There is no folder at {path}, and this Argus may not make one (start it with --allow-write).": "Non c’è nessuna cartella in {path}, e questo Argus non può crearla (avvialo con --allow-write).",
   "It can be made now, and the session will start in it.": "Si può creare adesso, e la sessione partirà lì.",
-  "Sync this folder to your computer…": "Sincronizza questa cartella con il tuo computer…"
+  "Sync this folder to your computer…": "Sincronizza questa cartella con il tuo computer…",
+  "Its folder, in a file browser on this desk": "La sua cartella, in un file browser su questo desk"
  }
 }
