@@ -1113,6 +1113,10 @@ dialog.sheet {
 }
 
 dialog.sheet::backdrop { background: rgba(0, 0, 0, .55); }
+/* With a phone's keyboard up, a sheet fits above it (keyboard.js sets --vvh), scrolling inside. */
+/* A modal is centred on the whole screen, keyboard or not: with one up it goes to the top of what is
+   visible instead, and no taller than that, scrolling inside. */
+:root.keysup dialog.sheet { top: .5rem; bottom: auto; margin-top: 0; max-height: calc(var(--vvh, 100dvh) - 1rem); overflow-y: auto; }
 dialog.sheet h2 {
   margin: 0;
   padding: .85rem 1rem;

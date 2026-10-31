@@ -2,6 +2,8 @@
 // they run in the order the single file ran them: the token is taken from the address
 // before anything else asks for it.
 import '/js/plumbing.js';
+// And the keyboard of a phone: what is typed stays above it (keyboard.js).
+import '/js/keyboard.js';
 // <imports> generated from what this file uses; edit the code, not this list
 import { loadAsks } from '/js/askcards.js';
 import { listenForBells } from '/js/bells.js';
