@@ -7,6 +7,7 @@ import shutil
 import pytest
 import os
 import subprocess
+import time
 import uuid
 
 from app import tmux
@@ -39,6 +40,13 @@ def test_where_every_session_is_in_one_call(tmp_path):
     try:
         run("new-session", "-d", "-s", "one", "-c", str(tmp_path / "one"))
         run("new-session", "-d", "-s", "two", "-c", str(tmp_path / "two"))
+        # A pane just made runs `tmux` for an instant before its shell: compare once both have
+        # settled, or the two answers describe two different moments (seen on CI, 2026-10-31).
+        for _ in range(50):
+            now = run("list-panes", "-a", "-F", "#{pane_current_command}").stdout.split()
+            if now and "tmux" not in now:
+                break
+            time.sleep(0.1)
         many = paths.pane_wheres(sock, ["one", "two", "absent"])
         assert many["absent"] is None
         for name in ("one", "two"):
