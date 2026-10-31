@@ -208,3 +208,14 @@ def test_a_session_made_again_under_the_same_name_is_a_new_session():
 def test_an_agent_behind_an_interpreter_of_any_version_is_seen(argv):
     """Ubuntu 26.04's env hands the interpreter its real name; python3.13 is as much python as python3."""
     assert agent_in(argv, frozenset({"claude"})) == "claude"
+
+
+@pytest.mark.parametrize("argv", [["/usr/bin/env", "python3", "/x/claude"], ["env", "-i", "A=1", "python3.12", "/x/claude"],
+                                  ["/bin/sh", "/x/claude"], ["bash", "/x/claude"]])
+def test_an_agent_is_seen_while_env_or_a_shell_is_still_starting_it(argv):
+    """The instant before a shebang's env (or the shell running a script) becomes the agent."""
+    assert agent_in(argv, frozenset({"claude"})) == "claude"
+
+
+def test_a_shell_running_a_command_is_not_an_agent():
+    assert agent_in(["bash", "-c", "claude"], frozenset({"claude"})) is None

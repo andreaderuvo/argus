@@ -69,13 +69,21 @@ def launcher_words(commands: list[str]) -> frozenset[str]:
     return frozenset(out)
 
 
-INTERPRETER = re.compile(r"(node|nodejs|bun|deno|python|pypy)[0-9.]*")
+INTERPRETER = re.compile(r"(node|nodejs|bun|deno|python|pypy|sh|bash|dash|zsh)[0-9.]*")
+YOUNG = 10.0                # seconds a new session's agents are read at every tick: it is still starting
 
 
 def agent_in(argv: list[str], names: frozenset[str]) -> str | None:
     """The agent a command line is, if any: argv[0], or argv[1] after an interpreter."""
     if not argv:
         return None
+    # `env [-i] [VAR=x …] program …` — a shebang's `#!/usr/bin/env python3`, before env has
+    # become the program: what it runs is the command line.
+    if os.path.basename(argv[0]) == "env":
+        rest = list(argv[1:])
+        while rest and (rest[0].startswith("-") or "=" in rest[0]):
+            rest.pop(0)
+        return agent_in(rest, names)
     first = os.path.basename(argv[0])
     if first in names:
         return first
@@ -223,7 +231,10 @@ class Watch:
         now = time.time() if now is None else now
         windows = self.read_windows()
         every = AGENTS_EVERY if now - self.asked < KEEP_ALIVE else AGENTS_UNWATCHED
-        if now - self.agents_read >= every or set(windows) - set(self.windows):
+        # A session made moments ago is still starting its program (env, a shell, then the agent):
+        # read again at every tick while it is young, or an agent missed once is missed for 5–15 s.
+        young = any(len(v) > 2 and str(v[2]).isdigit() and now - int(v[2]) < YOUNG for v in windows.values())
+        if now - self.agents_read >= every or set(windows) - set(self.windows) or young:
             self.agents = self.read_agents()
             self.agents_read = now
         self.windows = {w: v[0] for w, v in windows.items()}

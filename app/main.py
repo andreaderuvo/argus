@@ -2290,7 +2290,14 @@ def create_app(cfg: Config) -> FastAPI:
     @app.get("/api/git/worktrees", tags=["Sessions"], summary="The working directories of a repository")
     async def list_worktrees(request: Request, path: str) -> dict:
         state = request.app.state
-        here = under_roots(request, path)
+        try:
+            here = under_roots(request, path)
+        except ApiError as e:
+            # A folder not there yet — typed into New session, to be made on Start — is no
+            # repository, which is the answer; not a 404 (the page asks while you type).
+            if e.status == 404:
+                return {"repo": None, "worktrees": [], "missing": True}
+            raise
         top = await asyncio.to_thread(gitwork.top_of, here)
         if not top:
             return {"repo": None, "worktrees": []}

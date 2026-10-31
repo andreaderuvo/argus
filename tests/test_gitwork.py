@@ -86,3 +86,16 @@ def test_the_branch_name_comes_back_without_its_refs_heads(repo):
     branches = {w["branch"] for w in gitwork.worktrees(repo)}
     assert "deep/name" in branches
     assert not any((b or "").startswith("refs/") for b in branches)
+
+
+def test_a_folder_not_there_yet_is_no_repository_rather_than_a_404(tmp_path):
+    """New session asks about the folder as it is typed, and a folder not there yet is now made on
+    Start: the question has an answer, not an error (CI counted the 404 as a broken page)."""
+    from fastapi.testclient import TestClient
+    from app.config import Config
+    from app.main import create_app
+    c = TestClient(create_app(Config(token="w" * 64, roots=[tmp_path], listen="127.0.0.1:0")))
+    r = c.get("/api/git/worktrees", params={"path": str(tmp_path / "not" / "yet")}, headers={"authorization": "Bearer " + "w" * 64})
+    assert r.status_code == 200 and r.json() == {"repo": None, "worktrees": [], "missing": True}
+    outside = c.get("/api/git/worktrees", params={"path": "/etc"}, headers={"authorization": "Bearer " + "w" * 64})
+    assert outside.status_code == 403, "outside the roots is still refused"
