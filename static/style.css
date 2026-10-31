@@ -2838,6 +2838,9 @@ input.traysearch:focus { border-color: var(--accent); outline: none; }
 /* The chosen tiling fills its segment; its own accent border would otherwise sit a pixel
    inside the group's outline and read as a box within a box. */
 .btnset > button.winbtn.on { border-color: var(--accent); }
+/* And its left side too: the divider rule above is more specific, and painted the chosen one's left
+   edge grey whenever it was not the first of its set (screenshot of 2026-10-31). */
+.btnset > button.winbtn + button.winbtn.on:not([hidden]) { border-left-color: var(--accent); }
 
 /* Narrow: the tiling buttons lose their words. Their icons are drawings of the thing —
    a grid, two columns, three rows — so nothing is lost, and it buys back more than the
