@@ -201,3 +201,10 @@ def test_a_session_made_again_under_the_same_name_is_a_new_session():
     for t in range(4, 8):
         w.tick(now=200 + t)
     assert w.states()["api"]["seen"] is False
+
+
+@pytest.mark.parametrize("argv", [["python3.13", "/x/claude"], ["/opt/py/bin/python3.12", "/x/claude.py"],
+                                  ["pypy3", "/x/claude"], ["node22", "/x/claude.js"], ["nodejs", "/x/claude"]])
+def test_an_agent_behind_an_interpreter_of_any_version_is_seen(argv):
+    """Ubuntu 26.04's env hands the interpreter its real name; python3.13 is as much python as python3."""
+    assert agent_in(argv, frozenset({"claude"})) == "claude"

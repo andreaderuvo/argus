@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 import subprocess
 import time
 from collections import deque
@@ -68,6 +69,9 @@ def launcher_words(commands: list[str]) -> frozenset[str]:
     return frozenset(out)
 
 
+INTERPRETER = re.compile(r"(node|nodejs|bun|deno|python|pypy)[0-9.]*")
+
+
 def agent_in(argv: list[str], names: frozenset[str]) -> str | None:
     """The agent a command line is, if any: argv[0], or argv[1] after an interpreter."""
     if not argv:
@@ -75,7 +79,9 @@ def agent_in(argv: list[str], names: frozenset[str]) -> str | None:
     first = os.path.basename(argv[0])
     if first in names:
         return first
-    if first in ("node", "bun", "deno", "python", "python3") and len(argv) > 1:
+    # An interpreter by any of its names: `python3.13`, `pypy3`, `node22` — what the program is
+    # really called once a shebang's `env` has found it (Ubuntu 26.04's env passes the real name).
+    if INTERPRETER.fullmatch(first) and len(argv) > 1:
         second = os.path.basename(argv[1])
         for suffix in (".js", ".mjs", ".cjs", ".py"):
             second = second.removesuffix(suffix)

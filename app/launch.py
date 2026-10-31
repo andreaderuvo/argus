@@ -475,6 +475,11 @@ def wait_until_settled(sock: tmux.Socket, session: str,
         now = _pulse(sock, session)
         if now is None:
             return False
+        # The instant before the pane's program is exec'd, tmux 3.6 names its command `tmux`:
+        # that becoming the shell is not the program drawing (it settled a pane at 1.7 s, CI).
+        if now.endswith(" tmux"):
+            time.sleep(LOOK_EVERY)
+            continue
         if now != last:
             moved = moved or last is not None
             last, still_since = now, time.monotonic()
