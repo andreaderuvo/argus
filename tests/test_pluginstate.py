@@ -4,6 +4,8 @@ press, reloaded only where a Claude sits at its prompt, and announced at the sta
 from __future__ import annotations
 
 import json
+import os
+import shutil
 import subprocess
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -190,3 +192,40 @@ def test_the_sessions_behind_are_listed_with_how_each_takes_the_new_plugin(clien
     said = c.get("/api/plugin").json()["behind"]
     assert [(b["session"], b["agent"], b["at_prompt"]) for b in said] == [
         ("busy", "claude", False), ("cx", "codex", False), ("idle", "claude", True)]
+
+
+@pytest.mark.skipif(not shutil.which("tmux"), reason="needs tmux")
+def test_a_session_start_tells_the_agent_its_session_and_to_use_argus_not_tmux(tmp_path):
+    """An agent asked to 'rename this session' ran tmux rename-session (2026-11-02): at the start of
+    each session in tmux it is told which session it is in and that Argus's tools change sessions."""
+    class Answer(BaseHTTPRequestHandler):
+        def do_GET(self):
+            body = json.dumps({"version": pluginstate.repo_version()}).encode()     # up to date
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_POST(self):
+            self.send_response(200)
+            self.end_headers()
+
+        def log_message(self, *a):
+            pass
+
+    server = HTTPServer(("127.0.0.1", 0), Answer)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    sock = f"argus-t-check-{os.getpid()}"
+    subprocess.run(["tmux", "-L", sock, "-f", "/dev/null", "new-session", "-d", "-s", "paper-claude"], check=True)
+    try:
+        path = subprocess.run(["tmux", "-L", sock, "display", "-p", "#{socket_path}"], capture_output=True, text=True).stdout.strip()
+        env = {"PATH": os.environ["PATH"], "HOME": str(tmp_path), "ARGUS_TOKEN": "t", "TMUX": f"{path},1,0",
+               "ARGUS_URL": f"http://127.0.0.1:{server.server_port}"}
+        out = subprocess.run([str(ROOT / "plugin" / "bin" / "argus-check")], capture_output=True, text=True, env=env, timeout=15).stdout
+        said = json.loads(out)
+        told = said["hookSpecificOutput"]["additionalContext"]
+        assert said["hookSpecificOutput"]["hookEventName"] == "SessionStart"
+        assert "`paper-claude`" in told and "never tmux" in told and "rename_session" in told
+        assert "systemMessage" not in said, "up to date: nothing said to the person"
+    finally:
+        subprocess.run(["tmux", "-L", sock, "kill-server"])
+        server.shutdown()

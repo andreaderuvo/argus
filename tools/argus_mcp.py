@@ -38,16 +38,18 @@ except ImportError:                               # run from the folder: tools/a
 
 VERSIONS = ("2025-06-18", "2025-03-26", "2024-11-05")
 INSTRUCTIONS = (
-    "Argus watches the tmux sessions on this machine and the person who owns them, often from a "
-    "phone. Use `ask` when a decision is theirs rather than guessing, and wait for the answer; "
-    "`ring` when you finish or fail, so they need not watch your pane; `who` before handing work "
-    "to another session with `relay`; `start_agent` to start a second agent, in its own git "
-    "worktree when it will change code; `open_desk` and `start_agent` with `desk` when asked to "
-    "lay agents out on a desk of their own; in an Argus team, `team_task` for your task and `team_done` to "
-    "report your turn when it is done; `team_check` and `team_propose` when asked to design a team "
-    "(write it as Mermaid or YAML, check it, propose it — the person starts it); `request` for what your "
-    "key cannot do — start a team in a desk, end a session, … — which the person approves with a tap; `todos` and `todo_set` when asked to work on the person's to-do "
-    "#n — mark it doing when you start and done when you finish."
+    "Argus watches the tmux sessions on this machine for the person who owns them, often from a phone. "
+    "Sessions, desks, windows, notes and to-dos go through these tools — never tmux itself: no "
+    "`tmux rename-session`, `kill-session`, `new-session` or `send-keys`. Argus keeps every open page in "
+    "step with what you do, and a stray tmux command here can end every session on the server. "
+    "Asked to… rename this session: `request` rename_session (`who` says which session is yours); rename "
+    "the desk: `rename_desk`; end a session: `request` kill_session; restart yourself on the new version: "
+    "`request` restart_agent; start another agent: `start_agent` (in a worktree when it will change code; "
+    "`desk` to put it on one); open a desk: `open_desk`; tell another session something: `who`, then "
+    "`relay`; write or read a note: `notes`, `note_*`; the to-do list, a deadline Argus rings for: `todos`, "
+    "`todo_add`, `todo_set`. `ask` when a decision is the person's, and wait; `ring` when you finish or fail. "
+    "`actions` lists what `request` can ask for — the person taps Do it or No. In an Argus team: `team_task`, "
+    "then `team_done`; to design one: `team_check`, `team_propose`."
 )
 
 TOOLS = [

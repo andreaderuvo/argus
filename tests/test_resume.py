@@ -223,3 +223,20 @@ def test_an_agent_restarted_keeps_its_session_folder_and_conversation(tmp_path, 
         assert client.post("/api/tmux/restart-agent", json={"session": "nope"}).status_code == 404
     finally:
         tm("kill-server")
+
+
+def test_a_reading_older_than_a_bring_back_does_not_lose_it_again(tmp_path):
+    """The register reads tmux in a thread; a reading begun while the server was down, folded in
+    after Bring back, called the session it had just brought back lost again (CI, 2026-11-02)."""
+    led = Ledger(tmp_path / "seen.json")
+    led.observe("srv-1", "b", {"api": {"agent": "claude", "cwd": "/w", "conversation": CONV, "seen": 1.0}}, {"api"}, read_at=0.5)
+    began = time.time()
+    led.observe(None, "b", {}, set(), read_at=began - 1)       # the server is down: api is lost
+    assert [x["name"] for x in led.lost()] == ["api"]
+    # Brought back, as /api/resume does it: off the lost list, on the register, seen now.
+    rec = led.data["lost"].pop("api")
+    led.data["sessions"]["api"] = {**rec, "seen": time.time()}
+    led.observe(None, "b", {}, set(), read_at=began)           # a reading begun before that
+    assert led.lost() == [], "not lost again"
+    led.observe("srv-2", "b", {"api": {**rec, "seen": time.time()}}, {"api"}, read_at=time.time())
+    assert led.lost() == [] and "api" in led.data["sessions"]

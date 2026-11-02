@@ -232,19 +232,31 @@ class Ledger:
         tmp.write_text(json.dumps(self.data, indent=1))
         os.replace(tmp, self.path)
 
-    def observe(self, server: str | None, boot: str, now: dict[str, dict], alive: set[str]) -> list[str]:
-        """Fold one reading in. Returns the sessions that have just been found lost."""
+    def observe(self, server: str | None, boot: str, now: dict[str, dict], alive: set[str],
+                read_at: float | None = None) -> list[str]:
+        """Fold one reading in. Returns the sessions that have just been found lost.
+
+        `read_at` is when the reading began: a session brought back after that (its `seen` is
+        later) is newer than the reading, which cannot know of it — it was taken while the server
+        was down, and would have called the session lost again (CI, a slow runner, 2026-11-02)."""
         d = self.data
         found = []
+        newer = lambda rec: read_at is not None and (rec or {}).get("seen", 0) > read_at  # noqa: E731
         changed = d.get("server") != server or (boot and d.get("boot") and boot != d.get("boot"))
         if changed:
+            kept = {n: rec for n, rec in d["sessions"].items() if newer(rec)}
             for name, rec in d["sessions"].items():
-                if name not in alive:
+                if name not in alive and not newer(rec):
                     d["lost"][name] = {**rec, "lost_at": time.time()}
                     found.append(name)
-            d["sessions"] = {}
+            d["sessions"] = kept
+            if kept:
+                # The reading is older than what was brought back: the server is not this one's.
+                d["boot"] = boot or d.get("boot", "")
+                self.save()
+                return found
         else:
-            for name in [n for n in d["sessions"] if n not in alive]:
+            for name in [n for n in d["sessions"] if n not in alive and not newer(d["sessions"][n])]:
                 del d["sessions"][name]          # ended on purpose, on a server still up
         for name, rec in now.items():
             old = d["sessions"].get(name) or {}

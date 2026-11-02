@@ -26,14 +26,28 @@ if [ -n "${TMUX:-}" ]; then
 fi
 OFFERED="$(curl -sk -m 2 -H "Authorization: Bearer $TOKEN" "$URL/api/plugin/version" 2>/dev/null \
   | python3 -c "import json,sys; print(json.load(sys.stdin).get('version',''))" 2>/dev/null)"
-[ -n "$OFFERED" ] || exit 0
-python3 - "$MINE" "$OFFERED" <<'PY'
+# Said to the model at the start of every session in tmux: which session it is in, and that Argus's
+# tools — not tmux — are how sessions, desks and windows change. Without it an agent asked to
+# "rename this session" ran tmux rename-session, and the pages lost the window (2026-11-02).
+python3 - "$MINE" "${OFFERED:-}" "${SESSION:-}" <<'PY'
 import json, sys
 key = lambda v: tuple(int(p) if p.isdigit() else 0 for p in v.split("."))
-mine, offered = sys.argv[1], sys.argv[2]
-if key(mine) < key(offered):
-    print(json.dumps({"systemMessage": f"Argus plugin {offered} is available (this session has {mine}): "
-                      "/plugin marketplace update argus, /plugin update argus@argus, then /reload-plugins "
-                      "— or press Update in Argus → Settings."}))
+mine, offered, session = sys.argv[1], sys.argv[2], sys.argv[3]
+out = {}
+if offered and key(mine) < key(offered):
+    out["systemMessage"] = (f"Argus plugin {offered} is available (this session has {mine}): "
+                            "/plugin marketplace update argus, /plugin update argus@argus, then /reload-plugins "
+                            "— or press Update in Argus → Settings.")
+if session:
+    out["hookSpecificOutput"] = {"hookEventName": "SessionStart", "additionalContext": (
+        f"You run in the tmux session `{session}`, which Argus watches for the person (often from a phone). "
+        "Sessions, desks, windows, notes and to-dos change through Argus's MCP tools (argus), never tmux: "
+        "do not run tmux rename-session, kill-session, new-session or send-keys. Rename this session: "
+        "request rename_session; rename the desk: rename_desk; end a session: request kill_session; restart "
+        "on a new version, keeping this conversation: request restart_agent; another agent: start_agent; "
+        "notes: notes / note_*; to-dos and deadlines: todos / todo_add / todo_set; a decision of theirs: ask; "
+        "done or failed: ring. `actions` lists what request can ask for.")}
+if out:
+    print(json.dumps(out))
 PY
 exit 0

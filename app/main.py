@@ -466,10 +466,11 @@ async def keeping_the_register(app: FastAPI) -> None:
     while True:
         try:
             told = dict(bells.store(types.SimpleNamespace(app=app))["conversations"])
+            read_at = time.time()
             answered, server, now, alive = await asyncio.to_thread(
                 resume.read_now, app.state.socket, app.state.agents.names, told)
             if answered:
-                lost = app.state.resume.observe(server, resume.boot_id(), now, alive)
+                lost = app.state.resume.observe(server, resume.boot_id(), now, alive, read_at)
                 if lost:
                     bells.announce(types.SimpleNamespace(app=app), {"what": "lost", "sessions": lost})
         except Exception:

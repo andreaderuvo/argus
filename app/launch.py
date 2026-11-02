@@ -374,6 +374,10 @@ def pane_command(name: str, folder: str | None, command: str) -> list[str]:
     """What a pane runs to start `command`: [] for a bare shell, else `sh -c …` around the line."""
     line = wrap(command)
     if not line:
+        # A bare shell: tmux's own, unless there is a folder to go to — Ubuntu 26.04's tmux 3.6
+        # started it in the server's directory despite -c (CI, 2026-11-02), so it goes there itself.
+        if folder:
+            return ["sh", "-c", f'cd {shell_quote(folder)} 2>/dev/null; exec "${{SHELL:-/bin/sh}}" -l']
         return []
     # What runs here knows its session, and finds `argus-say`: set after the login profile
     # (which may rebuild PATH), for the program and everything it starts — an agent in a
