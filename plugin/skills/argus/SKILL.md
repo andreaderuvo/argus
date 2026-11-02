@@ -48,6 +48,7 @@ phone. You reach it with the Argus tools (or `argus-say` from a shell). Three ki
 | continue, pause, stop a team | `team_go`, `team_pause`, `team_stop` | `team` (its name exactly as `teams` shows it — "Kraken paper" became `Kraken-paper`); `kill: true` also ends its sessions |
 | close a desk (its windows; the sessions keep running) | `close_desk` | `desk` (its name); not the last one |
 | end a session | `kill_session` | `session` |
+| restart a session's agent on the same conversation (after an update: the new version, the past kept) | `restart_agent` | `session`, `fresh` (start a new conversation when its id is not known) |
 | rename a session | `rename_session` | `session`, `to` |
 | start an agent with no questions at all | `start_agent` | `launcher`, `name`, `folder`, `prompt`, `press_enter`, `options` (`{"permissions": "skip"}` …) |
 | remove a worktree | `remove_worktree` | `path` |

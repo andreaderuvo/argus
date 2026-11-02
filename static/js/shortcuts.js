@@ -1,6 +1,6 @@
 // <imports> generated from what this file uses; edit the code, not this list
 import { savePrefs } from '/js/core.js';
-import { seeEverything } from '/js/counts.js';
+import { restartAgent, seeEverything } from '/js/counts.js';
 import { copyText, modal, toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { icon } from '/js/icons.js';
@@ -322,7 +322,20 @@ export function pluginBehind(info, after, { reload = true } = {}) {
     box.append(el('p', { className: 'hint' }, [el('span', { textContent: t('Claude at its prompt: {list} — ', { list: claudeReady.join(', ') }) }), go]));
   }
   if (claudeBusy.length) box.append(el('p', { className: 'hint', textContent: t('Claude working or asking you something: {list} — reload when it stops (its window offers it), or type /reload-plugins', { list: claudeBusy.join(', ') }) }));
-  if (others.length) box.append(el('p', { className: 'hint', textContent: t('Codex has no reload: {list} take the new plugin when the session starts again', { list: others.join(', ') }) }));
+  if (others.length) {
+    // Codex has no reload — but Argus can start it again on the same conversation.
+    const again = el('button', { className: 'ghost inline pluginreload', type: 'button',
+      textContent: t('Restart {n} on the same conversation', { n: others.length }) });
+    again.onclick = async () => {
+      again.disabled = true;
+      const done = [];
+      for (const name of others) if ((await restartAgent(name, { quiet: true }))?.restarted) done.push(name);
+      toast(done.length ? t('restarted on the same conversation: {list}', { list: done.join(', ') }) : t('nothing restarted'));
+      after?.();
+    };
+    box.append(el('p', { className: 'hint' }, [
+      el('span', { textContent: t('Codex has no reload: {list} — ', { list: others.join(', ') }) }), again]));
+  }
   return box;
 }
 

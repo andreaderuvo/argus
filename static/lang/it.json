@@ -1693,6 +1693,17 @@
   "There is no folder at {path}, and this Argus may not make one (start it with --allow-write).": "Non c’è nessuna cartella in {path}, e questo Argus non può crearla (avvialo con --allow-write).",
   "It can be made now, and the session will start in it.": "Si può creare adesso, e la sessione partirà lì.",
   "Sync this folder to your computer…": "Sincronizza questa cartella con il tuo computer…",
-  "Its folder, in a file browser on this desk": "La sua cartella, in un file browser su questo desk"
+  "Its folder, in a file browser on this desk": "La sua cartella, in un file browser su questo desk",
+  "Restart the agent — same conversation, the version installed now": "Riavvia l’agente — stessa conversazione, la versione installata ora",
+  "Restart {name}?": "Riavviare {name}?",
+  "It is working now: restarting stops what it is doing. The conversation is kept: {command}": "Sta lavorando: riavviarlo interrompe quello che sta facendo. La conversazione resta: {command}",
+  "Which conversation it is in is not known, so it would start a new one in the same folder: {command}": "Non si sa in quale conversazione sia, quindi ne inizierebbe una nuova nella stessa cartella: {command}",
+  "Start a new one": "Inizia una nuova",
+  "{name} restarted on the same conversation — the version installed now": "{name} riavviato nella stessa conversazione — con la versione installata ora",
+  "{name} restarted, on a new conversation in the same folder": "{name} riavviato, in una nuova conversazione nella stessa cartella",
+  "Restart {n} on the same conversation": "Riavvia {n} nella stessa conversazione",
+  "restarted on the same conversation: {list}": "riavviati nella stessa conversazione: {list}",
+  "nothing restarted": "nessun riavvio",
+  "Codex has no reload: {list} — ": "Codex non ha un reload: {list} — "
  }
 }

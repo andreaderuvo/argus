@@ -3,7 +3,7 @@ import { muteSession, muted, paintBells, quieten, ring, rung } from '/js/bells.j
 import { chained, deskChain, toggleChain } from '/js/chains.js';
 import { attachChanges } from '/js/changes.js';
 import { savePrefs } from '/js/core.js';
-import { agentStates, paintAllSeen, paintDeskStates, seeEverything } from '/js/counts.js';
+import { agentStates, paintAllSeen, paintDeskStates, restartAgent, seeEverything } from '/js/counts.js';
 import { ask, confirmBox, confirmWithCheck, copyText, modal, popMenu, showText, toast, undoToast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { holdFor, makeFolders, offerToMake } from '/js/filerows.js';
@@ -778,6 +778,17 @@ export async function screenWall() {
         };
       }
 
+      // The agent in it, ended and started again on the same conversation — on the version and the
+      // plugin installed now. Shown only where an agent runs (counts.js follows the states).
+      const renew = spec.kind === 'term'
+        ? el('button', { className: 'winbtn restartagent', hidden: !agentStates.has(spec.name),
+          title: t('Restart the agent — same conversation, the version installed now') }, icon('restart'))
+        : null;
+      if (renew) {
+        renew.dataset.session = spec.name;
+        renew.onclick = (ev) => { ev.stopPropagation(); restartAgent(spec.name); };
+      }
+
       const chain = spec.kind === 'term'
         ? el('button', { className: 'winbtn chainbtn' }, icon('link'))
         : null;
@@ -808,7 +819,7 @@ export async function screenWall() {
         });
         handle.onSubmitted?.((line) => submittedAlso(entry, line));
       }
-      if (spec.kind === 'term') extras.append(copyButton(handle, 'winbtn'), relabel, doom, quiet, dress, chain, ...sizeButtons(handle, 'winbtn'));
+      if (spec.kind === 'term') extras.append(copyButton(handle, 'winbtn'), relabel, renew, doom, quiet, dress, chain, ...sizeButtons(handle, 'winbtn'));
       /* What this session changed, beside it: shown once its folder turns out to be in a git
        *  repository, so a shell in /tmp does not carry a button that can only say "not a repo". */
       if (spec.kind === 'term' && facts) {

@@ -2421,6 +2421,43 @@ def create_app(cfg: Config) -> FastAPI:
             raise ApiError(502, str(e)) from e
         return {"name": to}
 
+    @app.post("/api/tmux/restart-agent", tags=["Sessions"], summary="Restart a session's agent on the same conversation")
+    async def restart_agent(request: Request, body: dict) -> dict:
+        """The agent in `session` ended and started again in the same session, folder and
+        conversation (`claude --resume <id>`, `codex resume <id>`) — on the version installed now,
+        and with the plugin as it is now. What it said before stays: it is the same conversation.
+
+        Asks rather than acts in two cases, answered 200 `{ask, how, command}`: `ask: "working"` —
+        the agent is busy and a restart stops what it is doing (`force: true` goes ahead); `ask:
+        "fresh"` — which conversation it is is not known, so it would start a new one in the same
+        folder (`fresh: true` goes ahead). Otherwise `{restarted, how, command}`."""
+        state = request.app.state
+        try:
+            name = tmux.check_name(str(body.get("session", "")))
+        except tmux.BadName as e:
+            raise ApiError(400, str(e)) from e
+        if not await asyncio.to_thread(tmux.session_exists, state.socket, name):
+            raise ApiError(404, f"no session called {name}")
+        told = dict(bells.store(request)["conversations"])
+        now = await asyncio.to_thread(resume.snapshot, state.socket, state.agents.names, told)
+        record = (now or {}).get(name)
+        if not record:
+            raise ApiError(400, f"no agent is running in {name}")
+        try:
+            line, how = resume.command_for(record)
+        except ValueError as e:
+            raise ApiError(400, str(e)) from e
+        working = (state.agents.states().get(name) or {}).get("state") == "working"
+        if working and not body.get("force"):
+            return {"ask": "working", "how": how, "command": line}
+        if how == "fresh" and not body.get("fresh"):
+            return {"ask": "fresh", "how": how, "command": line}
+        try:
+            how, line = await asyncio.to_thread(resume.restart, state.socket, name, record)
+        except tmux.TmuxError as e:
+            raise ApiError(502, str(e)) from e
+        return {"restarted": name, "how": how, "command": line, "agent": record["agent"]}
+
     @app.post("/api/tmux/kill", tags=["Sessions"], summary="End a session")
     async def kill_session(request: Request, body: dict) -> dict:
         """Killing a session ends everything running in it. The UI asks first."""

@@ -5874,6 +5874,52 @@
     ]
    }
   },
+  "/api/tmux/restart-agent": {
+   "post": {
+    "description": "The agent in `session` ended and started again in the same session, folder and\nconversation (`claude --resume <id>`, `codex resume <id>`) \u2014 on the version installed now,\nand with the plugin as it is now. What it said before stays: it is the same conversation.\n\nAsks rather than acts in two cases, answered 200 `{ask, how, command}`: `ask: \"working\"` \u2014\nthe agent is busy and a restart stops what it is doing (`force: true` goes ahead); `ask:\n\"fresh\"` \u2014 which conversation it is is not known, so it would start a new one in the same\nfolder (`fresh: true` goes ahead). Otherwise `{restarted, how, command}`.",
+    "operationId": "postApiTmuxRestartAgent",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Restart Agent Api Tmux Restart Agent Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Restart a session's agent on the same conversation",
+    "tags": [
+     "Sessions"
+    ]
+   }
+  },
   "/api/tmux/seen": {
    "post": {
     "description": "`{sessions: [...]}`. Each agent that is waiting stops asking for you \u2014 no amber on its\ndesk, its window or the counts \u2014 until it has worked and stopped again. Kept on the\nserver, so every device agrees. A session that is not waiting is left alone.",

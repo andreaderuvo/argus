@@ -1693,6 +1693,17 @@
   "There is no folder at {path}, and this Argus may not make one (start it with --allow-write).": "There is no folder at {path}, and this Argus may not make one (start it with --allow-write).",
   "It can be made now, and the session will start in it.": "It can be made now, and the session will start in it.",
   "Sync this folder to your computer…": "Sync this folder to your computer…",
-  "Its folder, in a file browser on this desk": "Its folder, in a file browser on this desk"
+  "Its folder, in a file browser on this desk": "Its folder, in a file browser on this desk",
+  "Restart the agent — same conversation, the version installed now": "Restart the agent — same conversation, the version installed now",
+  "Restart {name}?": "Restart {name}?",
+  "It is working now: restarting stops what it is doing. The conversation is kept: {command}": "It is working now: restarting stops what it is doing. The conversation is kept: {command}",
+  "Which conversation it is in is not known, so it would start a new one in the same folder: {command}": "Which conversation it is in is not known, so it would start a new one in the same folder: {command}",
+  "Start a new one": "Start a new one",
+  "{name} restarted on the same conversation — the version installed now": "{name} restarted on the same conversation — the version installed now",
+  "{name} restarted, on a new conversation in the same folder": "{name} restarted, on a new conversation in the same folder",
+  "Restart {n} on the same conversation": "Restart {n} on the same conversation",
+  "restarted on the same conversation: {list}": "restarted on the same conversation: {list}",
+  "nothing restarted": "nothing restarted",
+  "Codex has no reload: {list} — ": "Codex has no reload: {list} — "
  }
 }

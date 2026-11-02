@@ -415,6 +415,14 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   `codex resume <id>`, else a fresh agent in the same folder, said so). Kept in
   `agents-seen.json` beside the config; the browser harness runs it every second
   (`ARGUS_REGISTER_EVERY`) and forgets losses between tests.
+- **Restart an agent on the same conversation** (`POST /api/tmux/restart-agent`, `resume.restart`,
+  `launch.respawn`, counts.js `restartAgent`, tests in test_resume.py and tests/browser/test_restart_agent.py).
+  The pane's process is replaced (`respawn-pane -k`, the same login-shell line as `launch.start` via
+  `pane_command`) by `claude --resume <id>` / `codex resume <id>` from the register's reading: the same
+  session, folder and conversation, on the version and plugin installed now. Answers `{ask: working}`
+  (it would stop mid-work; `force`) or `{ask: fresh}` (id unknown, a new conversation; `fresh`) with 200.
+  In every agent window's ⋮ (shown where agentStates has the session), in the plugin dialog for Codex
+  sessions behind (Codex has no reload), and to agents as the consent action `restart_agent`.
 - **A screen that awaits before appending checks `renderSeq`** (router.js): two overlapping
   renders both emptied the view first and both appended, and Sessions showed twice.
 

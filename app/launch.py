@@ -370,27 +370,42 @@ def wait_for(line: str) -> str:
 TOOLS = Path(__file__).resolve().parent.parent / "tools"
 
 
+def pane_command(name: str, folder: str | None, command: str) -> list[str]:
+    """What a pane runs to start `command`: [] for a bare shell, else `sh -c …` around the line."""
+    line = wrap(command)
+    if not line:
+        return []
+    # What runs here knows its session, and finds `argus-say`: set after the login profile
+    # (which may rebuild PATH), for the program and everything it starts — an agent in a
+    # team reports with `argus-say turn`, and an Argus run from a checkout has no
+    # `argus-say` on the PATH otherwise (seen on a real team, 2026-10-07).
+    line = (f"export ARGUS_SESSION={shell_quote(name)}; "
+            f"export PATH={shell_quote(str(TOOLS))}:\"$PATH\"; {line}")
+    # And in the folder, said again after the login profile: Ubuntu 26.04's tmux 3.6 started a
+    # session in the server's own directory despite -c (seen on CI, 2026-10-31), and a
+    # profile may move too. An agent started anywhere else works on the wrong files.
+    if folder:
+        line = f"cd {shell_quote(folder)} 2>/dev/null; {line}"
+    # The user's shell, told to log in, so profiles are read. `-c` takes the whole line,
+    # which is why a launcher may be `conda activate x && claude` rather than a bare word.
+    return ["sh", "-c", f'exec "${{SHELL:-/bin/sh}}" -l -c {shell_quote(line)}']
+
+
 def start(sock: tmux.Socket, name: str, folder: str | None, command: str) -> None:
     argv = ["tmux", *sock.args(), "new-session", "-d", "-s", name]
     if folder:
         argv += ["-c", folder]
-    line = wrap(command)
-    if line:
-        # What runs here knows its session, and finds `argus-say`: set after the login profile
-        # (which may rebuild PATH), for the program and everything it starts — an agent in a
-        # team reports with `argus-say turn`, and an Argus run from a checkout has no
-        # `argus-say` on the PATH otherwise (seen on a real team, 2026-10-07).
-        line = (f"export ARGUS_SESSION={shell_quote(name)}; "
-                f"export PATH={shell_quote(str(TOOLS))}:\"$PATH\"; {line}")
-        # And in the folder, said again after the login profile: Ubuntu 26.04's tmux 3.6 started a
-        # session in the server's own directory despite -c (seen on CI, 2026-10-31), and a
-        # profile may move too. An agent started anywhere else works on the wrong files.
-        if folder:
-            line = f"cd {shell_quote(folder)} 2>/dev/null; {line}"
-        # The user's shell, told to log in, so profiles are read. `-c` takes the whole line,
-        # which is why a launcher may be `conda activate x && claude` rather than a bare word.
-        argv += ["sh", "-c", f'exec "${{SHELL:-/bin/sh}}" -l -c {shell_quote(line)}']
-    tmux.run(argv)
+    tmux.run(argv + pane_command(name, folder, command))
+
+
+def respawn(sock: tmux.Socket, name: str, folder: str | None, command: str) -> None:
+    """The same session, its program ended and `command` started in its place — exactly as `start`
+    would start it: the login shell, the folder, Argus's tools on the PATH. The session, its
+    window, its place on every desk stay; only what runs in its pane is new."""
+    argv = ["tmux", *sock.args(), "respawn-pane", "-k", "-t", f"={name}:"]
+    if folder:
+        argv += ["-c", folder]
+    tmux.run(argv + pane_command(name, folder, command))
 
 
 def shell_quote(s: str) -> str:

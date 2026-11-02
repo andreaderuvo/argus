@@ -49,6 +49,7 @@ ACTIONS = {
     "close_desk": "close a desk — its windows go; the sessions in them keep running",
     "kill_session": "end a tmux session, and what runs in it",
     "rename_session": "rename a tmux session",
+    "restart_agent": "restart a session's agent on the same conversation, on the version installed now",
     "start_agent": "start an agent with options its key may not choose (everything, no questions)",
     "remove_worktree": "remove a git worktree",
     "todo_delete": "take a to-do off the list",
@@ -284,6 +285,14 @@ def plan(app, action: str, args: dict) -> dict:
             raise ValueError("say which session (`session`)")
         return {"calls": [("POST", "/api/tmux/kill", {"name": name})],
                 "text": f"end the session {name}, and everything running in it"}
+    if action == "restart_agent":
+        name = str(args.get("session") or "").strip()
+        if not name:
+            raise ValueError("say which session (`session`)")
+        body = {"session": name, "force": True, **({"fresh": True} if args.get("fresh") else {})}
+        return {"calls": [("POST", "/api/tmux/restart-agent", body)],
+                "text": f"restart the agent in {name} on the same conversation, on the version installed now"
+                        " — what it is doing now stops"}
     if action == "rename_session":
         name, to = str(args.get("session") or "").strip(), str(args.get("to") or "").strip()
         if not name or not to:

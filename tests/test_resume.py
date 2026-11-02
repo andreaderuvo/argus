@@ -181,3 +181,45 @@ def test_a_killed_server_and_its_agent_brought_back(tmp_path, client):
         assert said["lost"] == []
     finally:
         tm("kill-server")
+
+
+def test_an_agent_restarted_keeps_its_session_folder_and_conversation(tmp_path, client):
+    """'Restart an agent without losing the past, on the updated version' (2026-11-02): the process in
+    the pane ends and `claude --resume <id>` starts in its place — same session, same folder."""
+    import types
+    from app import bells
+    agent = tmp_path / "claude"
+    agent.write_text(FAKE)
+    agent.chmod(0o755)
+    work = tmp_path / "work"
+    work.mkdir()
+    name = f"argus-t-restart-{os.getpid()}"
+    sock = Socket.new(name)
+    env = {k: v for k, v in os.environ.items() if k not in ("TMUX", "TMUX_PANE")}
+    tm = lambda *a: subprocess.run(["tmux", "-L", name, *a], env=env, capture_output=True, text=True)
+    try:
+        tm("-f", "/dev/null", "new-session", "-d", "-s", "api", "-c", str(work), "-x", "80", "-y", "20",
+           f"{agent} --dangerously-skip-permissions")
+        tm("new-session", "-d", "-s", "plain", "-x", "80", "-y", "20")
+        app = client.app_
+        app.state.socket = sock
+        app.state.agents.names = frozenset({"claude"})
+        before = tm("list-panes", "-t", "api", "-F", "#{pane_pid}").stdout.strip()
+
+        # Which conversation is not known yet: asked, not done.
+        said = client.post("/api/tmux/restart-agent", json={"session": "api"}).json()
+        assert said["ask"] == "fresh" and said["command"].startswith("claude ")
+        assert tm("list-panes", "-t", "api", "-F", "#{pane_pid}").stdout.strip() == before, "nothing restarted"
+
+        bells.store(types.SimpleNamespace(app=app))["conversations"]["api"] = CONV
+        said = client.post("/api/tmux/restart-agent", json={"session": "api"}).json()
+        assert said["restarted"] == "api" and said["how"] == "resume", said
+        started = tm("list-panes", "-t", "api", "-F", "#{pane_start_command}\t#{pane_current_path}\t#{pane_pid}").stdout
+        assert f"claude --resume {CONV} --dangerously-skip-permissions" in started, started
+        assert str(work) in started and before not in started.split("\t")[-1], "a new process, in the same folder"
+        assert set(tm("list-sessions", "-F", "#{session_name}").stdout.split()) == {"api", "plain"}, "the same session"
+
+        assert client.post("/api/tmux/restart-agent", json={"session": "plain"}).status_code == 400, "no agent there"
+        assert client.post("/api/tmux/restart-agent", json={"session": "nope"}).status_code == 404
+    finally:
+        tm("kill-server")

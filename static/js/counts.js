@@ -1,6 +1,6 @@
 // <imports> generated from what this file uses; edit the code, not this list
 import { quieten, rung } from '/js/bells.js';
-import { toast } from '/js/dialogs.js';
+import { confirmBox, toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { getJSON, postJSON } from '/js/reconnect.js';
 import { hamburger, nav, prefs, token } from '/js/state.js';
@@ -84,6 +84,7 @@ export function applyAgentStates(states) {
     markOldPlugin(win, st);
   }
   for (const pill of document.querySelectorAll('.agentstate[data-session]')) paintState(pill, agentStates.get(pill.dataset.session));
+  for (const b of document.querySelectorAll('.restartagent[data-session]')) b.hidden = !agentStates.has(b.dataset.session);
   paintDeskStates();
   // A bell's mark lasts until its agent is back at work: it said "your turn", and your turn is
   // over once the agent is working again, whether you answered from this page or another.
@@ -347,4 +348,28 @@ export function showCount(tab, n) {
   // Amber the moment one of them is asking for you: the number alone says how many
   // exist, not that one of them has stopped and is waiting.
   badge.classList.toggle('wants', wants);
+}
+
+
+/** End a session's agent and start it again on the same conversation (POST /api/tmux/restart-agent):
+ *  the version and the plugin installed now, the past kept. Asks first when it is working (it would
+ *  stop) or when which conversation it is is not known (it would start a new one). */
+export async function restartAgent(name, { quiet = false } = {}) {
+  const ask = async (extra = {}) => postJSON('/api/tmux/restart-agent', { session: name, ...extra });
+  try {
+    let said = await ask();
+    if (said.ask === 'working') {
+      if (!await confirmBox(t('Restart {name}?', { name }), t('It is working now: restarting stops what it is doing. The conversation is kept: {command}', { command: said.command }), t('Restart'))) return null;
+      said = await ask({ force: true });
+    }
+    if (said.ask === 'fresh') {
+      if (!await confirmBox(t('Restart {name}?', { name }), t('Which conversation it is in is not known, so it would start a new one in the same folder: {command}', { command: said.command }), t('Start a new one'))) return null;
+      said = await ask({ force: true, fresh: true });
+    }
+    if (said.restarted && !quiet) {
+      toast(said.how === 'resume' ? t('{name} restarted on the same conversation — the version installed now', { name })
+        : t('{name} restarted, on a new conversation in the same folder', { name }));
+    }
+    return said;
+  } catch (e) { toast(e.message, true); return null; }
 }

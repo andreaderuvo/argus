@@ -29,7 +29,7 @@ import time
 from pathlib import Path
 
 from . import procs, tmux
-from .agentstate import KNOWN, agent_in, parse_ps
+from .agentstate import INTERPRETER, KNOWN, agent_in, parse_ps
 
 KEEP_LOST = 14 * 86400          # a loss nobody acted on for two weeks is not going to be
 MAX_AT_ONCE = 20
@@ -168,7 +168,7 @@ def snapshot(sock: tmux.Socket, names: frozenset[str], told: dict[str, str]) -> 
             if not agent:
                 continue
             # A node or python launcher: the agent's own words start after the script.
-            words = argv[2:] if os.path.basename(argv[0]) in ("node", "bun", "deno", "python", "python3") else argv[1:]
+            words = argv[2:] if INTERPRETER.fullmatch(os.path.basename(argv[0])) else argv[1:]
             try:
                 cwd = os.readlink(f"/proc/{pid}/cwd")
             except OSError:
@@ -292,6 +292,16 @@ def read_now(sock: tmux.Socket, names: frozenset[str], told: dict[str, str]):
     except Exception:
         return False, None, {}, set()
     return True, server, current, alive
+
+
+def restart(sock: tmux.Socket, name: str, record: dict) -> tuple[str, str]:
+    """The agent in session `name` ended and started again in its place, on the same conversation —
+    and so on whatever version is installed now. Returns (how, the line it ran)."""
+    line, how = command_for(record)
+    folder = record.get("cwd") if record.get("cwd") and os.path.isdir(record["cwd"]) else None
+    from . import launch
+    launch.respawn(sock, name, folder, line)
+    return how, line
 
 
 def bring_back(sock: tmux.Socket, record: dict, name: str, home: str) -> str:
