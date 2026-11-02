@@ -117,7 +117,8 @@ function lostTheServer() {
     el('h2', { textContent: t('Argus is not answering') }),
     el('p', { className: 'hint', textContent: t('The machine, the service or the network — from here they look the same. Your tmux sessions are not affected: they run on the machine, not in this page.') }),
     said,
-    el('div', { className: 'lostrow' }, [again, now]),
+    // Not `lostrow`: that is a lost agent's row on Sessions, and the two shared their styles and a test.
+    el('div', { className: 'lostbtns' }, [again, now]),
   ]);
   const veil = el('div', { className: 'lostveil' }, [box]);
   document.body.append(veil);

@@ -38,4 +38,9 @@ def test_a_window_restarts_its_agent_from_its_menu(make_page, argus, tmp_path):
         assert "agent" in argus.sessions(), "the same session"
         time.sleep(0.5)
     finally:
+        # Not the server's last session: ending it would end the server, and the register would
+        # rightly list the agent as lost — on the next test's Sessions screen.
+        argus.tmux("new-session", "-d", "-s", "keep-server", check=False)
         argus.tmux("kill-session", "-t", "agent", check=False)
+        time.sleep(1.6)               # the register (every second here) sees it ended on a live server
+        argus.tmux("kill-session", "-t", "keep-server", check=False)

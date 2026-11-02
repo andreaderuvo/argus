@@ -38,4 +38,11 @@ def test_lost_agents_are_offered_back_and_come_back(make_page, argus, tmp_path):
     started = argus.tmux("list-panes", "-t", "paper", "-F", "#{pane_start_command}\t#{pane_current_path}").stdout
     assert f"claude --resume {CONV} --dangerously-skip-permissions" in started
     assert str(work) in started
-    page.wait("!document.querySelector('.lostrow')", timeout=10, what="the card to go once it is back")
+    try:
+        # Its own card: another test's agent, lost when its tmux server ended, may be listed beside it.
+        page.wait("![...document.querySelectorAll('.lostrow')].some(r => r.textContent.includes('paper'))",
+                  timeout=10, what="the card to go once it is back")
+    except Exception as e:
+        # Said in full on failure: it failed only under load (CI's slow runner), where nobody sees the page.
+        raise AssertionError(f"the card stayed. Rows: {page.eval('JSON.stringify([...document.querySelectorAll(\".lostrow\")].map(r => r.textContent))')}"
+                             f" | the server: {argus.api('/api/resume')} | sessions: {argus.sessions()}") from e

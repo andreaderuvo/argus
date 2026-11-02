@@ -559,7 +559,7 @@ canvas.meshview:active { cursor: grabbing; }
 .lostbox h2 { margin: 0 0 .5rem; font-size: 1.1rem; color: var(--bright); }
 .lostbox .hint { margin: 0 0 .9rem; }
 .lostsaid { margin: 0 0 1rem; color: var(--st-warning); font-variant-numeric: tabular-nums; }
-.lostrow { display: flex; gap: .6rem; justify-content: flex-end; flex-wrap: wrap; }
+.lostbtns { display: flex; gap: .6rem; justify-content: flex-end; flex-wrap: wrap; }
 
 /* The filter over a long list of sessions, and the one in the sheet inside a desk. The
    journal's bar and its box already look right; this borrows both rather than inventing a
