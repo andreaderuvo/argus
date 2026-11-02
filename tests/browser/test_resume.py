@@ -44,5 +44,6 @@ def test_lost_agents_are_offered_back_and_come_back(make_page, argus, tmp_path):
                   timeout=10, what="the card to go once it is back")
     except Exception as e:
         # Said in full on failure: it failed only under load (CI's slow runner), where nobody sees the page.
-        raise AssertionError(f"the card stayed. Rows: {page.eval('JSON.stringify([...document.querySelectorAll(\".lostrow\")].map(r => r.textContent))')}"
-                             f" | the server: {argus.api('/api/resume')} | sessions: {argus.sessions()}") from e
+        rows = page.eval("JSON.stringify([...document.querySelectorAll('.lostrow')].map(r => r.textContent))")
+        raise AssertionError(f"the card stayed. Rows: {rows} | the server: {argus.api('/api/resume')}"
+                             f" | sessions: {argus.sessions()}") from e

@@ -156,7 +156,14 @@ class Page(Session):
             elif m == "Network.responseReceived":
                 r = p["response"]
                 if r["url"].startswith(self.origin) and r["status"] >= 400:
-                    out.append(f"http {r['status']}: {r['url'][len(self.origin):]}")
+                    # With what the server said: on a runner nobody watches, the status alone left a
+                    # 502 from tmux unexplained (CI, 2026-11-02).
+                    said = ""
+                    try:
+                        said = self.send("Network.getResponseBody", {"requestId": p["requestId"]}).get("body", "")[:240]
+                    except Exception:
+                        pass
+                    out.append(f"http {r['status']}: {r['url'][len(self.origin):]}" + (f" — {said}" if said else ""))
                 # A module answered with HTML is a missing file: serve_static falls back to the
                 # index page, and the browser then refuses it as "not a module".
                 if (r["url"].startswith(self.origin) and r["url"].split("?")[0].endswith(".js")
