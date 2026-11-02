@@ -1,0 +1,90 @@
+#!/usr/bin/env python3
+"""PreToolUse: an agent about to change Argus's tmux server by hand is told to use Argus instead.
+
+Asked to "open a new session claude-x", an agent ran tmux to look around and to make it — as if it
+did not know it had the means (2026-11-02). Argus's MCP tools do it in one call and keep every open
+page in step; a stray tmux command does neither, and on some machines can end every session.
+
+Only real commands are looked at: each shell segment's first word must be tmux, with no -L/-S (a
+socket of its own — tests, experiments — is left alone), and a subcommand that changes sessions.
+Reading (list-sessions, display, show-buffer…) goes through. Words inside quotes — a prompt that
+mentions tmux — are not commands. Says nothing and allows when anything is unclear.
+"""
+
+import json
+import re
+import shlex
+import sys
+
+TOOLS = "mcp__plugin_argus_argus__"
+# What changes sessions → what to use instead.
+INSTEAD = {
+    "new-session": "start_agent (launcher, name, folder, prompt) — or open_desk",
+    "new": "start_agent (launcher, name, folder, prompt) — or open_desk",
+    "kill-session": "request with action kill_session (session)",
+    "kill-server": "nothing: that would end every session",
+    "rename-session": "request with action rename_session (session, to)",
+    "rename": "request with action rename_session (session, to)",
+    "send-keys": "relay (to, text, press_enter)",
+    "send": "relay (to, text, press_enter)",
+    "respawn-pane": "request with action restart_agent (session)",
+    "new-window": "start_agent (launcher, name, folder, prompt)",
+    "neww": "start_agent (launcher, name, folder, prompt)",
+    "rename-window": "request with action rename_session (session, to)",
+    "split-window": "start_agent (a session of its own)",
+    "splitw": "start_agent (a session of its own)",
+    "attach-session": "nothing: the person attaches, in Argus",
+    "attach": "nothing: the person attaches, in Argus",
+}
+
+
+def commands(text: str):
+    """(subcommand, own_socket) for each tmux invocation that is a command of its own."""
+    for segment in re.split(r"(?:&&|\|\||[;&|\n])", text):
+        try:
+            words = shlex.split(segment)
+        except ValueError:
+            continue
+        while words and ("=" in words[0] and not words[0].startswith("-")):   # VAR=x tmux …
+            words.pop(0)
+        if not words or words[0].rsplit("/", 1)[-1] != "tmux":
+            continue
+        own = False
+        rest = words[1:]
+        while rest and rest[0].startswith("-"):
+            flag = rest.pop(0)
+            if flag in ("-L", "-S"):
+                own = True
+                if rest:
+                    rest.pop(0)
+            elif flag in ("-f", "-c", "-T") and rest:
+                rest.pop(0)
+        if rest:
+            yield rest[0], own
+
+
+def main() -> int:
+    try:
+        said = json.load(sys.stdin)
+    except (ValueError, OSError):
+        return 0
+    command = (said.get("tool_input") or {}).get("command")
+    if isinstance(command, list):
+        command = " ".join(command)
+    if not isinstance(command, str) or "tmux" not in command:
+        return 0
+    for sub, own in commands(command):
+        if own or sub not in INSTEAD:
+            continue
+        reason = (f"Not tmux {sub}: sessions are Argus's. Use the Argus MCP tool instead — {INSTEAD[sub]}. "
+                  f"Its full name is {TOOLS}<tool>; if it is not loaded yet, load it first "
+                  f"(ToolSearch \"select:{TOOLS}start_agent,{TOOLS}request,{TOOLS}relay,{TOOLS}who\"). "
+                  "Or the same from a shell: argus-say start|request|relay|who.")
+        print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
+                                                  "permissionDecisionReason": reason}}))
+        return 0
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

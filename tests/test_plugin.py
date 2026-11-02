@@ -53,7 +53,32 @@ def test_the_hooks_say_start_done_and_asking():
         "Notification": '"${CLAUDE_PLUGIN_ROOT}/bin/argus-bell" asking',      # Claude
         "PermissionRequest": '"${CLAUDE_PLUGIN_ROOT}/bin/argus-bell" asking',  # Codex (and Claude)
         "SessionStart": '"${CLAUDE_PLUGIN_ROOT}/bin/argus-check"',            # a newer plugin? say so
+        "PreToolUse": '"${CLAUDE_PLUGIN_ROOT}/bin/argus-guard"',              # Argus's tools, not tmux
     }
+
+
+GUARD = [
+    ("tmux new-session -d -s x claude", True), ("cd /x && tmux rename-session -t a b", True),
+    ("FOO=1 /usr/bin/tmux send-keys -t a ls Enter", True), ("tmux kill-session -t a", True),
+    ("tmux list-panes -a", False), ("tmux display -p '#S'", False),
+    ("tmux -L argus-test new-session -d -s probe", False),            # a socket of its own: tests
+    ('argus-say start "Claude Code" x --prompt "never run tmux new-session"', False),   # words in a prompt
+    ('echo "tmux kill-session"', False), ("ls -la", False),
+]
+
+
+@pytest.mark.parametrize("command,denied", GUARD)
+def test_the_guard_stops_tmux_changes_and_names_the_tool(command, denied):
+    """Asked to open a session, an agent ran tmux as if it did not know its means (2026-11-02)."""
+    for tool in ("Bash", "shell"):
+        done = subprocess.run([str(PLUGIN / "bin" / "argus-guard")], input=json.dumps(
+            {"tool_name": tool, "tool_input": {"command": command}}), capture_output=True, text=True, timeout=10)
+        assert done.returncode == 0
+        if denied:
+            out = json.loads(done.stdout)["hookSpecificOutput"]
+            assert out["permissionDecision"] == "deny" and "mcp__plugin_argus_argus__" in out["permissionDecisionReason"]
+        else:
+            assert done.stdout == "", done.stdout
 
 
 def run_mcp_command(env_extra: dict, cwd: Path) -> dict:
@@ -96,7 +121,7 @@ def test_claude_validates_both_manifests():
 # version changes: on 2026-10-06 rename_desk was added under the same 0.1.0 and '/plugin update'
 # kept the old copy, without the tool. Change anything in plugin/ and this fails until the version
 # goes up and its hash is added here.
-RELEASED = {"0.1.1": "0c47653f71ed8691", "0.1.2": "119c80ea223b38c1", "0.1.3": "6a94fa2f84f0fb7f", "0.1.4": "c2d4b0c927f765f0", "0.1.5": "825cf3dc981918fe", "0.1.6": "b25847a26f5cbf2f", "0.1.7": "d88abaa232d82332", "0.1.8": "206de9ba5939dd39", "0.1.9": "9085fca9d6aca6d7", "0.1.10": "e96fde2fe3ff36ed", "0.1.11": "ccede2ff0451c374", "0.1.12": "b887cd2a7560c29c", "0.1.13": "5e270e6f6f88fab5", "0.1.14": "0374be41babb7552", "0.1.15": "5bb7cf3195436d17", "0.1.16": "72ec788f08e174ea", "0.1.17": "5dc532300ecc0531", "0.1.18": "412f0c89d568d631", "0.1.19": "f2a6e80b1d7814bf", "0.1.20": "e9c73df7f6f813e2", "0.1.21": "61d567979d79d6c3", "0.1.22": "1c8bf4545fd87b37", "0.1.23": "d49ff034ca9be15a", "0.1.24": "767e705d4b53dcf7", "0.1.25": "696f871af30f80b6", "0.1.26": "1ed0b27205f42898", "0.1.27": "983bd26872486422", "0.1.28": "caefaba38a949881", "0.1.29": "4370e0d8f99411fe", "0.1.30": "81a1484cd24e04a7", "0.1.31": "97e8835ba6d626f2"}
+RELEASED = {"0.1.1": "0c47653f71ed8691", "0.1.2": "119c80ea223b38c1", "0.1.3": "6a94fa2f84f0fb7f", "0.1.4": "c2d4b0c927f765f0", "0.1.5": "825cf3dc981918fe", "0.1.6": "b25847a26f5cbf2f", "0.1.7": "d88abaa232d82332", "0.1.8": "206de9ba5939dd39", "0.1.9": "9085fca9d6aca6d7", "0.1.10": "e96fde2fe3ff36ed", "0.1.11": "ccede2ff0451c374", "0.1.12": "b887cd2a7560c29c", "0.1.13": "5e270e6f6f88fab5", "0.1.14": "0374be41babb7552", "0.1.15": "5bb7cf3195436d17", "0.1.16": "72ec788f08e174ea", "0.1.17": "5dc532300ecc0531", "0.1.18": "412f0c89d568d631", "0.1.19": "f2a6e80b1d7814bf", "0.1.20": "e9c73df7f6f813e2", "0.1.21": "61d567979d79d6c3", "0.1.22": "1c8bf4545fd87b37", "0.1.23": "d49ff034ca9be15a", "0.1.24": "767e705d4b53dcf7", "0.1.25": "696f871af30f80b6", "0.1.26": "1ed0b27205f42898", "0.1.27": "983bd26872486422", "0.1.28": "caefaba38a949881", "0.1.29": "4370e0d8f99411fe", "0.1.30": "81a1484cd24e04a7", "0.1.31": "97e8835ba6d626f2", "0.1.32": "b2a941703e31cf6f"}
 
 
 def plugin_hash() -> str:

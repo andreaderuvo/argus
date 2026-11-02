@@ -42,6 +42,8 @@ INSTRUCTIONS = (
     "Sessions, desks, windows, notes and to-dos go through these tools — never tmux itself: no "
     "`tmux rename-session`, `kill-session`, `new-session` or `send-keys`. Argus keeps every open page in "
     "step with what you do, and a stray tmux command here can end every session on the server. "
+    "Open a new session with an agent in one call: `start_agent` (launcher \"Claude Code\" or \"Codex\", name, "
+    "folder, prompt) — no looking around in tmux first. "
     "Asked to… rename this session: `request` rename_session (`who` says which session is yours); rename "
     "the desk: `rename_desk`; end a session: `request` kill_session; restart yourself on the new version: "
     "`request` restart_agent; start another agent: `start_agent` (in a worktree when it will change code; "

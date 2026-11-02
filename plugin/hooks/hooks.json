@@ -50,6 +50,18 @@
           }
         ]
       }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|shell|exec_command|local_shell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/bin/argus-guard\"",
+            "timeout": 5
+          }
+        ]
+      }
     ]
   }
 }

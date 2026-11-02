@@ -41,12 +41,16 @@ if offered and key(mine) < key(offered):
 if session:
     out["hookSpecificOutput"] = {"hookEventName": "SessionStart", "additionalContext": (
         f"You run in the tmux session `{session}`, which Argus watches for the person (often from a phone). "
-        "Sessions, desks, windows, notes and to-dos change through Argus's MCP tools (argus), never tmux: "
-        "do not run tmux rename-session, kill-session, new-session or send-keys. Rename this session: "
-        "request rename_session; rename the desk: rename_desk; end a session: request kill_session; restart "
-        "on a new version, keeping this conversation: request restart_agent; another agent: start_agent; "
-        "notes: notes / note_*; to-dos and deadlines: todos / todo_add / todo_set; a decision of theirs: ask; "
-        "done or failed: ring. `actions` lists what request can ask for.")}
+        "You have Argus's MCP tools, named mcp__plugin_argus_argus__<tool>; if they are listed but not loaded, "
+        "load them first with ToolSearch (\"select:mcp__plugin_argus_argus__start_agent,"
+        "mcp__plugin_argus_argus__who,mcp__plugin_argus_argus__request\" — or by keyword \"argus\"). "
+        "Sessions, desks, windows, notes and to-dos change through them, never tmux: no tmux new-session, "
+        "rename-session, kill-session or send-keys. Open a new session with an agent: start_agent (launcher "
+        "\"Claude Code\" or \"Codex\", name, folder, prompt) — one call, no looking around first. Rename this "
+        "session: request rename_session; rename the desk: rename_desk; end a session: request kill_session; "
+        "restart on a new version keeping this conversation: request restart_agent; tell another session: who, "
+        "then relay; notes: notes / note_*; to-dos and deadlines: todos / todo_add / todo_set; a decision of "
+        "theirs: ask; done or failed: ring. `actions` lists what request can ask for. From a shell: argus-say.")}
 if out:
     print(json.dumps(out))
 PY
