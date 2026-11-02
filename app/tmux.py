@@ -62,7 +62,10 @@ def is_no_server(stderr: str) -> bool:
     return any(
         m in s
         for m in ("no server running", "error connecting", "no current client", "failed to connect to server",
-                  "server exited unexpectedly", "lost server", "no sessions")
+                  "server exited unexpectedly", "lost server", "no sessions",
+                  # tmux 3.6 (Ubuntu 26.04), a server between its last session and its next one: a
+                  # team ending its sessions and starting others answered this, and the page a 502.
+                  "no current target")
     )
 
 

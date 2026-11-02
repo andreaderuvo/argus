@@ -60,6 +60,7 @@ def test_a_snapshot_reads_the_process_table_once():
     # The server holding no session for a moment as it ends.
     ("", "no sessions", []),
     ("", "no server running on /tmp/tmux-1/x", []),
+    ("", "no current target", []),                       # tmux 3.6, a server with no session for an instant
 ])
 def test_a_session_list_caught_mid_change_is_still_a_list(monkeypatch, stdout, stderr, want):
     """Found by CI (2026-10-17): a page counting sessions while a team restarted got a 502."""
