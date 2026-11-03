@@ -317,6 +317,11 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
 - **A session made again under the same name is a new session** (agentstate `held`): keyed by
   window id *and* `#{session_created}`, because a new tmux server numbers windows from @0 again.
   Without it a recreated session inherited the old one's wait and its dismissal.
+- **The dock** (wall.js `paintDock`, `entry.dockIt/undock`, tests/browser/test_dock.py). A window's – puts it
+  in a bar along the bottom of its desk (`spec.docked`, kept with the desk): hidden, out of every layout
+  (`arrange` filters hidden windows and leaves the dock's strip free), still running — a terminal's
+  relayout skips a zero-size box, so tmux is never told it shrank. A chip (colour, kind, name; amber when
+  its agent waits, counts.js) or `raiseWindow` (the rail, the window list, a path clicked) brings it back.
 - **Each `.deck` is `isolation: isolate`.** A window's z-index grows by one per raise with no
   ceiling, and outranked the desk card and every overlay on the page; contained, it cannot.
 - **Desk tabs drag to reorder, and pin.** `reorderTab()` starts only once the pointer has

@@ -85,6 +85,12 @@ export function applyAgentStates(states) {
   }
   for (const pill of document.querySelectorAll('.agentstate[data-session]')) paintState(pill, agentStates.get(pill.dataset.session));
   for (const b of document.querySelectorAll('.restartagent[data-session]')) b.hidden = !agentStates.has(b.dataset.session);
+  // A docked window's agent still says when it waits for you, on its chip in the dock.
+  for (const chip of document.querySelectorAll('.dockchip[data-session]')) {
+    const st = agentStates.get(chip.dataset.session);
+    chip.classList.toggle('waiting', st?.state === 'waiting' && !st.seen);
+    chip.classList.toggle('working', st?.state === 'working');
+  }
   paintDeskStates();
   // A bell's mark lasts until its agent is back at work: it said "your turn", and your turn is
   // over once the agent is working again, whether you answered from this page or another.

@@ -1704,6 +1704,10 @@
   "Restart {n} on the same conversation": "Restart {n} on the same conversation",
   "restarted on the same conversation: {list}": "restarted on the same conversation: {list}",
   "nothing restarted": "nothing restarted",
-  "Codex has no reload: {list} — ": "Codex has no reload: {list} — "
+  "Codex has no reload: {list} — ": "Codex has no reload: {list} — ",
+  "The dock": "The dock",
+  "Bring back {name}": "Bring back {name}",
+  "Put it in the dock — off the desk, still running": "Put it in the dock — off the desk, still running",
+  "in the dock": "in the dock"
  }
 }

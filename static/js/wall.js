@@ -73,13 +73,17 @@ const WALL_GAP = 6;
 /** Lay the windows out. This *places* them and then lets go: every window stays draggable
  *  and resizable afterwards, so an arrangement is a starting point, never a cage. */
 function arrange(open, wall, mode, key = (id) => id) {
+  // Windows in the dock are out of the way on purpose: a layout is made of what is on the desk.
+  open = open.filter((o) => !o.win.hidden);
   /* A pinned window stays where you put it — a log along the bottom, a graph in a corner — and
    *  the others are laid out in the room it leaves: for each pinned one, the largest of the four
    *  spaces beside it (above, below, left, right) within what is still free. */
   const pinned = open.filter((o) => o.win.dataset.pinned);
   const loose = open.filter((o) => !o.win.dataset.pinned);
   if (!loose.length) return;
-  let free = { x0: 0, y0: 0, x1: wall.clientWidth, y1: wall.clientHeight };
+  // The dock, when it shows, keeps its strip along the bottom: nothing is laid out under it.
+  const dock = wall.querySelector?.(':scope > .windock:not([hidden])');
+  let free = { x0: 0, y0: 0, x1: wall.clientWidth, y1: wall.clientHeight - (dock ? dock.offsetHeight + 12 : 0) };
   for (const o of pinned) {
     const r = { x0: o.win.offsetLeft, y0: o.win.offsetTop, x1: o.win.offsetLeft + o.win.offsetWidth, y1: o.win.offsetTop + o.win.offsetHeight };
     if (r.x1 <= free.x0 || r.x0 >= free.x1 || r.y1 <= free.y0 || r.y0 >= free.y1) continue;     // not in the way
@@ -167,6 +171,31 @@ export async function screenWall() {
     node.dataset.ws = ws.id;
     wall.append(node);
     const open = [];
+    /* The dock: windows put away, as on a Mac. A window docked is out of the way — not on the desk,
+     *  not in a layout — and keeps running (a terminal stays attached, its agent works on); a press
+     *  brings it back where it was. Kept with the desk (`spec.docked`). */
+    const dock = el('div', { className: 'windock', hidden: true, role: 'toolbar', 'aria-label': t('The dock') });
+    node.append(dock);
+    const DOCK_ICON = { term: 'terminal', browser: 'folder', file: 'file', notes: 'notes', note: 'file', links: 'link',
+      messages: 'relay', web: 'link', team: 'layers', changes: 'branch', run: 'graph' };
+    function paintDock() {
+      const docked = open.filter((o) => o.spec?.docked);
+      dock.hidden = !docked.length;
+      dock.replaceChildren(...docked.map((o) => {
+        const chip = el('button', { type: 'button', className: 'dockchip', title: t('Bring back {name}', { name: o.label }) }, [
+          el('span', { className: 'dockdot' }), icon(DOCK_ICON[o.spec.kind] || 'file'), el('span', { className: 'dockname', textContent: o.label }),
+        ]);
+        chip.style.setProperty('--wc', colorFor(o.name));
+        if (o.spec.kind === 'term') {
+          chip.dataset.session = o.spec.name;
+          const st = agentStates.get(o.spec.name);
+          chip.classList.toggle('waiting', st?.state === 'waiting' && !st.seen);
+          chip.classList.toggle('working', st?.state === 'working');
+        }
+        chip.onclick = () => o.undock();
+        return chip;
+      }));
+    }
 
     const peersOf = (win) => () => open.filter((o) => o.win !== win).map((o) => o.win);
 
@@ -456,6 +485,9 @@ export async function screenWall() {
       const extras = el('span', { className: 'winextras' });
       const send = el('button', { className: 'winbtn sendbtn', title: t('Move or duplicate to another workspace') }, icon('move'));
       const close = el('button', { className: 'winbtn closebtn', title: t('Close') }, icon('close'));
+      // Into the dock: off the desk and out of every layout, still running. Its own button beside ⋮
+      // and ✕, as a window's minimise is.
+      const dockBtn = el('button', { className: 'winbtn dockbtn', title: t('Put it in the dock — off the desk, still running') }, icon('minimise'));
       // Pinned: Grid, Columns and Rows leave it where it is and arrange the others around it.
       const pinBtn = el('button', { className: 'winbtn pinbtn', title: t('Pin it here — the arrangements leave it alone') }, icon('pin'));
       const paintPin = () => {
@@ -643,7 +675,7 @@ export async function screenWall() {
 
       // The `i` sits with the name, not with the buttons: it is about *this session*, and the
       // buttons at the other end are things you do to the window.
-      const head = el('div', { className: 'winbar' }, [swatch, title, ...(factsBtn ? [factsBtn] : []), extras, pinBtn, send, behind, solo, more, close]);
+      const head = el('div', { className: 'winbar' }, [swatch, title, ...(factsBtn ? [factsBtn] : []), extras, pinBtn, send, behind, solo, dockBtn, more, close]);
       win.append(head, ...(facts ? [facts] : []), body);
       node.append(win);
 
@@ -801,7 +833,26 @@ export async function screenWall() {
           else if (on) toast(t('chain one more session for this to do anything'));
         };
       }
-      const entry = { win, handle, name: id, chainBtn: chain };
+      const entry = { win, handle, name: id, chainBtn: chain, spec, label };
+      entry.dockIt = () => {
+        spec.docked = true;
+        win.hidden = true;
+        savePrefs();
+        paintDock();
+        paintTally();
+      };
+      entry.undock = () => {
+        delete spec.docked;
+        win.hidden = false;
+        win.style.zIndex = ++top;
+        savePrefs();
+        paintDock();
+        paintTally();
+        handle.relayout?.();
+        if (spec.kind === 'term') setTimeout(() => handle.focus?.(), 0);
+      };
+      dockBtn.onclick = (ev) => { ev.stopPropagation(); entry.dockIt(); };
+      if (spec.docked) win.hidden = true;
       if (spec.kind === 'term') handle.onSelected?.((text, x, y) => offerSelection(entry, text, x, y));
       if (spec.kind === 'term') {
         handle.onUncaughtDrag?.(() => {
@@ -840,6 +891,7 @@ export async function screenWall() {
       open.push(entry);
       if (chain) paintChain();
       paintTally();
+      if (spec.docked) paintDock();
 
       win.addEventListener('pointerdown', () => {
         win.style.zIndex = ++top;
@@ -894,6 +946,7 @@ export async function screenWall() {
         ws.desktop = ws.desktop.filter((x) => specId(x) !== id);
         savePrefs();
         paintTally();
+        if (spec.docked) paintDock();
         // Deliberately no re-tiling. Grid, Columns and Rows are things you *do*, not modes
         // the desk stays in: re-running the last one here threw away an arrangement made
         // by hand every time a window was closed.
@@ -966,7 +1019,7 @@ export async function screenWall() {
       }
     }
 
-    return { ws, node, open, addWindow, paintChain };
+    return { ws, node, open, addWindow, paintChain, paintDock };
   }
 
   /** Send a window somewhere else. Duplicating leaves the original in place — two
@@ -2453,7 +2506,8 @@ export async function screenWall() {
           el('span', { className: 'name', textContent: title }),
           under,
         ]),
-        buried ? el('span', { className: 'state warning', textContent: t('hidden') })
+        o.spec?.docked ? el('span', { className: 'state', textContent: t('in the dock') })
+          : buried ? el('span', { className: 'state warning', textContent: t('hidden') })
           : adrift ? el('span', { className: 'state warning', textContent: t('off the desk') })
             : el('span', { className: 'verb', textContent: '' }),
       ]));
@@ -2466,6 +2520,8 @@ export async function screenWall() {
 
   /** Bring a window to the front — and back onto the desk if it has wandered off it. */
   function raiseWindow(entry) {
+    // Out of the dock first: asked for by name, it is wanted on the desk.
+    if (entry.spec?.docked) entry.undock();
     const win = entry.win;
     const area = deckFor(activeSpace()).node.getBoundingClientRect();
     const box = win.getBoundingClientRect();

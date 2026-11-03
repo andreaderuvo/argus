@@ -4758,3 +4758,22 @@ button .spin { margin-right: .35rem; vertical-align: -2px; }
 /* A window's own actions (a folder's, a document's), redrawn as it changes: buttons of the title bar like
    the rest, so a marker with no box of its own. */
 .winacts { display: contents; }
+
+/* The dock (wall.js): windows put away, along the bottom of the desk, as on a Mac. Each is its colour,
+   its kind and its name; a press brings it back. An agent in one that waits for you says so. */
+.windock { position: absolute; left: 50%; bottom: .5rem; transform: translateX(-50%); z-index: 100000;
+  display: flex; gap: .3rem; max-width: calc(100% - 2rem); overflow-x: auto; scrollbar-width: none;
+  padding: .3rem; border: 1px solid var(--line); border-radius: 12px;
+  background: color-mix(in srgb, var(--panel) 88%, transparent); backdrop-filter: blur(10px);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .3); }
+.windock[hidden] { display: none; }
+.dockchip { display: inline-flex; align-items: center; gap: .4rem; flex: none; max-width: 12rem; padding: .35rem .65rem .35rem .5rem;
+  border: 1px solid transparent; border-radius: 8px; background: none; color: var(--text); font: inherit; font-size: .78rem;
+  cursor: pointer; transition: transform .12s, background .12s; }
+.dockchip:hover, .dockchip:focus-visible { background: color-mix(in srgb, var(--wc, var(--accent)) 16%, transparent); transform: translateY(-2px); outline: none; }
+.dockchip svg { width: 15px; height: 15px; flex: none; color: var(--dim); }
+.dockdot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--wc, var(--accent)); }
+.dockname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dockchip.waiting { border-color: var(--st-warning); box-shadow: 0 0 0 2px color-mix(in srgb, var(--st-warning) 35%, transparent); }
+.dockchip.working .dockdot { animation: atwork 1.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .dockchip { transition: none; } .dockchip:hover { transform: none; } .dockchip.working .dockdot { animation: none; } }

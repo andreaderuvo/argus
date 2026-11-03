@@ -1704,6 +1704,10 @@
   "Restart {n} on the same conversation": "Riavvia {n} nella stessa conversazione",
   "restarted on the same conversation: {list}": "riavviati nella stessa conversazione: {list}",
   "nothing restarted": "nessun riavvio",
-  "Codex has no reload: {list} — ": "Codex non ha un reload: {list} — "
+  "Codex has no reload: {list} — ": "Codex non ha un reload: {list} — ",
+  "The dock": "La dock",
+  "Bring back {name}": "Riporta {name}",
+  "Put it in the dock — off the desk, still running": "Mettila nella dock — via dal desk, continua a girare",
+  "in the dock": "nella dock"
  }
 }
