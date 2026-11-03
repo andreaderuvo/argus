@@ -155,12 +155,16 @@ export async function copyText(text) {
   // Inside the open modal when there is one: a modal makes the rest of the page inert, and a
   // field out there can be neither focused nor selected — every Copy in a sheet copied nothing.
   const host = [...document.querySelectorAll('dialog[open]')].pop() || document.body;
+  // The keyboard goes back where it was: removing the field left it on the body, so a screenshot
+  // pasted into a terminal typed its path there and then took the prompt away from you.
+  const had = document.activeElement;
   host.append(ta);
   ta.focus({ preventScroll: true });
   ta.select();
   let ok = false;
   try { ok = document.execCommand('copy'); } catch { ok = false; }
   ta.remove();
+  if (had && had !== document.body && had.isConnected) had.focus({ preventScroll: true });
   return ok;
 }
 
