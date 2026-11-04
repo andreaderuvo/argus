@@ -75,7 +75,7 @@ function lead(item) {
   return mark;
 }
 
-function row(item, refresh) {
+function row(item, refresh, unfolded) {
   let who = '';
   let tag = '';
   let body = null;
@@ -137,16 +137,52 @@ function row(item, refresh) {
     lead(item),
     el('div', { className: 'needmain' }, [
       el('div', { className: 'needhead' }, [
-        el('b', { className: 'needwho', textContent: who }),
-        el('span', { className: 'needtag', textContent: tag }),
+        // Whole on hover, where the panel's width cuts them short.
+        el('b', { className: 'needwho', textContent: who, title: who }),
+        el('span', { className: 'needtag', textContent: tag, title: tag }),
         el('span', { className: 'needwhen', textContent: ago(item.at), title: new Date(item.at * 1000).toLocaleString() }),
       ]),
-      body,
+      body ? folded(body, `${item.kind}:${item.id}`, unfolded) : null,
       acts,
     ]),
   ]);
   card.dataset.kind = item.kind;
   return card;
+}
+
+/** The words of an item, a few lines of them, and all of them a press away.
+ *
+ *  An agent's question can be a page long, and a page in every tile is a list nobody reads. So it
+ *  is cut at a few lines with a fade, and *Show all* opens it where it is — in the side panel up to
+ *  half the screen, scrolling inside the tile past that. Whether it is cut is measured once the
+ *  words are laid out (markdown arrives a moment later), and again when the width changes; what you
+ *  opened stays open while the list is drawn again. */
+function folded(body, key, unfolded) {
+  const box = el('div', { className: 'needbody' }, body);
+  const more = el('button', { type: 'button', className: 'needmore', hidden: true });
+  const paint = () => {
+    const open = unfolded.has(key);
+    box.classList.toggle('open', open);
+    more.replaceChildren(el('span', { textContent: open ? t('Show less') : t('Show all') }), icon('chevron'));
+    more.classList.toggle('open', open);
+    more.setAttribute('aria-expanded', String(open));
+  };
+  const measure = () => {
+    if (!box.isConnected) return;
+    const cut = box.scrollHeight > box.clientHeight + 2;
+    more.hidden = !unfolded.has(key) && !cut;
+    box.classList.toggle('cut', cut && !unfolded.has(key));
+  };
+  more.onclick = () => {
+    if (unfolded.has(key)) unfolded.delete(key); else unfolded.add(key);
+    paint();
+    requestAnimationFrame(measure);
+  };
+  paint();
+  requestAnimationFrame(measure);
+  setTimeout(measure, 400);                       // markdown is drawn a moment later
+  new ResizeObserver(measure).observe(box);
+  return el('div', { className: 'needwords' }, [box, more]);
 }
 
 /** Where Needs you sits beside the page: 'off', 'left' or 'right' (prefs.needsPanel). */
@@ -158,6 +194,7 @@ export const panelSide = () => (PANEL_SIDES.includes(prefs.needsPanel) ? prefs.n
  *  it how many there are. */
 function needsBoard(wrap, list, { onCount = () => {}, compact = false } = {}) {
   let drawn = null;
+  const unfolded = new Set();          // the items whose words were opened whole
   let busy = false;
   const refresh = async (force = false) => {
     if (busy || !wrap.isConnected) return;
@@ -197,7 +234,7 @@ function needsBoard(wrap, list, { onCount = () => {}, compact = false } = {}) {
         out.push(el('h2', { className: 'needgroup' }, [icon(kinds[item.kind].glyph), el('span', { textContent: kinds[item.kind].title }),
           el('span', { className: 'needgroupn', textContent: String(counts[item.kind]) })]));
       }
-      out.push(row(item, refresh));
+      out.push(row(item, refresh, unfolded));
     }
     list.replaceChildren(...out);
   }

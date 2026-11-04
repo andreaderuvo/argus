@@ -131,3 +131,32 @@ def test_needs_you_beside_the_page_left_or_right_of_the_file_sidebar(make_page, 
         page.wait("document.body.classList.contains('needright')", timeout=5, what="back on the right")
     finally:
         argus.api(f"/api/todo/{made['id']}", "DELETE")
+
+
+def test_long_words_are_cut_and_opened_whole_in_place(make_page, argus):
+    """"Can the tile have all the text? Show some, and with a button one can read it all" (2026-11-04)."""
+    long = "Before I overwrite **results.tsv**:\n\n" + "\n\n".join(f"- sample {i}: 412 loci differ from the last run" for i in range(1, 31))
+    asked = argus.api("/api/ask", "POST", {"text": long, "options": ["Yes", "No"], "session": "fixer", "wait": 0})
+    short = argus.api("/api/ask", "POST", {"text": "Go on?", "options": ["Yes", "No"], "session": "other", "wait": 0})
+    try:
+        page = make_page(route="#/needs")
+        card = "[...document.querySelectorAll('.needrow')].find(r => r.textContent.includes('results.tsv'))"
+        page.wait(f"!!{card}?.querySelector('.needmore:not([hidden])')", timeout=15, what="cut, with Show all")
+        assert page.eval("[...document.querySelectorAll('.needrow')].find(r => r.textContent.includes('Go on?')).querySelector('.needmore').hidden"), \
+            "a short one is whole, with nothing to press"
+        closed = page.eval(f"{card}.querySelector('.needbody').clientHeight")
+        assert closed < 200, closed
+        page.click_at(*page._center(f"{card}.querySelector('.needmore')"))
+        page.wait(f"{card}.querySelector('.needbody').clientHeight > {closed * 3}", timeout=5, what="opened whole")
+        assert "sample 30" in page.eval(f"{card}.querySelector('.needbody').innerText")
+        # Drawn again (the other one answered elsewhere): still open.
+        argus.api(f"/api/ask/{short['id']}/answer", "POST", {"answer": "No"})
+        page.wait("document.querySelectorAll('.needrow').length === 1", timeout=10)
+        page.wait(f"{card}.querySelector('.needbody').classList.contains('open')", timeout=5, what="still open")
+        shoot(page, "needs-long")
+    finally:
+        for one in (asked, short):
+            try:
+                argus.api(f"/api/ask/{one['id']}/answer", "POST", {"answer": "No"})
+            except Exception:
+                pass

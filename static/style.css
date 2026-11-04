@@ -4964,3 +4964,24 @@ body.needleft .needpswap svg { transform: scaleX(-1); }
 /* Narrow: the answer keeps its word, the rest are their icon (their name is the tooltip). */
 .needs.compact .needbtn:not(.primary):has(svg) > span { display: none; }
 .needs.compact .needbtn:not(.primary):has(svg) { padding: .2rem .45rem; }
+
+/* An item's words: cut at a few lines with a fade, opened whole where they are (needs.js folded). */
+.needwords { margin-top: .3rem; }
+.needbody { --lines: 6; max-height: calc(var(--lines) * 1.5em); overflow: hidden; line-height: 1.5; }
+.needs.compact .needbody { --lines: 4; }
+.needbody > :first-child { margin-top: 0; }
+.needbody.cut { -webkit-mask-image: linear-gradient(to bottom, #000 60%, transparent); mask-image: linear-gradient(to bottom, #000 60%, transparent); }
+.needbody.open { max-height: none; }
+.needs.compact .needbody.open { max-height: 50vh; overflow: auto; overscroll-behavior: contain; }
+.needbody .agentmd > :first-child, .needbody > .agentmd > :first-child { margin-top: 0; }
+.needbody p { margin: 0 0 .45em; }
+.needbody pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.needmore { display: inline-flex; align-items: center; gap: .25rem; margin-top: .25rem; padding: .1rem .2rem; border: 0;
+  background: none; color: var(--accent); font-size: .82rem; font-weight: 600; cursor: pointer; border-radius: .3rem; }
+.needmore svg { width: 14px; height: 14px; transition: transform .15s; }
+.needmore.open svg { transform: rotate(180deg); }
+.needmore:hover { text-decoration: underline; }
+.needmore:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.needbody .needtext { margin: 0; }
+/* Inside a tile the words are measured and folded by the tile: never a scroller of their own. */
+.needbody .md.agentmd { max-height: none; overflow: visible; margin: 0; }
