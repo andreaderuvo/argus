@@ -389,7 +389,15 @@ export function attachTerminal(container, name, { transform, onGone, onBack, onP
   };
 
   if (server?.allow_write && server?.drop_dir) {
-    takesDrops(container, (files) => dropOnSession(files, name, intoThisPane));
+    takesDrops(container, (files) => {
+      /* The keyboard comes here at the drop, not only once the upload is over. A file dragged
+       *  from the computer's own file manager leaves that program the active one — the browser
+       *  window is not raised by a drop — so the page also asks for the window (honoured where
+       *  the browser allows it). */
+      term.focus();
+      try { window.focus(); } catch { /* not allowed: the click into the window is yours */ }
+      dropOnSession(files, name, intoThisPane);
+    });
 
     /* And Ctrl+V of an image, in the session, with the cursor exactly where you were typing.
      *
