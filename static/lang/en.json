@@ -1742,6 +1742,19 @@
   "{role} · judges": "{role} · judges",
   "{who} is running": "{who} is running",
   "{who} is working": "{who} is working",
-  "… the rest is too long to show": "… the rest is too long to show"
+  "… the rest is too long to show": "… the rest is too long to show",
+  "All clear.": "All clear.",
+  "Beside the page": "Beside the page",
+  "Beside the page, on the {side}": "Beside the page, on the {side}",
+  "Close the panel — Needs you stays in the rail": "Close the panel — Needs you stays in the rail",
+  "Left": "Left",
+  "Right": "Right",
+  "Off": "Off",
+  "Move it to the other side": "Move it to the other side",
+  "Needs you beside the page": "Needs you beside the page",
+  "Needs you beside the page, or not": "Needs you beside the page, or not",
+  "Not beside the page": "Not beside the page",
+  "Open Needs you": "Open Needs you",
+  "a panel of what waits on you, next to the file sidebar — wide screens only": "a panel of what waits on you, next to the file sidebar — wide screens only"
  }
 }

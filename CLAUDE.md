@@ -793,6 +793,9 @@ fails if it comes back. Before adding anything, keep these true:
   longest waiting first; each answered in place. Nothing stored. The count rides on `/api/tmux/states`
   (`needs`), so the rail's badge costs no extra request; always amber. Agent key may read it (36
   routes), MCP `needs`, `argus-say needs`. Since is the other question (what happened).
+  Also a panel beside the page (`#needpanel` in `#shell`, `applyNeedsPanel`, `prefs.needsPanel`
+  off|left|right, `needsPanelLast` for Ctrl+Alt+I): placed by `order` and the grid columns of
+  `body.needleft/needright` (with `body.side` too). The screen and the panel share `needsBoard`.
 - **A team's Chat** (`teams_chat_of` in main.py, `GET /api/teams/{id}/chat|diff`, `app/turndiff.py`,
   `static/js/turnchat.js`, tests/test_team_chat.py and tests/browser/test_team_chat.py). The log's turns
   as messages; checks as PASS/FAIL cards; an agent's turn with what it changed. The director takes a

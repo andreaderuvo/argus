@@ -4,6 +4,7 @@ import { restartAgent, seeEverything } from '/js/counts.js';
 import { copyText, modal, toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { icon } from '/js/icons.js';
+import { panelSide, setPanelSide } from '/js/needs.js';
 import { getJSON, postJSON } from '/js/reconnect.js';
 import { go } from '/js/router.js';
 import { applySidebar } from '/js/sidebar.js';
@@ -56,6 +57,8 @@ const KEYS = [
   // asked from anywhere; remap it if your browser keeps Alt+V for a menu.
   { group: 'Everywhere', id: 'version', name: 'Which Argus is running', key: 'alt+v' },
   { group: 'Everywhere', id: 'gotAll', name: 'Got it, all — set every wait aside', key: 'ctrl+shift+g' },
+  { group: 'The sidebar', id: 'needs', name: 'Needs you', key: 'ctrl+alt+n' },
+  { group: 'The sidebar', id: 'needsPanel', name: 'Needs you beside the page, or not', key: 'ctrl+alt+i' },
   { group: 'The sidebar', id: 'files', name: 'Files', key: 'ctrl+alt+f' },
   { group: 'The sidebar', id: 'sessions', name: 'Sessions', key: 'ctrl+alt+s' },
   { group: 'The sidebar', id: 'wall', name: 'Windows', key: 'ctrl+alt+w' },
@@ -171,6 +174,9 @@ function runKey(id) {
     system: () => go('#/system'),
     settings: () => go('#/settings'),
     sidebar: () => { prefs.sidebar = !prefs.sidebar; savePrefs(); applySidebar(); },
+    needs: () => go('#/needs'),
+    // On the side it was last on (right, the first time), or off.
+    needsPanel: () => setPanelSide(panelSide() === 'off' ? (prefs.needsPanelLast || 'right') : 'off'),
     full: () => bar.full.click(),
     browser: () => { go('#/wall'); press('Browser'); },
     links: () => { go('#/wall'); press('Links'); },

@@ -59,7 +59,7 @@ function drawPatch(text) {
   return el('div', { className: 'tcpatch' }, [el('table', {}, [el('tbody', {}, rows)])]);
 }
 
-function changesCard(teamId, turn) {
+function changesCard(teamId, turn, opened) {
   const ch = turn.changes;
   const n = ch.files.length + (ch.more || 0);
   const nums = (add, del) => el('span', { className: 'tcnums' }, [
@@ -67,6 +67,7 @@ function changesCard(teamId, turn) {
   const list = el('div', { className: 'tcfiles', hidden: true });
   for (const f of ch.files) {
     const cut = f.path.lastIndexOf('/');
+    const key = `${turn.i}:${f.path}`;
     const body = el('div', { className: 'tcfilebody', hidden: true });
     const head = el('button', { type: 'button', className: 'tcfile', ariaExpanded: 'false' }, [
       icon('chevron'),
@@ -76,10 +77,10 @@ function changesCard(teamId, turn) {
       f.status === 'deleted' ? el('span', { className: 'tcgone', textContent: t('Deleted') }) : null,
       f.binary ? el('span', { className: 'meta', textContent: t('binary') }) : nums(f.added, f.removed),
     ]);
-    head.onclick = async () => {
-      const open = body.hidden;
+    const show = async (open) => {
       body.hidden = !open;
       head.setAttribute('aria-expanded', String(open));
+      if (open) opened.add(key); else opened.delete(key);
       if (!open || body.childNodes.length || f.binary) return;
       body.append(el('p', { className: 'meta', textContent: t('Looking…') }));
       try {
@@ -87,6 +88,9 @@ function changesCard(teamId, turn) {
         body.replaceChildren(drawPatch(said.patch));
       } catch (e) { body.replaceChildren(el('p', { className: 'error', textContent: e.message })); }
     };
+    head.onclick = () => show(body.hidden);
+    // Open before the Chat was drawn again: open again (the diff is asked for again, once).
+    if (opened.has(key)) show(true);
     list.append(el('div', { className: 'tcfilewrap' }, [head, body]));
   }
   if (ch.more) list.append(el('p', { className: 'meta tcmore', textContent: t('and {n} more files', { n: ch.more }) }));
@@ -97,14 +101,17 @@ function changesCard(teamId, turn) {
     nums(ch.added, ch.removed),
     icon('chevron'),
   ]);
-  top.onclick = () => {
-    list.hidden = !list.hidden;
-    top.setAttribute('aria-expanded', String(!list.hidden));
+  const unfold = (open) => {
+    list.hidden = !open;
+    top.setAttribute('aria-expanded', String(open));
+    if (open) opened.add(`${turn.i}`); else opened.delete(`${turn.i}`);
   };
+  top.onclick = () => unfold(list.hidden);
+  if (opened.has(`${turn.i}`)) unfold(true);
   return el('div', { className: 'tccard' }, [top, list]);
 }
 
-function message(teamId, turn) {
+function message(teamId, turn, opened) {
   const status = turn.status ? el('span', { className: `tcbadge ${VERDICT[turn.status] || 'dim'}`, textContent: turn.status }) : null;
   if (turn.kind === 'argus') {
     return el('div', { className: 'tcsys' }, [icon('layers'), el('span', { textContent: turn.text.split('\n')[0] }),
@@ -131,7 +138,7 @@ function message(teamId, turn) {
   }
   const msg = el('div', { className: `tcmsg ${turn.kind}` }, [
     avatar(turn),
-    el('div', { className: 'tcmain' }, [head, body, turn.changes?.files?.length || turn.changes?.more ? changesCard(teamId, turn) : null]),
+    el('div', { className: 'tcmain' }, [head, body, turn.changes?.files?.length || turn.changes?.more ? changesCard(teamId, turn, opened) : null]),
   ]);
   msg.dataset.who = turn.who;
   return msg;
@@ -145,6 +152,8 @@ export function teamChat(teamId) {
   const box = el('div', { className: 'teamchat' }, [list, working]);
   let drawn = '';
   let busy = false;
+  // What is unfolded — a turn's files, a file's diff — kept across the redraws a new turn brings.
+  const opened = new Set();
   const refresh = async () => {
     if (busy || !box.isConnected || box.dataset.dropped) return;
     busy = true;
@@ -158,7 +167,7 @@ export function teamChat(teamId) {
         const first = !drawn;
         drawn = sig;
         const done = said.turns.filter((x) => x.done || x.kind !== 'agent');
-        list.replaceChildren(...(done.length ? done.map((x) => message(teamId, x))
+        list.replaceChildren(...(done.length ? done.map((x) => message(teamId, x, opened))
           : [el('p', { className: 'meta', textContent: t('No turns yet.') })]));
         const now = (said.working || []).filter((w) => w.kind !== 'end');
         working.hidden = !now.length || said.status === 'done' || said.status === 'stopped';

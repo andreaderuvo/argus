@@ -93,3 +93,41 @@ def test_open_brings_the_agents_window_forward_on_its_own_desk(make_page, argus,
         argus.tmux("kill-session", "-t", "aligner", check=False)
         time.sleep(1.6)
         argus.tmux("kill-session", "-t", "keep-server", check=False)
+
+
+def test_needs_you_beside_the_page_left_or_right_of_the_file_sidebar(make_page, argus):
+    """"Needs you also as a sidebar, right or left, beside the main one — all of it chosen"
+    (2026-11-04). Chosen on the screen, moved and closed from its own bar, toggled with a key."""
+    made = argus.api("/api/todo", "POST", {"note": "renew the certificate", "due": "2020-01-01"})
+    argus.api("/api/prefs", "PATCH", {"changes": {"sidebar": True}})
+    try:
+        page = make_page(route="#/needs")
+        page.wait("!!document.querySelector('.needside.off.on')", timeout=15, what="off at first")
+        box = lambda sel: page.eval(f"(() => {{ const b = document.querySelector('{sel}').getBoundingClientRect(); return [b.left, b.right, b.width]; }})()")  # noqa: E731
+
+        page.click_at(*page._center("document.querySelector('.needside.left')"))
+        page.wait("!!document.querySelector('#needpanel .needrow.todo')", timeout=10, what="the panel, with what waits")
+        side, panel, view = box("#side"), box("#needpanel"), box("#view")
+        assert side[1] <= panel[0] + 1 and panel[1] <= view[0] + 1, ("files, then Needs you, then the page", side, panel, view)
+        eventually(lambda: argus.api("/api/prefs")["prefs"].get("needsPanel") == "left", timeout=5, what="kept")
+        shoot(page, "needs-panel-left")
+
+        page.click_at(*page._center("document.querySelector('#needpanel .needpswap')"))
+        page.wait("document.body.classList.contains('needright')", timeout=5)
+        side, panel, view = box("#side"), box("#needpanel"), box("#view")
+        assert side[1] <= view[0] + 1 and view[1] <= panel[0] + 1, ("files, the page, then Needs you", side, panel, view)
+        assert page.eval("!!document.querySelector('#needpanel .needrow.todo')"), "the same list, moved"
+
+        # On every screen, and the list answers from there.
+        page.eval("location.hash = '#/files'")
+        page.wait("!!document.querySelector('#needpanel .needrow.todo') && location.hash === '#/files'", timeout=10)
+        shoot(page, "needs-panel-right")
+        page.click_at(*page._center("document.querySelector('#needpanel .needrow.todo .needbtn.primary')"))
+        page.wait("!!document.querySelector('#needpanel .needempty')", timeout=10, what="all clear, in the panel")
+
+        page.click_at(*page._center("[...document.querySelectorAll('#needpanel .needpbar .icon')].pop()"))
+        page.wait("!document.body.classList.contains('needright') && getComputedStyle(document.querySelector('#needpanel')).display === 'none'", timeout=5)
+        page.key("i", "KeyI", modifiers=3)     # Ctrl+Alt+I: back, on the side it was on
+        page.wait("document.body.classList.contains('needright')", timeout=5, what="back on the right")
+    finally:
+        argus.api(f"/api/todo/{made['id']}", "DELETE")

@@ -8,6 +8,7 @@ import { keepDropsRow, whereWiringRow } from '/js/filerows.js';
 import { MARKS, mark, pastePause } from '/js/handover.js';
 import { icon } from '/js/icons.js';
 import { installHere, installOffer, installed } from '/js/installing.js';
+import { PANEL_SIDES, panelSide, setPanelSide } from '/js/needs.js';
 import { under } from '/js/pointing.js';
 import { colorFor, delJSON, deskHome, getJSON, homePath, human, parentOf, postJSON, serverInfo, setTitle, signOut, when, withToken } from '/js/reconnect.js';
 import { go, render } from '/js/router.js';
@@ -879,6 +880,11 @@ export async function screenSettings() {
       () => prefs.hidden, (v) => { prefs.hidden = v; renderSidebar(); }),
     toggle(t('File sidebar'), t('a persistent file pane on the left — wide screens only'),
       () => prefs.sidebar, (v) => { prefs.sidebar = v; applySidebar(); }),
+    // Needs you as a panel beside the page, next to the file sidebar; the screen and the panel offer it too.
+    choice(t('Needs you beside the page'), t('a panel of what waits on you, next to the file sidebar — wide screens only'),
+      [t('Off'), t('Left'), t('Right')],
+      () => [t('Off'), t('Left'), t('Right')][PANEL_SIDES.indexOf(panelSide())] || t('Off'),
+      (v) => setPanelSide(PANEL_SIDES[[t('Off'), t('Left'), t('Right')].indexOf(v)] || 'off')),
     toggle(t('Split file panes'), t('two folders side by side — the header button does the same'),
       () => prefs.split, (v) => { prefs.split = v; }),
     toggle(t('Tree view'), t('expand folders in place instead of navigating into them'),

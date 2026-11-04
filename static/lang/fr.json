@@ -1742,6 +1742,19 @@
   "{role} · judges": "{role} · juge",
   "{who} is running": "{who} est en cours",
   "{who} is working": "{who} travaille",
-  "… the rest is too long to show": "… la suite est trop longue pour être affichée"
+  "… the rest is too long to show": "… la suite est trop longue pour être affichée",
+  "All clear.": "Rien en attente.",
+  "Beside the page": "À côté de la page",
+  "Beside the page, on the {side}": "À côté de la page, à {side}",
+  "Close the panel — Needs you stays in the rail": "Fermer le panneau — Pour vous reste dans la barre",
+  "Left": "Gauche",
+  "Right": "Droite",
+  "Off": "Désactivé",
+  "Move it to the other side": "Le placer de l’autre côté",
+  "Needs you beside the page": "Pour vous à côté de la page",
+  "Needs you beside the page, or not": "Pour vous à côté de la page, ou non",
+  "Not beside the page": "Pas à côté de la page",
+  "Open Needs you": "Ouvrir Pour vous",
+  "a panel of what waits on you, next to the file sidebar — wide screens only": "un panneau de ce qui vous attend, à côté de la barre des fichiers — grands écrans seulement"
  }
 }

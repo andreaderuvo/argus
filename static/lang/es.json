@@ -1742,6 +1742,19 @@
   "{role} · judges": "{role} · juzga",
   "{who} is running": "{who} se está ejecutando",
   "{who} is working": "{who} está trabajando",
-  "… the rest is too long to show": "… el resto es demasiado largo para mostrarlo"
+  "… the rest is too long to show": "… el resto es demasiado largo para mostrarlo",
+  "All clear.": "Todo en orden.",
+  "Beside the page": "Junto a la página",
+  "Beside the page, on the {side}": "Junto a la página, a la {side}",
+  "Close the panel — Needs you stays in the rail": "Cerrar el panel — Para ti sigue en la barra",
+  "Left": "Izquierda",
+  "Right": "Derecha",
+  "Off": "Apagado",
+  "Move it to the other side": "Moverlo al otro lado",
+  "Needs you beside the page": "Para ti junto a la página",
+  "Needs you beside the page, or not": "Para ti junto a la página, o no",
+  "Not beside the page": "No junto a la página",
+  "Open Needs you": "Abrir Para ti",
+  "a panel of what waits on you, next to the file sidebar — wide screens only": "un panel con lo que te espera, junto a la barra de archivos — solo pantallas anchas"
  }
 }

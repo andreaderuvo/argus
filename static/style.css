@@ -154,7 +154,7 @@ button.icon:active { background: var(--line); }
 
 /* The sidebar is a desktop affordance: on a phone the bottom nav is the right answer,
    so neither the panel nor its toggle exist below this width. */
-#side { display: none; }
+#side, #needpanel { display: none; }
 /* The two rail controls are desktop affordances and have to say so *here*, in the phone
    rules, not only in the wide ones. Styled only inside the 900px media query, `#railtoggle`
    stayed an ordinary button on a phone: a tenth item in a bottom bar sized for seven, with
@@ -193,6 +193,19 @@ button.icon:active { background: var(--line); }
   }
 
   body.side #side .row { padding-left: .6rem; padding-right: .6rem; }
+
+  /* Needs you beside the page: after the file sidebar on the left, or after the page on the right.
+     Placed by `order` (the markup is side, panel, page) and the columns that follow from it. */
+  body.needleft #needpanel, body.needright #needpanel {
+    display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; background: var(--panel);
+  }
+  body.needleft #needpanel { border-right: 1px solid var(--line); }
+  body.needright #needpanel { order: 3; border-left: 1px solid var(--line); }
+  body.needright #view { order: 2; }
+  body.needleft #shell { grid-template-columns: var(--need-w, 300px) minmax(0, 1fr); }
+  body.needright #shell { grid-template-columns: minmax(0, 1fr) var(--need-w, 300px); }
+  body.side.needleft #shell { grid-template-columns: var(--side-w, 320px) var(--need-w, 300px) minmax(0, 1fr); }
+  body.side.needright #shell { grid-template-columns: var(--side-w, 320px) minmax(0, 1fr) var(--need-w, 300px); }
 }
 
 .sidehead {
@@ -4903,3 +4916,51 @@ button .spin { margin-right: .35rem; vertical-align: -2px; }
 .tcdots i:nth-child(3) { animation-delay: .3s; }
 @keyframes tcdot { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .tcdots i { animation: none; opacity: .6; } }
+
+/* The panel's own: a bar (where it is, other side, full screen, close), and the list, compact. */
+.needs.compact { display: flex; flex-direction: column; min-height: 0; height: 100%; }
+.needpbar { display: flex; align-items: center; gap: .45rem; padding: .5rem .5rem .5rem .8rem; border-bottom: 1px solid var(--line); color: var(--bright); }
+.needpbar > svg { width: 17px; height: 17px; color: var(--dim); flex: none; }
+.needpbar .grow { flex: 1; }
+.needpbar .icon { width: 30px; height: 30px; min-height: 0; display: grid; place-items: center; border: 0; background: none; color: var(--dim); border-radius: .4rem; cursor: pointer; }
+.needpbar .icon:hover { color: var(--bright); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.needpbar .icon svg { width: 16px; height: 16px; }
+body.needleft .needpswap svg { transform: scaleX(-1); }
+.needs.compact .needlist { flex: 1; min-height: 0; overflow: auto; padding: 0 .6rem .8rem; }
+.needs.compact .needgroup { margin: .9rem 0 .45rem; font-size: .72rem; }
+.needs.compact .needrow { grid-template-columns: 28px minmax(0, 1fr); gap: .6rem; padding: .65rem .7rem; margin-bottom: .45rem; border-radius: .6rem; }
+.needs.compact .needmark { width: 28px; height: 28px; }
+.needs.compact .needmark svg { width: 15px; height: 15px; }
+.needs.compact .needmark.person { font-size: .8rem; }
+.needs.compact .needhead { font-size: .88rem; }
+.needs.compact .needtag { font-size: .78rem; }
+.needs.compact .needmain > .agentmd, .needs.compact .needtext { font-size: .88rem; }
+.needs.compact .needacts { gap: .35rem; margin-top: .5rem; }
+.needs.compact .needbtn { min-height: 30px; padding: .2rem .6rem; font-size: .82rem; }
+.needs.compact .needbtn svg { width: 13px; height: 13px; }
+.needs.compact .needempty { margin: 1.2rem 0; padding: 1.2rem .8rem; }
+.needs.compact .needempty svg { width: 22px; height: 22px; }
+/* The screen's head: the title, and where it may sit beside the page. */
+.needstop { display: flex; align-items: center; flex-wrap: wrap; gap: .6rem 1rem; }
+.needstop .grow { flex: 1; }
+.needbeside { display: inline-flex; align-items: center; gap: .55rem; }
+.needsides { display: inline-flex; }
+.needside { display: inline-flex; align-items: center; gap: .35rem; padding: .3rem .7rem; min-height: 32px; font-size: .85rem;
+  border: 1px solid var(--line); background: var(--bg); color: var(--text); cursor: pointer; }
+.needside + .needside { border-left: 0; }
+.needside:first-child { border-radius: .45rem 0 0 .45rem; }
+.needside:last-child { border-radius: 0 .45rem .45rem 0; }
+.needside svg { width: 14px; height: 14px; }
+.needside.right svg { transform: scaleX(-1); }
+.needside.on { background: color-mix(in srgb, var(--accent) 16%, var(--bg)); color: var(--bright); border-color: var(--accent); }
+.needside.on + .needside { border-left: 0; }
+.needside:hover:not(.on) { color: var(--bright); }
+@media (max-width: 899px) { .needbeside { display: none; } }
+.needpbar b { white-space: nowrap; }
+.needpbar .icon { flex: none; width: 30px; min-width: 0; padding: 0; }
+.needs.compact .needhead { flex-wrap: nowrap; }
+.needs.compact .needwho { flex: none; max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.needs.compact .needtag { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Narrow: the answer keeps its word, the rest are their icon (their name is the tooltip). */
+.needs.compact .needbtn:not(.primary):has(svg) > span { display: none; }
+.needs.compact .needbtn:not(.primary):has(svg) { padding: .2rem .45rem; }
