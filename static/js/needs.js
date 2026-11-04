@@ -10,7 +10,7 @@ import { prefs, view } from '/js/state.js';
 import { dueWords } from '/js/todowhen.js';
 import { workspaces } from '/js/tray.js';
 import { agentWords } from '/js/viewers.js';
-import { openProposedTeam } from '/js/wall.js';
+import { openProposedTeam, showSessionWindow } from '/js/wall.js';
 import { t } from '/js/words.js';
 // </imports>
 /** Needs you: everything waiting on you now, in one list (GET /api/needs, app/needs.py).
@@ -39,16 +39,6 @@ function ago(secs) {
   if (s < 3600) return t('{n} min', { n: Math.round(s / 60) });
   if (s < 6 * 3600) return t('{n} h', { n: Math.round(s / 3600) });
   return when(secs);
-}
-
-/** The desk holding a session's window, made the one on screen, and the window raised. */
-function openSession(name) {
-  const ws = workspaces().find((w) => (w.desktop || []).some((s) => s.kind === 'term' && s.name === name));
-  if (!ws) return go(`#/term?s=${encodeURIComponent(name)}`);
-  bringDesk(ws.id, () => {
-    const win = document.querySelector(`.deck.on .win[data-session="${CSS.escape(name)}"]`);
-    if (win) win.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
-  });
 }
 
 function bringDesk(id, then) {
@@ -97,10 +87,12 @@ function row(item, refresh) {
     body = agentWords(item.text);
     const answer = async (said) => { await postJSON(`/api/ask/${encodeURIComponent(item.id)}/answer`, { answer: said }); done(); };
     if (item.options.length) {
-      acts = actions(item.options.map((o, i) => {
+      acts = actions([...item.options.map((o, i) => {
         const yes = item.request ? /^do it$/i.test(o) : i === 0;
         return [o, () => answer(o), yes ? (item.request?.danger ? 'primary danger' : 'primary') : ''];
-      }));
+      }),
+      // Where it was asked from, to look before answering.
+      item.session ? [t('Open'), () => showSessionWindow(item.session), 'aside', 'terminal'] : null]);
     } else {
       const box = el('input', { type: 'text', className: 'needbox', placeholder: t('your answer'), ariaLabel: t('your answer') });
       box.onkeydown = (e) => { if (e.key === 'Enter' && box.value.trim()) answer(box.value.trim()).catch((err) => toast(err.message, true)); };
@@ -121,7 +113,7 @@ function row(item, refresh) {
     tag = item.team ? t('{agent} · team {team}', { agent: item.agent || t('agent'), team: item.team }) : (item.agent || t('agent'));
     body = item.text ? agentWords(item.text) : el('p', { className: 'needtext dim', textContent: t('It stopped and is waiting for you.') });
     acts = actions([
-      [t('Open'), () => openSession(item.session), 'primary', 'terminal'],
+      [t('Open'), () => showSessionWindow(item.session), 'primary', 'terminal'],
       [t('Got it'), async () => { await postJSON('/api/tmux/seen', { sessions: [item.session] }); done(); }, '', 'tick'],
     ]);
   } else if (item.kind === 'proposal') {

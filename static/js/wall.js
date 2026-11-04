@@ -14,7 +14,7 @@ import { api, bidi, colorFor, deskHome, getJSON, homePath, pickColor, postJSON, 
 import { go, parseRoute } from '/js/router.js';
 import { killSession } from '/js/screens.js';
 import { keyFor } from '/js/shortcuts.js';
-import { TMUX_LOOKS, lookFromTheme, lookOptions, paintRailWindows, withLook } from '/js/sidebar.js';
+import { TMUX_LOOKS, lookFromTheme, lookOptions, paintRailDesks, paintRailWindows, withLook } from '/js/sidebar.js';
 import { bar, killLive, leaving, live, prefs, server, setLeaving, setLive, token, view } from '/js/state.js';
 import { attachTeam, teamSheet, teamStrip } from '/js/team.js';
 import { copyButton, sizeButtons } from '/js/terminal.js';
@@ -44,6 +44,17 @@ export function arrangeDesk(mode) {
 // an agent's proposed team, tapped from its bell on another screen.
 let teamOpener = null;
 let pendingTeamFolder = null;
+// A session's window to bring forward (Needs you's Open): on the desk at once, or once it is drawn.
+let sessionShower = null;
+let pendingSession = null;
+
+/** Bring a session's window forward: its desk made the one on screen (out of the rail if it was put
+ *  away), the window raised, flashed and out of the dock. No desk has it: the session full screen. */
+export function showSessionWindow(name) {
+  if (live?.key === 'wall' && sessionShower && document.querySelector('#walltools')) { sessionShower(name); return; }
+  pendingSession = name;
+  go('#/wall');
+}
 
 /** Open Team on the folder an agent proposed a team in — its team.yaml is offered there as a
  *  card, chosen. On the desk at once; from anywhere else, the desk first. */
@@ -2203,6 +2214,20 @@ export async function screenWall() {
     const folder = pendingTeamFolder;
     pendingTeamFolder = null;
     teamOpener(folder);
+  }
+  sessionShower = (name) => {
+    const ws = spaces.find((w) => (w.desktop || []).some((x) => x.kind === 'term' && x.name === name));
+    if (!ws) { go(`#/term?s=${encodeURIComponent(name)}`); return; }
+    if (ws.hidden) { ws.hidden = false; savePrefs(); drawTabs(); paintRailDesks(); }
+    if (ws.id !== activeSpace().id) activate(ws.id);
+    const entry = deckFor(ws).open.find((o) => o.spec?.kind === 'term' && o.spec.name === name);
+    if (entry) requestAnimationFrame(() => raiseWindow(entry));
+  };
+  if (pendingSession) {
+    const name = pendingSession;
+    pendingSession = null;
+    // After the rest of this screen is made: what it calls (the tabs, the decks) is defined below.
+    setTimeout(() => sessionShower(name), 0);
   }
 
   /* Whether this desk has a pair on it, and whether they are still moving.

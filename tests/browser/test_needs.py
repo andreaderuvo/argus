@@ -7,6 +7,7 @@ list says it is clear; the rail's count follows, amber while anything waits.
 from __future__ import annotations
 
 import os
+import time
 
 from .cdp import PHONE
 from .test_flows import eventually
@@ -56,3 +57,39 @@ def test_needs_you_on_a_phone_is_in_the_drawer_with_its_count(make_page, argus):
         shoot(page, "needs-phone")
     finally:
         argus.api(f"/api/todo/{made['id']}", "DELETE")
+
+
+QUIET = """#!/usr/bin/env python3
+import time
+print('Which reference: GRCh38 or T2T?', flush=True)
+time.sleep(600)
+"""
+
+
+def test_open_brings_the_agents_window_forward_on_its_own_desk(make_page, argus, tmp_path):
+    """"Open" on an agent that waits goes to its window: its desk made the one on screen — here one
+    put away in the rail — and the window raised and out of the dock."""
+    (tmp_path / "claude").write_text(QUIET)
+    (tmp_path / "claude").chmod(0o755)
+    argus.tmux("new-session", "-d", "-s", "aligner", "-x", "80", "-y", "20", str(tmp_path / "claude"))
+    argus.api("/api/prefs", "PATCH", {"changes": {"ws": 1, "wsSeq": 2, "workspaces": [
+        {"id": 1, "name": "Main", "desktop": []},
+        {"id": 2, "name": "Mapping", "hidden": True, "desktop": [{"kind": "term", "name": "aligner", "docked": True}]}]}})
+    try:
+        eventually(lambda: any(x["kind"] == "waiting" and x["session"] == "aligner" for x in argus.api("/api/needs")["items"]),
+                   timeout=30, what="the agent waiting")
+        page = make_page(route="#/needs")
+        row = "document.querySelector('.needrow.waiting')"
+        page.wait(f"!!{row}", timeout=15, what="the agent in the list")
+        page.click_at(*page._center(f"[...{row}.querySelectorAll('.needbtn')].find(b => b.textContent === 'Open')"))
+        win = "document.querySelector('.deck.on .win[data-session=\"aligner\"]')"
+        page.wait(f"!!{win} && !{win}.hidden", timeout=15, what="its window on screen, out of the dock")
+        assert page.eval("location.hash").startswith("#/wall")
+        assert "Mapping" in page.eval("document.querySelector('.wstab.on')?.textContent || ''"), "its desk the one on screen"
+        eventually(lambda: not next(w for w in argus.api("/api/prefs")["prefs"]["workspaces"] if w["id"] == 2).get("hidden"),
+                   timeout=5, what="back from the rail")
+    finally:
+        argus.tmux("new-session", "-d", "-s", "keep-server", check=False)
+        argus.tmux("kill-session", "-t", "aligner", check=False)
+        time.sleep(1.6)
+        argus.tmux("kill-session", "-t", "keep-server", check=False)

@@ -4822,6 +4822,9 @@ button .spin { margin-right: .35rem; vertical-align: -2px; }
 .needbtn.primary:hover:not(:disabled) { color: var(--on-accent); filter: brightness(1.06); }
 .needbtn.primary.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
 .needbtn:disabled { opacity: .5; cursor: default; }
+/* Looking, not answering: apart from the answers, at the end of the row. */
+.needbtn.aside { margin-left: auto; border-color: transparent; background: none; color: var(--dim); }
+.needbtn.aside:hover:not(:disabled) { color: var(--bright); border-color: var(--line); }
 .needbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .needbox { flex: 1 1 12rem; min-width: 0; min-height: 36px; padding: .35rem .6rem; border: 1px solid var(--line);
   border-radius: .5rem; background: var(--bg); color: var(--text); font: inherit; }
