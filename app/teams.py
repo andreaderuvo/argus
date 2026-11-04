@@ -177,6 +177,8 @@ TEMPLATES: dict[str, dict] = {
 
 # --------------------------------------------------------------------------- the log
 
+# The pictures of what each turn changed (the Chat's diffs), kept per team.
+MAX_CHANGES = 200
 TURN_OPEN = re.compile(r"^@TURN\s+(.*)$")
 TURN_END = re.compile(r"^@END\b")
 
@@ -211,6 +213,10 @@ def parse_turns(text: str) -> list[Turn]:
         if cur and TURN_END.match(line):
             cur.body = "\n".join(lines).strip()
             cur.done = True
+            # `@END at=…`: when the turn was written, for the Chat.
+            ended = re.search(r"\bat=(\S+)", line)
+            if ended:
+                cur.fields.setdefault("end_at", ended.group(1))
             turns.append(cur)
             cur = None
             lines = []
@@ -550,6 +556,11 @@ class Director:
                 # anyone may say (a person must decide), and which used to be read as "always".
                 outcome = (turn.status or "OK") if n.get("judge") else ("BLOCKED" if turn.status == "BLOCKED" else "always")
                 self._note(team, f"{nid}: {first_line(turn.body)}" + (f" — {outcome}" if n.get("judge") else ""))
+                # What this turn changed in its folder, for the Chat: the picture taken when it began
+                # and one now. Matched to its turn by who and how many turns that one had written.
+                team["changes"] = (team.get("changes") or [])[-(MAX_CHANGES - 1):] + [{
+                    "who": nid.upper(), "nth": sum(1 for tt in turns if tt.done and tt.who == nid.upper()),
+                    "before": state.get("before"), "after": self._picture(team, n)}]
                 self._finished(team, nid, outcome)
                 changed = True
                 continue
@@ -582,6 +593,16 @@ class Director:
                 self._wait_for_you(team, f"{nid} has stopped and has not written its turn", retry=[nid])
                 changed = True
         return changed
+
+    def _picture(self, team: dict, n: dict):
+        """The folder of an agent's turn as a git tree (app/turndiff.py), or None."""
+        take = getattr(self.io, "snapshot", None)
+        if not take:
+            return None
+        try:
+            return take(n.get("folder") or team["folder"])
+        except Exception:
+            return None
 
     def _turns(self, team: dict) -> list[Turn]:
         try:
@@ -628,7 +649,8 @@ class Director:
         if n["kind"] == "check":
             self._start_check(team, nid)
             return
-        team["running"][nid] = {"since": self.io.now(), "nudged": False, "seen": len(self._turns(team))}
+        team["running"][nid] = {"since": self.io.now(), "nudged": False, "seen": len(self._turns(team)),
+                                "before": self._picture(team, n)}
         text = prompt_for(team, nid)
         # An agent starts when its turn first comes, with that first prompt on its command line
         # (io.launch): typed into a session still asking "trust this folder?", it was lost.

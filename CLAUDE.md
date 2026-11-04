@@ -786,6 +786,21 @@ fails if it comes back. Before adding anything, keep these true:
   move. Calendars without accounts or SMTP: a Google Calendar template link and an .ics built in the
   page (floating local times, VALARM). `el()` now skips null/false children — it used to print "null"
   on every to-do not moved by an agent.
+- **Needs you** (`app/needs.py`, `GET /api/needs`, `static/js/needs.js` at `#/needs`, first in the rail,
+  tests/test_needs.py and tests/browser/test_needs.py). What is open *now*, read off what keeps it — open
+  asks (a consent request is an ask with Do it / No), teams `waiting-you`, agents waiting and not seen
+  (not twice: an agent with an open ask is its ask), proposals, to-dos rung or late — ordered by kind,
+  longest waiting first; each answered in place. Nothing stored. The count rides on `/api/tmux/states`
+  (`needs`), so the rail's badge costs no extra request; always amber. Agent key may read it (36
+  routes), MCP `needs`, `argus-say needs`. Since is the other question (what happened).
+- **A team's Chat** (`teams_chat_of` in main.py, `GET /api/teams/{id}/chat|diff`, `app/turndiff.py`,
+  `static/js/turnchat.js`, tests/test_team_chat.py and tests/browser/test_team_chat.py). The log's turns
+  as messages; checks as PASS/FAIL cards; an agent's turn with what it changed. The director takes a
+  picture of the node's folder at `_start` and when the turn is read (`team["changes"]`, matched to a
+  turn by who + nth): a git tree written through a **temporary index** (copy of the real one, `add -u`,
+  untracked ≤ 1 MB not ignored, `write-tree`) — the repo's index/refs/stash are never touched while an
+  agent works there. The team's own log is left out of the diff. `data-*` and `aria-*` given to `el()`
+  are properties, not attributes: set `dataset` / `ariaExpanded` instead.
 - **argus-sync: a folder kept in sync with a computer** (`app/syncapi.py`, `static/js/syncsheet.js`,
   tests/test_syncapi.py and tests/browser/test_sync_sheet.py; the client is its own public repo,
   `andreaderuvo/argus-sync`, Rust + Tauri, released by CI on a `v*` tag). A folder's menu → *Sync to

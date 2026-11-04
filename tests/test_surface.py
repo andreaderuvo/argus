@@ -52,7 +52,8 @@ def test_the_surface_is_small_enough_to_document():
     # 33 to 34 for close_gone(): windows of ended sessions, closed by an agent asked to tidy a desk.
     # 34 to 41 on 2026-10-17, for notes(), note(), note_new(), note_add(), note_write(), note_rename()
     # and note_delete(): "the MCP should be able to work with the notes — list, delete, rename, add".
-    assert counted["argus_client"] <= 41, counted
+    # 42 on 2026-11-04, for needs(): what already waits on the person, before asking more.
+    assert counted["argus_client"] <= 42, counted
     assert counted["argus_orchestra"] <= 30, counted
 
 

@@ -1,7 +1,7 @@
 // <imports> generated from what this file uses; edit the code, not this list
 import { adoptDesks, rung } from '/js/bells.js';
 import { savePrefs } from '/js/core.js';
-import { lastNotesCount, lastSessionCount, lastTodoCount, paintDeskStates, showCount } from '/js/counts.js';
+import { lastNeedsCount, lastNotesCount, lastSessionCount, lastTodoCount, paintDeskStates, showCount } from '/js/counts.js';
 import { ask, askPrompt, confirmBox, copyPath, popMenu, toast } from '/js/dialogs.js';
 import { el, wikiLink } from '/js/dom.js';
 import { fileIcon } from '/js/fileicons.js';
@@ -1579,9 +1579,9 @@ export function viewersRow() {
  *  three slide in from the left with their names on. Standard advice, arrived at from the
  *  badge rather than from the advice.
  */
-const DRAWER = ['placeholders', 'todo', 'notes', 'system', 'journal'];
+const DRAWER = ['needs', 'placeholders', 'todo', 'notes', 'system', 'journal'];
 // With the bottom bar off, the drawer *is* the navigation and carries all of them.
-const EVERYTHING = ['files', 'sessions', 'wall', 'prompts', 'placeholders', 'todo', 'notes', 'system', 'since', 'journal'];
+const EVERYTHING = ['needs', 'files', 'sessions', 'wall', 'prompts', 'placeholders', 'todo', 'notes', 'system', 'since', 'journal'];
 // Drawer only, unless somebody asks for the bar back. Asked for plainly, and the bar was
 // left in place by mistake the first time.
 const noBar = () => prefs.bottomBar !== true;
@@ -1619,7 +1619,7 @@ function buildDrawer() {
     if (!link) continue;
     const copy = el('a', { href: link.getAttribute('href'), 'data-goes': tab }, [
       icon({
-        files: 'folder', sessions: 'terminal', wall: 'grid', prompts: 'relay',
+        needs: 'inbox', files: 'folder', sessions: 'terminal', wall: 'grid', prompts: 'relay',
         placeholders: 'rename', todo: 'tick', system: 'activity', since: 'bell', journal: 'journal',
       }[tab] || 'folder'),
       // The link's own words, not its badge: `textContent` on the anchor swept up the tally
@@ -1657,6 +1657,7 @@ export function applyBottomBar() {
   showCount('sessions', lastSessionCount);
   showCount('todo', lastTodoCount);
   showCount('notes', lastNotesCount);
+  showCount('needs', lastNeedsCount);
   paintRailWindows();
 }
 

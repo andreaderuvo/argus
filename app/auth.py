@@ -74,6 +74,9 @@ AGENT_ROUTES = frozenset({
     ("POST", "/api/git/worktree"),
     ("GET", "/api/bells"),
     ("GET", "/api/bells/stream"),
+    # What waits on the person, read only: a lead agent can see that the person is already asked
+    # three things before asking a fourth, and say so instead of piling on.
+    ("GET", "/api/needs"),
     # A run posting the shape of what it is doing, so a person can watch it. It writes to a
     # noticeboard held in memory and nothing else: it cannot start, stop or reach an agent,
     # and the orchestration goes on unchanged if nobody is looking.

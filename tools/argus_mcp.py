@@ -182,6 +182,11 @@ TOOLS = [
     {"name": "request_status",
      "description": "Where a request stands: asked (waiting for the person), doing, done, refused, failed or unanswered.",
      "inputSchema": {"type": "object", "properties": {"id": {"type": "string"}}, "required": ["id"]}},
+    {"name": "needs",
+     "description": "What is waiting on the person right now, in one list: questions and requests for their OK, "
+                    "teams stopped for them, agents waiting, teams proposed, to-dos rung or late. Look before "
+                    "asking them something else: if they are already asked three things, say so.",
+     "inputSchema": {"type": "object", "properties": {}}},
     {"name": "todos",
      "description": "The person's to-do list in Argus, each with its number (#1, #2…), state (open, doing, done) and "
                     "words. When asked to \"work on to-do #3\", read it here first.",
@@ -431,6 +436,16 @@ def _request_status(a: Argus, args: dict) -> str:
     return _said_request(a.request_status(args["id"]))
 
 
+def _needs(a: Argus, args: dict) -> str:
+    def line(x: dict) -> str:
+        who = x.get("session") or x.get("name") or (f"#{x['n']}" if x.get("n") else "")
+        what = x.get("text") or x.get("folder") or ""
+        tag = "request" if x.get("request") else x["kind"]
+        return f"[{tag}] {who}: {what}".replace(": :", ":").strip()
+    items = a.needs()
+    return "\n".join(line(x) for x in items) or "nothing is waiting on the person"
+
+
 def _todos(a: Argus, args: dict) -> str:
     items = sorted(a.todos(), key=lambda x: x.get("n", 0))
     if not args.get("all"):
@@ -544,7 +559,7 @@ def _prompts(a: Argus, _args: dict) -> str:
 
 
 DO = {"who": _who, "ring": _ring, "ask": _ask, "relay": _relay, "open_desk": _open_desk, "rename_desk": _rename_desk, "launchers": _launchers,
-      "start_agent": _start, "team_task": _team_task, "team_done": _team_done, "team_check": _team_check, "team_propose": _team_propose, "request": _request, "request_status": _request_status, "close_gone_windows": _close_gone, "todos": _todos, "todo_set": _todo_set, "todo_add": _todo_add, "notes": _notes, "note_read": _note_read, "note_new": _note_new, "note_add": _note_add, "note_write": _note_write, "note_rename": _note_rename, "note_delete": _note_delete, "teams": _teams, "worktree": _worktree, "prompts": _prompts, "worktrees": _worktrees, "actions": _actions, "bells": _bells, "wait_for_files": _wait_for_files}
+      "start_agent": _start, "team_task": _team_task, "team_done": _team_done, "team_check": _team_check, "team_propose": _team_propose, "request": _request, "request_status": _request_status, "close_gone_windows": _close_gone, "needs": _needs, "todos": _todos, "todo_set": _todo_set, "todo_add": _todo_add, "notes": _notes, "note_read": _note_read, "note_new": _note_new, "note_add": _note_add, "note_write": _note_write, "note_rename": _note_rename, "note_delete": _note_delete, "teams": _teams, "worktree": _worktree, "prompts": _prompts, "worktrees": _worktrees, "actions": _actions, "bells": _bells, "wait_for_files": _wait_for_files}
 
 
 # ------------------------------------------------------------------ the wire

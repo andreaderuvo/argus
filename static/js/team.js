@@ -9,6 +9,7 @@ import { prefs } from '/js/state.js';
 import { teamCanvas } from '/js/teamcanvas.js';
 import { teamEditor } from '/js/teameditor.js';
 import { drawGraph, edits } from '/js/teamgraph.js';
+import { teamChat } from '/js/turnchat.js';
 import { openProposedTeam } from '/js/wall.js';
 import { t } from '/js/words.js';
 // </imports>
@@ -856,7 +857,7 @@ async function resetTeam(team, restart, then) {
   then();
 }
 
-function drawTeam(team, { graph, story, goal, refresh, openLog, openTeam, toggleStory, toggleGoal }) {
+function drawTeam(team, { graph, story, goal, chat, refresh, openLog, openTeam, toggleStory, toggleGoal, toggleChat }) {
   const act = async (action) => {
     try { await postJSON(`/api/teams/${team.id}/${action}`, {}); } catch (e) { toast(e.message, true); }
     refresh();
@@ -878,10 +879,12 @@ function drawTeam(team, { graph, story, goal, refresh, openLog, openTeam, toggle
   if (live) controls.push(tb('stop', t('Stop'), { onclick: () => stopTeam(team, refresh) }));
   if (team.restartable) controls.push(tb('restart', t('Restart'), { title: t('Stop, reset, read the team file again, start from round 1'), onclick: () => resetTeam(team, true, refresh) }));
   if (!live) controls.push(tb('eraser', t('Reset'), { title: t('Delete what the team declares as a run’s state'), onclick: () => resetTeam(team, false, refresh) }));
-  const views = [tb('file', t('Log'), { title: team.log, onclick: () => openLog(team.log) })];
+  const views = [];
+  if (toggleChat) views.push(tb('relay', t('Chat'), { className: chat ? 'on' : '', title: t('The turns as a conversation, with what each one changed'), onclick: toggleChat }));
+  views.push(tb('file', t('Log'), { title: team.log, onclick: () => openLog(team.log) }));
   if (openTeam) views.push(tb('graph', t('Graph'), { className: 'teamopen', title: t('The team in a window of the desk, live'), onclick: () => openTeam(team) }));
   if (toggleGoal) views.push(tb('info', t('Goal'), { className: goal ? 'on' : '', title: t('What the team was asked to get done'), onclick: toggleGoal }));
-  if (toggleStory) views.push(tb('story', t('Story'), { className: story ? 'on' : '', onclick: toggleStory }));
+  if (toggleStory && !chat) views.push(tb('story', t('Story'), { className: story ? 'on' : '', onclick: toggleStory }));
   const buttons = [
     controls.length ? el('span', { className: 'teamgroup' }, controls) : null,
     el('span', { className: 'teamgroup' }, views),
@@ -921,7 +924,7 @@ function drawTeam(team, { graph, story, goal, refresh, openLog, openTeam, toggle
     out.push(el('div', { className: 'teamchain' }, [
       drawGraph({ nodes: team.nodes, edges: team.edges, start: team.start }, { small: graph === 'small', states, outcomes })]));
   }
-  if (story) {
+  if (story && !chat) {
     out.push(el('ol', { className: 'teamstory' }, [...team.history].reverse().map((h) => el('li', {}, [
       el('span', { className: 'meta', textContent: new Date(h.at * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }),
       el('span', { textContent: h.what }),
@@ -1016,6 +1019,10 @@ export function teamStrip({ wsId, openLog, openTeam }) {
 export function attachTeam(host, spec, setLabel, { openLog }) {
   const box = el('div', { className: 'teamwin' });
   host.replaceChildren(box);
+  // The turns as a conversation (turnchat.js): made once and moved back in after every redraw, so
+  // what is open in it and where it is scrolled survive the team's line changing.
+  const talk = teamChat(spec.id);
+  let chat = true;
   let story = true;
   let goal = false;
   let busy = false;
@@ -1031,19 +1038,21 @@ export function attachTeam(host, spec, setLabel, { openLog }) {
       // and where you had scrolled to is kept: redrawn every three seconds, the story you were
       // reading jumped back to the top each time.
       const states = team ? team.nodes.map((n) => agentStates.get(n.session)?.state || '').join() : '';
-      const now = JSON.stringify([team, story, goal, states]);
+      const now = JSON.stringify([team, story, goal, chat, states]);
       if (force || now !== drawn) {
         drawn = now;
-        const keep = [box.scrollTop, box.querySelector('.teamchain')?.scrollLeft || 0, box.querySelector('.teamstory')?.scrollTop || 0];
+        const keep = [chat ? null : box.scrollTop, box.querySelector('.teamchain')?.scrollLeft || 0, box.querySelector('.teamstory')?.scrollTop || 0];
         if (!team) {
           box.replaceChildren(el('p', { className: 'meta', textContent: t('this team has been forgotten — close the window') }));
         } else {
           setLabel?.(team.name, team.goal);
-          box.replaceChildren(...drawTeam(team, { graph: 'large', story, goal, refresh: () => refresh(true), openLog,
+          box.replaceChildren(...drawTeam(team, { graph: chat ? 'small' : 'large', story, goal, chat, refresh: () => refresh(true), openLog,
             toggleStory: () => { story = !story; refresh(true); },
-            toggleGoal: () => { goal = !goal; refresh(true); } }));
+            toggleGoal: () => { goal = !goal; refresh(true); },
+            toggleChat: () => { chat = !chat; refresh(true); } }));
+          if (chat) { box.append(talk); talk.refresh(); }
         }
-        box.scrollTop = keep[0];
+        if (keep[0] !== null) box.scrollTop = keep[0];
         const chain = box.querySelector('.teamchain');
         if (chain) chain.scrollLeft = keep[1];
         const told = box.querySelector('.teamstory');
@@ -1053,5 +1062,5 @@ export function attachTeam(host, spec, setLabel, { openLog }) {
     busy = false;
   };
   keepAsking(box, refresh);
-  return { relayout: () => {}, dispose: () => {} };
+  return { relayout: () => {}, dispose: () => talk.stop() };
 }

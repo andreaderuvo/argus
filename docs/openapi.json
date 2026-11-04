@@ -2430,6 +2430,30 @@
     ]
    }
   },
+  "/api/needs": {
+   "get": {
+    "description": "`{items: [...]}`: open questions and requests (`ask`), teams stopped for you (`team`),\nagents waiting and not yet seen (`waiting`), teams proposed (`proposal`), to-dos rung or\nlate (`todo`) \u2014 in that order, the longest waiting first within each. What is open now;\nwhat already happened is `/api/since`. Answering an item anywhere takes it off.",
+    "operationId": "getApiNeeds",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Needs You Api Needs Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Everything waiting on you now, in one list",
+    "tags": [
+     "Notifications"
+    ]
+   }
+  },
   "/api/network": {
    "get": {
     "description": "Read entirely from this machine and this request \u2014 no network call, ever.\n\nThe machine's own address comes from asking the kernel which source it would use for\nthe default route, which sends nothing. Yours comes from the socket the request arrived\non, which the server was holding anyway. The public address is deliberately *not* here:\nit needs a stranger, so it needs a press \u2014 see `/api/network/outside`.",
@@ -5114,6 +5138,121 @@
      }
     },
     "summary": "Forget a finished team",
+    "tags": [
+     "Teams"
+    ]
+   }
+  },
+  "/api/teams/{team_id}/chat": {
+   "get": {
+    "description": "`{turns: [...], working: [...]}` \u2014 every turn in the team's log, oldest first: `who` (the\nstep), `kind` (agent, check, argus), `role`, `judge`, `round`, `status` (a verdict, PASS/FAIL,\nSTART/STOP), `at`, `text`, and `changes` \u2014 what that turn changed in its folder (files with\nlines added and removed), when Argus could take a picture of it. `working`: the steps whose\nturn it is now.",
+    "operationId": "getApiTeamsTeamIdChat",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "team_id",
+      "required": true,
+      "schema": {
+       "title": "Team Id",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Teams Chat Api Teams  Team Id  Chat Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "A team's turns as a conversation",
+    "tags": [
+     "Teams"
+    ]
+   }
+  },
+  "/api/teams/{team_id}/diff": {
+   "get": {
+    "description": "`{patch}`: the unified diff of the turn numbered `turn` in /chat (one file's, with `path`).",
+    "operationId": "getApiTeamsTeamIdDiff",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "team_id",
+      "required": true,
+      "schema": {
+       "title": "Team Id",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "turn",
+      "required": true,
+      "schema": {
+       "title": "Turn",
+       "type": "integer"
+      }
+     },
+     {
+      "in": "query",
+      "name": "path",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Path"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Teams Diff Api Teams  Team Id  Diff Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "What one turn of a team changed, as a diff",
     "tags": [
      "Teams"
     ]

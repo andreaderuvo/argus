@@ -50,6 +50,7 @@ export async function countNotes() {
 export let lastSessionCount = 0;
 export let lastTodoCount = 0;
 export let lastNotesCount = 0;
+export let lastNeedsCount = 0;
 export let lastWallCount = 0;
 
 /** Which agents are working and which are waiting for you, worked out on the server.
@@ -68,6 +69,8 @@ export async function readAgentStates() {
   try {
     const said = await getJSON('/api/tmux/states');
     applyAgentStates(said.states || {});
+    // How many things wait on you (app/needs.py), on the same round: Needs you in the rail.
+    if (typeof said.needs === 'number') showCount('needs', said.needs);
   } catch { /* asked again in a moment */ }
 }
 
@@ -329,8 +332,10 @@ export function showCount(tab, n) {
   if (tab === 'sessions') lastSessionCount = n;
   if (tab === 'todo') lastTodoCount = n;
   if (tab === 'notes') lastNotesCount = n;
+  if (tab === 'needs') lastNeedsCount = n;
   if (tab === 'wall') lastWallCount = n;
-  const wants = RINGS.has(tab) && ([...rung.values()].some((b) => b.why === 'asking')
+  // Everything on Needs you is waiting on you: its count is always amber.
+  const wants = tab === 'needs' || RINGS.has(tab) && ([...rung.values()].some((b) => b.why === 'asking')
     || [...agentStates.values()].some((st) => st.state === 'waiting' && !st.seen));
   // The same two facts wherever the navigation happens to be living: how many, and whether
   // one of them has stopped and is waiting.

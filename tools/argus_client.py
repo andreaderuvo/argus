@@ -444,6 +444,12 @@ class Argus:
         from urllib.parse import quote
         return self.call("DELETE", f"/api/notes/note?name={quote(name)}")
 
+    def needs(self) -> list[dict]:
+        """What waits on the person right now, in one list: `{kind, text, session?, at, ...}` each —
+        kind `ask` (a question or a request for their OK), `team` (stopped for them), `waiting` (an
+        agent that stopped), `proposal` (a team proposed), `todo` (rung or late)."""
+        return self.call("GET", "/api/needs").get("items") or []
+
     def todos(self) -> list[dict]:
         """The to-do list kept in Argus: `{n, note, status, by, ...}` each, newest first. `n` is the
         number shown beside it ("#3"), given once and never reused."""
@@ -576,6 +582,7 @@ def _as_mcp(args) -> int:
         "launchers": lambda: ("launchers", {}),
         "status": lambda: ("request_status", {"id": args.id}),
         "todos": lambda: ("todos", {"all": args.all}),
+        "needs": lambda: ("needs", {}),
         "todo": lambda: (("todo_add", {"note": args.item, "due": args.due, "remind": args.remind}) if args.verb == "add" else
                          ("todo_set", {"todo": args.item, "status": args.status, "note": args.note,
                                        "due": args.due, "remind": args.remind})),
@@ -674,6 +681,7 @@ def main(argv: list[str] | None = None) -> int:
     lc.add_argument("--json", action="store_true")
     st = subs.add_parser("status", help="where a request stands (its id, as `request` printed it)")
     st.add_argument("id")
+    subs.add_parser("needs", help="what waits on the person now: questions, teams, agents, proposals, to-dos")
     td = subs.add_parser("todos", help="the person's to-do list (open ones; --all for done too)")
     td.add_argument("--all", action="store_true")
     to = subs.add_parser("todo", help="add a to-do, or change one: todo add \"note\" | todo set 3 --status doing")
@@ -704,7 +712,7 @@ def main(argv: list[str] | None = None) -> int:
     subs.add_parser("prompts", help="the person's prompt library")
 
     args = ap.parse_args(argv)
-    MCP_VERBS = {"ask", "desk", "launchers", "status", "todos", "todo", "worktree", "prompts", "notes", "note", "worktrees", "actions", "bells", "wait"}
+    MCP_VERBS = {"ask", "desk", "launchers", "status", "needs", "todos", "todo", "worktree", "prompts", "notes", "note", "worktrees", "actions", "bells", "wait"}
     if args.what in MCP_VERBS:
         try:
             return _as_mcp(args)

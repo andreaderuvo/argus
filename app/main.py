@@ -24,7 +24,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 
 from . import build, gitview, pluginstate, sshmount, themes, trust, viewerpacks
-from . import (notes, syncapi, agentflags, consent, readiness, teamlint, toolcopies, teams, teammermaid, wiring, agentstate, resume, announce, asks, bells, devices, favourites, files, fsops, gitwork, journal, labels,
+from . import (needs, notes, turndiff, syncapi, agentflags, consent, readiness, teamlint, toolcopies, teams, teammermaid, wiring, agentstate, resume, announce, asks, bells, devices, favourites, files, fsops, gitwork, journal, labels,
                languages, launch, mounts, network, paths, ports, prefs, proxy, release, runner, runs,
                system, term, tmux, todo)
 import httpx
@@ -354,6 +354,53 @@ def agent_changed(app: FastAPI, session: str, was: str | None, now: str, agent: 
         bells.rung(request, "asking", session=session, source="watch", agent=agent)
 
 
+def _team_files(team: dict, change: dict) -> list[str]:
+    """The team's own files inside the repository (its log), relative to it: not a turn's work."""
+    try:
+        return [str(Path(team["log"]).resolve().relative_to(Path(change["before"]["root"]).resolve()))]
+    except (ValueError, KeyError, OSError):
+        return []
+
+
+def _not_the_team(team: dict, change: dict, said: dict | None) -> dict | None:
+    own = set(_team_files(team, change))
+    if not said or not own or not any(f["path"] in own for f in said["files"]):
+        return said
+    files = [f for f in said["files"] if f["path"] not in own]
+    return {**said, "files": files, "added": sum(f["added"] for f in files), "removed": sum(f["removed"] for f in files)}
+
+
+def teams_chat_of(team: dict, pictures: bool = False):
+    """The Chat of a team (GET /api/teams/{id}/chat); with `pictures`, {turn index: change} instead."""
+    try:
+        text = Path(team["log"]).read_text(errors="replace")
+    except OSError:
+        text = ""
+    nodes = {n["id"].upper(): n for n in team["graph"]["nodes"]}
+    changes = {(c["who"], c["nth"]): c for c in team.get("changes") or [] if c.get("before") and c.get("after")}
+    turns, counted, found = [], {}, {}
+    for i, turn in enumerate(teams.parse_turns(text)):
+        n = nodes.get(turn.who)
+        kind = "argus" if turn.who == "ARGUS" else (n or {}).get("kind", "agent")
+        one = {"i": i, "who": turn.who.lower(), "kind": kind, "role": (n or {}).get("role"),
+               "judge": bool((n or {}).get("judge")), "session": (n or {}).get("session"),
+               "round": turn.fields.get("round"), "status": turn.status or None, "at": turn.fields.get("end_at"),
+               "text": turn.body, "done": turn.done}
+        if turn.done and kind == "agent":
+            counted[turn.who] = counted.get(turn.who, 0) + 1
+            change = changes.get((turn.who, counted[turn.who]))
+            if change:
+                found[i] = change
+                if not pictures:
+                    one["changes"] = _not_the_team(team, change, turndiff.summary(change["before"], change["after"]))
+        turns.append(one)
+    if pictures:
+        return found
+    working = [{"who": nid, "session": nodes.get(nid.upper(), {}).get("session"),
+                "kind": nodes.get(nid.upper(), {}).get("kind")} for nid in team.get("running", {})]
+    return {"turns": turns, "working": working, "status": team.get("status")}
+
+
 class TeamIO:
     """What the team director does to the world: type into sessions, run the check, ring."""
 
@@ -362,6 +409,10 @@ class TeamIO:
 
     def send(self, session: str, text: str) -> None:
         launch.seed(self.app.state.socket, session, text, press_return=True)
+
+    def snapshot(self, folder: str):
+        """A picture of the folder's working tree, for what a turn changed (app/turndiff.py)."""
+        return turndiff.snapshot(folder)
 
     def launch(self, team: dict, n: dict, prompt: str) -> None:
         """Start an agent for its first turn: its folder trusted in the agent first (what you would
@@ -676,7 +727,19 @@ def create_app(cfg: Config) -> FastAPI:
             if seen.get(name):
                 st["plugin"] = seen[name]
                 st["plugin_old"] = pluginstate.older(seen[name], offered)
-        return {"states": states, "plugin_offered": offered}
+        return {"states": states, "plugin_offered": offered, "needs": needs.count(request.app, states)}
+
+    @app.get("/api/needs", tags=["Notifications"], summary="Everything waiting on you now, in one list")
+    async def needs_you(request: Request) -> dict:
+        """`{items: [...]}`: open questions and requests (`ask`), teams stopped for you (`team`),
+        agents waiting and not yet seen (`waiting`), teams proposed (`proposal`), to-dos rung or
+        late (`todo`) — in that order, the longest waiting first within each. What is open now;
+        what already happened is `/api/since`. Answering an item anywhere takes it off."""
+        try:
+            states = await agent_states(request)
+        except Exception:
+            states = {}
+        return {"items": await asyncio.to_thread(needs.gather, request.app, states)}
 
     @app.get("/api/plugin", tags=["Agents"], summary="The Argus plugin in each agent: installed, which version")
     async def plugin_state(request: Request) -> dict:
@@ -1240,6 +1303,34 @@ def create_app(cfg: Config) -> FastAPI:
                         except tmux.TmuxError:
                             pass
         return {"team": next(t for t in director.public() if t["id"] == team_id), "ended": ended}
+
+    @app.get("/api/teams/{team_id}/chat", tags=["Teams"], summary="A team's turns as a conversation")
+    async def teams_chat(request: Request, team_id: str) -> dict:
+        """`{turns: [...], working: [...]}` — every turn in the team's log, oldest first: `who` (the
+        step), `kind` (agent, check, argus), `role`, `judge`, `round`, `status` (a verdict, PASS/FAIL,
+        START/STOP), `at`, `text`, and `changes` — what that turn changed in its folder (files with
+        lines added and removed), when Argus could take a picture of it. `working`: the steps whose
+        turn it is now."""
+        director = request.app.state.teams
+        team = director.teams.get(team_id)
+        if not team:
+            # 200, not 404: a window still open on a team forgotten a moment ago is no error.
+            return {"turns": [], "working": [], "status": "gone", "gone": True}
+        return await asyncio.to_thread(teams_chat_of, team)
+
+    @app.get("/api/teams/{team_id}/diff", tags=["Teams"], summary="What one turn of a team changed, as a diff")
+    async def teams_diff(request: Request, team_id: str, turn: int, path: str | None = None) -> dict:
+        """`{patch}`: the unified diff of the turn numbered `turn` in /chat (one file's, with `path`)."""
+        team = request.app.state.teams.teams.get(team_id)
+        if not team:
+            raise ApiError(404, "no such team")
+        change = (await asyncio.to_thread(teams_chat_of, team, True)).get(turn)
+        if not change:
+            raise ApiError(404, "no picture of what that turn changed")
+        said = await asyncio.to_thread(turndiff.patch, change["before"], change["after"], path, _team_files(team, change))
+        if said is None:
+            raise ApiError(404, "that change can no longer be read")
+        return {"patch": said}
 
     @app.get("/api/teams/{team_id}/reset", tags=["Teams"], summary="What a reset of this team would do")
     async def teams_reset_plan(request: Request, team_id: str) -> dict:

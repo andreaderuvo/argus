@@ -9,7 +9,7 @@ import { t } from '/js/words.js';
  *  catalogues translate. Derived from the tab, this said "Placeholders" in every language
  *  but English. */
 const TAB_WORD = {
-  files: 'Files', sessions: 'Sessions', wall: 'Windows', prompts: 'Prompts',
+  needs: 'Needs you', files: 'Files', sessions: 'Sessions', wall: 'Windows', prompts: 'Prompts',
   placeholders: 'Values', todo: 'To do', notes: 'Notes', system: 'System', since: 'Since', journal: 'Journal',
 };
 

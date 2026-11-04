@@ -110,6 +110,7 @@ export async function render() {
     if (path === '/todo') return await screenTodo();
     // Loaded the first time it is opened: most visits never are.
     if (path === '/notes') return await (await import('/js/notes.js')).screenNotes();
+    if (path === '/needs') return await (await import('/js/needs.js')).screenNeeds();
     if (path === '/settings') return await screenSettings();
     if (path === '/tmuxconf') return await screenTmuxConf();
     if (path === '/placeholders') return await screenMessages('vars');

@@ -345,6 +345,10 @@ def test_the_team_window_keeps_your_place_and_puts_the_newest_first(make_page, a
     page.wait("!!document.querySelector('.teamrole select')", timeout=25, what="an agent")
     page.eval("(() => { const c = document.querySelector('.teamcheck input'); c.value = 'true'; c.dispatchEvent(new Event('input')); })()")
     start(page)
+    # The window opens on the Chat; the story is the other view.
+    page.wait("!!document.querySelector('.teamwin .teamchat')", timeout=10, what="the Chat")
+    time.sleep(1.5)                  # the desk is arranged as the team's agents arrive: let it settle
+    page.click_at(*page._center("[...document.querySelectorAll('.teamwin .teambtn')].find(b => b.textContent === 'Chat')"))
     page.wait("document.querySelectorAll('.teamwin .teamstory li').length >= 2", timeout=10, what="the story")
     first = page.eval("document.querySelector('.teamwin .teamstory li').textContent")
     last = page.eval("[...document.querySelectorAll('.teamwin .teamstory li')].pop().textContent")

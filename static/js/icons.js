@@ -58,8 +58,12 @@ export const ICONS = {
   // says what is being made.
   plus: 'M12 5.5v13M5.5 12h13',
   notes: 'M6.5 3.5h8l3 3v14h-11zM14.5 3.5v3h3M9 11h6M9 14h6M9 17h3.5',
+  // A tray with something in it: what is waiting on you.
+  inbox: 'M4 13.5l2.3-7c.2-.6.7-1 1.3-1h8.8c.6 0 1.1.4 1.3 1l2.3 7v5c0 .6-.4 1-1 1H5c-.6 0-1-.4-1-1zM4 13.5h4.5l1.2 2.2h4.6l1.2-2.2H20',
   calendar: 'M4.5 6.5h15v13h-15zM4.5 10.5h15M8.5 4v4M15.5 4v4',
   minimise: 'M6 17h12',
+  // Folded or open: a list that shows more when pressed.
+  chevron: 'M7.5 10l4.5 4.5 4.5-4.5',
   sync: 'M19 8.5a7.5 7.5 0 0 0-13.2-2.1M5 4v3.5h3.5M5 15.5a7.5 7.5 0 0 0 13.2 2.1M19 20v-3.5h-3.5',
   // Copied. Shown for a moment in place of whatever was there: an action with no visible
   // result is an action you do twice.
