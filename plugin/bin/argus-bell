@@ -34,7 +34,7 @@ try:
 except Exception:
     sys.exit()
 said = d.get('last-assistant-message') or d.get('type') or ''
-print(' '.join(str(said).split())[:200])
+print(str(said).strip()[:4000])
 " 2>/dev/null || true)"
     ;;
 esac
@@ -65,11 +65,12 @@ if select.select([sys.stdin], [], [], 0.5)[0]:
     # The end of a Codex turn carries its last words; a done that says what was done.
     if not said and d.get('hook_event_name') == 'Stop':
         said = d.get('last_assistant_message') or ''
-    print(' '.join(str(said).split())[:200])
+    # Whole, with its lines: an agent's last words are Markdown, and Needs you shows all of them.
+    print(str(said).strip()[:4000])
 " 2>/dev/null || true)"
   FROM_STDIN="$(printf '%s\n' "$SAID" | sed -n 1p)"
   [ -n "$FROM_STDIN" ] && CONVERSATION="$FROM_STDIN"
-  [ -z "$TEXT" ] && TEXT="$(printf '%s\n' "$SAID" | sed -n 2p)"
+  [ -z "$TEXT" ] && TEXT="$(printf '%s\n' "$SAID" | sed -n '2,$p')"
 fi
 
 # Run from inside the Argus plugin (plugin/bin/), say which plugin version: an update reaches a
@@ -89,10 +90,16 @@ if [ -z "$SESSION" ] && [ -n "$TOKEN" ]; then
     | sed -n 's/.*"session":"\([^"]*\)".*/\1/p')"
 fi
 
-# Quote for JSON the small way: these fields are a session name and a short sentence.
-esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr -d '\000-\037'; }
+# Quote for JSON the small way, where there is no Python: a session name and a sentence, its lines
+# joined. With Python (always, where an agent runs) the text goes as it is, lines and all.
+esc() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr '\n' ' ' | tr -d '\000-\037'; }
+BODY="$(B_SESSION="$SESSION" B_WHY="$WHY" B_TEXT="$TEXT" B_CONVERSATION="$CONVERSATION" B_PLUGIN="$PLUGIN" python3 -c "
+import json, os
+print(json.dumps({k: os.environ.get('B_' + k.upper(), '') for k in ('session', 'why', 'text', 'conversation', 'plugin')}, separators=(',', ':')))
+" 2>/dev/null || true)"
+[ -n "$BODY" ] || BODY="{\"session\":\"$(esc "$SESSION")\",\"why\":\"$(esc "$WHY")\",\"text\":\"$(esc "$TEXT")\",\"conversation\":\"$(esc "$CONVERSATION")\",\"plugin\":\"$(esc "$PLUGIN")\"}"
 
 curl -sk -m 5 -o /dev/null -X POST "$URL/api/bell" \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
-  -d "{\"session\":\"$(esc "$SESSION")\",\"why\":\"$(esc "$WHY")\",\"text\":\"$(esc "$TEXT")\",\"conversation\":\"$(esc "$CONVERSATION")\",\"plugin\":\"$(esc "$PLUGIN")\"}" || true
+  -d "$BODY" || true

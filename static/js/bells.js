@@ -48,6 +48,8 @@ export const rung = new Map();          // session -> the last bell from it
 let heardUpTo = null;            // null until the first answer says where "now" is
 let bellClock = null;
 
+const TOAST_TEXT = 400;
+
 export function ring(bell) {
   const { session, why = 'note', text = '' } = bell;
   if (session && muted(session)) return;
@@ -58,7 +60,9 @@ export function ring(bell) {
   markTitle(session, why);
 
   const label = session ? `${session}: ` : '';
-  const said = text || (why === 'asking' ? t('is waiting for you') : why === 'failed' ? t('failed') : t('has finished'));
+  // A toast is a glance: the start of what was said. The whole of it is in Needs you.
+  const short = text.length > TOAST_TEXT ? `${text.slice(0, TOAST_TEXT).replace(/\s+\S*$/, '')} …` : text;
+  const said = short || (why === 'asking' ? t('is waiting for you') : why === 'failed' ? t('failed') : t('has finished'));
   /* A question is the one bell you can *answer*, so its toast goes where the answer is
    *  rather than to the terminal that asked. Tapping a session is right for "it finished";
    *  for "shall I overwrite it" the useful destination is the two buttons. */
@@ -69,7 +73,7 @@ export function ring(bell) {
   else {
     // What the agent wrote is Markdown — lists, **bold**, `code`: drawn so, under its name in bold.
     const words = text
-      ? el('span', {}, [session ? el('b', { textContent: `${session}: ` }) : null, agentWords(text)].filter(Boolean))
+      ? el('span', {}, [session ? el('b', { textContent: `${session}: ` }) : null, agentWords(short)].filter(Boolean))
       : label + said;
     toast(words, why === 'failed',
       bell.team_proposal?.folder ? () => openProposedTeam(bell.team_proposal.folder)

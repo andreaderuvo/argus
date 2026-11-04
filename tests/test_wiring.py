@@ -277,6 +277,25 @@ def test_the_bell_reads_codexs_payloads(tmp_path):
     assert sent[1]["text"] == "All 42 tests pass." and sent[1]["why"] == "done"
 
 
+def test_the_bell_sends_the_last_words_whole_with_their_lines(tmp_path):
+    """They were cut at 200 characters and folded onto one line, so Needs you's Show all could only
+    show the start: "Validation 31 is fully read, … about an hour. **What" (2026-11-04)."""
+    import subprocess
+    script = Path(__file__).resolve().parent.parent / "tools" / "argus-bell"
+    seen = tmp_path / "seen"
+    curl = tmp_path / "curl"
+    curl.write_text(f'#!/bin/sh\nfor a; do case "$a" in {{*) printf "%s\\n" "$a" >> {seen};; esac; done\n')
+    curl.chmod(0o755)
+    env = {"PATH": f"{tmp_path}:/usr/bin:/bin", "ARGUS_TOKEN": "t", "HOME": str(tmp_path)}
+    words = ("Validation 31 is fully read, and nothing in it points to a real difference between the systems. "
+             "A rebuild plus full validation 32 with the fixes is now running in the background, about an hour.\n\n"
+             "**What I found**\n\n- the \"two\" pipelines agree on 412 loci\n- a back\\slash stays one")
+    stop = {"session_id": "01a1", "hook_event_name": "Stop", "last_assistant_message": words}
+    subprocess.run([str(script), "done"], input=json.dumps(stop), text=True, env=env, timeout=10)
+    sent = json.loads(seen.read_text().splitlines()[0])
+    assert sent["text"] == words, sent["text"]
+
+
 def test_the_plugin_counts_as_wired(home):
     """`/plugin install argus@argus` carries the same hooks: Settings should not say "not wired"."""
     s = settings(home)

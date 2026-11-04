@@ -34,7 +34,10 @@ router = APIRouter()
 # Enough that a browser polling every few seconds never misses one, small enough that a
 # stuck hook in a loop cannot grow it.
 KEEP = 64
-MAX_TEXT = 300
+# An agent's last words, whole: Needs you shows them (folded, with Show all). A push to a phone
+# carries the start of them only.
+MAX_TEXT = 4000
+PUSH_TEXT = 300
 
 # What a hook is saying. "done" and "asking" are the two that matter and they earn
 # different treatment: one is news, the other is a block on the work.
@@ -255,7 +258,8 @@ async def deliver_ntfy(config: dict, bell: dict, *, transport=None) -> bool:
         "done": "Work finished",
         "note": "New notification",
     }[why]
-    message = str(bell.get("text") or fallback)[:MAX_TEXT]
+    message = str(bell.get("text") or fallback)
+    message = message if len(message) <= PUSH_TEXT else message[:PUSH_TEXT].rsplit(" ", 1)[0] + " …"
     if session:
         message = f"{session}: {message}"
     headers = {
