@@ -1757,6 +1757,11 @@
   "Open Needs you": "Open Needs you",
   "a panel of what waits on you, next to the file sidebar — wide screens only": "a panel of what waits on you, next to the file sidebar — wide screens only",
   "Show all": "Show all",
-  "Show less": "Show less"
+  "Show less": "Show less",
+  "All": "All",
+  "Web": "Web",
+  "Which links": "Which links",
+  "No web links yet.": "No web links yet.",
+  "No paths yet.": "No paths yet."
  }
 }

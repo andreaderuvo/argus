@@ -4985,3 +4985,19 @@ body.needleft .needpswap svg { transform: scaleX(-1); }
 .needbody .needtext { margin: 0; }
 /* Inside a tile the words are measured and folded by the tile: never a scroller of their own. */
 .needbody .md.agentmd { max-height: none; overflow: visible; margin: 0; }
+
+/* All / Files / Web over the link tray: one segmented control, the chosen one lit, each with its count. */
+.trayfind { flex-wrap: wrap; }
+.traykinds { display: inline-flex; flex: none; }
+.traykind { display: inline-flex; align-items: center; gap: .3rem; min-height: 28px; padding: .15rem .55rem; font-size: .8rem;
+  border: 1px solid var(--line); background: var(--bg); color: var(--text); cursor: pointer; }
+.traykind { position: relative; }
+.traykind + .traykind { margin-left: -1px; }
+.traykind:first-child { border-radius: .4rem 0 0 .4rem; }
+.traykind:last-child { border-radius: 0 .4rem .4rem 0; }
+.traykind svg { width: 13px; height: 13px; flex: none; }
+.traykind .n { font-variant-numeric: tabular-nums; color: var(--dim); font-size: .74rem; }
+.traykind.on { z-index: 1; background: color-mix(in srgb, var(--accent) 16%, var(--bg)); border-color: var(--accent); color: var(--bright); }
+.traykind.on .n { color: var(--accent); }
+.traykind:hover:not(.on) { color: var(--bright); }
+.traykind:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }

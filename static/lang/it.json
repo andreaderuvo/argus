@@ -1757,6 +1757,11 @@
   "Open Needs you": "Apri Per te",
   "a panel of what waits on you, next to the file sidebar — wide screens only": "un pannello di ciò che ti aspetta, accanto alla barra dei file — solo schermi larghi",
   "Show all": "Mostra tutto",
-  "Show less": "Mostra meno"
+  "Show less": "Mostra meno",
+  "All": "Tutti",
+  "Web": "Web",
+  "Which links": "Quali link",
+  "No web links yet.": "Ancora nessun link web.",
+  "No paths yet.": "Ancora nessun percorso."
  }
 }

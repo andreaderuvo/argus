@@ -298,6 +298,23 @@ export function attachTray(host, wsId, extras, deliver) {
   };
   sift.addEventListener('input', () => { needle = sift.value.trim(); draw(); });
 
+  /* All, Files or Web: "sometimes I want to see only the http links" (2026-11-04). Kept per desk,
+   *  each with how many it holds, so an empty one says so before it is pressed. */
+  const KINDS = [['all', () => t('All'), null], ['files', () => t('Files'), 'folder'], ['web', () => t('Web'), 'link']];
+  const kindOf = () => (KINDS.some(([k]) => k === prefs.trayKind?.[wsId]) ? prefs.trayKind[wsId] : 'all');
+  const isKind = (item, kind) => kind === 'all' || (kind === 'web') === !!item.url;
+  const kindBtns = KINDS.map(([kind, word, glyph]) => {
+    const b = el('button', { type: 'button', className: `traykind ${kind}`, title: word() },
+      [glyph ? icon(glyph) : null, el('span', { className: 'word', textContent: word() }), el('span', { className: 'n' })]);
+    b.onclick = () => {
+      prefs.trayKind = { ...(prefs.trayKind || {}), [wsId]: kind };
+      savePrefs();
+      draw();
+    };
+    return b;
+  });
+  const kinds = el('span', { className: 'traykinds', role: 'group', ariaLabel: t('Which links') }, kindBtns);
+
   const ageRow = () => {
     const pick = el('select', { className: 'setpick' });
     for (const minutes of KEEP_FOR) {
@@ -320,7 +337,14 @@ export function attachTray(host, wsId, extras, deliver) {
   };
 
   const draw = () => {
-    const all = deskLinks(wsId);
+    const every = deskLinks(wsId);
+    const kind = kindOf();
+    KINDS.forEach(([k], i) => {
+      kindBtns[i].classList.toggle('on', k === kind);
+      kindBtns[i].setAttribute('aria-pressed', String(k === kind));
+      kindBtns[i].querySelector('.n').textContent = String(every.filter((x) => isKind(x, k)).length);
+    });
+    const all = every.filter((x) => isKind(x, kind));
     const match = textMatcher(needle, regexOn());
     const items = needle && !match.error ? all.filter((x) => match.test(x.text)) : all;
     list.replaceChildren();
@@ -328,8 +352,12 @@ export function attachTray(host, wsId, extras, deliver) {
     sift.title = match.error ? t('not a regular expression: {why}', { why: match.error }) : '';
     found.textContent = match.error ? t('not a regular expression')
       : needle ? t('{n} of {all}', { n: items.length, all: all.length }) : '';
-    if (!all.length) {
+    if (!every.length) {
       list.append(el('p', { className: 'empty tiny', textContent: t('Paths and links printed in this desk\u2019s terminals collect here.') }));
+      return;
+    }
+    if (!all.length) {
+      list.append(el('p', { className: 'empty tiny', textContent: kind === 'web' ? t('No web links yet.') : t('No paths yet.') }));
       return;
     }
     if (!items.length) {
@@ -438,7 +466,7 @@ export function attachTray(host, wsId, extras, deliver) {
   };
   extras.append(empty);
 
-  head.append(ageRow(), el('div', { className: 'trayfind' }, [sift, rxBtn, found]));
+  head.append(ageRow(), el('div', { className: 'trayfind' }, [kinds, sift, rxBtn, found]));
   trayWatch.set(wsId, draw);
   draw();
   sweep();
