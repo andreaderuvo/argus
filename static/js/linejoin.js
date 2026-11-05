@@ -17,7 +17,9 @@
 export const MAX_ROWS = 24;              // a "line" longer than this is not a link, it is a paste
 const NEAR = 12;                         // rows either side looked at to learn the program's width
 const LINKISH_TAIL = /(?:^|[\s('"<[`])((?:https?:\/\/|www\.|~\/|\.{0,2}\/)[^\s]*|[^\s]*\/[^\s]*)$/i;
-const CARRIES_ON = /^[\w\-./~%?=&#:+@,;!*$'()[\]]+/;
+// What a link or a path goes on with at the start of the row below. Not a bracket, a quote or a
+// comma: a row that opens with one starts an aside — "…/cards" then "(user …)" is not "…/cards(user".
+const CARRIES_ON = /^[\w\-./~%?=&#:+@][\w\-./~%?=&#:+@,;!*$'()[\]]*/;
 const ENDS_OPEN = /[\w\-./~%?=&#:+@]$/;
 
 /** How wide the program writes, around row `y`: the longest of the nearby rows, trimmed. */

@@ -60,6 +60,10 @@ APART = [
     ([pad("  see /tmp/out.txt"), pad("  and/then more")], 0),
     # A sentence below a path at the edge.
     ([pad("  The full output of the run is in /home/lab/results/batch-12"), pad("  Then I compared the two runs and found nothing.")], 0),
+    # The URL is the widest row, and the row below opens a bracket: an aside, not the rest of the
+    # link — it read `…/cards(user` and the tray had a link that opened nothing (2026-11-05).
+    ([pad("2. Open http://gtc-gpu1.izs.intra:59020/cmdbuild/ui/#classes/v_sub"),
+      pad("   (user `efsa.local` / the password)"), pad("3. Filter the list")], 0),
     # Prose at the edge: no link shape at the end of the row.
     ([pad("  this is a long line of ordinary words that fill the row ok"), pad("  continuing the sentence here")], 0),
 ]

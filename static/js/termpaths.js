@@ -44,7 +44,9 @@ export function pathCandidates(text) {
     const raw = m[0];
     if (raw.length > 400 || raw.startsWith('-')) continue;
     if (raw.includes('://') || /^www\./i.test(raw)) {
-      const lead = (raw.match(TRIM_LEAD) || [''])[0].length;
+      // Where the URL starts inside the word: `[the cards](http://…)` (Markdown), `url=http://…`.
+      const at = raw.search(/https?:\/\/|www\./i);
+      const lead = at > 0 ? at : (raw.match(TRIM_LEAD) || [''])[0].length;
       const inner = raw.slice(lead).replace(TRIM_TAIL, '');
       if (URL_LIKE.test(inner)) {
         out.push({ text: inner, start: m.index + lead, end: m.index + lead + inner.length, url: true });
@@ -69,7 +71,10 @@ export function logicalLine(term, y) {
   const buf = term.buffer.active;
   const row = (i) => {
     const line = buf.getLine(i);
-    return { text: line?.translateToString(false) ?? '', wrapped: !!line?.isWrapped };
+    // Only the terminal's width: a row written when the pane was wider keeps its old length, and its
+    // blanks past the edge came between a link and the rest of it on the next row (`…/ui/#` then
+    // 27 spaces then `classes/…`) — every long link in a window made narrower (2026-11-05).
+    return { text: line?.translateToString(false, 0, term.cols) ?? '', wrapped: !!line?.isWrapped };
   };
   return joinRows(row, y - 1, buf.length, term.cols);
 }
