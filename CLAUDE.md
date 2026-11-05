@@ -814,6 +814,16 @@ fails if it comes back. Before adding anything, keep these true:
   `max_upload_bytes`, lands through a part file; a delete goes to a trash beside the config. The
   client is Rust because it is installed on people's own computers, without admin: one binary, no
   runtime, small installers.
+- **Your computers, through argus-sync** (`app/computers.py`, `static/js/computers.js`, argus-sync's
+  `core/src/computer.rs` + the app's "This computer"; tests/test_computers.py — a Python stand-in, and
+  the real client when `~/argus-sync/target/debug/argus-sync` is built — tests/browser/test_computers_ui.py).
+  One bridge WebSocket per computer (`ac_` keys, opening `/api/computers/bridge` only), channels `cdp`,
+  `pty`, `run`. The computer's switches (browser / terminal / actions, all off by default) are enforced
+  on the computer and here. The browser: a loopback `websockets` server per computer answering only
+  `/devtools/browser/<secret id>` and target paths, never `/json` (a shared server's other users).
+  Terminal: `/ws/computer/<id>`, the tmux terminal's protocol, so `attachTerminal(…, { socket })`
+  draws it in a `pc` window. Agents: `GET /api/computers` (agent key, 37 routes), MCP `computers`,
+  consent `computer_run` (dangerous; result carries code + output; capped 170 s by the consent client).
 - **A browser is remembered by the server too** (`/api/remember`, in the auth gate, `tests/test_remember.py`).
   localStorage is the page's copy, and a phone loses it (Safari clears script storage after
   seven days away; a link opened from a chat lands in that app's own browser). After a token
