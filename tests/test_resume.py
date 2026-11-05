@@ -159,7 +159,12 @@ def test_a_killed_server_and_its_agent_brought_back(tmp_path, client):
         tm("-f", "/dev/null", "new-session", "-d", "-s", "api", "-c", str(work), "-x", "80", "-y", "20",
            f"{agent} --dangerously-skip-permissions")
         tm("new-session", "-d", "-s", "plain", "-x", "80", "-y", "20")
-        answered, server, now, alive = resume.read_now(sock, frozenset({"claude"}), {"api": CONV})
+        # The agent is seen once its process is there under the pane: a moment after new-session.
+        for _ in range(50):
+            answered, server, now, alive = resume.read_now(sock, frozenset({"claude"}), {"api": CONV})
+            if "api" in now:
+                break
+            time.sleep(0.1)
         assert answered and server and alive == {"api", "plain"}
         assert now["api"]["cwd"] == str(work) and now["api"]["conversation"] == CONV
         assert now["api"]["flags"] == ["--dangerously-skip-permissions"]

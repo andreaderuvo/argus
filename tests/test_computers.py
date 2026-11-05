@@ -71,10 +71,13 @@ def chrome():
                              "--remote-debugging-port=0", f"--user-data-dir={profile}", "about:blank"],
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     active = profile / "DevToolsActivePort"
-    for _ in range(200):
+    for _ in range(600):
         if active.exists() and len(active.read_text().splitlines()) >= 2:
             break
         time.sleep(0.05)
+    else:
+        proc.kill()
+        pytest.fail(f"{CHROMIUM} did not open its debugging port in 30 s")
     port, path = active.read_text().splitlines()[:2]
     yield int(port), path
     proc.kill()
@@ -215,6 +218,7 @@ async def until_connected(base, cid):
     raise AssertionError(f"never connected: {said}")
 
 
+@pytest.mark.browser
 def test_an_agent_drives_the_lent_browser_and_nothing_else_gets_in(live, chrome):
     made = connect_one(live, "Mac di prova")
     assert made["link"].startswith("argus-sync://computer?url=") and made["token"].startswith("ac_")
@@ -329,6 +333,7 @@ def test_a_computer_forgotten_opens_nothing(live):
 SYNC_BIN = os.environ.get("ARGUS_SYNC_BIN") or str(Path.home() / "argus-sync/target/debug/argus-sync")
 
 
+@pytest.mark.browser
 @pytest.mark.skipif(not os.access(SYNC_BIN, os.X_OK), reason="needs an argus-sync build (ARGUS_SYNC_BIN)")
 def test_the_real_argus_sync_connects_this_computer(live, tmp_path):
     """The client itself, end to end: `argus-sync computer <link> --browser --terminal --actions`
