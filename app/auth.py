@@ -8,7 +8,7 @@ from urllib.parse import parse_qs
 
 from starlette.responses import PlainTextResponse
 
-from . import browserlend, devices, syncapi
+from . import computers, devices, syncapi
 
 PROTECTED_PREFIXES = ("/api", "/ws", "/proxy")
 # A proxied page loads its own stylesheets and scripts, and cannot put an Authorization
@@ -77,8 +77,9 @@ AGENT_ROUTES = frozenset({
     # What waits on the person, read only: a lead agent can see that the person is already asked
     # three things before asking a fourth, and say so instead of piling on.
     ("GET", "/api/needs"),
-    # The address of the browser lent from your computer, to drive it: what lending it is for.
-    ("GET", "/api/browser"),
+    # The computers connected and the address of the browser each lends, to drive it: what lending
+    # it is for. Running a command there is a request (consent.py), never this key's own.
+    ("GET", "/api/computers"),
     # A run posting the shape of what it is doing, so a person can watch it. It writes to a
     # noticeboard held in memory and nothing else: it cannot start, stop or reach an agent,
     # and the orchestration goes on unchanged if nobody is looking.
@@ -196,9 +197,9 @@ def is_protected(path: str) -> bool:
 
 
 # Managing devices is the one thing the master token keeps to itself.
-MASTER_PATHS = ("/api/devices", "/api/journal", "/api/ssh/authorize", "/api/ssh/setup", "/api/sync/keys", "/api/browser/keys")   # a key added gives a shell here
+MASTER_PATHS = ("/api/devices", "/api/journal", "/api/ssh/authorize", "/api/ssh/setup", "/api/sync/keys", "/api/computers/keys")   # a key added gives a shell here
 MASTER_PREFIX = "/api/devices/"
-MASTER_PREFIXES = (MASTER_PREFIX, "/api/sync/keys/", "/api/browser/keys/")
+MASTER_PREFIXES = (MASTER_PREFIX, "/api/sync/keys/")
 # What an argus-sync key reaches: its own folder, through these, and nothing else.
 SYNC_PREFIX = "/api/sync/"
 
@@ -218,7 +219,7 @@ class TokenAuthMiddleware:
         # not still get in because the list was loaded at startup.
         self.devices_store = devices_store
         self.sync_store = syncapi.default_store(devices_store) if devices_store else None
-        self.browser_store = browserlend.default_store(devices_store) if devices_store else None
+        self.computer_store = computers.default_store(devices_store) if devices_store else None
 
     def device_for(self, presented: str) -> dict | None:
         if not self.devices_store:
@@ -335,16 +336,16 @@ class TokenAuthMiddleware:
                 pass
             return await self.app(scope, receive, send)
 
-        lender = browserlend.matching(self.browser_store, token) if token is not None else None
-        if lender:
-            # A browser lent from a computer: the bridge, a WebSocket, and nothing else at all.
-            if scope["type"] != "websocket" or scope["path"] != "/api/browser/bridge":
+        machine = computers.matching(self.computer_store, token) if token is not None else None
+        if machine:
+            # A computer connected through argus-sync: its bridge, a WebSocket, and nothing else at all.
+            if scope["type"] != "websocket" or scope["path"] != "/api/computers/bridge":
                 if scope["type"] != "http":
                     await receive()
                     return await send({"type": "websocket.close", "code": 1008})
-                response = PlainTextResponse("a browser key opens the bridge and nothing else", status_code=403)
+                response = PlainTextResponse("a computer's key opens its bridge and nothing else", status_code=403)
                 return await response(scope, receive, send)
-            scope["argus_browser"] = lender
+            scope["argus_computer"] = machine
             return await self.app(scope, receive, send)
 
         agent = self.agent_for(token) if token is not None else None

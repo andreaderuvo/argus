@@ -157,8 +157,8 @@ def test_the_list_of_what_an_agent_may_do_is_short():
     Thirty-six on 2026-11-04: `GET /api/needs`, read only — what already waits on the person, so a
     lead agent sees it before adding to it.
 
-    Thirty-seven on 2026-11-05: `GET /api/browser`, the address of the browser the person lent from
-    their computer (app/browserlend.py) — what an agent is lent it for.
+    Thirty-seven on 2026-11-05: `GET /api/computers`, the computers connected through argus-sync and
+    the address of the browser each lends (app/computers.py) — what an agent is lent it for.
     """
     assert len(AGENT_ROUTES) <= 37
     assert ("POST", "/api/teams") not in AGENT_ROUTES
