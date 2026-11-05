@@ -56,7 +56,8 @@ def test_a_turn_is_a_message_with_the_files_it_changed(make_page, argus):
         msg = f"document.querySelector('.tcmsg[data-who=\"{who}\"]')"
         page.wait(f"!!{msg}?.querySelector('.tcchanged')", timeout=25, what="the turn with its changes")
         assert "Changed 2 files" in page.eval(f"{msg}.querySelector('.tcchanged').textContent")
-        assert page.eval(f"!!{msg}.querySelector('.agentmd strong')"), "the turn's words as markdown"
+        # Markdown is drawn a moment after the message (marked loads on first use): waited for.
+        page.wait(f"!!{msg}.querySelector('.agentmd strong')", timeout=10, what="the turn's words as markdown")
         page.click_at(*page._center(f"{msg}.querySelector('.tcchanged')"))
         files = page.eval(f"[...{msg}.querySelectorAll('.tcpath')].map(p => p.textContent).join()")
         assert files == "Tier.tsx,pricing.ts", files
