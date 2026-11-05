@@ -569,6 +569,23 @@ def _note_call(args) -> tuple[str, dict]:
     }[args.verb]
 
 
+def _browser_call(args) -> tuple[str, dict]:
+    """argus-say browser <verb>: the browser_<verb> MCP tool, on the person's own computer."""
+    words = args.args or []
+    given = {"computer": args.computer}
+    if args.verb == "open":
+        given |= {"url": words[0] if words else "", "new_tab": args.new_tab}
+    elif args.verb == "look":
+        given |= {"screenshot": False}           # a terminal shows no picture: --shot saves one
+    elif args.verb == "click":
+        given |= {"target": " ".join(words)}
+    elif args.verb == "type":
+        given |= {"target": words[0] if words else "", "text": " ".join(words[1:]), "enter": args.enter}
+    elif args.verb == "eval":
+        given |= {"expression": " ".join(words)}
+    return f"browser_{args.verb}", given
+
+
 def _as_mcp(args) -> int:
     """A verb answered by the MCP tool of the same purpose (argus_mcp.py, beside this file): one
     implementation, so the command line and the MCP tools cannot drift apart."""
@@ -602,8 +619,15 @@ def _as_mcp(args) -> int:
         "wait": lambda: ("wait_for_files", {"paths": args.paths, "minutes": args.minutes}),
         "notes": lambda: ("notes", {}),
         "note": lambda: _note_call(args),
+        "browser": lambda: _browser_call(args),
     }[args.what]()
+    if tool == "browser_look" and getattr(args, "shot", None):
+        import argus_browser
+        d = argus_browser.look(argus.computers(), args.computer)
+        Path(args.shot).write_bytes(__import__("base64").b64decode(d["screenshot"]))
     said = m.DO[tool](argus, {k: v for k, v in given.items() if v is not None})
+    if isinstance(said, list):                    # blocks (a picture, then words): the words here
+        said = "\n".join(b["text"] for b in said if b.get("type") == "text")
     print(said)
     return 1 if args.what == "ask" and said.startswith("Nobody answered") else 0
 
@@ -709,6 +733,13 @@ def main(argv: list[str] | None = None) -> int:
     wf.add_argument("paths", nargs="+")
     wf.add_argument("--minutes", type=float, default=10)
     subs.add_parser("notes", help="the notes kept in Argus, the latest first")
+    br = subs.add_parser("browser", help="the browser of the person's own computer: open URL | look [--shot FILE] | click N|WORDS | type N|LABEL TEXT [--enter] | eval JS | tabs")
+    br.add_argument("verb", choices=["open", "look", "click", "type", "eval", "tabs"])
+    br.add_argument("args", nargs="*")
+    br.add_argument("--computer", help="which computer, when there are several")
+    br.add_argument("--new-tab", action="store_true", dest="new_tab")
+    br.add_argument("--enter", action="store_true", help="type: press Return after")
+    br.add_argument("--shot", help="look: save the screenshot to this file")
     nt = subs.add_parser("note", help="a note: note read NAME | new [NAME] | add NAME | write NAME | rename NAME --to NEW | delete NAME")
     nt.add_argument("verb", choices=["read", "new", "add", "write", "rename", "delete"])
     nt.add_argument("name", nargs="?", default="", help="the note (new: optional)")
@@ -721,7 +752,7 @@ def main(argv: list[str] | None = None) -> int:
     subs.add_parser("prompts", help="the person's prompt library")
 
     args = ap.parse_args(argv)
-    MCP_VERBS = {"ask", "desk", "launchers", "status", "computers", "needs", "todos", "todo", "worktree", "prompts", "notes", "note", "worktrees", "actions", "bells", "wait"}
+    MCP_VERBS = {"ask", "desk", "launchers", "status", "computers", "browser", "needs", "todos", "todo", "worktree", "prompts", "notes", "note", "worktrees", "actions", "bells", "wait"}
     if args.what in MCP_VERBS:
         try:
             return _as_mcp(args)

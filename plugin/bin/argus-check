@@ -50,7 +50,10 @@ if session:
         "session: request rename_session; rename the desk: rename_desk; end a session: request kill_session; "
         "restart on a new version keeping this conversation: request restart_agent; tell another session: who, "
         "then relay; notes: notes / note_*; to-dos and deadlines: todos / todo_add / todo_set; a decision of "
-        "theirs: ask; done or failed: ring. `actions` lists what request can ask for. From a shell: argus-say.")}
+        "theirs: ask; done or failed: ring. `actions` lists what request can ask for. "
+        "The person's own Mac or PC (connected through argus-sync): its browser is yours with browser_open, "
+        "browser_look, browser_click, browser_type, browser_eval — they watch it on their screen; a command "
+        "there: request computer_run. Never ask them for SSH tunnels, port 9222 or Chrome flags. From a shell: argus-say.")}
 if out:
     print(json.dumps(out))
 PY

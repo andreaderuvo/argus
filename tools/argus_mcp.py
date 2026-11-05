@@ -31,9 +31,11 @@ import sys
 from pathlib import Path
 
 try:                                              # installed: argus_tools.argus_mcp
+    from . import argus_browser as browser
     from .argus_client import Argus, ArgusError, own_session
 except ImportError:                               # run from the folder: tools/argus_mcp.py
     sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import argus_browser as browser                           # noqa: E402
     from argus_client import Argus, ArgusError, own_session   # noqa: E402
 
 VERSIONS = ("2025-06-18", "2025-03-26", "2024-11-05")
@@ -51,7 +53,12 @@ INSTRUCTIONS = (
     "`relay`; write or read a note: `notes`, `note_*`; the to-do list, a deadline Argus rings for: `todos`, "
     "`todo_add`, `todo_set`. `ask` when a decision is the person's, and wait; `ring` when you finish or fail. "
     "`actions` lists what `request` can ask for — the person taps Do it or No. In an Argus team: `team_task`, "
-    "then `team_done`; to design one: `team_check`, `team_propose`."
+    "then `team_done`; to design one: `team_check`, `team_propose`. "
+    "The person's own computer (their Mac or PC, connected through argus-sync): its browser is yours with "
+    "`browser_open` (a page), `browser_look` (a screenshot, the text and everything clickable, numbered), "
+    "`browser_click`, `browser_type`, `browser_eval`, `browser_tabs` — they watch it happen on their screen. "
+    "A command on that computer: `request` computer_run. Never ask them for SSH tunnels, debugging ports or "
+    "to start Chrome by hand: if no browser is lent, the tool says what to switch on."
 )
 
 TOOLS = [
@@ -189,6 +196,39 @@ TOOLS = [
                     "and whether its actions are on, for `request` with action computer_run {computer, command, cwd?}, "
                     "which the person allows with a tap and whose output comes back in request_status.",
      "inputSchema": {"type": "object", "properties": {}}},
+    {"name": "browser_open",
+     "description": "Open a page in the browser of the person's own computer (their Chrome on their Mac or PC, "
+                    "lent through argus-sync) — in your tab of it, which they watch. Then browser_look to see it.",
+     "inputSchema": {"type": "object", "properties": {
+         "url": {"type": "string"},
+         "new_tab": {"type": "boolean", "default": False, "description": "A tab of its own instead of yours"},
+         "computer": {"type": "string", "description": "Which computer, when they have several (its name)"}},
+         "required": ["url"]}},
+    {"name": "browser_look",
+     "description": "What your tab of the person's browser shows: a screenshot, the title and address, the page's "
+                    "text, and every link, button and field numbered — the numbers browser_click and browser_type take.",
+     "inputSchema": {"type": "object", "properties": {
+         "screenshot": {"type": "boolean", "default": True},
+         "computer": {"type": "string"}}}},
+    {"name": "browser_click",
+     "description": "Click (a real mouse click) on something in your tab: its number from browser_look, or the words it shows.",
+     "inputSchema": {"type": "object", "properties": {
+         "target": {"type": "string", "description": "A number from browser_look, or the words on it"},
+         "computer": {"type": "string"}}, "required": ["target"]}},
+    {"name": "browser_type",
+     "description": "Type into a field of your tab (what it held is replaced): its number from browser_look or its "
+                    "label/placeholder; `enter` presses Return after. For passwords and MFA, let the person type.",
+     "inputSchema": {"type": "object", "properties": {
+         "target": {"type": "string"}, "text": {"type": "string"},
+         "enter": {"type": "boolean", "default": False}, "computer": {"type": "string"}},
+         "required": ["target", "text"]}},
+    {"name": "browser_eval",
+     "description": "Run JavaScript in your tab and get its value back (JSON) — for what the other tools do not reach.",
+     "inputSchema": {"type": "object", "properties": {
+         "expression": {"type": "string"}, "computer": {"type": "string"}}, "required": ["expression"]}},
+    {"name": "browser_tabs",
+     "description": "The tabs open in the person's browser, with yours marked.",
+     "inputSchema": {"type": "object", "properties": {"computer": {"type": "string"}}}},
     {"name": "needs",
      "description": "What is waiting on the person right now, in one list: questions and requests for their OK, "
                     "teams stopped for them, agents waiting, teams proposed, to-dos rung or late. Look before "
@@ -453,6 +493,48 @@ def _computers(a: Argus, args: dict) -> str:
     return "\n".join(rows) or "no computer is connected — the person connects one in Argus: Settings → Computers"
 
 
+def _browser(fn):
+    """A browser tool: Argus says where the person's browser is, at every call."""
+    def run(a: Argus, args: dict):
+        try:
+            return fn(a.computers(), args)
+        except browser.BrowserError as e:
+            raise ArgusError(str(e)) from None
+        except OSError as e:
+            raise ArgusError(f"the person's browser did not answer: {e}") from None
+    return run
+
+
+def _said(d: dict) -> str:
+    return f"{d.get('title') or '(no title)'} — {d.get('url', '')} (on {d.get('computer')})"
+
+
+def _look_text(d: dict) -> str:
+    rows = [f"[{e['n']}] {e['kind']} {e['words']!r}" + (f" → {e['href']}" if e.get("href") else "")
+            + (f" = {e['value']!r}" if e.get("value") else "") for e in d.get("elements") or []]
+    return (_said(d) + "\n\nClickable and fillable, by number:\n" + ("\n".join(rows) or "(nothing)")
+            + "\n\nThe page's text:\n" + (d.get("text") or "(empty)"))
+
+
+def _look(computers, args):
+    d = browser.look(computers, args.get("computer"), shot=args.get("screenshot", True) is not False)
+    blocks = [{"type": "text", "text": _look_text(d)}]
+    if d.get("screenshot"):
+        blocks.insert(0, {"type": "image", "data": d["screenshot"], "mimeType": "image/jpeg"})
+    return blocks
+
+
+BROWSER = {
+    "browser_open": _browser(lambda c, a: "opened: " + _said(browser.open_page(c, a["url"], a.get("computer"), bool(a.get("new_tab"))))),
+    "browser_look": _browser(_look),
+    "browser_click": _browser(lambda c, a: "clicked; now: " + _said(browser.click(c, a["target"], a.get("computer")))),
+    "browser_type": _browser(lambda c, a: "typed; now: " + _said(browser.type_text(c, a["target"], a["text"], bool(a.get("enter")), a.get("computer")))),
+    "browser_eval": _browser(lambda c, a: json.dumps(browser.evaluate(c, a["expression"], a.get("computer"))["value"], ensure_ascii=False)),
+    "browser_tabs": _browser(lambda c, a: "\n".join(("→ " if t["yours"] else "  ") + f"{t['title'] or '(no title)'} — {t['url']}"
+                                                    for t in browser.tabs(c, a.get("computer"))["tabs"]) or "no tabs"),
+}
+
+
 def _needs(a: Argus, args: dict) -> str:
     def line(x: dict) -> str:
         who = x.get("session") or x.get("name") or (f"#{x['n']}" if x.get("n") else "")
@@ -576,7 +658,7 @@ def _prompts(a: Argus, _args: dict) -> str:
 
 
 DO = {"who": _who, "ring": _ring, "ask": _ask, "relay": _relay, "open_desk": _open_desk, "rename_desk": _rename_desk, "launchers": _launchers,
-      "start_agent": _start, "team_task": _team_task, "team_done": _team_done, "team_check": _team_check, "team_propose": _team_propose, "request": _request, "request_status": _request_status, "close_gone_windows": _close_gone, "computers": _computers, "needs": _needs, "todos": _todos, "todo_set": _todo_set, "todo_add": _todo_add, "notes": _notes, "note_read": _note_read, "note_new": _note_new, "note_add": _note_add, "note_write": _note_write, "note_rename": _note_rename, "note_delete": _note_delete, "teams": _teams, "worktree": _worktree, "prompts": _prompts, "worktrees": _worktrees, "actions": _actions, "bells": _bells, "wait_for_files": _wait_for_files}
+      "start_agent": _start, "team_task": _team_task, "team_done": _team_done, "team_check": _team_check, "team_propose": _team_propose, "request": _request, "request_status": _request_status, "close_gone_windows": _close_gone, "computers": _computers, "needs": _needs, "todos": _todos, "todo_set": _todo_set, "todo_add": _todo_add, "notes": _notes, "note_read": _note_read, "note_new": _note_new, "note_add": _note_add, "note_write": _note_write, "note_rename": _note_rename, "note_delete": _note_delete, "teams": _teams, "worktree": _worktree, "prompts": _prompts, "worktrees": _worktrees, "actions": _actions, "bells": _bells, "wait_for_files": _wait_for_files, **BROWSER}
 
 
 # ------------------------------------------------------------------ the wire
@@ -603,10 +685,12 @@ def answer(message: dict, argus) -> dict | None:
         try:
             text, failed = DO[name](argus(), args), False
         except ArgusError as e:
-            text, failed = f"Argus refused: {e}", True
+            text, failed = f"Argus refused: {e}" if not name.startswith("browser_") else str(e), True
         except (KeyError, TypeError, ValueError) as e:
             text, failed = f"bad arguments for {name}: {e}", True
-        result = {"content": [{"type": "text", "text": text}], "isError": failed}
+        # A tool may answer with blocks of its own (browser_look: a picture, then words).
+        content = text if isinstance(text, list) else [{"type": "text", "text": text}]
+        result = {"content": content, "isError": failed}
     else:
         return {"jsonrpc": "2.0", "id": ident, "error": {"code": -32601, "message": f"method not found: {method}"}}
     return {"jsonrpc": "2.0", "id": ident, "result": result}

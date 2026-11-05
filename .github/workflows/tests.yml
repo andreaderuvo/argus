@@ -58,7 +58,7 @@ jobs:
       - run: pip install -r requirements.txt
       - run: npm ci
       - run: sudo apt-get update && sudo apt-get install -y tmux poppler-utils
-      - run: python -m pytest -q -n 4 tests/test_modules.py tests/browser tests/test_computers.py
+      - run: python -m pytest -q -n 4 tests/test_modules.py tests/browser tests/test_computers.py tests/test_argus_browser.py
         env:
           ARGUS_BROWSER_REQUIRED: '1'
           ARGUS_CHROMIUM: /usr/bin/google-chrome

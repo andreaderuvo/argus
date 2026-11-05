@@ -824,6 +824,12 @@ fails if it comes back. Before adding anything, keep these true:
   Terminal: `/ws/computer/<id>`, the tmux terminal's protocol, so `attachTerminal(…, { socket })`
   draws it in a `pc` window. Agents: `GET /api/computers` (agent key, 37 routes), MCP `computers`,
   consent `computer_run` (dangerous; result carries code + output; capped 170 s by the consent client).
+  **The browser as the agent's own tools** (`tools/argus_browser.py`, MCP `browser_open|look|click|type|eval|tabs`,
+  `argus-say browser …`, tests/test_argus_browser.py): stdlib WebSocket + CDP, the endpoint asked of Argus at every
+  call, one tab per session remembered in ~/.cache/argus/browser. `look` numbers what can be clicked
+  (`data-argus-n`) and returns a JPEG as an MCP image block. Added because a Claude asked to use the browser
+  answered with SSH tunnels: the address alone was not enough; the primer, the MCP instructions and the global
+  CLAUDE.md/AGENTS.md now say "never ask for tunnels".
 - **A browser is remembered by the server too** (`/api/remember`, in the auth gate, `tests/test_remember.py`).
   localStorage is the page's copy, and a phone loses it (Safari clears script storage after
   seven days away; a link opened from a chat lands in that app's own browser). After a token

@@ -1,0 +1,85 @@
+"""The browser of the person's own computer, in an agent's hands (tools/argus_browser.py).
+
+"In a Claude, how would I use the browser?" — and the Claude asked answered with SSH tunnels and port
+9222 (2026-11-05): the address was there, but no tool used it. Now the tools are the agent's own: open
+a page, look at it (a picture, the text, everything clickable numbered), click, type, evaluate — each
+asking Argus where the browser is at that moment. Driven here through a real Argus and a real
+Chromium, lent by the stand-in computer of tests/test_computers.py.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import base64
+import sys
+import threading
+import time
+from pathlib import Path
+
+import pytest
+
+from tests.test_computers import CHROMIUM, call, chrome, computer, connect_one, live  # noqa: F401 — fixtures
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
+import argus_browser as browser  # noqa: E402
+import argus_mcp  # noqa: E402
+
+pytestmark = pytest.mark.browser
+
+FORM = ("data:text/html,<title>Submission</title><h1>EFSA test portal</h1>"
+        "<label>Sample id <input name=sample placeholder='sample id'></label>"
+        "<button onclick=\"document.title='sent '+document.querySelector('input').value\">Send</button>"
+        "<a href='help.html'>Help</a>")
+
+
+def lend(base, key, chrome_at):
+    loop = asyncio.new_event_loop()
+    threading.Thread(target=lambda: loop.run_until_complete(computer(base, key, {"browser": True}, chrome_at)),
+                     daemon=True).start()
+
+
+def test_an_agent_opens_looks_types_and_clicks_in_the_persons_browser(live, chrome, tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+    monkeypatch.setenv("ARGUS_SESSION", "tester")
+    made = connect_one(live, "Mac")
+    # Nothing lent yet: said in words that tell the agent what the person switches on, never a tunnel.
+    with pytest.raises(browser.BrowserError) as no:
+        browser.open_page(call(live, "/api/computers")[1]["computers"], FORM)
+    assert "switches Browser on in argus-sync" in str(no.value) and "SSH" in str(no.value)
+
+    lend(live, made["token"], chrome)
+    for _ in range(100):
+        computers = call(live, "/api/computers")[1]["computers"]
+        if computers[0].get("endpoint"):
+            break
+        time.sleep(0.05)
+
+    opened = browser.open_page(computers, FORM)
+    assert opened["title"] == "Submission" and opened["computer"] == "Mac"
+
+    seen = browser.look(computers)
+    kinds = {e["words"]: e for e in seen["elements"]}
+    assert "Send" in kinds and "Help" in kinds and any(e["kind"] == "input[text]" for e in seen["elements"]), seen["elements"]
+    assert "EFSA test portal" in seen["text"]
+    assert base64.b64decode(seen["screenshot"])[:3] == b"\xff\xd8\xff", "a JPEG"
+
+    field = next(e["n"] for e in seen["elements"] if e["kind"] == "input[text]")
+    browser.type_text(computers, str(field), "SAL-2026-0042")
+    after = browser.click(computers, "Send")
+    assert after["title"] == "sent SAL-2026-0042", after
+    assert browser.evaluate(computers, "document.querySelector('input').value")["value"] == "SAL-2026-0042"
+    # By its placeholder too, and the same tab every time.
+    browser.type_text(computers, "sample id", "SAL-2", enter=False)
+    assert browser.evaluate(computers, "document.querySelector('input').value")["value"] == "SAL-2"
+    listed = browser.tabs(computers)["tabs"]
+    assert sum(t["yours"] for t in listed) == 1 and any(t["title"].startswith("sent") for t in listed if t["yours"])
+
+    # Through the MCP tools: a picture, then the words with the numbers.
+    class Fake:
+        def computers(self):
+            return call(live, "/api/computers")[1]["computers"]
+    blocks = argus_mcp.DO["browser_look"](Fake(), {})
+    assert blocks[0]["type"] == "image" and blocks[0]["mimeType"] == "image/jpeg"
+    assert "[" in blocks[1]["text"] and "Send" in blocks[1]["text"]
+    assert argus_mcp.DO["browser_eval"](Fake(), {"expression": "1 + 41"}) == "42"
+    call(live, f"/api/computers/{made['computer']['id']}/disconnect", "POST", {})

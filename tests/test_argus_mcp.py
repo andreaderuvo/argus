@@ -61,7 +61,7 @@ def test_the_handshake_and_the_tool_list():
     # A version it does not know is answered with the newest it does, as the spec asks.
     assert call(Fake(), "initialize", {"protocolVersion": "1999-01-01"})["result"]["protocolVersion"] == argus_mcp.VERSIONS[0]
     names = [t["name"] for t in call(Fake(), "tools/list")["result"]["tools"]]
-    assert names == ["who", "ring", "ask", "relay", "open_desk", "rename_desk", "launchers", "start_agent", "team_task", "team_done", "team_check", "team_propose", "close_gone_windows", "request", "request_status", "computers", "needs", "todos", "todo_set", "todo_add", "notes", "note_read", "note_new", "note_add", "note_write", "note_rename", "note_delete", "teams", "worktree", "prompts", "worktrees", "actions", "bells", "wait_for_files"]
+    assert names == ["who", "ring", "ask", "relay", "open_desk", "rename_desk", "launchers", "start_agent", "team_task", "team_done", "team_check", "team_propose", "close_gone_windows", "request", "request_status", "computers", "browser_open", "browser_look", "browser_click", "browser_type", "browser_eval", "browser_tabs", "needs", "todos", "todo_set", "todo_add", "notes", "note_read", "note_new", "note_add", "note_write", "note_rename", "note_delete", "teams", "worktree", "prompts", "worktrees", "actions", "bells", "wait_for_files"]
     assert all(t["inputSchema"]["type"] == "object" for t in call(Fake(), "tools/list")["result"]["tools"])
     assert argus_mcp.answer({"jsonrpc": "2.0", "method": "notifications/initialized"}, Fake) is None
     assert call(Fake(), "nope")["error"]["code"] == -32601
@@ -142,7 +142,7 @@ def test_an_agent_client_over_stdio(live):
     try:
         assert rpc("initialize", {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "test"}})["result"]["serverInfo"]["name"] == "argus"
         proc.stdin.write(json.dumps({"jsonrpc": "2.0", "method": "notifications/initialized"}) + "\n")
-        assert len(rpc("tools/list")["result"]["tools"]) == 34
+        assert len(rpc("tools/list")["result"]["tools"]) == 40
 
         def tool(tool_name, **args):
             return rpc("tools/call", {"name": tool_name, "arguments": args})["result"]
@@ -248,7 +248,7 @@ CLI_FOR = {"who": "who", "ring": "ring", "ask": "ask", "relay": "relay", "open_d
            "rename_desk": "desk", "launchers": "launchers", "start_agent": "start", "team_task": "task",
            "team_done": "turn", "team_check": "team-check", "team_propose": "team-propose",
            "close_gone_windows": "close-gone", "request": "request", "request_status": "status",
-           "computers": "computers", "needs": "needs", "todos": "todos", "todo_set": "todo", "todo_add": "todo", "teams": "teams",
+           "browser_open": "browser", "browser_look": "browser", "browser_click": "browser", "browser_type": "browser", "browser_eval": "browser", "browser_tabs": "browser", "computers": "computers", "needs": "needs", "todos": "todos", "todo_set": "todo", "todo_add": "todo", "teams": "teams",
            "notes": "notes", "note_read": "note", "note_new": "note", "note_add": "note", "note_write": "note",
            "note_rename": "note", "note_delete": "note",
            "worktrees": "worktrees", "actions": "actions", "bells": "bells", "wait_for_files": "wait",
