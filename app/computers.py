@@ -170,15 +170,18 @@ class Link:
         if op == "hello":
             offers = frame.get("offers") if isinstance(frame.get("offers"), dict) else {}
             browser = frame.get("browser") if isinstance(frame.get("browser"), dict) else {}
-            self.hello = {
+            hello = {
                 "name": str(frame.get("name") or "")[:80], "os": str(frame.get("os") or "")[:40],
                 "client": str(frame.get("client") or "")[:80],
                 "offers": {k: bool(offers.get(k)) for k in OFFERS},
                 "browser": {"ws": str(browser.get("ws") or "")[:120], "version": str(browser.get("version") or "")[:120]},
             }
-            self.since = time.time()
-            if self.offers("browser") and self.browser_ws():
+            # The browser's address first, then "connected": an agent that sees the computer
+            # connected must find the address there too (CI caught the moment in between).
+            if hello["offers"]["browser"] and BROWSER_PATH.fullmatch(hello["browser"]["ws"]):
                 await self.listen()
+            self.hello = hello
+            self.since = time.time()
             return
         one = self.channels.get(frame.get("ch"))
         if one is None:
