@@ -24,7 +24,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 
 from . import build, gitview, pluginstate, sshmount, themes, trust, viewerpacks
-from . import (needs, notes, turndiff, syncapi, agentflags, consent, readiness, teamlint, toolcopies, teams, teammermaid, wiring, agentstate, resume, announce, asks, bells, devices, favourites, files, fsops, gitwork, journal, labels,
+from . import (browserlend, needs, notes, turndiff, syncapi, agentflags, consent, readiness, teamlint, toolcopies, teams, teammermaid, wiring, agentstate, resume, announce, asks, bells, devices, favourites, files, fsops, gitwork, journal, labels,
                languages, launch, mounts, network, paths, ports, prefs, proxy, release, runner, runs,
                system, term, tmux, todo)
 import httpx
@@ -617,6 +617,7 @@ def create_app(cfg: Config) -> FastAPI:
     app.state.build = build.read()
     app.state.devices = cfg.devices_store or Path("/nonexistent")
     app.state.sync_store = syncapi.default_store(cfg.devices_store) if cfg.devices_store else Path("/nonexistent/sync-keys.json")
+    app.state.browser_store = browserlend.default_store(cfg.devices_store) if cfg.devices_store else Path("/nonexistent/browser-keys.json")
     app.state.journal = cfg.journal_store
     app.state.lang = Path("/nonexistent")
     app.state.viewers = Path("/nonexistent")
@@ -665,6 +666,7 @@ def create_app(cfg: Config) -> FastAPI:
     app.include_router(runs.router)
     app.include_router(fsops.router, tags=["Writing"])
     app.include_router(syncapi.router, tags=["Sync"])
+    app.include_router(browserlend.router)
     app.include_router(paths.router, tags=["Prompts"])
     app.include_router(term.router, tags=["Sessions"])
 
