@@ -218,7 +218,26 @@ def rung(request: Request, why: str, session: str | None = None, text: str = "",
         except asyncio.QueueFull:
             kept["ears"].discard(ear)
     dispatch_ntfy(request, bell)
+    dispatch_computers(request, bell)
     return bell
+
+
+def dispatch_computers(request: Request, bell: dict) -> None:
+    """The same bell to each computer connected through argus-sync, which shows it as a notification
+    of its own system — a Mac's, even with no tab open and no HTTPS (app/computers.py)."""
+    if bell["why"] not in ("asking", "failed", "done") or bell.get("repeat"):
+        return
+    links = getattr(request.app.state, "computers", None) or {}
+    told = {"op": "bell", "why": bell["why"], "session": bell.get("session") or "",
+            "text": str(bell.get("text") or "")[:PUSH_TEXT]}
+    for one in list(links.values()):
+        if one.connected:
+            task = asyncio.ensure_future(one.send(told))
+            pending = getattr(request.app.state, "notification_tasks", None)
+            if pending is None:
+                pending = request.app.state.notification_tasks = set()
+            pending.add(task)
+            task.add_done_callback(pending.discard)
 
 
 def dispatch_ntfy(request: Request, bell: dict) -> None:

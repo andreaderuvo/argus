@@ -449,3 +449,21 @@ def test_a_port_of_this_server_on_the_computers_localhost(live, tmp_path):
         except subprocess.TimeoutExpired:
             client.kill()
         site.shutdown()
+
+
+@pytest.mark.skipif(not os.access(SYNC_BIN, os.X_OK), reason="needs an argus-sync build (ARGUS_SYNC_BIN)")
+def test_a_bell_reaches_the_connected_computer(live, tmp_path):
+    """An agent's bell, shown by the computer as a notification of its own (the app; printed here)."""
+    made = connect_one(live, "Mac")
+    cid = made["computer"]["id"]
+    client = subprocess.Popen([SYNC_BIN, "computer", made["link"], "--nothing"],
+                              env={**os.environ, "ARGUS_SYNC_HOME": str(tmp_path / "sync-home")},
+                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    try:
+        asyncio.run(until_connected(live, cid))
+        assert call(live, "/api/bell", "POST", {"session": "aligner", "why": "done", "text": "all 42 samples aligned"})[0] == 200
+        time.sleep(1)
+    finally:
+        call(live, f"/api/computers/{cid}/disconnect", "POST", {})
+        out, _ = client.communicate(timeout=20)
+    assert "[done] aligner: all 42 samples aligned" in out, out
