@@ -1789,6 +1789,12 @@
   "{name} is connected.": "{name} is connected.",
   "{what}: off — turned on in argus-sync, on that computer": "{what}: off — turned on in argus-sync, on that computer",
   "{what}: on, on that computer": "{what}: on, on that computer",
-  "— on that computer. Then switch on what it lends: Browser, Terminal, Actions.": "— on that computer. Then switch on what it lends: Browser, Terminal, Actions."
+  "— on that computer. Then switch on what it lends: Browser, Terminal, Actions.": "— on that computer. Then switch on what it lends: Browser, Terminal, Actions.",
+  "Open on {name}": "Open on {name}",
+  "Makes port {port} of this server appear on localhost of {name}, through argus-sync — no SSH": "Makes port {port} of this server appear on localhost of {name}, through argus-sync — no SSH",
+  "on {name}:": "on {name}:",
+  "port {port} is on {name} now: localhost:{local}": "port {port} is on {name} now: localhost:{local}",
+  "port {port} → localhost:{local}": "port {port} → localhost:{local}",
+  "Stop showing it there": "Stop showing it there"
  }
 }

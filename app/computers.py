@@ -113,6 +113,10 @@ class Link:
         self.server = None
         self.port = 0
         self.sending = asyncio.Lock()
+        # Ports of this server shown on the computer's localhost: {port here: port there}.
+        self.forwards: dict[int, int] = {}
+        self.asked: dict[int, asyncio.Future] = {}
+        self.tcp: dict[str, asyncio.StreamWriter] = {}
 
     @property
     def connected(self) -> bool:
@@ -182,6 +186,35 @@ class Link:
                 await self.listen()
             self.hello = hello
             self.since = time.time()
+            # Back after a reconnection: the ports it showed, shown again.
+            for port, local in list(self.forwards.items()):
+                await self.send({"op": "forward", "port": port, "local": local})
+            return
+        if op == "forwarded":
+            port = int(frame.get("port") or 0)
+            if frame.get("ok"):
+                self.forwards[port] = int(frame.get("local") or port)
+            waiting = self.asked.pop(port, None)
+            if waiting and not waiting.done():
+                waiting.set_result(frame)
+            return
+        if op == "tcp":
+            # Someone on the computer opened localhost:<local>: a connection to the port here.
+            asyncio.ensure_future(self.carry_tcp(str(frame.get("ch")), int(frame.get("port") or 0)))
+            return
+        if op in ("tcp-data", "tcp-close"):
+            writer = self.tcp.get(str(frame.get("ch")))
+            if writer is None:
+                return
+            if op == "tcp-data":
+                try:
+                    writer.write(base64.b64decode(frame.get("b64") or ""))
+                    await writer.drain()
+                except Exception:
+                    self.tcp.pop(str(frame.get("ch")), None)
+            else:
+                self.tcp.pop(str(frame.get("ch")), None)
+                writer.close()
             return
         one = self.channels.get(frame.get("ch"))
         if one is None:
@@ -198,9 +231,38 @@ class Link:
         except Exception:
             pass
 
+    async def carry_tcp(self, ch: str, port: int) -> None:
+        """One connection from the computer's localhost to a port here, for as long as both keep it."""
+        if port not in self.forwards:
+            await self.send({"op": "tcp-close", "ch": ch, "why": "that port is not shown on this computer"})
+            return
+        try:
+            reader, writer = await asyncio.open_connection("127.0.0.1", port)
+        except OSError as e:
+            await self.send({"op": "tcp-close", "ch": ch, "why": f"nothing answers on port {port} here: {e}"})
+            return
+        self.tcp[ch] = writer
+        await self.send({"op": "tcp-opened", "ch": ch})
+        try:
+            while ch in self.tcp:
+                data = await reader.read(65536)
+                if not data:
+                    break
+                if not await self.send({"op": "tcp-data", "ch": ch, "b64": base64.b64encode(data).decode()}):
+                    break
+        except Exception:
+            pass
+        finally:
+            if self.tcp.pop(ch, None) is not None:
+                await self.send({"op": "tcp-close", "ch": ch})
+            writer.close()
+
     async def drop(self) -> None:
         """The bridge is gone: every channel with it."""
         self.bridge = None
+        for writer in self.tcp.values():
+            writer.close()
+        self.tcp.clear()
         self.hello = {}
         self.since = None
         for ch, one in list(self.channels.items()):
@@ -267,7 +329,8 @@ class Link:
                "os": self.hello.get("os") or None, "client": self.hello.get("client") or None,
                "since": self.since, "offers": (self.hello.get("offers") if self.connected else {k: False for k in OFFERS}),
                "browser": ((self.hello.get("browser") or {}).get("version") or None) if self.offers("browser") else None,
-               "channels": len(self.channels)}
+               "channels": len(self.channels),
+               "forwards": [{"port": p, "local": loc} for p, loc in sorted(self.forwards.items())] if self.connected else []}
         if with_endpoint:
             out["endpoint"] = self.endpoint()
         return out
@@ -479,6 +542,43 @@ async def run_route(request: Request, ident: str) -> dict:
     actions on (a switch in argus-sync, there). Agents ask for it as the request `computer_run`."""
     body = await request.json()
     return await run(request.app, ident, body.get("command"), body.get("cwd") or "", body.get("timeout") or 120)
+
+
+@router.post("/api/computers/{ident}/forward", summary="Show a port of this server on the computer's localhost")
+async def forward(request: Request, ident: str) -> dict:
+    """`{port, local?}` → `{port, local, url}`: localhost:<local> on that computer now reaches
+    127.0.0.1:<port> here, through argus-sync — what `ssh -N -L` does, without SSH. `local` defaults to
+    the same number, or the next free one there."""
+    body = await request.json()
+    try:
+        port = int(body.get("port"))
+        local = int(body.get("local") or port)
+    except (TypeError, ValueError):
+        raise ApiError(400, "port: a number") from None
+    if not (1 <= port <= 65535 and 1024 <= local <= 65535):
+        raise ApiError(400, "a port here 1-65535, and one there from 1024")
+    one = find(request.app, ident)
+    if not one.connected:
+        raise ApiError(409, f"{one.name} is not connected")
+    waiting = asyncio.get_running_loop().create_future()
+    one.asked[port] = waiting
+    await one.send({"op": "forward", "port": port, "local": local})
+    try:
+        said = await asyncio.wait_for(waiting, OPEN_WAIT)
+    except asyncio.TimeoutError:
+        raise ApiError(504, f"{one.name} did not answer — is its argus-sync up to date?") from None
+    if not said.get("ok"):
+        raise ApiError(409, str(said.get("why") or "it could not listen there"))
+    there = int(said.get("local") or local)
+    return {"computer": one.name, "port": port, "local": there, "url": f"http://localhost:{there}/"}
+
+
+@router.delete("/api/computers/{ident}/forward/{port}", summary="Stop showing a port on the computer")
+async def unforward(request: Request, ident: str, port: int) -> dict:
+    one = find(request.app, ident)
+    one.forwards.pop(port, None)
+    await one.send({"op": "unforward", "port": port})
+    return {"stopped": port}
 
 
 @router.delete("/api/computers/{ident}", summary="Forget a computer: its key no longer opens anything")

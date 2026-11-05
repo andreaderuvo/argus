@@ -5037,3 +5037,18 @@ body.needleft .needpswap svg { transform: scaleX(-1); }
 .pcwait { display: flex; align-items: center; gap: .55rem; margin: .6rem 0 0; color: var(--dim); }
 .pcwait .pcstate { margin-top: 0; }
 .pcwait.on { color: var(--bright); }
+
+/* A port on your own computer, through argus-sync: beside the ssh line that does the same by hand. */
+.pcforward { display: grid; gap: .35rem; margin: .3rem 0 .5rem; }
+.pcfwrow { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
+.pcforward .pcbtn { display: inline-flex; align-items: center; gap: .35rem; min-height: 32px; padding: .25rem .7rem; width: auto; margin: 0;
+  border-radius: .45rem; font-size: .85rem; cursor: pointer; }
+.pcforward .pcbtn.primary { background: var(--accent); border: 1px solid var(--accent); color: var(--on-accent); font-weight: 600; }
+.pcforward .pcbtn svg { width: 14px; height: 14px; }
+.pcopen { font: .85rem ui-monospace, "SF Mono", Menlo, monospace; color: var(--accent); }
+.pcfws { display: flex; flex-wrap: wrap; gap: .35rem; }
+.pcfw { display: inline-flex; align-items: center; gap: .3rem; padding: .1rem .2rem .1rem .55rem; border-radius: 999px; font-size: .78rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line)); color: var(--text); font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+.pcfwx { display: grid; place-items: center; width: 20px; height: 20px; padding: 0; min-height: 0; border: 0; background: none; color: var(--dim); cursor: pointer; border-radius: 50%; }
+.pcfwx:hover { color: var(--danger); }
+.pcfwx svg { width: 12px; height: 12px; }

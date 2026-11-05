@@ -410,3 +410,42 @@ def test_an_agent_asks_to_run_a_command_and_the_person_allows_it(live, tmp_path)
         await asyncio.wait_for(lending, 10)
 
     asyncio.run(scenario())
+
+
+@pytest.mark.skipif(not os.access(SYNC_BIN, os.X_OK), reason="needs an argus-sync build (ARGUS_SYNC_BIN)")
+def test_a_port_of_this_server_on_the_computers_localhost(live, tmp_path):
+    """"The ssh -N -L line in System: a button too, for someone with argus-sync" (2026-11-05). A port
+    that listens only on this server's loopback, made to appear on the computer's localhost."""
+    import http.server
+    import socketserver
+    (tmp_path / "site").mkdir()
+    (tmp_path / "site" / "index.html").write_text("served on the server, read on the Mac")
+    handler = lambda *a, **k: http.server.SimpleHTTPRequestHandler(*a, directory=str(tmp_path / "site"), **k)  # noqa: E731
+    site = socketserver.TCPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=site.serve_forever, daemon=True).start()
+    port = site.server_address[1]
+    made = connect_one(live, "Mac")
+    cid = made["computer"]["id"]
+    client = subprocess.Popen([SYNC_BIN, "computer", made["link"], "--nothing"],
+                              env={**os.environ, "ARGUS_SYNC_HOME": str(tmp_path / "sync-home")},
+                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    try:
+        asyncio.run(until_connected(live, cid))
+        local = free_port()
+        code, said = call(live, f"/api/computers/{cid}/forward", "POST", {"port": port, "local": local})
+        assert code == 200 and said["local"] == local and said["url"] == f"http://localhost:{local}/", said
+        assert call(live, "/api/computers")[1]["computers"][0]["forwards"] == [{"port": port, "local": local}]
+        for _ in range(3):                                 # a page fetched, then again: each its own connection
+            with urllib.request.urlopen(f"http://127.0.0.1:{local}/index.html", timeout=10) as r:
+                assert r.read().decode() == "served on the server, read on the Mac"
+        call(live, f"/api/computers/{cid}/forward/{port}", "DELETE")
+        time.sleep(0.5)
+        with pytest.raises(OSError):
+            urllib.request.urlopen(f"http://127.0.0.1:{local}/index.html", timeout=3)
+    finally:
+        call(live, f"/api/computers/{cid}/disconnect", "POST", {})
+        try:
+            client.communicate(timeout=20)
+        except subprocess.TimeoutExpired:
+            client.kill()
+        site.shutdown()

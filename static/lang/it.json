@@ -1789,6 +1789,12 @@
   "{name} is connected.": "{name} è collegato.",
   "{what}: off — turned on in argus-sync, on that computer": "{what}: spento — si accende in argus-sync, su quel computer",
   "{what}: on, on that computer": "{what}: acceso, su quel computer",
-  "— on that computer. Then switch on what it lends: Browser, Terminal, Actions.": "— su quel computer. Poi accendi ciò che concede: Browser, Terminale, Azioni."
+  "— on that computer. Then switch on what it lends: Browser, Terminal, Actions.": "— su quel computer. Poi accendi ciò che concede: Browser, Terminale, Azioni.",
+  "Open on {name}": "Apri su {name}",
+  "Makes port {port} of this server appear on localhost of {name}, through argus-sync — no SSH": "Fa comparire la porta {port} di questo server su localhost di {name}, tramite argus-sync — niente SSH",
+  "on {name}:": "su {name}:",
+  "port {port} is on {name} now: localhost:{local}": "la porta {port} ora è su {name}: localhost:{local}",
+  "port {port} → localhost:{local}": "porta {port} → localhost:{local}",
+  "Stop showing it there": "Smetti di mostrarla lì"
  }
 }

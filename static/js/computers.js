@@ -2,7 +2,7 @@
 import { confirmBox, copyText, modal, showText, ticked, toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { icon } from '/js/icons.js';
-import { delJSON, getJSON, postJSON, when } from '/js/reconnect.js';
+import { delJSON, getJSON, postJSON, when, withToken } from '/js/reconnect.js';
 import { openWindow } from '/js/tray.js';
 import { t } from '/js/words.js';
 // </imports>
@@ -66,11 +66,51 @@ function computerRow(one, paint) {
           : t('not connected — argus-sync is not running there, or that computer is off') }),
       ]),
       offerChips(one),
+      (one.forwards || []).length ? el('div', { className: 'pcfws' }, one.forwards.map((f) => el('span', { className: 'pcfw' }, [
+        el('span', { textContent: t('port {port} → localhost:{local}', { port: f.port, local: f.local }) }),
+        el('button', { type: 'button', className: 'pcfwx', title: t('Stop showing it there'), onclick: async () => {
+          await delJSON(`/api/computers/${encodeURIComponent(one.id)}/forward/${f.port}`); paint();
+        } }, icon('close'))]))) : null,
       el('div', { className: 'pcacts' }, buttons),
     ]),
   ]);
   card.dataset.computer = one.id;
   return card;
+}
+
+/** "Open on Mac": a port of this server on the localhost of each connected computer — what the
+ *  `ssh -N -L` line beside it does, without SSH, for whoever has argus-sync (System). `own`: the port
+ *  is Argus's own, and the address it gives carries the token, as any handoff link does. Nothing is
+ *  drawn when no computer is connected: the ssh line is the answer then. */
+export function onMyComputer(port, { own = false } = {}) {
+  const box = el('div', { className: 'pcforward', hidden: true });
+  getJSON('/api/computers').then((said) => {
+    const here = (said.computers || []).filter((c) => c.connected);
+    if (!here.length) return;
+    box.hidden = false;
+    box.replaceChildren(...here.map((one) => {
+      const shown = (one.forwards || []).find((f) => f.port === Number(port));
+      const link = (local) => {
+        const url = `http://localhost:${local}/`;
+        return el('a', { className: 'pcopen', href: own ? withToken(url) : url, target: '_blank', rel: 'noopener', textContent: url });
+      };
+      const row = el('div', { className: 'pcfwrow' });
+      const go = el('button', { type: 'button', className: 'pcbtn primary' }, [icon('expand'),
+        el('span', { textContent: t('Open on {name}', { name: one.name }) })]);
+      go.title = t('Makes port {port} of this server appear on localhost of {name}, through argus-sync — no SSH', { port, name: one.name });
+      go.onclick = async () => {
+        go.disabled = true;
+        try {
+          const r = await postJSON(`/api/computers/${encodeURIComponent(one.id)}/forward`, { port: Number(port) });
+          row.replaceChildren(el('span', { className: 'meta', textContent: t('on {name}:', { name: one.name }) }), link(r.local));
+          toast(t('port {port} is on {name} now: localhost:{local}', { port, name: one.name, local: r.local }));
+        } catch (e) { toast(e.message, true); go.disabled = false; }
+      };
+      row.append(...(shown ? [el('span', { className: 'meta', textContent: t('on {name}:', { name: one.name }) }), link(shown.local)] : [go]));
+      return row;
+    }));
+  }).catch(() => {});
+  return box;
 }
 
 /** The rows of Settings → Computers, kept up to date while they are on screen. */

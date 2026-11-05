@@ -74,3 +74,19 @@ def test_connect_a_computer_makes_the_link_and_waits_for_it(make_page, argus):
         shoot(page, "computers-connect")
     cid = next(c["id"] for c in argus.api("/api/computers")["computers"])
     argus.api(f"/api/computers/{cid}", "DELETE")
+
+
+def test_system_offers_open_on_the_computer_beside_the_ssh_line(make_page, argus):
+    """Where the ssh -N -L line is, a connected computer gets "Open on <name>" too (2026-11-05)."""
+    made = argus.api("/api/computers/keys", "POST", {"base": argus.url, "name": "Mac"})
+    try:
+        page = make_page(route="#/system")
+        page.wait("!!document.querySelector('.wheresec .mwcmd, .wheresec pre, .wheresec code')", timeout=15, what="the ssh line")
+        assert page.eval("!document.querySelector('.wheresec .pcforward:not([hidden])')"), "nothing to offer with no computer"
+        lend(argus, made["token"], {"terminal": True})
+        eventually(lambda: argus.api("/api/computers")["computers"][0]["connected"], timeout=15, what="connected")
+        page.reload()
+        page.wait("!!document.querySelector('.wheresec .pcforward:not([hidden]) .pcbtn')", timeout=15, what="Open on Mac")
+        assert "Open on Mac" in page.eval("document.querySelector('.wheresec .pcforward .pcbtn').textContent")
+    finally:
+        argus.api(f"/api/computers/{made['computer']['id']}", "DELETE")

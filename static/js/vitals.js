@@ -1,4 +1,5 @@
 // <imports> generated from what this file uses; edit the code, not this list
+import { onMyComputer } from '/js/computers.js';
 import { savePrefs } from '/js/core.js';
 import { showCount } from '/js/counts.js';
 import { ask, confirmBox, copyPath, copyText, modal, toast } from '/js/dialogs.js';
@@ -165,6 +166,8 @@ function whereSection() {
     const openssh = (said.ssh || []).find((x) => x.name === 'OpenSSH');
     if (openssh) {
       body.append(commandLine(t('tunnel to it'), openssh.line, t('run this on your own machine')));
+      // With argus-sync on that machine, the same in one press.
+      body.append(onMyComputer(said.port, { own: true }));
       body.append(addressLine(t('then open'), withToken(`${location.protocol}//127.0.0.1:${said.port}/`),
         t('works once the tunnel above is up')));
     }
@@ -507,6 +510,7 @@ function portsSection(where) {
           ssh.line.replaceAll(String(where.said.port), String(p.port)),
           t('run this on your own machine, then open localhost:{port}', { port: p.port })));
       }
+      more.append(onMyComputer(p.port));
       more.append(commandLine(t('the process'), p.command || p.address, ''));
 
       const twist = el('button', {

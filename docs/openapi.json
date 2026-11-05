@@ -890,6 +890,104 @@
     ]
    }
   },
+  "/api/computers/{ident}/forward": {
+   "post": {
+    "description": "`{port, local?}` \u2192 `{port, local, url}`: localhost:<local> on that computer now reaches\n127.0.0.1:<port> here, through argus-sync \u2014 what `ssh -N -L` does, without SSH. `local` defaults to\nthe same number, or the next free one there.",
+    "operationId": "postApiComputersIdentForward",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "ident",
+      "required": true,
+      "schema": {
+       "title": "Ident",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Forward Api Computers  Ident  Forward Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Show a port of this server on the computer's localhost",
+    "tags": [
+     "Computers"
+    ]
+   }
+  },
+  "/api/computers/{ident}/forward/{port}": {
+   "delete": {
+    "operationId": "deleteApiComputersIdentForwardPort",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "ident",
+      "required": true,
+      "schema": {
+       "title": "Ident",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "port",
+      "required": true,
+      "schema": {
+       "title": "Port",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Unforward Api Computers  Ident  Forward  Port  Delete",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Stop showing a port on the computer",
+    "tags": [
+     "Computers"
+    ]
+   }
+  },
   "/api/computers/{ident}/run": {
    "post": {
     "description": "`{command, cwd?, timeout?}` \u2192 `{code, output, cut, seconds}`. Only if that computer has its\nactions on (a switch in argus-sync, there). Agents ask for it as the request `computer_run`.",
