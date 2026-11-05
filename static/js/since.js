@@ -1,5 +1,6 @@
 // <imports> generated from what this file uses; edit the code, not this list
 import { paintSince } from '/js/bells.js';
+import { computerRows } from '/js/computers.js';
 import { aboutSheet, savePrefs } from '/js/core.js';
 import { confirmBox, modal, toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
@@ -963,6 +964,8 @@ export async function screenSettings() {
   );
 
   wrap.append(group(t('Agents')), withoutAskingRows());
+  // Your Mac or PC, linked through argus-sync: a terminal on it, its browser for agents, actions.
+  wrap.append(group(t('Computers')), computerRows());
 
   wrap.append(
     group(t('Sessions')),

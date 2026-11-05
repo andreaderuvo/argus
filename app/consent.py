@@ -55,6 +55,7 @@ ACTIONS = {
     "todo_delete": "take a to-do off the list",
     "update_plugin": "install or update the Argus plugin in an agent (claude, codex)",
     "reload_plugins": "reload the Argus plugin in the Claude sessions waiting at their prompt",
+    "computer_run": "run a command on one of your computers (connected through argus-sync, with its actions switched on there)",
 }
 
 # Done at once, always: typing /reload-plugins into a Claude at its prompt changes nothing but
@@ -80,7 +81,7 @@ def without_asking(app) -> set[str]:
 
 
 # Said in red beside their box in Settings: they delete files, end work, or let agents loose.
-DANGEROUS = {"team_reset", "team_restart", "kill_session", "start_agent", "remove_worktree"}
+DANGEROUS = {"team_reset", "team_restart", "kill_session", "start_agent", "remove_worktree", "computer_run"}
 
 
 def store(app) -> dict[str, dict]:
@@ -285,6 +286,22 @@ def plan(app, action: str, args: dict) -> dict:
             raise ValueError("say which session (`session`)")
         return {"calls": [("POST", "/api/tmux/kill", {"name": name})],
                 "text": f"end the session {name}, and everything running in it"}
+    if action == "computer_run":
+        which, command = str(args.get("computer") or "").strip(), str(args.get("command") or "").strip()
+        if not which or not command:
+            raise ValueError("say which computer (`computer`, its name) and the command (`command`)")
+        from . import computers
+        try:
+            one = computers.find(app, which)
+        except ApiError as e:
+            raise ValueError(e.message) from None
+        if not one.offers("actions"):
+            raise ValueError(f"{one.name} is not connected" if not one.connected
+                             else f"{one.name} has its actions switched off — only the person can switch them on, there")
+        cwd = str(args.get("cwd") or "").strip()
+        body = {"command": command, "cwd": cwd, "timeout": max(1.0, min(float(args.get("timeout") or 120), 170.0))}
+        return {"calls": [("POST", f"/api/computers/{one.key_id}/run", body)],
+                "text": f"run on {one.name}" + (f" (in {cwd})" if cwd else "") + f": {command}"}
     if action == "restart_agent":
         name = str(args.get("session") or "").strip()
         if not name:

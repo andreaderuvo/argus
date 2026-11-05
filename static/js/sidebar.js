@@ -1083,6 +1083,7 @@ function railLabel(spec) {
   if (spec.kind === 'run') return runs.get(spec.id)?.name || t('a run');
   if (spec.kind === 'note') return spec.name || t('Text');
   if (spec.kind === 'notes') return t('Notes');
+  if (spec.kind === 'pc') return t('Terminal · {name}', { name: spec.name || '?' });
   if (spec.kind === 'changes') return t('Changes · {name}', { name: (spec.path || '').split('/').pop() || spec.path });
   return (spec.path || '').split('/').filter(Boolean).pop() || spec.path || '?';
 }

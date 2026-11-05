@@ -499,6 +499,7 @@ export const specId = (spec) => (spec.kind === 'links' ? (spec.from ? `links:${s
     : spec.kind === 'team' ? `team:${spec.id}`
     : spec.kind === 'note' ? `note:${spec.id || spec.path || 'one'}`
     : spec.kind === 'notes' ? 'notes'
+    : spec.kind === 'pc' ? `pc:${spec.id}`
     : spec.kind === 'browser' && spec.id ? `browser:${spec.id}`
       : `${spec.kind}:${spec.path}`);
 
