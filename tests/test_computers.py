@@ -375,3 +375,33 @@ def test_the_real_argus_sync_connects_this_computer(live, tmp_path):
     finally:
         if client.poll() is None:
             client.kill()
+
+
+def test_an_agent_asks_to_run_a_command_and_the_person_allows_it(live, tmp_path):
+    """`request computer_run`: put to the person in words, done on Do it, the output given back."""
+    made = connect_one(live, "Mac")
+    cid = made["computer"]["id"]
+
+    async def scenario():
+        lending = asyncio.ensure_future(computer(live, made["token"], {"actions": True}))
+        await until_connected(live, cid)
+        # Refused before anything is asked, when it could not be done.
+        code, said = await asyncio.to_thread(call, live, "/api/agent/request", "POST",
+                                             {"action": "computer_run", "args": {"computer": "Nowhere", "command": "ls"}})
+        assert code == 400 and "no computer called" in said
+        code, asked = await asyncio.to_thread(call, live, "/api/agent/request", "POST",
+                                              {"action": "computer_run", "args": {"computer": "mac", "command": "echo hello from the mac",
+                                                                                  "cwd": str(tmp_path)}, "why": "to see"})
+        assert code == 200 and asked["state"] == "asked" and "run on Mac" in asked["text"] and "echo hello from the mac" in asked["text"], asked
+        question = next(q for q in (await asyncio.to_thread(call, live, "/api/asks"))[1]["asks"])
+        await asyncio.to_thread(call, live, f"/api/ask/{question['id']}/answer", "POST", {"answer": "Do it"})
+        for _ in range(100):
+            said = (await asyncio.to_thread(call, live, f"/api/agent/request/{asked['id']}"))[1]
+            if said["state"] in ("done", "failed"):
+                break
+            await asyncio.sleep(0.05)
+        assert said["state"] == "done" and said["result"]["code"] == 0 and said["result"]["output"].strip() == "hello from the mac", said
+        await asyncio.to_thread(call, live, f"/api/computers/{cid}/disconnect", "POST", {})
+        await asyncio.wait_for(lending, 10)
+
+    asyncio.run(scenario())

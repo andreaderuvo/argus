@@ -344,7 +344,7 @@ async function sweepOrphans() {
   }
 }
 
-export function attachTerminal(container, name, { transform, onGone, onBack, onPath, onLinks, mirror } = {}) {
+export function attachTerminal(container, name, { transform, onGone, onBack, onPath, onLinks, mirror, socket } = {}) {
   // When this session last printed anything. Read by the prompt sender to tell "the agent
   // took it" from "the box ate the return".
   let spoke = Date.now();
@@ -662,7 +662,8 @@ export function attachTerminal(container, name, { transform, onGone, onBack, onP
     if (disposed || gone) return;
 
     const url = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}` +
-      `/ws/tmux/${encodeURIComponent(name)}?token=${encodeURIComponent(token)}` +
+      // `socket`: a terminal that is not a tmux session here — a shell on a computer (computers.js).
+      `${socket || `/ws/tmux/${encodeURIComponent(name)}`}?token=${encodeURIComponent(token)}` +
       `&cols=${term.cols}&rows=${term.rows}`;
     ws = new WebSocket(url);
     ws.binaryType = 'arraybuffer';

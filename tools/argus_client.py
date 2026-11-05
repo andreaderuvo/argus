@@ -444,6 +444,13 @@ class Argus:
         from urllib.parse import quote
         return self.call("DELETE", f"/api/notes/note?name={quote(name)}")
 
+    def computers(self) -> list[dict]:
+        """The person's computers connected through argus-sync: `{name, connected, os, offers: {browser,
+        terminal, actions}, endpoint}` each. `endpoint` is the browser that computer lends, for
+        Playwright (`chromium.connect_over_cdp(endpoint)`), Puppeteer (`browserWSEndpoint`) or
+        chrome-devtools-mcp (`--wsEndpoint`). Running a command there is `request("computer_run", …)`."""
+        return self.call("GET", "/api/computers").get("computers") or []
+
     def needs(self) -> list[dict]:
         """What waits on the person right now, in one list: `{kind, text, session?, at, ...}` each —
         kind `ask` (a question or a request for their OK), `team` (stopped for them), `waiting` (an
@@ -583,6 +590,7 @@ def _as_mcp(args) -> int:
         "status": lambda: ("request_status", {"id": args.id}),
         "todos": lambda: ("todos", {"all": args.all}),
         "needs": lambda: ("needs", {}),
+        "computers": lambda: ("computers", {}),
         "todo": lambda: (("todo_add", {"note": args.item, "due": args.due, "remind": args.remind}) if args.verb == "add" else
                          ("todo_set", {"todo": args.item, "status": args.status, "note": args.note,
                                        "due": args.due, "remind": args.remind})),
@@ -681,6 +689,7 @@ def main(argv: list[str] | None = None) -> int:
     lc.add_argument("--json", action="store_true")
     st = subs.add_parser("status", help="where a request stands (its id, as `request` printed it)")
     st.add_argument("id")
+    subs.add_parser("computers", help="the person's computers connected through argus-sync, and the browser each lends")
     subs.add_parser("needs", help="what waits on the person now: questions, teams, agents, proposals, to-dos")
     td = subs.add_parser("todos", help="the person's to-do list (open ones; --all for done too)")
     td.add_argument("--all", action="store_true")
@@ -712,7 +721,7 @@ def main(argv: list[str] | None = None) -> int:
     subs.add_parser("prompts", help="the person's prompt library")
 
     args = ap.parse_args(argv)
-    MCP_VERBS = {"ask", "desk", "launchers", "status", "needs", "todos", "todo", "worktree", "prompts", "notes", "note", "worktrees", "actions", "bells", "wait"}
+    MCP_VERBS = {"ask", "desk", "launchers", "status", "computers", "needs", "todos", "todo", "worktree", "prompts", "notes", "note", "worktrees", "actions", "bells", "wait"}
     if args.what in MCP_VERBS:
         try:
             return _as_mcp(args)

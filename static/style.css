@@ -5001,3 +5001,39 @@ body.needleft .needpswap svg { transform: scaleX(-1); }
 .traykind.on .n { color: var(--accent); }
 .traykind:hover:not(.on) { color: var(--bright); }
 .traykind:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* ---------- Computers, connected through argus-sync (static/js/computers.js) ---------- */
+
+.pclist { display: grid; gap: .6rem; padding: .2rem 0 .4rem; }
+.pclist > div:first-child { display: grid; gap: .6rem; }
+.pcrow { display: grid; grid-template-columns: 12px minmax(0, 1fr); gap: .8rem; align-items: start;
+  padding: .85rem 1rem; border: 1px solid var(--line); border-radius: .75rem; background: var(--panel); }
+.pcstate { width: 10px; height: 10px; margin-top: .4rem; border-radius: 50%; background: var(--dim); opacity: .6; }
+.pcrow.on .pcstate, .pcwait.on .pcstate { background: var(--accent); opacity: 1; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+.pcmain { min-width: 0; display: grid; gap: .5rem; }
+.pchead { display: flex; align-items: baseline; flex-wrap: wrap; gap: .2rem .6rem; }
+.pcname { color: var(--bright); font-weight: 600; }
+.pcoffers { display: flex; flex-wrap: wrap; gap: .35rem; }
+.pcoffer { display: inline-flex; align-items: center; gap: .3rem; padding: .12rem .55rem; border-radius: 999px; font-size: .78rem;
+  border: 1px dashed var(--line); color: var(--dim); }
+.pcoffer svg { width: 13px; height: 13px; }
+.pcoffer.on { border-style: solid; border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); color: var(--bright);
+  background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.pcoffer.on svg { color: var(--accent); }
+.pcacts { display: flex; flex-wrap: wrap; gap: .4rem; }
+.pcacts .pcbtn { display: inline-flex; align-items: center; gap: .35rem; min-height: 32px; padding: .25rem .7rem; width: auto; margin: 0;
+  border: 1px solid var(--line); border-radius: .45rem; background: var(--bg); color: var(--text); font-size: .85rem; cursor: pointer; }
+.pcbtn svg { width: 14px; height: 14px; }
+.pcbtn:hover { border-color: var(--accent); color: var(--bright); }
+.pcacts .pcbtn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
+.pcacts .pcbtn.danger { margin-left: auto; color: var(--danger); border-color: transparent; background: none; }
+.pcbtn.danger:hover { border-color: color-mix(in srgb, var(--danger) 50%, var(--line)); color: var(--danger); }
+.pcfoot { display: flex; }
+.pcconnect { display: inline-flex; align-items: center; gap: .4rem; }
+.pcconnect svg { width: 15px; height: 15px; }
+.pcsheet label.pcname { display: grid; gap: .3rem; margin: .4rem 0 .6rem; font-weight: 400; }
+.pcsteps { margin: .4rem 0; padding-left: 1.3rem; display: grid; gap: .55rem; }
+.pcsteps .mwblock { margin-top: .3rem; }
+.pcwait { display: flex; align-items: center; gap: .55rem; margin: .6rem 0 0; color: var(--dim); }
+.pcwait .pcstate { margin-top: 0; }
+.pcwait.on { color: var(--bright); }

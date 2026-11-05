@@ -755,6 +755,186 @@
     ]
    }
   },
+  "/api/computers": {
+   "get": {
+    "description": "`{computers: [{id, name, connected, os, client, since, offers: {browser, terminal, actions},\nbrowser, endpoint}]}`. `endpoint` is the `ws://127.0.0.1:\u2026/devtools/browser/\u2026` of the browser\nthat computer lends \u2014 for Playwright (`chromium.connectOverCDP`), Puppeteer (`browserWSEndpoint`)\nor chrome-devtools-mcp (`--wsEndpoint`); null when it lends none.",
+    "operationId": "getApiComputers",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Listing Api Computers Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "The computers connected to Argus, and what each lends",
+    "tags": [
+     "Computers"
+    ]
+   }
+  },
+  "/api/computers/keys": {
+   "post": {
+    "operationId": "postApiComputersKeys",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Make Key Api Computers Keys Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Connect a computer: a key, and the argus-sync link that carries it",
+    "tags": [
+     "Computers"
+    ]
+   }
+  },
+  "/api/computers/{ident}": {
+   "delete": {
+    "operationId": "deleteApiComputersIdent",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "ident",
+      "required": true,
+      "schema": {
+       "title": "Ident",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Forget Api Computers  Ident  Delete",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Forget a computer: its key no longer opens anything",
+    "tags": [
+     "Computers"
+    ]
+   }
+  },
+  "/api/computers/{ident}/disconnect": {
+   "post": {
+    "operationId": "postApiComputersIdentDisconnect",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "ident",
+      "required": true,
+      "schema": {
+       "title": "Ident",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Disconnect Api Computers  Ident  Disconnect Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Disconnect a computer: what it lent closes",
+    "tags": [
+     "Computers"
+    ]
+   }
+  },
+  "/api/computers/{ident}/run": {
+   "post": {
+    "description": "`{command, cwd?, timeout?}` \u2192 `{code, output, cut, seconds}`. Only if that computer has its\nactions on (a switch in argus-sync, there). Agents ask for it as the request `computer_run`.",
+    "operationId": "postApiComputersIdentRun",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "ident",
+      "required": true,
+      "schema": {
+       "title": "Ident",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Run Route Api Computers  Ident  Run Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Run a command on a computer and wait for it",
+    "tags": [
+     "Computers"
+    ]
+   }
+  },
   "/api/config": {
    "get": {
     "operationId": "getApiConfig",
