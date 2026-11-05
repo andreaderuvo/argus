@@ -59,6 +59,9 @@ def test_a_turn_is_a_message_with_the_files_it_changed(make_page, argus):
         # Markdown is drawn a moment after the message (marked loads on first use): waited for.
         page.wait(f"!!{msg}.querySelector('.agentmd strong')", timeout=10, what="the turn's words as markdown")
         page.click_at(*page._center(f"{msg}.querySelector('.tcchanged')"))
+        # Unfolded, and laid out, before a file in it is pressed: a slow runner redraws between the two.
+        page.wait(f"!{msg}.querySelector('.tcfiles').hidden && {msg}.querySelector('.tcfile').getBoundingClientRect().height > 0",
+                  timeout=10, what="the files unfolded")
         files = page.eval(f"[...{msg}.querySelectorAll('.tcpath')].map(p => p.textContent).join()")
         assert files == "Tier.tsx,pricing.ts", files
         page.click_at(*page._center(f"[...{msg}.querySelectorAll('.tcfile')].find(b => b.textContent.includes('pricing.ts'))"))

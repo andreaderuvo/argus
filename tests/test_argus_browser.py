@@ -83,3 +83,59 @@ def test_an_agent_opens_looks_types_and_clicks_in_the_persons_browser(live, chro
     assert "[" in blocks[1]["text"] and "Send" in blocks[1]["text"]
     assert argus_mcp.DO["browser_eval"](Fake(), {"expression": "1 + 41"}) == "42"
     call(live, f"/api/computers/{made['computer']['id']}/disconnect", "POST", {})
+
+
+SYNC_BIN = __import__("os").environ.get("ARGUS_SYNC_BIN") or str(Path.home() / "argus-sync/target/debug/argus-sync")
+
+
+@pytest.mark.skipif(not __import__("os").access(SYNC_BIN, __import__("os").X_OK), reason="needs an argus-sync build (ARGUS_SYNC_BIN)")
+def test_a_chrome_closed_by_hand_opens_again_when_an_agent_needs_it(live, tmp_path, monkeypatch):
+    """"What if I closed the browser argus-sync opened?" (2026-11-05). Closing that window is not
+    switching Browser off: the next call of an agent starts it again, and Argus learns its new address."""
+    import os
+    import signal
+    import subprocess
+    if CHROMIUM is None:
+        pytest.skip("needs a Chromium")
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+    made = connect_one(live, "Mac")
+    home = tmp_path / "sync-home"
+    client = subprocess.Popen([SYNC_BIN, "computer", made["link"], "--browser", "--headless", "--chrome", CHROMIUM],
+                              env={**os.environ, "ARGUS_SYNC_HOME": str(home)}, stdout=subprocess.PIPE,
+                              stderr=subprocess.STDOUT, text=True)
+    try:
+        for _ in range(300):
+            computers = call(live, "/api/computers")[1]["computers"]
+            if computers[0].get("endpoint"):
+                break
+            time.sleep(0.1)
+        first = computers[0]["endpoint"]
+        assert browser.open_page(computers, FORM)["title"] == "Submission"
+
+        # The person closes that Chrome.
+        profile = str(home / "browser-profile")
+        found = subprocess.run(["pgrep", "-f", f"user-data-dir={profile}"], capture_output=True, text=True).stdout.split()
+        assert found, "its Chrome"
+        for pid in found:
+            try:
+                os.kill(int(pid), signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        time.sleep(1)
+
+        # The agent goes on as if nothing happened: the address it had still leads to a browser.
+        computers = call(live, "/api/computers")[1]["computers"]
+        assert browser.open_page(computers, FORM)["title"] == "Submission", "Chrome started again"
+        for _ in range(50):
+            now = call(live, "/api/computers")[1]["computers"][0]["endpoint"]
+            if now != first:
+                break
+            time.sleep(0.1)
+        assert now and now != first, "Argus told the new browser's address"
+        assert browser.open_page(call(live, "/api/computers")[1]["computers"], FORM)["title"] == "Submission"
+    finally:
+        call(live, f"/api/computers/{made['computer']['id']}/disconnect", "POST", {})
+        try:
+            client.communicate(timeout=20)
+        except subprocess.TimeoutExpired:
+            client.kill()
