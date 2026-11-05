@@ -119,6 +119,9 @@ async def computer(base, key, offers, chrome_at=None, told=None):
             await bridge.send(json.dumps(frame))
 
         async def cdp_pipe(ch, path):
+            # The browser's own path, whatever Argus calls it (Argus's is its own; this is what argus-sync does).
+            if path.startswith("/devtools/browser/"):
+                path = chrome_at[1]
             try:
                 async with websockets.connect(f"ws://127.0.0.1:{chrome_at[0]}{path}", max_size=None) as tab:
                     pipes[ch] = tab
@@ -235,7 +238,8 @@ def test_an_agent_drives_the_lent_browser_and_nothing_else_gets_in(live, chrome)
         status = await until_connected(live, cid)
         assert status["browser"] == "HeadlessChrome/test" and status["offers"] == {"browser": True, "terminal": False, "actions": False}
         endpoint = status["endpoint"]
-        assert endpoint.startswith("ws://127.0.0.1:") and endpoint.endswith(chrome[1])
+        assert endpoint.startswith("ws://127.0.0.1:") and "/devtools/browser/" in endpoint
+        assert not endpoint.endswith(chrome[1]), "Argus's own address, not Chrome's"
 
         version = await cdp(endpoint, "Browser.getVersion")
         assert "Chrome" in version["result"]["product"], version

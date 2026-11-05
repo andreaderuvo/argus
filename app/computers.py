@@ -34,6 +34,7 @@ import os
 import re
 import secrets
 import time
+import uuid
 from pathlib import Path
 from urllib.parse import quote
 
@@ -115,6 +116,9 @@ class Link:
         self.sending = asyncio.Lock()
         # Ports of this server shown on the computer's localhost: {port here: port there}.
         self.forwards: dict[int, int] = {}
+        # The browser's address for agents, made here and kept while this server runs: the computer
+        # starts its Chrome only when an agent first uses it, and maps this path to that Chrome's.
+        self.secret = f"/devtools/browser/{uuid.uuid4()}"
         self.asked: dict[int, asyncio.Future] = {}
         self.tcp: dict[str, asyncio.StreamWriter] = {}
 
@@ -126,8 +130,9 @@ class Link:
         return self.connected and bool((self.hello.get("offers") or {}).get(what))
 
     def browser_ws(self) -> str:
-        ws = str(((self.hello.get("browser") or {}).get("ws")) or "")
-        return ws if BROWSER_PATH.fullmatch(ws) else ""
+        """The browser's path agents connect to — this server's, not Chrome's (which changes with
+        every start): the computer carries it to whatever Chrome is running, starting one if none."""
+        return self.secret if self.offers("browser") else ""
 
     def endpoint(self) -> str | None:
         if not self.offers("browser") or not self.browser_ws() or not self.port:
@@ -182,7 +187,7 @@ class Link:
             }
             # The browser's address first, then "connected": an agent that sees the computer
             # connected must find the address there too (CI caught the moment in between).
-            if hello["offers"]["browser"] and BROWSER_PATH.fullmatch(hello["browser"]["ws"]):
+            if hello["offers"]["browser"]:
                 await self.listen()
             self.hello = hello
             self.since = time.time()
@@ -328,7 +333,8 @@ class Link:
         out = {"id": self.key_id, "name": self.name, "connected": self.connected,
                "os": self.hello.get("os") or None, "client": self.hello.get("client") or None,
                "since": self.since, "offers": (self.hello.get("offers") if self.connected else {k: False for k in OFFERS}),
-               "browser": ((self.hello.get("browser") or {}).get("version") or None) if self.offers("browser") else None,
+               "browser": (((self.hello.get("browser") or {}).get("version") or "Chrome — starts when an agent uses it")
+                           if self.offers("browser") else None),
                "channels": len(self.channels),
                "forwards": [{"port": p, "local": loc} for p, loc in sorted(self.forwards.items())] if self.connected else []}
         if with_endpoint:

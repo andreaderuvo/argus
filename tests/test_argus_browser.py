@@ -110,10 +110,13 @@ def test_a_chrome_closed_by_hand_opens_again_when_an_agent_needs_it(live, tmp_pa
                 break
             time.sleep(0.1)
         first = computers[0]["endpoint"]
+        # Lent, and not opened: no window pops up on the computer until an agent uses it.
+        profile = str(home / "browser-profile")
+        assert not subprocess.run(["pgrep", "-f", f"user-data-dir={profile}"], capture_output=True, text=True).stdout.split(), \
+            "no Chrome before an agent needs it"
         assert browser.open_page(computers, FORM)["title"] == "Submission"
 
         # The person closes that Chrome.
-        profile = str(home / "browser-profile")
         found = subprocess.run(["pgrep", "-f", f"user-data-dir={profile}"], capture_output=True, text=True).stdout.split()
         assert found, "its Chrome"
         for pid in found:
@@ -126,13 +129,8 @@ def test_a_chrome_closed_by_hand_opens_again_when_an_agent_needs_it(live, tmp_pa
         # The agent goes on as if nothing happened: the address it had still leads to a browser.
         computers = call(live, "/api/computers")[1]["computers"]
         assert browser.open_page(computers, FORM)["title"] == "Submission", "Chrome started again"
-        for _ in range(50):
-            now = call(live, "/api/computers")[1]["computers"][0]["endpoint"]
-            if now != first:
-                break
-            time.sleep(0.1)
-        assert now and now != first, "Argus told the new browser's address"
-        assert browser.open_page(call(live, "/api/computers")[1]["computers"], FORM)["title"] == "Submission"
+        now = call(live, "/api/computers")[1]["computers"][0]["endpoint"]
+        assert now == first, "the same address for the agents: Argus's own, whatever Chrome is running"
     finally:
         call(live, f"/api/computers/{made['computer']['id']}/disconnect", "POST", {})
         try:
