@@ -53,7 +53,7 @@ def test_the_surface_is_small_enough_to_document():
     # 34 to 41 on 2026-10-17, for notes(), note(), note_new(), note_add(), note_write(), note_rename()
     # and note_delete(): "the MCP should be able to work with the notes — list, delete, rename, add".
     # 42 on 2026-11-04, for needs(): what already waits on the person, before asking more.
-    # 43 on 2026-11-05, for computers(): the person's computers connected through argus-sync.
+    # 43 on 2026-11-05, for computers(): the person's computers connected through argus-bridge.
     assert counted["argus_client"] <= 43, counted
     assert counted["argus_orchestra"] <= 30, counted
 

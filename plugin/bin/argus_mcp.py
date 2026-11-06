@@ -54,7 +54,7 @@ INSTRUCTIONS = (
     "`todo_add`, `todo_set`. `ask` when a decision is the person's, and wait; `ring` when you finish or fail. "
     "`actions` lists what `request` can ask for — the person taps Do it or No. In an Argus team: `team_task`, "
     "then `team_done`; to design one: `team_check`, `team_propose`. "
-    "The person's own computer (their Mac or PC, connected through argus-sync): its browser is yours with "
+    "The person's own computer (their Mac or PC, connected through argus-bridge): its browser is yours with "
     "`browser_open` (a page), `browser_look` (a screenshot, the text and everything clickable, numbered), "
     "`browser_click`, `browser_type`, `browser_eval`, `browser_tabs` — they watch it happen on their screen. "
     "A command on that computer: `request` computer_run. Never ask them for SSH tunnels, debugging ports or "
@@ -190,7 +190,7 @@ TOOLS = [
      "description": "Where a request stands: asked (waiting for the person), doing, done, refused, failed or unanswered.",
      "inputSchema": {"type": "object", "properties": {"id": {"type": "string"}}, "required": ["id"]}},
     {"name": "computers",
-     "description": "The person's own computers (Mac, PC) connected to Argus through argus-sync, and what each lends: "
+     "description": "The person's own computers (Mac, PC) connected to Argus through argus-bridge, and what each lends: "
                     "its browser — `endpoint`, a ws://127.0.0.1 address to drive it with Playwright "
                     "(chromium.connect_over_cdp), Puppeteer (browserWSEndpoint) or chrome-devtools-mcp (--wsEndpoint); "
                     "and whether its actions are on, for `request` with action computer_run {computer, command, cwd?}, "
@@ -198,7 +198,7 @@ TOOLS = [
      "inputSchema": {"type": "object", "properties": {}}},
     {"name": "browser_open",
      "description": "Open a page in the browser of the person's own computer (their Chrome on their Mac or PC, "
-                    "lent through argus-sync) — in your tab of it, which they watch. Then browser_look to see it.",
+                    "lent through argus-bridge) — in your tab of it, which they watch. Then browser_look to see it.",
      "inputSchema": {"type": "object", "properties": {
          "url": {"type": "string"},
          "new_tab": {"type": "boolean", "default": False, "description": "A tab of its own instead of yours"},

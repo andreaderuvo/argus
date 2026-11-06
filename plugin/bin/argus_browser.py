@@ -1,6 +1,6 @@
 """The browser of the person's own computer, driven by an agent here: open, look, click, type.
 
-The person's Mac or PC lends its Chrome through argus-sync (Argus: Settings → Computers), and Argus
+The person's Mac or PC lends its Chrome through argus-bridge (Argus: Settings → Computers), and Argus
 gives the agents on this machine a loopback address for it. These are the hands on it — standard
 library only, like the rest of tools/: a small WebSocket client and a handful of Chrome DevTools
 Protocol calls. Every call asks Argus for the address of the moment, so a Chrome restarted on the
@@ -156,7 +156,7 @@ def endpoint(computers: list[dict], which: str | None = None) -> tuple[str, str]
     """(computer name, browser address) — the one named, or the one lending a browser."""
     if not computers:
         raise BrowserError("no computer is connected to Argus — the person connects one in Argus: Settings → "
-                           "Computers → Connect a computer, with argus-sync on it")
+                           "Computers → Connect a computer, with argus-bridge on it")
     pick = [c for c in computers if not which or c.get("name", "").lower() == which.lower() or c.get("id") == which]
     if which and not pick:
         raise BrowserError(f"no computer called {which!r}: " + ", ".join(c.get("name", "?") for c in computers))
@@ -164,7 +164,7 @@ def endpoint(computers: list[dict], which: str | None = None) -> tuple[str, str]
         if c.get("endpoint"):
             return c["name"], c["endpoint"]
     names = ", ".join(c.get("name", "?") + (" (not connected)" if not c.get("connected") else "") for c in pick)
-    raise BrowserError(f"no browser is lent now ({names}) — the person switches Browser on in argus-sync, "
+    raise BrowserError(f"no browser is lent now ({names}) — the person switches Browser on in argus-bridge, "
                        "on that computer (This computer → Browser). Do not ask for SSH tunnels or debugging ports.")
 
 

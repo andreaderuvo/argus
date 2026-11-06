@@ -964,7 +964,7 @@ export async function screenSettings() {
   );
 
   wrap.append(group(t('Agents')), withoutAskingRows());
-  // Your Mac or PC, linked through argus-sync: a terminal on it, its browser for agents, actions.
+  // Your Mac or PC, linked through argus-bridge: a terminal on it, its browser for agents, actions.
   wrap.append(group(t('Computers')), computerRows());
 
   wrap.append(

@@ -617,7 +617,7 @@ export async function screenWall() {
           : spec.kind === 'messages' ? t('What to hand to an agent')
           : spec.kind === 'note' ? t('Text into a file')
           : spec.kind === 'notes' ? t('Every note, saved as you type')
-          : spec.kind === 'pc' ? t('A shell on {name}, through argus-sync', { name: spec.name || '?' })
+          : spec.kind === 'pc' ? t('A shell on {name}, through argus-bridge', { name: spec.name || '?' })
             : isTray ? t('What went past in this desk') : (spec.path || spec.url),
         textContent: label,
       });
@@ -711,7 +711,7 @@ export async function screenWall() {
         : spec.kind === 'team' ? attachTeam(body, spec, setLabel, { openLog: (path) => openWindow({ kind: 'file', path }, undefined, { jump: false }) })
         : spec.kind === 'note' ? attachNote(body, spec, setLabel)
         : spec.kind === 'notes' ? notesLater(body, spec, setLabel)
-        // A shell on one of your computers, connected through argus-sync (computers.js).
+        // A shell on one of your computers, connected through argus-bridge (computers.js).
         : spec.kind === 'pc' ? attachTerminal(body, `pc:${spec.name || spec.id}`, { socket: `/ws/computer/${encodeURIComponent(spec.id)}` })
         : spec.kind === 'changes' ? attachChanges(body, spec, setLabel)
         // Where a browser *lands* is the desk's business, not the folder it happened to

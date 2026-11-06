@@ -804,9 +804,9 @@ fails if it comes back. Before adding anything, keep these true:
   untracked ≤ 1 MB not ignored, `write-tree`) — the repo's index/refs/stash are never touched while an
   agent works there. The team's own log is left out of the diff. `data-*` and `aria-*` given to `el()`
   are properties, not attributes: set `dataset` / `ariaExpanded` instead.
-- **argus-sync: a folder kept in sync with a computer** (`app/syncapi.py`, `static/js/syncsheet.js`,
+- **argus-bridge: a folder kept in sync with a computer** (`app/syncapi.py`, `static/js/syncsheet.js`,
   tests/test_syncapi.py and tests/browser/test_sync_sheet.py; the client is its own public repo,
-  `andreaderuvo/argus-sync`, Rust + Tauri, released by CI on a `v*` tag). A folder's menu → *Sync to
+  `andreaderuvo/argus-bridge`, Rust + Tauri, released by CI on a `v*` tag). A folder's menu → *Sync to
   your computer…* makes a key `as_…` for that folder alone (hashed in `sync-keys.json`), shown once
   inside an `argus-sync://pair?…` link. The key reaches `/api/sync/hello|manifest|file|dir` only, under
   that folder only; `/api/sync/keys` (make, list, take back) is for the full token. A write needs
@@ -814,9 +814,9 @@ fails if it comes back. Before adding anything, keep these true:
   `max_upload_bytes`, lands through a part file; a delete goes to a trash beside the config. The
   client is Rust because it is installed on people's own computers, without admin: one binary, no
   runtime, small installers.
-- **Your computers, through argus-sync** (`app/computers.py`, `static/js/computers.js`, argus-sync's
+- **Your computers, through argus-bridge** (`app/computers.py`, `static/js/computers.js`, argus-bridge's
   `core/src/computer.rs` + the app's "This computer"; tests/test_computers.py — a Python stand-in, and
-  the real client when `~/argus-sync/target/debug/argus-sync` is built — tests/browser/test_computers_ui.py).
+  the real client when `~/argus-bridge/target/debug/argus-bridge` is built — tests/browser/test_computers_ui.py).
   One bridge WebSocket per computer (`ac_` keys, opening `/api/computers/bridge` only), channels `cdp`,
   `pty`, `run`. The computer's switches (browser / terminal / actions, all off by default) are enforced
   on the computer and here. The browser: a loopback `websockets` server per computer answering only

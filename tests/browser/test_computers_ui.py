@@ -1,7 +1,7 @@
-"""Settings → Computers: a computer connected through argus-sync, what it lends, and a terminal on it
+"""Settings → Computers: a computer connected through argus-bridge, what it lends, and a terminal on it
 in a window of the desk ("a button to open a shell straight on the machine", 2026-11-05).
 
-The computer is the stand-in of tests/test_computers.py — what argus-sync does — run beside the page.
+The computer is the stand-in of tests/test_computers.py — what argus-bridge does — run beside the page.
 """
 
 from __future__ import annotations

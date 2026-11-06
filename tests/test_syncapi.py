@@ -1,4 +1,4 @@
-"""argus-sync's server side (app/syncapi.py): a key that opens one folder and nothing else, the
+"""argus-bridge's server side (app/syncapi.py): a key that opens one folder and nothing else, the
 manifest, and writes and deletes that are safe on their own — atomic, conflict-checked, trashed."""
 
 from __future__ import annotations

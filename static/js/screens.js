@@ -823,7 +823,7 @@ export function fileBrowser({
     // meaning when two of them are side by side.
     takesDrops(node, (files) => uploadTo(path, files));
   }
-  /* This folder, kept in sync with your computer (argus-sync). Here as well as in a folder's menu:
+  /* This folder, kept in sync with your computer (argus-bridge). Here as well as in a folder's menu:
    *  the folder you are looking at is the one you most often mean, and on a desk its window had no
    *  way to say so. Outside allow_write: a read-only sync needs no writing here. */
   acts.push(el('button', {

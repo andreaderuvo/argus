@@ -1,9 +1,9 @@
-"""A computer connected through argus-sync (app/computers.py): its browser for the agents, a terminal
+"""A computer connected through argus-bridge (app/computers.py): its browser for the agents, a terminal
 on it for you, a command an agent asks — each only if that computer has it switched on.
 
-"argus-sync as the go-between that does things on the PC" (2026-11-05). Here the computer is played
-by a few lines of Python doing what argus-sync does, against a real Argus, a real headless Chromium,
-a real shell in a PTY; and, when it is built, by argus-sync itself.
+"argus-bridge as the go-between that does things on the PC" (2026-11-05). Here the computer is played
+by a few lines of Python doing what argus-bridge does, against a real Argus, a real headless Chromium,
+a real shell in a PTY; and, when it is built, by argus-bridge itself.
 """
 
 from __future__ import annotations
@@ -63,7 +63,7 @@ def live(tmp_path):
 
 @pytest.fixture
 def chrome():
-    """A headless Chromium with its own profile and a debugging port it picks — what argus-sync starts."""
+    """A headless Chromium with its own profile and a debugging port it picks — what argus-bridge starts."""
     if CHROMIUM is None:
         pytest.skip("needs a Chromium")
     profile = Path(tempfile.mkdtemp(prefix="argus-pc-"))
@@ -102,7 +102,7 @@ def connect_one(base, name="test computer"):
 
 
 async def computer(base, key, offers, chrome_at=None, told=None):
-    """What argus-sync does: hello with its switches, then each channel Argus opens — refusing a
+    """What argus-bridge does: hello with its switches, then each channel Argus opens — refusing a
     kind that is switched off, as the real one does."""
     import websockets
 
@@ -119,7 +119,7 @@ async def computer(base, key, offers, chrome_at=None, told=None):
             await bridge.send(json.dumps(frame))
 
         async def cdp_pipe(ch, path):
-            # The browser's own path, whatever Argus calls it (Argus's is its own; this is what argus-sync does).
+            # The browser's own path, whatever Argus calls it (Argus's is its own; this is what argus-bridge does).
             if path.startswith("/devtools/browser/"):
                 path = chrome_at[1]
             try:
@@ -334,13 +334,13 @@ def test_a_computer_forgotten_opens_nothing(live):
     asyncio.run(refused())
 
 
-SYNC_BIN = os.environ.get("ARGUS_SYNC_BIN") or str(Path.home() / "argus-sync/target/debug/argus-sync")
+SYNC_BIN = os.environ.get("ARGUS_SYNC_BIN") or str(Path.home() / "argus-bridge/target/debug/argus-bridge")
 
 
 @pytest.mark.browser
-@pytest.mark.skipif(not os.access(SYNC_BIN, os.X_OK), reason="needs an argus-sync build (ARGUS_SYNC_BIN)")
+@pytest.mark.skipif(not os.access(SYNC_BIN, os.X_OK), reason="needs an argus-bridge build (ARGUS_SYNC_BIN)")
 def test_the_real_argus_sync_connects_this_computer(live, tmp_path):
-    """The client itself, end to end: `argus-sync computer <link> --browser --terminal --actions`
+    """The client itself, end to end: `argus-bridge computer <link> --browser --terminal --actions`
     starts a Chrome of its own, an agent drives it, a command runs, a shell answers; Disconnect in
     Argus closes all of it and the client ends."""
     if CHROMIUM is None:
@@ -356,15 +356,15 @@ def test_the_real_argus_sync_connects_this_computer(live, tmp_path):
         async def scenario():
             import websockets
             status = await until_connected(live, cid)
-            assert status["client"].startswith("argus-sync ") and "Chrome" in status["browser"], status
+            assert status["client"].startswith("argus-bridge ") and "Chrome" in status["browser"], status
             made = await cdp(status["endpoint"], "Target.createTarget", {"url": "about:blank"})
             page = status["endpoint"].split("/devtools/")[0] + f"/devtools/page/{made['result']['targetId']}"
             said = await cdp(page, "Runtime.evaluate", {"expression": "navigator.userAgent", "returnByValue": True})
             assert "Chrome" in said["result"]["result"]["value"]
 
             code, ran = await asyncio.to_thread(call, live, f"/api/computers/{cid}/run", "POST",
-                                                {"command": "echo from argus-sync; exit 4", "cwd": str(tmp_path)})
-            assert code == 200 and ran["code"] == 4 and "from argus-sync" in ran["output"], ran
+                                                {"command": "echo from argus-bridge; exit 4", "cwd": str(tmp_path)})
+            assert code == 200 and ran["code"] == 4 and "from argus-bridge" in ran["output"], ran
 
             url = live.replace("http", "ws", 1) + f"/ws/computer/{cid}?token={MASTER}&cols=80&rows=24"
             async with websockets.connect(url) as term:
@@ -416,9 +416,9 @@ def test_an_agent_asks_to_run_a_command_and_the_person_allows_it(live, tmp_path)
     asyncio.run(scenario())
 
 
-@pytest.mark.skipif(not os.access(SYNC_BIN, os.X_OK), reason="needs an argus-sync build (ARGUS_SYNC_BIN)")
+@pytest.mark.skipif(not os.access(SYNC_BIN, os.X_OK), reason="needs an argus-bridge build (ARGUS_SYNC_BIN)")
 def test_a_port_of_this_server_on_the_computers_localhost(live, tmp_path):
-    """"The ssh -N -L line in System: a button too, for someone with argus-sync" (2026-11-05). A port
+    """"The ssh -N -L line in System: a button too, for someone with argus-bridge" (2026-11-05). A port
     that listens only on this server's loopback, made to appear on the computer's localhost."""
     import http.server
     import socketserver
@@ -455,7 +455,7 @@ def test_a_port_of_this_server_on_the_computers_localhost(live, tmp_path):
         site.shutdown()
 
 
-@pytest.mark.skipif(not os.access(SYNC_BIN, os.X_OK), reason="needs an argus-sync build (ARGUS_SYNC_BIN)")
+@pytest.mark.skipif(not os.access(SYNC_BIN, os.X_OK), reason="needs an argus-bridge build (ARGUS_SYNC_BIN)")
 def test_a_bell_reaches_the_connected_computer(live, tmp_path):
     """An agent's bell, shown by the computer as a notification of its own (the app; printed here)."""
     made = connect_one(live, "Mac")

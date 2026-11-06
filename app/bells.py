@@ -223,7 +223,7 @@ def rung(request: Request, why: str, session: str | None = None, text: str = "",
 
 
 def dispatch_computers(request: Request, bell: dict) -> None:
-    """The same bell to each computer connected through argus-sync, which shows it as a notification
+    """The same bell to each computer connected through argus-bridge, which shows it as a notification
     of its own system — a Mac's, even with no tab open and no HTTPS (app/computers.py)."""
     if bell["why"] not in ("asking", "failed", "done") or bell.get("repeat"):
         return

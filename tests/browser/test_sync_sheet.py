@@ -1,4 +1,4 @@
-"""Sync to your computer…: a link for argus-sync, its key listed under the folder, taken back."""
+"""Sync to your computer…: a link for argus-bridge, its key listed under the folder, taken back."""
 
 from __future__ import annotations
 

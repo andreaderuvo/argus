@@ -1,7 +1,7 @@
-/* Sync a folder to your computer — the Argus end of argus-sync (app/syncapi.py).
+/* Sync a folder to your computer — the Argus end of argus-bridge (app/syncapi.py).
  *
  *  A link made here carries a sync key: it opens this folder and nothing else, through
- *  /api/sync/ — no terminal, no session, no other file. Clicked, the link opens the argus-sync app
+ *  /api/sync/ — no terminal, no session, no other file. Clicked, the link opens the argus-bridge app
  *  on the computer, already pointed at this folder; pasted, it does the same. Keys made for a folder
  *  are listed under it, with when they were last used, and taken back from here.
  */
@@ -44,8 +44,8 @@ export async function syncSheet(path) {
       made.replaceChildren(
         el('div', { className: 'mwblock' }, [el('pre', { className: 'mwcmd', textContent: r.link }), copy]),
         el('p', { className: 'hint' }, [
-          el('a', { className: 'primary inline syncopen', href: r.link, textContent: t('Open in argus-sync') }), ' ',
-          t('— or paste the link into argus-sync. It is shown once; keep it to yourself: it opens this folder.'),
+          el('a', { className: 'primary inline syncopen', href: r.link, textContent: t('Open in argus-bridge') }), ' ',
+          t('— or paste the link into argus-bridge. It is shown once; keep it to yourself: it opens this folder.'),
         ]),
         ...(r.writable || !write ? [] : [el('p', { className: 'meta warn', textContent: t('This Argus is read-only (no --allow-write): the computer will receive, not send.') })]),
       );
@@ -71,9 +71,9 @@ export async function syncSheet(path) {
   };
 
   body.append(
-    el('p', { className: 'hint' }, t('A folder on your computer that stays the same as this one — files open with a double-click, work offline, and changes go both ways. With the argus-sync app, for macOS, Windows and Linux; no administrator needed.')),
+    el('p', { className: 'hint' }, t('A folder on your computer that stays the same as this one — files open with a double-click, work offline, and changes go both ways. With the argus-bridge app, for macOS, Windows and Linux; no administrator needed.')),
     el('p', { className: 'hint' }, [t('No app yet?') + ' ',
-      el('a', { className: 'doclink', href: 'https://github.com/andreaderuvo/argus-sync/releases/latest', target: '_blank', rel: 'noopener', textContent: t('Download argus-sync') })]),
+      el('a', { className: 'doclink', href: 'https://github.com/andreaderuvo/argus-bridge/releases/latest', target: '_blank', rel: 'noopener', textContent: t('Download argus-bridge') })]),
     el('p', { className: 'meta mwpath', textContent: t('Folder: {path}', { path }) }),
     ways,
     el('div', { className: 'syncgo' }, [make]),

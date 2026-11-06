@@ -200,7 +200,7 @@ def is_protected(path: str) -> bool:
 MASTER_PATHS = ("/api/devices", "/api/journal", "/api/ssh/authorize", "/api/ssh/setup", "/api/sync/keys", "/api/computers/keys")   # a key added gives a shell here
 MASTER_PREFIX = "/api/devices/"
 MASTER_PREFIXES = (MASTER_PREFIX, "/api/sync/keys/")
-# What an argus-sync key reaches: its own folder, through these, and nothing else.
+# What an argus-bridge key reaches: its own folder, through these, and nothing else.
 SYNC_PREFIX = "/api/sync/"
 
 
@@ -338,7 +338,7 @@ class TokenAuthMiddleware:
 
         machine = computers.matching(self.computer_store, token) if token is not None else None
         if machine:
-            # A computer connected through argus-sync: its bridge, a WebSocket, and nothing else at all.
+            # A computer connected through argus-bridge: its bridge, a WebSocket, and nothing else at all.
             if scope["type"] != "websocket" or scope["path"] != "/api/computers/bridge":
                 if scope["type"] != "http":
                     await receive()

@@ -796,7 +796,7 @@
       "description": "Successful Response"
      }
     },
-    "summary": "Connect a computer: a key, and the argus-sync link that carries it",
+    "summary": "Connect a computer: a key, and the argus-bridge link that carries it",
     "tags": [
      "Computers"
     ]
@@ -892,7 +892,7 @@
   },
   "/api/computers/{ident}/forward": {
    "post": {
-    "description": "`{port, local?}` \u2192 `{port, local, url}`: localhost:<local> on that computer now reaches\n127.0.0.1:<port> here, through argus-sync \u2014 what `ssh -N -L` does, without SSH. `local` defaults to\nthe same number, or the next free one there.",
+    "description": "`{port, local?}` \u2192 `{port, local, url}`: localhost:<local> on that computer now reaches\n127.0.0.1:<port> here, through argus-bridge \u2014 what `ssh -N -L` does, without SSH. `local` defaults to\nthe same number, or the next free one there.",
     "operationId": "postApiComputersIdentForward",
     "parameters": [
      {
@@ -990,7 +990,7 @@
   },
   "/api/computers/{ident}/run": {
    "post": {
-    "description": "`{command, cwd?, timeout?}` \u2192 `{code, output, cut, seconds}`. Only if that computer has its\nactions on (a switch in argus-sync, there). Agents ask for it as the request `computer_run`.",
+    "description": "`{command, cwd?, timeout?}` \u2192 `{code, output, cut, seconds}`. Only if that computer has its\nactions on (a switch in argus-bridge, there). Agents ask for it as the request `computer_run`.",
     "operationId": "postApiComputersIdentRun",
     "parameters": [
      {

@@ -55,7 +55,7 @@ ACTIONS = {
     "todo_delete": "take a to-do off the list",
     "update_plugin": "install or update the Argus plugin in an agent (claude, codex)",
     "reload_plugins": "reload the Argus plugin in the Claude sessions waiting at their prompt",
-    "computer_run": "run a command on one of your computers (connected through argus-sync, with its actions switched on there)",
+    "computer_run": "run a command on one of your computers (connected through argus-bridge, with its actions switched on there)",
 }
 
 # Done at once, always: typing /reload-plugins into a Claude at its prompt changes nothing but

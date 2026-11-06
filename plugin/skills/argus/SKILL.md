@@ -28,7 +28,7 @@ phone. You reach it with the Argus tools (or `argus-say` from a shell). Three ki
 | tell another session something | `relay` (`press_enter: true` to send it, not just type it) |
 | ask the person and wait / tell them you are done | `ask` / `ring` |
 | the person's own computers, and what each lends | `computers` |
-| their browser (their Chrome on their Mac/PC, lent through argus-sync): open a page, see it, click, type, run JS — never SSH tunnels or debugging ports | `browser_open`, `browser_look`, `browser_click`, `browser_type`, `browser_eval`, `browser_tabs` |
+| their browser (their Chrome on their Mac/PC, lent through argus-bridge): open a page, see it, click, type, run JS — never SSH tunnels or debugging ports | `browser_open`, `browser_look`, `browser_click`, `browser_type`, `browser_eval`, `browser_tabs` |
 | what already waits on the person (questions, requests, teams stopped, agents waiting, proposals, to-dos due) — look before asking them more | `needs` |
 | the to-do list: read, add, mark doing/done, a deadline Argus rings for ("remind me tomorrow at 3 to…") | `todos`, `todo_add`, `todo_set` (`due`: 2026-10-20 or 2026-10-20T15:00, `remind`: minutes before — 0, 15, 60, 1440, 10080) |
 | the notes (the Notes screen): list, read, make, add to, rewrite, rename, delete | `notes`, `note_read`, `note_new`, `note_add` (prefer it to rewriting), `note_write`, `note_rename`, `note_delete` (kept in the notes' trash) |
@@ -51,7 +51,7 @@ phone. You reach it with the Argus tools (or `argus-say` from a shell). Three ki
 | continue, pause, stop a team | `team_go`, `team_pause`, `team_stop` | `team` (its name exactly as `teams` shows it — "Kraken paper" became `Kraken-paper`); `kill: true` also ends its sessions |
 | close a desk (its windows; the sessions keep running) | `close_desk` | `desk` (its name); not the last one |
 | end a session | `kill_session` | `session` |
-| run a command on the person's own computer (connected through argus-sync, actions on) | `computer_run` | `computer`, `command`, `cwd`? — the output comes back in `request_status` |
+| run a command on the person's own computer (connected through argus-bridge, actions on) | `computer_run` | `computer`, `command`, `cwd`? — the output comes back in `request_status` |
 | restart a session's agent on the same conversation (after an update: the new version, the past kept) | `restart_agent` | `session`, `fresh` (start a new conversation when its id is not known) |
 | rename a session | `rename_session` | `session`, `to` |
 | start an agent with no questions at all | `start_agent` | `launcher`, `name`, `folder`, `prompt`, `press_enter`, `options` (`{"permissions": "skip"}` …) |

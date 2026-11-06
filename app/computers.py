@@ -1,14 +1,14 @@
 """Your computers, connected: a terminal on them, their browser for the agents, a command an agent asks.
 
-argus-sync, already on your Mac or PC to keep a folder in sync, also links that computer to Argus
-("argus-sync as the go-between that does things on the PC, to link the web and the PC", 2026-11-05).
+argus-bridge, already on your Mac or PC to keep a folder in sync, also links that computer to Argus
+("argus-bridge as the go-between that does things on the PC, to link the web and the PC", 2026-11-05).
 Before it, the same took an SSH reverse tunnel typed by hand, Chrome started with the right flags,
 and a port every user of a shared server could reach.
 
 - *Connect a computer* makes a key `ac_…` that opens one thing, the bridge, inside an
-  `argus-sync://computer?…` link. argus-sync opens a WebSocket to `/api/computers/bridge` and keeps
+  `argus-sync://computer?…` link. argus-bridge opens a WebSocket to `/api/computers/bridge` and keeps
   it. Nothing listens on the computer, nothing goes over SSH.
-- **The computer decides what it lends**, with three switches in argus-sync, all off until turned
+- **The computer decides what it lends**, with three switches in argus-bridge, all off until turned
   on: *browser* (a Chrome of its own, own profile), *terminal* (a shell, for you, in a window of
   the desk), *actions* (a command an agent asks to run, each one put to you as Do it / No). Its
   hello says which are on, and it refuses a channel for one that is off: a stolen Argus token
@@ -427,7 +427,7 @@ async def terminal(ws: WebSocket, ident: str, cols: int = 80, rows: int = 24) ->
         await ws.send_text(json.dumps({"type": "exit", "reason": str(getattr(e, "message", "") or e)}))
         return await ws.close()
     if not one.offers("terminal"):
-        reason = "the computer is not connected" if not one.connected else "its terminal is off — turn it on in argus-sync, on that computer"
+        reason = "the computer is not connected" if not one.connected else "its terminal is off — turn it on in argus-bridge, on that computer"
         await ws.send_text(json.dumps({"type": "exit", "reason": reason}))
         return await ws.close()
 
@@ -472,7 +472,7 @@ async def run(app, ident: str, command: str, cwd: str = "", timeout: float = 120
     one = find(app, ident)
     if not one.offers("actions"):
         raise ApiError(409, "the computer is not connected" if not one.connected
-                       else "its actions are off — turn them on in argus-sync, on that computer")
+                       else "its actions are off — turn them on in argus-bridge, on that computer")
     command = str(command or "").strip()
     if not command:
         raise ApiError(400, "a command, in words the computer's shell runs")
@@ -519,7 +519,7 @@ async def listing(request: Request) -> dict:
     return {"computers": [link_for(request.app, k).status() | {"created": k.get("created")} for k in keys]}
 
 
-@router.post("/api/computers/keys", summary="Connect a computer: a key, and the argus-sync link that carries it")
+@router.post("/api/computers/keys", summary="Connect a computer: a key, and the argus-bridge link that carries it")
 async def make_key(request: Request) -> dict:
     body = await request.json()
     base = str(body.get("base") or "").rstrip("/")
@@ -545,7 +545,7 @@ async def disconnect(request: Request, ident: str) -> dict:
 @router.post("/api/computers/{ident}/run", summary="Run a command on a computer and wait for it")
 async def run_route(request: Request, ident: str) -> dict:
     """`{command, cwd?, timeout?}` → `{code, output, cut, seconds}`. Only if that computer has its
-    actions on (a switch in argus-sync, there). Agents ask for it as the request `computer_run`."""
+    actions on (a switch in argus-bridge, there). Agents ask for it as the request `computer_run`."""
     body = await request.json()
     return await run(request.app, ident, body.get("command"), body.get("cwd") or "", body.get("timeout") or 120)
 
@@ -553,7 +553,7 @@ async def run_route(request: Request, ident: str) -> dict:
 @router.post("/api/computers/{ident}/forward", summary="Show a port of this server on the computer's localhost")
 async def forward(request: Request, ident: str) -> dict:
     """`{port, local?}` → `{port, local, url}`: localhost:<local> on that computer now reaches
-    127.0.0.1:<port> here, through argus-sync — what `ssh -N -L` does, without SSH. `local` defaults to
+    127.0.0.1:<port> here, through argus-bridge — what `ssh -N -L` does, without SSH. `local` defaults to
     the same number, or the next free one there."""
     body = await request.json()
     try:
@@ -572,7 +572,7 @@ async def forward(request: Request, ident: str) -> dict:
     try:
         said = await asyncio.wait_for(waiting, OPEN_WAIT)
     except asyncio.TimeoutError:
-        raise ApiError(504, f"{one.name} did not answer — is its argus-sync up to date?") from None
+        raise ApiError(504, f"{one.name} did not answer — is its argus-bridge up to date?") from None
     if not said.get("ok"):
         raise ApiError(409, str(said.get("why") or "it could not listen there"))
     there = int(said.get("local") or local)

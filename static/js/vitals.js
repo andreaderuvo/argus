@@ -166,7 +166,7 @@ function whereSection() {
     const openssh = (said.ssh || []).find((x) => x.name === 'OpenSSH');
     if (openssh) {
       body.append(commandLine(t('tunnel to it'), openssh.line, t('run this on your own machine')));
-      // With argus-sync on that machine, the same in one press.
+      // With argus-bridge on that machine, the same in one press.
       body.append(onMyComputer(said.port, { own: true }));
       body.append(addressLine(t('then open'), withToken(`${location.protocol}//127.0.0.1:${said.port}/`),
         t('works once the tunnel above is up')));

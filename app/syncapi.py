@@ -1,6 +1,6 @@
-"""argus-sync: a folder of this machine kept in sync with a folder on someone's computer.
+"""argus-bridge: a folder of this machine kept in sync with a folder on someone's computer.
 
-The client (the separate `argus-sync` program) holds a **sync key**: like a device token, but it
+The client (the separate `argus-bridge` program) holds a **sync key**: like a device token, but it
 opens one folder and nothing else — no terminal, no sessions, no other file, no setting. It is
 made in the page (Sync to your computer…), shown once, and taken back from the same place.
 
@@ -93,7 +93,7 @@ def add(store: Path, path: Path, name: str, write: bool) -> tuple[dict, str]:
     if len(keys) >= MAX_KEYS:
         raise SyncKeyError(f"{MAX_KEYS} sync keys already — take one back first")
     plain = KEY_PREFIX + secrets.token_urlsafe(devices.TOKEN_BYTES)
-    entry = {"id": secrets.token_hex(6), "name": devices.tidy_name(name) or path.name or "argus-sync",
+    entry = {"id": secrets.token_hex(6), "name": devices.tidy_name(name) or path.name or "argus-bridge",
              "path": str(path), "write": bool(write), "created": int(time.time()), "last_seen": None,
              "hash": devices.fingerprint(plain)}
     keys.append(entry)
@@ -138,7 +138,7 @@ def touch(store: Path, key: dict) -> None:
 def _key(request: Request) -> dict:
     key = request.scope.get("argus_sync")
     if not key:
-        raise ApiError(403, "these routes are for argus-sync, with a sync key")
+        raise ApiError(403, "these routes are for argus-bridge, with a sync key")
     return key
 
 
@@ -161,7 +161,7 @@ def clean_rel(rel: str) -> str:
     if any(p in ("", ".", "..") or "\\" in p or "\0" in p for p in parts):
         raise ApiError(400, f"not a path inside the folder: {rel!r}")
     if any(p in IGNORED or p.startswith(PART_PREFIX) for p in parts):
-        raise ApiError(400, f"argus-sync does not carry {rel!r}")
+        raise ApiError(400, f"argus-bridge does not carry {rel!r}")
     return "/".join(parts)
 
 

@@ -45,7 +45,7 @@ def test_an_agent_opens_looks_types_and_clicks_in_the_persons_browser(live, chro
     # Nothing lent yet: said in words that tell the agent what the person switches on, never a tunnel.
     with pytest.raises(browser.BrowserError) as no:
         browser.open_page(call(live, "/api/computers")[1]["computers"], FORM)
-    assert "switches Browser on in argus-sync" in str(no.value) and "SSH" in str(no.value)
+    assert "switches Browser on in argus-bridge" in str(no.value) and "SSH" in str(no.value)
 
     lend(live, made["token"], chrome)
     for _ in range(100):
@@ -85,12 +85,12 @@ def test_an_agent_opens_looks_types_and_clicks_in_the_persons_browser(live, chro
     call(live, f"/api/computers/{made['computer']['id']}/disconnect", "POST", {})
 
 
-SYNC_BIN = __import__("os").environ.get("ARGUS_SYNC_BIN") or str(Path.home() / "argus-sync/target/debug/argus-sync")
+SYNC_BIN = __import__("os").environ.get("ARGUS_SYNC_BIN") or str(Path.home() / "argus-bridge/target/debug/argus-bridge")
 
 
-@pytest.mark.skipif(not __import__("os").access(SYNC_BIN, __import__("os").X_OK), reason="needs an argus-sync build (ARGUS_SYNC_BIN)")
+@pytest.mark.skipif(not __import__("os").access(SYNC_BIN, __import__("os").X_OK), reason="needs an argus-bridge build (ARGUS_SYNC_BIN)")
 def test_a_chrome_closed_by_hand_opens_again_when_an_agent_needs_it(live, tmp_path, monkeypatch):
-    """"What if I closed the browser argus-sync opened?" (2026-11-05). Closing that window is not
+    """"What if I closed the browser argus-bridge opened?" (2026-11-05). Closing that window is not
     switching Browser off: the next call of an agent starts it again, and Argus learns its new address."""
     import os
     import signal
