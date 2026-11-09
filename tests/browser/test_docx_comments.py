@@ -54,6 +54,20 @@ def test_the_comments_of_a_docx_stand_beside_their_words_and_a_save_keeps_the_pl
         assert gap[0] < 20 and gap[1], (gap, page.frame_eval("manuscript.docx", "[innerWidth, document.body.className]"))
         assert page.frame_eval("manuscript.docx", "!!document.querySelector('.insertion') && !!document.querySelector('.deletion')")
 
+        # "When I click the text I cannot tell which comment we are on" (2026-11-09): the words carry the
+        # comment's number, a click lights the comment, draws a line to it and says which one in the bar;
+        # ‹ › go from one to the next.
+        assert page.frame_eval("manuscript.docx", "[...document.querySelectorAll('.dn-ref')].map(r => r.textContent).join()") == "1,2"
+        page.frame_eval("manuscript.docx", "document.querySelector('.dn-anchor[data-id=\"1\"]').click()")
+        state = page.frame_eval("manuscript.docx", """[document.querySelector('.dn-where').textContent,
+            document.querySelector('.dn-note.on')?.dataset.id, document.querySelector('.dn-wire').classList.contains('on'),
+            !!document.querySelector('.dn-wire path').getAttribute('d')]""")
+        assert state == ["Comment 2 of 2 · Andrea", "1", True, True], state
+        page.frame_eval("manuscript.docx", "document.querySelector('.dn-anchor[data-id=\"1\"]').scrollIntoView({block: 'center'}); 1")
+        shoot(page, "docx-chosen")
+        page.frame_eval("manuscript.docx", "document.querySelector('.dn-nav button:last-child').click()")
+        assert page.frame_eval("manuscript.docx", "document.querySelector('.dn-where').textContent") == "Comment 1 of 2 · Vale Ferri"
+
         # Read to the second comment, then the file is saved again with that comment changed.
         page.frame_eval("manuscript.docx", "document.querySelector('.dn-anchor[data-id=\"1\"]').scrollIntoView({block: 'center'}); scrollY")
         eventually(lambda: page.frame_eval("manuscript.docx", "scrollY") > 500, timeout=5, what="scrolled down")

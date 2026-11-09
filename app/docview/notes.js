@@ -185,27 +185,106 @@
     said.append(...[...s.childNodes].map((c) => c.cloneNode(true)));
     note.append(who, said);
     notes.append(note);
-    items.push({ id, note, anchors, reply });
+    // The comment's number where its words end, as a footnote has one: which passage is which.
+    const ref = make('sup', 'dn-ref', String(i + 1));
+    ref.dataset.id = id;
+    ref.title = `Comment ${i + 1}${s.dataset.author ? ` — ${s.dataset.author}` : ''}`;
+    anchors[anchors.length - 1].after(ref);
+    items.push({ id, note, anchors, reply, ref, n: i + 1, author: s.dataset.author || '' });
   });
 
+  // The line from the words to their comment, drawn for the one chosen.
+  const SVG = 'http://www.w3.org/2000/svg';
+  const wire = document.createElementNS(SVG, 'svg');
+  wire.setAttribute('class', 'dn-wire');
+  wire.setAttribute('aria-hidden', 'true');
+  const path = document.createElementNS(SVG, 'path');
+  const dot = document.createElementNS(SVG, 'circle');
+  dot.setAttribute('r', '3');
+  wire.append(path, dot);
+  body.append(wire);
+
   // ------------------------------------------------------------------ finding one from the other
+  let active = null;
+  const nav = make('span', 'dn-nav');
+  const prevBtn = make('button', '', '‹');
+  const nextBtn = make('button', '', '›');
+  const where = make('span', 'dn-where');
+  prevBtn.type = nextBtn.type = 'button';
+  prevBtn.title = 'Previous comment';
+  nextBtn.title = 'Next comment';
+  nav.append(prevBtn, where, nextBtn);
+  if (items.length) bar.insertBefore(nav, bar.querySelector('.dn-zoom'));
+  const say = () => {
+    const it = items.find((x) => x.id === active);
+    where.replaceChildren();
+    if (!it) {
+      where.append(make('span', 'dn-hint', 'Click a highlighted passage, or › for the first comment'));
+      return;
+    }
+    where.append('Comment ', make('b', '', String(it.n)), ` of ${items.length}`);
+    if (it.author) where.append(' · ', make('b', '', it.author));
+  };
+  const drawWire = () => {
+    const it = items.find((x) => x.id === active);
+    const on = !!it && body.classList.contains('dn-wide');
+    wire.classList.toggle('on', on);
+    if (!on) return;
+    const b = body.getBoundingClientRect();
+    wire.setAttribute('width', String(body.scrollWidth));
+    wire.setAttribute('height', String(body.scrollHeight));
+    const last = it.ref.getBoundingClientRect();
+    const n = it.note.getBoundingClientRect();
+    const x1 = last.right - b.left + 2, y1 = last.top + last.height / 2 - b.top;
+    const x2 = n.left - b.left, y2 = n.top + Math.min(16, n.height / 2) - b.top;
+    const mid = Math.max(x1 + 12, (x1 + x2) / 2);
+    path.setAttribute('d', `M${x1},${y1} C${mid},${y1} ${mid},${y2} ${x2},${y2}`);
+    dot.setAttribute('cx', String(x1));
+    dot.setAttribute('cy', String(y1));
+  };
   const light = (id, from) => {
+    active = id;
     for (const it of items) {
       const on = it.id === id;
       it.note.classList.toggle('on', on);
+      it.ref.classList.toggle('on', on);
       for (const a of it.anchors) a.classList.toggle('on', on);
       if (on && from === 'note') it.anchors[0].scrollIntoView({ block: 'center', behavior: 'smooth' });
       if (on && from === 'text' && !body.classList.contains('dn-wide')) it.note.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }
+    say();
+    drawWire();
+    tell();
   };
+  const go = (dir) => {
+    if (!items.length) return;
+    const at = items.findIndex((x) => x.id === active);
+    const next = at < 0 ? (dir > 0 ? 0 : items.length - 1) : (at + dir + items.length) % items.length;
+    light(items[next].id, 'note');
+  };
+  prevBtn.onclick = () => go(-1);
+  nextBtn.onclick = () => go(1);
+  say();
   page.addEventListener('click', (e) => {
-    const a = e.target.closest('.dn-anchor, .dn-pin');
+    const a = e.target.closest('.dn-anchor, .dn-pin, .dn-ref');
     if (a) light(a.dataset.id, 'text');
   });
   notes.addEventListener('click', (e) => {
     const n = e.target.closest('.dn-note');
     if (n) light(n.dataset.id, 'note');
   });
+  // Pointing at either lights the other, before any click.
+  const hover = (id, on) => {
+    const it = items.find((x) => x.id === id);
+    if (!it) return;
+    it.note.classList.toggle('hover', on);
+    it.ref.classList.toggle('hover', on);
+    for (const a of it.anchors) a.classList.toggle('hover', on);
+  };
+  for (const [area, sel] of [[page, '.dn-anchor, .dn-pin, .dn-ref'], [body, '.dn-note']]) {
+    area.addEventListener('mouseover', (e) => { const t = e.target.closest(sel); if (t) hover(t.dataset.id, true); });
+    area.addEventListener('mouseout', (e) => { const t = e.target.closest(sel); if (t) hover(t.dataset.id, false); });
+  }
 
   // ------------------------------------------------------------------ where the comments stand
   const blockOf = (n) => n.closest('p, li, td, th, h1, h2, h3, h4, h5, h6, blockquote, pre') || n;
@@ -221,6 +300,7 @@
         it.note.style.top = '';
         last = it.note;
       }
+      drawWire();
       return;
     }
     if (notes.parentNode !== body || notes.childElementCount !== items.length) {
@@ -238,6 +318,7 @@
     }
     notes.style.height = `${floor}px`;
     body.style.minHeight = `${floor * zoom + 48}px`;
+    drawWire();
   }
   layout();
   // Not the resize event: a frame laid out at width 0 and given its width later is not always told.
@@ -249,7 +330,7 @@
   // ------------------------------------------------------------------ coming back where you were
   let told = 0;
   function tell() {
-    parent.postMessage({ argusDoc: 'at', y: scrollY, final: body.classList.contains('dn-final'), look: look.value, zoom }, '*');
+    parent.postMessage({ argusDoc: 'at', y: scrollY, final: body.classList.contains('dn-final'), look: look.value, zoom, active }, '*');
   }
   addEventListener('scroll', () => {
     clearTimeout(told);
@@ -265,6 +346,7 @@
       body.classList.add('dn-final');
       layout();
     }
+    if (e.data.active && items.some((x) => x.id === e.data.active)) light(e.data.active);
     if (e.data.y) scrollTo(0, e.data.y);
   });
   parent.postMessage({ argusDoc: 'ready' }, '*');
