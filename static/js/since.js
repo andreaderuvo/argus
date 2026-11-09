@@ -960,6 +960,13 @@ export async function screenSettings() {
           [t('by their length')]: 'auto', [t('until I close them')]: 'close' }[v] || '3';
         toast(t('like this — {how}', { how: v }));
       }),
+    choice(t('Size of notifications'), t('their text, in the corner — the rest of Argus stays as it is'),
+      [t('small'), t('normal'), t('large'), t('larger')],
+      () => ({ small: t('small'), large: t('large'), larger: t('larger') })[prefs.toastSize] || t('normal'),
+      (v) => {
+        prefs.toastSize = { [t('small')]: 'small', [t('large')]: 'large', [t('larger')]: 'larger' }[v] || 'normal';
+        toast(t('like this — {how}', { how: v }));
+      }),
     wiringRows(), pluginRows(), bellRow(),
   );
 

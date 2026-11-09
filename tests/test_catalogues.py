@@ -132,7 +132,7 @@ SAME_EVERYWHERE = {"Web", "Apple / Outlook (.ics)", "Ctrl", "auto", "Auto", "mar
 SAME_IN = {
     "it": {"Browser", "Menu", "desk", "home", "in", "in {folder}", "Log", "Team", "tester", "Release", "No",
            "Join", "join", "Desk {n}"},
-    "es": {"Prompts", "tester", "No", "1 error", "General", "Terminal", "Cursor", "Terminal · {name}"},
+    "es": {"Prompts", "tester", "No", "1 error", "General", "Terminal", "Cursor", "Terminal · {name}", "normal"},
     "fr": {"Actions", "Documents", "Interruptions", "Journal", "Menu", "Prompts", "Version", "Pause",
            "code", "document", "extension", "page", "agent", "Agent", "Agents", "{n} agents",
            "session", "Sessions", "{n} sessions", "Terminal", "Interface", "Accent", "Danger",

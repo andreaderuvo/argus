@@ -237,6 +237,9 @@ export function toastLasts(message, lasts = null) {
 /** The corner the toasts stack in: bottom right (across the bottom on a phone), newest at the
  *  bottom, each one whole — a toast used to sit centred, two of them on top of each other, cut
  *  after 2.2 s. Lifted above the bars along the bottom and above an upload bar. */
+/** Settings → Size of notifications: their text, and the width that goes with it. */
+export const TOAST_SCALES = { small: 0.9, normal: 1, large: 1.15, larger: 1.3 };
+
 export function toastStack() {
   let stack = document.getElementById('toasts');
   if (!stack) {
@@ -246,6 +249,8 @@ export function toastStack() {
   const bar = document.querySelector('.uploading');
   const lift = bar?.getClientRects().length ? Math.round(bar.getBoundingClientRect().height) + 8 : 0;
   stack.style.bottom = `calc(var(--furniture) + .7rem + ${lift}px)`;
+  const scale = TOAST_SCALES[prefs.toastSize] || 1;
+  if (stack.style.getPropertyValue('--toast-scale') !== String(scale)) stack.style.setProperty('--toast-scale', String(scale));
   return stack;
 }
 
@@ -274,10 +279,12 @@ export function toast(message, bad = false, onTap = null, lasts = null) {
   // Off in Settings: only failures still show — an error nobody sees is worse than a toast.
   if (prefs.toastShow === false && !bad) return box;
   stack.append(box);
-  // At most six passing messages at once, the oldest first; a question waiting for an answer
+  // At most twelve passing messages at once (the stack scrolls), the oldest first; a question waiting for an answer
   // (askcards.js) never counts and is never pushed out.
   const passing = [...stack.children].filter((n) => !n.classList.contains('askcard'));
-  for (const old of passing.slice(0, Math.max(0, passing.length - 6))) old.remove();
+  for (const old of passing.slice(0, Math.max(0, passing.length - 12))) old.remove();
+  // The newest in view when the stack scrolls.
+  if (stack.scrollHeight > stack.clientHeight) stack.scrollTop = stack.scrollHeight;
   const ms = toastLasts(message, lasts);
   if (ms !== null) {
     let timer = setTimeout(go, ms);

@@ -1253,9 +1253,18 @@ button.ghost.inline.danger:hover {
   flex-direction: column;
   align-items: flex-end;
   gap: .45rem;
-  width: min(26rem, calc(100vw - 2rem));
+  width: min(calc(26rem * var(--toast-scale, 1)), calc(100vw - 2rem));
   pointer-events: none;
+  /* Never taller than the screen: what does not fit scrolls, the newest at the bottom (asked for
+     2026-11-09 — a stack of long ones ran off the top, out of reach). */
+  max-height: calc(100dvh - var(--furniture, 0px) - var(--bar, 52px) - 1.6rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  padding: .3rem .3rem .3rem 0;
+  margin: -.3rem -.3rem -.3rem 0;
 }
+.toasts > * { flex: none; }
 .toast {
   position: relative;
   pointer-events: auto;
@@ -1270,7 +1279,8 @@ button.ghost.inline.danger:hover {
   background: var(--panel);
   color: var(--text);
   border: 1px solid var(--line);
-  font-size: .85rem;
+  /* Settings → Interruptions → Size of notifications (prefs.toastSize). */
+  font-size: calc(.85rem * var(--toast-scale, 1));
   line-height: 1.35;
   box-shadow: 0 8px 24px rgba(0, 0, 0, .35);
   animation: toastin .18s ease-out;

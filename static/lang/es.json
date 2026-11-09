@@ -1809,6 +1809,12 @@
   "Desks": "Escritorios",
   "In other desks": "En otros escritorios",
   "{window} — in {desk}": "{window} — en {desk}",
-  "in {desk}": "en {desk}"
+  "in {desk}": "en {desk}",
+  "Size of notifications": "Tamaño de las notificaciones",
+  "their text, in the corner — the rest of Argus stays as it is": "su texto, en la esquina — el resto de Argus queda igual",
+  "small": "pequeño",
+  "normal": "normal",
+  "large": "grande",
+  "larger": "más grande"
  }
 }
