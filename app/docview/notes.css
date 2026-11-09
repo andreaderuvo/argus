@@ -1,0 +1,65 @@
+/* A Word document's comments and tracked changes, shown the way Word shows them: the
+ * commented words marked, the comments in a margin beside them, insertions and deletions
+ * coloured. Put into the HTML pandoc makes (files.pandoc_html); both themes via the
+ * reader's colour scheme, since the frame cannot see Argus's. */
+:root {
+  --dn-ink: #1f2328; --dn-paper: #ffffff; --dn-rule: #d8dee4; --dn-muted: #59636e;
+  --dn-mark: rgba(255, 196, 0, .32); --dn-mark-on: rgba(255, 170, 0, .62);
+  --dn-note: #fff8e1; --dn-note-edge: #e0b000; --dn-ins: #116329; --dn-del: #b42318;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --dn-ink: #e6edf3; --dn-paper: #0d1117; --dn-rule: #30363d; --dn-muted: #9198a1;
+    --dn-mark: rgba(242, 178, 0, .25); --dn-mark-on: rgba(242, 178, 0, .55);
+    --dn-note: #2a2310; --dn-note-edge: #b88a00; --dn-ins: #56d364; --dn-del: #ff7b72;
+    color-scheme: dark;
+  }
+}
+html, body { background: var(--dn-paper); color: var(--dn-ink); }
+body.dn { max-width: none; margin: 0; padding: 0 16px 48px; box-sizing: border-box; }
+body.dn { --dn-margin: min(18.5em, 36vw); }
+body.dn > .dn-page { max-width: 44em; margin: 0 auto; position: relative; }
+body.dn.dn-wide { padding-right: calc(var(--dn-margin) + 32px); }
+
+.dn-bar {
+  position: sticky; top: 0; z-index: 3; display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
+  margin: 0 -16px 12px; padding: 7px 16px; box-sizing: border-box; background: var(--dn-paper); border-bottom: 1px solid var(--dn-rule);
+  font: 12px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--dn-muted);
+}
+body.dn-wide .dn-bar { margin-right: calc(-1 * (var(--dn-margin) + 32px)); }
+.dn-bar b { color: var(--dn-ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.dn-bar label { display: inline-flex; gap: 5px; align-items: center; cursor: pointer; }
+.dn-bar .dn-when { margin-left: auto; font-variant-numeric: tabular-nums; }
+
+span.comment-start, span.comment-end { display: none; }
+.dn-anchor { background: var(--dn-mark); border-radius: 2px; cursor: pointer; }
+.dn-anchor.on { background: var(--dn-mark-on); }
+.dn-pin { display: inline-block; width: .55em; height: .55em; margin: 0 .1em; border-radius: 50%;
+  background: var(--dn-note-edge); vertical-align: .15em; cursor: pointer; }
+
+.dn-notes { position: absolute; top: 0; right: 16px; width: var(--dn-margin); }
+.dn-note {
+  box-sizing: border-box; width: 100%; padding: 7px 10px 8px; border: 1px solid var(--dn-rule);
+  border-left: 3px solid var(--dn-note-edge); border-radius: 4px; background: var(--dn-note);
+  font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--dn-ink);
+  cursor: pointer; transition: box-shadow .15s, transform .15s;
+}
+body.dn-wide .dn-note { position: absolute; left: 0; }
+.dn-note.on { box-shadow: 0 2px 10px rgba(0, 0, 0, .18); transform: translateX(-4px); }
+.dn-note .dn-who { display: flex; gap: 8px; align-items: baseline; margin-bottom: 3px; }
+.dn-note .dn-who b { font-weight: 600; }
+.dn-note .dn-who time { color: var(--dn-muted); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.dn-note .dn-n { color: var(--dn-muted); font-size: 11.5px; margin-left: auto; font-variant-numeric: tabular-nums; }
+.dn-note p { margin: 0; }
+.dn-note.reply { margin-top: -4px; border-top-left-radius: 0; border-top-right-radius: 0; }
+/* Narrow: each comment under the paragraph it is about. */
+body:not(.dn-wide) .dn-notes { position: static; width: auto; }
+body:not(.dn-wide) .dn-note { margin: 6px 0 12px; }
+
+.insertion { color: var(--dn-ins); text-decoration: underline; text-decoration-thickness: 1px; }
+.deletion { color: var(--dn-del); text-decoration: line-through; }
+body.dn-final .insertion { color: inherit; text-decoration: none; }
+body.dn-final .deletion { display: none; }
+.paragraph-insertion, .paragraph-deletion { display: none; }
+@media (prefers-reduced-motion: reduce) { .dn-note { transition: none; } }

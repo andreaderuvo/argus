@@ -683,6 +683,9 @@ def pandoc_html(path: Path, fmt: str) -> bytes | None:
     try:
         done = subprocess.run(
             [exe, "--from", fmt, "--to", "html", "--standalone", "--embed-resources",
+             # Comments and tracked changes kept, not dropped: a document under review is read
+             # for them (docview/notes.js puts them in a margin).
+             "--track-changes=all",
              # `title-meta` fills the browser tab without pandoc's template also printing
              # the name as a heading: the viewer already shows it in the header bar.
              "--metadata", f"title-meta={path.stem}", "--", str(path)],
@@ -694,7 +697,22 @@ def pandoc_html(path: Path, fmt: str) -> bytes | None:
         return None
     if len(done.stdout) > PANDOC_MAX_HTML:
         return None
-    return done.stdout
+    return with_notes(done.stdout)
+
+
+DOCVIEW = Path(__file__).parent / "docview"
+
+
+def with_notes(html: bytes) -> bytes:
+    """The comments of a reviewed document in a margin beside their words, its tracked changes
+    coloured — only when it has some; a plain document is left exactly as pandoc wrote it."""
+    if b'class="comment-start"' not in html and b'class="insertion"' not in html and b'class="deletion"' not in html:
+        return html
+    style = b"<style>" + (DOCVIEW / "notes.css").read_bytes() + b"</style>"
+    script = b"<script>" + (DOCVIEW / "notes.js").read_bytes().replace(b"</", b"<\\/") + b"</script>"
+    html = html.replace(b"</head>", style + b"</head>", 1)
+    at = html.rfind(b"</body>")
+    return html[:at] + script + html[at:] if at >= 0 else html + script
 
 
 def document_text(path: Path) -> str:

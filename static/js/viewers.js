@@ -732,7 +732,11 @@ export async function mountPreview(host, path, ctl) {
     // not the file's — so it goes straight into the frame with no toggle.
     if (r.headers.get('x-rendered')) {
       ctl.fill?.(true);
-      host.append(el('iframe', { className: 'preview', src, sandbox: 'allow-popups allow-forms' }));
+      // Scripts only for a reviewed document's comments (the server adds them, app/docview): the
+      // frame has no origin of its own either way, so they reach nothing of the page's.
+      const frame = el('iframe', { className: 'preview', src, sandbox: 'allow-scripts allow-popups allow-forms' });
+      keepDocPlace(frame, path);
+      host.append(frame);
       return;
     }
     const source = await r.text();
@@ -1117,6 +1121,22 @@ function starButton(path) {
  * wrote `tmux ?` over the folder and the time, every ten seconds, which is the whole of
  * "the info bar sometimes goes to hell". The terminal's own `i` was hiding these too. The
  * look is shared in the stylesheet, where sharing a look belongs. */
+/* Where a rendered document was read to, and whether its tracked changes were hidden.
+ *
+ *  A document under review is saved again and again while it is read beside it, and a watched
+ *  window reloads it each time: without this every save threw the reader back to the top. The
+ *  frame keeps nothing itself (sandboxed, no origin), so it says where it is and is told on load. */
+const docPlaces = new Map();
+function keepDocPlace(frame, path) {
+  const heard = (e) => {
+    if (!frame.isConnected) { removeEventListener('message', heard); return; }
+    if (e.source !== frame.contentWindow || !e.data || typeof e.data !== 'object') return;
+    if (e.data.argusDoc === 'at') docPlaces.set(path, { y: Number(e.data.y) || 0, final: !!e.data.final });
+    if (e.data.argusDoc === 'ready') frame.contentWindow.postMessage({ argusDoc: 'place', ...(docPlaces.get(path) || {}) }, '*');
+  };
+  addEventListener('message', heard);
+}
+
 function whereFacts(path) {
   const here = parentOf(path);
   const strip = el('div', { className: 'docfacts', hidden: !strips() });
