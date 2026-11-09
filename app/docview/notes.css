@@ -2,32 +2,56 @@
  * commented words marked, the comments in a margin beside them, insertions and deletions
  * coloured. Put into the HTML pandoc makes (files.pandoc_html); both themes via the
  * reader's colour scheme, since the frame cannot see Argus's. */
-:root {
+:root, body[data-look="page"] {
   --dn-ink: #1f2328; --dn-paper: #ffffff; --dn-rule: #d8dee4; --dn-muted: #59636e;
-  --dn-mark: rgba(255, 196, 0, .32); --dn-mark-on: rgba(255, 170, 0, .62);
-  --dn-note: #fff8e1; --dn-note-edge: #e0b000; --dn-ins: #116329; --dn-del: #b42318;
+  --dn-note-edge: #d4a106; --dn-ins: #116329; --dn-del: #b42318; --dn-link: #0b62c4;
   color-scheme: light;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --dn-ink: #e6edf3; --dn-paper: #0d1117; --dn-rule: #30363d; --dn-muted: #9198a1;
-    --dn-mark: rgba(242, 178, 0, .25); --dn-mark-on: rgba(242, 178, 0, .55);
-    --dn-note: #2a2310; --dn-note-edge: #b88a00; --dn-ins: #56d364; --dn-del: #ff7b72;
-    color-scheme: dark;
-  }
+/* Looks to read in (the bar's Look): Page is Word's white sheet, Sepia is easier on long evenings,
+ * Night is dark whatever Argus wears, Argus takes the theme Argus wears (its colours arrive by
+ * postMessage, since this frame cannot read the page's). */
+body[data-look="sepia"] {
+  --dn-ink: #3b2f1e; --dn-paper: #f4ecd8; --dn-rule: #d9cbb0; --dn-muted: #7a6a52;
+  --dn-note-edge: #b5761b; --dn-ins: #3d6b1f; --dn-del: #a3341f; --dn-link: #8a4b12;
+  color-scheme: light;
+}
+body[data-look="night"] {
+  --dn-ink: #e6edf3; --dn-paper: #0d1117; --dn-rule: #30363d; --dn-muted: #9198a1;
+  --dn-note-edge: #b88a00; --dn-ins: #56d364; --dn-del: #ff7b72; --dn-link: #79b8ff;
+  color-scheme: dark;
+}
+body[data-look="argus"].dn-dark { color-scheme: dark; }
+body {
+  --dn-note: color-mix(in srgb, var(--dn-note-edge) 13%, var(--dn-paper));
+  --dn-mark: color-mix(in srgb, var(--dn-note-edge) 30%, transparent);
+  --dn-mark-on: color-mix(in srgb, var(--dn-note-edge) 62%, transparent);
+}
+body[data-look="page"], body[data-look="sepia"] {
+  font-family: Charter, "Bitstream Charter", "Iowan Old Style", "Sitka Text", Cambria, Georgia, serif;
+}
+body.dn a { color: var(--dn-link); }
+body.dn table, body.dn th, body.dn td { border-color: var(--dn-rule); }
+body.dn hr { border-color: var(--dn-rule); }
+body.dn code, body.dn pre { background: color-mix(in srgb, var(--dn-ink) 6%, var(--dn-paper)); }
+body.dn blockquote { color: var(--dn-muted); border-left-color: var(--dn-rule); }
+.dn-bar select {
+  font: inherit; color: var(--dn-ink); background: var(--dn-paper); border: 1px solid var(--dn-rule);
+  border-radius: 4px; padding: 1px 4px;
 }
 html, body { background: var(--dn-paper); color: var(--dn-ink); }
 body.dn { max-width: none; margin: 0; padding: 0 16px 48px; box-sizing: border-box; }
-body.dn { --dn-margin: min(18.5em, 36vw); }
+body.dn { --dn-margin: min(18.5em, 36vw); --dn-z: 1; }
+/* The page and the margin zoom together; a comment under its paragraph is in the page already. */
+body.dn > .dn-page, body.dn > .dn-notes { zoom: var(--dn-z); }
 body.dn > .dn-page { max-width: 44em; margin: 0 auto; position: relative; }
-body.dn.dn-wide { padding-right: calc(var(--dn-margin) + 32px); }
+body.dn.dn-wide { padding-right: calc(var(--dn-margin) * var(--dn-z) + 32px); }
 
 .dn-bar {
   position: sticky; top: 0; z-index: 3; display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
   margin: 0 -16px 12px; padding: 7px 16px; box-sizing: border-box; background: var(--dn-paper); border-bottom: 1px solid var(--dn-rule);
   font: 12px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--dn-muted);
 }
-body.dn-wide .dn-bar { margin-right: calc(-1 * (var(--dn-margin) + 32px)); }
+body.dn-wide .dn-bar { margin-right: calc(-1 * (var(--dn-margin) * var(--dn-z) + 32px)); }
 .dn-bar b { color: var(--dn-ink); font-weight: 600; font-variant-numeric: tabular-nums; }
 .dn-bar label { display: inline-flex; gap: 5px; align-items: center; cursor: pointer; }
 .dn-bar .dn-when { margin-left: auto; font-variant-numeric: tabular-nums; }
@@ -63,3 +87,13 @@ body.dn-final .insertion { color: inherit; text-decoration: none; }
 body.dn-final .deletion { display: none; }
 .paragraph-insertion, .paragraph-deletion { display: none; }
 @media (prefers-reduced-motion: reduce) { .dn-note { transition: none; } }
+.dn-zoom { display: inline-flex; border: 1px solid var(--dn-rule); border-radius: 4px; overflow: hidden; margin-left: auto; }
+.dn-zoom button {
+  font: inherit; color: var(--dn-ink); background: var(--dn-paper); border: 0; padding: 2px 9px; cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.dn-zoom button + button { border-left: 1px solid var(--dn-rule); }
+.dn-zoom button:hover { background: color-mix(in srgb, var(--dn-ink) 8%, var(--dn-paper)); }
+.dn-zoom .dn-pct { min-width: 4.2em; }
+.dn-bar .dn-zoom + .dn-when { margin-left: 0; }
+.dn-bar button:focus-visible, .dn-bar select:focus-visible, .dn-bar input:focus-visible { outline: 2px solid var(--dn-note-edge); outline-offset: 1px; }

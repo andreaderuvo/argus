@@ -36,7 +36,8 @@
     s.append(make('b', '', String(n)), ` ${n === 1 ? one : many}`);
     return s;
   };
-  bar.append(count(starts.length, 'comment', 'comments'), count(changes, 'tracked change', 'tracked changes'));
+  if (starts.length) bar.append(count(starts.length, 'comment', 'comments'));
+  if (changes) bar.append(count(changes, 'tracked change', 'tracked changes'));
   const show = make('input');
   show.type = 'checkbox';
   show.checked = true;
@@ -44,6 +45,83 @@
   const showLabel = make('label');
   showLabel.append(show, 'Show changes');
   if (changes) bar.append(showLabel);
+  // ------------------------------------------------------------------ the look
+  const LOOKS = [['argus', 'Argus'], ['page', 'Page'], ['sepia', 'Sepia'], ['night', 'Night']];
+  const look = make('select');
+  look.id = 'dn-look';
+  for (const [v, label] of LOOKS) {
+    const o = make('option', '', label);
+    o.value = v;
+    look.append(o);
+  }
+  const lookLabel = make('label', 'dn-when');
+  lookLabel.append('Look', look);
+  bar.append(lookLabel);
+  let theme = null;
+  const wear = (name) => {
+    const v = LOOKS.some(([k]) => k === name) ? name : 'argus';
+    look.value = v;
+    body.dataset.look = v;
+    // Argus's own colours, when it said them; else this machine's light or dark.
+    const vars = ['--dn-ink', '--dn-paper', '--dn-rule', '--dn-muted', '--dn-note-edge', '--dn-link'];
+    for (const k of vars) body.style.removeProperty(k);
+    body.classList.toggle('dn-dark', v === 'argus' && (theme ? theme.dark : matchMedia('(prefers-color-scheme: dark)').matches));
+    if (v === 'argus') {
+      const t = theme || (matchMedia('(prefers-color-scheme: dark)').matches
+        ? { bg: '#0d1117', text: '#e6edf3', line: '#30363d', dim: '#9198a1', star: '#b88a00', accent: '#79b8ff' } : null);
+      if (t) {
+        const ok = (c) => typeof c === 'string' && /^(#[0-9a-f]{3,8}|rgba?\([\d\s.,%]+\))$/i.test(c.trim());
+        const set = (k, c) => { if (ok(c)) body.style.setProperty(k, c.trim()); };
+        set('--dn-paper', t.bg); set('--dn-ink', t.text); set('--dn-rule', t.line); set('--dn-muted', t.dim);
+        set('--dn-note-edge', t.star); set('--dn-link', t.accent);
+      }
+    }
+  };
+  wear('argus');
+  look.onchange = () => { wear(look.value); tell(); };
+
+  // ------------------------------------------------------------------ zoom
+  const STEPS = [0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3];
+  let zoom = 1;
+  const zoomBox = make('span', 'dn-zoom');
+  const out = make('button', '', '−');
+  const pct = make('button', 'dn-pct', '100%');
+  const inn = make('button', '', '+');
+  out.type = pct.type = inn.type = 'button';
+  out.title = 'Smaller (Ctrl −)';
+  inn.title = 'Larger (Ctrl +)';
+  pct.title = 'Back to 100% (Ctrl 0)';
+  zoomBox.append(out, pct, inn);
+  bar.insertBefore(zoomBox, lookLabel);
+  const setZoom = (z, quiet) => {
+    const was = zoom;
+    zoom = Math.min(3, Math.max(0.5, Math.round(z * 100) / 100));
+    // The same place stays in view: what was at the top of the screen is still at the top.
+    const top = scrollY / was;
+    body.style.setProperty('--dn-z', String(zoom));
+    pct.textContent = `${Math.round(zoom * 100)}%`;
+    layout();
+    scrollTo(0, top * zoom);
+    if (!quiet) tell();
+  };
+  const step = (dir) => {
+    const next = dir > 0 ? STEPS.find((v) => v > zoom + 0.001) : [...STEPS].reverse().find((v) => v < zoom - 0.001);
+    if (next) setZoom(next);
+  };
+  out.onclick = () => step(-1);
+  inn.onclick = () => step(1);
+  pct.onclick = () => setZoom(1);
+  addEventListener('keydown', (e) => {
+    if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+    if (e.key === '+' || e.key === '=') { e.preventDefault(); step(1); }
+    else if (e.key === '-') { e.preventDefault(); step(-1); }
+    else if (e.key === '0') { e.preventDefault(); setZoom(1); }
+  });
+  addEventListener('wheel', (e) => {
+    if (!e.ctrlKey) return;
+    e.preventDefault();
+    setZoom(zoom * Math.exp(-e.deltaY / 400));
+  }, { passive: false });
   show.onchange = () => { body.classList.toggle('dn-final', !show.checked); layout(); tell(); };
   body.prepend(bar);
 
@@ -149,16 +227,17 @@
       for (const it of items) notes.append(it.note);
       body.append(notes);
     }
-    const base = body.getBoundingClientRect().top;
+    // The margin is zoomed with the page: its own pixels are the page's divided by the zoom.
+    const base = notes.getBoundingClientRect().top;
     let floor = 0;
     for (const it of items) {
-      const want = it.anchors[0].getBoundingClientRect().top - base - 6;
+      const want = (it.anchors[0].getBoundingClientRect().top - base) / zoom - 6;
       const top = Math.max(want, floor);
       it.note.style.top = `${top}px`;
       floor = top + it.note.offsetHeight + (it.reply ? 2 : 8);
     }
     notes.style.height = `${floor}px`;
-    body.style.minHeight = `${floor + 48}px`;
+    body.style.minHeight = `${floor * zoom + 48}px`;
   }
   layout();
   addEventListener('resize', layout);
@@ -168,7 +247,7 @@
   // ------------------------------------------------------------------ coming back where you were
   let told = 0;
   function tell() {
-    parent.postMessage({ argusDoc: 'at', y: scrollY, final: body.classList.contains('dn-final') }, '*');
+    parent.postMessage({ argusDoc: 'at', y: scrollY, final: body.classList.contains('dn-final'), look: look.value, zoom }, '*');
   }
   addEventListener('scroll', () => {
     clearTimeout(told);
@@ -176,6 +255,9 @@
   }, { passive: true });
   addEventListener('message', (e) => {
     if (e.source !== parent || !e.data || e.data.argusDoc !== 'place') return;
+    if (e.data.theme && typeof e.data.theme === 'object') theme = e.data.theme;
+    wear(e.data.look || 'argus');
+    if (Number(e.data.zoom) > 0 && Number(e.data.zoom) !== 1) setZoom(Number(e.data.zoom), true);
     if (e.data.final && changes) {
       show.checked = false;
       body.classList.add('dn-final');

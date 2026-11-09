@@ -704,10 +704,8 @@ DOCVIEW = Path(__file__).parent / "docview"
 
 
 def with_notes(html: bytes) -> bytes:
-    """The comments of a reviewed document in a margin beside their words, its tracked changes
-    coloured — only when it has some; a plain document is left exactly as pandoc wrote it."""
-    if b'class="comment-start"' not in html and b'class="insertion"' not in html and b'class="deletion"' not in html:
-        return html
+    """A document to read: its looks and zoom, and the comments of a reviewed one in a margin beside
+    their words, its tracked changes coloured."""
     style = b"<style>" + (DOCVIEW / "notes.css").read_bytes() + b"</style>"
     script = b"<script>" + (DOCVIEW / "notes.js").read_bytes().replace(b"</", b"<\\/") + b"</script>"
     html = html.replace(b"</head>", style + b"</head>", 1)

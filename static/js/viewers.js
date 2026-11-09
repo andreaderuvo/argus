@@ -1127,12 +1127,31 @@ function starButton(path) {
  *  window reloads it each time: without this every save threw the reader back to the top. The
  *  frame keeps nothing itself (sandboxed, no origin), so it says where it is and is told on load. */
 const docPlaces = new Map();
+/** The colours Argus wears now, for a document whose look is "Argus". */
+function wornColours() {
+  const css = getComputedStyle(document.documentElement);
+  const v = (k) => css.getPropertyValue(k).trim();
+  return { bg: v('--panel'), text: v('--text'), line: v('--line'), dim: v('--dim'), star: v('--star'), accent: v('--accent'),
+    dark: document.documentElement.dataset.theme !== 'light' };
+}
+
 function keepDocPlace(frame, path) {
   const heard = (e) => {
     if (!frame.isConnected) { removeEventListener('message', heard); return; }
     if (e.source !== frame.contentWindow || !e.data || typeof e.data !== 'object') return;
-    if (e.data.argusDoc === 'at') docPlaces.set(path, { y: Number(e.data.y) || 0, final: !!e.data.final });
-    if (e.data.argusDoc === 'ready') frame.contentWindow.postMessage({ argusDoc: 'place', ...(docPlaces.get(path) || {}) }, '*');
+    if (e.data.argusDoc === 'at') {
+      docPlaces.set(path, { y: Number(e.data.y) || 0, final: !!e.data.final });
+      const look = String(e.data.look || '');
+      const zoom = Math.min(3, Math.max(0.5, Number(e.data.zoom) || 1));
+      if (/^(argus|page|sepia|night)$/.test(look) && (prefs.docLook !== look || prefs.docZoom !== zoom)) {
+        prefs.docLook = look;
+        prefs.docZoom = zoom;
+        savePrefs();
+      }
+    }
+    if (e.data.argusDoc === 'ready') {
+      frame.contentWindow.postMessage({ argusDoc: 'place', ...(docPlaces.get(path) || {}), look: prefs.docLook || 'argus', zoom: prefs.docZoom || 1, theme: wornColours() }, '*');
+    }
   };
   addEventListener('message', heard);
 }

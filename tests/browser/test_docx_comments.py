@@ -68,10 +68,40 @@ def test_the_comments_of_a_docx_stand_beside_their_words_and_a_save_keeps_the_pl
         doc.unlink(missing_ok=True)
 
 
-def test_a_document_without_comments_is_left_as_pandoc_wrote_it(tmp_path):
+def test_a_document_without_comments_gets_looks_and_zoom_but_no_margin(tmp_path):
     from app.files import pandoc_html
     plain = tmp_path / "plain.docx"
     (tmp_path / "plain.md").write_text("# Plain\n\nNothing to review.\n")
     subprocess.run([shutil.which("pandoc") or find_pandoc(), str(tmp_path / "plain.md"), "-o", str(plain)], check=True)
     html = pandoc_html(plain, "docx")
-    assert b"dn-note" not in html and b"<script>" not in html
+    assert b"Nothing to review." in html and b"dn-look" in html
+
+
+def test_a_look_and_a_zoom_are_kept_for_the_next_document(make_page, argus):
+    """"Themes in the docx viewer" and "a zoom too" (2026-11-09): a look and a zoom chosen once hold for
+    every document, and a reload; the comments still stand beside their words when zoomed."""
+    doc = argus.root / "docs" / "looks.docx"
+    review(doc, "Which scheme?")
+    try:
+        page = make_page(route="#/wall")
+        page.eval(f"import('/js/tray.js').then(m => m.openWindow({{ kind: 'file', path: {str(doc)!r} }}))")
+        page.frame_eval("looks.docx", "document.querySelectorAll('.dn-note').length === 2 || Promise.reject('not yet')", timeout=20)
+        paper = "getComputedStyle(document.body).backgroundColor"
+        page.frame_eval("looks.docx", "(() => { const s = document.getElementById('dn-look'); s.value = 'sepia'; s.dispatchEvent(new Event('change')); })()")
+        assert page.frame_eval("looks.docx", paper) == "rgb(244, 236, 216)"
+        page.frame_eval("looks.docx", "document.querySelector('.dn-zoom button:last-child').click(); document.querySelector('.dn-zoom button:last-child').click()")
+        assert page.frame_eval("looks.docx", "document.querySelector('.dn-pct').textContent") == "125%"
+        gap = page.frame_eval("looks.docx", """(() => {
+            const a = document.querySelector('.dn-anchor[data-id="0"]').getBoundingClientRect();
+            const n = document.querySelector('.dn-note[data-id="0"]').getBoundingClientRect();
+            return Math.round(Math.abs(n.top - a.top)); })()""")
+        assert gap < 24, gap
+        eventually(lambda: argus.api("/api/prefs").get("prefs", {}).get("docZoom") == 1.25
+                   or argus.api("/api/prefs").get("docZoom") == 1.25, timeout=8, what="kept")
+        shoot(page, "docx-looks")
+        # Read again: the same look and zoom.
+        page.eval("document.querySelector('.win[data-kind=\"file\"] .winbtn[title=\"Read it again now\"]')?.click()")
+        page.frame_eval("looks.docx", "(document.querySelector('.dn-pct')?.textContent === '125%' && document.body.dataset.look === 'sepia')"
+                                      " || Promise.reject('not yet')", timeout=15)
+    finally:
+        doc.unlink(missing_ok=True)
