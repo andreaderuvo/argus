@@ -491,7 +491,8 @@ def _computers(a: Argus, args: dict) -> str:
         lends = [k for k, on in (c.get("offers") or {}).items() if on]
         rows.append(f"{c['name']}: " + ("connected" if c.get("connected") else "not connected")
                     + (f" ({c.get('os')})" if c.get("os") else "") + (f" — lends {', '.join(lends)}" if lends else " — lends nothing")
-                    + (f"\n  browser: {c['endpoint']}" if c.get("endpoint") else ""))
+                    + (f"\n  browser: {c['endpoint']}" if c.get("endpoint") else "")
+                    + (f"\n  but the browser is not working: {c['browser_trouble']}" if c.get("browser_trouble") else ""))
     return "\n".join(rows) or "no computer is connected — the person connects one in Argus: Settings → Computers"
 
 
@@ -501,9 +502,9 @@ def _browser(fn):
         try:
             return fn(a.computers(), args)
         except browser.BrowserError as e:
-            raise ArgusError(str(e)) from None
+            raise ArgusError(0, str(e)) from None
         except OSError as e:
-            raise ArgusError(f"the person's browser did not answer: {e}") from None
+            raise ArgusError(0, f"the person's browser did not answer: {e}") from None
     return run
 
 

@@ -102,7 +102,7 @@ def connect_one(base, name="test computer"):
     return made
 
 
-async def computer(base, key, offers, chrome_at=None, told=None, answer=None):
+async def computer(base, key, offers, chrome_at=None, told=None, answer=None, refuse_cdp=None):
     """What argus-bridge does: hello with its switches, then each channel Argus opens — refusing a
     kind that is switched off, as the real one does."""
     import websockets
@@ -167,6 +167,8 @@ async def computer(base, key, offers, chrome_at=None, told=None, answer=None):
                 switch = {"cdp": "browser", "pty": "terminal", "run": "actions"}[kind]
                 if not offers.get(switch):
                     await say({"op": "close", "ch": ch, "why": f"{switch} is off on this computer"})
+                elif kind == "cdp" and refuse_cdp:
+                    await say({"op": "close", "ch": ch, "why": refuse_cdp})
                 elif kind == "cdp":
                     asyncio.ensure_future(cdp_pipe(ch, frame["path"]))
                 elif kind == "pty":

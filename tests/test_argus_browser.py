@@ -137,3 +137,42 @@ def test_a_chrome_closed_by_hand_opens_again_when_an_agent_needs_it(live, tmp_pa
             client.communicate(timeout=20)
         except subprocess.TimeoutExpired:
             client.kill()
+
+
+TROUBLE = ("the browser did not start again: Chrome ended at once (exit status: 0) — is another Chrome using "
+           "/Users/someone/Library/Application Support/argus-sync/browser-profile already?")
+
+
+def test_a_browser_that_will_not_start_says_why_everywhere(live, tmp_path, monkeypatch):
+    """Issue #15 (2026-11-09): the Mac's Chrome refused every connection, `computers` still said "lends
+    browser", the reason was cut at 100 characters, the client dropped it, and the MCP tools crashed on
+    ArgusError's arguments. Now the reason is said in full by `computers`, read off the close by the
+    client, and every browser tool answers with it."""
+    made = connect_one(live, "Mac")
+    cid = made["computer"]["id"]
+    monkeypatch.setenv("HOME", str(tmp_path))
+
+    async def scenario():
+        import websockets
+        lending = asyncio.ensure_future(computer(live, made["token"], {"browser": True}, refuse_cdp=TROUBLE))
+        from tests.test_computers import until_connected
+        status = await until_connected(live, cid)
+        try:
+            async with websockets.connect(status["endpoint"]) as ws:
+                await ws.recv()
+        except websockets.exceptions.ConnectionClosed as e:
+            reason = e.rcvd.reason
+            assert len(reason.encode()) <= 123 and reason.startswith("the browser did not start again") and reason.endswith("…"), reason
+        said = (await asyncio.to_thread(call, live, "/api/computers"))[1]["computers"][0]
+        assert said["browser_trouble"] == TROUBLE, said
+        # The client: the reason, not "closed the connection"; the MCP tool: that, not a TypeError.
+        with pytest.raises(browser.BrowserError, match="did not start again"):
+            await asyncio.to_thread(lambda: browser.Socket(status["endpoint"]).recv())
+        tool = argus_mcp._browser(lambda computers, args: browser.Socket(status["endpoint"]).recv())
+        fake = type("A", (), {"computers": lambda self: [said]})()
+        with pytest.raises(argus_mcp.ArgusError, match="did not start again"):
+            await asyncio.to_thread(tool, fake, {})
+        await asyncio.to_thread(call, live, f"/api/computers/{cid}/disconnect", "POST", {})
+        await asyncio.wait_for(lending, 10)
+
+    asyncio.run(scenario())

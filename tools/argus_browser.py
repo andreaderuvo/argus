@@ -94,7 +94,11 @@ class Socket:
             if mask:
                 data = bytes(b ^ mask[i % 4] for i, b in enumerate(data))
             if op == 0x8:
-                raise BrowserError("the browser closed the connection")
+                # Why it was closed is the whole message: "the browser did not start again: …".
+                why = data[2:].decode("utf-8", "replace").strip() if len(data) > 2 else ""
+                code = struct.unpack(">H", data[:2])[0] if len(data) >= 2 else 0
+                raise BrowserError(f"the browser closed the connection: {why}" if why
+                                   else f"the browser closed the connection (code {code})")
             if op == 0x9:                                  # ping: pong, and go on
                 self.sock.sendall(bytes([0x8A, 0x80 | len(data)]) + b"\0\0\0\0" + data)
                 continue

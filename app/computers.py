@@ -101,6 +101,15 @@ def link(base: str, plain: str, name: str) -> str:
 
 # ------------------------------------------------------------------------------------- one computer
 
+def close_reason(why: str) -> str:
+    """A WebSocket close reason holds 123 bytes: cut on a character, with an ellipsis, never mid-UTF-8.
+    The whole reason is kept on the Link and said by `computers`."""
+    raw = why.encode()
+    if len(raw) <= 123:
+        return why
+    return raw[:120].decode("utf-8", "ignore") + "…"
+
+
 class Link:
     """One computer's bridge, its channels, and the loopback address of its browser."""
 
@@ -122,6 +131,9 @@ class Link:
         self.secret = f"/devtools/browser/{uuid.uuid4()}"
         self.asked: dict[int, asyncio.Future] = {}
         self.tcp: dict[str, asyncio.StreamWriter] = {}
+        # Why the browser refused the last connection, in full (a WebSocket close says 123 bytes), and
+        # when: `computers` says it instead of "lends browser" while it does not work.
+        self.browser_trouble: tuple[str, float] | None = None
         # The questions sent to this computer's notifications: the only ones it may answer.
         self.offered: set[str] = set()
         self.app = None
@@ -206,6 +218,7 @@ class Link:
             if hello["offers"]["browser"]:
                 await self.listen()
             self.hello = hello
+            self.browser_trouble = None
             self.since = time.time()
             # Back after a reconnection: the ports it showed, shown again.
             for port, local in list(self.forwards.items()):
@@ -331,13 +344,20 @@ class Link:
             if frame.get("op") == "msg":
                 await connection.send(str(frame.get("data") or ""))
             elif frame.get("op") == "close":
-                await connection.close(1000, str(frame.get("why") or "")[:100])
+                why = str(frame.get("why") or "")
+                if why and not one.get("opened_ok"):
+                    self.browser_trouble = (why, time.time())
+                await connection.close(1000 if not why else 1011, close_reason(why))
 
         ch, one = self.channel("cdp", sink)
         try:
             if not await self.open(ch, one, {"kind": "cdp", "path": connection.request.path}):
-                await connection.close(1011, (one["why"] or "the browser did not answer")[:100])
+                why = one["why"] or "the browser did not answer"
+                self.browser_trouble = (why, time.time())
+                await connection.close(1011, close_reason(why))
                 return
+            one["opened_ok"] = True
+            self.browser_trouble = None
             async for data in connection:
                 if isinstance(data, bytes):
                     data = data.decode("utf-8", "replace")
@@ -358,6 +378,8 @@ class Link:
                "forwards": [{"port": p, "local": loc} for p, loc in sorted(self.forwards.items())] if self.connected else []}
         if with_endpoint:
             out["endpoint"] = self.endpoint()
+        if self.browser_trouble and self.offers("browser"):
+            out["browser_trouble"] = self.browser_trouble[0]
         return out
 
 
