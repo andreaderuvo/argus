@@ -1,6 +1,6 @@
 // App shell only. The API and the terminal must never be served from a cache — stale
 // file listings are confusing, and a cached WebSocket is meaningless.
-const CACHE = 'argus-v372';
+const CACHE = 'argus-v373';
 const SHELL = [
   '/',
   '/style.css',
@@ -23,6 +23,7 @@ const SHELL = [
   '/js/vitals.js',
   '/js/since.js',
   '/js/sidebar.js',
+  '/js/railfilter.js',
   '/js/terminal.js',
   '/js/termpaths.js',
   '/js/typedline.js',

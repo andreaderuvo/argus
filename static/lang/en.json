@@ -1802,6 +1802,13 @@
   "Moved, renamed or deleted. Below is the last version shown; if a program is saving it, it comes back by itself.": "Moved, renamed or deleted. Below is the last version shown; if a program is saving it, it comes back by itself.",
   "Open it in a window": "Open it in a window",
   "Open the folder": "Open the folder",
-  "{name} is not here any more": "{name} is not here any more"
+  "{name} is not here any more": "{name} is not here any more",
+  "Filter…": "Filter…",
+  "Filter the sidebar — desks, windows, folders": "Filter the sidebar — desks, windows, folders",
+  "Nothing matches": "Nothing matches",
+  "Desks": "Desks",
+  "In other desks": "In other desks",
+  "{window} — in {desk}": "{window} — in {desk}",
+  "in {desk}": "in {desk}"
  }
 }

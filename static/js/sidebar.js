@@ -1066,12 +1066,12 @@ export function versionRow() {
  *  taps; this answers it without any, and it is the same list the tabs already show counts
  *  for. Clicking one goes to the wall and raises it, which openWindow already does.
  */
-const RAIL_GLYPH = {
+export const RAIL_GLYPH = {
   term: 'terminal', browser: 'folder', file: 'file', web: 'link',
   links: 'link', messages: 'relay',
 };
 
-function railLabel(spec) {
+export function railLabel(spec) {
   if (spec.kind === 'links') {
     if (!spec.from || spec.from === prefs.ws) return t('Links');
     const whose = (prefs.workspaces || []).find((w) => w.id === spec.from);

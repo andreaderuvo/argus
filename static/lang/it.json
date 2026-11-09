@@ -1802,6 +1802,13 @@
   "Moved, renamed or deleted. Below is the last version shown; if a program is saving it, it comes back by itself.": "Spostato, rinominato o cancellato. Sotto c’è l’ultima versione mostrata; se un programma lo sta salvando, torna da solo.",
   "Open it in a window": "Aprilo in una finestra",
   "Open the folder": "Apri la cartella",
-  "{name} is not here any more": "{name} non è più qui"
+  "{name} is not here any more": "{name} non è più qui",
+  "Filter…": "Filtra…",
+  "Filter the sidebar — desks, windows, folders": "Filtra la barra laterale — desk, finestre, cartelle",
+  "Nothing matches": "Nessun risultato",
+  "Desks": "Desk",
+  "In other desks": "In altri desk",
+  "{window} — in {desk}": "{window} — nel desk {desk}",
+  "in {desk}": "nel desk {desk}"
  }
 }

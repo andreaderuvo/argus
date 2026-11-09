@@ -4557,11 +4557,11 @@ dialog.sheet.looksheet > h2, dialog.sheet.looksheet > .sheetfoot { flex: none; }
 /* A starred folder in the wide rail (and the phone's drawer): its name, and where it is under it. */
 /* The text gives way, the buttons do not: flex-basis 0, so a long path never pushes the desk button
    and the unstar out of the row (2026-10-13). The path is cut in the middle by fitPath(). */
-#railfavs .railtext, #drawerfavs .railtext { display: flex; flex-direction: column; min-width: 0; flex: 1 1 0; overflow: hidden; line-height: 1.25; }
-#railfavs .railtext .railname, #drawerfavs .railtext .railname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#railfavs .railtext, #drawerfavs .railtext, #railfound .railtext { display: flex; flex-direction: column; min-width: 0; flex: 1 1 0; overflow: hidden; line-height: 1.25; }
+#railfavs .railtext .railname, #drawerfavs .railtext .railname, #railfound .railtext .railname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* The whole path, small and wrapped — at any slash or letter — over up to three lines: cut short on
    one line it said too little to be worth showing (2026-10-13). */
-#railfavs .railwhere, #drawerfavs .railwhere { min-width: 0; overflow: hidden; white-space: normal; overflow-wrap: anywhere;
+#railfavs .railwhere, #drawerfavs .railwhere, #railfound .railwhere { min-width: 0; overflow: hidden; white-space: normal; overflow-wrap: anywhere;
   font-size: .4rem; line-height: 1.25; color: var(--dim); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
 #railfavs .railwhere bdi, #drawerfavs .railwhere bdi { unicode-bidi: isolate; }
 body:not(.railwide) #railfavs .railtext { display: none; }
@@ -5091,3 +5091,33 @@ body.needleft .needpswap svg { transform: scaleX(-1); }
 .pcfwx { display: grid; place-items: center; width: 20px; height: 20px; padding: 0; min-height: 0; border: 0; background: none; color: var(--dim); cursor: pointer; border-radius: 50%; }
 .pcfwx:hover { color: var(--danger); }
 .pcfwx svg { width: 12px; height: 12px; }
+
+/* The rail's filter (railfilter.js): a box under the toggle, wide; a magnifier, narrow. Desktop only —
+   on a phone the rail is the bottom bar. */
+#railfilter { display: none; }
+#railfound { display: none; }
+@media (min-width: 900px) {
+  #railfilter { display: flex; align-items: center; gap: .4rem; padding: .45rem .6rem; border-bottom: 1px solid var(--line); flex: none; flex-wrap: wrap; }
+  #railfilter input {
+    flex: 1; min-width: 0; height: 30px; min-height: 0; padding: 0 .55rem; box-sizing: border-box;
+    border: 1px solid var(--line); border-radius: .4rem; background: var(--bg); color: var(--bright); font: inherit; font-size: .8rem;
+  }
+  #railfilter input:focus { outline: none; border-color: var(--accent); }
+  .railfilterlens { display: none; width: 34px; height: 30px; border: 0; background: none; color: var(--dim); cursor: pointer; align-items: center; justify-content: center; }
+  .railfilterlens:hover { color: var(--bright); }
+  .railfilterlens .ico { width: 17px; height: 17px; }
+  body:not(.railwide) #railfilter { justify-content: center; padding: .3rem 0; }
+  body:not(.railwide) #railfilter input { display: none; }
+  body:not(.railwide) .railfilterlens { display: inline-flex; }
+  .railnone { display: none; width: 100%; color: var(--dim); font-size: .75rem; font-style: italic; padding: .1rem .15rem 0; }
+  #railfilter.none .railnone { display: block; }
+  body:not(.railwide) .railnone { display: none !important; }
+  #railfound:not([hidden]) { display: flex; flex-direction: column; padding: .3rem 0; border-bottom: 1px solid var(--line); flex: none; }
+  #railfound .railhead { display: flex; align-items: center; gap: .45rem; padding: .25rem .95rem .15rem; color: var(--dim);
+    font-size: .62rem; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; }
+  #railfound .railhead .ico { width: 12px; height: 12px; color: var(--accent); flex: none; }
+  #railfound .railwin.here .railname { color: var(--accent); }
+  #railfound .railwhere { font-size: .68rem; -webkit-line-clamp: 1; }
+  #nav .railhidden, #nav .railempty { display: none !important; }
+  #nav.filtering .railhead { opacity: .8; }
+}

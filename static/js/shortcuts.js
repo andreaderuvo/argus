@@ -5,6 +5,7 @@ import { copyText, modal, toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { icon } from '/js/icons.js';
 import { panelSide, setPanelSide } from '/js/needs.js';
+import { focusRailFilter } from '/js/railfilter.js';
 import { getJSON, postJSON } from '/js/reconnect.js';
 import { go } from '/js/router.js';
 import { applySidebar } from '/js/sidebar.js';
@@ -70,6 +71,7 @@ const KEYS = [
   { group: 'The sidebar', id: 'journal', name: 'Journal', key: 'ctrl+alt+j' },
   { group: 'The sidebar', id: 'settings', name: 'Settings', key: 'ctrl+alt+,' },
   { group: 'The sidebar', id: 'sidebar', name: 'Show or hide the file sidebar', key: 'ctrl+alt+b' },
+  { group: 'The sidebar', id: 'railFilter', name: 'Filter the sidebar — desks, windows, folders', key: 'ctrl+alt+k' },
   { group: 'This desk', id: 'newSession', name: 'New session — an agent or a shell', key: 'ctrl+shift+x' },
   { group: 'This desk', id: 'team', name: 'A team of agents', key: 'ctrl+shift+m' },
   { group: 'This desk', id: 'windows', name: 'The list of this desk’s windows', key: 'ctrl+shift+h' },
@@ -175,6 +177,7 @@ function runKey(id) {
     settings: () => go('#/settings'),
     sidebar: () => { prefs.sidebar = !prefs.sidebar; savePrefs(); applySidebar(); },
     needs: () => go('#/needs'),
+    railFilter: () => focusRailFilter(),
     // On the side it was last on (right, the first time), or off.
     needsPanel: () => setPanelSide(panelSide() === 'off' ? (prefs.needsPanelLast || 'right') : 'off'),
     full: () => bar.full.click(),

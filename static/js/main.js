@@ -15,6 +15,7 @@ import { icon } from '/js/icons.js';
 import { offerRealBrowser, offerTheAddress } from '/js/inapp.js';
 import { translateMarkup } from '/js/markup.js';
 import { applyNeedsPanel } from '/js/needs.js';
+import { buildRailFilter } from '/js/railfilter.js';
 import { getJSON, loadFavourites, recallToken, rememberToken, serverInfo } from '/js/reconnect.js';
 import { render } from '/js/router.js';
 import { applyBottomBar, applyKeyBar, applyRail, applySidebar, applyWinButtons, sayIfPluginOld } from '/js/sidebar.js';
@@ -124,6 +125,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) { co
   }
   await render();
   applyRail();
+  buildRailFilter();
   applySidebar();
   applyNeedsPanel();
   applyKeyBar();
