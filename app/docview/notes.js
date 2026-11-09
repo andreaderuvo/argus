@@ -240,7 +240,9 @@
     body.style.minHeight = `${floor * zoom + 48}px`;
   }
   layout();
-  addEventListener('resize', layout);
+  // Not the resize event: a frame laid out at width 0 and given its width later is not always told.
+  let laidAt = innerWidth;
+  new ResizeObserver(() => { if (innerWidth !== laidAt) { laidAt = innerWidth; layout(); } }).observe(document.documentElement);
   // Figures change the heights as they decode.
   for (const img of document.images) if (!img.complete) img.addEventListener('load', layout, { once: true });
 
