@@ -1698,9 +1698,13 @@ export async function renderSidebar() {
   let info;
   try { info = await serverInfo(); } catch { return; }
 
+  const at = sidePath || info.roots[0];
+  // Built again on every refresh: a search typed into it stays, as long as the folder does.
+  const searched = sideBrowser?.node.isConnected && sideBrowser.folder() === at ? sideBrowser.query() : '';
   side.innerHTML = '';
   sideBrowser = fileBrowser({
-    path: sidePath || info.roots[0],
+    path: at,
+    query: searched,
     roots: info.roots,
     setPath: setSidePath,
     other: () => null,

@@ -468,6 +468,8 @@ export function fileBrowser({
   // In a window, where its actions go: the window's title bar (and so its ⋮), with every other
   // window's — not a row of their own under the title (2026-10-31: "they must all be in one place").
   actionsInto = null,
+  // The search to start with: the sidebar is built again on every refresh, and keeps its words.
+  query: searched = '',
 }) {
   const node = el('div', { className: `pane${compact ? ' compact' : ''}` });
   const list = el('div', { className: 'panelist' });
@@ -517,12 +519,24 @@ export function fileBrowser({
     drawInBatches(list, shown, make, () => { picker.sync(); markCurrent(list); });
   };
 
+  /* What the search box holds. Every redraw asks for this, not for the folder: a view chosen,
+   *  Refresh, a star, the folder changing under it all drew the whole folder again under a box
+   *  still showing the words ("as soon as I choose an option my filter is reset", 2026-11-09). */
+  let query = searched;
+  const listing = () => (query
+    ? `/api/search?path=${encodeURIComponent(path)}&q=${encodeURIComponent(query)}`
+    : `/api/files?path=${encodeURIComponent(path)}`);
+  const tree = () => !query && getView() === 'tree';
+
   // Search results span folders, so they are always a flat list — clearing the box puts
   // you back into whichever mode you chose.
-  const show = (entries, err, q) =>
-    (!q && getView() === 'tree'
-      ? drawTree(list, path, openFile, reload, other, favGroup).then(() => picker.sync())
-      : draw(entries, err));
+  const show = (entries, err, q) => {
+    query = q;
+    painting += 1;                     // a paint already on its way answers for the old words
+    if (tree()) return drawTree(list, path, openFile, reload, other, favGroup).then(() => picker.sync());
+    if (!err) signature = signOf(entries);
+    return draw(entries, err);
+  };
 
   const up = el('button', { title: t('Parent folder'), disabled: roots.includes(path) }, icon('up'));
   up.onclick = () => setPath(parentOf(path));
@@ -778,7 +792,9 @@ export function fileBrowser({
   };
   node.append(favsHolder);
 
-  const tools = el('div', { className: 'pad tools' }, searchBox(path, show, compact ? t('search…') : undefined));
+  const finder = searchBox(path, show, compact ? t('search…') : undefined);
+  finder.value = query;
+  const tools = el('div', { className: 'pad tools' }, finder);
   const acts = [];
   if (server?.allow_write) {
     const mkdirBtn = el('button', { className: 'ghost', title: t('New folder') }, icon('folderPlus'));
@@ -854,10 +870,10 @@ export function fileBrowser({
     // landed, and the alternative is a registry of live panes to keep in step with reality.
     node.dataset.at = path;
     renderFavs();
-    if (getView() === 'tree') { await drawTree(list, path, openFile, reload, other, favGroup); picker.sync(); }
+    if (tree()) { await drawTree(list, path, openFile, reload, other, favGroup); picker.sync(); }
     else {
       try {
-        const entries = await getJSON(`/api/files?path=${encodeURIComponent(path)}`);
+        const entries = await getJSON(listing());
         if (mine !== painting) return;
         signature = signOf(entries);
         draw(entries);
@@ -868,7 +884,7 @@ export function fileBrowser({
     }
     if (mine !== painting) return;
     markCurrent(list);
-    await applyPointed(list, path, getView() === 'tree');
+    await applyPointed(list, path, tree());
   }
   paint();
 
@@ -886,10 +902,10 @@ export function fileBrowser({
     // Panes are rebuilt often — the sidebar throws its away on every navigation — and
     // nothing calls a teardown, so the timer has to notice it is orphaned.
     if (!node.isConnected) return clearInterval(watcher);
-    if (document.hidden || getView() === 'tree' || !node.getClientRects().length) return;
+    if (document.hidden || tree() || !node.getClientRects().length) return;
     try {
       const before = painting;
-      const entries = await getJSON(`/api/files?path=${encodeURIComponent(path)}`);
+      const entries = await getJSON(listing());
       const now = signOf(entries);
       if (now === signature || before !== painting) return;   // a paint overtook us
       signature = now;
@@ -904,6 +920,8 @@ export function fileBrowser({
     reload,
     /** Where this pane is looking, for whoever needs to put something here. */
     folder: () => path,
+    /** What its search box holds, "" when it is showing the folder. */
+    query: () => query,
     mark: () => markCurrent(list),
     /** Bring a file into view here. A tree already containing it only has to expand; any
      *  other case moves the listing to the folder the file is in, and the mark is picked
