@@ -8,7 +8,7 @@ import { allVars, batonTemplates, fillBaton, groupName, ownSetFor, promptName, s
 import { icon } from '/js/icons.js';
 import { linkParts } from '/js/linkparts.js';
 import { current, setCurrent } from '/js/pointing.js';
-import { bidi, colorFor, getJSON, homePath, openFileRaw, postJSON, toggleFavourite } from '/js/reconnect.js';
+import { bidi, colorFor, getJSON, homePath, openFileRaw, parentOf, postJSON, toggleFavourite } from '/js/reconnect.js';
 import { go } from '/js/router.js';
 import { browserView, browsers, fileBrowser } from '/js/screens.js';
 import { paintRailWindows } from '/js/sidebar.js';
@@ -1415,23 +1415,46 @@ export function attachViewer(host, path, extras) {
   const load = async () => {
     srcBtn.hidden = true;
     editBtn.hidden = true;
+    // Opened on a file that is not there (moved, renamed, deleted since the desk was saved): said,
+    // rather than a viewer drawn on nothing — a Word document's frame was simply white.
+    const there = await getJSON(`/api/stat?path=${encodeURIComponent(path)}&missing_ok=1`).catch(() => null);
+    if (there?.missing) {
+      gone.show(false);
+      stamp = 'gone';
+      return;
+    }
+    gone.hide();
     await mountPreview(host, path, ctl);
     // The same caption as the full-screen viewer: mounting empties the host, so it goes back
     // on afterwards, every time the file is reloaded under you.
     putStrip(host, path, docActs);
   };
-  load();
-
   let watching = true;
   let stamp = null;
+  const gone = goneCard(host, path);
+  load();
+
   const poll = async () => {
     if (!watching || document.hidden) return;
     try {
       const s = await getJSON(`/api/stat?path=${encodeURIComponent(path)}&missing_ok=1`);
-      // Deleted underneath (a team's log after a Reset): said once, and watched for its return.
+      // Gone underneath (moved, renamed, deleted; a team's log after a Reset): said over what was
+      // shown, and watched for its return. An app saving by replacing the file (Word, Pages) leaves
+      // it missing for an instant: looked at again before saying anything.
       if (s.missing) {
-        if (stamp !== 'gone') toast(t('{name} is gone — shown as it was', { name: path.split('/').pop() }));
+        if (stamp === 'gone') return;
+        await new Promise((r) => setTimeout(r, 900));
+        const again = await getJSON(`/api/stat?path=${encodeURIComponent(path)}&missing_ok=1`).catch(() => null);
+        if (!again?.missing) return;
+        gone.show(true);
         stamp = 'gone';
+        return;
+      }
+      if (stamp === 'gone') {
+        // Back: drawn again, whatever it was before.
+        gone.hide();
+        stamp = `${s.mtime}:${s.size}`;
+        await load();
         return;
       }
       const now = `${s.mtime}:${s.size}`;
@@ -1495,6 +1518,62 @@ export function attachViewer(host, path, extras) {
     // mark in the filesystem would be pointing at nothing.
     dispose: () => { clearInterval(timer); onDispose?.(); if (current === path) setCurrent(null); },
   };
+}
+
+/** What a window says when its file is not there any more.
+ *
+ *  Over the document as it was (dimmed, still readable: "shown as it was"), or alone when there was
+ *  nothing to show. Where to look: the folder it was in (or the nearest one still there), and the
+ *  same name found nearby — a file moved inside the project is usually one folder away. It goes
+ *  by itself when the file comes back. */
+function goneCard(host, path) {
+  const name = path.split('/').pop();
+  let card = null;
+  const hide = () => { card?.remove(); card = null; host.classList.remove('isgone'); };
+  const show = async (hadIt) => {
+    hide();
+    host.classList.add('isgone');
+    const found = el('div', { className: 'gonefound' });
+    const folderBtn = el('button', { className: 'ghost', type: 'button' }, [icon('folder'), t('Open the folder')]);
+    card = el('div', { className: `gonecard${hadIt ? ' over' : ''}`, role: 'status' }, [
+      el('div', { className: 'gonehead' }, [icon('search'), el('b', { textContent: t('{name} is not here any more', { name }) })]),
+      el('p', { className: 'gonewhy', textContent: hadIt
+        ? t('Moved, renamed or deleted. Below is the last version shown; if a program is saving it, it comes back by itself.')
+        : t('Moved, renamed or deleted since this window was opened. It opens by itself if it comes back.') }),
+      el('div', { className: 'gonepath', textContent: path }),
+      found,
+      el('div', { className: 'goneacts' }, [folderBtn]),
+    ]);
+    // Over the window rather than inside its scrolling body: seen wherever the reader had scrolled to.
+    const frame = host.parentElement || host;
+    if (frame !== host) card.style.top = `${host.offsetTop + 12}px`;
+    frame.append(card);
+    // The nearest folder still there: the file's own, or one above when the folder went too.
+    let folder = parentOf(path);
+    for (let i = 0; i < 6 && folder && folder !== '/' && (!(server?.roots || []).length || (server.roots).some((r) => folder.startsWith(r))); i++) {
+      const s = await getJSON(`/api/stat?path=${encodeURIComponent(folder)}&missing_ok=1`).catch(() => null);
+      if (s && !s.missing) break;
+      folder = parentOf(folder);
+    }
+    if (!card) return;
+    folderBtn.onclick = () => openWindow({ kind: 'browser', id: nextWindowId(), path: folder, fresh: true });
+    folderBtn.title = folder;
+    // The same name nearby: from the folder above the one it was in — never above a folder Argus serves.
+    const roots = server?.roots || [];
+    const inside = (p) => roots.some((r) => p === r || p.startsWith(r.endsWith('/') ? r : `${r}/`));
+    const up = parentOf(folder);
+    const near = inside(up) ? up : folder;
+    const hits = await getJSON(`/api/search?path=${encodeURIComponent(near)}&q=${encodeURIComponent(name)}`).catch(() => []);
+    if (!card) return;
+    const same = (hits || []).filter((h) => h.name === name && h.path !== path && h.type === 'file').slice(0, 4);
+    if (!same.length) return;
+    found.append(el('div', { className: 'gonefoundhead', textContent: same.length === 1 ? t('A file with this name is here:') : t('Files with this name:') }),
+      ...same.map((h) => el('button', {
+        className: 'gonehit', type: 'button', title: t('Open it in a window'),
+        onclick: () => openWindow({ kind: 'file', path: h.path }),
+      }, [icon('file'), el('span', { textContent: h.path })])));
+  };
+  return { show, hide };
 }
 
 export const MIN_W = 240;

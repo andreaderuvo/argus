@@ -1795,6 +1795,13 @@
   "on {name}:": "su {name}:",
   "port {port} is on {name} now: localhost:{local}": "la porta {port} ora è su {name}: localhost:{local}",
   "port {port} → localhost:{local}": "porta {port} → localhost:{local}",
-  "Stop showing it there": "Smetti di mostrarla lì"
+  "Stop showing it there": "Smetti di mostrarla lì",
+  "A file with this name is here:": "Un file con questo nome è qui:",
+  "Files with this name:": "File con questo nome:",
+  "Moved, renamed or deleted since this window was opened. It opens by itself if it comes back.": "Spostato, rinominato o cancellato da quando hai aperto questa finestra. Se torna, si apre da solo.",
+  "Moved, renamed or deleted. Below is the last version shown; if a program is saving it, it comes back by itself.": "Spostato, rinominato o cancellato. Sotto c’è l’ultima versione mostrata; se un programma lo sta salvando, torna da solo.",
+  "Open it in a window": "Aprilo in una finestra",
+  "Open the folder": "Apri la cartella",
+  "{name} is not here any more": "{name} non è più qui"
  }
 }

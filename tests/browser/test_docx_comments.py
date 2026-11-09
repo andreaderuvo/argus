@@ -113,9 +113,35 @@ def test_a_look_and_a_zoom_are_kept_for_the_next_document(make_page, argus):
         eventually(lambda: argus.api("/api/prefs").get("prefs", {}).get("docZoom") == 1.25
                    or argus.api("/api/prefs").get("docZoom") == 1.25, timeout=8, what="kept")
         shoot(page, "docx-looks")
-        # Read again: the same look and zoom.
+        # Read again: the same look and zoom — in the new frame, not the one it replaces.
+        page.frame_eval("looks.docx", "window.__before = 1")
         page.eval("document.querySelector('.win[data-kind=\"file\"] .winbtn[title=\"Read it again now\"]')?.click()")
-        page.frame_eval("looks.docx", "(document.querySelector('.dn-pct')?.textContent === '125%' && document.body.dataset.look === 'sepia')"
+        page.frame_eval("looks.docx", "(!window.__before && document.querySelector('.dn-pct')?.textContent === '125%' && document.body.dataset.look === 'sepia')"
                                       " || Promise.reject('not yet')", timeout=15)
     finally:
         doc.unlink(missing_ok=True)
+
+
+def test_a_window_whose_file_went_says_so_points_to_it_and_comes_back(make_page, argus):
+    """"When the viewers cannot find the file any more, a proper affordance — the docx viewer is all
+    white" (2026-11-09). Moved away: said over the window, the same name found nearby offered; put back:
+    the document again, by itself."""
+    doc = argus.root / "docs" / "moving.docx"
+    elsewhere = argus.root / "a" / "moving.docx"
+    review(doc, "Which scheme?")
+    card = "document.querySelector('.win[data-kind=\"file\"] .gonecard')"
+    try:
+        page = make_page(route="#/wall")
+        page.eval(f"import('/js/tray.js').then(m => m.openWindow({{ kind: 'file', path: {str(doc)!r} }}))")
+        page.frame_eval("moving.docx", "document.querySelectorAll('.dn-note').length === 2 || Promise.reject('not yet')", timeout=20)
+        doc.rename(elsewhere)
+        page.wait(f"!!{card}?.querySelector('.gonehit')", timeout=15, what="the card, with where it went")
+        assert "moving.docx is not here any more" in page.eval(f"{card}.textContent")
+        assert page.eval(f"{card}.querySelector('.gonehit').textContent") == str(elsewhere)
+        shoot(page, "file-gone")
+        elsewhere.rename(doc)
+        page.wait(f"!{card}", timeout=15, what="the card goes when the file is back")
+        page.frame_eval("moving.docx", "document.querySelectorAll('.dn-note').length === 2 || Promise.reject('not yet')", timeout=20)
+    finally:
+        doc.unlink(missing_ok=True)
+        elsewhere.unlink(missing_ok=True)

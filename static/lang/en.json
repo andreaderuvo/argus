@@ -1795,6 +1795,13 @@
   "on {name}:": "on {name}:",
   "port {port} is on {name} now: localhost:{local}": "port {port} is on {name} now: localhost:{local}",
   "port {port} → localhost:{local}": "port {port} → localhost:{local}",
-  "Stop showing it there": "Stop showing it there"
+  "Stop showing it there": "Stop showing it there",
+  "A file with this name is here:": "A file with this name is here:",
+  "Files with this name:": "Files with this name:",
+  "Moved, renamed or deleted since this window was opened. It opens by itself if it comes back.": "Moved, renamed or deleted since this window was opened. It opens by itself if it comes back.",
+  "Moved, renamed or deleted. Below is the last version shown; if a program is saving it, it comes back by itself.": "Moved, renamed or deleted. Below is the last version shown; if a program is saving it, it comes back by itself.",
+  "Open it in a window": "Open it in a window",
+  "Open the folder": "Open the folder",
+  "{name} is not here any more": "{name} is not here any more"
  }
 }

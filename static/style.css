@@ -2828,6 +2828,45 @@ input.traysearch:focus { border-color: var(--accent); outline: none; }
 }
 .changed .grow { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+/* A window whose file is not there any more: said over the window, the last version shown dimmed
+   beneath it, where to look underneath (tray.js goneCard). */
+.isgone > :not(.docfacts) { opacity: .32; filter: grayscale(.7); pointer-events: none; }
+.gonecard {
+  position: absolute;
+  left: 12px; right: 12px; top: 56px;
+  z-index: 4;
+  max-width: 30rem;
+  margin: 0 auto;
+  padding: .85rem 1rem .9rem;
+  border: 1px solid color-mix(in srgb, var(--star) 55%, var(--line));
+  border-left: 3px solid var(--star);
+  border-radius: .55rem;
+  background: var(--panel);
+  box-shadow: 0 8px 26px rgb(0 0 0 / .35);
+  display: grid; gap: .45rem;
+  font-size: .86rem;
+}
+.gonehead { display: flex; align-items: center; gap: .5rem; color: var(--bright); }
+.gonehead .ico { width: 18px; height: 18px; color: var(--star); flex: none; }
+.gonehead b { font-weight: 600; overflow-wrap: anywhere; }
+.gonewhy { margin: 0; color: var(--text); line-height: 1.45; }
+.gonepath { font: .76rem/1.4 var(--mono, ui-monospace, monospace); color: var(--dim); overflow-wrap: anywhere; }
+.gonefound { display: grid; gap: .25rem; }
+.gonefound:empty { display: none; }
+.gonefoundhead { color: var(--dim); font-size: .78rem; margin-top: .2rem; }
+.gonehit {
+  display: flex; align-items: center; gap: .45rem; width: 100%; text-align: left;
+  padding: .35rem .5rem; border: 1px solid var(--line); border-radius: .4rem;
+  background: color-mix(in srgb, var(--accent) 7%, var(--panel)); color: var(--bright);
+  font: .78rem/1.35 var(--mono, ui-monospace, monospace); cursor: pointer;
+}
+.gonehit:hover { border-color: var(--accent); }
+.gonehit .ico { width: 15px; height: 15px; flex: none; color: var(--accent); }
+.gonehit span { overflow-wrap: anywhere; }
+.goneacts { display: flex; gap: .5rem; flex-wrap: wrap; }
+.goneacts button { display: inline-flex; align-items: center; gap: .35rem; }
+.goneacts .ico { width: 15px; height: 15px; }
+
 /* The toolbar answers two questions: what is on the desk, and how it is arranged. The
    first stays flat; the second is ruled off, so a row of nine equal things reads as two.
    Loose side by side these controls read as unrelated buttons — reported — and one
