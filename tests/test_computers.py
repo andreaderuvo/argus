@@ -9,6 +9,7 @@ a real shell in a PTY; and, when it is built, by argus-bridge itself.
 from __future__ import annotations
 
 import asyncio
+from types import SimpleNamespace
 import base64
 import json
 import os
@@ -101,7 +102,7 @@ def connect_one(base, name="test computer"):
     return made
 
 
-async def computer(base, key, offers, chrome_at=None, told=None):
+async def computer(base, key, offers, chrome_at=None, told=None, answer=None):
     """What argus-bridge does: hello with its switches, then each channel Argus opens — refusing a
     kind that is switched off, as the real one does."""
     import websockets
@@ -172,6 +173,9 @@ async def computer(base, key, offers, chrome_at=None, told=None):
                     asyncio.ensure_future(shell(ch, frame["cols"], frame["rows"]))
                 else:
                     asyncio.ensure_future(run(ch, frame["command"], frame.get("cwd")))
+            elif frame["op"] == "bell" and frame.get("ask") and answer:
+                # Pressed on the notification, as the app does on a Mac.
+                await say({"op": "answer", "ask": frame["ask"], "answer": answer})
             elif frame["op"] == "msg":
                 if ch in ptys:
                     os.write(ptys[ch], base64.b64decode(frame["b64"]))
@@ -414,6 +418,44 @@ def test_an_agent_asks_to_run_a_command_and_the_person_allows_it(live, tmp_path)
         await asyncio.wait_for(lending, 10)
 
     asyncio.run(scenario())
+
+
+def test_do_it_pressed_on_the_computers_notification(live, tmp_path):
+    """"The Do it should be in argus-bridge's notifications too" (2026-11-09): a question with taps reaches
+    the computer with its options, and the answer pressed there decides it, as a tap in Argus would. A
+    computer cannot answer a question it was never shown."""
+    made = connect_one(live, "Mac")
+    cid = made["computer"]["id"]
+
+    async def scenario():
+        lending = asyncio.ensure_future(computer(live, made["token"], {"actions": True}, answer="Do it"))
+        await until_connected(live, cid)
+        code, asked = await asyncio.to_thread(call, live, "/api/agent/request", "POST",
+                                              {"action": "computer_run", "args": {"computer": "mac", "command": "echo pressed on the mac",
+                                                                                  "cwd": str(tmp_path)}})
+        assert code == 200, asked
+        for _ in range(200):
+            said = (await asyncio.to_thread(call, live, f"/api/agent/request/{asked['id']}"))[1]
+            if said["state"] in ("done", "failed", "refused"):
+                break
+            await asyncio.sleep(0.05)
+        assert said["state"] == "done" and said["result"]["output"].strip() == "pressed on the mac", said
+        await asyncio.to_thread(call, live, f"/api/computers/{cid}/disconnect", "POST", {})
+        await asyncio.wait_for(lending, 10)
+
+    asyncio.run(scenario())
+
+
+def test_a_computer_answers_only_what_it_was_shown(live):
+    from app import computers
+    made = connect_one(live, "Mac")
+    one = computers.Link({"id": made["computer"]["id"], "name": "Mac"})
+    one.app = SimpleNamespace(state=SimpleNamespace(asks={}))
+
+    async def scenario():
+        await one.heard({"op": "answer", "ask": "not-shown", "answer": "Do it"})
+    asyncio.run(scenario())
+    assert one.app.state.asks == {}
 
 
 @pytest.mark.skipif(not os.access(SYNC_BIN, os.X_OK), reason="needs an argus-bridge build (ARGUS_SYNC_BIN)")

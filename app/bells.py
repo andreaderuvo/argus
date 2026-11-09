@@ -230,8 +230,14 @@ def dispatch_computers(request: Request, bell: dict) -> None:
     links = getattr(request.app.state, "computers", None) or {}
     told = {"op": "bell", "why": bell["why"], "session": bell.get("session") or "",
             "text": str(bell.get("text") or "")[:PUSH_TEXT]}
+    # A question with taps (Do it / No) is answered on the computer's notification itself.
+    question = (getattr(request.app.state, "asks", None) or {}).get(bell.get("ask") or "")
+    if question and question.get("options") and not question.get("answered_at"):
+        told.update(ask=question["id"], options=list(question["options"]))
     for one in list(links.values()):
         if one.connected:
+            if "ask" in told:
+                one.offered.add(told["ask"])
             task = asyncio.ensure_future(one.send(told))
             pending = getattr(request.app.state, "notification_tasks", None)
             if pending is None:

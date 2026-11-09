@@ -120,3 +120,19 @@ def test_a_write_over_the_upload_limit_is_refused_and_leaves_nothing(tmp_path):
     assert r.status_code == 413
     assert not (root / "data" / "big.bin").exists()
     assert not [f for f in os.listdir(root / "data") if f.startswith(".argus-sync-")], "no part file left"
+
+
+def test_a_burst_of_deletes_is_refused(tmp_path):
+    """2026-11-09: a client that found its folder empty deleted 14,503 files in nine seconds. Past
+    DELETE_BURST in DELETE_WINDOW, a key's deletes are refused (409: the client tries again next round)."""
+    c, root = make(tmp_path)
+    _, h = key_for(c, root)
+    folder = root / "data" / "many"
+    folder.mkdir()
+    for i in range(syncapi.DELETE_BURST + 5):
+        (folder / f"f{i}.txt").write_text(str(i))
+    codes = [c.delete("/api/sync/file", params={"p": f"many/f{i}.txt"}, headers=h).status_code
+             for i in range(syncapi.DELETE_BURST + 5)]
+    assert codes[:syncapi.DELETE_BURST] == [200] * syncapi.DELETE_BURST
+    assert set(codes[syncapi.DELETE_BURST:]) == {409}
+    assert len(list(folder.iterdir())) == 5, "the rest stays"

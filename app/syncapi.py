@@ -337,6 +337,31 @@ async def put_file(request: Request, p: str, m: int, base: str | None = None) ->
     return {"p": clean_rel(p), "s": st.st_size, "m": st.st_mtime_ns}
 
 
+# A computer deletes files one by one, as a person does: past this many in DELETE_WINDOW seconds a key's
+# deletes are refused (409, decided again next round: nothing lost). 2026-11-09: argus-bridge 0.1.6 found a
+# moved folder empty and deleted 14,503 files of one folder in nine seconds; 407 of another on 2026-10-20.
+# The client holds such rounds itself since 0.1.7; this is for every client that does not. Deleting that
+# much is done in Argus, where it is seen.
+DELETE_BURST = 20
+DELETE_WINDOW = 600.0
+
+
+def _may_delete(request: Request, key: dict) -> None:
+    """Once tripped, it stays so while this server runs: a sliding window would let an old client go on
+    deleting DELETE_BURST files every DELETE_WINDOW until nothing is left."""
+    kept = request.app.state.__dict__.setdefault("sync_deletes", {})
+    recent = kept.setdefault(key["id"], [])
+    now = time.time()
+    if recent != ["held"]:
+        recent[:] = [at for at in recent if now - at < DELETE_WINDOW]
+    if recent == ["held"] or len(recent) >= DELETE_BURST:
+        recent[:] = ["held"]
+        raise ApiError(409, json.dumps({"conflict": "too-many-deletes",
+                                        "why": f"more than {DELETE_BURST} files deleted in {int(DELETE_WINDOW // 60)} minutes "
+                                               "through this sync key: the rest is refused — delete them in Argus if that is meant"}))
+    recent.append(now)
+
+
 @router.delete("/api/sync/file", summary="Remove one file (into the trash)")
 async def delete_file(request: Request, p: str, base: str | None = None) -> dict:
     key = _key(request)
@@ -345,6 +370,7 @@ async def delete_file(request: Request, p: str, base: str | None = None) -> dict
     if not real.is_file():
         raise ApiError(400, "not a file — folders go through /api/sync/dir")
     _check_base(real, base)
+    _may_delete(request, key)
     return {"trashed": await asyncio.to_thread(_to_trash, request, key, folder, real)}
 
 

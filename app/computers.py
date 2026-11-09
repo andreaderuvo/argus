@@ -36,6 +36,7 @@ import secrets
 import time
 import uuid
 from pathlib import Path
+from types import SimpleNamespace
 from urllib.parse import quote
 
 from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect
@@ -121,6 +122,9 @@ class Link:
         self.secret = f"/devtools/browser/{uuid.uuid4()}"
         self.asked: dict[int, asyncio.Future] = {}
         self.tcp: dict[str, asyncio.StreamWriter] = {}
+        # The questions sent to this computer's notifications: the only ones it may answer.
+        self.offered: set[str] = set()
+        self.app = None
 
     @property
     def connected(self) -> bool:
@@ -169,6 +173,18 @@ class Link:
             return False
         return not one["closed"]
 
+    async def answer(self, ident: str, said: str) -> None:
+        """Do it / No pressed on the computer's notification: the same answer as a tap in Argus — only for a
+        question this computer was shown, and only once (the first answer, here or in a page, stands)."""
+        if ident not in self.offered or self.app is None:
+            return
+        self.offered.discard(ident)
+        from . import asks
+        try:
+            await asks.answer(SimpleNamespace(app=self.app, state=SimpleNamespace(who=self.name)), ident, {"answer": said})
+        except ApiError:
+            pass
+
     async def end(self, ch: int) -> None:
         one = self.channels.pop(ch, None)
         if one and not one["closed"]:
@@ -194,6 +210,9 @@ class Link:
             # Back after a reconnection: the ports it showed, shown again.
             for port, local in list(self.forwards.items()):
                 await self.send({"op": "forward", "port": port, "local": local})
+            return
+        if op == "answer":
+            await self.answer(str(frame.get("ask") or ""), str(frame.get("answer") or ""))
             return
         if op == "forwarded":
             port = int(frame.get("port") or 0)
@@ -398,6 +417,7 @@ async def bridge(ws: WebSocket) -> None:
         except Exception:
             pass
     one.bridge = ws
+    one.app = ws.app
     try:
         while True:
             text = await ws.receive_text()

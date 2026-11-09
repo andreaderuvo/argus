@@ -811,7 +811,12 @@ fails if it comes back. Before adding anything, keep these true:
   inside an `argus-sync://pair?…` link. The key reaches `/api/sync/hello|manifest|file|dir` only, under
   that folder only; `/api/sync/keys` (make, list, take back) is for the full token. A write needs
   `base` to match what the client last saw (else 409, kept as a conflict copy by the client), obeys
-  `max_upload_bytes`, lands through a part file; a delete goes to a trash beside the config. The
+  `max_upload_bytes`, lands through a part file; a delete goes to a trash beside the config.
+  **Never a mass delete through a key** (2026-11-09: a folder moved on the Mac, the 0.1.6 engine made the
+  old place again, empty, and deleted 14,503 files of valeferri in nine seconds; 407 of a presentation on
+  2026-10-20 — all recovered from `sync-trash/<key>/`): past `DELETE_BURST` deletes in `DELETE_WINDOW` a
+  key's deletes are refused (409) for as long as the server runs, and the client (0.1.7) never re-creates a
+  synced folder that is gone and holds a round that would empty the folder or delete a quarter of it. The
   client is Rust because it is installed on people's own computers, without admin: one binary, no
   runtime, small installers.
 - **Your computers, through argus-bridge** (`app/computers.py`, `static/js/computers.js`, argus-bridge's
