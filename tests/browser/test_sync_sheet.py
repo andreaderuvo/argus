@@ -14,7 +14,7 @@ def test_a_link_is_made_listed_and_taken_back(make_page, argus):
     page.click_text("Make the link", within="dialog.syncsheet button")
     page.wait("!!document.querySelector('.syncmade pre')", what="the link")
     link = page.eval("document.querySelector('.syncmade pre').textContent")
-    assert link.startswith("argus-sync://pair?url=") and "&key=as_" in link and "name=docs" in link
+    assert link.startswith("argus-bridge://pair?url=") and "&key=as_" in link and "name=docs" in link
     assert page.eval("document.querySelector('a.syncopen').href") == link
     page.wait("document.querySelectorAll('.synckey').length === 1", what="the computer listed")
     assert "read only" in page.text(".synckey") and "not used yet" in page.text(".synckey")

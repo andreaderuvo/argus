@@ -224,7 +224,7 @@ async def until_connected(base, cid):
 @pytest.mark.browser
 def test_an_agent_drives_the_lent_browser_and_nothing_else_gets_in(live, chrome):
     made = connect_one(live, "Mac di prova")
-    assert made["link"].startswith("argus-sync://computer?url=") and made["token"].startswith("ac_")
+    assert made["link"].startswith("argus-bridge://computer?url=") and made["token"].startswith("ac_")
     key, cid = made["token"], made["computer"]["id"]
     assert call(live, "/api/computers")[1]["computers"][0]["connected"] is False
     # The computer's key opens its bridge and nothing else.

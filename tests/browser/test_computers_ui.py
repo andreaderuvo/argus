@@ -65,7 +65,7 @@ def test_connect_a_computer_makes_the_link_and_waits_for_it(make_page, argus):
     page.click_text("Make the link", within="dialog[open] button")
     page.wait("!!document.querySelector('dialog[open] a.syncopen')", timeout=10, what="the link")
     link = page.eval("document.querySelector('dialog[open] a.syncopen').getAttribute('href')")
-    assert link.startswith("argus-sync://computer?url=")
+    assert link.startswith("argus-bridge://computer?url=")
     from urllib.parse import parse_qs, urlparse
     key = parse_qs(urlparse(link).query)["key"][0]
     lend(argus, key, {"browser": False, "terminal": True})

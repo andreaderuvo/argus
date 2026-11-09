@@ -339,3 +339,14 @@ def test_a_desk_takes_a_folder_on_the_agent_key_and_a_team_start_can_say_how(tmp
     assert plan["calls"][0][2]["desk_folder"] is False
     plan = consent.plan(app, "start_team", {"team": "Fix a bug", "folder": str(tmp_path / "proj"), "goal": "g", "check": "true"})
     assert "desk_folder" not in plan["calls"][0][2]
+
+
+def test_the_request_tool_offers_every_action():
+    """computer_run was missing from the MCP tool's list, so no agent could ask for it (2026-11-09)."""
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
+    import argus_mcp
+    from app import consent
+    tool = next(t for t in argus_mcp.TOOLS if t["name"] == "request")
+    assert set(tool["inputSchema"]["properties"]["action"]["enum"]) == set(consent.ACTIONS)

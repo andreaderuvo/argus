@@ -177,12 +177,14 @@ TOOLS = [
                     "start_agent (launcher, name, folder, prompt, press_enter, options — e.g. permissions skip), "
                     "remove_worktree (path), todo_delete (todo), update_plugin (agent: claude or codex — install or update the "
                     "Argus plugin there), reload_plugins (no args; never asked — the Claude sessions at their prompt "
-                    "take the plugin installed). Waits up to two minutes for the outcome; then "
+                    "take the plugin installed), restart_agent (session — on the version installed now, same conversation), "
+                    "computer_run (computer — its name, command, cwd? — on the person's own Mac or PC connected through "
+                    "argus-bridge with its actions on; the output comes back). Waits up to two minutes for the outcome; then "
                     "request_status.",
      "inputSchema": {"type": "object", "properties": {
          "action": {"type": "string", "enum": ["start_team", "team_go", "team_pause", "team_stop", "team_reset", "team_restart", "close_desk", "kill_session",
                                                 "rename_session", "start_agent", "remove_worktree", "todo_delete",
-                                                "update_plugin", "reload_plugins"]},
+                                                "update_plugin", "reload_plugins", "restart_agent", "computer_run"]},
          "args": {"type": "object", "description": "The action's arguments, as listed"},
          "why": {"type": "string", "description": "One line the person reads with the question"}},
          "required": ["action"]}},

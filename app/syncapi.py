@@ -378,7 +378,8 @@ async def remove_dir(request: Request, p: str) -> dict:
 # --------------------------------------------------------------- made and taken back in the page
 
 def pair_link(base: str, plain: str, name: str) -> str:
-    return f"argus-sync://pair?url={quote(base, safe='')}&key={quote(plain, safe='')}&name={quote(name, safe='')}"
+    # argus-bridge:// since 0.1.5 (which also opens the argus-sync:// links made before).
+    return f"argus-bridge://pair?url={quote(base, safe='')}&key={quote(plain, safe='')}&name={quote(name, safe='')}"
 
 
 @router.get("/api/sync/keys", summary="The sync keys")

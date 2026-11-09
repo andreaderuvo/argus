@@ -6,7 +6,7 @@ Before it, the same took an SSH reverse tunnel typed by hand, Chrome started wit
 and a port every user of a shared server could reach.
 
 - *Connect a computer* makes a key `ac_…` that opens one thing, the bridge, inside an
-  `argus-sync://computer?…` link. argus-bridge opens a WebSocket to `/api/computers/bridge` and keeps
+  `argus-bridge://computer?…` link. argus-bridge opens a WebSocket to `/api/computers/bridge` and keeps
   it. Nothing listens on the computer, nothing goes over SSH.
 - **The computer decides what it lends**, with three switches in argus-bridge, all off until turned
   on: *browser* (a Chrome of its own, own profile), *terminal* (a shell, for you, in a window of
@@ -95,7 +95,7 @@ def matching(store: Path | None, presented: str | None) -> dict | None:
 
 
 def link(base: str, plain: str, name: str) -> str:
-    return f"argus-sync://computer?url={quote(base, safe='')}&key={quote(plain, safe='')}&name={quote(name, safe='')}"
+    return f"argus-bridge://computer?url={quote(base, safe='')}&key={quote(plain, safe='')}&name={quote(name, safe='')}"
 
 
 # ------------------------------------------------------------------------------------- one computer

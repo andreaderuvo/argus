@@ -35,7 +35,7 @@ def make(tmp_path, allow_write=True):
 def key_for(c, root, write=True):
     said = c.post("/api/sync/keys", json={"path": str(root / "data"), "base": "http://box:8090", "write": write},
                   headers={"authorization": "Bearer " + MASTER}).json()
-    assert said["link"].startswith("argus-sync://pair?url=http%3A%2F%2Fbox%3A8090&key=as_")
+    assert said["link"].startswith("argus-bridge://pair?url=http%3A%2F%2Fbox%3A8090&key=as_")
     return said["token"], {"authorization": "Bearer " + said["token"]}
 
 
