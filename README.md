@@ -119,7 +119,11 @@ you allow it; an API that lets scripts do what the page does; and **the Argus pl
 Code and Codex (`/plugin marketplace add andreaderuvo/argus`, then `/plugin install argus@argus`):
 the agent tells Argus itself when it starts, finishes and needs you, and gets Argus as MCP tools —
 ask you something and wait for the tap, start another agent in its own worktree, see who else is
-working.
+working. **Word documents under review** read beside the work, comments in the margin and tracked
+changes coloured, reloaded at every save. And **[argus-bridge](https://github.com/andreaderuvo/argus-bridge)**,
+a small app for your Mac or PC: a folder of the server kept in sync with yours, and — each one a switch,
+off until you turn it on — its browser for your agents, a terminal on it, and commands an agent asks
+to run there, allowed by you.
 [Everything it does, in detail.](https://github.com/andreaderuvo/argus/wiki/Everything-it-does)
 
 ## Install
