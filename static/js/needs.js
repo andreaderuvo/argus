@@ -75,7 +75,42 @@ function lead(item) {
   return mark;
 }
 
+/* "Undo", as a mail program has it after Send: an action that settles something (marked done, got it,
+ * dismissed) waits a few seconds first, with Undo on the row — "if I think again, I stop it" (2026-11-10).
+ * Kept by item, so the list drawn again meanwhile still shows the countdown, and the action still runs. */
+const UNDO_SECONDS = 5;
+const pending = new Map();                 // `${kind}:${id}` -> {said, until, timer}
+
+function later(key, said, act, refresh) {
+  const until = Date.now() + UNDO_SECONDS * 1000;
+  const timer = setTimeout(async () => {
+    pending.delete(key);
+    try { await act(); } catch (e) { toast(e.message, true); }
+    refresh(true);
+  }, UNDO_SECONDS * 1000);
+  pending.set(key, { said, until, timer });
+  refresh(true);
+}
+
+function undoBar(key, refresh) {
+  const p = pending.get(key);
+  const left = el('span', { className: 'undoleft' });
+  const tick = () => {
+    if (!left.isConnected && pending.get(key) !== p) return;
+    left.textContent = `${Math.max(0, Math.ceil((p.until - Date.now()) / 1000))}`;
+    if (pending.get(key) === p) setTimeout(tick, 250);
+  };
+  tick();
+  return el('div', { className: 'needacts undo' }, [
+    el('span', { className: 'undosaid' }, [icon('tick'), el('span', { textContent: p.said })]),
+    el('button', { type: 'button', className: 'needbtn undobtn', title: t('Undo'),
+      onclick: () => { clearTimeout(p.timer); pending.delete(key); refresh(true); } },
+    [icon('undo'), el('span', { textContent: t('Undo') }), left]),
+  ]);
+}
+
 function row(item, refresh, unfolded) {
+  const key = `${item.kind}:${item.id || item.session || item.folder}`;
   let who = '';
   let tag = '';
   let body = null;
@@ -114,7 +149,7 @@ function row(item, refresh, unfolded) {
     body = item.text ? agentWords(item.text) : el('p', { className: 'needtext dim', textContent: t('It stopped and is waiting for you.') });
     acts = actions([
       [t('Open'), () => showSessionWindow(item.session), 'primary', 'terminal'],
-      [t('Got it'), async () => { await postJSON('/api/tmux/seen', { sessions: [item.session] }); done(); }, '', 'tick'],
+      [t('Got it'), () => later(key, t('Got it'), () => postJSON('/api/tmux/seen', { sessions: [item.session] }), refresh), '', 'tick'],
     ]);
   } else if (item.kind === 'proposal') {
     who = item.name || t('a team');
@@ -122,18 +157,19 @@ function row(item, refresh, unfolded) {
     body = el('p', { className: 'needtext', textContent: item.error || item.folder, title: item.folder });
     acts = actions([
       [t('Open in Team'), () => openProposedTeam(item.folder), 'primary', 'layers'],
-      [t('Dismiss'), async () => { await delJSON(`/api/teams/proposals?folder=${encodeURIComponent(item.folder)}`); done(); }, '', 'close'],
+      [t('Dismiss'), () => later(key, t('Dismissed'), () => delJSON(`/api/teams/proposals?folder=${encodeURIComponent(item.folder)}`), refresh), '', 'close'],
     ]);
   } else if (item.kind === 'todo') {
     who = `#${item.n}`;
     tag = item.late ? t('late — due {when}', { when: dueWords(item.due).text }) : t('due {when}', { when: dueWords(item.due).text });
     body = el('p', { className: 'needtext', textContent: item.text });
     acts = actions([
-      [t('Mark done'), async () => { await patchJSON(`/api/todo/${item.id}`, { status: 'done' }); done(); }, 'primary', 'tick'],
+      [t('Mark done'), () => later(key, t('Marked done'), () => patchJSON(`/api/todo/${item.id}`, { status: 'done' }), refresh), 'primary', 'tick'],
       [t('Open the list'), () => go('#/todo'), '', 'calendar'],
     ]);
   }
-  const card = el('article', { className: `needrow ${item.kind}${item.late ? ' late' : ''}` }, [
+  if (pending.has(key)) acts = undoBar(key, refresh);
+  const card = el('article', { className: `needrow ${item.kind}${item.late ? ' late' : ''}${pending.has(key) ? ' settling' : ''}` }, [
     lead(item),
     el('div', { className: 'needmain' }, [
       el('div', { className: 'needhead' }, [

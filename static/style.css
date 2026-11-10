@@ -4878,6 +4878,12 @@ button .spin { margin-right: .35rem; vertical-align: -2px; }
 .needmain > .agentmd > :first-child { margin-top: 0; }
 .needmain > .agentmd > :last-child { margin-bottom: 0; }
 .needacts { display: flex; flex-wrap: wrap; align-items: center; gap: .45rem; margin-top: .7rem; }
+.needrow.settling { opacity: .72; }
+.needacts.undo .undosaid { display: inline-flex; align-items: center; gap: .3rem; color: var(--ok, var(--accent)); font-weight: 600; }
+.needacts.undo .undosaid svg { width: 1em; height: 1em; }
+.needbtn.undobtn { border-color: var(--accent); }
+.needbtn.undobtn .undoleft { min-width: 1.2em; padding: 0 .3em; border-radius: 99px; background: var(--accent); color: var(--bg);
+  font-size: .8em; font-variant-numeric: tabular-nums; text-align: center; }
 .needs .needbtn, .needbtn { width: auto; margin: 0; flex: none; }
 .needbtn { display: inline-flex; align-items: center; gap: .4rem; min-height: 36px; padding: .35rem .85rem;
   border: 1px solid var(--line); border-radius: .5rem; background: var(--bg); color: var(--text); font-size: .9rem; cursor: pointer; }

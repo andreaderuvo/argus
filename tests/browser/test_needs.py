@@ -160,3 +160,29 @@ def test_long_words_are_cut_and_opened_whole_in_place(make_page, argus):
                 argus.api(f"/api/ask/{one['id']}/answer", "POST", {"answer": "No"})
             except Exception:
                 pass
+
+
+def test_mark_done_waits_with_undo_like_a_sent_mail(make_page, argus):
+    """"If I think again, I stop it" (2026-11-10): Mark done shows a countdown with Undo, and nothing is
+    changed on the server until it runs out; Undo puts the buttons back and the to-do stays open."""
+    made = argus.api("/api/todo", "POST", {"note": "call the lab about the Listeria run", "due": "2020-01-01"})
+    status = lambda: next(x for x in argus.api("/api/todo")["items"] if x["id"] == made["id"])["status"]  # noqa: E731
+    try:
+        page = make_page(route="#/needs")
+        page.wait("!!document.querySelector('.needrow.todo .needbtn.primary')", timeout=15, what="the to-do")
+        page.click_at(*page._center("document.querySelector('.needrow.todo .needbtn.primary')"))
+        page.wait("!!document.querySelector('.needrow.todo.settling .undobtn')", timeout=5, what="Undo offered")
+        assert page.eval("+document.querySelector('.undobtn .undoleft').textContent") in (4, 5)
+        shoot(page, "needs-undo")
+        page.click_at(*page._center("document.querySelector('.undobtn')"))
+        page.wait("!!document.querySelector('.needrow.todo .needbtn.primary') && !document.querySelector('.undobtn')",
+                  timeout=5, what="the buttons back")
+        time.sleep(6)
+        assert status() != "done", "Undo kept it open"
+
+        page.click_at(*page._center("document.querySelector('.needrow.todo .needbtn.primary')"))
+        assert status() != "done", "not at once"
+        eventually(lambda: status() == "done", timeout=12, what="done once the countdown ran out")
+        page.wait("!document.querySelector('.needrow.todo')", timeout=10, what="the row gone")
+    finally:
+        argus.api(f"/api/todo/{made['id']}", "DELETE")

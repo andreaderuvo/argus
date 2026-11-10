@@ -1815,6 +1815,8 @@
   "small": "piccola",
   "normal": "normale",
   "large": "grande",
-  "larger": "più grande"
+  "larger": "più grande",
+  "Marked done": "Segnato come fatto",
+  "Dismissed": "Scartato"
  }
 }

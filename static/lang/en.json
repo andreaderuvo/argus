@@ -1815,6 +1815,8 @@
   "small": "small",
   "normal": "normal",
   "large": "large",
-  "larger": "larger"
+  "larger": "larger",
+  "Marked done": "Marked done",
+  "Dismissed": "Dismissed"
  }
 }
