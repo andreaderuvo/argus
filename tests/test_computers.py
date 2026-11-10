@@ -410,11 +410,13 @@ def test_an_agent_asks_to_run_a_command_and_the_person_allows_it(live, tmp_path)
         assert code == 200 and asked["state"] == "asked" and "run on Mac" in asked["text"] and "echo hello from the mac" in asked["text"], asked
         question = next(q for q in (await asyncio.to_thread(call, live, "/api/asks"))[1]["asks"])
         await asyncio.to_thread(call, live, f"/api/ask/{question['id']}/answer", "POST", {"answer": "Do it"})
-        for _ in range(100):
+        # By the clock, not a count of tries: a shell started on a loaded CI machine took over 5 s.
+        until = time.monotonic() + 30
+        while time.monotonic() < until:
             said = (await asyncio.to_thread(call, live, f"/api/agent/request/{asked['id']}"))[1]
             if said["state"] in ("done", "failed"):
                 break
-            await asyncio.sleep(0.05)
+            await asyncio.sleep(0.1)
         assert said["state"] == "done" and said["result"]["code"] == 0 and said["result"]["output"].strip() == "hello from the mac", said
         await asyncio.to_thread(call, live, f"/api/computers/{cid}/disconnect", "POST", {})
         await asyncio.wait_for(lending, 10)
@@ -436,11 +438,12 @@ def test_do_it_pressed_on_the_computers_notification(live, tmp_path):
                                               {"action": "computer_run", "args": {"computer": "mac", "command": "echo pressed on the mac",
                                                                                   "cwd": str(tmp_path)}})
         assert code == 200, asked
-        for _ in range(200):
+        until = time.monotonic() + 30
+        while time.monotonic() < until:
             said = (await asyncio.to_thread(call, live, f"/api/agent/request/{asked['id']}"))[1]
             if said["state"] in ("done", "failed", "refused"):
                 break
-            await asyncio.sleep(0.05)
+            await asyncio.sleep(0.1)
         assert said["state"] == "done" and said["result"]["output"].strip() == "pressed on the mac", said
         await asyncio.to_thread(call, live, f"/api/computers/{cid}/disconnect", "POST", {})
         await asyncio.wait_for(lending, 10)
