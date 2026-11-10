@@ -209,3 +209,21 @@ def test_the_scripts_find_argus_from_its_config(tmp_path):
     assert [c for c in calls if c.endswith("/api/bell")] == ["https://127.0.0.1:8443/api/bell", "http://127.0.0.1:9000/api/bell"]
     # Outside tmux, the session is asked of the same Argus by pid first.
     assert [c.split("?")[0] for c in calls if "whoami" in c] == ["https://127.0.0.1:8443/api/tmux/whoami", "http://127.0.0.1:9000/api/tmux/whoami"]
+
+
+def test_a_sessions_plugin_is_read_off_its_processes():
+    """/reload-plugins starts the plugin's MCP server again from the new version's folder, and says
+    nothing to Argus until the next prompt: the version is read off the processes (2026-11-10)."""
+    from app import pluginstate
+    cache = "/home/x/.claude/plugins/cache/argus/argus"
+    tree = {
+        100: (1, ["zsh"]), 101: (100, ["claude"]),                       # session "a": pane 100
+        102: (101, ["python3", "-B", f"{cache}/0.1.38/bin/argus_mcp.py"]),
+        103: (101, ["python3", "-B", f"{cache}/0.1.39/bin/argus_mcp.py"]),   # reloaded: the newer one
+        200: (1, ["zsh"]), 201: (200, ["node", "codex"]),
+        202: (201, ["sh", "-c", f"python3 {cache}/0.1.36/bin/argus_mcp.py"]),
+        203: (201, ["python3", f"{cache}/0.1.36/bin/argus_mcp.py"]),
+        300: (1, ["python3", f"{cache}/0.1.20/bin/argus_mcp.py"]),         # in no session: not counted
+    }
+    assert pluginstate.loaded_versions({"a": [100], "b": [200]}, tree) == {"a": "0.1.39", "b": "0.1.36"}
+    assert pluginstate.loaded_versions({"a": [100]}, None) == {}

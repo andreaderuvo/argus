@@ -225,11 +225,15 @@ function runKey(id) {
  *  every other key goes to the terminal as before.
  */
 window.addEventListener('keydown', (e) => {
-  if (!token || e.repeat || !e.ctrlKey || !(e.shiftKey || e.altKey) || e.metaKey) return;
+  // Alt alone, for "which Argus is running" only: the shortcut for "is everything up to date?" is
+  // pressed from where one works, a terminal, and there Alt+V went to the program instead
+  // (2026-11-10). Remap it in the shortcuts if an agent there wants Alt+V for itself.
+  const altOnly = e.altKey && !e.ctrlKey && !e.shiftKey && !e.metaKey;
+  if (!token || e.repeat || e.metaKey || !(altOnly || (e.ctrlKey && (e.shiftKey || e.altKey)))) return;
   if (!document.activeElement?.closest?.('.xterm, .win[data-kind="term"]')) return;
-  if (!e.shiftKey && prefs.termCtrlAlt === false) return;
+  if (!altOnly && !e.shiftKey && prefs.termCtrlAlt === false) return;
   const pressed = keyName(e);
-  const hit = KEYS.find((k) => keyFor(k.id) === pressed);
+  const hit = KEYS.find((k) => keyFor(k.id) === pressed && (!altOnly || k.id === 'version'));
   if (!hit) return;
   e.preventDefault();
   e.stopImmediatePropagation();

@@ -14,6 +14,8 @@ updated where it is.
 
 from __future__ import annotations
 
+import re
+
 import json
 import subprocess
 from pathlib import Path
@@ -120,3 +122,33 @@ def run(agent: str, home: Path, action: str, timeout: float = 120) -> dict:
         if done.returncode != 0 and not (argv[:4] == ["codex", "plugin", "marketplace", "upgrade"]):
             return {"ok": False, "said": said}
     return {"ok": True, "said": said}
+
+
+LOADED = re.compile(r"/plugins/cache/[^/]+/argus/(\d+(?:\.\d+)*)/bin/argus_mcp\.py$")
+
+
+def loaded_versions(panes: dict[str, list[int]], tree: dict[int, tuple[int, object]] | None) -> dict[str, str]:
+    """The plugin each session runs NOW, read off its processes: the agent starts the plugin's MCP server
+    from the installed version's own folder (…/cache/argus/argus/0.1.39/bin/argus_mcp.py), and starts it
+    again from the new one at /reload-plugins. What a session's hook last said lags behind a reload
+    until its next prompt — a session reloaded was shown on the old version (2026-11-10)."""
+    if not tree:
+        return {}
+    owner: dict[int, str] = {pid: s for s, pids in panes.items() for pid in pids}
+    out: dict[str, str] = {}
+    for pid, (ppid, argv) in tree.items():
+        try:
+            words = list(argv)
+        except Exception:
+            continue
+        hit = next((LOADED.search(w) for w in words if "argus_mcp" in w and LOADED.search(w)), None)
+        if not hit:
+            continue
+        at, hops = ppid, 0
+        while at and at not in owner and hops < 30:
+            at, hops = tree.get(at, (0, None))[0], hops + 1
+        if at in owner:
+            session = owner[at]
+            if session not in out or older(out[session], hit.group(1)):
+                out[session] = hit.group(1)
+    return out

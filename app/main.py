@@ -33,7 +33,7 @@ from .auth import PROXY_COOKIE, TokenAuthMiddleware
 from .config import Config, ConfigError, default_path
 from .errors import ApiError
 from .jsongzip import JsonGzip
-from . import minify
+from . import minify, procs
 from .safepath import Jail, PathError
 
 VERSION = "0.1.0"
@@ -757,7 +757,10 @@ def create_app(cfg: Config) -> FastAPI:
         # running session only when it reloads (Claude, /reload-plugins) or restarts (Codex) —
         # "Update" alone left them all on the old one, with nothing on screen saying so.
         offered = said.get("version") or pluginstate.repo_version()
-        seen = bells.store(request).get("plugins", {})
+        seen = dict(bells.store(request).get("plugins", {}))
+        # What runs now, read off the processes, over what the hook last said (it lags a reload).
+        loaded = await asyncio.to_thread(lambda: pluginstate.loaded_versions(tmux.pane_pids(request.app.state.socket), procs.tree()))
+        seen.update(loaded)
         try:
             states = await agent_states(request)
         except Exception:
