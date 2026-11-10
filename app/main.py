@@ -716,7 +716,9 @@ def create_app(cfg: Config) -> FastAPI:
         # an updated plugin reaches a running session only when it reloads (Claude) or restarts.
         offered = pluginstate.repo_version()
         kept = bells.store(request)
-        seen = kept.get("plugins", {})
+        # What runs now, read off the processes, over what the hook last said: the window's mark stayed
+        # on the old version after a /reload-plugins until the session's next prompt (2026-11-10).
+        seen = {**kept.get("plugins", {}), **await loaded_plugins(request)}
         for name, st in states.items():
             # An agent of a quiet team waiting between turns is not waiting for you: counted as
             # seen, so neither the amber nor "Got it, all" asks about it — unless it rang for a
@@ -757,10 +759,8 @@ def create_app(cfg: Config) -> FastAPI:
         # running session only when it reloads (Claude, /reload-plugins) or restarts (Codex) —
         # "Update" alone left them all on the old one, with nothing on screen saying so.
         offered = said.get("version") or pluginstate.repo_version()
-        seen = dict(bells.store(request).get("plugins", {}))
         # What runs now, read off the processes, over what the hook last said (it lags a reload).
-        loaded = await asyncio.to_thread(lambda: pluginstate.loaded_versions(tmux.pane_pids(request.app.state.socket), procs.tree()))
-        seen.update(loaded)
+        seen = {**bells.store(request).get("plugins", {}), **await loaded_plugins(request)}
         try:
             states = await agent_states(request)
         except Exception:
@@ -3002,6 +3002,18 @@ def create_app(cfg: Config) -> FastAPI:
     # Outermost: JSON answers leave compressed (app/jsongzip.py), files and streams as they are.
     app.add_middleware(JsonGzip)
     return app
+
+
+async def loaded_plugins(request: Request) -> dict[str, str]:
+    """The plugin each session runs now, from its processes (pluginstate.loaded_versions): one list-panes
+    and the shared /proc table, kept 3 s — the states are asked every 3 s by every page open."""
+    state = request.app.state
+    at, said = getattr(state, "plugins_loaded", (0.0, {}))
+    if time.monotonic() - at < 3:
+        return said
+    said = await asyncio.to_thread(lambda: pluginstate.loaded_versions(tmux.pane_pids(state.socket), procs.tree()))
+    state.plugins_loaded = (time.monotonic(), said)
+    return said
 
 
 def at_prompt(request: Request, agent: str) -> list[str]:

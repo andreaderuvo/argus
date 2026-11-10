@@ -229,3 +229,17 @@ def test_a_session_start_tells_the_agent_its_session_and_to_use_argus_not_tmux(t
     finally:
         subprocess.run(["tmux", "-L", sock, "kill-server"])
         server.shutdown()
+
+
+def test_a_session_reloaded_is_marked_up_to_date_at_once(client, monkeypatch):
+    """"I press reload and the badge does not go" (2026-11-10): the hook said the old version at the last
+    prompt; /reload-plugins started the plugin again from the new version's folder. What the processes
+    say wins, at once."""
+    app, c = client
+    monkeypatch.setattr(app.state.agents, "states", lambda: {"me": {"agent": "claude", "state": "waiting"}})
+    c.post("/api/bell", json={"session": "me", "why": "start", "plugin": "0.0.1"})
+    assert c.get("/api/tmux/states").json()["states"]["me"]["plugin_old"] is True
+    monkeypatch.setattr(pluginstate, "loaded_versions", lambda panes, tree: {"me": pluginstate.repo_version()})
+    app.state.plugins_loaded = (0.0, {})                   # the 3 s it is kept, gone
+    said = c.get("/api/tmux/states").json()["states"]["me"]
+    assert said["plugin"] == pluginstate.repo_version() and said["plugin_old"] is False
