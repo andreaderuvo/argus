@@ -509,7 +509,8 @@ def _browser(fn):
 
 
 def _said(d: dict) -> str:
-    return f"{d.get('title') or '(no title)'} — {d.get('url', '')} (on {d.get('computer')})"
+    return (f"{d.get('title') or '(no title)'} — {d.get('url', '')} (on {d.get('computer')})"
+            + (f"\n\n⚠ {d['warning']}" if d.get("warning") else ""))
 
 
 def _look_text(d: dict) -> str:

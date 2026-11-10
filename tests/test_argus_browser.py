@@ -82,6 +82,11 @@ def test_an_agent_opens_looks_types_and_clicks_in_the_persons_browser(live, chro
     assert blocks[0]["type"] == "image" and blocks[0]["mimeType"] == "image/jpeg"
     assert "[" in blocks[1]["text"] and "Send" in blocks[1]["text"]
     assert argus_mcp.DO["browser_eval"](Fake(), {"expression": "1 + 41"}) == "42"
+    assert "warning" not in opened
+    # Google refusing to sign the browser in (issue #16): said to the agent, with what to do.
+    refused = "data:text/html,<h1>Couldn't sign you in</h1><p>This browser or app may not be secure.</p>"
+    said = argus_mcp.DO["browser_open"](Fake(), {"url": refused})
+    assert "Google refused to sign in this browser" in said and "argus-bridge 0.1.12" in said, said
     call(live, f"/api/computers/{made['computer']['id']}/disconnect", "POST", {})
 
 

@@ -280,8 +280,22 @@ def _center(cdp: CDP, selector: str) -> tuple[float, float]:
     return box[0], box[1]
 
 
+# Google's "Couldn't sign you in — this browser or app may not be secure", in the languages Argus speaks.
+REFUSED = r"may not be secure|potrebbero non essere sicuri|ne sont peut-être pas sécurisés|no sean seguros"
+REFUSED_SAID = ("Google refused to sign in this browser (\"this browser or app may not be secure\"): it was "
+                "told the browser is driven. argus-bridge 0.1.12 and later start it so Google accepts it — ask the "
+                "person to update the app on their computer (and leave This computer → Browser settings → \"Don't "
+                "tell sites the browser is driven\" on), then open the page again. Do not keep retrying the sign-in.")
+
+
 def _summary(cdp: CDP) -> dict:
-    return cdp.evaluate("({title: document.title, url: location.href})") or {}
+    """The tab's title and address — and whether Google is refusing to sign it in (Argus issue #16): said
+    to the agent, rather than a sign-in that fails with no reason given."""
+    said = cdp.evaluate("({title: document.title, url: location.href, refused: new RegExp(%s, 'i').test("
+                        "(document.body ? document.body.innerText : '').slice(0, 5000))})" % json.dumps(REFUSED)) or {}
+    if said.pop("refused", False):
+        said["warning"] = REFUSED_SAID
+    return said
 
 
 def open_page(computers: list[dict], url: str, which: str | None = None, new: bool = False) -> dict:
