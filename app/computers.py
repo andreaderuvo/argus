@@ -549,6 +549,53 @@ async def run(app, ident: str, command: str, cwd: str = "", timeout: float = 120
             "why": chan["why"] if chan["code"] is None else ""}
 
 
+async def login(app, ident: str, target: str, want: str = "fill", account: str = "") -> dict:
+    """An agent signed in with the person's saved login, in its own tab of that computer's browser:
+    argus-bridge finds the login for the tab's site, asks the person there (unless the site is "Always"),
+    and types it into the page. What comes back says which fields, for which account, from where —
+    never a password, which does not pass through this server at all. `want: "list"` names the accounts
+    kept for the tab's site instead."""
+    one = find(app, ident)
+    if not one.offers("browser"):
+        raise ApiError(409, "the computer is not connected" if not one.connected
+                       else "its browser is off — turn it on in argus-bridge, on that computer")
+    if not re.fullmatch(r"[A-Za-z0-9]{8,64}", str(target or "")):
+        raise ApiError(400, "target: the agent's own tab")
+    said: list[str] = []
+    done = asyncio.Event()
+
+    async def sink(frame):
+        if frame.get("op") == "msg":
+            said.append(str(frame.get("data") or ""))
+        elif frame.get("op") == "close":
+            done.set()
+
+    ch, chan = one.channel("login", sink)
+    try:
+        frame = {"kind": "login", "target": target, "want": "list" if want == "list" else "fill",
+                 "account": str(account or "")[:200]}
+        # Answered and closed already, cleanly, before the open was even looked at (a sign-in on a site
+        # marked Always takes a moment): that is an answer, not a computer gone.
+        if not await one.open(ch, chan, frame) and chan["code"] != 0:
+            raise ApiError(409, chan["why"] or "the computer did not answer — is its argus-bridge up to date?")
+        try:
+            # The person may be asked on the computer first: as long as a question waits.
+            await asyncio.wait_for(done.wait(), LOGIN_WAIT)
+        except asyncio.TimeoutError:
+            raise ApiError(504, f"no answer from {one.name} after {LOGIN_WAIT} s — the person was asked there, and has not answered") from None
+    finally:
+        await one.end(ch)
+    if chan["code"] != 0:
+        raise ApiError(409, chan["why"] or "not signed in")
+    try:
+        return {"computer": one.name, **json.loads("".join(said) or "{}")}
+    except ValueError:
+        raise ApiError(502, "argus-bridge answered something unreadable") from None
+
+
+LOGIN_WAIT = 150
+
+
 # ------------------------------------------------------------------------------------- the routes
 
 @router.get("/api/computers", summary="The computers connected to Argus, and what each lends")
@@ -590,6 +637,28 @@ async def run_route(request: Request, ident: str) -> dict:
     actions on (a switch in argus-bridge, there). Agents ask for it as the request `computer_run`."""
     body = await request.json()
     return await run(request.app, ident, body.get("command"), body.get("cwd") or "", body.get("timeout") or 120)
+
+
+@router.post("/api/computers/login", summary="Sign an agent in with the person's saved login")
+async def login_route(request: Request) -> dict:
+    """`{target, computer?, account?, want?}` → `{host, account, source, username, password, otp}` (which fields
+    were filled — never with what), or with `want: "list"` → `{host, accounts}`. The agent's own tab of
+    the computer's browser; argus-bridge keeps the logins (its vault in the system keychain, 1Password),
+    asks the person there unless the site is "Always", and fills only on the login's own site."""
+    body = await request.json()
+    ident = str(body.get("computer") or "")
+    if not ident:
+        connected = [one for one in links(request.app).values() if one.offers("browser")]
+        if len(connected) != 1:
+            raise ApiError(400, "computer: which one" if connected else "no computer lends its browser")
+        ident = connected[0].key_id
+    said = await login(request.app, ident, str(body.get("target") or ""), str(body.get("want") or "fill"), str(body.get("account") or ""))
+    from . import journal
+    if said.get("accounts") is not None:
+        journal.note(request.scope, f"logins listed for {said.get('host')}")
+    else:
+        journal.note(request.scope, f"signed in on {said.get('host')} as {said.get('account')} (from {said.get('source')})")
+    return said
 
 
 @router.post("/api/computers/{ident}/forward", summary="Show a port of this server on the computer's localhost")

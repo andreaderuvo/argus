@@ -316,6 +316,13 @@ def open_page(computers: list[dict], url: str, which: str | None = None, new: bo
         cdp.close()
 
 
+def agent_tab(computers: list[dict], which: str | None = None) -> tuple[str, str]:
+    """(the computer's name, the agent's own tab) — what a sign-in names, without driving anything."""
+    name, cdp, tab = _session(computers, which)
+    cdp.close()
+    return name, tab
+
+
 def look(computers: list[dict], which: str | None = None, shot: bool = True) -> dict:
     """What the agent's tab shows: title, address, its text, everything clickable numbered, a picture."""
     name, cdp, _ = _session(computers, which)

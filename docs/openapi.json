@@ -802,6 +802,30 @@
     ]
    }
   },
+  "/api/computers/login": {
+   "post": {
+    "description": "`{target, computer?, account?, want?}` \u2192 `{host, account, source, username, password, otp}` (which fields\nwere filled \u2014 never with what), or with `want: \"list\"` \u2192 `{host, accounts}`. The agent's own tab of\nthe computer's browser; argus-bridge keeps the logins (its vault in the system keychain, 1Password),\nasks the person there unless the site is \"Always\", and fills only on the login's own site.",
+    "operationId": "postApiComputersLogin",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Login Route Api Computers Login Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Sign an agent in with the person's saved login",
+    "tags": [
+     "Computers"
+    ]
+   }
+  },
   "/api/computers/{ident}": {
    "delete": {
     "operationId": "deleteApiComputersIdent",

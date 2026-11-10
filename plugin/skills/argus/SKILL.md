@@ -29,6 +29,7 @@ phone. You reach it with the Argus tools (or `argus-say` from a shell). Three ki
 | ask the person and wait / tell them you are done | `ask` / `ring` |
 | the person's own computers, and what each lends | `computers` |
 | their browser (their Chrome on their Mac/PC, lent through argus-bridge): open a page, see it, click, type, run JS — never SSH tunnels or debugging ports | `browser_open`, `browser_look`, `browser_click`, `browser_type`, `browser_eval`, `browser_tabs` |
+| sign in on a page of their browser with their saved login — you never see the password: argus-bridge types it after asking them; never ask them for a password | `browser_login` |
 | what already waits on the person (questions, requests, teams stopped, agents waiting, proposals, to-dos due) — look before asking them more | `needs` |
 | the to-do list: read, add, mark doing/done, a deadline Argus rings for ("remind me tomorrow at 3 to…") | `todos`, `todo_add`, `todo_set` (`due`: 2026-10-20 or 2026-10-20T15:00, `remind`: minutes before — 0, 15, 60, 1440, 10080) |
 | the notes (the Notes screen): list, read, make, add to, rewrite, rename, delete | `notes`, `note_read`, `note_new`, `note_add` (prefer it to rewriting), `note_write`, `note_rename`, `note_delete` (kept in the notes' trash) |

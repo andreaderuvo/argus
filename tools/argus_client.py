@@ -583,6 +583,8 @@ def _browser_call(args) -> tuple[str, dict]:
         given |= {"target": words[0] if words else "", "text": " ".join(words[1:]), "enter": args.enter}
     elif args.verb == "eval":
         given |= {"expression": " ".join(words)}
+    elif args.verb == "login":
+        given |= {"account": " ".join(words)}
     return f"browser_{args.verb}", given
 
 
@@ -733,8 +735,8 @@ def main(argv: list[str] | None = None) -> int:
     wf.add_argument("paths", nargs="+")
     wf.add_argument("--minutes", type=float, default=10)
     subs.add_parser("notes", help="the notes kept in Argus, the latest first")
-    br = subs.add_parser("browser", help="the browser of the person's own computer: open URL | look [--shot FILE] | click N|WORDS | type N|LABEL TEXT [--enter] | eval JS | tabs")
-    br.add_argument("verb", choices=["open", "look", "click", "type", "eval", "tabs"])
+    br = subs.add_parser("browser", help="the browser of the person's own computer: open URL | look [--shot FILE] | click N|WORDS | type N|LABEL TEXT [--enter] | eval JS | tabs | login [ACCOUNT]")
+    br.add_argument("verb", choices=["open", "look", "click", "type", "eval", "tabs", "login"])
     br.add_argument("args", nargs="*")
     br.add_argument("--computer", help="which computer, when there are several")
     br.add_argument("--new-tab", action="store_true", dest="new_tab")

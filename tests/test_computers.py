@@ -46,7 +46,7 @@ def live(tmp_path):
     from app.main import create_app
 
     port = free_port()
-    cfg = Config(token=MASTER, roots=[tmp_path], listen=f"127.0.0.1:{port}")
+    cfg = Config(token=MASTER, roots=[tmp_path], listen=f"127.0.0.1:{port}", agents=[{"name": "tester", "token": AGENT}])
     cfg.devices_store = tmp_path / "devices.json"
     cfg.prefs_store = tmp_path / "prefs.json"
     cfg.tmux_socket = f"argus-t-pc-{os.getpid()}"
@@ -85,6 +85,8 @@ def chrome():
     proc.wait(5)
     shutil.rmtree(profile, ignore_errors=True)
 
+
+AGENT = "agent-key-for-the-tests-0123456789abcdef"
 
 def call(base, path, method="GET", body=None, token=MASTER):
     req = urllib.request.Request(base + path, method=method, data=json.dumps(body).encode() if body is not None else None,
@@ -164,9 +166,20 @@ async def computer(base, key, offers, chrome_at=None, told=None, answer=None, re
             ch = frame.get("ch")
             if frame["op"] == "open":
                 kind = frame.get("kind")
-                switch = {"cdp": "browser", "pty": "terminal", "run": "actions"}[kind]
+                switch = {"cdp": "browser", "pty": "terminal", "run": "actions", "login": "browser"}[kind]
                 if not offers.get(switch):
                     await say({"op": "close", "ch": ch, "why": f"{switch} is off on this computer"})
+                elif kind == "login":
+                    # What argus-bridge answers: which fields it typed, never with what (the password stays
+                    # on the computer — here it is not even known).
+                    await say({"op": "opened", "ch": ch})
+                    if frame.get("target") == "tab-of-another-site":
+                        await say({"op": "close", "ch": ch, "why": "this tab is on evil.example; the login is for efsa.europa.eu — nothing was filled"})
+                    else:
+                        filled = {"host": "wgsportal-test.efsa.europa.eu", "account": "andrea@lab.example", "source": "vault",
+                                  "username": True, "password": True, "otp": False}
+                        await say({"op": "msg", "ch": ch, "data": json.dumps(filled)})
+                        await say({"op": "close", "ch": ch, "code": 0})
                 elif kind == "cdp" and refuse_cdp:
                     await say({"op": "close", "ch": ch, "why": refuse_cdp})
                 elif kind == "cdp":
@@ -518,3 +531,27 @@ def test_a_bell_reaches_the_connected_computer(live, tmp_path):
         call(live, f"/api/computers/{cid}/disconnect", "POST", {})
         out, _ = client.communicate(timeout=20)
     assert "[done] aligner: all 42 samples aligned" in out, out
+
+
+def test_an_agent_is_signed_in_and_never_sees_the_password(live):
+    """"Read the passwords from there" (2026-11-10): the agent asks Argus to sign it in; argus-bridge, on the
+    person's computer, types the login and says which fields — the password never passes through here.
+    Refused when the browser is not lent, or the tab is on another site."""
+    made = connect_one(live, "Mac")
+    cid = made["computer"]["id"]
+
+    async def scenario():
+        lending = asyncio.ensure_future(computer(live, made["token"], {"browser": True}))
+        await until_connected(live, cid)
+        code, said = await asyncio.to_thread(call, live, "/api/computers/login", "POST", {"target": "ABCDEF0123456789"}, AGENT)
+        assert code == 200 and said["password"] is True and said["account"] == "andrea@lab.example", said
+        assert "secret" not in json.dumps(said).lower()
+        code, said = await asyncio.to_thread(call, live, "/api/computers/login", "POST", {"target": "tab-of-another-site"}, AGENT)
+        assert code == 400 or "nothing was filled" in str(said), said
+        await asyncio.to_thread(call, live, f"/api/computers/{cid}/disconnect", "POST", {})
+        await asyncio.wait_for(lending, 10)
+
+    asyncio.run(scenario())
+    # No browser lent: said so.
+    code, said = call(live, "/api/computers/login", "POST", {"target": "ABCDEF0123456789"}, AGENT)
+    assert code in (400, 409), said

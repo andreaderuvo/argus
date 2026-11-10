@@ -228,6 +228,16 @@ TOOLS = [
      "description": "Run JavaScript in your tab and get its value back (JSON) — for what the other tools do not reach.",
      "inputSchema": {"type": "object", "properties": {
          "expression": {"type": "string"}, "computer": {"type": "string"}}, "required": ["expression"]}},
+    {"name": "browser_login",
+     "description": "Sign in on the page your tab shows, with the person's saved login for that site — you never see "
+                    "the password: argus-bridge types it into the page on their computer, only on that login's own "
+                    "site, after asking them there (unless they chose Always for it). Fills what the page shows now "
+                    "(account, password, a one-time code); then press the page's sign-in button yourself with "
+                    "browser_click. A two-step sign-in: call it again on the next step. `account` when the site has "
+                    "several logins (the error names them).",
+     "inputSchema": {"type": "object", "properties": {
+         "account": {"type": "string", "description": "Which account, when there are several for this site"},
+         "computer": {"type": "string"}}}},
     {"name": "browser_tabs",
      "description": "The tabs open in the person's browser, with yours marked.",
      "inputSchema": {"type": "object", "properties": {"computer": {"type": "string"}}}},
@@ -539,6 +549,19 @@ BROWSER = {
 }
 
 
+def _browser_login(a: Argus, args: dict) -> str:
+    """Signed in with the person's saved login: Argus asks argus-bridge, which asks the person and types it."""
+    try:
+        name, tab = browser.agent_tab(a.computers(), args.get("computer"))
+    except browser.BrowserError as e:
+        raise ArgusError(0, str(e)) from None
+    said = a.call("POST", "/api/computers/login", {"computer": name, "target": tab, "account": args.get("account") or ""}, timeout=170)
+    fields = [f for f, on in (("account", said.get("username")), ("password", said.get("password")), ("one-time code", said.get("otp"))) if on]
+    return (f"Filled {', '.join(fields)} on {said.get('host')} as {said.get('account')} (from {said.get('source')}). "
+            "You did not see the password and must not ask for it. Now press the page's sign-in button (browser_look, "
+            "then browser_click); on a two-step sign-in, call browser_login again on the next step.")
+
+
 def _needs(a: Argus, args: dict) -> str:
     def line(x: dict) -> str:
         who = x.get("session") or x.get("name") or (f"#{x['n']}" if x.get("n") else "")
@@ -662,7 +685,7 @@ def _prompts(a: Argus, _args: dict) -> str:
 
 
 DO = {"who": _who, "ring": _ring, "ask": _ask, "relay": _relay, "open_desk": _open_desk, "rename_desk": _rename_desk, "launchers": _launchers,
-      "start_agent": _start, "team_task": _team_task, "team_done": _team_done, "team_check": _team_check, "team_propose": _team_propose, "request": _request, "request_status": _request_status, "close_gone_windows": _close_gone, "computers": _computers, "needs": _needs, "todos": _todos, "todo_set": _todo_set, "todo_add": _todo_add, "notes": _notes, "note_read": _note_read, "note_new": _note_new, "note_add": _note_add, "note_write": _note_write, "note_rename": _note_rename, "note_delete": _note_delete, "teams": _teams, "worktree": _worktree, "prompts": _prompts, "worktrees": _worktrees, "actions": _actions, "bells": _bells, "wait_for_files": _wait_for_files, **BROWSER}
+      "start_agent": _start, "team_task": _team_task, "team_done": _team_done, "team_check": _team_check, "team_propose": _team_propose, "request": _request, "request_status": _request_status, "close_gone_windows": _close_gone, "computers": _computers, "needs": _needs, "todos": _todos, "todo_set": _todo_set, "todo_add": _todo_add, "notes": _notes, "note_read": _note_read, "note_new": _note_new, "note_add": _note_add, "note_write": _note_write, "note_rename": _note_rename, "note_delete": _note_delete, "teams": _teams, "worktree": _worktree, "prompts": _prompts, "worktrees": _worktrees, "actions": _actions, "bells": _bells, "wait_for_files": _wait_for_files, "browser_login": _browser_login, **BROWSER}
 
 
 # ------------------------------------------------------------------ the wire

@@ -80,6 +80,9 @@ AGENT_ROUTES = frozenset({
     # The computers connected and the address of the browser each lends, to drive it: what lending
     # it is for. Running a command there is a request (consent.py), never this key's own.
     ("GET", "/api/computers"),
+    # Signed in with the person's saved login, in its own tab: the password never comes here — it is
+    # typed by argus-bridge on the person's computer, after asking the person there.
+    ("POST", "/api/computers/login"),
     # A run posting the shape of what it is doing, so a person can watch it. It writes to a
     # noticeboard held in memory and nothing else: it cannot start, stop or reach an agent,
     # and the orchestration goes on unchanged if nobody is looking.

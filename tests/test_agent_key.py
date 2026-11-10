@@ -159,8 +159,12 @@ def test_the_list_of_what_an_agent_may_do_is_short():
 
     Thirty-seven on 2026-11-05: `GET /api/computers`, the computers connected through argus-bridge and
     the address of the browser each lends (app/computers.py) — what an agent is lent it for.
+
+    Thirty-eight on 2026-11-10: `POST /api/computers/login`, an agent signed in with the person's saved
+    login in its own tab. The password never reaches this server: argus-bridge types it on the person's
+    computer, after asking the person there, and only on the login's own site.
     """
-    assert len(AGENT_ROUTES) <= 37
+    assert len(AGENT_ROUTES) <= 38
     assert ("POST", "/api/teams") not in AGENT_ROUTES
     # PUT and DELETE only on the notes: Argus's own folder, a delete kept in its .trash.
     assert all(method in ("GET", "POST") or path.startswith("/api/notes") for method, path in AGENT_ROUTES)
