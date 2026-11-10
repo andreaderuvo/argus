@@ -209,6 +209,8 @@ def rung(request: Request, why: str, session: str | None = None, text: str = "",
         **extra,
     }
     kept["list"].append(bell)
+    if session and bell.get("source") == "hook":
+        remember_last(request, session, why, bell["text"])
     if why in NEEDS and session:
         kept["open"][session] = (bell["seq"], time.time(), extra.get("source", "hook"))
     for ear in list(kept["ears"]):
@@ -220,6 +222,52 @@ def rung(request: Request, why: str, session: str | None = None, text: str = "",
     dispatch_ntfy(request, bell)
     dispatch_computers(request, bell)
     return bell
+
+
+LAST_FILE = "last-bells.json"
+
+
+def _last_path(request) -> Path | None:
+    config = getattr(request.app.state, "config_path", None)
+    return Path(config).parent / LAST_FILE if config else None
+
+
+def remember_last(request, session: str, why: str, text: str) -> None:
+    """What each agent's hook said last, kept on disk: Argus restarted had forgotten it, and so whether a
+    session is at its prompt — the plugin's reload button said "not now" to every session (2026-11-10)."""
+    kept = store(request).setdefault("last", {})
+    kept[session] = {"why": why, "text": str(text or "")[:200], "at": int(time.time())}
+    path = _last_path(request)
+    if path:
+        try:
+            tmp = path.with_suffix(".tmp")
+            tmp.write_text(json.dumps(kept))
+            tmp.replace(path)
+        except OSError:
+            pass
+
+
+# Claude's own words after a minute at its prompt — the only "asking" that is not a question.
+IDLE = re.compile(r"waiting for your input|is waiting for you", re.I)
+
+
+def last_said(request) -> dict[str, dict]:
+    """session → {why, text}: the last thing each agent's hook said — kept across restarts, and the
+    bells rung since on top."""
+    kept = store(request)
+    if "last" not in kept:
+        kept["last"] = {}
+        path = _last_path(request)
+        if path and path.is_file():
+            try:
+                kept["last"] = {k: v for k, v in json.loads(path.read_text()).items() if isinstance(v, dict)}
+            except (OSError, ValueError):
+                pass
+    said = dict(kept["last"])
+    for bell in list(kept["list"]):
+        if bell.get("session") and bell.get("source") == "hook":
+            said[bell["session"]] = {"why": bell.get("why"), "text": bell.get("text") or ""}
+    return said
 
 
 def dispatch_computers(request: Request, bell: dict) -> None:

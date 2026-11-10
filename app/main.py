@@ -3020,12 +3020,19 @@ def at_prompt(request: Request, agent: str) -> list[str]:
     """Sessions of this agent waiting at their prompt: the sampler says waiting, and the last thing
     their hook rang was 'done' — not 'asking', which may be a permission question on screen."""
     states = request.app.state.agents.states()
-    last: dict[str, str] = {}
-    for bell in list(bells.store(request)["list"]):
-        if bell.get("session") and bell.get("source") == "hook":
-            last[bell["session"]] = bell.get("why")
+    # The last word of each hook, kept across restarts (bells.last_said). 'asking' is safe too when it
+    # is Claude's "waiting for your input" after a minute idle — not a permission question, where an
+    # Enter would answer it.
+    last = bells.last_said(request)
+
+    def ready(s: str) -> bool:
+        said = last.get(s) or {}
+        if said.get("why") == "done":
+            return True
+        text = said.get("text") or ""
+        return said.get("why") == "asking" and bool(bells.IDLE.search(text)) and not bells.PERMISSION.search(text)
     return sorted(s for s, st in states.items()
-                  if st.get("agent") == agent and st.get("state") == "waiting" and last.get(s) == "done")
+                  if st.get("agent") == agent and st.get("state") == "waiting" and ready(s))
 
 
 def ensure_desk(request: Request, name: str, folder: str | None = None) -> tuple[dict, bool]:

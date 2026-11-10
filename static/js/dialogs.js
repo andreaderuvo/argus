@@ -258,6 +258,20 @@ export function toastStack() {
  *  clipboard, since a browser grants that to a gesture and an upload finishing is not one. It
  *  fades after the time set (hovering holds it), ✕ closes it, and *Notifications on screen* off
  *  keeps only the ones saying something failed. */
+/** Copy what a notification says, in one press: "a button on every notification to copy it" (2026-11-10).
+ *  The press neither opens the notification nor closes it; the icon turns into a tick for a moment. */
+export function toastCopy(text) {
+  const b = el('button', { className: 'toastcopy', type: 'button', title: t('Copy'), ariaLabel: t('Copy') }, icon('copy'));
+  b.onclick = async (e) => {
+    e.stopPropagation();
+    if (await copyText(text())) {
+      b.replaceChildren(icon('tick', 'copied'));
+      setTimeout(() => b.replaceChildren(icon('copy')), 1400);
+    } else showText(t('Copy this'), text());
+  };
+  return b;
+}
+
 export function toast(message, bad = false, onTap = null, lasts = null) {
   measureFurniture();
   const stack = toastStack();
@@ -271,6 +285,8 @@ export function toast(message, bad = false, onTap = null, lasts = null) {
   };
   const close = el('button', { className: 'toastx', type: 'button', title: t('Close'), textContent: '✕',
     onclick: (e) => { e.stopPropagation(); go(); } });
+  const words = box.querySelector('.toasttext')?.innerText.trim();
+  if (words) box.append(toastCopy(() => words));
   box.append(close);
   if (onTap) {
     box.onclick = () => { onTap(); go(); };

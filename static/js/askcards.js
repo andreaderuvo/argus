@@ -1,5 +1,5 @@
 // <imports> generated from what this file uses; edit the code, not this list
-import { toast, toastStack } from '/js/dialogs.js';
+import { toast, toastCopy, toastStack } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { getJSON, postJSON } from '/js/reconnect.js';
 import { agentWords } from '/js/viewers.js';
@@ -24,6 +24,7 @@ export function showAsk(question) {
       agentWords(question.text),
       answers,
     ]),
+    toastCopy(() => question.text || ''),
     el('button', { className: 'toastx', type: 'button', title: t('Hide it here — it stays open in While you were away'), textContent: '✕',
       onclick: () => { card.remove(); } }),
   ]);

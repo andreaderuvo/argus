@@ -1289,6 +1289,9 @@ button.ghost.inline.danger:hover {
 .toast > .toasttext { flex: 1 1 auto; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .toast > .toastx { flex: none; border: 0; background: none; color: inherit; opacity: .6; cursor: pointer; font: inherit; padding: 0 .2rem; line-height: 1.35; }
 .toast > .toastx:hover { opacity: 1; }
+.toast > .toastcopy { flex: none; border: 0; background: none; color: inherit; opacity: .6; cursor: pointer; display: inline-grid; place-items: center; padding: .15rem; }
+.toast > .toastcopy:hover { opacity: 1; }
+.toast > .toastcopy .ico { width: 14px; height: 14px; }
 .toast.leaving { opacity: 0; transform: translateX(1.5rem); }
 @keyframes toastin { from { opacity: 0; transform: translateY(.6rem); } to { opacity: 1; transform: none; } }
 @media (max-width: 560px) { .toasts { right: 1rem; left: 1rem; width: auto; align-items: stretch; } }

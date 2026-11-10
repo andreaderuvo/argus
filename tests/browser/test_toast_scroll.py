@@ -31,3 +31,19 @@ def test_a_stack_taller_than_the_screen_scrolls_and_the_size_is_a_setting(make_p
     assert page.eval(f"{row}.querySelector('.sw').textContent") == "larger"
     eventually(lambda: page.eval(f"[...{stack}.children].some(n => n.textContent.includes('larger'))"), timeout=5, what="the sample")
     assert page.eval(f"parseFloat(getComputedStyle([...{stack}.children].at(-1)).fontSize)") > normal * 1.2
+
+
+def test_every_notification_can_be_copied_in_one_press(make_page):
+    """"On every notification a button to copy it to the clipboard" (2026-11-10): the press copies what
+    it says, without opening or closing it."""
+    page = make_page(route="#/files")
+    page.eval("import('/js/dialogs.js').then(m => m.toast('validation 31 is fully read', false, () => { window.__opened = true; }))")
+    stack = "document.getElementById('toasts')"
+    page.wait(f"!!{stack}?.querySelector('.toastcopy')", timeout=5, what="the copy button")
+    page.eval("window.__copied = null; navigator.clipboard && (navigator.clipboard.writeText = async (t) => { window.__copied = t; })")
+    page.eval(f"{stack}.querySelector('.toastcopy').click()")
+    page.wait(f"!!{stack}.querySelector('.toastcopy .ico.copied') || !!document.querySelector('dialog[open]')", timeout=5, what="copied")
+    if page.eval("window.__copied !== null"):
+        assert page.eval("window.__copied") == "validation 31 is fully read"
+    assert page.eval("!window.__opened"), "copying does not open the notification"
+    assert page.eval(f"{stack}.children.length") == 1, "nor closes it"

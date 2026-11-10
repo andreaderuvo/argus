@@ -243,3 +243,20 @@ def test_a_session_reloaded_is_marked_up_to_date_at_once(client, monkeypatch):
     app.state.plugins_loaded = (0.0, {})                   # the 3 s it is kept, gone
     said = c.get("/api/tmux/states").json()["states"]["me"]
     assert said["plugin"] == pluginstate.repo_version() and said["plugin_old"] is False
+
+
+def test_at_its_prompt_survives_a_restart_and_an_idle_minute(client, monkeypatch, tmp_path):
+    """"Not now" on every session after Argus restarted (2026-11-10): the hooks' last word lived in memory.
+    It is kept on disk; and Claude's "waiting for your input", said after a minute idle, is not a question."""
+    from app import bells
+    app, c = client
+    app.state.config_path = tmp_path / "config.yaml"
+    monkeypatch.setattr(app.state.agents, "states", lambda: {
+        "idle": {"agent": "claude", "state": "waiting"}, "perm": {"agent": "claude", "state": "waiting"}})
+    c.post("/api/bell", json={"session": "idle", "why": "asking", "text": "Claude is waiting for your input"})
+    c.post("/api/bell", json={"session": "perm", "why": "asking", "text": "Claude needs your permission to use Bash"})
+    assert c.get("/api/plugin").json()["reload"] == ["idle"]
+    # Argus restarted: the bells in memory are gone, what the hooks said last is not.
+    del app.state.bells
+    assert (tmp_path / bells.LAST_FILE).is_file()
+    assert c.get("/api/plugin").json()["reload"] == ["idle"]
