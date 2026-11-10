@@ -186,8 +186,10 @@ def test_a_language_changed_reaches_every_part_of_the_page(make_page, argus):
                                ("English", "Italiano", ("New session", "Filter…", "Windows"))):
         page.eval("location.hash = '#/settings'")
         page.click_text(label, within=".row.setting")
+        page.eval("window.__before = 1")              # the old page, so the new one is told from it
         page.click_text(lang, within="dialog button")
-        page.wait("document.readyState === 'complete' && !!document.getElementById('railfilterinput')", timeout=15, what="the page again")
+        page.wait("!window.__before && document.readyState === 'complete' && !!document.getElementById('railfilterinput')",
+                  timeout=20, what="the page again")
         page.eval("location.hash = '#/wall'")
         new_session, filt, windows = words
         page.wait(f"[...document.querySelectorAll('button')].some(b => b.textContent.trim() === {new_session!r})", timeout=15,
