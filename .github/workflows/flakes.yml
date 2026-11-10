@@ -1,0 +1,90 @@
+# The flake hunter: every night the browser suite three times over, each shard on its own machine. A test
+# that fails even once is unsteady — it will one day fail somebody's push for nothing — and is listed in
+# one issue (opened, or brought up to date), with its error, to be made steady before that day.
+name: flakes
+
+on:
+  schedule:
+    - cron: '30 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  hunt:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: pip install -r requirements.txt
+      - run: npm ci
+      - run: sudo apt-get update && sudo apt-get install -y tmux poppler-utils pandoc
+      - name: three times over
+        env:
+          ARGUS_BROWSER_REQUIRED: '1'
+          ARGUS_CHROMIUM: /usr/bin/google-chrome
+        run: |
+          files=$(python scripts/ci_shard.py ${{ matrix.shard }} 4 tests/test_modules.py tests/browser tests/test_computers.py tests/test_argus_browser.py tests)
+          for round in 1 2 3; do
+            python -m pytest -q -n 4 -p no:cacheprovider $files --junitxml="round-$round.xml" || true
+          done
+          python - <<'PY' > failed.txt
+          import glob, xml.etree.ElementTree as ET
+          seen = {}
+          for f in sorted(glob.glob("round-*.xml")):
+              for case in ET.parse(f).iter("testcase"):
+                  bad = case.find("failure") if case.find("failure") is not None else case.find("error")
+                  if bad is not None:
+                      name = f"{case.get('classname')}::{case.get('name')}"
+                      first = (bad.get("message") or "").strip().splitlines()[:1]
+                      seen.setdefault(name, [0, first[0][:200] if first else ""])[0] += 1
+          for name, (n, why) in sorted(seen.items()):
+              print(f"- `{name}` failed {n} of 3 — {why}")
+          PY
+          cat failed.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flakes-${{ matrix.shard }}
+          path: failed.txt
+
+  report:
+    needs: hunt
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: flakes-*
+          merge-multiple: false
+      - name: one issue, kept up to date
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          cat flakes-*/failed.txt 2>/dev/null | sort -u > all.txt || true
+          open=$(gh issue list --label flaky --state open --json number -q '.[0].number')
+          if [ ! -s all.txt ]; then
+            echo "steady: nothing failed in three runs"
+            [ -n "$open" ] && gh issue comment "$open" -b "$(date -u +%F): steady — nothing failed in three runs." || true
+            exit 0
+          fi
+          body="Tests that failed at least once in three runs of $(date -u +%F) (they passed the other times — unsteady, not broken):
+
+          $(cat all.txt)
+
+          Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          gh label create flaky --color fbca04 --description "A test that fails now and then" 2>/dev/null || true
+          if [ -n "$open" ]; then gh issue comment "$open" -b "$body"; else gh issue create -t "Unsteady tests" -l flaky -b "$body"; fi

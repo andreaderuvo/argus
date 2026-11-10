@@ -318,6 +318,16 @@ def open_page(chromium, argus: Argus, viewport=DESKTOP, login: bool = True) -> t
     return page, target, ctx
 
 
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_makereport(item, call):
+    """The test's own outcome, kept on it: a page is pictured when its test failed, not only when the page
+    itself reported a problem — in CI that picture is the one thing that says what was on screen."""
+    report = yield
+    if report.when == "call":
+        item.failed_call = report.failed
+    return report
+
+
 @pytest.fixture
 def make_page(chromium, argus, request, tmp_path):
     """Open as many clean pages as a test needs; each is checked for problems at the end."""
@@ -336,11 +346,20 @@ def make_page(chromium, argus, request, tmp_path):
     yield make
 
     failures = []
+    # ARGUS_FAIL_SHOTS (set in CI, uploaded with a failing run): where the pictures of failed tests go.
+    shots = Path(os.environ["ARGUS_FAIL_SHOTS"]) if os.environ.get("ARGUS_FAIL_SHOTS") else tmp_path
     for page, target, ctx in opened:
         page.settle(quiet=0.3, timeout=3)
         left = page.problems
+        if getattr(request.node, "failed_call", False) and not left:
+            try:
+                shots.mkdir(parents=True, exist_ok=True)
+                page.screenshot(shots / f"{request.node.name}-{target[:6]}.png")
+            except Exception:
+                pass
         if left:
-            shot = tmp_path / f"{request.node.name}-{target[:6]}.png"
+            shots.mkdir(parents=True, exist_ok=True)
+            shot = shots / f"{request.node.name}-{target[:6]}.png"
             try:
                 page.screenshot(shot)
             except Exception:

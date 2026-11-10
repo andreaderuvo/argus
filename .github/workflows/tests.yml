@@ -42,7 +42,7 @@ jobs:
       - name: the wiki, for the documentation check
         run: git clone --depth 1 https://github.com/andreaderuvo/argus.wiki.git "$RUNNER_TEMP/wiki" || true
       # The browser suite runs once, in its own job below — not three times here.
-      - run: python -m pytest -q -n 4 -m "not browser"
+      - run: python -m pytest -q -n 4 --durations=10 -m "not browser"
         env:
           ARGUS_WIKI: ${{ runner.temp }}/wiki
 
@@ -73,7 +73,16 @@ jobs:
       - run: pip install -r requirements.txt
       - run: npm ci
       - run: sudo apt-get update && sudo apt-get install -y tmux poppler-utils
-      - run: python -m pytest -q -n 4 $(python scripts/ci_shard.py ${{ matrix.shard }} 4 tests/test_modules.py tests/browser tests/test_computers.py tests/test_argus_browser.py)
+      # The ten slowest tests named in every run: what to look at first when it grows.
+      - run: python -m pytest -q -n 4 --durations=10 $(python scripts/ci_shard.py ${{ matrix.shard }} 4 tests/test_modules.py tests/browser tests/test_computers.py tests/test_argus_browser.py)
         env:
           ARGUS_BROWSER_REQUIRED: '1'
           ARGUS_CHROMIUM: /usr/bin/google-chrome
+          ARGUS_FAIL_SHOTS: ${{ runner.temp }}/shots
+      # What the page showed when a test failed: the one thing a log cannot say.
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: failed-pages-${{ matrix.shard }}
+          path: ${{ runner.temp }}/shots
+          if-no-files-found: ignore
