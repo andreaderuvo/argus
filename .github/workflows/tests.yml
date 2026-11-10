@@ -8,6 +8,11 @@ on:
   # than retried, and a commit can end up with no run at all through nobody's fault.
   workflow_dispatch:
 
+# A newer push makes an older run of the same branch pointless.
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   pytest:
     runs-on: ubuntu-latest
@@ -23,6 +28,7 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
+          cache: pip
       - run: pip install -r requirements.txt
       # tmux is not needed — nothing here drives a real server — but pandoc decides
       # whether the Word-document tests run or skip, so it is worth having.
@@ -46,19 +52,28 @@ jobs:
     # Chromium driving a real Argus on a tmux socket of its own. REQUIRED=1 turns "no browser
     # here" from a skip into a failure: a runner that lost Chrome must not pass by testing
     # nothing.
+    #
+    # Split across four machines (scripts/ci_shard.py, balanced by tests per file): on one it took eight
+    # minutes, the whole of the wait for a push (2026-11-10).
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
           python-version: '3.13'
+          cache: pip
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: npm
       - run: pip install -r requirements.txt
       - run: npm ci
       - run: sudo apt-get update && sudo apt-get install -y tmux poppler-utils
-      - run: python -m pytest -q -n 4 tests/test_modules.py tests/browser tests/test_computers.py tests/test_argus_browser.py
+      - run: python -m pytest -q -n 4 $(python scripts/ci_shard.py ${{ matrix.shard }} 4 tests/test_modules.py tests/browser tests/test_computers.py tests/test_argus_browser.py)
         env:
           ARGUS_BROWSER_REQUIRED: '1'
           ARGUS_CHROMIUM: /usr/bin/google-chrome
