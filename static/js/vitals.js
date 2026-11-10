@@ -5,13 +5,11 @@ import { showCount } from '/js/counts.js';
 import { ask, confirmBox, copyPath, copyText, modal, toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { icon } from '/js/icons.js';
-import { translateMarkup } from '/js/markup.js';
 import { delJSON, getJSON, human, patchJSON, postJSON, serverInfo, setTitle, when, withToken } from '/js/reconnect.js';
-import { render } from '/js/router.js';
 import { prefs, setLeaving, view } from '/js/state.js';
 import { dueChip } from '/js/todowhen.js';
 import { openWindow } from '/js/tray.js';
-import { activeLang, loadLanguage, t } from '/js/words.js';
+import { activeLang, t } from '/js/words.js';
 // </imports>
 /* ------------------------------------------------------------------ vitals */
 
@@ -830,6 +828,14 @@ export async function handoffSheet() {
   show(addresses[0]);
 }
 
+/** Kept here and on the machine before the page reloads in it: savePrefs sends a moment later, and a
+ *  reload in that moment would leave the machine on the old language for the next page. */
+async function chooseLanguage(code) {
+  prefs.lang = code;
+  savePrefs();
+  try { await patchJSON('/api/prefs', { changes: { lang: code } }); } catch { /* this browser has it */ }
+}
+
 /** Pick a language, add one, or take the catalogue away to translate. */
 export function languageSheet(list) {
   const body = el('div', { className: 'sheetbody actions' });
@@ -841,11 +847,11 @@ export function languageSheet(list) {
       className: 'ghost block',
       onclick: async () => {
         sheet.close();
-        prefs.lang = lang.code;
-        savePrefs();
-        await loadLanguage(lang.code);
-        translateMarkup();
-        render();
+        await chooseLanguage(lang.code);
+        // The whole page again, in the new language. Translating in place missed what is built once and
+        // kept — the desks and their toolbars, the rail's filter — and left a page half English, half
+        // Italian (2026-11-10). The sessions live in tmux: nothing is lost by the reload.
+        location.reload();
       },
     }, [
       icon(on ? 'star' : 'file'),
@@ -882,11 +888,8 @@ export function languageSheet(list) {
       const parsed = JSON.parse(await file.text());
       const r = await postJSON('/api/language', parsed);
       toast(t('{name} added, {n} strings', { name: r.name, n: r.count }));
-      prefs.lang = r.code;
-      savePrefs();
-      await loadLanguage(r.code);
-      translateMarkup();
-      render();
+      await chooseLanguage(r.code);
+      location.reload();
     } catch (e) {
       toast(e instanceof SyntaxError ? t('that file is not JSON') : e.message, true);
     }

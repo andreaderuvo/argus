@@ -176,6 +176,27 @@ def test_switching_the_language_translates_the_screen(make_page, argus):
     eventually(lambda: argus.api("/api/prefs")["prefs"].get("lang") == "it", what="the language pref on the server")
 
 
+def test_a_language_changed_reaches_every_part_of_the_page(make_page, argus):
+    """"The sidebar is in English but the toolbar on the right is in Italian" (2026-11-10): the desks
+    and the rail's filter were built once and kept, and the language changed under them. Now the page
+    is drawn again in the new language, all of it, and the machine keeps the choice."""
+    page = make_page(route="#/wall")
+    page.wait("[...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'New session')", what="a desk in English")
+    for lang, label, words in (("Italiano", "English", ("Nuova sessione", "Filtra…", "Finestre")),
+                               ("English", "Italiano", ("New session", "Filter…", "Windows"))):
+        page.eval("location.hash = '#/settings'")
+        page.click_text(label, within=".row.setting")
+        page.click_text(lang, within="dialog button")
+        page.wait("document.readyState === 'complete' && !!document.getElementById('railfilterinput')", timeout=15, what="the page again")
+        page.eval("location.hash = '#/wall'")
+        new_session, filt, windows = words
+        page.wait(f"[...document.querySelectorAll('button')].some(b => b.textContent.trim() === {new_session!r})", timeout=15,
+                  what=f"the desk's toolbar in {lang}")
+        assert page.eval("document.getElementById('railfilterinput').placeholder") == filt
+        assert page.eval("document.querySelector('#nav a[data-tab=\"wall\"]').textContent.trim()").startswith(windows)
+    eventually(lambda: argus.api("/api/prefs")["prefs"].get("lang") == "en", what="kept on the machine")
+
+
 def test_the_shortcut_help_opens_and_closes(make_page):
     page = make_page(route="#/sessions")
     page.click("#keys")
