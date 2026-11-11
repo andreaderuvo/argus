@@ -479,7 +479,15 @@ def _close_gone(a: Argus, args: dict) -> str:
 
 def _said_request(said: dict) -> str:
     if said["state"] == "done":
-        return f"Done: {said['text']}."
+        # What the action answered, when it answers something: a command run on a computer gives its exit code
+        # and output — "Done: run on Mac" with nothing else left the agent blind (2026-11-11).
+        r = said.get("result") if isinstance(said.get("result"), dict) else {}
+        if "output" in r or "code" in r:
+            cut = " (cut: only the end is kept)" if r.get("cut") else ""
+            return (f"Done (request {said['id']}): {said['text']}. Exit code {r.get('code')}"
+                    + (f", {r['seconds']:.1f} s" if isinstance(r.get("seconds"), (int, float)) else "")
+                    + f". Output{cut}:\n{r.get('output') or '(none)'}")
+        return f"Done (request {said['id']}): {said['text']}."
     if said["state"] == "refused":
         return f"The person said no to: {said['text']}."
     if said["state"] == "failed":

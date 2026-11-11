@@ -316,3 +316,14 @@ def test_every_library_method_reaches_an_agent_too():
     missing = methods - used - set(LIBRARY_ONLY)
     assert not missing, f"in the library but reached by no MCP tool (add one, or say why in LIBRARY_ONLY): {sorted(missing)}"
     assert set(LIBRARY_ONLY) <= methods, "a stale entry in LIBRARY_ONLY"
+
+
+def test_a_request_done_says_what_it_answered():
+    """"Done: run on Mac: <command>." and no output, no id (2026-11-11): a command run on a computer brings back
+    its exit code and output, and every answer names the request for request_status."""
+    import argus_mcp as m
+    ran = m._said_request({"id": "r7", "state": "done", "text": "run on Mac: ls ~",
+                           "result": {"code": 0, "output": "Desktop\nDocuments\n", "cut": False, "seconds": 0.42}})
+    assert "request r7" in ran and "Exit code 0" in ran and "Desktop\nDocuments" in ran, ran
+    plain = m._said_request({"id": "r8", "state": "done", "text": "rename the session a to b", "result": {}})
+    assert plain == "Done (request r8): rename the session a to b."
