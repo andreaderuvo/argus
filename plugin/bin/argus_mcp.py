@@ -233,9 +233,11 @@ TOOLS = [
                     "the password: argus-bridge types it into the page on their computer, only on that login's own "
                     "site, after asking them there (unless they chose Always for it). Fills what the page shows now "
                     "(account, password, a one-time code); then press the page's sign-in button yourself with "
-                    "browser_click. A two-step sign-in: call it again on the next step. `account` when the site has "
-                    "several logins (the error names them).",
+                    "browser_click. A two-step sign-in: call it again on the next step. When the person says which "
+                    "login to use by a code (\"sign in with XYZ\"), pass it as `code`; `account` when the site has "
+                    "several logins (the error names them, with their codes).",
      "inputSchema": {"type": "object", "properties": {
+         "code": {"type": "string", "description": "The code the person gave this login in argus-bridge, when they named one"},
          "account": {"type": "string", "description": "Which account, when there are several for this site"},
          "computer": {"type": "string"}}}},
     {"name": "browser_tabs",
@@ -555,7 +557,7 @@ def _browser_login(a: Argus, args: dict) -> str:
         name, tab = browser.agent_tab(a.computers(), args.get("computer"))
     except browser.BrowserError as e:
         raise ArgusError(0, str(e)) from None
-    said = a.call("POST", "/api/computers/login", {"computer": name, "target": tab, "account": args.get("account") or ""}, timeout=170)
+    said = a.call("POST", "/api/computers/login", {"computer": name, "target": tab, "account": args.get("code") or args.get("account") or ""}, timeout=170)
     fields = [f for f, on in (("account", said.get("username")), ("password", said.get("password")), ("one-time code", said.get("otp"))) if on]
     return (f"Filled {', '.join(fields)} on {said.get('host')} as {said.get('account')} (from {said.get('source')}). "
             "You did not see the password and must not ask for it. Now press the page's sign-in button (browser_look, "

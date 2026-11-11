@@ -641,7 +641,7 @@ async def run_route(request: Request, ident: str) -> dict:
 
 @router.post("/api/computers/login", summary="Sign an agent in with the person's saved login")
 async def login_route(request: Request) -> dict:
-    """`{target, computer?, account?, want?}` → `{host, account, source, username, password, otp}` (which fields
+    """`{target, computer?, account?, want?}` (`account`: an account, or the code the person gave a login) → `{host, account, source, username, password, otp}` (which fields
     were filled — never with what), or with `want: "list"` → `{host, accounts}`. The agent's own tab of
     the computer's browser; argus-bridge keeps the logins (its vault in the system keychain, 1Password),
     asks the person there unless the site is "Always", and fills only on the login's own site."""
