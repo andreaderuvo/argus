@@ -16,6 +16,7 @@ concurrency:
 jobs:
   pytest:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       # Every version reports: a failure on one used to cancel the other two, and hid whatever
       # they would have said.
@@ -42,7 +43,7 @@ jobs:
       - name: the wiki, for the documentation check
         run: git clone --depth 1 https://github.com/andreaderuvo/argus.wiki.git "$RUNNER_TEMP/wiki" || true
       # The browser suite runs once, in its own job below — not three times here.
-      - run: python -m pytest -q -n 4 --durations=10 -m "not browser"
+      - run: python -m pytest -q -n 4 --durations=10 --timeout=300 -m "not browser"
         env:
           ARGUS_WIKI: ${{ runner.temp }}/wiki
 
@@ -56,6 +57,7 @@ jobs:
     # Split across four machines (scripts/ci_shard.py, balanced by tests per file): on one it took eight
     # minutes, the whole of the wait for a push (2026-11-10).
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -74,7 +76,7 @@ jobs:
       - run: npm ci
       - run: sudo apt-get update && sudo apt-get install -y tmux poppler-utils
       # The ten slowest tests named in every run: what to look at first when it grows.
-      - run: python -m pytest -q -n 4 --durations=10 $(python scripts/ci_shard.py ${{ matrix.shard }} 4 tests/test_modules.py tests/browser tests/test_computers.py tests/test_argus_browser.py)
+      - run: python -m pytest -q -n 4 --durations=10 --timeout=300 $(python scripts/ci_shard.py ${{ matrix.shard }} 4 tests/test_modules.py tests/browser tests/test_computers.py tests/test_argus_browser.py)
         env:
           ARGUS_BROWSER_REQUIRED: '1'
           ARGUS_CHROMIUM: /usr/bin/google-chrome

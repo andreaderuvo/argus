@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import time
+from pathlib import Path
 
 from .test_flows import eventually
 
@@ -21,7 +22,11 @@ def test_lost_agents_are_offered_back_and_come_back(make_page, argus, tmp_path):
                f"{agent} --dangerously-skip-permissions")
     # Its hook says which conversation it is in, as Claude Code's does at the end of a turn.
     argus.api("/api/bell", "POST", {"session": "paper", "why": "done", "conversation": CONV})
-    time.sleep(2.5)                                        # the register, every second here
+    # The register (every second here) has it, with its conversation: waited for, not slept on — 2.5 s
+    # was not always enough on a slow runner (it failed CI).
+    seen = Path(argus.config).parent / "agents-seen.json"
+    eventually(lambda: seen.exists() and json.loads(seen.read_text())["sessions"].get("paper", {}).get("conversation") == CONV,
+               timeout=15, what="the agent in the register")
     argus.kill_sessions()                                  # the reboot
     eventually(lambda: any(x["name"] == "paper" for x in argus.api("/api/resume")["lost"]),
                timeout=10, what="the loss to be noticed")

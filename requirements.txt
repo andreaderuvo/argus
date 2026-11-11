@@ -14,4 +14,5 @@ jsonschema>=3.2,<5   # optional: team files checked against docs/team.schema.jso
 
 # Tests
 pytest>=8.0,<10
-pytest-xdist>=3.6,<4  # `-n 8`: the suite in a quarter of the time (each worker its own Argus and tmux socket)
+pytest-xdist>=3.6,<4
+pytest-timeout>=2.3,<3  # CI: a test that hangs fails in 5 minutes, instead of holding a runner 6 hours  # `-n 8`: the suite in a quarter of the time (each worker its own Argus and tmux socket)

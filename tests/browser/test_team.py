@@ -86,10 +86,15 @@ def test_a_step_added_in_parallel_with_a_click_is_in_the_team_that_runs(make_pag
     page = make_page(route="#/wall")
     open_sheet(page, argus, "make the parser faster")
     page.wait("document.querySelector('.teamcard.on')?.textContent.includes('Optimise')", timeout=5, what="Optimise")
+    # The sheet is drawn again when the agents arrive: clicked before, the panel could be redrawn under the
+    # click and its button found with no size (it failed CI).
+    page.wait("!!document.querySelector('.teamrole select')", timeout=25, what="the agents")
     # Click the executor in the picture: its panel opens.
     page.click_at(*page._center("[...document.querySelectorAll('.teampicture .tgnode')].find(n => n.querySelector('.tgtext')?.textContent === 'executor')"))
     page.wait("!document.querySelector('.teamnode').hidden", timeout=5, what="the step's panel")
-    page.click_at(*page._center("[...document.querySelectorAll('.teamnode button')].find(b => b.textContent === '+ agent in parallel')"))
+    parallel = "[...document.querySelectorAll('.teamnode button')].find(b => b.textContent === '+ agent in parallel')"
+    page.wait(f"!!({parallel})?.getClientRects().length", timeout=5, what="+ agent in parallel, on screen")
+    page.click_at(*page._center(parallel))
     page.wait("[...document.querySelectorAll('.teampicture .tgtext')].some(t => t.textContent === 'executor-b')", timeout=5,
               what="the new branch, drawn")
     page.wait("document.querySelectorAll('.teamrole').length === 3", timeout=25, what="an agent for it too")
@@ -335,6 +340,10 @@ def test_the_team_line_survives_the_desk_being_put_back(make_page, argus):
     page.wait("!document.querySelector('#view .teamstrip')", timeout=5)
     page.eval("location.hash = '#/wall'")
     page.wait("!!document.querySelector('#view .teamstrip .teamline') && !!document.querySelector('#view .teamwin svg')", timeout=8, what="and back from another screen")
+    # The log's window closed first: it reloads as the team stops, and the log deleted under that reload
+    # was answered 404 — a failure of the test's own tidying (it failed CI).
+    page.click_at(*page._center("document.querySelector('.win[data-kind=\"file\"] .closebtn')"))
+    page.wait("!document.querySelector('.win[data-kind=\"file\"]')", timeout=5, what="the log's window closed")
     clean(argus, project)
 
 

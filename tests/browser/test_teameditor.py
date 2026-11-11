@@ -153,7 +153,9 @@ def test_a_team_yaml_can_be_edited_as_a_diagram_and_is_saved_as_yaml(make_page, 
     page.wait("document.querySelector('.testatus')?.classList.contains('good')", timeout=10)
     page.click_at(*page._center("[...document.querySelectorAll('.teamfiletabs button')].find(b => b.textContent.startsWith('Diagram'))"))
     page.wait("document.querySelector('.teinput').value.startsWith('flowchart')", timeout=10, what="the diagram")
-    assert "duties, worktrees, gate, rounds and reset are kept" in page.text(".teamfilemode")
+    # The text arrives a moment before the line under it is written: waited for, not read at once (it failed CI).
+    page.wait("document.querySelector('.teamfilemode')?.textContent.includes('duties, worktrees, gate, rounds and reset are kept')",
+              timeout=5, what="the line saying what is kept")
     page.eval("(() => { const i = document.querySelector('.teinput'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); })()")
     page.type('  analyst["researcher"] --> trader\n')
     page.wait("[...document.querySelectorAll('.teamfilegraph .tgtext')].some(x => x.textContent === 'analyst')", timeout=10, what="the new step, drawn")

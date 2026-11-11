@@ -279,23 +279,35 @@ def argus(tmp_path_factory) -> Argus:
 def chromium(tmp_path_factory):
     path = find_chromium()
     _need("no Chromium found (set ARGUS_CHROMIUM)", path is not None)
-    profile = tmp_path_factory.mktemp("chromium-profile")
-    proc = subprocess.Popen(
-        [path, "--headless=new", "--no-sandbox", "--disable-gpu", "--no-first-run",
-         "--no-default-browser-check", "--disable-extensions", "--remote-debugging-port=0",
-         # A mouse, as far as CSS can tell: (hover: hover) and (pointer: fine). Without it the
-         # desktop layout loses every control that only exists where there is a pointer.
-         "--blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4",
-         f"--user-data-dir={profile}", "--window-size=1400,900", "about:blank"],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True,
-    )
-    port_file = profile / "DevToolsActivePort"
-    end = time.monotonic() + 20
-    while not port_file.exists() and time.monotonic() < end:
-        time.sleep(0.05)
-    if not port_file.exists():
-        proc.kill()
-        raise RuntimeError("Chromium did not open its debugging port")
+    # Started up to three times: on a busy CI runner one start in a few hundred never opened its port, and
+    # every test of that worker errored (the flake hunter, 2026-11-10). Its own output is kept for the message.
+    for attempt in range(3):
+        profile = tmp_path_factory.mktemp("chromium-profile")
+        said = open(profile.parent / f"{profile.name}.log", "wb")
+        proc = subprocess.Popen(
+            [path, "--headless=new", "--no-sandbox", "--disable-gpu", "--no-first-run",
+             "--no-default-browser-check", "--disable-extensions", "--remote-debugging-port=0",
+             # A mouse, as far as CSS can tell: (hover: hover) and (pointer: fine). Without it the
+             # desktop layout loses every control that only exists where there is a pointer.
+             "--blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4",
+             f"--user-data-dir={profile}", "--window-size=1400,900", "about:blank"],
+            stdout=said, stderr=subprocess.STDOUT, start_new_session=True,
+        )
+        port_file = profile / "DevToolsActivePort"
+        end = time.monotonic() + 20
+        # Written in two lines (port, path): read once both are there, not while half written.
+        while time.monotonic() < end and not (port_file.exists() and port_file.read_text().count("\n") >= 1):
+            time.sleep(0.05)
+        said.close()
+        if port_file.exists() and port_file.read_text().split():
+            break
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        if attempt == 2:
+            tail = (profile.parent / f"{profile.name}.log").read_text(errors="replace")[-2000:]
+            raise RuntimeError(f"Chromium did not open its debugging port (three tries):\n{tail}")
     port = int(port_file.read_text().split()[0])
     version = http_json(f"http://127.0.0.1:{port}/json/version")
     browser = Session(version["webSocketDebuggerUrl"])
