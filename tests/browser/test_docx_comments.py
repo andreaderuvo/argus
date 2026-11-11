@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import time
 
 import pytest
 
@@ -71,6 +72,9 @@ def test_the_comments_of_a_docx_stand_beside_their_words_and_a_save_keeps_the_pl
         # Read to the second comment, then the file is saved again with that comment changed.
         page.frame_eval("manuscript.docx", "document.querySelector('.dn-anchor[data-id=\"1\"]').scrollIntoView({block: 'center'}); scrollY")
         eventually(lambda: page.frame_eval("manuscript.docx", "scrollY") > 500, timeout=5, what="scrolled down")
+        # The page tells Argus where it is 150 ms after the scrolling stops: saved before that, the reload
+        # had nothing to come back to (it failed the flake hunter).
+        time.sleep(0.5)
         shoot(page, "docx-comments")
         before = page.frame_eval("manuscript.docx", "scrollY")
         review(doc, "Which scheme, and which version?")

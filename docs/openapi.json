@@ -1834,8 +1834,20 @@
   },
   "/api/fs/locate": {
    "post": {
-    "description": "Which of these words are files? Read-only, and jailed like everything else.",
+    "description": "Which of these words are files? Read-only, and jailed like everything else. `missing_ok=1`: a\nsession that has just ended is no folder to resolve against, not an error \u2014 a window asks about\nits own session, which may have been closed under it (a team's restart).",
     "operationId": "postApiFsLocate",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "missing_ok",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Missing Ok",
+       "type": "boolean"
+      }
+     }
+    ],
     "requestBody": {
      "content": {
       "application/json": {

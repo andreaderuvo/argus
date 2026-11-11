@@ -119,6 +119,13 @@ def test_an_unknown_session_is_refused(client):
     assert locate(client, ["x"], session="no-such-session-here").status_code == 404
 
 
+def test_a_session_just_ended_is_no_folder_with_missing_ok(client, tree):
+    """A window asking about its own session, closed under it: nothing to resolve against, no error."""
+    r = client.post("/api/fs/locate?missing_ok=1", json={"paths": ["x"], "session": "no-such-session-here"},
+                    headers={"Authorization": f"Bearer {TOKEN}"})
+    assert r.status_code == 200 and r.json()["base"] is None
+
+
 def test_the_candidate_list_is_capped(client, tree):
     """A line of a thousand words must not become a thousand stat calls."""
     real = str(tree / "root" / "notes.md")

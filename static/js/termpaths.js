@@ -116,7 +116,7 @@ export async function locatePaths(tokens, session) {
   if (session) body.session = session;
   // postJSON hands back the parsed body already — calling .json() on it throws, and the
   // catch below would turn every lookup into "nothing here".
-  const found = await postJSON('/api/fs/locate', body)
+  const found = await postJSON('/api/fs/locate?missing_ok=1', body)
     .then((r) => r.found || {})
     .catch(() => ({}));
   if (located.size > 400) located.clear();

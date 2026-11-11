@@ -241,9 +241,12 @@ class Page(Session):
                 if session in gone or url_part not in urls.get(target, ""):
                     continue
                 try:
+                    # A frame being replaced may never answer: asked briefly, and again, rather than for 20 s
+                    # (it failed the flake hunter).
                     r = self.send("Runtime.evaluate", {"expression": expression, "returnByValue": True,
-                                                      "awaitPromise": True}, session=session)
-                except CDPError as e:
+                                                      "awaitPromise": True}, session=session,
+                                  timeout=max(1.0, min(5.0, end - time.monotonic())))
+                except (CDPError, Timeout) as e:
                     last = e                      # a frame redrawn under us: try the next one
                     continue
                 if "exceptionDetails" not in r:

@@ -377,16 +377,19 @@ def look_up(jail, token: str, base: str | None) -> dict | None:
 
 
 @router.post("/api/fs/locate")
-async def locate(request: Request, body: LocateBody) -> dict:
-    """Which of these words are files? Read-only, and jailed like everything else."""
+async def locate(request: Request, body: LocateBody, missing_ok: bool = False) -> dict:
+    """Which of these words are files? Read-only, and jailed like everything else. `missing_ok=1`: a
+    session that has just ended is no folder to resolve against, not an error — a window asks about
+    its own session, which may have been closed under it (a team's restart)."""
     state = request.app.state
     base = None
 
     if body.session:
         # Same rule as attaching: only a session tmux itself reported.
-        if not await asyncio.to_thread(tmux.session_exists, state.socket, body.session):
+        if await asyncio.to_thread(tmux.session_exists, state.socket, body.session):
+            base = await asyncio.to_thread(pane_cwd, state.socket, body.session)
+        elif not missing_ok:
             raise ApiError(404, f"no tmux session named {body.session!r}")
-        base = await asyncio.to_thread(pane_cwd, state.socket, body.session)
     elif body.base:
         try:
             base = str(state.jail.resolve(body.base))
