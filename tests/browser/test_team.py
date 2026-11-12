@@ -144,8 +144,17 @@ def test_a_role_of_your_own_is_saved_and_offered_again(make_page, argus):
     page.wait("!document.querySelector('.teamnode').hidden", timeout=5, what="the step's panel")
     duty = "document.querySelector('.teamnode .teamduty')"
     page.eval(f"{duty}.value = 'Use your /security-review skill on the diff.'; {duty}.dispatchEvent(new Event('input'))")
-    page.click_at(*page._center("[...document.querySelectorAll('.teamnode button')].find(b => b.textContent === 'Save as a role of mine')"))
-    page.wait("!!document.querySelector('dialog.sheet:last-of-type input')", timeout=5, what="the name to save it under")
+    # The naming box by its own title: "an input in the last sheet" also matched the Team sheet, so a press
+    # lost in WebKit (the panel redrawn under it) went unnoticed. Pressed again only while it is not there.
+    naming = "[...document.querySelectorAll('dialog.sheet[open]')].some(d => d.textContent.includes('A name for this role'))"
+    for _ in range(3):
+        page.click_at(*page._center("[...document.querySelectorAll('.teamnode button')].find(b => b.textContent === 'Save as a role of mine')"))
+        try:
+            page.wait(naming, timeout=3, what="the name to save it under")
+            break
+        except AssertionError:
+            pass
+    page.wait(naming, timeout=2, what="the name to save it under")
     page.eval("const i = [...document.querySelectorAll('dialog.sheet input:not([type=file]):not([type=checkbox]):not([type=radio])')].pop(); i.value = 'Security Auditor!'; i.dispatchEvent(new Event('input'))")
     page.settle(quiet=0.5)
     page.click_at(*page._center("[...document.querySelectorAll('dialog.sheet button')].find(b => b.textContent === 'Save')"))

@@ -340,3 +340,17 @@ def test_a_theme_chosen_and_reloaded_at_once_is_kept(make_page, argus):
     page.wait(f"document.readyState === 'complete' && !!document.querySelector('#nav')", what="the page again")
     page.wait(f"document.documentElement.dataset.theme !== {json.dumps(start)}", what="the theme kept")
     eventually(lambda: argus.api("/api/prefs")["prefs"].get("uiTheme") == other, what="on the machine")
+
+
+def test_a_save_lost_as_the_page_left_is_sent_by_the_next_page(make_page, argus):
+    """The leaving page's request does not always arrive (CI, 2026-11-12): the keys it carried are named in the
+    browser, and the next page sends them instead of taking the machine's older copy. Lost here on purpose."""
+    page = make_page(route="#/settings")
+    page.eval("""Promise.all([import('/js/state.js'), import('/js/core.js')]).then(([s, c]) => {
+        const real = window.fetch;
+        window.fetch = (url, init) => (String(url).includes('/api/prefs') && init?.method === 'PATCH'
+          ? Promise.reject(new TypeError('lost on the way')) : real(url, init));
+        s.prefs.fontSize = 17; c.savePrefs(); location.reload(); })""")
+    page.wait("document.readyState === 'complete' && !!document.querySelector('#nav')", what="the next page")
+    eventually(lambda: argus.api("/api/prefs")["prefs"].get("fontSize") == 17, what="sent by the next page")
+    page.wait("localStorage.getItem('argus.prefs.unsent') === null", what="and the mark cleared")

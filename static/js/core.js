@@ -140,6 +140,7 @@ export function savePrefs() {
    */
   clearTimeout(pushing);
   setPushing(setTimeout(async () => {
+    setPushing(null);               // fired: a save made while this one is out waits on a timer of its own
     const texts = {};
     const changes = changedKeys(texts);
     if (!Object.keys(changes).length) return;
@@ -148,6 +149,7 @@ export function savePrefs() {
         changes, ...('workspaces' in changes ? { known: { workspaces: knownDesks() } } : {}),
       });
       setPrefsVersion(said.version);
+      if (!pushing) { try { localStorage.removeItem(UNSENT_KEY); } catch { /* nothing kept */ } }
       // The machine kept a desk this page had not seen: take it in, so the next save carries it.
       if (said.workspaces?.some((w) => !(prefs.workspaces || []).some((m) => m.id === w.id))) adoptDesks();
       // What went is what the machine now has — not the whole document copied again, and not
@@ -172,6 +174,13 @@ addEventListener('pagehide', () => {
   setPushing(null);
   const changes = changedKeys({});
   if (!Object.keys(changes).length || !token) return;
+  // Named, too, for the next page: a request sent by a page that is leaving does not always arrive (CI,
+  // 2026-11-12), and then these keys are this browser's newer word, sent again by syncPrefs.
+  try {
+    let before = [];
+    try { before = JSON.parse(localStorage.getItem(UNSENT_KEY) || '[]'); } catch { before = []; }
+    localStorage.setItem(UNSENT_KEY, JSON.stringify([...new Set([...(Array.isArray(before) ? before : []), ...Object.keys(changes)])]));
+  } catch { /* full: the request alone */ }
   try {
     fetch('/api/prefs', {
       method: 'PATCH', keepalive: true,
@@ -200,7 +209,13 @@ export async function refreshLooks() {
   } catch { /* offline for a moment: the next visit catches up */ }
 }
 
+const UNSENT_KEY = 'argus.prefs.unsent';
+
 export async function syncPrefs() {
+  // Keys this browser changed and a leaving page may not have got to the machine: they win over its copy.
+  let unsent = [];
+  try { unsent = JSON.parse(localStorage.getItem(UNSENT_KEY) || '[]'); } catch { unsent = []; }
+  const local = JSON.parse(JSON.stringify(prefs));
   try {
     const said = await getJSON('/api/prefs');
     const theirs = said.prefs || {};
@@ -227,6 +242,13 @@ export async function syncPrefs() {
     }
     setPrefsVersion(said.version);
     setBaseline(JSON.parse(JSON.stringify(prefs)));
+    if (Array.isArray(unsent) && unsent.length) {
+      for (const key of unsent) {
+        if (key in local) prefs[key] = local[key]; else delete prefs[key];
+      }
+      localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+      savePrefs();                  // differs from the baseline just set: sent, and the mark cleared on success
+    }
     // Links kept one key per desk now, and none for a desk that is gone (tray.js): done after the
     // baseline, so that what it changes is what the next save sends.
     const before = Object.keys(prefs).filter((k) => k === 'links' || k.startsWith('links.')).join();
