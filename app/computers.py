@@ -575,7 +575,9 @@ async def files_list(app, ident: str, path: str, match: str = "", deep: bool = F
 
     ch, chan = one.channel("file", sink)
     try:
-        if not await one.open(ch, chan, {"kind": "file", "do": "list", "path": str(path or "~"), "match": str(match or ""), "deep": bool(deep)}):
+        # Answered and closed before the open was checked — a small folder is fast — is answered (as login's).
+        if not await one.open(ch, chan, {"kind": "file", "do": "list", "path": str(path or "~"), "match": str(match or ""), "deep": bool(deep)}) \
+                and chan["code"] != 0:
             raise ApiError(502, chan["why"] or "the computer did not answer")
         await asyncio.wait_for(done.wait(), 60)
     except asyncio.TimeoutError:
@@ -645,7 +647,7 @@ async def fetch(app, ident: str, path: str, to: str) -> dict:
 
     ch, chan = one.channel("file", sink)
     try:
-        if not await one.open(ch, chan, {"kind": "file", "do": "get", "path": str(path or "")}):
+        if not await one.open(ch, chan, {"kind": "file", "do": "get", "path": str(path or "")}) and chan["code"] != 0:
             raise ApiError(502, chan["why"] or "the computer did not send it")
         try:
             await asyncio.wait_for(done.wait(), 3600)

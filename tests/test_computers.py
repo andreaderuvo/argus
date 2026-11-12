@@ -429,6 +429,20 @@ def test_the_real_argus_sync_connects_this_computer(live, tmp_path):
                                                 {"command": "echo from argus-bridge; exit 4", "cwd": str(tmp_path)})
             assert code == 200 and ran["code"] == 4 and "from argus-bridge" in ran["output"], ran
 
+            # Its files (files.rs): searched, brought in whole — past a chunk, so in pieces — and sent back.
+            there = tmp_path / "on-the-computer"
+            there.mkdir()
+            blob = os.urandom(450_000)
+            (there / "isolates.xlsx").write_bytes(blob)
+            code, said = await asyncio.to_thread(call, live, f"/api/computers/{cid}/files", "POST", {"path": str(there), "match": "iso"})
+            assert code == 200 and [e["name"] for e in said["entries"]] == ["isolates.xlsx"], said
+            inbox = tmp_path / "inbox"
+            inbox.mkdir()
+            code, got = await asyncio.to_thread(call, live, f"/api/computers/{cid}/fetch", "POST", {"path": str(there / "isolates.xlsx"), "to": str(inbox)})
+            assert code == 200 and Path(got["saved"]).read_bytes() == blob, got
+            code, sent = await asyncio.to_thread(call, live, f"/api/computers/{cid}/send", "POST", {"path": got["saved"], "to": str(there / "back.xlsx")})
+            assert code == 200 and (there / "back.xlsx").read_bytes() == blob, sent
+
             url = live.replace("http", "ws", 1) + f"/ws/computer/{cid}?token={MASTER}&cols=80&rows=24"
             async with websockets.connect(url) as term:
                 assert json.loads(await term.recv())["type"] == "ready"
