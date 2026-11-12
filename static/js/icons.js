@@ -106,6 +106,9 @@ export const ICONS = {
   compress: 'M20 4l-6.2 6.2M13.8 10.2h5M13.8 10.2v-5M4 20l6.2-6.2M10.2 13.8h-5M10.2 13.8v5',
   fit: 'M4.5 9V4.5H9M15 4.5h4.5V9M19.5 15v4.5H15M9 19.5H4.5V15',
   lock: 'M6.5 10.5h11v9h-11zM9 10.5V7.6a3 3 0 0 1 6 0v2.9',
+  arrowRight: 'M5 12h14M13 6l6 6-6 6',
+  // Four-pointed: something new.
+  sparkle: 'M12 3.5l1.9 5.6 5.6 1.9-5.6 1.9L12 18.5l-1.9-5.6L4.5 11l5.6-1.9zM18.5 3.5v3M17 5h3',
   // A small robot: a head with an antenna, two eyes, a mouth — what agents can do.
   robot: 'M6.5 8.5h11a1.5 1.5 0 0 1 1.5 1.5v7a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 17v-7a1.5 1.5 0 0 1 1.5-1.5zM12 8.5V5.5M12 5.5h.01M9.5 12.5h.01M14.5 12.5h.01M10 15.5h4M3 12v3M21 12v3',
   relay: 'M6.5 8.5h11M14.5 5.5l3 3-3 3M17.5 15.5h-11M9.5 12.5l-3 3 3 3',

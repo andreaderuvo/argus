@@ -101,7 +101,7 @@ export function actionWords(name) {
   return AGENT_CAN().find((x) => x.name === name)?.what || name;
 }
 
-export async function screenAgents() {
+export async function screenAgents(query = '') {
   setTitle(t('What agents can do'));
   const search = el('input', { type: 'search', className: 'agentcanfind', placeholder: t('Find: file, login, desk, team…'), 'aria-label': t('Find') });
   const list = el('div', { className: 'agentcanlist' });
@@ -184,6 +184,7 @@ export async function screenAgents() {
     list.replaceChildren(...(out.length ? out : [el('p', { className: 'meta', textContent: t('Nothing matches.') })]));
   };
   search.oninput = draw;
+  search.value = query;
   draw();
   search.focus({ preventScroll: true });
 }

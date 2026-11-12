@@ -111,7 +111,8 @@ export async function render() {
     // Loaded the first time it is opened: most visits never are.
     if (path === '/notes') return await (await import('/js/notes.js')).screenNotes();
     if (path === '/needs') return await (await import('/js/needs.js')).screenNeeds();
-    if (path === '/agents') return await (await import('/js/agentcan.js')).screenAgents();
+    if (path === '/agents') return await (await import('/js/agentcan.js')).screenAgents(q.get('q') || '');
+    if (path === '/tour') return await (await import('/js/argusmap.js')).screenTour();
     if (path === '/settings') return await screenSettings();
     if (path === '/tmuxconf') return await screenTmuxConf();
     if (path === '/placeholders') return await screenMessages('vars');

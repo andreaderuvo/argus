@@ -131,10 +131,10 @@ SAME_EVERYWHERE = {"Web", "Apple / Outlook (.ics)", "Ctrl", "auto", "Auto", "mar
                    "B KB MB GB TB"}           # French alone writes octets: o Ko Mo Go To
 SAME_IN = {
     "it": {"Browser", "Menu", "desk", "home", "in", "in {folder}", "Log", "Team", "tester", "Release", "No",
-           "Join", "join", "Desk {n}"},
+           "Join", "join", "Desk {n}", "Desk"},
     "es": {"Prompts", "tester", "No", "1 error", "General", "Terminal", "Cursor", "Terminal · {name}", "normal"},
     "fr": {"Actions", "Documents", "Interruptions", "Journal", "Menu", "Prompts", "Version", "Pause",
-           "code", "document", "extension", "page", "agent", "Agent", "Agents", "{n} agents",
+           "code", "document", "extension", "page", "agent", "Agent", "Agents", "{n} agents", "Action", "Session",
            "session", "Sessions", "{n} sessions", "Terminal", "Interface", "Accent", "Danger",
            "machine", "port", "Note", "Notes", "1 note", "{n} notes", "Questions", "Terminal · {name}", "port {port} → localhost:{local}"},
 }

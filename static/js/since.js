@@ -11,6 +11,7 @@ import { MARKS, mark, pastePause } from '/js/handover.js';
 import { icon } from '/js/icons.js';
 import { installHere, installOffer, installed } from '/js/installing.js';
 import { PANEL_SIDES, panelSide, setPanelSide } from '/js/needs.js';
+import { openPalette } from '/js/palette.js';
 import { under } from '/js/pointing.js';
 import { colorFor, delJSON, deskHome, getJSON, homePath, human, parentOf, postJSON, serverInfo, setTitle, signOut, when, withToken } from '/js/reconnect.js';
 import { go, render } from '/js/router.js';
@@ -23,6 +24,7 @@ import { workspaces } from '/js/tray.js';
 import { agentWords, repaintDiagrams } from '/js/viewers.js';
 import { deviceRows, handoffSheet, languageSheet } from '/js/vitals.js';
 import { SEARCH_ENGINES, searchEngine } from '/js/wall.js';
+import { whatsNew } from '/js/whatsnew.js';
 import { activeLang, t } from '/js/words.js';
 // </imports>
 /* ------------------------------------------------------ while you were away */
@@ -1037,6 +1039,16 @@ export async function screenSettings() {
    *  section at all. The server enforces that regardless of what is drawn here.
    */
   wrap.append(group(t('Devices')), deviceRows());
+
+  // Getting to know it: four ways in, from the page everybody opens sooner or later.
+  const helpRow = (name, meta, run) => el('button', { className: 'row setting', type: 'button', onclick: run }, [
+    el('span', { className: 'grow' }, [el('span', { className: 'name', textContent: name }), el('span', { className: 'meta', textContent: meta })]),
+  ]);
+  wrap.append(group(t('Getting to know Argus')),
+    helpRow(t('Find anything'), t('a screen, an action, a setting, a desk — by what you type (Ctrl+K, ⌘K)'), () => openPalette()),
+    helpRow(t('What Argus does'), t('everything in one page, two lines each, with “Show me”'), () => go('#/tour')),
+    helpRow(t('What agents can do'), t('every tool and action, as a sentence to say'), () => go('#/agents')),
+    helpRow(t('What’s new'), t('what arrived lately'), () => whatsNew({ all: true })));
 
   wrap.append(group(t('This copy')), versionRow());
   // The repository, the documentation and the site: on a phone the header has no room for the

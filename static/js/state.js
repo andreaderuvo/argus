@@ -31,6 +31,7 @@ export const bar = {
   where: document.getElementById('docwhere'),
   about: document.getElementById('about'),
   keys: document.getElementById('keys'),
+  find: document.getElementById('find'),
   drops: document.getElementById('drops'),
   vitals: document.getElementById('vitals'),
 };

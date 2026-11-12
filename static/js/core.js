@@ -3,6 +3,7 @@ import { adoptDesks } from '/js/bells.js';
 import { modal, toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { icon } from '/js/icons.js';
+import { openPalette } from '/js/palette.js';
 import { api, getJSON, patchJSON } from '/js/reconnect.js';
 import { go } from '/js/router.js';
 import { keyHelp } from '/js/shortcuts.js';
@@ -26,6 +27,8 @@ railToggle.onclick = () => {
 bar.settings.onclick = () => go('#/settings');
 
 bar.keys.onclick = () => keyHelp();
+
+bar.find.onclick = () => openPalette();
 
 bar.vitals.onclick = () => go('#/system');
 

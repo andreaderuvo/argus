@@ -23,6 +23,7 @@ import { prefs, token } from '/js/state.js';
 import { teamgraphWords } from '/js/teamgraph.js';
 import { applyName, applyTheme } from '/js/theme.js';
 import { loadThemes } from '/js/themepicker.js';
+import { whatsNew } from '/js/whatsnew.js';
 import { loadLanguage, preferredLanguage, t } from '/js/words.js';
 // </imports>
 
@@ -124,6 +125,8 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) { co
     await loadFavourites();
   }
   await render();
+  // Once after an update: what arrived since the last visit (whatsnew.js). A moment after the page is up.
+  if (token) setTimeout(() => whatsNew(), 1500);
   applyRail();
   buildRailFilter();
   applySidebar();

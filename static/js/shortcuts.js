@@ -5,6 +5,7 @@ import { copyText, modal, toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { icon } from '/js/icons.js';
 import { panelSide, setPanelSide } from '/js/needs.js';
+import { openPalette } from '/js/palette.js';
 import { focusRailFilter } from '/js/railfilter.js';
 import { getJSON, postJSON } from '/js/reconnect.js';
 import { go } from '/js/router.js';
@@ -51,8 +52,10 @@ import { t } from '/js/words.js';
  *  even there a browser owns a few — remap anything yours swallows, or run it as an
  *  installed app, where almost all of them arrive.
  */
-const KEYS = [
+export const KEYS = [
   { group: 'Everywhere', id: 'help', name: 'Keyboard shortcuts', key: '?' },
+  // Also Ctrl+K and ⌘K (palette.js); this one reaches it from inside a terminal, where Ctrl+K is the shell's.
+  { group: 'Everywhere', id: 'palette', name: 'Find anything — screens, actions, settings, desks', key: 'ctrl+shift+p' },
   { group: 'Everywhere', id: 'full', name: 'Full screen', key: 'F11' },
   // Which build is running, in one press: what you check after a pull. Alt alone, because it is
   // asked from anywhere; remap it if your browser keeps Alt+V for a menu.
@@ -145,7 +148,7 @@ function keyboardIsTaken() {
   return !!node.closest?.('.xterm, .win[data-kind="term"]');
 }
 
-function runKey(id) {
+export function runKey(id) {
   const wall = () => document.getElementById('walltools');
   // By the button's label *as shown* — translated: matching the English words found nothing in
   // an Italian, Spanish or French Argus, and those shortcuts silently did nothing.
@@ -160,6 +163,7 @@ function runKey(id) {
   };
   const jobs = {
     help: () => keyHelp(),
+    palette: () => openPalette(),
     version: () => aboutThisArgus(),
     gotAll: () => seeEverything(),
     since: () => go('#/since'),
@@ -659,7 +663,7 @@ export function oldTools(v, redraw) {
 /** A key the way this keyboard writes it: ⌃⇧G on a Mac — where `ctrl` is the Control key, not
  *  ⌘, which is why "Ctrl+Shift+G" read as Command and opened Chrome's find — Ctrl+Shift+G
  *  elsewhere. */
-const ON_MAC = /Mac|iPhone|iPad/i.test(navigator.userAgentData?.platform || navigator.platform || navigator.userAgent);
+export const ON_MAC = /Mac|iPhone|iPad/i.test(navigator.userAgentData?.platform || navigator.platform || navigator.userAgent);
 const KEY_WORDS = { ArrowRight: '→', ArrowLeft: '←', ArrowUp: '↑', ArrowDown: '↓', Escape: 'Esc', ' ': 'Space' };
 export function prettyKey(key) {
   if (!key) return '';

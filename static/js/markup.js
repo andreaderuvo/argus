@@ -1,5 +1,6 @@
 // <imports> generated from what this file uses; edit the code, not this list
 import { markDrops } from '/js/core.js';
+import { ON_MAC, prettyKey } from '/js/shortcuts.js';
 import { applyBottomBar } from '/js/sidebar.js';
 import { bar, hamburger, moreBtn, nav, railToggle, sideToggle } from '/js/state.js';
 import { t } from '/js/words.js';
@@ -40,6 +41,7 @@ export function translateMarkup() {
   name(bar.full, t('Full screen'), t(document.fullscreenElement ? 'Leave full screen' : 'Full screen'));
   name(bar.vitals, t('System'), bar.vitals.hidden ? t('System') : null);
   name(bar.keys, t('Keyboard shortcuts'));
+  name(bar.find, t('Find anything'), `${t('Find anything')} (${prettyKey(ON_MAC ? 'meta+k' : 'ctrl+k')})`);
   name(bar.about, t('Argus on GitHub'));
   name(bar.settings, t('Settings'));
   name(railToggle, t('Wider or narrower'), null);
