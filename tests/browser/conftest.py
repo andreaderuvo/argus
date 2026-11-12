@@ -47,7 +47,6 @@ WEBKIT_GAPS = {
     "test_also.py::test_a_press_sends_it_to_the_other_agent_now": "the typed line is sometimes not recognised in WebKit (unsteady), under investigation",
     "test_also.py::test_after_the_enter_it_offers_to_send_it_too": "the same",
     "test_also.py::test_a_line_it_cannot_be_sure_of_is_not_offered": "the same",
-    "test_teameditor.py::test_a_team_is_drawn_with_the_mouse_and_its_text_written_as_it_goes": "Delete after picking a step on the canvas does not reach it in WebKit yet",
     "test_file_icons.py::test_files_and_links_wear_the_icon_of_their_kind": "the link tray sometimes misses a line of the terminal in WebKit (unsteady), under investigation",
 }
 
