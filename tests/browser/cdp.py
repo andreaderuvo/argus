@@ -307,6 +307,20 @@ class Page(Session):
         self.settle()
 
     def _center(self, finder: str) -> tuple[float, float]:
+        """The middle of what `finder` finds, once it has stopped moving: measured, then measured again 80 ms
+        later until the two agree. A sheet whose notes arrive after it opens pushed its buttons down between
+        the measure and the click, and the click pressed whatever had moved under it (CI, WebKit, 2026-11-12)."""
+        end = time.monotonic() + 3
+        was = self._measure(finder)
+        while time.monotonic() < end:
+            time.sleep(0.08)
+            now = self._measure(finder)
+            if abs(now[0] - was[0]) < 1 and abs(now[1] - was[1]) < 1:
+                return now
+            was = now
+        return was
+
+    def _measure(self, finder: str) -> tuple[float, float]:
         box = self.eval(f"""(() => {{
             const e = {finder};
             if (!e) return null;

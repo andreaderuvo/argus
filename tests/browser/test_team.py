@@ -118,7 +118,7 @@ def test_a_shape_saved_as_a_model_comes_back_as_a_card(make_page, argus):
     open_sheet(page, argus, "write the report")
     page.click_at(*page._center("[...document.querySelectorAll('.teampicturehead button')].find(b => b.textContent === 'Save as my model')"))
     page.wait("!!document.querySelector('dialog.sheet:last-of-type input')", timeout=5, what="the name to save it under")
-    page.eval("const i = [...document.querySelectorAll('dialog.sheet input')].pop(); i.value = 'my review'; i.dispatchEvent(new Event('input'))")
+    page.eval("const i = [...document.querySelectorAll('dialog.sheet input:not([type=file]):not([type=checkbox]):not([type=radio])')].pop(); i.value = 'my review'; i.dispatchEvent(new Event('input'))")
     page.click_at(*page._center("[...document.querySelectorAll('dialog.sheet button')].find(b => b.textContent === 'Save')"))
     page.wait("[...document.querySelectorAll('.teamcard.mine')].some(c => c.textContent.includes('my review'))", timeout=5,
               what="the model, as a card")
@@ -139,7 +139,7 @@ def test_a_role_of_your_own_is_saved_and_offered_again(make_page, argus):
     page.eval(f"{duty}.value = 'Use your /security-review skill on the diff.'; {duty}.dispatchEvent(new Event('input'))")
     page.click_at(*page._center("[...document.querySelectorAll('.teamnode button')].find(b => b.textContent === 'Save as a role of mine')"))
     page.wait("!!document.querySelector('dialog.sheet:last-of-type input')", timeout=5, what="the name to save it under")
-    page.eval("const i = [...document.querySelectorAll('dialog.sheet input')].pop(); i.value = 'Security Auditor!'; i.dispatchEvent(new Event('input'))")
+    page.eval("const i = [...document.querySelectorAll('dialog.sheet input:not([type=file]):not([type=checkbox]):not([type=radio])')].pop(); i.value = 'Security Auditor!'; i.dispatchEvent(new Event('input'))")
     page.click_at(*page._center("[...document.querySelectorAll('dialog.sheet button')].find(b => b.textContent === 'Save')"))
     eventually(lambda: "security auditor" in (argus.api("/api/prefs")["prefs"].get("teamRoles") or {}), timeout=10,
                what="kept with the other preferences, under a clean name")
