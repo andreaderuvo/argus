@@ -22,6 +22,9 @@ import { followLine } from '/js/typedline.js';
 import { beside } from '/js/wall.js';
 import { t } from '/js/words.js';
 // </imports>
+
+/** The last copy a program asked for, in any terminal of the page: the same text again within a moment is the same copy. */
+let lastCopy = { text: '', at: 0 };
 /* ------------------------------------------------- paths printed in a terminal */
 
 /** A word that could be a file: it has a slash, or it has an extension.
@@ -477,6 +480,11 @@ export function attachTerminal(container, name, { transform, onGone, onBack, onP
     if (!b64 || b64 === '?') return true;
     try {
       const text = new TextDecoder().decode(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)));
+      // One selection, one copy: the same text came twice in a moment — the program in the pane and tmux
+      // both say it, or two windows show the session — and "copied 175 characters" appeared twice (2026-11-12).
+      const now = Date.now();
+      if (lastCopy.text === text && now - lastCopy.at < 1500) return true;
+      lastCopy = { text, at: now };
       copyText(text).then((ok) => ok && toast(t('copied {count} characters', { count: text.length })));
       selected(text);                          // a tmux mouse selection, as it is copied
     } catch { /* not base64 we can use */ }
