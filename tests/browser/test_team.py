@@ -13,6 +13,9 @@ def open_sheet(page, argus, goal):
     page.wait("!!document.querySelector('.teamcard') && !!document.querySelector('.teampicture svg')", timeout=20, what="the templates and the graph")
     page.click_at(*page._center("document.querySelector('.teamgoal')"))
     page.type(goal)
+    # The agents and the "Before you start" notes arrive after the sheet and redraw parts of it; a press
+    # during a redraw is lost in WebKit (its button replaced between press and release) — CI, 2026-11-12.
+    page.settle(quiet=0.5)
 
 
 def more(page):
@@ -122,6 +125,7 @@ def test_a_shape_saved_as_a_model_comes_back_as_a_card(make_page, argus):
     page.click_at(*page._center("[...document.querySelectorAll('.teampicturehead button')].find(b => b.textContent === 'Save as my model')"))
     page.wait("!!document.querySelector('dialog.sheet:last-of-type input')", timeout=5, what="the name to save it under")
     page.eval("const i = [...document.querySelectorAll('dialog.sheet input:not([type=file]):not([type=checkbox]):not([type=radio])')].pop(); i.value = 'my review'; i.dispatchEvent(new Event('input'))")
+    page.settle(quiet=0.5)
     page.click_at(*page._center("[...document.querySelectorAll('dialog.sheet button')].find(b => b.textContent === 'Save')"))
     page.wait("[...document.querySelectorAll('.teamcard.mine')].some(c => c.textContent.includes('my review'))", timeout=5,
               what="the model, as a card")
@@ -143,6 +147,7 @@ def test_a_role_of_your_own_is_saved_and_offered_again(make_page, argus):
     page.click_at(*page._center("[...document.querySelectorAll('.teamnode button')].find(b => b.textContent === 'Save as a role of mine')"))
     page.wait("!!document.querySelector('dialog.sheet:last-of-type input')", timeout=5, what="the name to save it under")
     page.eval("const i = [...document.querySelectorAll('dialog.sheet input:not([type=file]):not([type=checkbox]):not([type=radio])')].pop(); i.value = 'Security Auditor!'; i.dispatchEvent(new Event('input'))")
+    page.settle(quiet=0.5)
     page.click_at(*page._center("[...document.querySelectorAll('dialog.sheet button')].find(b => b.textContent === 'Save')"))
     eventually(lambda: "security auditor" in (argus.api("/api/prefs")["prefs"].get("teamRoles") or {}), timeout=10,
                what="kept with the other preferences, under a clean name")
@@ -301,6 +306,7 @@ def test_the_folder_is_guided_and_the_team_can_be_edited_as_text(make_page, argu
     page.click_at(*page._center("[...document.querySelectorAll('.teampackbtns button')].find(b => b.textContent === 'Draw or write')"))
     page.wait("!!document.querySelector('.teamtext .teinput')", timeout=20, what="the editor")
     page.eval("(() => { const y = document.querySelector('.teamtext .teinput'); y.value = y.value.replaceAll('executor', 'fixer'); })()")
+    page.settle(quiet=0.5)                   # the typed text read and drawn first
     page.click_at(*page._center("[...document.querySelectorAll('dialog.sheet button')].find(b => b.textContent === 'Apply')"))
     page.wait("[...document.querySelectorAll('.teampicture .tgtext')].some(t => t.textContent === 'fixer')", timeout=5, what="the edit, drawn")
     clean(argus, project)
@@ -401,6 +407,7 @@ def test_a_team_drawn_in_mermaid_is_previewed_while_typed(make_page, argus):
     page.wait("[...document.querySelectorAll('.teamtext .teproblem.error')].some(e => e.textContent.includes('line 4'))", timeout=10, what="the wrong line, named")
     assert page.eval("[...document.querySelectorAll('dialog.sheet button')].find(b => b.textContent === 'Apply').disabled"), "Apply waits"
     page.eval("(() => { const y = document.querySelector('.teamtext .teinput'); y.value = y.value.replace('MAYBE', 'REDO'); y.dispatchEvent(new Event('input')); })()")
+    page.settle(quiet=0.5)                   # the typed text read and drawn first
     page.click_at(*page._center("[...document.querySelectorAll('dialog.sheet button')].find(b => b.textContent === 'Apply')"))
     page.wait("[...document.querySelectorAll('.teampicture:not(.teampreview) .tgtext')].some(t => t.textContent === 'scout')", timeout=5, what="applied to the picture")
     clean(argus, project)
