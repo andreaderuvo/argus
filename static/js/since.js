@@ -1,4 +1,5 @@
 // <imports> generated from what this file uses; edit the code, not this list
+import { actionWords } from '/js/agentcan.js';
 import { paintSince } from '/js/bells.js';
 import { computerRows } from '/js/computers.js';
 import { aboutSheet, savePrefs } from '/js/core.js';
@@ -480,6 +481,7 @@ export async function screenSettings() {
     getJSON('/api/agent/actions').then((said) => {
       const free = new Set(prefs.agentsWithoutAsking || []);
       box.replaceChildren(
+        el('p', { className: 'meta' }, [el('a', { href: '#/agents', textContent: t('Everything agents can do here, with what to say →') })]),
         el('p', { className: 'meta askfreehint' }, [
           t('Ticked: an agent does it as soon as it is asked, and a bell says it was done. Unticked: you get Do it / No first.'), ' ',
           el('span', { className: 'askfreewarn', textContent: t('The risky ones delete files, end work or let agents loose — tick them only if you mean it.') }),
@@ -491,12 +493,12 @@ export async function screenSettings() {
             if (input.checked) now.add(a.action); else now.delete(a.action);
             prefs.agentsWithoutAsking = [...now];
             savePrefs();
-            toast(input.checked ? t('agents may now: {what}', { what: WORDS[a.action] || a.what }) : t('asked again: {what}', { what: WORDS[a.action] || a.what }));
+            toast(input.checked ? t('agents may now: {what}', { what: WORDS[a.action] || actionWords(a.action) }) : t('asked again: {what}', { what: WORDS[a.action] || actionWords(a.action) }));
           };
           return el('label', { className: `row setting askfreerow${a.danger ? ' danger' : ''}` }, [
             input,
             el('span', { className: 'grow' }, [
-              el('span', { className: 'name', textContent: WORDS[a.action] || a.action }),
+              el('span', { className: 'name', textContent: WORDS[a.action] || actionWords(a.action) }),
               a.always ? el('span', { className: 'meta', textContent: t('always: it changes nothing but which plugin they run') }) : null,
             ].filter(Boolean)),
             a.danger ? el('span', { className: 'askfreerisk', textContent: t('risky'),

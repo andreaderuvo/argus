@@ -290,13 +290,15 @@ export function teamCanvas({ graph, onChange, onSelect, roles: given = {} } = {}
     const edge = e.target.closest('.tghit');
     sel = n ? { node: n.dataset.id } : edge ? { edge: `${edge.dataset.from}>${edge.dataset.to}` } : null;
     render();
-    stage.focus({ preventScroll: true });
+    // The line in the text lit first, the keyboard given to the stage after: lighting the line focused the
+    // text, and only Chromium's own handling of the press brought it back — WebKit sends no mousedown after
+    // a pointerdown whose node was redrawn, and Delete went into the text (2026-11-12).
     if (sel?.node) onSelect?.(sel.node);
+    stage.focus({ preventScroll: true });
+    // And again when the press ends: WebKit then clears the focus by itself (the node pressed was redrawn,
+    // so there is nothing to give it to) and sends no mousedown that could be stopped.
+    addEventListener('pointerup', () => stage.focus({ preventScroll: true }), { once: true, capture: true });
   });
-  // The press redraws the picture and puts the keyboard on the stage; WebKit's own handling of the press
-  // then moved the focus off it — the node pressed was gone — and Delete went nowhere (Safari, argus-bridge;
-  // found running the suite in WebKit, 2026-11-12). The stage keeps the focus it was given.
-  stage.addEventListener('mousedown', (e) => { if (e.target.closest('.tgnode, .tghit')) e.preventDefault(); });
   stage.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); return; }

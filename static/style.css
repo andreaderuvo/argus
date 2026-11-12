@@ -5140,3 +5140,31 @@ body.needleft .needpswap svg { transform: scaleX(-1); }
   #nav .railhidden, #nav .railempty { display: none !important; }
   #nav.filtering .railhead { opacity: .8; }
 }
+
+/* What agents can do (#/agents, agentcan.js): sentences first, what they do under them, the state at the foot. */
+.agentcan { max-width: 980px; margin: 0 auto; padding: 1rem 1rem 3rem; display: grid; gap: 1.4rem; }
+.agentcanhead { display: grid; gap: .5rem; }
+.agentcanhead h1 { margin: 0; font-size: 1.35rem; }
+.agentcanhead .hint { margin: 0; max-width: 70ch; }
+.agentcanfind { max-width: 420px; }
+.agentcangroup { display: grid; gap: .6rem; }
+.agentcangroup h2 { display: flex; align-items: center; gap: .5rem; margin: 0; font-size: .95rem; letter-spacing: .02em; }
+.agentcangroup h2 svg { width: 1.05em; height: 1.05em; color: var(--accent); }
+.agentcangroup h2 .meta { font-weight: 400; }
+.agentcancards { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: .6rem; }
+.agentcancard { display: grid; gap: .45rem; align-content: start; padding: .75rem .85rem; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+.agentcancard.quiet { opacity: .75; }
+.agentcansay { margin: 0; color: var(--bright); font-weight: 600; line-height: 1.35; }
+.agentcanwhat { margin: 0; color: var(--dim); font-size: .85rem; line-height: 1.35; }
+.agentcanwhat code { font-size: .78rem; color: var(--dim); opacity: .8; }
+.agentcanfoot { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; }
+.agentcanfoot .grow { flex: 1; }
+.agentcanfoot button { display: inline-flex; flex-direction: row; align-items: center; gap: .3rem; padding: 2px 8px; font-size: .78rem; min-height: 0; }
+.agentcanfoot button svg { width: .95em; height: .95em; }
+.agentcanfoot .chip { display: inline-flex; align-items: center; gap: .3rem; font-size: .74rem; padding: 1px 8px; border-radius: 999px;
+  border: 1px solid var(--line); color: var(--dim); }
+.agentcanfoot .chip.ok { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.agentcanfoot .chip.off { border-style: dashed; }
+.agentcanfoot .askchip { cursor: pointer; }
+.agentcanfoot .askchip.danger { color: var(--bad, #e06c75); border-color: color-mix(in srgb, var(--bad, #e06c75) 40%, var(--line)); }
+.agentcanfoot .askchip input { margin: 0; }
