@@ -2048,6 +2048,11 @@
   "help features everything": "ayuda funciones todo",
   "what arrived lately": "lo que llegó hace poco",
   "↑↓ to choose · Enter to run · Esc to close": "↑↓ para elegir · Intro para ejecutar · Esc para cerrar",
-  "Everything, in detail →": "Todo, en detalle →"
+  "Everything, in detail →": "Todo, en detalle →",
+  "to choose": "para elegir",
+  "to run": "para ejecutar",
+  "to close": "para cerrar",
+  "Screens": "Pantallas",
+  "Enter": "Intro"
  }
 }

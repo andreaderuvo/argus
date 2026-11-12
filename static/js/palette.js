@@ -4,6 +4,7 @@ import { ARGUS_MAP, showMe } from '/js/argusmap.js';
 import { savePrefs } from '/js/core.js';
 import { el } from '/js/dom.js';
 import { icon } from '/js/icons.js';
+import { TAB_WORD } from '/js/markup.js';
 import { getJSON } from '/js/reconnect.js';
 import { go } from '/js/router.js';
 import { KEYS, keyFor, keyHelp, prettyKey, runKey } from '/js/shortcuts.js';
@@ -29,8 +30,11 @@ function items(sessions) {
   // The keyboard's actions, with their keys.
   for (const k of KEYS) add('action', t(k.name), () => runKey(k.id), { key: keyFor(k.id), id: `key:${k.id}`, glyph: 'keyboard' });
   // Screens of the sidebar.
+  // By the screen's own word: the link's text also holds its count ("Needs you18", 2026-11-12).
   for (const a of document.querySelectorAll('#nav a[data-tab]')) {
-    add('screen', a.textContent.trim(), () => go(a.getAttribute('href')), { id: `screen:${a.dataset.tab}`, glyph: 'arrowRight' });
+    const word = TAB_WORD[a.dataset.tab];
+    const label = word ? t(word) : [...a.childNodes].filter((n) => n.nodeType === Node.TEXT_NODE).map((n) => n.textContent).join('').trim();
+    add('screen', label, () => go(a.getAttribute('href')), { id: `screen:${a.dataset.tab}`, glyph: 'arrowRight' });
   }
   // Settings worth reaching by name.
   add('setting', t('Theme'), () => themeSheet(), { id: 'set:theme', glyph: 'palette', also: t('colours dark light look') });
@@ -46,9 +50,9 @@ function items(sessions) {
   }
   for (const name of sessions) add('session', name, () => go(`#/term?s=${encodeURIComponent(name)}`), { id: `session:${name}`, glyph: 'terminal' });
   // What Argus does — "Show me" — and what agents can do.
-  for (const m of ARGUS_MAP()) add('feature', m.title, () => showMe(m.show), { id: `map:${m.title}`, glyph: 'star', also: m.text });
+  for (const m of ARGUS_MAP()) add('feature', m.title, () => showMe(m.show), { id: `map:${m.title}`, glyph: 'star', also: m.text, sub: m.text });
   for (const a of AGENT_CAN()) {
-    if (a.say) add('agent', a.say, () => go(`#/agents?q=${encodeURIComponent(a.name)}`), { id: `agent:${a.name}`, glyph: 'robot', also: `${a.what} ${a.name}` });
+    if (a.say) add('agent', a.say, () => go(`#/agents?q=${encodeURIComponent(a.name)}`), { id: `agent:${a.name}`, glyph: 'robot', also: `${a.what} ${a.name}`, sub: a.what });
   }
   return out;
 }
@@ -84,11 +88,17 @@ export async function openPalette() {
   try { sessions = ((await getJSON('/api/tmux/sessions')).sessions || []).map((s) => s.name); } catch { /* none */ }
   const all = items(sessions);
   const recent = (prefs.paletteRecent || []).map((id) => all.find((x) => x.id === id)).filter(Boolean);
-  const input = el('input', { type: 'search', className: 'palettefind', placeholder: t('Type what you want: a screen, an action, a desk, a setting…'),
+  const input = el('input', { type: 'text', className: 'palettefind', placeholder: t('Type what you want: a screen, an action, a desk, a setting…'),
     'aria-label': t('Find anything'), autocomplete: 'off', spellcheck: false });
   const list = el('div', { className: 'palettelist', role: 'listbox' });
-  const foot = el('p', { className: 'palettefoot meta', textContent: t('↑↓ to choose · Enter to run · Esc to close') });
-  const box = el('dialog', { className: 'palette', 'aria-label': t('Find anything') }, [input, list, foot]);
+  const keycaps = (keys) => keys.map((k) => el('kbd', { textContent: k }));
+  const foot = el('div', { className: 'palettefoot' }, [
+    el('span', {}, [...keycaps(['↑', '↓']), el('span', { textContent: t('to choose') })]),
+    el('span', {}, [...keycaps([t('Enter')]), el('span', { textContent: t('to run') })]),
+    el('span', {}, [...keycaps(['Esc']), el('span', { textContent: t('to close') })]),
+  ]);
+  const box = el('dialog', { className: 'palette', 'aria-label': t('Find anything') }, [
+    el('div', { className: 'palettebar' }, [icon('search'), input]), list, foot]);
   document.body.append(box);
   let shown = [];
   let at = 0;
@@ -99,28 +109,77 @@ export async function openPalette() {
     savePrefs();
     item.run();
   };
+  /** The words typed, lit where they are in the label. */
+  const lit = (label, q) => {
+    const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+    if (!words.length) return [label];
+    const low = label.toLowerCase();
+    const marks = new Array(label.length).fill(false);
+    for (const w of words) { const i = low.indexOf(w); if (i >= 0) marks.fill(true, i, i + w.length); }
+    const out = [];
+    let run0 = 0;
+    for (let i = 1; i <= label.length; i += 1) {
+      if (i === label.length || marks[i] !== marks[run0]) {
+        const piece = label.slice(run0, i);
+        out.push(marks[run0] ? el('mark', { textContent: piece }) : piece);
+        run0 = i;
+      }
+    }
+    return out;
+  };
+  /* In sections by kind — in the order their best match comes, a few of each when searching, so a long
+   * tail of sentences never hides the one screen that was meant. */
+  const ORDER = ['recent', 'screen', 'action', 'setting', 'desk', 'session', 'feature', 'agent'];
+  const SECTION = () => ({ recent: t('Recent'), screen: t('Screens'), action: t('Actions'), setting: t('Settings'),
+    desk: t('Desks'), session: t('Sessions'), feature: t('Argus does'), agent: t('Say to an agent') });
   const paint = () => {
     const q = input.value.trim();
-    shown = q ? all.map((x) => [score(x, q), x]).filter(([s]) => s > 0).sort((a, b) => b[0] - a[0]).slice(0, 40).map(([, x]) => x)
-      : [...recent, ...all.filter((x) => (x.kind === 'screen' || x.kind === 'setting') && !recent.includes(x))].slice(0, 40);
+    let groups;
+    if (q) {
+      const ranked = all.map((x) => [score(x, q), x]).filter(([n]) => n > 0).sort((a, b) => b[0] - a[0]).map(([, x]) => x);
+      const byKind = new Map();
+      for (const x of ranked) {
+        if (!byKind.has(x.kind)) byKind.set(x.kind, []);
+        const g = byKind.get(x.kind);
+        if (g.length < (byKind.size === 1 ? 8 : 5)) g.push(x);
+      }
+      groups = [...byKind.entries()];
+    } else {
+      groups = [['recent', recent], ['screen', all.filter((x) => x.kind === 'screen')], ['setting', all.filter((x) => x.kind === 'setting')]]
+        .map(([k, xs]) => [k, xs.filter((x) => k === 'recent' || !recent.includes(x))]).filter(([, xs]) => xs.length);
+      groups.sort((a, b) => ORDER.indexOf(a[0]) - ORDER.indexOf(b[0]));
+    }
+    shown = groups.flatMap(([, xs]) => xs);
     at = Math.min(at, Math.max(0, shown.length - 1));
-    const words = KIND_WORD();
-    list.replaceChildren(...(shown.length ? shown.map((x, i) => {
-      const row = el('div', { className: `paletterow${i === at ? ' on' : ''}`, role: 'option' }, [
-        icon(x.glyph || 'star'),
-        el('span', { className: 'palettelabel', textContent: x.label }),
-        el('span', { className: 'palettekind', textContent: !q && recent.includes(x) ? t('Recent') : words[x.kind] || '' }),
-        x.key ? el('kbd', { textContent: prettyKey(x.key) }) : null,
-      ]);
-      row.setAttribute('aria-selected', String(i === at));
-      row.onmousemove = () => { if (at !== i) { at = i; mark(); } };
-      row.onclick = () => run(x);
-      return row;
-    }) : [el('p', { className: 'meta paletteempty', textContent: t('Nothing by that name. Try other words — or What Argus does.') })]));
+    const names = SECTION();
+    let i = -1;
+    const rows = [];
+    for (const [kind, xs] of groups) {
+      rows.push(el('div', { className: 'palettesection', textContent: names[kind] || '' }));
+      for (const x of xs) {
+        i += 1;
+        const mine = i;
+        const row = el('div', { className: `paletterow k-${x.kind}${mine === at ? ' on' : ''}`, role: 'option' }, [
+          el('span', { className: 'palettetile' }, icon(x.glyph || 'star')),
+          el('span', { className: 'palettetext' }, [
+            el('span', { className: 'palettelabel' }, lit(x.label, q)),
+            x.sub ? el('span', { className: 'palettealso', textContent: x.sub }) : null,
+          ]),
+          x.key ? el('span', { className: 'palettekeys' }, keycaps(prettyKey(x.key).split(/(?<=.)\+(?=.)/))) : null,
+        ]);
+        row.setAttribute('aria-selected', String(mine === at));
+        row.onmousemove = () => { if (at !== mine) { at = mine; mark(); } };
+        row.onclick = () => run(x);
+        rows.push(row);
+      }
+    }
+    list.replaceChildren(...(rows.length ? rows : [el('div', { className: 'paletteempty' }, [icon('search'),
+      el('p', { textContent: t('Nothing by that name. Try other words — or What Argus does.') })])]));
   };
   const mark = () => {
-    [...list.children].forEach((r, i) => { r.classList.toggle('on', i === at); r.setAttribute?.('aria-selected', String(i === at)); });
-    list.children[at]?.scrollIntoView({ block: 'nearest' });
+    const rows = [...list.querySelectorAll('.paletterow')];
+    rows.forEach((r, n) => { r.classList.toggle('on', n === at); r.setAttribute('aria-selected', String(n === at)); });
+    rows[at]?.scrollIntoView({ block: 'nearest' });
   };
   input.oninput = () => { at = 0; paint(); };
   input.onkeydown = (e) => {

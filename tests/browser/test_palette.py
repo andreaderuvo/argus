@@ -27,6 +27,9 @@ def test_ctrl_k_finds_a_screen_an_action_and_a_setting_and_runs_it(make_page):
     page.wait(OPEN, what="the palette")
     assert page.eval("document.activeElement?.classList.contains('palettefind')"), "typing goes in at once"
     assert page.eval("document.querySelectorAll('.paletterow').length") > 5, "screens offered before typing"
+    # A screen by its name, never with the count its link carries ("Needs you18", 2026-11-12).
+    labels = page.eval("[...document.querySelectorAll('.paletterow.k-screen .palettelabel')].map(l => l.textContent)")
+    assert "Needs you" in labels and not [x for x in labels if any(c.isdigit() for c in x)], labels
     find(page, "notes")
     page.wait("document.querySelector('.paletterow.on .palettelabel')?.textContent === 'Notes'", what="Notes first")
     shoot(page, "palette")
@@ -36,7 +39,7 @@ def test_ctrl_k_finds_a_screen_an_action_and_a_setting_and_runs_it(make_page):
     # An action with its key shown, run by a click.
     page.click("#find")
     page.wait(OPEN, what="opened from its button")
-    assert page.eval("document.querySelector('.paletterow .palettekind')?.textContent") == "Recent", "the last one first"
+    assert page.eval("document.querySelector('.palettesection')?.textContent") == "Recent", "the last one first"
     find(page, "keyboard shortcuts")
     page.wait("[...document.querySelectorAll('.paletterow kbd')].length > 0", what="its key, shown")
     page.click_at(*page._center("document.querySelector('.paletterow.on')"))

@@ -9,7 +9,7 @@ import { t } from '/js/words.js';
  *  `placeholders` is Values on the bar, which is the word the markup uses and the word the
  *  catalogues translate. Derived from the tab, this said "Placeholders" in every language
  *  but English. */
-const TAB_WORD = {
+export const TAB_WORD = {
   needs: 'Needs you', files: 'Files', sessions: 'Sessions', wall: 'Windows', prompts: 'Prompts',
   placeholders: 'Values', todo: 'To do', notes: 'Notes', system: 'System', since: 'Since', journal: 'Journal', agents: 'What agents can do',
 };

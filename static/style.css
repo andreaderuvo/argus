@@ -5169,23 +5169,43 @@ body.needleft .needpswap svg { transform: scaleX(-1); }
 .agentcanfoot .askchip.danger { color: var(--bad, #e06c75); border-color: color-mix(in srgb, var(--bad, #e06c75) 40%, var(--line)); }
 .agentcanfoot .askchip input { margin: 0; }
 
-/* Find anything (palette.js): at the top, over everything, one list. */
-dialog.palette { position: fixed; top: 12vh; margin: 0 auto; width: min(640px, calc(100vw - 32px)); max-height: 70vh; padding: 0;
-  border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--text);
-  box-shadow: 0 18px 50px rgba(0, 0, 0, .35); display: flex; flex-direction: column; overflow: hidden; }
+/* Find anything (palette.js): at the top, over everything — sections by kind, the words typed lit, keys as keycaps. */
+dialog.palette { position: fixed; top: 11vh; margin: 0 auto; width: min(660px, calc(100vw - 32px)); max-height: 72vh; padding: 0;
+  border: 1px solid color-mix(in srgb, var(--line) 70%, var(--text)); border-radius: 14px; background: var(--panel); color: var(--text);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, .42), 0 2px 8px rgba(0, 0, 0, .18); display: flex; flex-direction: column; overflow: hidden; }
 dialog.palette:not([open]) { display: none; }
-dialog.palette::backdrop { background: rgba(0, 0, 0, .28); }
-.palettefind { margin: 10px; width: auto; font-size: 1rem; padding: .65rem .8rem; }
-.palettelist { overflow-y: auto; padding: 0 6px 6px; }
-.paletterow { display: flex; align-items: center; gap: .6rem; padding: .45rem .6rem; border-radius: 8px; cursor: pointer; }
-.paletterow svg { width: 1rem; height: 1rem; color: var(--dim); flex: none; }
-.paletterow.on { background: color-mix(in srgb, var(--accent) 16%, transparent); }
-.paletterow.on svg { color: var(--accent); }
-.palettelabel { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.palettekind { color: var(--dim); font-size: .75rem; white-space: nowrap; }
-.paletterow kbd { font: .72rem/1 var(--mono, ui-monospace, monospace); padding: 3px 6px; border: 1px solid var(--line); border-radius: 5px; color: var(--dim); white-space: nowrap; }
-.paletteempty { padding: .8rem; margin: 0; }
-.palettefoot { margin: 0; padding: .45rem .8rem; border-top: 1px solid var(--line); font-size: .74rem; }
+dialog.palette::backdrop { background: rgba(8, 10, 14, .38); backdrop-filter: blur(2px); }
+.palettebar { display: flex; align-items: center; gap: .7rem; padding: .85rem 1.1rem; border-bottom: 1px solid var(--line); }
+.palettebar > svg { width: 1.15rem; height: 1.15rem; color: var(--dim); flex: none; }
+.palettefind { flex: 1; min-width: 0; border: 0 !important; outline: none !important; box-shadow: none !important; background: transparent !important;
+  padding: .2rem 0 !important; font-size: 1.08rem; color: var(--bright); }
+.palettelist { overflow-y: auto; padding: .35rem .45rem .5rem; scroll-padding: 2rem; }
+.palettesection { padding: .7rem .65rem .3rem; font-size: .7rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); }
+.paletterow { display: flex; align-items: center; gap: .75rem; padding: .42rem .6rem; border-radius: 9px; cursor: pointer; }
+.palettetile { width: 28px; height: 28px; flex: none; display: grid; place-items: center; border-radius: 7px;
+  background: color-mix(in srgb, var(--tile, var(--dim)) 14%, transparent); color: var(--tile, var(--dim)); }
+.palettetile svg { width: 15px; height: 15px; }
+.paletterow.k-screen { --tile: var(--accent); }
+.paletterow.k-action { --tile: #7aa2f7; }
+.paletterow.k-setting { --tile: #bb9af7; }
+.paletterow.k-desk, .paletterow.k-session { --tile: #e0af68; }
+.paletterow.k-feature { --tile: #7dcfff; }
+.paletterow.k-agent { --tile: #9ece6a; }
+.paletterow.on { background: color-mix(in srgb, var(--accent) 13%, transparent); }
+.paletterow.on .palettetile { background: var(--tile, var(--accent)); color: var(--panel); }
+.palettetext { flex: 1; min-width: 0; display: grid; gap: .08rem; }
+.palettelabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--bright); }
+.palettelabel mark { background: none; color: var(--accent); font-weight: 650; }
+.palettealso { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dim); font-size: .78rem; }
+.palettekeys { display: inline-flex; gap: 3px; flex: none; }
+dialog.palette kbd { display: inline-grid; place-items: center; min-width: 1.45em; padding: 2px 5px; font: 600 .7rem/1.15 var(--mono, ui-monospace, monospace);
+  color: var(--dim); background: color-mix(in srgb, var(--text) 6%, transparent); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; }
+.paletteempty { display: grid; justify-items: center; gap: .4rem; padding: 1.6rem 1rem; color: var(--dim); text-align: center; }
+.paletteempty svg { width: 1.6rem; height: 1.6rem; opacity: .6; }
+.paletteempty p { margin: 0; max-width: 40ch; }
+.palettefoot { display: flex; gap: 1.1rem; padding: .55rem 1.1rem; border-top: 1px solid var(--line); color: var(--dim); font-size: .74rem; }
+.palettefoot > span { display: inline-flex; align-items: center; gap: .3rem; }
+@media (max-width: 560px) { dialog.palette { top: 4vh; max-height: 80vh; } .palettefoot { display: none; } }
 
 /* What's new (whatsnew.js): a card in the corner, not in the way. */
 .newscard { position: fixed; left: calc(var(--railw, 64px) + 14px); bottom: calc(14px + env(safe-area-inset-bottom, 0px)); z-index: 60;
