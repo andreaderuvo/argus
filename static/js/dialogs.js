@@ -144,6 +144,16 @@ export function confirmWithCheck(title, message, check, label = 'Delete') {
 /** Copy to the clipboard, including over plain http where the async clipboard API does
  *  not exist — which is exactly how this app is reached from a phone on the LAN. */
 export async function copyText(text) {
+  // Inside argus-bridge's window: the computer's own clipboard, through the app. WebKit refuses a write that
+  // no click came with — a copy made in tmux arrives on its own, a moment after the release — so there the
+  // two ways below copied nothing while tmux said "copied" (2026-11-12).
+  const bridge = window.__TAURI_INTERNALS__;
+  if (typeof bridge?.invoke === 'function') {
+    try {
+      await bridge.invoke('plugin:clipboard-manager|write_text', { text });
+      return true;
+    } catch { /* an older argus-bridge, without the clipboard: the browser's ways */ }
+  }
   if (navigator.clipboard && window.isSecureContext) {
     try {
       await navigator.clipboard.writeText(text);
