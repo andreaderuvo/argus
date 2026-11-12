@@ -88,3 +88,41 @@ jobs:
           name: failed-pages-${{ matrix.shard }}
           path: ${{ runner.temp }}/shots
           if-no-files-found: ignore
+
+  webkit:
+    # The same browser suite in WebKit: the engine of Safari, every iPhone, and argus-bridge's window on a
+    # Mac and on Linux (Windows' is Chromium, covered above). Each bug that reached the person through
+    # argus-bridge — links, the clipboard, drops, downloads — was one Chromium never showed (2026-11-12).
+    # Tests that need Chromium's own protocol are skipped there, saying which; the few not passing yet are
+    # listed in tests/browser/conftest.py (WEBKIT_GAPS), each with its reason.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: pip install -r requirements.txt playwright
+      - run: npm ci
+      - run: sudo apt-get update && sudo apt-get install -y tmux poppler-utils
+      - run: python -m playwright install --with-deps webkit
+      - run: python -m pytest -q -n 4 --durations=10 --timeout=300 $(python scripts/ci_shard.py ${{ matrix.shard }} 4 tests/browser)
+        env:
+          ARGUS_ENGINE: webkit
+          ARGUS_BROWSER_REQUIRED: '1'
+          ARGUS_FAIL_SHOTS: ${{ runner.temp }}/shots
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: failed-pages-webkit-${{ matrix.shard }}
+          path: ${{ runner.temp }}/shots
+          if-no-files-found: ignore
