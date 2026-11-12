@@ -275,8 +275,22 @@ def argus(tmp_path_factory) -> Argus:
     log.close()
 
 
+ENGINE = os.environ.get("ARGUS_ENGINE", "chromium")
+
+
 @pytest.fixture(scope="session")
 def chromium(tmp_path_factory):
+    if ENGINE == "webkit":
+        # The same suite in WebKit — Safari, iPhones, argus-bridge's window on a Mac (wkpage.py).
+        try:
+            from .wkpage import start_webkit
+            pw, browser = start_webkit()
+        except Exception as e:
+            _need(f"no WebKit ({str(e).splitlines()[0]})", False)
+        yield {"engine": "webkit", "browser": browser}
+        browser.close()
+        pw.stop()
+        return
     path = find_chromium()
     _need("no Chromium found (set ARGUS_CHROMIUM)", path is not None)
     # Started up to three times: on a busy CI runner one start in a few hundred never opened its port, and
@@ -321,6 +335,11 @@ def chromium(tmp_path_factory):
 
 
 def open_page(chromium, argus: Argus, viewport=DESKTOP, login: bool = True) -> tuple[Page, str, str]:
+    if chromium.get("engine") == "webkit":
+        from .wkpage import open_webkit_page
+        page = open_webkit_page(chromium["browser"], argus.url, viewport)
+        page.goto(argus.url + (f"/#token={TOKEN}" if login else "/"))
+        return page, f"wk{id(page):x}", ""
     b: Session = chromium["browser"]
     ctx = b.send("Target.createBrowserContext", {"disposeOnDetach": True})["browserContextId"]
     target = b.send("Target.createTarget", {"url": "about:blank", "browserContextId": ctx})["targetId"]
@@ -378,6 +397,8 @@ def make_page(chromium, argus, request, tmp_path):
                 shot = None
             failures.append("\n    ".join(left) + (f"\n    (screenshot: {shot})" if shot else ""))
         page.close()
+        if chromium.get("engine") == "webkit":
+            continue
         b: Session = chromium["browser"]
         for method, params in (("Target.closeTarget", {"targetId": target}),
                                ("Target.disposeBrowserContext", {"browserContextId": ctx})):

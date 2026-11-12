@@ -290,7 +290,8 @@ function openEars() {
   if (!Ctx || bellSound.ctx) return;
   try {
     bellSound.ctx = new Ctx();
-    bellSound.ctx.resume?.();
+    // A promise: a refusal (WebKit with no audio device) escapes the try (found by the WebKit run, 2026-11-12).
+    bellSound.ctx.resume?.()?.catch?.(() => {});
   } catch { /* no audio here */ }
 }
 for (const gesture of ['pointerdown', 'keydown']) {
@@ -302,7 +303,7 @@ function bellSound(why) {
     const Ctx = window.AudioContext || window.webkitAudioContext;
     if (!Ctx) return;
     const ctx = (bellSound.ctx = bellSound.ctx || new Ctx());
-    if (ctx.state === 'suspended') ctx.resume();
+    if (ctx.state === 'suspended') ctx.resume()?.catch?.(() => {});
     const notes = why === 'asking' ? [660, 880] : why === 'failed' ? [440, 330] : [880, 1170];
     notes.forEach((hz, i) => {
       const osc = ctx.createOscillator();

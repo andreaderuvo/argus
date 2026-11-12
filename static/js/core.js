@@ -7,7 +7,7 @@ import { api, getJSON, patchJSON } from '/js/reconnect.js';
 import { go } from '/js/router.js';
 import { keyHelp } from '/js/shortcuts.js';
 import { applyRail } from '/js/sidebar.js';
-import { CAN_FULLSCREEN, MINE_ONLY, PREFS_KEY, VITALS_EVERY, bar, baseline, baselineSent, changedKeys, knownDesks, prefs, pushing, railToggle, server, setBaseline, setPrefsVersion, setPushing, setVitalsTimer, vitalsTimer } from '/js/state.js';
+import { CAN_FULLSCREEN, MINE_ONLY, PREFS_KEY, VITALS_EVERY, bar, baseline, baselineSent, changedKeys, knownDesks, prefs, pushing, railToggle, server, setBaseline, setPrefsVersion, setPushing, setVitalsTimer, token, vitalsTimer } from '/js/state.js';
 import { applyTheme } from '/js/theme.js';
 import { nextWindowId, openWindow, tidyLinks } from '/js/tray.js';
 import { levelWord, worstVital } from '/js/vitals.js';
@@ -161,6 +161,25 @@ export function savePrefs() {
     }
   }, 500));
 }
+
+/* A save still waiting when the page goes — a reload, a new address, the tab closed — is sent at once, and
+ * kept alive past the page: otherwise the next page read the machine's older copy before the first paint,
+ * and a theme chosen and reloaded within half a second came back as the old one (found running the suite in
+ * WebKit, 2026-11-12; any browser could lose it). */
+addEventListener('pagehide', () => {
+  if (!pushing) return;
+  clearTimeout(pushing);
+  setPushing(null);
+  const changes = changedKeys({});
+  if (!Object.keys(changes).length || !token) return;
+  try {
+    fetch('/api/prefs', {
+      method: 'PATCH', keepalive: true,
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ changes, ...('workspaces' in changes ? { known: { workspaces: knownDesks() } } : {}) }),
+    }).catch(() => {});
+  } catch { /* too big for keepalive (64 KB): the next page's own save carries it */ }
+});
 
 /** Read what the machine has, once, before the first paint. */
 /** The theme and the windows' looks as the machine has them now, put on this page if they changed

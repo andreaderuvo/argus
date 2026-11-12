@@ -62,6 +62,8 @@ def test_a_pack_gets_the_file_and_nothing_else(make_page, argus, probe_pack):
     f = argus.root / "hello.probe"
     f.write_text("make me loud\n")
     page = make_page(route=f"#/preview?path={f}")
+    # Its attempt to reach the API is refused, as it should be; WebKit says so in the console (2026-11-12).
+    page.allow("because it does not appear in the connect-src directive")
     page.wait("!!document.querySelector('iframe.packframe')", timeout=10, what="the pack's frame")
     got = reported(argus)
     assert got["was"] is None and got["text"] == "make me loud\n" and got["editable"] is True, got

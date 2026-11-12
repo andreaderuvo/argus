@@ -327,3 +327,16 @@ def test_sessions_can_be_ticked_and_ended_together(make_page, argus):
     page.click_at(*page._center("[...document.querySelectorAll('dialog.sheet button')].find(b => b.textContent === 'End them')"))
     eventually(lambda: set(argus.sessions()) == {"two"}, timeout=10, what="only the ticked ones ended")
     argus.kill_sessions()
+
+
+def test_a_theme_chosen_and_reloaded_at_once_is_kept(make_page, argus):
+    """A save waits half a second; a page left before it used to lose the choice — the next page read the
+    machine's older copy first (found running the suite in WebKit, 2026-11-12). Left at once, it is still sent."""
+    page = make_page(route="#/settings")
+    start = page.eval("document.documentElement.dataset.theme")
+    other = "github-light" if start == "dark" else "github-dark"
+    page.eval(f"""Promise.all([import('/js/themepicker.js'), fetch('/api/themes', {{ headers: {{ Authorization: 'Bearer ' + localStorage.getItem('argus.token') }} }}).then(r => r.json())])
+        .then(([m, said]) => {{ m.wearTheme(said.themes.find(x => x.id === {json.dumps(other)})); location.reload(); }})""")
+    page.wait(f"document.readyState === 'complete' && !!document.querySelector('#nav')", what="the page again")
+    page.wait(f"document.documentElement.dataset.theme !== {json.dumps(start)}", what="the theme kept")
+    eventually(lambda: argus.api("/api/prefs")["prefs"].get("uiTheme") == other, what="on the machine")

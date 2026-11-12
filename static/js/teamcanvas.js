@@ -293,6 +293,10 @@ export function teamCanvas({ graph, onChange, onSelect, roles: given = {} } = {}
     stage.focus({ preventScroll: true });
     if (sel?.node) onSelect?.(sel.node);
   });
+  // The press redraws the picture and puts the keyboard on the stage; WebKit's own handling of the press
+  // then moved the focus off it — the node pressed was gone — and Delete went nowhere (Safari, argus-bridge;
+  // found running the suite in WebKit, 2026-11-12). The stage keeps the focus it was given.
+  stage.addEventListener('mousedown', (e) => { if (e.target.closest('.tgnode, .tghit')) e.preventDefault(); });
   stage.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); return; }
