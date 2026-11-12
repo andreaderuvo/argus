@@ -30,6 +30,9 @@ def desk(argus):
 
 
 def start(page):
+    # The "Before you start" notes arrive after the sheet and push its buttons: pressed before they were in,
+    # the click landed on their Install button (CI, where no claude is installed, 2026-11-12).
+    page.settle(quiet=0.5)
     page.click_at(*page._center("[...document.querySelectorAll('.sheetfoot button')].find(b => b.textContent === 'Start the team')"))
     page.wait("!document.querySelector('dialog.sheet')", timeout=60, what="the team to start")
 

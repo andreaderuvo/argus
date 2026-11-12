@@ -444,7 +444,9 @@ export async function pluginUpdateDialog({ force = false } = {}) {
       toast(failed.length ? t('{n} could not be updated', { n: failed.length }) : t('the Argus plugin is up to date'), !!failed.length);
     } : () => sheet.close();
   };
-  await paint(true);
+  // With the answer it opened on: a second question first left a dialog with nothing in it but Later, for as
+  // long as the server took (CI, 2026-11-12).
+  await paint(false);
 }
 
 /** A turning arrow: something is happening now, and the label beside it says what. */
