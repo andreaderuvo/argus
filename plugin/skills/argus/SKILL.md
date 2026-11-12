@@ -53,6 +53,9 @@ phone. You reach it with the Argus tools (or `argus-say` from a shell). Three ki
 | close a desk (its windows; the sessions keep running) | `close_desk` | `desk` (its name); not the last one |
 | end a session | `kill_session` | `session` |
 | run a command on the person's own computer (connected through argus-bridge, actions on) | `computer_run` | `computer`, `command`, `cwd`? — the output comes back in `request_status` |
+| look in a folder of the person's computer — "find file x in my Downloads" (argus-bridge, actions on) | `computer_files` | `computer`, `path` (`~/Downloads`), `match`? (words of the name), `deep`? — newest first |
+| bring a file from the person's computer into a folder here | `computer_fetch` | `computer`, `path` (there), `to` (a folder here) — saved under its own name, `name (1)` if taken |
+| put a file of this server on the person's computer | `computer_send` | `computer`, `path` (here), `to`? (there; its Downloads when not said), `replace`? |
 | restart a session's agent on the same conversation (after an update: the new version, the past kept) | `restart_agent` | `session`, `fresh` (start a new conversation when its id is not known) |
 | rename a session | `rename_session` | `session`, `to` |
 | start an agent with no questions at all | `start_agent` | `launcher`, `name`, `folder`, `prompt`, `press_enter`, `options` (`{"permissions": "skip"}` …) |

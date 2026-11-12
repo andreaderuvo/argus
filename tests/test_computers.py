@@ -50,6 +50,7 @@ def live(tmp_path):
     cfg.devices_store = tmp_path / "devices.json"
     cfg.prefs_store = tmp_path / "prefs.json"
     cfg.tmux_socket = f"argus-t-pc-{os.getpid()}"
+    cfg.allow_write = True          # a file brought from a computer is written into a folder here
     server = uvicorn.Server(uvicorn.Config(create_app(cfg), host="127.0.0.1", port=port, log_level="error"))
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
@@ -152,6 +153,39 @@ async def computer(base, key, offers, chrome_at=None, told=None, answer=None, re
                     return
                 await say({"op": "msg", "ch": ch, "b64": base64.b64encode(data).decode()})
 
+        puts = {}
+
+        async def files(ch, frame):
+            # What argus-bridge's files.rs does, in a few lines: list, get, put.
+            path = Path(os.path.expanduser(frame.get("path") or "~"))
+            if frame["do"] == "list":
+                if not path.is_dir():
+                    await say({"op": "close", "ch": ch, "why": f"{path}: not found"})
+                    return
+                wanted = (frame.get("match") or "").lower()
+                found = [{"name": f.name, "path": str(f), "size": f.stat().st_size, "mtime": f.stat().st_mtime, "dir": f.is_dir()}
+                         for f in path.iterdir() if wanted in f.name.lower() and not f.name.startswith(".")]
+                found.sort(key=lambda e: -e["mtime"])
+                await say({"op": "opened", "ch": ch})
+                await say({"op": "msg", "ch": ch, "data": json.dumps({"path": str(path), "entries": found, "more": False})})
+                await say({"op": "close", "ch": ch, "code": 0})
+            elif frame["do"] == "get":
+                if not path.is_file():
+                    await say({"op": "close", "ch": ch, "why": f"{path}: not found"})
+                    return
+                data = path.read_bytes()
+                await say({"op": "opened", "ch": ch})
+                await say({"op": "msg", "ch": ch, "data": json.dumps({"name": path.name, "size": len(data)})})
+                for i in range(0, len(data), 100_000):
+                    await say({"op": "msg", "ch": ch, "b64": base64.b64encode(data[i:i + 100_000]).decode()})
+                await say({"op": "close", "ch": ch, "code": 0})
+            else:
+                if path.exists() and not frame.get("replace"):
+                    await say({"op": "close", "ch": ch, "why": f"{path} is there already"})
+                    return
+                puts[ch] = (path, bytearray())
+                await say({"op": "opened", "ch": ch})
+
         async def run(ch, command, cwd):
             await say({"op": "opened", "ch": ch})
             proc = await asyncio.create_subprocess_shell(command, cwd=cwd or None, stdout=asyncio.subprocess.PIPE,
@@ -166,7 +200,7 @@ async def computer(base, key, offers, chrome_at=None, told=None, answer=None, re
             ch = frame.get("ch")
             if frame["op"] == "open":
                 kind = frame.get("kind")
-                switch = {"cdp": "browser", "pty": "terminal", "run": "actions", "login": "browser"}[kind]
+                switch = {"cdp": "browser", "pty": "terminal", "run": "actions", "login": "browser", "file": "actions"}[kind]
                 if not offers.get(switch):
                     await say({"op": "close", "ch": ch, "why": f"{switch} is off on this computer"})
                 elif kind == "login":
@@ -174,12 +208,14 @@ async def computer(base, key, offers, chrome_at=None, told=None, answer=None, re
                     # on the computer — here it is not even known).
                     await say({"op": "opened", "ch": ch})
                     if frame.get("target") == "tab-of-another-site":
-                        await say({"op": "close", "ch": ch, "why": "this tab is on evil.example; the login is for efsa.europa.eu — nothing was filled"})
+                        await say({"op": "close", "ch": ch, "why": "this tab is on evil.example; the login is for example.com — nothing was filled"})
                     else:
-                        filled = {"host": "wgsportal-test.efsa.europa.eu", "account": "andrea@lab.example", "source": "vault",
+                        filled = {"host": "login.example.com", "account": "sam@example.com", "source": "vault",
                                   "username": True, "password": True, "otp": False}
                         await say({"op": "msg", "ch": ch, "data": json.dumps(filled)})
                         await say({"op": "close", "ch": ch, "code": 0})
+                elif kind == "file":
+                    asyncio.ensure_future(files(ch, frame))
                 elif kind == "cdp" and refuse_cdp:
                     await say({"op": "close", "ch": ch, "why": refuse_cdp})
                 elif kind == "cdp":
@@ -191,6 +227,14 @@ async def computer(base, key, offers, chrome_at=None, told=None, answer=None, re
             elif frame["op"] == "bell" and frame.get("ask") and answer:
                 # Pressed on the notification, as the app does on a Mac.
                 await say({"op": "answer", "ask": frame["ask"], "answer": answer})
+            elif frame["op"] == "msg" and ch in puts:
+                path, got = puts[ch]
+                if frame.get("end"):
+                    path.write_bytes(bytes(got))
+                    puts.pop(ch)
+                    await say({"op": "close", "ch": ch, "code": 0})
+                else:
+                    got.extend(base64.b64decode(frame["b64"]))
             elif frame["op"] == "msg":
                 if ch in ptys:
                     os.write(ptys[ch], base64.b64decode(frame["b64"]))
@@ -242,7 +286,7 @@ async def until_connected(base, cid):
 
 @pytest.mark.browser
 def test_an_agent_drives_the_lent_browser_and_nothing_else_gets_in(live, chrome):
-    made = connect_one(live, "Mac di prova")
+    made = connect_one(live, "Test Mac")
     assert made["link"].startswith("argus-bridge://computer?url=") and made["token"].startswith("ac_")
     key, cid = made["token"], made["computer"]["id"]
     assert call(live, "/api/computers")[1]["computers"][0]["connected"] is False
@@ -544,7 +588,7 @@ def test_an_agent_is_signed_in_and_never_sees_the_password(live):
         lending = asyncio.ensure_future(computer(live, made["token"], {"browser": True}))
         await until_connected(live, cid)
         code, said = await asyncio.to_thread(call, live, "/api/computers/login", "POST", {"target": "ABCDEF0123456789"}, AGENT)
-        assert code == 200 and said["password"] is True and said["account"] == "andrea@lab.example", said
+        assert code == 200 and said["password"] is True and said["account"] == "sam@example.com", said
         assert "secret" not in json.dumps(said).lower()
         code, said = await asyncio.to_thread(call, live, "/api/computers/login", "POST", {"target": "tab-of-another-site"}, AGENT)
         assert code == 400 or "nothing was filled" in str(said), said
@@ -555,3 +599,52 @@ def test_an_agent_is_signed_in_and_never_sees_the_password(live):
     # No browser lent: said so.
     code, said = call(live, "/api/computers/login", "POST", {"target": "ABCDEF0123456789"}, AGENT)
     assert code in (400, 409), said
+
+
+def test_a_file_found_on_the_computer_is_brought_in_and_one_sent_back(live, tmp_path):
+    """"Find file x in my Downloads and bring it in" (2026-11-12): a folder of the computer searched, a file
+    brought into a folder here under its own name (never over another), one sent the other way — all under
+    the computer's Actions switch."""
+    downloads = tmp_path / "Downloads"
+    downloads.mkdir()
+    (downloads / "older-report.pdf").write_bytes(b"%PDF old")
+    blob = os.urandom(250_000)
+    (downloads / "isolates-2026.xlsx").write_bytes(blob)
+
+    async def scenario():
+        made = connect_one(live)
+        key, cid = made["token"], made["computer"]["id"]
+        task = asyncio.ensure_future(computer(live, key, {"browser": False, "terminal": False, "actions": True}))
+        await until_connected(live, cid)
+        code, said = await asyncio.to_thread(call, live, f"/api/computers/{cid}/files", "POST", {"path": str(downloads), "match": "ISOLATES"})
+        assert code == 200 and [e["name"] for e in said["entries"]] == ["isolates-2026.xlsx"], said
+        inbox = tmp_path / "inbox"
+        inbox.mkdir(exist_ok=True)
+        (inbox / "isolates-2026.xlsx").write_bytes(b"taken")
+        code, got = await asyncio.to_thread(call, live, f"/api/computers/{cid}/fetch", "POST",
+                                            {"path": str(downloads / "isolates-2026.xlsx"), "to": str(inbox)})
+        assert code == 200 and got["saved"].endswith("isolates-2026 (1).xlsx") and got["size"] == len(blob), got
+        assert Path(got["saved"]).read_bytes() == blob and (inbox / "isolates-2026.xlsx").read_bytes() == b"taken"
+        assert not [f for f in inbox.iterdir() if f.name.endswith(".argus-part")], "no part file left"
+        code, sent = await asyncio.to_thread(call, live, f"/api/computers/{cid}/send", "POST",
+                                             {"path": got["saved"], "to": str(downloads) + "/"})
+        assert code == 200 and (downloads / "isolates-2026 (1).xlsx").read_bytes() == blob, sent
+        code, said = await asyncio.to_thread(call, live, f"/api/computers/{cid}/send", "POST",
+                                             {"path": got["saved"], "to": str(downloads) + "/"})
+        assert code == 502 and "there already" in said, said
+        task.cancel()
+
+    asyncio.run(scenario())
+
+
+def test_files_are_off_when_the_actions_are(live, tmp_path):
+    async def scenario():
+        made = connect_one(live)
+        key, cid = made["token"], made["computer"]["id"]
+        task = asyncio.ensure_future(computer(live, key, {"browser": True, "terminal": True, "actions": False}))
+        await until_connected(live, cid)
+        code, said = await asyncio.to_thread(call, live, f"/api/computers/{cid}/files", "POST", {"path": str(tmp_path)})
+        assert code == 409 and "actions are off" in said, said
+        task.cancel()
+
+    asyncio.run(scenario())

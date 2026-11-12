@@ -179,12 +179,17 @@ TOOLS = [
                     "Argus plugin there), reload_plugins (no args; never asked — the Claude sessions at their prompt "
                     "take the plugin installed), restart_agent (session — on the version installed now, same conversation), "
                     "computer_run (computer — its name, command, cwd? — on the person's own Mac or PC connected through "
-                    "argus-bridge with its actions on; the output comes back). Waits up to two minutes for the outcome; then "
+                    "argus-bridge with its actions on; the output comes back), computer_files (computer, path — `~/Downloads`, "
+                    "match? — words of the name, deep? — the folders inside too: the files there, newest first), "
+                    "computer_fetch (computer, path — a file there, to — a folder of this server: the file brought in), "
+                    "computer_send (computer, path — a file of this server, to? — a path or folder there, its Downloads when "
+                    "not said, replace?). Waits up to two minutes for the outcome; then "
                     "request_status.",
      "inputSchema": {"type": "object", "properties": {
          "action": {"type": "string", "enum": ["start_team", "team_go", "team_pause", "team_stop", "team_reset", "team_restart", "close_desk", "kill_session",
                                                 "rename_session", "start_agent", "remove_worktree", "todo_delete",
-                                                "update_plugin", "reload_plugins", "restart_agent", "computer_run"]},
+                                                "update_plugin", "reload_plugins", "restart_agent", "computer_run",
+                                                "computer_files", "computer_fetch", "computer_send"]},
          "args": {"type": "object", "description": "The action's arguments, as listed"},
          "why": {"type": "string", "description": "One line the person reads with the question"}},
          "required": ["action"]}},
@@ -195,8 +200,9 @@ TOOLS = [
      "description": "The person's own computers (Mac, PC) connected to Argus through argus-bridge, and what each lends: "
                     "its browser — `endpoint`, a ws://127.0.0.1 address to drive it with Playwright "
                     "(chromium.connect_over_cdp), Puppeteer (browserWSEndpoint) or chrome-devtools-mcp (--wsEndpoint); "
-                    "and whether its actions are on, for `request` with action computer_run {computer, command, cwd?}, "
-                    "which the person allows with a tap and whose output comes back in request_status.",
+                    "and whether its actions are on, for `request` with action computer_run {computer, command, cwd?} — "
+                    "and its files: computer_files to look in a folder, computer_fetch to bring a file here, computer_send to "
+                    "put one there — which the person allows with a tap (or lets through without asking).",
      "inputSchema": {"type": "object", "properties": {}}},
     {"name": "browser_open",
      "description": "Open a page in the browser of the person's own computer (their Chrome on their Mac or PC, "
@@ -482,6 +488,14 @@ def _said_request(said: dict) -> str:
         # What the action answered, when it answers something: a command run on a computer gives its exit code
         # and output — "Done: run on Mac" with nothing else left the agent blind (2026-11-11).
         r = said.get("result") if isinstance(said.get("result"), dict) else {}
+        if "entries" in r:
+            rows = [f"{'📁 ' if e.get('dir') else ''}{e.get('path')}  ({e.get('size', 0)} bytes)" for e in r["entries"][:100]]
+            return (f"Done (request {said['id']}): {said['text']}. {len(r['entries'])} found" + (" (and more)" if r.get("more") else "")
+                    + (":\n" + "\n".join(rows) if rows else "."))
+        if "saved" in r:
+            return f"Done (request {said['id']}): {said['text']}. Saved at {r['saved']} ({r.get('size')} bytes)."
+        if "written" in r:
+            return f"Done (request {said['id']}): {said['text']}. Written at {r['written']} ({r.get('size')} bytes)."
         if "output" in r or "code" in r:
             cut = " (cut: only the end is kept)" if r.get("cut") else ""
             return (f"Done (request {said['id']}): {said['text']}. Exit code {r.get('code')}"

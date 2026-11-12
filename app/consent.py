@@ -56,6 +56,9 @@ ACTIONS = {
     "update_plugin": "install or update the Argus plugin in an agent (claude, codex)",
     "reload_plugins": "reload the Argus plugin in the Claude sessions waiting at their prompt",
     "computer_run": "run a command on one of your computers (connected through argus-bridge, with its actions switched on there)",
+    "computer_files": "look in a folder of one of your computers (argus-bridge, actions on): what is there, or the files whose name has some words",
+    "computer_fetch": "bring a file from one of your computers (argus-bridge, actions on) into a folder of this server",
+    "computer_send": "put a file of this server on one of your computers (argus-bridge, actions on)",
 }
 
 # Done at once, always: typing /reload-plugins into a Claude at its prompt changes nothing but
@@ -81,7 +84,7 @@ def without_asking(app) -> set[str]:
 
 
 # Said in red beside their box in Settings: they delete files, end work, or let agents loose.
-DANGEROUS = {"team_reset", "team_restart", "kill_session", "start_agent", "remove_worktree", "computer_run"}
+DANGEROUS = {"team_reset", "team_restart", "kill_session", "start_agent", "remove_worktree", "computer_run", "computer_send"}
 
 
 def store(app) -> dict[str, dict]:
@@ -302,6 +305,36 @@ def plan(app, action: str, args: dict) -> dict:
         body = {"command": command, "cwd": cwd, "timeout": max(1.0, min(float(args.get("timeout") or 120), 170.0))}
         return {"calls": [("POST", f"/api/computers/{one.key_id}/run", body)],
                 "text": f"run on {one.name}" + (f" (in {cwd})" if cwd else "") + f": {command}"}
+    if action in ("computer_files", "computer_fetch", "computer_send"):
+        which = str(args.get("computer") or "").strip()
+        if not which:
+            raise ValueError("say which computer (`computer`, its name)")
+        from . import computers
+        try:
+            one = computers.find(app, which)
+        except ApiError as e:
+            raise ValueError(e.message) from None
+        if not one.offers("actions"):
+            raise ValueError(f"{one.name} is not connected" if not one.connected
+                             else f"{one.name} has its actions switched off — only the person can switch them on, there")
+        path = str(args.get("path") or "").strip()
+        if action == "computer_files":
+            match = str(args.get("match") or "").strip()
+            body = {"path": path or "~", "match": match, "deep": bool(args.get("deep"))}
+            return {"calls": [("POST", f"/api/computers/{one.key_id}/files", body)],
+                    "text": f"look in {path or 'the home folder'} on {one.name}" + (f" for “{match}”" if match else "")
+                            + (", and the folders inside" if args.get("deep") else "")}
+        if not path:
+            raise ValueError("say which file (`path`)")
+        to = str(args.get("to") or "").strip()
+        if action == "computer_fetch":
+            if not to:
+                raise ValueError("say into which folder of this server (`to`)")
+            return {"calls": [("POST", f"/api/computers/{one.key_id}/fetch", {"path": path, "to": to})],
+                    "text": f"bring {path} from {one.name} into {to}"}
+        return {"calls": [("POST", f"/api/computers/{one.key_id}/send", {"path": path, "to": to, "replace": bool(args.get("replace"))})],
+                "text": f"put {path} on {one.name}" + (f" at {to}" if to else ", in its Downloads")
+                        + (", over the file there" if args.get("replace") else "")}
     if action == "restart_agent":
         name = str(args.get("session") or "").strip()
         if not name:

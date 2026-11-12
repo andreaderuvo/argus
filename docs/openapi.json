@@ -914,6 +914,96 @@
     ]
    }
   },
+  "/api/computers/{ident}/fetch": {
+   "post": {
+    "description": "`{path, to}` \u2192 `{saved, size}`: the computer's file `path` into this server's folder `to` (inside the\nroots, --allow-write), under its own name or `name (1)`. Agents ask for it as `computer_fetch`.",
+    "operationId": "postApiComputersIdentFetch",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "ident",
+      "required": true,
+      "schema": {
+       "title": "Ident",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Fetch Route Api Computers  Ident  Fetch Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Bring a file of a computer into a folder here",
+    "tags": [
+     "Computers"
+    ]
+   }
+  },
+  "/api/computers/{ident}/files": {
+   "post": {
+    "description": "`{path, match?, deep?}` \u2192 `{path, entries: [{name, path, size, mtime, dir}], more}`, newest first. `path`\non that computer (`~` its home). Only if its actions are on. Agents ask for it as `computer_files`.",
+    "operationId": "postApiComputersIdentFiles",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "ident",
+      "required": true,
+      "schema": {
+       "title": "Ident",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Files Route Api Computers  Ident  Files Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "List or search a folder of a computer",
+    "tags": [
+     "Computers"
+    ]
+   }
+  },
   "/api/computers/{ident}/forward": {
    "post": {
     "description": "`{port, local?}` \u2192 `{port, local, url}`: localhost:<local> on that computer now reaches\n127.0.0.1:<port> here, through argus-bridge \u2014 what `ssh -N -L` does, without SSH. `local` defaults to\nthe same number, or the next free one there.",
@@ -1052,6 +1142,51 @@
      }
     },
     "summary": "Run a command on a computer and wait for it",
+    "tags": [
+     "Computers"
+    ]
+   }
+  },
+  "/api/computers/{ident}/send": {
+   "post": {
+    "description": "`{path, to?, replace?}` \u2192 `{written, size}`: this server's file `path` written on the computer at `to`\n(a path, or a folder ending in `/`; its Downloads when not said), never over a file unless `replace`.\nAgents ask for it as `computer_send`.",
+    "operationId": "postApiComputersIdentSend",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "ident",
+      "required": true,
+      "schema": {
+       "title": "Ident",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Send Route Api Computers  Ident  Send Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Write a file of this server on a computer",
     "tags": [
      "Computers"
     ]

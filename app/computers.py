@@ -549,6 +549,165 @@ async def run(app, ident: str, command: str, cwd: str = "", timeout: float = 120
             "why": chan["why"] if chan["code"] is None else ""}
 
 
+FILE_CHUNK = 192 * 1024
+
+
+def _with_files(app, ident: str):
+    one = find(app, ident)
+    if not one.offers("actions"):
+        raise ApiError(409, "the computer is not connected" if not one.connected
+                       else "its actions are off — turn them on in argus-bridge, on that computer")
+    return one
+
+
+async def files_list(app, ident: str, path: str, match: str = "", deep: bool = False) -> dict:
+    """A folder of a computer — or under it, `deep` — listed, names containing `match` only: newest first,
+    500 at most (`more` says there were others). Under that computer's Actions switch."""
+    one = _with_files(app, ident)
+    said: list[str] = []
+    done = asyncio.Event()
+
+    async def sink(frame):
+        if frame.get("op") == "msg":
+            said.append(str(frame.get("data") or ""))
+        elif frame.get("op") == "close":
+            done.set()
+
+    ch, chan = one.channel("file", sink)
+    try:
+        if not await one.open(ch, chan, {"kind": "file", "do": "list", "path": str(path or "~"), "match": str(match or ""), "deep": bool(deep)}):
+            raise ApiError(502, chan["why"] or "the computer did not answer")
+        await asyncio.wait_for(done.wait(), 60)
+    except asyncio.TimeoutError:
+        raise ApiError(504, "no answer after 60 s") from None
+    finally:
+        await one.end(ch)
+    if chan["code"] != 0 or not said:
+        raise ApiError(502, chan["why"] or "the computer did not list it")
+    return {"computer": one.name, **json.loads(said[0])}
+
+
+def _free_name(folder: Path, name: str) -> Path:
+    """`name` in `folder`, or `name (1)`, `name (2)`… — never over a file that is there."""
+    stem, dot, ext = name.rpartition(".") if "." in name.strip(".") else (name, "", "")
+    target = folder / name
+    n = 1
+    while os.path.lexists(target):
+        target = folder / (f"{stem} ({n}){dot}{ext}" if dot else f"{name} ({n})")
+        n += 1
+    return target
+
+
+async def fetch(app, ident: str, path: str, to: str) -> dict:
+    """A file of a computer brought into a folder of this server (`to`, inside the roots; --allow-write):
+    under its own name, or `name (1)` when that is taken. Received into a part file, renamed when whole."""
+    from .safepath import Denied, NotFound, PathError
+    if not app.state.cfg.allow_write:
+        raise ApiError(403, "this server is read-only — start it with --allow-write to change that")
+    try:
+        folder = app.state.jail.resolve(str(to or ""))
+    except NotFound:
+        raise ApiError(404, f"no folder {to} here") from None
+    except (Denied, PathError):
+        raise ApiError(403, "outside the configured roots") from None
+    if not folder.is_dir():
+        raise ApiError(400, f"{to} is not a folder")
+    one = _with_files(app, ident)
+    limit = app.state.cfg.max_upload_bytes
+    state = {"head": None, "fh": None, "part": None, "size": 0, "why": ""}
+    done = asyncio.Event()
+
+    async def sink(frame):
+        if frame.get("op") == "msg":
+            if state["head"] is None:
+                try:
+                    state["head"] = json.loads(str(frame.get("data") or "{}"))
+                except ValueError:
+                    state["head"] = {}
+                name = os.path.basename(str(state["head"].get("name") or "file")).strip() or "file"
+                if limit and int(state["head"].get("size") or 0) > limit:
+                    state["why"] = f"it is {state['head'].get('size')} bytes and max_upload_bytes is {limit}"
+                    done.set()
+                    return
+                state["target"] = _free_name(folder, name)
+                state["part"] = folder / f".{state['target'].name}.argus-part"
+                state["fh"] = open(state["part"], "wb")
+            elif frame.get("b64") and state["fh"] is not None:
+                data = base64.b64decode(frame["b64"])
+                state["size"] += len(data)
+                if limit and state["size"] > limit:
+                    state["why"] = f"larger than max_upload_bytes ({limit})"
+                    done.set()
+                    return
+                state["fh"].write(data)
+        elif frame.get("op") == "close":
+            done.set()
+
+    ch, chan = one.channel("file", sink)
+    try:
+        if not await one.open(ch, chan, {"kind": "file", "do": "get", "path": str(path or "")}):
+            raise ApiError(502, chan["why"] or "the computer did not send it")
+        try:
+            await asyncio.wait_for(done.wait(), 3600)
+        except asyncio.TimeoutError:
+            raise ApiError(504, "the file did not arrive within an hour") from None
+    finally:
+        await one.end(ch)
+        if state["fh"] is not None:
+            state["fh"].close()
+    if state["why"] or chan["code"] != 0 or state["head"] is None:
+        if state["part"] is not None:
+            Path(state["part"]).unlink(missing_ok=True)
+        raise ApiError(502 if not state["why"] else 413, state["why"] or chan["why"] or "the file did not arrive whole")
+    os.replace(state["part"], state["target"])
+    return {"computer": one.name, "from": path, "saved": str(state["target"]), "size": state["size"]}
+
+
+async def send_file(app, ident: str, path: str, to: str = "", replace: bool = False) -> dict:
+    """A file of this server (`path`, inside the roots) written on a computer, at `to` — a full path, or a
+    folder ending in `/` (its own name kept); the computer's Downloads when not said. Never over a file
+    there unless `replace`."""
+    from .safepath import Denied, NotFound, PathError
+    try:
+        source = app.state.jail.resolve(str(path or ""))
+    except NotFound:
+        raise ApiError(404, "not found") from None
+    except (Denied, PathError):
+        raise ApiError(403, "outside the configured roots") from None
+    if not source.is_file():
+        raise ApiError(400, f"{path} is not a file")
+    target = str(to or "~/Downloads/").strip()
+    if target.endswith("/") or target in ("~", ""):
+        target = target.rstrip("/") + "/" + source.name
+    one = _with_files(app, ident)
+    done = asyncio.Event()
+
+    async def sink(frame):
+        if frame.get("op") == "close":
+            done.set()
+
+    ch, chan = one.channel("file", sink)
+    try:
+        if not await one.open(ch, chan, {"kind": "file", "do": "put", "path": target, "replace": bool(replace)}):
+            raise ApiError(502, chan["why"] or "the computer did not take it")
+        sent = 0
+        with open(source, "rb") as fh:
+            while chunk := fh.read(FILE_CHUNK):
+                if done.is_set() or not await one.send({"op": "msg", "ch": ch, "b64": base64.b64encode(chunk).decode()}):
+                    break
+                sent += len(chunk)
+        await one.send({"op": "msg", "ch": ch, "end": True})
+        try:
+            await asyncio.wait_for(done.wait(), 300)
+        except asyncio.TimeoutError:
+            raise ApiError(504, "the computer did not say it was written") from None
+    finally:
+        await one.end(ch)
+    if chan["code"] != 0:
+        raise ApiError(502, chan["why"] or "it was not written")
+    return {"computer": one.name, "from": str(source), "written": target, "size": sent}
+
+
 async def login(app, ident: str, target: str, want: str = "fill", account: str = "") -> dict:
     """An agent signed in with the person's saved login, in its own tab of that computer's browser:
     argus-bridge finds the login for the tab's site, asks the person there (unless the site is "Always"),
@@ -637,6 +796,37 @@ async def run_route(request: Request, ident: str) -> dict:
     actions on (a switch in argus-bridge, there). Agents ask for it as the request `computer_run`."""
     body = await request.json()
     return await run(request.app, ident, body.get("command"), body.get("cwd") or "", body.get("timeout") or 120)
+
+
+@router.post("/api/computers/{ident}/files", summary="List or search a folder of a computer")
+async def files_route(request: Request, ident: str) -> dict:
+    """`{path, match?, deep?}` → `{path, entries: [{name, path, size, mtime, dir}], more}`, newest first. `path`
+    on that computer (`~` its home). Only if its actions are on. Agents ask for it as `computer_files`."""
+    body = await request.json()
+    return await files_list(request.app, ident, str(body.get("path") or "~"), str(body.get("match") or ""), bool(body.get("deep")))
+
+
+@router.post("/api/computers/{ident}/fetch", summary="Bring a file of a computer into a folder here")
+async def fetch_route(request: Request, ident: str) -> dict:
+    """`{path, to}` → `{saved, size}`: the computer's file `path` into this server's folder `to` (inside the
+    roots, --allow-write), under its own name or `name (1)`. Agents ask for it as `computer_fetch`."""
+    body = await request.json()
+    said = await fetch(request.app, ident, str(body.get("path") or ""), str(body.get("to") or ""))
+    from . import journal
+    journal.note(request.scope, f"brought {said['from']} from {said['computer']} to {said['saved']}")
+    return said
+
+
+@router.post("/api/computers/{ident}/send", summary="Write a file of this server on a computer")
+async def send_route(request: Request, ident: str) -> dict:
+    """`{path, to?, replace?}` → `{written, size}`: this server's file `path` written on the computer at `to`
+    (a path, or a folder ending in `/`; its Downloads when not said), never over a file unless `replace`.
+    Agents ask for it as `computer_send`."""
+    body = await request.json()
+    said = await send_file(request.app, ident, str(body.get("path") or ""), str(body.get("to") or ""), bool(body.get("replace")))
+    from . import journal
+    journal.note(request.scope, f"sent {said['from']} to {said['computer']} at {said['written']}")
+    return said
 
 
 @router.post("/api/computers/login", summary="Sign an agent in with the person's saved login")
