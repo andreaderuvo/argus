@@ -3447,7 +3447,8 @@ pre.file.hl .hljs-strong { font-weight: 700; }
   /* The three that moved into the drawer leave the bar. */
   #nav a[data-tab="placeholders"],
   #nav a[data-tab="system"],
-  #nav a[data-tab="journal"] { display: none; }
+  #nav a[data-tab="journal"],
+  #nav a[data-tab="agents"] { display: none; }
 
   #drawerveil {
     display: block; position: fixed; inset: 0; z-index: 40;
@@ -3461,7 +3462,11 @@ pre.file.hl .hljs-strong { font-weight: 700; }
     background: var(--panel); border-right: 1px solid var(--line);
     transform: translateX(-102%); transition: transform .18s ease;
     box-shadow: 0 0 40px rgb(0 0 0 / .5);
+    /* Its own scroll: the destinations, then the folders and the desks put away, are taller than a phone
+       — and nothing past the screen could be reached (2026-11-15). The page behind does not move with it. */
+    overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
   }
+  #drawer > * { flex: none; }
   body.drawered #drawerveil { opacity: 1; pointer-events: auto; }
   body.drawered #drawer { transform: none; }
   #drawer a {

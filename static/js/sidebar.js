@@ -1580,9 +1580,9 @@ export function viewersRow() {
  *  three slide in from the left with their names on. Standard advice, arrived at from the
  *  badge rather than from the advice.
  */
-const DRAWER = ['needs', 'placeholders', 'todo', 'notes', 'system', 'journal'];
+const DRAWER = ['needs', 'placeholders', 'todo', 'notes', 'system', 'journal', 'agents'];
 // With the bottom bar off, the drawer *is* the navigation and carries all of them.
-const EVERYTHING = ['needs', 'files', 'sessions', 'wall', 'prompts', 'placeholders', 'todo', 'notes', 'system', 'since', 'journal'];
+const EVERYTHING = ['needs', 'files', 'sessions', 'wall', 'prompts', 'placeholders', 'todo', 'notes', 'system', 'since', 'journal', 'agents'];
 // Drawer only, unless somebody asks for the bar back. Asked for plainly, and the bar was
 // left in place by mistake the first time.
 const noBar = () => prefs.bottomBar !== true;
@@ -1621,7 +1621,7 @@ function buildDrawer() {
     const copy = el('a', { href: link.getAttribute('href'), 'data-goes': tab }, [
       icon({
         needs: 'inbox', files: 'folder', sessions: 'terminal', wall: 'grid', prompts: 'relay',
-        placeholders: 'rename', todo: 'tick', system: 'activity', since: 'bell', journal: 'journal',
+        placeholders: 'rename', todo: 'tick', system: 'activity', since: 'bell', journal: 'journal', agents: 'robot',
       }[tab] || 'folder'),
       // The link's own words, not its badge: `textContent` on the anchor swept up the tally
       // as well, so the drawer read "Windows4".
