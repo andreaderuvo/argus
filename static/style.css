@@ -3564,8 +3564,9 @@ a.addrtext:hover { text-decoration: underline; }
  *  the two must not be mistaken for each other. The separators say the rail holds three kinds
  *  of thing — where the app can go, desks you parked, windows you have open — rather than one
  *  long list of everything. */
-#raildesks { display: flex; flex-direction: column; border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line); margin: .3rem 0; padding: .3rem 0; }
+/* Each section of the rail draws the line above itself, never below: a line below the desks put away and the
+   one above the windows made two, a few pixels apart (reported 2026-11-17). */
+#raildesks { display: flex; flex-direction: column; border-top: 1px solid var(--line); margin: .3rem 0 0; padding: .3rem 0; }
 /* Only where the rail exists, like #railwins: below that the rail is the bottom bar, and the
    parked desks are in the drawer instead (#drawerdesks). */
 @media (max-width: 899px) { #raildesks { display: none !important; } }
@@ -3577,7 +3578,7 @@ a.addrtext:hover { text-decoration: underline; }
 #drawerdesks .railwin:hover { background: var(--line); color: var(--bright); }
 #drawerdesks .railname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #drawerdesks .railcount { display: inline; margin-left: auto; font-size: .75rem; color: var(--dim); }
-#raildesks:empty { display: none; }
+#raildesks:empty, #railwins:empty { display: none; }
 .railwin.raildesk .raildot { width: 10px; height: 10px; border-radius: 50%; flex: none;
   margin: 0 3px; box-shadow: 0 0 0 1px var(--bg); }
 .railwin.raildesk .railcount { margin-left: auto; font-size: .7rem; color: var(--dim); }
