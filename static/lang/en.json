@@ -2059,6 +2059,14 @@
   "updated to {v} — sessions already open keep theirs until restarted": "updated to {v} — sessions already open keep theirs until restarted",
   "{name} was not updated: {why}": "{name} was not updated: {why}",
   "Agents out of date, updated in a press": "Agents out of date, updated in a press",
-  "New session says when Claude Code, Codex or Gemini has a newer version, with Update.": "New session says when Claude Code, Codex or Gemini has a newer version, with Update."
+  "New session says when Claude Code, Codex or Gemini has a newer version, with Update.": "New session says when Claude Code, Codex or Gemini has a newer version, with Update.",
+  "{name} updated — restart": "{name} updated — restart",
+  "A newer {name} is installed; this session still runs the one it started with. Restart it on the new version — the conversation is kept.": "A newer {name} is installed; this session still runs the one it started with. Restart it on the new version — the conversation is kept.",
+  "Restart 1 session on it": "Restart 1 session on it",
+  "Restart {n} sessions on it": "Restart {n} sessions on it",
+  "restarted on the new version, same conversation: {list}": "restarted on the new version, same conversation: {list}",
+  "update upgrade new version agents": "update upgrade new version agents",
+  "Restart 1 session on the new version": "Restart 1 session on the new version",
+  "Restart {n} sessions on the new version": "Restart {n} sessions on the new version"
  }
 }

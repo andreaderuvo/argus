@@ -2059,6 +2059,14 @@
   "updated to {v} — sessions already open keep theirs until restarted": "aggiornato alla {v} — le sessioni già aperte tengono la loro finché non le riavvii",
   "{name} was not updated: {why}": "{name} non è stato aggiornato: {why}",
   "Agents out of date, updated in a press": "Agenti vecchi, aggiornati con un tocco",
-  "New session says when Claude Code, Codex or Gemini has a newer version, with Update.": "Nuova sessione dice quando Claude Code, Codex o Gemini hanno una versione più nuova, con Aggiorna."
+  "New session says when Claude Code, Codex or Gemini has a newer version, with Update.": "Nuova sessione dice quando Claude Code, Codex o Gemini hanno una versione più nuova, con Aggiorna.",
+  "{name} updated — restart": "{name} aggiornato — riavvia",
+  "A newer {name} is installed; this session still runs the one it started with. Restart it on the new version — the conversation is kept.": "È installato un {name} più nuovo; questa sessione usa ancora quello con cui è partita. Riavviala sulla nuova versione — la conversazione resta.",
+  "Restart 1 session on it": "Riavvia 1 sessione con questa",
+  "Restart {n} sessions on it": "Riavvia {n} sessioni con questa",
+  "restarted on the new version, same conversation: {list}": "riavviate sulla nuova versione, stessa conversazione: {list}",
+  "update upgrade new version agents": "aggiorna aggiornamento nuova versione agenti",
+  "Restart 1 session on the new version": "Riavvia 1 sessione sulla nuova versione",
+  "Restart {n} sessions on the new version": "Riavvia {n} sessioni sulla nuova versione"
  }
 }

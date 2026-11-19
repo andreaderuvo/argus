@@ -85,6 +85,7 @@ export function applyAgentStates(states) {
     const title = win.querySelector('.wintitle');
     if (title) title.dataset.agent = st ? `${st.agent || t('agent')}: ${stateWord(st)}` : '';
     markOldPlugin(win, st);
+    markOldCli(win, st);
   }
   for (const pill of document.querySelectorAll('.agentstate[data-session]')) paintState(pill, agentStates.get(pill.dataset.session));
   for (const b of document.querySelectorAll('.restartagent[data-session]')) b.hidden = !agentStates.has(b.dataset.session);
@@ -134,6 +135,28 @@ function markOldPlugin(win, st) {
       toast(said.reloaded.length ? t('reloaded in {done}', { done: said.reloaded.join(', ') })
         : t('not now: it is working or asking you something — try when it has finished'), !said.reloaded.length);
     } catch (err) { toast(err.message, true); }
+  };
+}
+
+/** "Claude Code updated — restart" in a window's title bar, while its session still runs the version it
+ *  started with: an update reaches a running agent only when it starts again. The restart keeps the conversation
+ *  (restartAgent: claude --resume, codex resume), and asks first if it is in the middle of something
+ *  ("I updated the agent but this session still has the old one", 2026-11-19). */
+function markOldCli(win, st) {
+  const bar = win.querySelector('.winbar');
+  if (!bar) return;
+  let mark = bar.querySelector('.cliold');
+  if (!st?.cli_old) { mark?.remove(); return; }
+  if (!mark) {
+    mark = el('button', { className: 'pluginold cliold', type: 'button' });
+    mark.addEventListener('pointerdown', (e) => e.stopPropagation());
+    (bar.querySelector('.pluginold') || bar.querySelector('.wintitle'))?.after(mark);
+  }
+  mark.textContent = t('{name} updated — restart', { name: st.cli_name || st.agent });
+  mark.title = t('A newer {name} is installed; this session still runs the one it started with. Restart it on the new version — the conversation is kept.', { name: st.cli_name || st.agent });
+  mark.onclick = async (e) => {
+    e.stopPropagation();
+    if ((await restartAgent(win.dataset.session))?.restarted) mark.remove();
   };
 }
 

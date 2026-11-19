@@ -1,5 +1,6 @@
 // <imports> generated from what this file uses; edit the code, not this list
 import { savePrefs } from '/js/core.js';
+import { restartAgent } from '/js/counts.js';
 import { ask, copies, copyText, modal, showText, ticked, toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { fileIcon } from '/js/fileicons.js';
@@ -1952,6 +1953,7 @@ export async function drawUpdates(box, after) {
             el('span', { className: 'meta', textContent: t('updated to {v} — sessions already open keep theirs until restarted', { v: r.installed || a.latest }) })]));
           row.classList.add('done');
           after?.(a.agent, r.installed);
+          offerRestarts(row, a);
         } else {
           toast(t('{name} was not updated: {why}', { name: a.name, why: (r.output || '').trim().split('\n').pop() || t('it failed') }), true);
           go.disabled = false;
@@ -1965,4 +1967,24 @@ export async function drawUpdates(box, after) {
     };
     return row;
   }));
+}
+
+/** After an update: the sessions still on the old version, restarted on the new one in a press — each keeps its
+ *  conversation, and one in the middle of something is asked about first (restartAgent). */
+async function offerRestarts(row, a) {
+  let states = {};
+  try { states = (await getJSON('/api/tmux/states')).states || {}; } catch { return; }
+  const old = Object.entries(states).filter(([, st]) => st.cli_old && st.agent === a.agent).map(([name]) => name);
+  if (!old.length) return;
+  const go = el('button', { type: 'button', className: 'ghost inline' },
+    [icon('refresh'), el('span', { textContent: old.length === 1 ? t('Restart 1 session on it') : t('Restart {n} sessions on it', { n: old.length }) })]);
+  go.title = old.join(', ');
+  go.onclick = async () => {
+    go.disabled = true;
+    const done = [];
+    for (const name of old) if ((await restartAgent(name, { quiet: true }))?.restarted) done.push(name);
+    toast(done.length ? t('restarted on the new version, same conversation: {list}', { list: done.join(', ') }) : t('nothing restarted'));
+    go.remove();
+  };
+  row.append(go);
 }

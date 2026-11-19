@@ -64,3 +64,24 @@ def test_an_update_runs_its_command_and_reads_the_version_again(monkeypatch):
     assert ran == ["npm install -g @google/gemini-cli@latest </dev/null 2>&1"]
     with pytest.raises(ValueError):
         au.update("nano")
+
+
+class P:
+    def __init__(self, ppid, argv, start):
+        self.ppid, self.argv, self.start = ppid, argv, start
+
+
+def test_a_session_whose_agent_started_before_the_update_is_found(monkeypatch):
+    """"I updated the agent but this session still has the old one" (2026-11-19): the agent's process started
+    before the program on disk was written."""
+    monkeypatch.setattr(au, "boot_time", lambda: 1_000_000.0)
+    monkeypatch.setattr(au, "installed_at", lambda agent: 1_000_500.0 if agent == "claude" else 1_000_100.0)
+    table = {
+        10: P(1, ["bash"], 50), 11: P(10, ["node", "/x/bin/claude", "--resume", "id"], 100),   # started at 1_000_100: old
+        20: P(1, ["bash"], 50), 21: P(20, ["claude"], 900),                                    # 1_000_900: after the update
+        30: P(1, ["bash"], 50), 31: P(30, ["codex"], 900),
+        40: P(1, ["bash"], 50), 41: P(40, ["vim", "notes.md"], 10),                            # no agent at all
+    }
+    panes = {"old-claude": [10], "new-claude": [20], "codex": [30], "editor": [40]}
+    assert au.stale(panes, table) == {"old-claude": "claude"}
+    assert au.stale(panes, None) == {}

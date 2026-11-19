@@ -132,3 +132,58 @@ def update(agent: str) -> dict:
     installed = version_of(launch.versions([agent]).get(agent, ""))
     return {"agent": agent, "command": command, "code": code, "ok": code == 0, "installed": installed,
             "output": output[-2000:]}
+
+
+# ------------------------------------------------------------------ sessions still on the old version
+
+def boot_time() -> float:
+    """When this machine started (epoch seconds): a process's start is counted from it in /proc."""
+    try:
+        for line in open("/proc/stat"):
+            if line.startswith("btime "):
+                return float(line.split()[1])
+    except OSError:
+        pass
+    return 0.0
+
+
+def installed_at(agent: str) -> float | None:
+    """When the program installed now was written: an update rewrites it (npm's script, Claude's binary)."""
+    path = where(agent)
+    try:
+        return os.stat(path).st_mtime if path else None
+    except OSError:
+        return None
+
+
+def stale(panes: dict[str, list[int]], table: dict | None) -> dict[str, str]:
+    """{session: agent} for each session whose agent started before the version installed now was: it still
+    runs the old one, until it is restarted ("I updated the CLI but this session still has the old one",
+    2026-11-19). From the processes alone — the pane's tree, each process's start — nothing asked of the agent."""
+    if not table:
+        return {}
+    from .agentstate import agent_in
+    names = frozenset(AGENTS)
+    children: dict[int, list[int]] = {}
+    for pid, proc in table.items():
+        children.setdefault(proc.ppid, []).append(pid)
+    boot = boot_time()
+    when: dict[str, float | None] = {}
+    out: dict[str, str] = {}
+    for session, roots in panes.items():
+        stack, seen = list(roots), set()
+        while stack:
+            pid = stack.pop()
+            if pid in seen or pid not in table:
+                continue
+            seen.add(pid)
+            agent = agent_in(list(table[pid].argv), names)
+            if agent:
+                if agent not in when:
+                    when[agent] = installed_at(agent)
+                started = boot + table[pid].start
+                if when[agent] and boot and started < when[agent] - 5:
+                    out[session] = agent
+                break
+            stack.extend(children.get(pid, ()))
+    return out

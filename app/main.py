@@ -33,7 +33,7 @@ from .auth import PROXY_COOKIE, TokenAuthMiddleware
 from .config import Config, ConfigError, default_path
 from .errors import ApiError
 from .jsongzip import JsonGzip
-from . import minify, procs
+from . import agentupdate, minify, procs
 from .safepath import Jail, PathError
 
 VERSION = "0.1.0"
@@ -700,6 +700,19 @@ def create_app(cfg: Config) -> FastAPI:
             pass
         return out
 
+    async def stale_agents(request: Request) -> dict[str, str]:
+        """{session: agent} still running an agent older than the one installed (agentupdate.stale), read at
+        most every 30 s: the states are asked every 3."""
+        cache = request.app.state.__dict__.setdefault("stale_agents", [0.0, {}])
+        if time.monotonic() - cache[0] > 30:
+            state = request.app.state
+            try:
+                cache[1] = await asyncio.to_thread(lambda: agentupdate.stale(tmux.pane_pids(state.socket), procs.table()))
+            except Exception:
+                cache[1] = {}
+            cache[0] = time.monotonic()
+        return cache[1]
+
     @app.get("/api/tmux/states", tags=["Sessions"], summary="Which agents are working and which are waiting for you")
     async def tmux_states(request: Request) -> dict:
         """`{states: {session: {agent, state, since}}}` for every session with an agent in it.
@@ -731,6 +744,12 @@ def create_app(cfg: Config) -> FastAPI:
             if seen.get(name):
                 st["plugin"] = seen[name]
                 st["plugin_old"] = pluginstate.older(seen[name], offered)
+        # Sessions whose agent started before the version installed now: they run the old one until restarted.
+        for name, agent in (await stale_agents(request)).items():
+            if name in states:
+                st = states[name]
+                st["cli_old"] = True
+                st["cli_name"] = agentupdate.AGENTS.get(agent, {}).get("name", agent)
         return {"states": states, "plugin_offered": offered, "needs": needs.count(request.app, states)}
 
     @app.get("/api/needs", tags=["Notifications"], summary="Everything waiting on you now, in one list")
@@ -2172,20 +2191,20 @@ def create_app(cfg: Config) -> FastAPI:
         """`{agents: [{agent, name, installed, latest, outdated, how, command}]}` — the newest from the npm
         registry (remembered an hour), the installed one from its own `--version`; `how` is npm, brew or claude
         (`claude update`), "" when it cannot be told."""
-        from . import agentupdate
         return {"agents": await asyncio.to_thread(agentupdate.state)}
 
     @app.post("/api/agents/update", tags=["Sessions"], summary="Update Claude Code, Codex or Gemini")
     async def agent_update(request: Request, body: dict) -> dict:
         """`{agent}` → `{ok, installed, command, code, output}`: the update that matches how it was installed,
         run in a login shell. Sessions already open keep the version they started with until restarted."""
-        from . import agentupdate, journal
+        from . import journal
         agent = str(body.get("agent") or "")
         try:
             said = await asyncio.to_thread(agentupdate.update, agent)
         except ValueError as e:
             raise ApiError(400, str(e)) from None
         journal.note(request.scope, f"updated {agent} with “{said['command']}”: " + (f"now {said['installed']}" if said["ok"] else "failed"))
+        request.app.state.__dict__["stale_agents"] = [0.0, {}]     # asked again at the next reading
         return said
 
     @app.post("/api/tmux/launch", tags=["Sessions"], summary="Start an agent, with its first instruction")

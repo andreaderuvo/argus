@@ -2,6 +2,8 @@
 import { AGENT_CAN } from '/js/agentcan.js';
 import { ARGUS_MAP, showMe } from '/js/argusmap.js';
 import { savePrefs } from '/js/core.js';
+import { restartAgent } from '/js/counts.js';
+import { toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
 import { icon } from '/js/icons.js';
 import { TAB_WORD } from '/js/markup.js';
@@ -85,8 +87,21 @@ let open = null;
 export async function openPalette() {
   if (open) { open.input.focus(); return; }
   let sessions = [];
+  let old = [];
   try { sessions = ((await getJSON('/api/tmux/sessions')).sessions || []).map((s) => s.name); } catch { /* none */ }
+  try { old = Object.entries((await getJSON('/api/tmux/states')).states || {}).filter(([, st]) => st.cli_old).map(([n]) => n); } catch { /* none */ }
   const all = items(sessions);
+  // Sessions still on the version their agent started with, after an update: all of them in one go.
+  if (old.length) {
+    all.unshift({ kind: 'action', id: 'restart-old', glyph: 'refresh', also: t('update upgrade new version agents'),
+      label: old.length === 1 ? t('Restart 1 session on the new version') : t('Restart {n} sessions on the new version', { n: old.length }),
+      sub: old.join(', '),
+      run: async () => {
+        const done = [];
+        for (const name of old) if ((await restartAgent(name, { quiet: true }))?.restarted) done.push(name);
+        toast(done.length ? t('restarted on the new version, same conversation: {list}', { list: done.join(', ') }) : t('nothing restarted'));
+      } });
+  }
   const recent = (prefs.paletteRecent || []).map((id) => all.find((x) => x.id === id)).filter(Boolean);
   const input = el('input', { type: 'text', className: 'palettefind', placeholder: t('Type what you want: a screen, an action, a desk, a setting…'),
     'aria-label': t('Find anything'), autocomplete: 'off', spellcheck: false });
