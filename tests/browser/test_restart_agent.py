@@ -31,6 +31,11 @@ def test_a_window_restarts_its_agent_from_its_menu(make_page, argus, tmp_path):
         page.wait("!!document.querySelector('.win .restartagent') && !document.querySelector('.win .restartagent').hidden",
                   timeout=25, what="the restart offered, once the agent is known")
         page.window_action('.win[data-kind="term"]', "Restart the agent")
+        # On a slow machine the stand-in is still drawing when this is pressed, and the restart asks first
+        # whether to stop what it is doing (CI, 2026-11-17 and 19): answered, then the question this test is about.
+        page.wait("[...document.querySelectorAll('dialog[open]')].some(d => /not known|working now/.test(d.textContent))", timeout=10)
+        if page.eval("[...document.querySelectorAll('dialog[open]')].some(d => d.textContent.includes('working now'))"):
+            page.click_at(*page._center("[...document.querySelectorAll('dialog[open] button')].find(b => b.textContent === 'Restart')"))
         # Its conversation is not known here: asked before a new one is started.
         page.wait("[...document.querySelectorAll('dialog[open]')].some(d => d.textContent.includes('not known'))", timeout=10)
         page.click_text("Start a new one", within="dialog[open] button")

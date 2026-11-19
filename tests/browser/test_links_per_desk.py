@@ -25,7 +25,10 @@ def test_the_old_key_is_taken_apart_and_gone_desks_lose_theirs(make_page, argus)
     assert len(p["links.1"]) == 1 and len(p["links.2"]) == 2
     assert "links.3" not in p, "desk 3 was made here (id <= wsSeq) and is gone: its links too"
     assert "links.42" in p, "a desk made elsewhere and not seen yet keeps its links"
-    # A save of something else carries no link list at all.
+    # A save of something else carries no link list at all. What's new marks itself seen on a first visit, and
+    # that went in the same save (CI, 2026-11-19): waited for first.
+    eventually(lambda: argus.api("/api/prefs")["prefs"].get("newsSeen"), what="What's new, marked seen")
+    time.sleep(0.6)
     sent = []
     page._listeners.append(lambda m: m.get("method") == "Network.requestWillBeSent"
                            and m["params"]["request"]["url"].endswith("/api/prefs")
