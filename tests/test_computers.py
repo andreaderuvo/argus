@@ -468,7 +468,8 @@ def test_the_real_argus_sync_connects_this_computer(live, tmp_path):
                     await asyncio.sleep(0.05)
                 assert (tmp_path / "shell").read_text().strip() == "typed-in-the-shell"
         asyncio.run(scenario())
-        assert (home / "computer.json").exists() and (home / "browser-profile").is_dir()
+        # computers.json since argus-bridge 0.1.30 (several Argus), computer.json before.
+        assert ((home / "computers.json").exists() or (home / "computer.json").exists()) and (home / "browser-profile").is_dir()
 
         call(live, f"/api/computers/{cid}/disconnect", "POST", {})
         out, _ = client.communicate(timeout=20)
