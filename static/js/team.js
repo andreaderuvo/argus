@@ -244,7 +244,7 @@ export async function teamSheet({ wsId, home, onStarted }) {
   };
 
   const drawPicture = () => {
-    picture.replaceChildren(drawGraph(graph, { selected, onPick: (id) => { selected = selected === id ? null : id; drawPicture(); drawPanel(); } }));
+    picture.replaceChildren(drawGraph(graph, { selected, onPick: (id) => { pickedByHand = true; selected = selected === id ? null : id; drawPicture(); drawPanel(); } }));
     checkBox.hidden = !graph.nodes.some((n) => n.kind === 'check' && !n.command);
   };
 
@@ -686,6 +686,8 @@ export async function teamSheet({ wsId, home, onStarted }) {
       } else if (said.team_file?.error) {
         toast(t('{file}: {why}', { file: said.team_file.file, why: said.team_file.error }), true);
       }
+      // Never once the person has picked a card or opened a step: a late suggestion replaced the team, and
+      // closed the step being edited, under their hands (seen on a slow runner, 2026-11-19).
       if (!pickedByHand && said.template && said.template !== chosen && templates[said.template]) choose(said.template);
       checkList.replaceChildren(...(said.checks || []).map((c) => el('option', { value: c })));
       if (!check.dataset.touched && said.checks?.length) check.value = said.checks[said.checks.length - 1];

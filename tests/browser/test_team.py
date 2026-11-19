@@ -143,10 +143,13 @@ def test_a_role_of_your_own_is_saved_and_offered_again(make_page, argus):
     # The picture is redrawn as the roles arrive; on WebKit a press whose node is replaced before the release
     # is lost (issue #20), so the click is given again until the panel opens.
     reviewer = "[...document.querySelectorAll('.teampicture .tgnode')].find(n => n.querySelector('.tgtext')?.textContent === 'reviewer')"
+    page.settle(quiet=0.5)
     for attempt in range(3):
+        if page.eval("!document.querySelector('.teamnode').hidden"):
+            break                                   # a click counted late: another would close it
         page.click_at(*page._center(reviewer))
         try:
-            page.wait("!document.querySelector('.teamnode').hidden", timeout=5 if attempt == 2 else 2, what="the step's panel")
+            page.wait("!document.querySelector('.teamnode').hidden", timeout=5 if attempt == 2 else 3, what="the step's panel")
             break
         except Exception:
             if attempt == 2:
