@@ -142,12 +142,24 @@ async def computer(base, key, offers, chrome_at=None, told=None, answer=None, re
             ptys[ch] = fd
             kids.append(pid)
             await say({"op": "opened", "ch": ch})
+            # Read by the loop itself, never by a thread: a thread blocked in os.read on a terminal that was closed
+            # under it never returned, and Python 3.11 waits for its threads at the end — the test hung for the
+            # five-minute limit on CI (2026-11-12, 2026-11-19).
             loop = asyncio.get_running_loop()
-            while True:
+            got: asyncio.Queue = asyncio.Queue()
+
+            def readable():
                 try:
-                    data = await loop.run_in_executor(None, os.read, fd, 4096)
+                    data = os.read(fd, 4096)
                 except OSError:
                     data = b""
+                if not data:
+                    loop.remove_reader(fd)
+                got.put_nowait(data)
+            os.set_blocking(fd, False)
+            loop.add_reader(fd, readable)
+            while True:
+                data = await got.get()
                 if not data:
                     await say({"op": "close", "ch": ch, "why": "the shell ended", "code": 0})
                     return
@@ -248,7 +260,9 @@ async def computer(base, key, offers, chrome_at=None, told=None, answer=None, re
                 if ch in pipes:
                     await pipes.pop(ch).close()
                 if ch in ptys:
-                    os.close(ptys.pop(ch))
+                    fd = ptys.pop(ch)
+                    asyncio.get_running_loop().remove_reader(fd)
+                    os.close(fd)
             elif frame["op"] == "bye":
                 # The shells go with it, or their readers would hold the loop open.
                 for pid in kids:
@@ -257,6 +271,7 @@ async def computer(base, key, offers, chrome_at=None, told=None, answer=None, re
                     except OSError:
                         pass
                 for fd in ptys.values():
+                    asyncio.get_running_loop().remove_reader(fd)
                     try:
                         os.close(fd)
                     except OSError:
