@@ -140,8 +140,17 @@ def test_a_role_of_your_own_is_saved_and_offered_again(make_page, argus):
     project = desk(argus)
     page = make_page(route="#/wall")
     open_sheet(page, argus, "make the parser faster")
-    page.click_at(*page._center("[...document.querySelectorAll('.teampicture .tgnode')].find(n => n.querySelector('.tgtext')?.textContent === 'reviewer')"))
-    page.wait("!document.querySelector('.teamnode').hidden", timeout=5, what="the step's panel")
+    # The picture is redrawn as the roles arrive; on WebKit a press whose node is replaced before the release
+    # is lost (issue #20), so the click is given again until the panel opens.
+    reviewer = "[...document.querySelectorAll('.teampicture .tgnode')].find(n => n.querySelector('.tgtext')?.textContent === 'reviewer')"
+    for attempt in range(3):
+        page.click_at(*page._center(reviewer))
+        try:
+            page.wait("!document.querySelector('.teamnode').hidden", timeout=5 if attempt == 2 else 2, what="the step's panel")
+            break
+        except Exception:
+            if attempt == 2:
+                raise
     duty = "document.querySelector('.teamnode .teamduty')"
     page.eval(f"{duty}.value = 'Use your /security-review skill on the diff.'; {duty}.dispatchEvent(new Event('input'))")
     # The naming box by its own title: "an input in the last sheet" also matched the Team sheet, so a press
