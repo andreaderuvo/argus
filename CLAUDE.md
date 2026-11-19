@@ -872,6 +872,12 @@ fails if it comes back. Before adding anything, keep these true:
   Codex breaking after a `/` — the lower's first piece would not have fitted beside it. `logicalLine` returns `cells` (row, col per
   character) so the link is underlined and opened from either half; a path crossing a join is also
   asked about in its pieces, the whole preferred. The tray harvests from the same joined lines.
+- **A sign-in that comes back to this machine** (`static/js/signin.js`, `POST /api/signin/finish`,
+  tests/test_signin.py, tests/browser/test_signin_sheet.py). `codex login`, `gh auth login`… print a link whose
+  `redirect_uri` is http://localhost:<port>/ on *this* machine; opened elsewhere, the browser returns to its own
+  localhost and the CLI waits for ever. A clicked link with such a `redirect_uri` opens a sheet instead: the port
+  is forwarded to every connected argus-bridge computer first (the return just arrives), and the address the
+  browser ended on can be pasted — the server GETs it on 127.0.0.1, loopback only.
 - **Clickable paths**: `app/paths.py` + `linkPaths()` in the frontend. Hovering a line
   sends its path-shaped words to `POST /api/fs/locate`, which answers only for what the
   jail would serve — so it cannot be used to probe the filesystem. Relative paths resolve

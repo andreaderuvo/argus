@@ -2657,6 +2657,30 @@ def create_app(cfg: Config) -> FastAPI:
             )
         return answer
 
+    @app.post("/api/signin/finish", tags=["Ports"], summary="Hand a sign-in's answer to the program waiting for it here")
+    async def finish_signin(request: Request, body: dict) -> dict:
+        """`{url}` → `{status, text}`. A CLI signing in from this machine (`codex login`, `gh auth`, `gcloud`…)
+        waits on its own localhost for the browser to come back; a browser elsewhere lands on *its* localhost
+        and shows nothing. The address it ended on, pasted here, is requested from this machine instead —
+        loopback only, the path and query as they were."""
+        try:
+            parts = urlsplit(str(body.get("url") or "").strip())
+            port = parts.port
+        except ValueError:
+            port = None
+            parts = None
+        if not parts or parts.scheme not in ("http", "https") or parts.hostname not in ("localhost", "127.0.0.1", "::1") or not port:
+            raise ApiError(400, "paste the whole address the browser ended on — it starts http://localhost:<port>/")
+        if port == request.app.state.port:
+            raise ApiError(400, "that is Argus itself")
+        target = f"{parts.scheme}://127.0.0.1:{port}{parts.path or '/'}" + (f"?{parts.query}" if parts.query else "")
+        try:
+            async with httpx.AsyncClient(verify=False, timeout=20, follow_redirects=False) as client:
+                got = await client.get(target)
+        except httpx.HTTPError:
+            raise ApiError(409, f"nothing is waiting on port {port} here — is the sign-in still running in its terminal?") from None
+        return {"status": got.status_code, "port": port, "text": got.text[:2000]}
+
     @app.get("/api/system", tags=["The machine"], summary="CPU, memory, swap, GPUs, disks, uptime")
     async def vitals(request: Request, brief: bool = False) -> dict:
         # Sampling /proc/stat needs a real pause, so it goes to a thread.

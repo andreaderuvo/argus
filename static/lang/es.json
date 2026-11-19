@@ -2069,6 +2069,18 @@
   "Restart 1 session on the new version": "Reinicia 1 sesión en la versión nueva",
   "Restart {n} sessions on the new version": "Reinicia {n} sesiones en la versión nueva",
   "model {model}": "modelo {model}",
-  "effort {effort}": "esfuerzo {effort}"
+  "effort {effort}": "esfuerzo {effort}",
+  "Looking for your computers…": "Buscando tus ordenadores…",
+  "Finish signing in": "Terminar el inicio de sesión",
+  "Open the sign-in": "Abrir el inicio de sesión",
+  "Done — the program on this machine has its answer. Look at its terminal.": "Hecho: el programa de esta máquina ya tiene su respuesta. Mira su terminal.",
+  "The program answered {status}: {text}": "El programa respondió {status}: {text}",
+  "Signing in from this machine": "Iniciar sesión desde esta máquina",
+  "After you sign in, the browser comes back to localhost:{port} — the program waiting there runs on this machine, not on yours.": "Tras iniciar sesión, el navegador vuelve a localhost:{port}: el programa que espera allí se ejecuta en esta máquina, no en la tuya.",
+  "The page that would not load, starting http://localhost:{port}/ — copy it from the address bar.": "La página que no cargó, que empieza por http://localhost:{port}/: cópiala de la barra de direcciones.",
+  "No computer is connected through argus-bridge: sign in, then paste the address below.": "Ningún ordenador conectado mediante argus-bridge: inicia sesión y pega la dirección abajo.",
+  "Ready: localhost:{port} on {names} now reaches this machine. Open the sign-in there and it finishes by itself.": "Listo: localhost:{port} en {names} ahora llega a esta máquina. Abre el inicio de sesión allí y termina solo.",
+  "Port {port} could not be put on your computer — sign in, then paste the address below.": "No se pudo llevar el puerto {port} a tu ordenador: inicia sesión y pega la dirección abajo.",
+  "Or paste the address the browser ended on": "O pega la dirección en la que acabó el navegador"
  }
 }

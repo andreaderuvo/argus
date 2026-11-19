@@ -13,6 +13,7 @@ import { joinRows } from '/js/linejoin.js';
 import { pointAt } from '/js/pointing.js';
 import { deskHome, getJSON, openFileRaw, postJSON, setTitle, withToken } from '/js/reconnect.js';
 import { go } from '/js/router.js';
+import { openSignin, signinPort } from '/js/signin.js';
 import { bar, killLive, live, nav, prefs, server, setLive, token, view } from '/js/state.js';
 import { READABLE, RECONNECT_CAP, copyButton, sizeButtons } from '/js/terminal.js';
 import { termTheme, termThemeWatch } from '/js/theme.js';
@@ -146,6 +147,9 @@ export async function openUrl(raw) {
   const port = Number(parsed.port || (parsed.protocol === 'https:' ? 443 : 80));
 
   if (!loopback || parsed.hostname === location.hostname) {
+    // A sign-in that will come back to this machine's localhost (codex login, gh auth…): set up the way back.
+    const back = loopback ? 0 : signinPort(url);
+    if (back) return openSignin(url, back);
     window.open(url, '_blank', 'noopener');
     return;
   }

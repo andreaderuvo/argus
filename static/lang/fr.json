@@ -2069,6 +2069,18 @@
   "Restart 1 session on the new version": "Redémarrer 1 session sur la nouvelle version",
   "Restart {n} sessions on the new version": "Redémarrer {n} sessions sur la nouvelle version",
   "model {model}": "modèle {model}",
-  "effort {effort}": "effort {effort}"
+  "effort {effort}": "effort {effort}",
+  "Looking for your computers…": "Recherche de vos ordinateurs…",
+  "Finish signing in": "Terminer la connexion",
+  "Open the sign-in": "Ouvrir la connexion",
+  "Done — the program on this machine has its answer. Look at its terminal.": "C’est fait : le programme sur cette machine a reçu sa réponse. Regardez son terminal.",
+  "The program answered {status}: {text}": "Le programme a répondu {status} : {text}",
+  "Signing in from this machine": "Connexion depuis cette machine",
+  "After you sign in, the browser comes back to localhost:{port} — the program waiting there runs on this machine, not on yours.": "Après la connexion, le navigateur revient sur localhost:{port} : le programme qui l’attend tourne sur cette machine, pas sur la vôtre.",
+  "The page that would not load, starting http://localhost:{port}/ — copy it from the address bar.": "La page qui ne s’est pas chargée, commençant par http://localhost:{port}/ : copiez-la depuis la barre d’adresse.",
+  "No computer is connected through argus-bridge: sign in, then paste the address below.": "Aucun ordinateur connecté par argus-bridge : connectez-vous, puis collez l’adresse ci-dessous.",
+  "Ready: localhost:{port} on {names} now reaches this machine. Open the sign-in there and it finishes by itself.": "Prêt : localhost:{port} sur {names} mène maintenant à cette machine. Ouvrez la connexion là-bas, elle se termine toute seule.",
+  "Port {port} could not be put on your computer — sign in, then paste the address below.": "Le port {port} n’a pas pu être placé sur votre ordinateur : connectez-vous, puis collez l’adresse ci-dessous.",
+  "Or paste the address the browser ended on": "Ou collez l’adresse où le navigateur a abouti"
  }
 }

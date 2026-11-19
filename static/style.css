@@ -5254,3 +5254,13 @@ dialog.palette kbd { display: inline-grid; place-items: center; min-width: 1.45e
 .agentchip.claude svg { color: #d97757; }
 .agentchip.codex svg { color: var(--bright); }
 .agentchip.gemini svg { color: #7b8cff; }
+
+/* Signing in from this machine (signin.js) */
+.signin { display: flex; flex-direction: column; gap: .65rem; max-width: 34rem; }
+.signin .signinroute { padding: .5rem .65rem; border-radius: 8px; background: color-mix(in srgb, var(--dim) 10%, transparent); }
+.signin .signinroute.good, .signin .signinresult.good { color: var(--ok, var(--accent)); }
+.signin .signinresult.bad { color: var(--danger); }
+.signin .signinpaste summary { cursor: pointer; color: var(--dim); }
+.signin .signinpaste[open] summary { margin-bottom: .4rem; }
+.signin .signinrow { display: flex; gap: .4rem; margin-top: .4rem; }
+.signin .signinrow input { flex: 1; min-width: 0; }

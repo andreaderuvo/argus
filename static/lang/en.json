@@ -2069,6 +2069,18 @@
   "Restart 1 session on the new version": "Restart 1 session on the new version",
   "Restart {n} sessions on the new version": "Restart {n} sessions on the new version",
   "model {model}": "model {model}",
-  "effort {effort}": "effort {effort}"
+  "effort {effort}": "effort {effort}",
+  "Looking for your computers…": "Looking for your computers…",
+  "Finish signing in": "Finish signing in",
+  "Open the sign-in": "Open the sign-in",
+  "Done — the program on this machine has its answer. Look at its terminal.": "Done — the program on this machine has its answer. Look at its terminal.",
+  "The program answered {status}: {text}": "The program answered {status}: {text}",
+  "Signing in from this machine": "Signing in from this machine",
+  "After you sign in, the browser comes back to localhost:{port} — the program waiting there runs on this machine, not on yours.": "After you sign in, the browser comes back to localhost:{port} — the program waiting there runs on this machine, not on yours.",
+  "The page that would not load, starting http://localhost:{port}/ — copy it from the address bar.": "The page that would not load, starting http://localhost:{port}/ — copy it from the address bar.",
+  "No computer is connected through argus-bridge: sign in, then paste the address below.": "No computer is connected through argus-bridge: sign in, then paste the address below.",
+  "Ready: localhost:{port} on {names} now reaches this machine. Open the sign-in there and it finishes by itself.": "Ready: localhost:{port} on {names} now reaches this machine. Open the sign-in there and it finishes by itself.",
+  "Port {port} could not be put on your computer — sign in, then paste the address below.": "Port {port} could not be put on your computer — sign in, then paste the address below.",
+  "Or paste the address the browser ended on": "Or paste the address the browser ended on"
  }
 }
