@@ -2081,6 +2081,8 @@
   "No computer is connected through argus-bridge: sign in, then paste the address below.": "No computer is connected through argus-bridge: sign in, then paste the address below.",
   "Ready: localhost:{port} on {names} now reaches this machine. Open the sign-in there and it finishes by itself.": "Ready: localhost:{port} on {names} now reaches this machine. Open the sign-in there and it finishes by itself.",
   "Port {port} could not be put on your computer — sign in, then paste the address below.": "Port {port} could not be put on your computer — sign in, then paste the address below.",
-  "Or paste the address the browser ended on": "Or paste the address the browser ended on"
+  "Or paste the address the browser ended on": "Or paste the address the browser ended on",
+  "filter ports": "filter ports",
+  "No port matches “{q}”": "No port matches “{q}”"
  }
 }

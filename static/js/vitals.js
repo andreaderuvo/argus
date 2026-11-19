@@ -268,9 +268,35 @@ function portsSection(where) {
   const unfolded = new Set();
   const box = el('div', { className: 'proclist ports' });
   const head = el('div', { className: 'tilelabel', textContent: t('Listening ports') });
-  box.append(head);
+  /* A filter ("a filter is needed here", 2026-11-19): a busy machine lists dozens of ports. Matches the
+   * number, your label, the program, its command line and the address; kept across the redraws. */
+  let needle = '';
+  const nomatch = el('p', { className: 'empty tiny', hidden: true });
+  const find = el('input', {
+    type: 'search', className: 'jfind portfind', placeholder: t('filter ports'), spellcheck: false,
+    autocomplete: 'off', 'aria-label': t('filter ports'),
+    oninput: (e) => { needle = e.target.value.trim().toLowerCase(); sift(); },
+  });
+  find.addEventListener('keydown', (e) => { if (e.key === 'Escape' && find.value) { e.stopPropagation(); find.value = ''; needle = ''; sift(); } });
+  box.append(el('div', { className: 'tilehead porthead' }, [head, find]));
   const list = el('div');
-  box.append(list);
+  box.append(list, nomatch);
+
+  /** Rows that do not match are hidden, with their details; the box to reach a port by hand stays. */
+  function sift() {
+    let shown = 0;
+    let all = 0;
+    for (const row of list.querySelectorAll('.portrow')) {
+      all++;
+      const hit = !needle || needle.split(/\s+/).every((w) => row.dataset.find.includes(w));
+      row.hidden = !hit;
+      const more = row.nextElementSibling;
+      if (more?.classList.contains('portmore')) more.classList.toggle('sifted', !hit);
+      if (hit) shown++;
+    }
+    nomatch.hidden = !needle || shown > 0 || !all;
+    nomatch.textContent = t('No port matches “{q}”', { q: needle });
+  }
 
   /** Reach a port nobody detected, or finish a login that went to the wrong machine.
    *
@@ -341,7 +367,7 @@ function portsSection(where) {
     // listed, or there is no way to close it again.
     const unseen = data.open.filter((port) => !mine.some((p) => p.port === port));
     for (const port of unseen) {
-      list.append(el('div', { className: 'portrow' }, [
+      const byHandRow = el('div', { className: 'portrow' }, [
         el('span', { className: 'portnum', textContent: String(port) }),
         el('span', { className: 'grow' }, [
           el('span', { className: 'name', textContent: t('opened by hand') }),
@@ -362,7 +388,9 @@ function portsSection(where) {
             } catch (e) { toast(e.message, true); }
           },
         }, icon('close')),
-      ]));
+      ]);
+      byHandRow.dataset.find = `${port} ${t('opened by hand')}`.toLowerCase();
+      list.append(byHandRow);
     }
 
     if (!mine.length && !unseen.length) {
@@ -387,6 +415,7 @@ function portsSection(where) {
         p.pid ? labelButton(() => ({ pid: p.pid, label: p.label, name: p.process }), () => paint()) : null,
         el('span', { className: `state ${p.loopback ? 'warning' : 'good'}`, textContent: p.loopback ? t('local only') : t('on the network') }),
       ].filter(Boolean));
+      row.dataset.find = [p.port, p.label, p.process, p.command, p.address].filter(Boolean).join(' ').toLowerCase();
 
       if (!p.loopback) {
         // Nothing to proxy: the phone can dial this itself.
@@ -526,6 +555,7 @@ function portsSection(where) {
       list.append(row);
       list.append(more);
     }
+    sift();
   };
   paint();
   /* Its own beat, slower than the meters.
