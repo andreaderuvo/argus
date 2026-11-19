@@ -454,7 +454,7 @@ export async function pluginUpdateDialog({ force = false } = {}) {
 }
 
 /** A turning arrow: something is happening now, and the label beside it says what. */
-function busySpin() {
+export function busySpin() {
   return el('span', { className: 'spin', 'aria-hidden': 'true' }, icon('refresh'));
 }
 

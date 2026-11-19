@@ -2053,6 +2053,10 @@
   "to run": "para ejecutar",
   "to close": "para cerrar",
   "Screens": "Pantallas",
-  "Enter": "Intro"
+  "Enter": "Intro",
+  "{have} — {latest} is out": "{have} — ya salió la {latest}",
+  "update it the way you installed it": "actualízalo como lo instalaste",
+  "updated to {v} — sessions already open keep theirs until restarted": "actualizado a la {v} — las sesiones ya abiertas mantienen la suya hasta reiniciarlas",
+  "{name} was not updated: {why}": "{name} no se actualizó: {why}"
  }
 }

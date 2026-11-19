@@ -2053,6 +2053,10 @@
   "to run": "pour exécuter",
   "to close": "pour fermer",
   "Screens": "Écrans",
-  "Enter": "Entrée"
+  "Enter": "Entrée",
+  "{have} — {latest} is out": "{have} — la {latest} est sortie",
+  "update it the way you installed it": "mettez-le à jour comme vous l’avez installé",
+  "updated to {v} — sessions already open keep theirs until restarted": "mis à jour en {v} — les sessions déjà ouvertes gardent la leur jusqu’au redémarrage",
+  "{name} was not updated: {why}": "{name} n’a pas été mis à jour : {why}"
  }
 }

@@ -2167,6 +2167,27 @@ def create_app(cfg: Config) -> FastAPI:
         # which is a button that looks broken and then works.
         return {"launchers": await asyncio.to_thread(launch.describe, request.app.state.cfg, versions)}
 
+    @app.get("/api/agents/updates", tags=["Sessions"], summary="Whether Claude Code, Codex and Gemini are out of date")
+    async def agent_updates() -> dict:
+        """`{agents: [{agent, name, installed, latest, outdated, how, command}]}` — the newest from the npm
+        registry (remembered an hour), the installed one from its own `--version`; `how` is npm, brew or claude
+        (`claude update`), "" when it cannot be told."""
+        from . import agentupdate
+        return {"agents": await asyncio.to_thread(agentupdate.state)}
+
+    @app.post("/api/agents/update", tags=["Sessions"], summary="Update Claude Code, Codex or Gemini")
+    async def agent_update(request: Request, body: dict) -> dict:
+        """`{agent}` → `{ok, installed, command, code, output}`: the update that matches how it was installed,
+        run in a login shell. Sessions already open keep the version they started with until restarted."""
+        from . import agentupdate, journal
+        agent = str(body.get("agent") or "")
+        try:
+            said = await asyncio.to_thread(agentupdate.update, agent)
+        except ValueError as e:
+            raise ApiError(400, str(e)) from None
+        journal.note(request.scope, f"updated {agent} with “{said['command']}”: " + (f"now {said['installed']}" if said["ok"] else "failed"))
+        return said
+
     @app.post("/api/tmux/launch", tags=["Sessions"], summary="Start an agent, with its first instruction")
     async def launch_agent(request: Request, body: dict) -> dict:
         """Create a session, start a launcher in it, wait for it to settle, type the prompt.

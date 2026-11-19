@@ -11,6 +11,7 @@ import { current, setCurrent } from '/js/pointing.js';
 import { bidi, colorFor, getJSON, homePath, openFileRaw, parentOf, postJSON, toggleFavourite } from '/js/reconnect.js';
 import { go } from '/js/router.js';
 import { browserView, browsers, fileBrowser } from '/js/screens.js';
+import { busySpin } from '/js/shortcuts.js';
 import { paintRailWindows } from '/js/sidebar.js';
 import { favs, live, prefs, server } from '/js/state.js';
 import { HARVEST_EVERY, HARVEST_ROWS, LOCATE_BATCH, locatePaths, logicalLine, normalizeUrl, openLocated, openUrl, pathCandidates } from '/js/termpaths.js';
@@ -597,6 +598,9 @@ export async function createSession({ path, suggest = 'shell', wsId = null, shel
    *  machine and not about the browser — and a greyed row saying "not on the PATH" is a better
    *  answer than a session that dies in half a second for reasons you have to go and read. */
   const picks = el('div', { className: 'startpicks' });
+  // The agents out of date, under the list, each with Update (agentupdate.py): "it does not tell me they
+  // are old — and a button that updates them" (2026-11-19).
+  const updates = el('div', { className: 'agentupdates', hidden: true });
   /* Something there while the list is on its way.
    *
    *  Asking the machine what it can start means asking a login shell, which costs the better
@@ -846,7 +850,7 @@ export async function createSession({ path, suggest = 'shell', wsId = null, shel
   body.append(
     el('label', { className: 'startlabel', textContent: t('name') }), name, nameWhy,
     el('label', { className: 'startlabel', textContent: t('in') }), where,
-    el('label', { className: 'startlabel', textContent: t('what to start') }), picks, opts,
+    el('label', { className: 'startlabel', textContent: t('what to start') }), picks, updates, opts,
     el('label', { className: 'startlabel', textContent: t('first instruction') }),
     el('div', { className: 'startpromptrow' }, [fromLibrary]),
     prompt, sendRow, wtBox,
@@ -912,6 +916,11 @@ export async function createSession({ path, suggest = 'shell', wsId = null, shel
         drawPicks(list);
         drawOptions();
       } catch { /* the list is the useful half; a version is a nicety */ }
+      drawUpdates(updates, (agent, installed) => {
+        // The version it says now, on its row too.
+        for (const one of list) if (one.agent === agent && installed) one.version = installed;
+        drawPicks(list);
+      });
     } catch (e) {
       picks.replaceChildren(el('p', { className: 'error', textContent: e.message }));
     }
@@ -1916,4 +1925,44 @@ export function resizable(win, bounds, onDone, peers = () => [], onPeerDone = ()
       grip.addEventListener('pointerup', up);
     });
   }
+}
+
+/** The agents installed here that have a newer version, each with Update — or, when how it was installed
+ *  cannot be told, how to update it yourself. `after(agent, installed)` once one is updated. */
+export async function drawUpdates(box, after) {
+  let said;
+  try { said = await getJSON('/api/agents/updates'); } catch { return; }
+  const old = (said.agents || []).filter((a) => a.outdated);
+  box.hidden = !old.length;
+  box.replaceChildren(...old.map((a) => {
+    const go = el('button', { type: 'button', className: 'ghost inline', title: a.command || '' },
+      [icon('download'), el('span', { textContent: t('Update') })]);
+    const words = el('span', { className: 'grow' }, [
+      el('b', { textContent: a.name }), ' ',
+      el('span', { className: 'meta', textContent: t('{have} — {latest} is out', { have: a.installed || '?', latest: a.latest }) }),
+    ]);
+    const row = el('div', { className: 'agentupdate' }, [icon('sparkle'), words, a.command ? go : el('span', { className: 'meta', textContent: t('update it the way you installed it') })]);
+    go.onclick = async () => {
+      go.disabled = true;
+      go.replaceChildren(busySpin(), el('span', { textContent: t('Updating…') }));
+      try {
+        const r = await postJSON('/api/agents/update', { agent: a.agent });
+        if (r.ok) {
+          row.replaceChildren(icon('tick'), el('span', { className: 'grow' }, [el('b', { textContent: a.name }), ' ',
+            el('span', { className: 'meta', textContent: t('updated to {v} — sessions already open keep theirs until restarted', { v: r.installed || a.latest }) })]));
+          row.classList.add('done');
+          after?.(a.agent, r.installed);
+        } else {
+          toast(t('{name} was not updated: {why}', { name: a.name, why: (r.output || '').trim().split('\n').pop() || t('it failed') }), true);
+          go.disabled = false;
+          go.replaceChildren(icon('download'), el('span', { textContent: t('Try again') }));
+        }
+      } catch (e) {
+        toast(e.message, true);
+        go.disabled = false;
+        go.replaceChildren(icon('download'), el('span', { textContent: t('Update') }));
+      }
+    };
+    return row;
+  }));
 }

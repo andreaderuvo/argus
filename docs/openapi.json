@@ -371,6 +371,76 @@
     ]
    }
   },
+  "/api/agents/update": {
+   "post": {
+    "description": "`{agent}` \u2192 `{ok, installed, command, code, output}`: the update that matches how it was installed,\nrun in a login shell. Sessions already open keep the version they started with until restarted.",
+    "operationId": "postApiAgentsUpdate",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Agent Update Api Agents Update Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Update Claude Code, Codex or Gemini",
+    "tags": [
+     "Sessions"
+    ]
+   }
+  },
+  "/api/agents/updates": {
+   "get": {
+    "description": "`{agents: [{agent, name, installed, latest, outdated, how, command}]}` \u2014 the newest from the npm\nregistry (remembered an hour), the installed one from its own `--version`; `how` is npm, brew or claude\n(`claude update`), \"\" when it cannot be told.",
+    "operationId": "getApiAgentsUpdates",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Agent Updates Api Agents Updates Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Whether Claude Code, Codex and Gemini are out of date",
+    "tags": [
+     "Sessions"
+    ]
+   }
+  },
   "/api/ask": {
    "post": {
     "description": "Put a question in front of whoever is holding the phone, and wait.\n\n`options` turns the answer into taps: two or three words, and answering costs no typing at\nall. Without them there is a box, which is right for \"what should I call it\" and wrong for\n\"shall I overwrite it\" \u2014 and the difference between those two is most of why this exists.\n\nThe wait is bounded and the question is not: when `wait` runs out the answer is simply not\nthere yet, and the same id can be waited on again. An agent that would rather not sit\nthere can pass `wait=0`, ask, get on with something else and come back.",

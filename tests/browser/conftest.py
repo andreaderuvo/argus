@@ -266,6 +266,7 @@ def argus(tmp_path_factory) -> Argus:
     # The tests kill their tmux server all the time; the register has to keep up with them.
     env["ARGUS_REGISTER_EVERY"] = "1"
     env["ARGUS_OLD_TOOLS"] = "off"          # the real machine's old copies are not this test's
+    env["ARGUS_AGENT_LATEST"] = "{}"        # no question to npm from a test (agentupdate.py)
     log = (base / "argus.log").open("w")
     proc = subprocess.Popen(
         [sys.executable, "-m", "app.main", "--config", str(config), "--socket", socket_name,
