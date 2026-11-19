@@ -417,7 +417,9 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   changed* (pid:start_time, read with `list-sessions`, which needs no client), never just "the
   session is gone": one closed on a live server was closed on purpose. A tmux call that times
   out is not a dead server. The Sessions screen offers them back (`claude --resume <id>`,
-  `codex resume <id>`, else a fresh agent in the same folder, said so). Kept in
+  `codex resume <id>`, else a fresh agent in the same folder, said so). Claude's id is read first from its own
+  `~/.claude/sessions/<pid>.json` (`sessionId`, checked against the pid's start time): a hook that never
+  spoke left a session "not known", and a stale hook once gave a Claude a Codex id. Kept in
   `agents-seen.json` beside the config; the browser harness runs it every second
   (`ARGUS_REGISTER_EVERY`) and forgets losses between tests.
 - **Restart an agent on the same conversation** (`POST /api/tmux/restart-agent`, `resume.restart`,

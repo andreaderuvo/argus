@@ -245,3 +245,22 @@ def test_a_reading_older_than_a_bring_back_does_not_lose_it_again(tmp_path):
     assert led.lost() == [], "not lost again"
     led.observe("srv-2", "b", {"api": {**rec, "seen": time.time()}}, {"api"}, read_at=time.time())
     assert led.lost() == [] and "api" in led.data["sessions"]
+
+
+def test_claude_says_its_conversation_in_its_own_file(tmp_path):
+    """~/.claude/sessions/<pid>.json names the conversation with no hook at all ("which conversation it is in is
+    not known", 2026-11-19); only for the process that started when the file says, never a recycled pid."""
+    import json as _json
+    from app.resume import claude_conversation
+    pid = os.getpid()
+    start = open(f"/proc/{pid}/stat").read().rsplit(")", 1)[1].split()[19]
+    sessions = tmp_path / ".claude" / "sessions"
+    sessions.mkdir(parents=True)
+    conv = "1a8bfd12-26d1-4c32-8488-4b6300216cc5"
+    (sessions / f"{pid}.json").write_text(_json.dumps({"pid": pid, "sessionId": conv, "procStart": start}))
+    assert claude_conversation(pid, str(tmp_path)) == conv
+    (sessions / f"{pid}.json").write_text(_json.dumps({"pid": pid, "sessionId": conv, "procStart": "1"}))
+    assert claude_conversation(pid, str(tmp_path)) is None, "another process with the same pid"
+    (sessions / f"{pid}.json").write_text(_json.dumps({"pid": pid, "sessionId": "not-an-id"}))
+    assert claude_conversation(pid, str(tmp_path)) is None
+    assert claude_conversation(pid + 999999, str(tmp_path)) is None

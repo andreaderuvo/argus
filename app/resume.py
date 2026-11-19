@@ -8,8 +8,8 @@ agent keeps its own on disk and can be told to resume one.
 
 So the server keeps a register of the agents it sees (`agents-seen.json` beside the config):
 per session, the folder, the agent, the flags it was started with, and the conversation it is
-in. Claude Code says which conversation at the end of every turn, through its hook (`argus-bell`
-passes `CLAUDE_CODE_SESSION_ID` on); Codex keeps the file of its conversation open, and the id
+in. Claude Code keeps it in `~/.claude/sessions/<pid>.json` (read first), and says it at the end
+of every turn through its hook (`argus-bell`); Codex keeps the file of its conversation open, and the id
 is in that file's name. Nothing is guessed: an agent whose conversation is not known comes back
 as a new conversation in the same folder, and says so.
 
@@ -124,6 +124,33 @@ def codex_conversation(pids: list[int]) -> str | None:
     return best[1]
 
 
+def claude_conversation(pid: int, home: str | None = None) -> str | None:
+    """The conversation a Claude Code process is in, from the file it keeps for itself:
+    `~/.claude/sessions/<pid>.json` (`sessionId`, rewritten on /clear and /resume). Needs no hook — a session
+    whose hook never spoke ("which conversation it is in is not known", 2026-11-19) is still known. Taken
+    only when the file's `procStart` is this process's start, so a recycled pid never hands over another's."""
+    home = home or os.path.expanduser("~")
+    try:
+        with open(os.path.join(home, ".claude", "sessions", f"{pid}.json"), encoding="utf-8") as f:
+            said = json.load(f)
+    except (OSError, ValueError):
+        return None
+    if not isinstance(said, dict):
+        return None
+    conv = str(said.get("sessionId") or "")
+    if not UUID.fullmatch(conv):
+        return None
+    start = said.get("procStart")
+    if start is not None:
+        try:
+            with open(f"/proc/{pid}/stat", encoding="utf-8") as f:
+                if f.read().rsplit(")", 1)[1].split()[19] != str(start):
+                    return None
+        except (OSError, IndexError):
+            return None
+    return conv
+
+
 def flags_of(agent: str, argv: list[str]) -> list[str]:
     plain, valued = FLAGS.get(agent, (set(), set()))
     out, i = [], 0
@@ -179,7 +206,8 @@ def snapshot(sock: tmux.Socket, names: frozenset[str], told: dict[str, str]) -> 
                 # The file it holds open first; its hooks say the same id (session_id) since 0.160.
                 conversation = codex_conversation(_descendants(pid, tree)) or told.get(session)
             elif agent == "claude":
-                conversation = told.get(session)
+                # Its own file first: the hook's word can be missing (no plugin, or not yet a turn) or stale.
+                conversation = claude_conversation(pid) or told.get(session)
                 if not conversation:
                     for flag in ("--resume", "-r"):
                         if flag in words and words.index(flag) + 1 < len(words):
