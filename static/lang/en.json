@@ -2057,6 +2057,8 @@
   "{have} — {latest} is out": "{have} — {latest} is out",
   "update it the way you installed it": "update it the way you installed it",
   "updated to {v} — sessions already open keep theirs until restarted": "updated to {v} — sessions already open keep theirs until restarted",
-  "{name} was not updated: {why}": "{name} was not updated: {why}"
+  "{name} was not updated: {why}": "{name} was not updated: {why}",
+  "Agents out of date, updated in a press": "Agents out of date, updated in a press",
+  "New session says when Claude Code, Codex or Gemini has a newer version, with Update.": "New session says when Claude Code, Codex or Gemini has a newer version, with Update."
  }
 }

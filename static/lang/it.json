@@ -2057,6 +2057,8 @@
   "{have} — {latest} is out": "{have} — è uscita la {latest}",
   "update it the way you installed it": "aggiornalo come l’hai installato",
   "updated to {v} — sessions already open keep theirs until restarted": "aggiornato alla {v} — le sessioni già aperte tengono la loro finché non le riavvii",
-  "{name} was not updated: {why}": "{name} non è stato aggiornato: {why}"
+  "{name} was not updated: {why}": "{name} non è stato aggiornato: {why}",
+  "Agents out of date, updated in a press": "Agenti vecchi, aggiornati con un tocco",
+  "New session says when Claude Code, Codex or Gemini has a newer version, with Update.": "Nuova sessione dice quando Claude Code, Codex o Gemini hanno una versione più nuova, con Aggiorna."
  }
 }

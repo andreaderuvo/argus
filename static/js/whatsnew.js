@@ -4,6 +4,7 @@ import { savePrefs } from '/js/core.js';
 import { el } from '/js/dom.js';
 import { icon } from '/js/icons.js';
 import { openPalette } from '/js/palette.js';
+import { runKey } from '/js/shortcuts.js';
 import { prefs } from '/js/state.js';
 import { t } from '/js/words.js';
 // </imports>
@@ -14,6 +15,7 @@ import { t } from '/js/words.js';
  * Newest first. `id` only grows (the date, then a letter): `prefs.newsSeen` is the newest one shown. A first
  * visit sees none of these — everything is new to it; What Argus does is the place for that. */
 export const NEWS = () => [
+  { id: '2026-11-19a', title: t('Agents out of date, updated in a press'), text: t('New session says when Claude Code, Codex or Gemini has a newer version, with Update.'), show: { run: () => runKey('newSession') } },
   { id: '2026-11-12c', title: t('Find anything: Ctrl+K (⌘K)'), text: t('Screens, actions, settings, desks, sessions and what agents can do, by what you type.'), show: { run: () => openPalette() } },
   { id: '2026-11-12b', title: t('What Argus does'), text: t('Everything in one page, two lines each, with “Show me”.'), show: { route: '#/tour' } },
   { id: '2026-11-12a', title: t('What agents can do'), text: t('Every tool and action as a sentence to say, with what it needs and whether it asks you.'), show: { route: '#/agents' } },
