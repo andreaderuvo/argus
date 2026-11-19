@@ -107,6 +107,11 @@ export const ICONS = {
   fit: 'M4.5 9V4.5H9M15 4.5h4.5V9M19.5 15v4.5H15M9 19.5H4.5V15',
   lock: 'M6.5 10.5h11v9h-11zM9 10.5V7.6a3 3 0 0 1 6 0v2.9',
   arrowRight: 'M5 12h14M13 6l6 6-6 6',
+  // The three agents, drawn here (not their logos): a burst for Claude, a hexagon with a prompt for Codex, a
+  // four-pointed star for Gemini — told apart at a glance in a window's title bar, with their colours (style.css).
+  agentClaude: 'M12 3.5v5.5M12 15v5.5M3.5 12h5.5M15 12h5.5M6 6l3.9 3.9M14.1 14.1L18 18M18 6l-3.9 3.9M9.9 14.1L6 18',
+  agentCodex: 'M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9zM9 10l2 2-2 2M13 14h2.5',
+  agentGemini: 'M12 3c.7 4.7 4.3 8.3 9 9-4.7.7-8.3 4.3-9 9-.7-4.7-4.3-8.3-9-9 4.7-.7 8.3-4.3 9-9z',
   // Four-pointed: something new.
   sparkle: 'M12 3.5l1.9 5.6 5.6 1.9-5.6 1.9L12 18.5l-1.9-5.6L4.5 11l5.6-1.9zM18.5 3.5v3M17 5h3',
   // A small robot: a head with an antenna, two eyes, a mouth — what agents can do.

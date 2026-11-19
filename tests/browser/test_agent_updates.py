@@ -73,3 +73,38 @@ def test_a_window_on_the_old_version_offers_its_restart_and_keeps_the_conversati
         page.screenshot(os.path.join(os.environ["ARGUS_SHOTS"], "cli-old.png"))
     page.click_at(*page._center(chip))
     page.wait("window.__restarted.includes('worker')", what="restarted, on the same conversation")
+
+
+LOOK = """(() => {
+  const real = window.fetch;
+  const json = (o) => Promise.resolve(new Response(JSON.stringify(o), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+  window.fetch = (url, init) => {
+    if (String(url).includes('/api/tmux/states')) return real(url, init).then((r) => r.json()).then((said) => {
+      said.states = { ...(said.states || {}),
+        thinker: { agent: 'claude', state: 'working', since: 0, model: 'Opus 5.5', effort: 'medium' },
+        coder: { agent: 'codex', state: 'waiting', since: 0, seen: true, model: 'gpt-5.6-terra', effort: 'high' } };
+      return json(said);
+    });
+    return real(url, init);
+  };
+  return 1;
+})()"""
+
+
+def test_a_window_says_its_agent_model_and_effort_in_its_title_bar(make_page, argus):
+    """"An icon of the agent on the title bar, so one sees at a glance what is being used, which model and with
+    which effort" (2026-11-19)."""
+    for name in ("thinker", "coder"):
+        argus.tmux("new-session", "-d", "-s", name, "-x", "80", "-y", "12")
+    argus.api("/api/prefs", "PATCH", {"changes": {"ws": 1, "wsSeq": 1, "workspaces": [
+        {"id": 1, "name": "W", "desktop": [{"kind": "term", "name": "thinker"}, {"kind": "term", "name": "coder"}]}]}})
+    page = make_page(route="#/files")
+    page.eval(LOOK)
+    page.route("#/wall")
+    chip = lambda s: f"document.querySelector('.win[data-session=\"{s}\"] .agentchip')"  # noqa: E731
+    page.wait(f"!!{chip('thinker')} && !!{chip('coder')}", timeout=15, what="the agents, said")
+    assert page.eval(f"{chip('thinker')}.textContent") == "Opus 5.5 · medium"
+    assert page.eval(f"{chip('thinker')}.classList.contains('claude')") and page.eval(f"!!{chip('thinker')}.querySelector('svg')")
+    assert page.eval(f"{chip('coder')}.textContent") == "gpt-5.6-terra · high"
+    if os.environ.get("ARGUS_SHOTS"):
+        page.screenshot(os.path.join(os.environ["ARGUS_SHOTS"], "agent-chips.png"))

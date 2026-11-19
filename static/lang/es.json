@@ -2067,6 +2067,8 @@
   "restarted on the new version, same conversation: {list}": "reiniciadas en la versión nueva, misma conversación: {list}",
   "update upgrade new version agents": "actualizar actualización versión nueva agentes",
   "Restart 1 session on the new version": "Reinicia 1 sesión en la versión nueva",
-  "Restart {n} sessions on the new version": "Reinicia {n} sesiones en la versión nueva"
+  "Restart {n} sessions on the new version": "Reinicia {n} sesiones en la versión nueva",
+  "model {model}": "modelo {model}",
+  "effort {effort}": "esfuerzo {effort}"
  }
 }

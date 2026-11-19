@@ -33,7 +33,7 @@ from .auth import PROXY_COOKIE, TokenAuthMiddleware
 from .config import Config, ConfigError, default_path
 from .errors import ApiError
 from .jsongzip import JsonGzip
-from . import agentupdate, minify, procs
+from . import agentlook, agentupdate, minify, procs
 from .safepath import Jail, PathError
 
 VERSION = "0.1.0"
@@ -744,6 +744,15 @@ def create_app(cfg: Config) -> FastAPI:
             if seen.get(name):
                 st["plugin"] = seen[name]
                 st["plugin_old"] = pluginstate.older(seen[name], offered)
+        # Which model and effort each agent session is on, from its own transcript (agentlook.py) — for the
+        # window's title bar: "which agent, which model, which effort, at a glance" (2026-11-19).
+        seen_sessions = request.app.state.resume.data.get("sessions", {})
+        for name, st in states.items():
+            said = agentlook.look(seen_sessions.get(name))
+            if said.get("model"):
+                st["model"] = agentlook.pretty(said["model"])
+            if said.get("effort"):
+                st["effort"] = said["effort"]
         # Sessions whose agent started before the version installed now: they run the old one until restarted.
         for name, agent in (await stale_agents(request)).items():
             if name in states:

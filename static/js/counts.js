@@ -2,6 +2,7 @@
 import { quieten, rung } from '/js/bells.js';
 import { confirmBox, toast } from '/js/dialogs.js';
 import { el } from '/js/dom.js';
+import { icon } from '/js/icons.js';
 import { getJSON, postJSON } from '/js/reconnect.js';
 import { hamburger, nav, prefs, token } from '/js/state.js';
 import { t } from '/js/words.js';
@@ -84,6 +85,7 @@ export function applyAgentStates(states) {
     win.classList.toggle('agent-seen', st?.state === 'waiting' && !!st.seen);
     const title = win.querySelector('.wintitle');
     if (title) title.dataset.agent = st ? `${st.agent || t('agent')}: ${stateWord(st)}` : '';
+    markAgent(win, st);
     markOldPlugin(win, st);
     markOldCli(win, st);
   }
@@ -136,6 +138,30 @@ function markOldPlugin(win, st) {
         : t('not now: it is working or asking you something — try when it has finished'), !said.reloaded.length);
     } catch (err) { toast(err.message, true); }
   };
+}
+
+/** Which agent a window holds, and on which model and effort, beside its name: "an icon of the agent on the
+ *  title bar, so one sees at a glance what is being used, which model and which effort" (2026-11-19). The model
+ *  and effort are what its transcript says now (app/agentlook.py), so a /model inside the session shows too. */
+const AGENT_ICON = { claude: 'agentClaude', codex: 'agentCodex', gemini: 'agentGemini' };
+const AGENT_NAME = { claude: 'Claude Code', codex: 'Codex', gemini: 'Gemini' };
+function markAgent(win, st) {
+  const bar = win.querySelector('.winbar');
+  if (!bar) return;
+  let mark = bar.querySelector('.agentchip');
+  if (!st?.agent || !AGENT_ICON[st.agent]) { mark?.remove(); return; }
+  const words = [st.model, st.effort].filter(Boolean).join(' · ');
+  const key = `${st.agent}|${words}`;
+  if (mark?.dataset.key === key) return;
+  if (!mark) {
+    mark = el('span', { className: 'agentchip' });
+    (bar.querySelector('.wintitle'))?.after(mark);
+  }
+  mark.dataset.key = key;
+  mark.className = `agentchip ${st.agent}`;
+  mark.title = [AGENT_NAME[st.agent], st.model && t('model {model}', { model: st.model }), st.effort && t('effort {effort}', { effort: st.effort })]
+    .filter(Boolean).join(' · ');
+  mark.replaceChildren(icon(AGENT_ICON[st.agent]), words ? el('span', { className: 'agentwords', textContent: words }) : null);
 }
 
 /** "Claude Code updated — restart" in a window's title bar, while its session still runs the version it

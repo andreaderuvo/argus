@@ -5244,3 +5244,13 @@ dialog.palette kbd { display: inline-grid; place-items: center; min-width: 1.45e
 .agentupdate button { display: inline-flex; align-items: center; gap: .3rem; padding: 3px 10px; font-size: .8rem; white-space: nowrap; }
 .agentupdate button svg { width: .95em; height: .95em; }
 .agentupdate.done { border-color: var(--line); background: none; }
+
+/* The agent in a window, beside its name (counts.js markAgent): its icon in its colour, the model and the effort. */
+.agentchip { display: inline-flex; align-items: center; gap: .3rem; min-width: 0; flex: 0 1 auto; margin-left: .45rem;
+  padding: 1px 7px 1px 5px; border-radius: 999px; border: 1px solid var(--line); color: var(--dim); font-size: .72rem;
+  white-space: nowrap; overflow: hidden; }
+.agentchip svg { width: .95rem; height: .95rem; flex: none; }
+.agentchip .agentwords { overflow: hidden; text-overflow: ellipsis; }
+.agentchip.claude svg { color: #d97757; }
+.agentchip.codex svg { color: var(--bright); }
+.agentchip.gemini svg { color: #7b8cff; }
