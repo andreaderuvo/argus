@@ -34,6 +34,7 @@ import os
 import re
 import secrets
 import time
+import types
 import uuid
 from pathlib import Path
 from types import SimpleNamespace
@@ -117,6 +118,8 @@ class Link:
         self.key_id = key["id"]
         self.name = key.get("name") or "a computer"
         self.bridge: WebSocket | None = None
+        # Where the live bridge connects from: the window key is given only to a request from there.
+        self.address: str | None = None
         self.hello: dict = {}
         self.since: float | None = None
         self.channels: dict[int, dict] = {}
@@ -430,6 +433,23 @@ async def bridge(ws: WebSocket) -> None:
         return
     await ws.accept()
     one = link_for(ws.app, key)
+    address = ws.client.host if ws.client else None
+    # The same computer again while its connection is still up, but from somewhere else: its key may be in other
+    # hands. Said, not refused — a laptop changing networks does it too, and refusing would lock the owner out.
+    if one.bridge is not None and one.address and address and address != one.address:
+        try:
+            from . import bells
+            bells.rung(types.SimpleNamespace(app=ws.app), "asking",
+                       text=f"{one.name} connected again from another address ({address}, was {one.address}). "
+                            f"If that was not you, forget it in Settings → Computers.")
+        except Exception:
+            pass
+        journal_note = f"computer {one.name}: connected again from {address} (was {one.address})"
+        try:
+            from . import journal
+            journal.note(ws.scope, journal_note)
+        except Exception:
+            pass
     # The same computer again (it restarted, the network came back): the new one is the one.
     if one.bridge is not None:
         old = one.bridge
@@ -439,6 +459,7 @@ async def bridge(ws: WebSocket) -> None:
         except Exception:
             pass
     one.bridge = ws
+    one.address = address
     one.app = ws.app
     try:
         while True:
@@ -928,6 +949,14 @@ async def window_key(request: Request) -> dict:
     mine = next((k for k in keys if k.get("id") == key.get("id")), None)
     if mine is None:
         raise ApiError(403, "this computer was forgotten")
+    # Only to the computer itself: its bridge connected now, and this asked from the same address. A key copied off
+    # the computer, used elsewhere, gets nothing — it would have to take over the bridge first, which is said.
+    one = link_for(request.app, mine)
+    asker = request.client.host if request.client else None
+    if not one.connected or not one.address:
+        raise ApiError(409, "argus-bridge on this computer is not connected: the window signs in once it is")
+    if asker != one.address:
+        raise ApiError(403, "asked from another address than the computer's own connection")
     drop_window_key(request.app, mine)
     try:
         taken = {d["name"].lower() for d in devices.load(request.app.state.devices)}

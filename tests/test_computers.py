@@ -686,6 +686,14 @@ def test_argus_bridge_window_signs_in_with_a_key_of_its_own(live):
     switch) takes it back."""
     made = connect_one(live, "Mac")
     ident, ac = made["computer"]["id"], made["token"]
+    # Not connected: nothing given — the key must come with the computer's own live connection.
+    assert call(live, "/api/computers/window-key", "POST", {}, token=ac)[0] == 409
+    loop = asyncio.new_event_loop()
+    threading.Thread(target=lambda: loop.run_until_complete(computer(live, ac, {"terminal": True})), daemon=True).start()
+    for _ in range(100):
+        if any(c["connected"] for c in call(live, "/api/computers")[1]["computers"]):
+            break
+        time.sleep(0.05)
     code, first = call(live, "/api/computers/window-key", "POST", {}, token=ac)
     assert code == 200 and first["name"] == "Mac (argus-bridge)", first
     assert call(live, "/api/files?path=/", token=first["key"])[0] != 401, "the window can use Argus"
@@ -709,3 +717,26 @@ def test_argus_bridge_window_signs_in_with_a_key_of_its_own(live):
     assert call(live, f"/api/computers/{ident}", "DELETE")[0] == 200
     assert call(live, "/api/files?path=/", token=third["key"])[0] == 401
     assert call(live, "/api/devices")[1] == []
+
+
+def test_a_computer_key_used_from_elsewhere_gets_no_window_key(tmp_path):
+    """A key copied off the computer and used from another address gets nothing while the computer is connected
+    from its own: the window key goes only to the computer's own connection (2026-11-23)."""
+    from fastapi.testclient import TestClient
+
+    from app import computers
+    from app.config import Config
+    from app.main import create_app
+    cfg = Config(token=MASTER, roots=[tmp_path], tmux_socket=f"argus-t-pcw-{os.getpid()}")
+    cfg.devices_store = tmp_path / "devices.json"
+    app = create_app(cfg)
+    with TestClient(app) as client:
+        made = client.post("/api/computers/keys", json={"base": "http://testserver", "name": "Mac"},
+                           headers={"authorization": f"Bearer {MASTER}"}).json()
+        key = next(k for k in computers.load(app.state.computer_store) if k["id"] == made["computer"]["id"])
+        one = computers.link_for(app, key)
+        one.bridge, one.hello, one.address = object(), {"op": "hello"}, "192.0.2.7"   # connected, from the Mac
+        r = client.post("/api/computers/window-key", json={}, headers={"authorization": f"Bearer {made['token']}"})
+        assert r.status_code == 403 and "another address" in r.text, r.text
+        assert computers.devices.load(app.state.devices) == [], "no key made"
+        one.bridge = None
