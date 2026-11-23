@@ -118,6 +118,20 @@ export function screenLogin() {
 const FIRST_ROWS = 200;
 const ROWS_PER_BATCH = 400;
 
+/** Where the boxes holding `list` are scrolled, and a function putting them back — after drawing the
+ *  rest of a listing first, when the place was past the rows drawn at once. */
+export function keepScroll(list) {
+  const boxes = [];
+  for (let n = list; n && n !== document.body; n = n.parentElement) {
+    if (n.scrollTop || n.scrollLeft) boxes.push([n, n.scrollTop, n.scrollLeft]);
+  }
+  return () => {
+    if (!boxes.length) return;
+    list.finishRows?.();
+    for (const [n, top, left] of boxes) { n.scrollTop = top; n.scrollLeft = left; }
+  };
+}
+
 export function drawInBatches(list, items, make, done = () => {}) {
   const gen = (list.drawGen = (list.drawGen || 0) + 1);
   let i = 0;
@@ -497,7 +511,14 @@ export function fileBrowser({
     go(`#/preview?path=${encodeURIComponent(e.path)}`);
   }
 
+  // What the listing last drew: drawn again (a file arrived, Refresh, an action of the app), it keeps
+  // its place — emptied and refilled 200 rows at a time, a window scrolled past them was thrown back
+  // ("when the filesystem updates it doesn't keep the position", 2026-11-23). A new folder starts at the top.
+  let drawnFor = null;
   const draw = (entries, err) => {
+    const same = drawnFor === `${path}\0${query}`;
+    drawnFor = `${path}\0${query}`;
+    const back = same ? keepScroll(list) : null;
     list.innerHTML = '';
     if (err) return list.append(el('p', { className: 'error', textContent: err.message }));
     const shown = visible(entries);
@@ -517,6 +538,7 @@ export function fileBrowser({
       favGroup,
     });
     drawInBatches(list, shown, make, () => { picker.sync(); markCurrent(list); });
+    back?.();
   };
 
   /* What the search box holds. Every redraw asks for this, not for the folder: a view chosen,

@@ -2,7 +2,7 @@
 import { el } from '/js/dom.js';
 import { treeNode } from '/js/filerows.js';
 import { getJSON, parentOf, visible } from '/js/reconnect.js';
-import { browsers } from '/js/screens.js';
+import { browsers, keepScroll } from '/js/screens.js';
 import { sideBrowser } from '/js/sidebar.js';
 import { prefs } from '/js/state.js';
 import { t } from '/js/words.js';
@@ -110,5 +110,10 @@ export async function drawTree(container, path, onFile, refresh, dest, favGroup 
   } catch (e) {
     built.append(el('p', { className: 'error', textContent: e.message }));
   }
+  // The same folder drawn again keeps its place: WebKit (Safari, argus-bridge's window on a Mac) put a
+  // swapped-in tree back at the top (2026-11-23). Another folder starts at the top.
+  const back = container.dataset.treeOf === path ? keepScroll(container) : null;
+  container.dataset.treeOf = path;
   container.replaceChildren(built);
+  back?.();
 }
