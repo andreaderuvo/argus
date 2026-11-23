@@ -69,6 +69,10 @@ def test_a_window_on_the_old_version_offers_its_restart_and_keeps_the_conversati
     chip = "document.querySelector('.win[data-session=\"worker\"] .cliold')"
     page.wait(f"!!{chip}", timeout=15, what="the restart offered on the window")
     assert page.eval(f"{chip}.textContent") == "Claude Code updated — restart"
+    # No model known yet (a new Claude writes nothing before its first message): the icon alone, never "null".
+    agent = "document.querySelector('.win[data-session=\"worker\"] .agentchip')"
+    page.wait(f"!!{agent}", timeout=5, what="the agent's chip")
+    assert page.eval(f"{agent}.textContent") == "", page.eval(f"{agent}.textContent")
     if os.environ.get("ARGUS_SHOTS"):
         page.screenshot(os.path.join(os.environ["ARGUS_SHOTS"], "cli-old.png"))
     page.click_at(*page._center(chip))

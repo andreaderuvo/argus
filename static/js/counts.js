@@ -161,7 +161,8 @@ function markAgent(win, st) {
   mark.className = `agentchip ${st.agent}`;
   mark.title = [AGENT_NAME[st.agent], st.model && t('model {model}', { model: st.model }), st.effort && t('effort {effort}', { effort: st.effort })]
     .filter(Boolean).join(' · ');
-  mark.replaceChildren(icon(AGENT_ICON[st.agent]), words ? el('span', { className: 'agentwords', textContent: words }) : null);
+  // Never a null among them: replaceChildren writes it out as the text "null" (seen beside a new Claude, 2026-11-23).
+  mark.replaceChildren(...[icon(AGENT_ICON[st.agent]), words ? el('span', { className: 'agentwords', textContent: words }) : null].filter(Boolean));
 }
 
 /** "Claude Code updated — restart" in a window's title bar, while its session still runs the version it
