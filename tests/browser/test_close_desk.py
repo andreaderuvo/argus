@@ -23,8 +23,9 @@ def setup(argus):
 
 def close_scratch(page, tick):
     page.wait("!!document.querySelector('.wstab[data-ws=\"2\"] .tabclose[title=\"Close this workspace\"]')", timeout=10, what="the close button")
-    page.click_at(*page._center("document.querySelector('.wstab[data-ws=\"2\"] .tabclose[title=\"Close this workspace\"]')"))
-    page.wait("!!document.querySelector('.confirmcheck')", timeout=5, what="the box offering to end its sessions")
+    # Pressed again if WebKit lost the press (issue #20; CI, 2026-11-23).
+    page.press_until("document.querySelector('.wstab[data-ws=\"2\"] .tabclose[title=\"Close this workspace\"]')",
+                     "!!document.querySelector('.confirmcheck')", "the box offering to end its sessions", timeout=5)
     text = page.eval("document.querySelector('.confirmcheck').textContent")
     assert "only-here" in text and "shared" not in text, "a session another desk shows is not offered"
     if tick:

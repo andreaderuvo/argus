@@ -390,7 +390,8 @@ class Page(Session):
         item = (f"[...document.querySelectorAll('.popmenu .popmenuitem')]"
                 f".find(b => b.textContent.trim().startsWith({json.dumps(label)}))")
         self.press_until(more, item, f"{label!r} in the window's menu", timeout=5)
-        self.click_at(*self._center(item))
+        # The item pressed until its menu has gone: WebKit loses that click too (issue #20; CI, 2026-11-23).
+        self.press_until(item, "!document.querySelector('.popmenu')", f"{label!r} pressed", timeout=3)
 
     def type(self, text: str) -> None:
         self.send("Input.insertText", {"text": text})
