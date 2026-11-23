@@ -51,9 +51,10 @@ let pendingSession = null;
 /** Bring a session's window forward: its desk made the one on screen (out of the rail if it was put
  *  away), the window raised, flashed and out of the dock. No desk has it: the session full screen. */
 export function showSessionWindow(name) {
-  if (live?.key === 'wall' && sessionShower && document.querySelector('#walltools')) { sessionShower(name); return; }
+  if (live?.key === 'wall' && sessionShower && document.querySelector('#walltools')) { sessionShower(name); return true; }
   pendingSession = name;
   go('#/wall');
+  return false;
 }
 
 /** Open Team on the folder an agent proposed a team in — its team.yaml is offered there as a

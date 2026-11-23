@@ -884,6 +884,10 @@ fails if it comes back. Before adding anything, keep these true:
   Codex breaking after a `/` — the lower's first piece would not have fitted beside it. `logicalLine` returns `cells` (row, col per
   character) so the link is underlined and opened from either half; a path crossing a join is also
   asked about in its pieces, the whole preferred. The tray harvests from the same joined lines.
+- **`#/show?s=<session>` brings a session's window forward** (router.js, `showSessionWindow`,
+  tests/browser/test_show_session.py): its desk made the one on screen, else the session full screen; the
+  address becomes the desk's. argus-bridge (0.1.34) opens it when a bell's notification is clicked on a Mac —
+  every bell says which Argus it rang on, and the click opens that Argus's window on that session.
 - **A sign-in that comes back to this machine** (`static/js/signin.js`, `POST /api/signin/finish`,
   tests/test_signin.py, tests/browser/test_signin_sheet.py). `codex login`, `gh auth login`… print a link whose
   `redirect_uri` is http://localhost:<port>/ on *this* machine; opened elsewhere, the browser returns to its own

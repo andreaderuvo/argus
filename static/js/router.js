@@ -11,7 +11,7 @@ import { CAN_FULLSCREEN, bar, favsLoaded, killLive, leaving, live, nav, parkLive
 import { screenTerm } from '/js/termpaths.js';
 import { screenPreview } from '/js/viewers.js';
 import { screenSystem, screenTodo } from '/js/vitals.js';
-import { screenWall } from '/js/wall.js';
+import { screenWall, showSessionWindow } from '/js/wall.js';
 // </imports>
 /* ------------------------------------------------------------------ router */
 
@@ -31,6 +31,14 @@ export let renderSeq = 0;
 export async function render() {
   renderSeq += 1;
   const mine = renderSeq;
+  /* `#/show?s=<session>`: that session's window brought forward — the address argus-bridge opens when a
+   *  notification is clicked, so the click lands on the agent that rang, not on whatever was open. */
+  const showing = parseRoute();
+  if (showing.path === '/show') {
+    history.replaceState(null, '', `${location.pathname}#/wall`);
+    const name = showing.q.get('s');
+    if (name && showSessionWindow(name)) return;
+  }
   if (leaving) { leaving(); setLeaving(null); }
 
   const route = parseRoute();
