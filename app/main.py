@@ -2602,6 +2602,11 @@ def create_app(cfg: Config) -> FastAPI:
             how, line = await asyncio.to_thread(resume.restart, state.socket, name, record)
         except tmux.TmuxError as e:
             raise ApiError(502, str(e)) from e
+        # Now on the version installed: off the list of old ones at once. The list is read every 30 s, and until its
+        # next reading the badge came back on the session just restarted ("I press restart and the badge returns").
+        cache = state.__dict__.get("stale_agents")
+        if cache:
+            cache[1] = {k: v for k, v in cache[1].items() if k != name}
         return {"restarted": name, "how": how, "command": line, "agent": record["agent"]}
 
     @app.post("/api/tmux/kill", tags=["Sessions"], summary="End a session")

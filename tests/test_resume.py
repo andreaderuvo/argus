@@ -217,8 +217,12 @@ def test_an_agent_restarted_keeps_its_session_folder_and_conversation(tmp_path, 
         assert tm("list-panes", "-t", "api", "-F", "#{pane_pid}").stdout.strip() == before, "nothing restarted"
 
         bells.store(types.SimpleNamespace(app=app))["conversations"]["api"] = CONV
+        import time as _t
+        app.state.__dict__["stale_agents"] = [_t.monotonic(), {"api": "claude", "other": "codex"}]     # read as old a moment ago
         said = client.post("/api/tmux/restart-agent", json={"session": "api"}).json()
         assert said["restarted"] == "api" and said["how"] == "resume", said
+        # Off the old ones at once — the badge came back until the list's next reading (2026-11-23).
+        assert app.state.__dict__["stale_agents"][1] == {"other": "codex"}
         started = tm("list-panes", "-t", "api", "-F", "#{pane_start_command}\t#{pane_current_path}\t#{pane_pid}").stdout
         assert f"claude --resume {CONV} --dangerously-skip-permissions" in started, started
         assert str(work) in started and before not in started.split("\t")[-1], "a new process, in the same folder"
