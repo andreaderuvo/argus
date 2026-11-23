@@ -80,7 +80,8 @@ jobs:
           open=$(gh issue list --label flaky --state open --json number -q '.[0].number')
           if [ ! -s all.txt ]; then
             echo "steady: nothing failed in three runs"
-            [ -n "$open" ] && gh issue comment "$open" -b "$(date -u +%F): steady — nothing failed in three runs." || true
+            # Steady: the issue is closed with the day said; the next failure opens a new one.
+            [ -n "$open" ] && gh issue close "$open" -c "$(date -u +%F): steady — nothing failed in three runs. Closed; a new failure opens a new issue." || true
             exit 0
           fi
           body="Tests that failed at least once in three runs of $(date -u +%F) (they passed the other times — unsteady, not broken):
