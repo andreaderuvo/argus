@@ -896,6 +896,30 @@
     ]
    }
   },
+  "/api/computers/window-key": {
+   "post": {
+    "description": "\"Open in argus-bridge, and I do not know the token\" (2026-11-23). Asked by argus-bridge, with its computer\nkey, each time it opens its Argus window; answered with a device key of its own (`<name> (argus-bridge)`,\nin Settings \u2192 Devices). Never kept on the computer: a new one revokes the one before, and forgetting the\ncomputer revokes it too. A device key cannot add or revoke devices \u2014 the config's token stays the master.\nOff for a computer whose window switch is off (Settings \u2192 Computers).",
+    "operationId": "postApiComputersWindowKey",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Window Key Api Computers Window Key Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "argus-bridge's own Argus window signed in (asked with the computer's key)",
+    "tags": [
+     "Computers"
+    ]
+   }
+  },
   "/api/computers/{ident}": {
    "delete": {
     "operationId": "deleteApiComputersIdent",
@@ -1257,6 +1281,51 @@
      }
     },
     "summary": "Write a file of this server on a computer",
+    "tags": [
+     "Computers"
+    ]
+   }
+  },
+  "/api/computers/{ident}/window": {
+   "post": {
+    "description": "`{on}`. Off: its device key is revoked now, and none is given until it is on again.",
+    "operationId": "postApiComputersIdentWindow",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "ident",
+      "required": true,
+      "schema": {
+       "title": "Ident",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Window Switch Api Computers  Ident  Window Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Whether argus-bridge's Argus window signs in by itself",
     "tags": [
      "Computers"
     ]

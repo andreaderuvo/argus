@@ -5267,3 +5267,5 @@ dialog.palette kbd { display: inline-grid; place-items: center; min-width: 1.45e
 .porthead { margin-bottom: .35rem; }
 .porthead .portfind { flex: 0 1 14rem; min-width: 6rem; padding-block: .25rem; font-size: .82rem; }
 .portmore.sifted { display: none; }
+.pcwindow { display: flex; align-items: center; gap: .45rem; font-size: .82rem; color: var(--dim); cursor: pointer; width: fit-content; }
+.pcwindow input { margin: 0; accent-color: var(--accent); }

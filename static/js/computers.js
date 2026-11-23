@@ -32,6 +32,24 @@ function offerChips(one) {
   }));
 }
 
+/* "Open in argus-bridge, and I do not know the token" (2026-11-23): argus-bridge's own Argus window gets a device
+ * key of its own each time it opens (app/computers.py window_key) — never kept on the computer, the last revoked,
+ * all of it revoked when this is switched off or the computer forgotten. On by default. */
+function windowSwitch(one, paint) {
+  const box = el('input', { type: 'checkbox', checked: one.window !== false });
+  box.onchange = async () => {
+    try {
+      await postJSON(`/api/computers/${encodeURIComponent(one.id)}/window`, { on: box.checked });
+      toast(box.checked ? t('{name}: Argus opens from argus-bridge already signed in', { name: one.name })
+        : t('{name}: argus-bridge’s Argus window is signed out, and asks for the token', { name: one.name }));
+    } catch (e) { box.checked = !box.checked; toast(e.message, true); }
+    paint();
+  };
+  const row = el('label', { className: 'pcwindow', title: t('A key of its own each time it opens, never kept there; revoked when switched off or the computer is forgotten') },
+    [box, el('span', { textContent: t('Open Argus from argus-bridge already signed in') })]);
+  return row;
+}
+
 function computerRow(one, paint) {
   const act = (label, glyph, fn, kind = '') => el('button', { type: 'button', className: `pcbtn ${kind}`, title: label,
     onclick: () => Promise.resolve(fn()).catch((e) => toast(e.message, true)) }, [icon(glyph), el('span', { textContent: label })]);
@@ -66,6 +84,7 @@ function computerRow(one, paint) {
           : t('not connected — argus-bridge is not running there, or that computer is off') }),
       ]),
       offerChips(one),
+      windowSwitch(one, paint),
       (one.forwards || []).length ? el('div', { className: 'pcfws' }, one.forwards.map((f) => el('span', { className: 'pcfw' }, [
         el('span', { textContent: t('port {port} → localhost:{local}', { port: f.port, local: f.local }) }),
         el('button', { type: 'button', className: 'pcfwx', title: t('Stop showing it there'), onclick: async () => {

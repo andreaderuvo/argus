@@ -90,3 +90,21 @@ def test_system_offers_open_on_the_computer_beside_the_ssh_line(make_page, argus
         assert "Open on Mac" in page.eval("document.querySelector('.wheresec .pcforward .pcbtn').textContent")
     finally:
         argus.api(f"/api/computers/{made['computer']['id']}", "DELETE")
+
+
+def test_the_window_signing_in_is_a_switch_per_computer(make_page, argus):
+    """argus-bridge's own Argus window signs in by itself unless switched off here (2026-11-23)."""
+    made = argus.api("/api/computers/keys", "POST", {"base": argus.url, "name": "Mac"})
+    cid = made["computer"]["id"]
+    try:
+        page = make_page(route="#/settings")
+        box = f"document.querySelector('.pcrow[data-computer=\"{cid}\"] .pcwindow input')"
+        page.wait(f"!!{box}", timeout=15, what="the switch")
+        assert page.eval(f"{box}.checked") is True, "on by default"
+        page.eval(f"{box}.scrollIntoView({{block: 'center'}})")
+        shoot(page, "computers-window-switch")
+        page.click_at(*page._center(f"{box}.closest('label')"))
+        eventually(lambda: argus.api("/api/computers")["computers"][0]["window"] is False, timeout=5, what="switched off")
+        page.wait(f"{box} && !{box}.checked", timeout=5, what="shown off")
+    finally:
+        argus.api(f"/api/computers/{cid}", "DELETE")

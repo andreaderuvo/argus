@@ -837,6 +837,11 @@ fails if it comes back. Before adding anything, keep these true:
   (`data-argus-n`) and returns a JPEG as an MCP image block. Added because a Claude asked to use the browser
   answered with SSH tunnels: the address alone was not enough; the primer, the MCP instructions and the global
   CLAUDE.md/AGENTS.md now say "never ask for tunnels".
+- **argus-bridge's Argus window signs in by itself** (`computers.window_key`, `POST /api/computers/window-key`,
+  computers.js `windowSwitch`, test_computers.py, argus-bridge `computer::window_key`). The computer's `ac_` key
+  opens its bridge and this one route: a device key `<name> (argus-bridge)` minted at each Open, the previous
+  revoked, never written on the computer (handed to the page in `#token=`). Revoked when the computer is forgotten
+  or its switch (Settings → Computers, on by default) is turned off. A device key cannot add or revoke devices.
 - **A browser is remembered by the server too** (`/api/remember`, in the auth gate, `tests/test_remember.py`).
   localStorage is the page's copy, and a phone loses it (Safari clears script storage after
   seven days away; a link opened from a chat lands in that app's own browser). After a token

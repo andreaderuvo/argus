@@ -2083,6 +2083,10 @@
   "Port {port} could not be put on your computer — sign in, then paste the address below.": "No se pudo llevar el puerto {port} a tu ordenador: inicia sesión y pega la dirección abajo.",
   "Or paste the address the browser ended on": "O pega la dirección en la que acabó el navegador",
   "filter ports": "filtrar puertos",
-  "No port matches “{q}”": "Ningún puerto coincide con «{q}»"
+  "No port matches “{q}”": "Ningún puerto coincide con «{q}»",
+  "{name}: Argus opens from argus-bridge already signed in": "{name}: Argus se abre desde argus-bridge con la sesión ya iniciada",
+  "{name}: argus-bridge’s Argus window is signed out, and asks for the token": "{name}: la ventana de Argus en argus-bridge ha cerrado sesión y pide el token",
+  "A key of its own each time it opens, never kept there; revoked when switched off or the computer is forgotten": "Una clave propia cada vez que se abre, nunca guardada allí; revocada al apagarlo o al olvidar el equipo",
+  "Open Argus from argus-bridge already signed in": "Abrir Argus desde argus-bridge con la sesión ya iniciada"
  }
 }

@@ -342,11 +342,14 @@ class TokenAuthMiddleware:
         machine = computers.matching(self.computer_store, token) if token is not None else None
         if machine:
             # A computer connected through argus-bridge: its bridge, a WebSocket, and nothing else at all.
-            if scope["type"] != "websocket" or scope["path"] != "/api/computers/bridge":
+            # …and, over HTTP, the key for argus-bridge's own Argus window (computers.window_key).
+            bridge = scope["type"] == "websocket" and scope["path"] == "/api/computers/bridge"
+            window = scope["type"] == "http" and scope.get("method") == "POST" and scope["path"] == "/api/computers/window-key"
+            if not (bridge or window):
                 if scope["type"] != "http":
                     await receive()
                     return await send({"type": "websocket.close", "code": 1008})
-                response = PlainTextResponse("a computer's key opens its bridge and nothing else", status_code=403)
+                response = PlainTextResponse("a computer's key opens its bridge (and its window's key) and nothing else", status_code=403)
                 return await response(scope, receive, send)
             scope["argus_computer"] = machine
             return await self.app(scope, receive, send)

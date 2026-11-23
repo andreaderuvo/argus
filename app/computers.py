@@ -766,7 +766,8 @@ async def listing(request: Request) -> dict:
     that computer lends — for Playwright (`chromium.connectOverCDP`), Puppeteer (`browserWSEndpoint`)
     or chrome-devtools-mcp (`--wsEndpoint`); null when it lends none."""
     keys = load(request.app.state.computer_store)
-    return {"computers": [link_for(request.app, k).status() | {"created": k.get("created")} for k in keys]}
+    return {"computers": [link_for(request.app, k).status() | {"created": k.get("created"), "window": k.get("window") is not False,
+                                                               "window_signed_in": bool(k.get("window_device"))} for k in keys]}
 
 
 @router.post("/api/computers/keys", summary="Connect a computer: a key, and the argus-bridge link that carries it")
@@ -890,6 +891,71 @@ async def unforward(request: Request, ident: str, port: int) -> dict:
     return {"stopped": port}
 
 
+# ------------------------------------------------------------------ argus-bridge's own Argus window
+
+def _window_name(key: dict, taken: set[str]) -> str:
+    base = devices.tidy_name(f"{key.get('name') or 'computer'} (argus-bridge)")
+    name, n = base, 2
+    while name.lower() in taken:
+        name, n = f"{base} {n}", n + 1
+    return name
+
+
+def drop_window_key(app, key: dict) -> None:
+    """The device key the computer's Argus window was given, revoked (if it is still there)."""
+    device = key.get("window_device")
+    if device:
+        try:
+            devices.revoke(app.state.devices, device)
+        except (devices.DeviceError, OSError):
+            pass
+
+
+@router.post("/api/computers/window-key", summary="argus-bridge's own Argus window signed in (asked with the computer's key)")
+async def window_key(request: Request) -> dict:
+    """"Open in argus-bridge, and I do not know the token" (2026-11-23). Asked by argus-bridge, with its computer
+    key, each time it opens its Argus window; answered with a device key of its own (`<name> (argus-bridge)`,
+    in Settings → Devices). Never kept on the computer: a new one revokes the one before, and forgetting the
+    computer revokes it too. A device key cannot add or revoke devices — the config's token stays the master.
+    Off for a computer whose window switch is off (Settings → Computers)."""
+    key = request.scope.get("argus_computer")
+    if not key:
+        raise ApiError(403, "this is asked by argus-bridge, with a computer's key")
+    if key.get("window") is False:
+        raise ApiError(403, "argus-bridge's Argus window does not sign in by itself for this computer — switch it on in Settings → Computers, or sign in with the token")
+    store = request.app.state.computer_store
+    keys = load(store)
+    mine = next((k for k in keys if k.get("id") == key.get("id")), None)
+    if mine is None:
+        raise ApiError(403, "this computer was forgotten")
+    drop_window_key(request.app, mine)
+    try:
+        taken = {d["name"].lower() for d in devices.load(request.app.state.devices)}
+        entry, plain = devices.add(request.app.state.devices, _window_name(mine, taken))
+    except (devices.DeviceError, OSError) as e:
+        raise ApiError(409, str(e)) from None
+    mine["window_device"] = entry["id"]
+    save(store, keys)
+    return {"key": plain, "device": entry["id"], "name": entry["name"]}
+
+
+@router.post("/api/computers/{ident}/window", summary="Whether argus-bridge's Argus window signs in by itself")
+async def window_switch(request: Request, ident: str) -> dict:
+    """`{on}`. Off: its device key is revoked now, and none is given until it is on again."""
+    body = await request.json()
+    on = bool(body.get("on"))
+    one = find(request.app, ident)
+    store = request.app.state.computer_store
+    keys = load(store)
+    mine = next(k for k in keys if k["id"] == one.key_id)
+    mine["window"] = on
+    if not on:
+        drop_window_key(request.app, mine)
+        mine.pop("window_device", None)
+    save(store, keys)
+    return {"window": on}
+
+
 @router.delete("/api/computers/{ident}", summary="Forget a computer: its key no longer opens anything")
 async def forget(request: Request, ident: str) -> dict:
     one = find(request.app, ident)
@@ -897,6 +963,7 @@ async def forget(request: Request, ident: str) -> dict:
     keys = load(store)
     gone = next(k for k in keys if k["id"] == one.key_id)
     save(store, [k for k in keys if k["id"] != one.key_id])
+    drop_window_key(request.app, gone)        # its Argus window is signed out with it
     await give_back(one, "key taken back")
     if one.server is not None:
         one.server.close()

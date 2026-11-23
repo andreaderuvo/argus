@@ -678,3 +678,34 @@ def test_files_are_off_when_the_actions_are(live, tmp_path):
         task.cancel()
 
     asyncio.run(scenario())
+
+
+def test_argus_bridge_window_signs_in_with_a_key_of_its_own(live):
+    """"I open Argus from argus-bridge and do not know the token" (2026-11-23): the computer's key buys a device key
+    for its Argus window — a new one revokes the last, never more than that, and forgetting the computer (or its
+    switch) takes it back."""
+    made = connect_one(live, "Mac")
+    ident, ac = made["computer"]["id"], made["token"]
+    code, first = call(live, "/api/computers/window-key", "POST", {}, token=ac)
+    assert code == 200 and first["name"] == "Mac (argus-bridge)", first
+    assert call(live, "/api/files?path=/", token=first["key"])[0] != 401, "the window can use Argus"
+    assert call(live, "/api/devices", token=first["key"])[0] in (401, 403), "but cannot hand out keys"
+    code, second = call(live, "/api/computers/window-key", "POST", {}, token=ac)
+    assert code == 200 and second["key"] != first["key"]
+    assert call(live, "/api/files?path=/", token=first["key"])[0] == 401, "the one before is revoked"
+    assert [d["name"] for d in call(live, "/api/devices")[1]] == ["Mac (argus-bridge)"], "one at a time"
+    # The computer's key opens nothing else over HTTP.
+    assert call(live, "/api/files?path=/", token=ac)[0] == 403
+    assert call(live, "/api/computers/keys", "POST", {"base": live}, token=ac)[0] == 403
+    # Off: revoked now, none given.
+    assert call(live, f"/api/computers/{ident}/window", "POST", {"on": False})[0] == 200
+    assert call(live, "/api/files?path=/", token=second["key"])[0] == 401
+    assert call(live, "/api/computers/window-key", "POST", {}, token=ac)[0] == 403
+    assert call(live, "/api/computers")[1]["computers"][0]["window"] is False
+    assert call(live, f"/api/computers/{ident}/window", "POST", {"on": True})[0] == 200
+    code, third = call(live, "/api/computers/window-key", "POST", {}, token=ac)
+    assert code == 200
+    # Forgotten: its window is signed out with it.
+    assert call(live, f"/api/computers/{ident}", "DELETE")[0] == 200
+    assert call(live, "/api/files?path=/", token=third["key"])[0] == 401
+    assert call(live, "/api/devices")[1] == []

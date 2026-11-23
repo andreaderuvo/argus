@@ -2083,6 +2083,10 @@
   "Port {port} could not be put on your computer — sign in, then paste the address below.": "Port {port} could not be put on your computer — sign in, then paste the address below.",
   "Or paste the address the browser ended on": "Or paste the address the browser ended on",
   "filter ports": "filter ports",
-  "No port matches “{q}”": "No port matches “{q}”"
+  "No port matches “{q}”": "No port matches “{q}”",
+  "{name}: Argus opens from argus-bridge already signed in": "{name}: Argus opens from argus-bridge already signed in",
+  "{name}: argus-bridge’s Argus window is signed out, and asks for the token": "{name}: argus-bridge’s Argus window is signed out, and asks for the token",
+  "A key of its own each time it opens, never kept there; revoked when switched off or the computer is forgotten": "A key of its own each time it opens, never kept there; revoked when switched off or the computer is forgotten",
+  "Open Argus from argus-bridge already signed in": "Open Argus from argus-bridge already signed in"
  }
 }
