@@ -747,10 +747,22 @@ def create_app(cfg: Config) -> FastAPI:
         # Which model and effort each agent session is on, from its own transcript (agentlook.py) — for the
         # window's title bar: "which agent, which model, which effort, at a glance" (2026-11-19).
         seen_sessions = request.app.state.resume.data.get("sessions", {})
+        # Before its first message an agent has written no transcript: the model its status line says (the pane's
+        # @argus_model, argus-where) stands in, so a new session is not the one window without it (2026-11-23).
+        # Read at most every 10 s: one list-panes for the whole server.
+        cache = request.app.state.__dict__.setdefault("declared_models", [0.0, {}])
+        if time.monotonic() - cache[0] > 10:
+            try:
+                cache[1] = await asyncio.to_thread(tmux.declared, request.app.state.socket)
+            except Exception:
+                cache[1] = {}
+            cache[0] = time.monotonic()
         for name, st in states.items():
             said = agentlook.look(seen_sessions.get(name))
             if said.get("model"):
                 st["model"] = agentlook.pretty(said["model"])
+            elif (cache[1].get(name) or {}).get("model"):
+                st["model"] = cache[1][name]["model"]
             if said.get("effort"):
                 st["effort"] = said["effort"]
         # Sessions whose agent started before the version installed now: they run the old one until restarted.

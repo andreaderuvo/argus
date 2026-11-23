@@ -260,3 +260,14 @@ def test_at_its_prompt_survives_a_restart_and_an_idle_minute(client, monkeypatch
     del app.state.bells
     assert (tmp_path / bells.LAST_FILE).is_file()
     assert c.get("/api/plugin").json()["reload"] == ["idle"]
+
+
+def test_a_new_agent_shows_the_model_its_status_line_says(client, monkeypatch):
+    """Before its first message a Claude has no transcript: the model its status line wrote on the pane stands in,
+    so a new window is not the only one without it (2026-11-23)."""
+    from app import tmux
+    app, c = client
+    monkeypatch.setattr(app.state.agents, "states", lambda: {"me": {"agent": "claude", "state": "waiting"}})
+    monkeypatch.setattr(tmux, "declared", lambda sock: {"me": {"agent": "claude", "model": "Opus 5.5"}})
+    app.state.__dict__["declared_models"] = [0.0, {}]
+    assert c.get("/api/tmux/states").json()["states"]["me"]["model"] == "Opus 5.5"
