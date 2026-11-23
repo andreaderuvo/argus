@@ -186,7 +186,10 @@ class Link:
         except asyncio.TimeoutError:
             one["why"] = one["why"] or "the computer did not answer"
             return False
-        return not one["closed"]
+        # Closed already is not refused: a quick command (an `echo`) can finish, with its exit code, before this
+        # looks — CI saw "the computer did not run it" for a command that had run (2026-11-23). A refusal closes
+        # with a reason and no code.
+        return not one["closed"] or one.get("code") is not None
 
     async def answer(self, ident: str, said: str) -> None:
         """Do it / No pressed on the computer's notification: the same answer as a tap in Argus — only for a

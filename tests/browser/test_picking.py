@@ -92,8 +92,8 @@ def test_a_pinned_window_stays_and_the_others_tile_around_it(make_page, argus):
     page.eval("""(() => { const w = document.querySelector('.win[data-session="w3"]'); const d = w.parentElement;
       Object.assign(w.style, { left: '0px', top: (d.clientHeight - 160) + 'px', width: d.clientWidth + 'px', height: '160px' }); })()""")
     # Through the window's ⋮ menu, where the pin lives now.
-    page.click_at(*page._center("document.querySelector('.win[data-session=\"w3\"] .winmore')"))
-    page.wait("!!document.querySelector('.popmenu')", timeout=3, what="the window's menu")
+    page.press_until("document.querySelector('.win[data-session=\"w3\"] .winmore')", "document.querySelector('.popmenu')",
+                     "the window's menu")
     page.click_at(*page._center("[...document.querySelectorAll('.popmenu .popmenuitem')].find(b => b.textContent.startsWith('Pin it here'))"))
     page.wait("document.querySelector('.win[data-session=\"w3\"]').classList.contains('pinned')", timeout=3)
     before = page.eval("document.querySelector('.win[data-session=\"w3\"]').style.top")

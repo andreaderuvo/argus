@@ -367,15 +367,29 @@ class Page(Session):
         self.wait(f"!!({finder})", what=f"visible element with text {text!r}")
         self.click_at(*self._center(finder))
 
+    def press_until(self, target: str, done: str, what: str, tries: int = 3, timeout: float = 3) -> None:
+        """Press `target` until `done` is true, at most `tries` times. WebKit loses a click whose button is drawn
+        again between the press and the release (issue #20) — a person presses again, and so does this; a press
+        that did land is never repeated, since `done` is looked at first."""
+        for attempt in range(tries):
+            if attempt and self.eval(f"!!({done})"):
+                return
+            self.click_at(*self._center(target))
+            try:
+                self.wait(f"!!({done})", timeout=timeout, what=what)
+                return
+            except (Timeout, AssertionError):
+                if attempt == tries - 1:
+                    raise
+
     def window_action(self, win: str, label: str) -> None:
         """A window's action, the way a person reaches it: its ⋮, then the item whose words start
         with `label`. The title bar keeps its actions there (2026-10-31), not in rows under it."""
         more = f"document.querySelector({json.dumps(win + ' .winmore')})"
         self.wait(f"!!{more}", what=f"the ⋮ of {win}")
-        self.click_at(*self._center(more))
         item = (f"[...document.querySelectorAll('.popmenu .popmenuitem')]"
                 f".find(b => b.textContent.trim().startsWith({json.dumps(label)}))")
-        self.wait(f"!!({item})", what=f"{label!r} in the window's menu")
+        self.press_until(more, item, f"{label!r} in the window's menu", timeout=5)
         self.click_at(*self._center(item))
 
     def type(self, text: str) -> None:

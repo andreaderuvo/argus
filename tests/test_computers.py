@@ -740,3 +740,30 @@ def test_a_computer_key_used_from_elsewhere_gets_no_window_key(tmp_path):
         assert r.status_code == 403 and "another address" in r.text, r.text
         assert computers.devices.load(app.state.devices) == [], "no key made"
         one.bridge = None
+
+
+def test_a_command_that_ends_before_its_open_is_looked_at_still_counts():
+    """A quick `echo` can answer opened, its output and close (with its exit code) before `open` looks: that is a
+    command run, not refused (CI, 2026-11-23: "the computer did not run it"). A refusal has a reason and no code."""
+    from app import computers
+
+    async def scenario():
+        one = computers.Link({"id": "k1", "name": "Mac"})
+        heard = []
+
+        async def fast(frame):
+            heard.append(frame)
+            ch = frame["ch"]
+            if frame["frame_kind"] == "quick":
+                for f in ({"op": "opened", "ch": ch}, {"op": "msg", "ch": ch, "data": "hi\n"}, {"op": "close", "ch": ch, "code": 0}):
+                    await one.heard(f)
+            else:
+                await one.heard({"op": "close", "ch": ch, "why": "actions are off on this computer"})
+            return True
+        one.send = lambda frame: fast({**frame, "frame_kind": frame.get("kind")})
+        ch, chan = one.channel("run", lambda f: asyncio.sleep(0))
+        assert await one.open(ch, chan, {"kind": "quick"}) is True and chan["code"] == 0
+        ch, chan = one.channel("run", lambda f: asyncio.sleep(0))
+        assert await one.open(ch, chan, {"kind": "refused"}) is False and chan["why"]
+
+    asyncio.run(scenario())
