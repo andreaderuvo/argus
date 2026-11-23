@@ -2,6 +2,8 @@
 // they run in the order the single file ran them: the token is taken from the address
 // before anything else asks for it.
 import '/js/plumbing.js';
+// The language button in the header (langpick.js): its click, wired at load.
+import '/js/langpick.js';
 // And the keyboard of a phone: what is typed stays above it (keyboard.js).
 import '/js/keyboard.js';
 // <imports> generated from what this file uses; edit the code, not this list

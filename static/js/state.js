@@ -32,6 +32,7 @@ export const bar = {
   about: document.getElementById('about'),
   keys: document.getElementById('keys'),
   find: document.getElementById('find'),
+  lang: document.getElementById('lang'),
   drops: document.getElementById('drops'),
   vitals: document.getElementById('vitals'),
 };

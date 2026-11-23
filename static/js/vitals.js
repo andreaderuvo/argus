@@ -860,7 +860,7 @@ export async function handoffSheet() {
 
 /** Kept here and on the machine before the page reloads in it: savePrefs sends a moment later, and a
  *  reload in that moment would leave the machine on the old language for the next page. */
-async function chooseLanguage(code) {
+export async function chooseLanguage(code) {
   prefs.lang = code;
   savePrefs();
   try { await patchJSON('/api/prefs', { changes: { lang: code } }); } catch { /* this browser has it */ }

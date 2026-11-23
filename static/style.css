@@ -5269,3 +5269,10 @@ dialog.palette kbd { display: inline-grid; place-items: center; min-width: 1.45e
 .portmore.sifted { display: none; }
 .pcwindow { display: flex; align-items: center; gap: .45rem; font-size: .82rem; color: var(--dim); cursor: pointer; width: fit-content; }
 .pcwindow input { margin: 0; accent-color: var(--accent); }
+
+/* The language in the header (langpick.js): the globe and the code on screen; the code goes on a phone. */
+#bar .langbtn { width: auto; min-width: 36px; padding: 0 .45rem; display: inline-flex; align-items: center; justify-content: center; gap: .3rem; }
+#bar .langbtn .langcode { font-size: .7rem; font-weight: 650; letter-spacing: .05em; font-variant-numeric: tabular-nums; }
+@media (max-width: 560px) { #bar .langbtn { display: none !important; } }
+#drawer .drawerlang { display: flex; align-items: center; gap: .7rem; width: 100%; margin-top: .4rem; padding: .7rem 1rem; border: 0; border-top: 1px solid var(--line); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+#drawer .drawerlang .langcode { margin-left: auto; font-size: .72rem; font-weight: 650; letter-spacing: .05em; color: var(--dim); }

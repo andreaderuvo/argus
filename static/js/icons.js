@@ -28,6 +28,8 @@ export const ICONS = {
   upload: 'M12 16.5v-12M7 9.5 12 4.5l5 5M4.5 19.5h15',
   download: 'M12 4.5v12M7 11.5l5 5 5-5M4.5 19.5h15',
   more: 'M12 6.2v.01M12 12v.01M12 17.8v.01',
+  // The world: a circle, its equator and one meridian bent each way — the sign for "language" everywhere.
+  globe: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0M3 12h18M12 3c2.6 2.6 3.8 5.6 3.8 9s-1.2 6.4-3.8 9c-2.6-2.6-3.8-5.6-3.8-9S9.4 5.6 12 3',
   // The three sliders of the settings icon in the header, so the drawer's last row wears
   // the same mark as the place it goes to.
   sliders: 'M4 7h9M17 7h3M4 17h3M11 17h9M15 4.6v4.8M8 14.6v4.8',

@@ -2087,6 +2087,7 @@
   "{name}: Argus opens from argus-bridge already signed in": "{name} : Argus s’ouvre depuis argus-bridge déjà connecté",
   "{name}: argus-bridge’s Argus window is signed out, and asks for the token": "{name} : la fenêtre Argus d’argus-bridge est déconnectée et demande le jeton",
   "A key of its own each time it opens, never kept there; revoked when switched off or the computer is forgotten": "Une clé à elle à chaque ouverture, jamais gardée là-bas ; révoquée si vous le coupez ou oubliez l’ordinateur",
-  "Open Argus from argus-bridge already signed in": "Ouvrir Argus depuis argus-bridge déjà connecté"
+  "Open Argus from argus-bridge already signed in": "Ouvrir Argus depuis argus-bridge déjà connecté",
+  "Add or translate a language…": "Ajouter ou traduire une langue…"
  }
 }

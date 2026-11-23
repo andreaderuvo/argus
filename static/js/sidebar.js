@@ -7,6 +7,7 @@ import { el, wikiLink } from '/js/dom.js';
 import { fileIcon } from '/js/fileicons.js';
 import { BATONS, GROUND, LOOSE, PAIR_BATONS, SITUATIONAL, batonGroups, batonTemplates, bridgePath, deskSetName, fillBaton, groundVars, groupName, messagesChanged, pairEvery, pairLimit, pairTries, planPath, promptName, saidAs, unknownVars, varSetNamed, varSets, whyEmpty } from '/js/handover.js';
 import { icon } from '/js/icons.js';
+import { openLangMenu } from '/js/langpick.js';
 import { viewerPacks } from '/js/packs.js';
 import { pointAt } from '/js/pointing.js';
 import { bidi, colorFor, deskHome, getJSON, homePath, parentOf, postJSON, serverInfo, setTitle, toggleFavourite } from '/js/reconnect.js';
@@ -18,7 +19,7 @@ import { redressTerminals } from '/js/theme.js';
 import { currentSpace, openWindow, runs, specId, workspaces } from '/js/tray.js';
 import { VIEWERS, editor } from '/js/viewers.js';
 import { reorderFolder } from '/js/wall.js';
-import { t } from '/js/words.js';
+import { activeLang, t } from '/js/words.js';
 // </imports>
 /* ---------------------------------------------------------------- sidebar */
 
@@ -1639,6 +1640,10 @@ function buildDrawer() {
   // The favourite folders, filled by paintRailFavs: on a phone the drawer is where they are.
   panel.append(el('div', { id: 'drawerfavs', hidden: true }));
   panel.append(el('div', { id: 'drawerdesks', hidden: true }));
+  // The language, on a phone: the header has no room for it there (langpick.js). Its name in the language on
+  // screen and the code, so it is found whatever that language is.
+  panel.append(el('button', { type: 'button', className: 'drawerlang', onclick: () => openLangMenu(true) }, [
+    icon('globe'), el('span', { textContent: t('Language') }), el('span', { className: 'langcode', textContent: (activeLang || 'en').toUpperCase() })]));
 
   const veil = el('div', { id: 'drawerveil', onclick: () => openDrawer(false) });
   document.body.append(veil, panel);
