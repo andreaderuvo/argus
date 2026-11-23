@@ -151,6 +151,48 @@ def claude_conversation(pid: int, home: str | None = None) -> str | None:
     return conv
 
 
+ROLLOUT_AT = re.compile(r"rollout-(\d{4})-(\d\d)-(\d\d)T(\d\d)-(\d\d)-(\d\d)-([0-9a-f-]{36})\.jsonl$")
+
+
+def codex_started(pid: int, cwd: str, home: str | None = None, slack: float = 10.0) -> str | None:
+    """The conversation a Codex began when it started: Codex keeps no file open between turns (only a lock),
+    so the one it holds is rarely there to read. It names its rollout after the moment it began —
+    `rollout-YYYY-MM-DDTHH-MM-SS-<uuid>.jsonl`, local time — a second after the process starts. The one within
+    `slack` seconds of this process's start, begun in the same folder, is its conversation ("which conversation it
+    is in is not known", 2026-11-23: the hooks had given a Codex another session's id)."""
+    import datetime
+    import glob
+    try:
+        with open(f"/proc/{pid}/stat", encoding="utf-8") as f:
+            ticks = int(f.read().rsplit(")", 1)[1].split()[19])
+        with open("/proc/stat", encoding="utf-8") as f:
+            boot = next(float(l.split()[1]) for l in f if l.startswith("btime "))
+    except (OSError, StopIteration, IndexError, ValueError):
+        return None
+    began = boot + ticks / (os.sysconf("SC_CLK_TCK") if hasattr(os, "sysconf") else 100)
+    day = datetime.datetime.fromtimestamp(began)
+    home = home or os.path.expanduser("~")
+    best: tuple[float, str] | None = None
+    for d in {day, day - datetime.timedelta(seconds=slack), day + datetime.timedelta(seconds=slack)}:
+        for path in glob.glob(f"{home}/.codex/sessions/{d:%Y/%m/%d}/rollout-*.jsonl"):
+            m = ROLLOUT_AT.search(path)
+            if not m:
+                continue
+            at = datetime.datetime(*map(int, m.groups()[:6])).timestamp()
+            off = abs(at - began)
+            if off > slack or (best and off >= best[0]):
+                continue
+            try:
+                with open(path, encoding="utf-8") as f:
+                    head = f.read(4096)
+            except OSError:
+                continue
+            if cwd and f'"cwd":"{cwd}"' not in head.replace('": "', '":"'):
+                continue
+            best = (off, m.group(7))
+    return best[1] if best else None
+
+
 def flags_of(agent: str, argv: list[str]) -> list[str]:
     plain, valued = FLAGS.get(agent, (set(), set()))
     out, i = [], 0
@@ -203,8 +245,11 @@ def snapshot(sock: tmux.Socket, names: frozenset[str], told: dict[str, str]) -> 
             cwd = cwd.removesuffix(" (deleted)")
             conversation = None
             if agent == "codex":
-                # The file it holds open first; its hooks say the same id (session_id) since 0.160.
-                conversation = codex_conversation(_descendants(pid, tree)) or told.get(session)
+                # `codex resume <id>` says it; else the file it holds open (rarely: only during a turn); else the
+                # rollout begun when it started. The hooks' word last: it once gave a Codex another session's id.
+                said = words[words.index("resume") + 1] if "resume" in words and words.index("resume") + 1 < len(words) else ""
+                conversation = (said if UUID.fullmatch(said) else None) or codex_conversation(_descendants(pid, tree)) \
+                    or codex_started(pid, cwd) or told.get(session)
             elif agent == "claude":
                 # Its own file first: the hook's word can be missing (no plugin, or not yet a turn) or stale.
                 conversation = claude_conversation(pid) or told.get(session)

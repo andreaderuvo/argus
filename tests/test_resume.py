@@ -264,3 +264,26 @@ def test_claude_says_its_conversation_in_its_own_file(tmp_path):
     (sessions / f"{pid}.json").write_text(_json.dumps({"pid": pid, "sessionId": "not-an-id"}))
     assert claude_conversation(pid, str(tmp_path)) is None
     assert claude_conversation(pid + 999999, str(tmp_path)) is None
+
+
+def test_a_codex_is_matched_to_the_rollout_it_began_when_it_started(tmp_path):
+    """Codex holds no file open between turns: its conversation is the rollout named after the second it started,
+    in its folder (2026-11-23: a Codex shown as "not known", another given a neighbour's id by the hooks)."""
+    import datetime
+    from app.resume import codex_started
+    pid = os.getpid()
+    ticks = int(open(f"/proc/{pid}/stat").read().rsplit(")", 1)[1].split()[19])
+    boot = next(float(l.split()[1]) for l in open("/proc/stat") if l.startswith("btime "))
+    began = datetime.datetime.fromtimestamp(boot + ticks / os.sysconf("SC_CLK_TCK"))
+    folder = tmp_path / ".codex" / "sessions" / f"{began:%Y/%m/%d}"
+    folder.mkdir(parents=True)
+    mine, other, elsewhere = ("01a110bb-7bba-70d1-b8c9-dbc206f2c3fd", "01a0fba6-5b7a-77d2-9a1d-89e9db8af575",
+                              "01a1f2fd-569c-7951-b6ba-43eeb9a40c82")
+    def rollout(at, uuid, cwd):
+        (folder / f"rollout-{at:%Y-%m-%dT%H-%M-%S}-{uuid}.jsonl").write_text(
+            '{"type":"session_meta","payload":{"id":"%s","cwd":"%s"}}\n' % (uuid, cwd))
+    rollout(began + datetime.timedelta(seconds=1), mine, "/work/paper")
+    rollout(began + datetime.timedelta(minutes=5), other, "/work/paper")        # begun later: another Codex
+    rollout(began, elsewhere, "/work/elsewhere")                                # same second, another folder
+    assert codex_started(pid, "/work/paper", str(tmp_path)) == mine
+    assert codex_started(pid, "/work/nowhere", str(tmp_path)) is None

@@ -419,7 +419,9 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   out is not a dead server. The Sessions screen offers them back (`claude --resume <id>`,
   `codex resume <id>`, else a fresh agent in the same folder, said so). Claude's id is read first from its own
   `~/.claude/sessions/<pid>.json` (`sessionId`, checked against the pid's start time): a hook that never
-  spoke left a session "not known", and a stale hook once gave a Claude a Codex id. Kept in
+  spoke left a session "not known", and a stale hook once gave a Claude a Codex id. Codex's: `codex resume <id>` in its argv, the rollout it holds open (only
+  during a turn), else `codex_started` — the `rollout-<local time>-<uuid>.jsonl` begun within 10 s of the process's
+  start, in its folder; the hooks' word last (they had given codex-genpat-paper another session's id). Kept in
   `agents-seen.json` beside the config; the browser harness runs it every second
   (`ARGUS_REGISTER_EVERY`) and forgets losses between tests.
 - **Restart an agent on the same conversation** (`POST /api/tmux/restart-agent`, `resume.restart`,
