@@ -248,7 +248,9 @@ def snapshot(sock: tmux.Socket, names: frozenset[str], told: dict[str, str]) -> 
                 # `codex resume <id>` says it; else the file it holds open (rarely: only during a turn); else the
                 # rollout begun when it started. The hooks' word last: it once gave a Codex another session's id.
                 said = words[words.index("resume") + 1] if "resume" in words and words.index("resume") + 1 < len(words) else ""
-                conversation = (said if UUID.fullmatch(said) else None) or codex_conversation(_descendants(pid, tree)) \
+                # Not through Codex's app-server daemon: one daemon serves every Codex, and holds the others' files.
+                own = [q for q in _descendants(pid, tree) if "app-server" not in tree.get(q, (0, []))[1]]
+                conversation = (said if UUID.fullmatch(said) else None) or codex_conversation(own) \
                     or codex_started(pid, cwd) or told.get(session)
             elif agent == "claude":
                 # Its own file first: the hook's word can be missing (no plugin, or not yet a turn) or stale.
