@@ -58,6 +58,7 @@ function watchForUpdates(reg) {
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (reloading || (!hadController && !asked)) return;
     reloading = true;
+    window.__reloadWhy = 'service worker controllerchange';
     location.reload();
   });
 

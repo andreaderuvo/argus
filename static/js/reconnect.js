@@ -99,6 +99,7 @@ export async function foundTheServer() {
     return;
   }
   waiting.said.textContent = t('There it is. Reloading…');
+  window.__reloadWhy = 'the server restarted';
   location.reload();
 }
 
@@ -111,7 +112,7 @@ function lostTheServer() {
   // waiting for a machine you have just watched come back is its own small annoyance — and
   // this one does not care what the probe thinks.
   const again = el('button', {
-    className: 'ghost', textContent: t('Reload the page'), onclick: () => location.reload(),
+    className: 'ghost', textContent: t('Reload the page'), onclick: () => { window.__reloadWhy = 'Reload the page pressed'; location.reload(); },
   });
   const box = el('div', { className: 'lostbox' }, [
     el('h2', { textContent: t('Argus is not answering') }),

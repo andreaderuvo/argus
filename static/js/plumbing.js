@@ -53,5 +53,34 @@ takeTokenFromAddress();
  *  and was quietly measuring the first one twice.
  */
 window.addEventListener('hashchange', () => {
-  if (takeTokenFromAddress()) location.reload();
+  if (takeTokenFromAddress()) { window.__reloadWhy = 'a new token in the address'; window.__reloadStack = new Error().stack; location.reload(); }
 });
+
+/* TEMPORARY (2026-11-25): why does the page reload?
+ *
+ *  In argus-bridge's window on a Mac, opening a browser window from an agent's folder chip reloaded the page and
+ *  lost the window; WebKit's log shows the page itself starting a load, but not which line asked. Every unload
+ *  records the reason a reload site gave (or "not ours") and the next load files it in the preferences
+ *  (`reloadTrace.<ms>`), where it can be read on the server. Remove once found. */
+const RELOAD_TRACE = 'argus.reloadTrace';
+window.__reloadWhy = '';
+window.addEventListener('pagehide', () => {
+  try {
+    localStorage.setItem(RELOAD_TRACE, JSON.stringify({
+      at: Date.now(), hash: location.hash, why: window.__reloadWhy || 'not ours', stack: window.__reloadStack || '',
+      hidden: document.visibilityState,
+    }));
+  } catch { /* nothing to keep it in */ }
+});
+setTimeout(() => {
+  let said = null;
+  try { said = localStorage.getItem(RELOAD_TRACE); localStorage.removeItem(RELOAD_TRACE); } catch { /* none */ }
+  if (!said || !token) return;
+  let was = {};
+  try { was = JSON.parse(said); } catch { return; }
+  fetch('/api/prefs', {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ changes: { [`reloadTrace.${Date.now()}`]: { ...was, back: Date.now(), ua: navigator.userAgent } } }),
+  }).catch(() => {});
+}, 4000);

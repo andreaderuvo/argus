@@ -881,6 +881,7 @@ export function languageSheet(list) {
         // The whole page again, in the new language. Translating in place missed what is built once and
         // kept — the desks and their toolbars, the rail's filter — and left a page half English, half
         // Italian (2026-11-10). The sessions live in tmux: nothing is lost by the reload.
+        window.__reloadWhy = 'language chosen';
         location.reload();
       },
     }, [
@@ -919,6 +920,7 @@ export function languageSheet(list) {
       const r = await postJSON('/api/language', parsed);
       toast(t('{name} added, {n} strings', { name: r.name, n: r.count }));
       await chooseLanguage(r.code);
+      window.__reloadWhy = 'language added';
       location.reload();
     } catch (e) {
       toast(e instanceof SyntaxError ? t('that file is not JSON') : e.message, true);

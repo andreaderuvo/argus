@@ -42,6 +42,7 @@ export async function openLangMenu(fromDrawer = false) {
         if (activeLang === lang.code) return;
         await chooseLanguage(lang.code);
         // The whole page again, in the new language (see languageSheet): the sessions live in tmux.
+        window.__reloadWhy = 'language picked';
         location.reload();
       },
     })),
