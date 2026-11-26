@@ -12,7 +12,8 @@ So, every few minutes, into each folder chosen in Settings → Backup:
     <place>/argus/…         the desks and preferences, notes, to-dos, favourites, labels
     <place>/README.txt      what this is, in words
 
-Never a secret: not the config (it holds the token), not device, sync or computer keys. A conversation only
+Never a secret: not the config (it holds the token), not device, sync or computer keys, and Argus's own files are
+copied with the token and any `token=` in an address taken out. A conversation only
 grows, so a copy that is a prefix of it is carried on from where it stopped rather than written again; anything
 else is copied whole, through a part file. Nothing in a backup is ever deleted by it.
 
@@ -25,6 +26,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import socket
 import time
@@ -138,6 +140,30 @@ def copy_one(src: Path, dst: Path) -> int:
     return st.st_size
 
 
+TOKEN_PARAM = re.compile(r"([?&#]token=)[A-Za-z0-9_\-.%]{16,}")
+
+
+def copy_scrubbed(src: Path, dst: Path, secrets: list[str]) -> int:
+    """Argus's own small files, with every key taken out: the token Argus runs with, and any `token=` in an
+    address (a web window once kept `/proxy/…?token=<key>` in the preferences). Written only when different."""
+    text = src.read_text(encoding="utf-8", errors="replace")
+    for secret in secrets:
+        if secret and len(secret) >= 16:
+            text = text.replace(secret, "<removed>")
+    text = TOKEN_PARAM.sub(r"\1<removed>", text)
+    data = text.encode("utf-8")
+    try:
+        if dst.read_bytes() == data:
+            return 0
+    except FileNotFoundError:
+        pass
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    part = dst.with_name(dst.name + ".part")
+    part.write_bytes(data)
+    os.replace(part, dst)
+    return len(data)
+
+
 def sessions_of(ledger_data: dict) -> dict[str, dict]:
     """Every session worth bringing back: the lost ones not brought back yet, and the running ones."""
     out = {n: {k: v for k, v in rec.items() if k != "lost_at"} for n, rec in (ledger_data.get("lost") or {}).items()}
@@ -145,7 +171,8 @@ def sessions_of(ledger_data: dict) -> dict[str, dict]:
     return {n: rec for n, rec in out.items() if isinstance(rec, dict) and rec.get("agent")}
 
 
-def run(places: list[str], home: Path, ledger_data: dict, config_dir: Path, notes_dir: Path | None) -> dict:
+def run(places: list[str], home: Path, ledger_data: dict, config_dir: Path, notes_dir: Path | None,
+        secrets: list[str] | None = None) -> dict:
     """One copy into every place. Returns what was done, place by place, in words a page can show."""
     sessions = sessions_of(ledger_data)
     convs: list[Path] = []
@@ -170,9 +197,9 @@ def run(places: list[str], home: Path, ledger_data: dict, config_dir: Path, note
                 rels.append(str(rel))
                 written += copy_one(f, root / "home" / rel)
             for f in state:
-                written += copy_one(f, root / "argus" / f.name)
+                written += copy_scrubbed(f, root / "argus" / f.name, secrets or [])
             for f in notes:
-                written += copy_one(f, root / "argus" / "notes" / f.relative_to(notes_dir))
+                written += copy_scrubbed(f, root / "argus" / "notes" / f.relative_to(notes_dir), secrets or [])
             manifest = {"made": report["at"], "host": socket.gethostname(), "home": str(home),
                         "sessions": sessions, "conversations": sorted(set(rels))}
             tmp = root / "manifest.json.part"

@@ -188,6 +188,12 @@ export const patchJSON = (p, body) => api(p, {
 
 export const withToken = (p) => p + (p.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token);
 
+/** An address without its `token=`: what is kept (a window's spec, its place on the desk) never holds the key.
+ *  A web window on a port stored `/proxy/…?token=<the key>` in the preferences, and from there in backups
+ *  (2026-11-26); the key is added back only where the frame is drawn. */
+export const withoutToken = (p) => String(p || '').replace(/([?&])token=[^&#]*(&?)/g, (all, sep, more) => (more ? sep : ''))
+  .replace(/[?&]$/, '');
+
 /** A same-tab download that can never navigate the app away, whatever the response turns
  *  out to carry.
  *

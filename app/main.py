@@ -553,7 +553,8 @@ async def backup_now(app: FastAPI, due_only: bool = False) -> dict | None:
         return None
     async with lock:
         report = await asyncio.to_thread(
-            backup.run, said["places"], Path.home(), app.state.resume.data, path.parent, app.state.notes)
+            backup.run, said["places"], Path.home(), app.state.resume.data, path.parent, app.state.notes,
+            [app.state.cfg.token])
         said = backup.load(path)                 # the places may have changed meanwhile
         said["last"] = report
         backup.save(path, said)

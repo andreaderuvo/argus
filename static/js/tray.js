@@ -9,7 +9,7 @@ import { allVars, batonTemplates, fillBaton, groupName, ownSetFor, promptName, s
 import { icon } from '/js/icons.js';
 import { linkParts } from '/js/linkparts.js';
 import { current, setCurrent } from '/js/pointing.js';
-import { bidi, colorFor, getJSON, homePath, openFileRaw, parentOf, postJSON, toggleFavourite } from '/js/reconnect.js';
+import { bidi, colorFor, getJSON, homePath, openFileRaw, parentOf, postJSON, toggleFavourite, withToken, withoutToken } from '/js/reconnect.js';
 import { go } from '/js/router.js';
 import { browserView, browsers, fileBrowser } from '/js/screens.js';
 import { busySpin } from '/js/shortcuts.js';
@@ -496,7 +496,7 @@ export function attachTray(host, wsId, extras, deliver) {
 export const specId = (spec) => (spec.kind === 'links' ? (spec.from ? `links:${spec.from}` : 'links')
   : spec.kind === 'messages' ? 'messages'
   : spec.kind === 'term' ? `term:${spec.name}`
-  : spec.kind === 'web' ? `web:${spec.url}`
+  : spec.kind === 'web' ? `web:${withoutToken(spec.url)}`
     : spec.kind === 'run' ? `run:${spec.id}`
     : spec.kind === 'team' ? `team:${spec.id}`
     : spec.kind === 'note' ? `note:${spec.id || spec.path || 'one'}`
@@ -1026,6 +1026,7 @@ export function arrived() {
 }
 
 export function openWindow(spec, geom, { jump = true } = {}) {
+  if (spec.kind === 'web' && spec.url) spec = { ...spec, url: withoutToken(spec.url) };
   const id = specId(spec);
   if (jump && spec.kind === 'term') arriving = id;
   const ws = currentSpace();
@@ -1292,7 +1293,8 @@ export function attachWeb(host, spec, setLabel) {
   let frame = null;
   const draw = () => {
     host.textContent = '';
-    frame = el('iframe', { className: 'preview', src: spec.url });
+    // Through Argus's proxy the frame needs the key; it is added here, never kept in the spec.
+    frame = el('iframe', { className: 'preview', src: spec.url?.startsWith('/proxy/') ? withToken(withoutToken(spec.url)) : spec.url });
     host.append(frame);
   };
   // Assigning src to itself is how a cross-origin frame is reloaded: contentWindow.location is

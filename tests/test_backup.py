@@ -11,6 +11,7 @@ from app import backup, resume
 
 CLAUDE_ID = "11111111-2222-3333-4444-555555555555"
 CODEX_ID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+SECRET = "0123456789abcdef0123456789abcdef"
 
 
 def _home(tmp: Path) -> Path:
@@ -32,9 +33,10 @@ def _config(tmp: Path) -> Path:
     (cfg / "notes").mkdir(parents=True)
     (cfg / "config.yaml").write_text("token: secret\n")
     (cfg / "devices.json").write_text("{}")
-    (cfg / "prefs.json").write_text('{"prefs": {"workspaces": [{"id": 1}]}}')
+    (cfg / "prefs.json").write_text('{"prefs": {"workspaces": [{"id": 1}], '
+                                    '"geom": {"37:web:/proxy/1455/cb?code=x&token=' + SECRET + '": {}}}}')
     (cfg / "todo.json").write_text("[]")
-    (cfg / "notes" / "idea.md").write_text("# idea\n")
+    (cfg / "notes" / "idea.md").write_text(f"# idea\nopen http://host/?token={SECRET}\n")
     return cfg
 
 
@@ -47,8 +49,12 @@ LEDGER = {"sessions": {
 def test_a_copy_holds_the_conversations_the_desks_and_no_secret(tmp_path):
     home, cfg = _home(tmp_path), _config(tmp_path)
     place = tmp_path / "copy"
-    report = backup.run([str(place)], home, LEDGER, cfg, cfg / "notes")
+    report = backup.run([str(place)], home, LEDGER, cfg, cfg / "notes", [SECRET])
     assert report["places"][0]["ok"], report
+    for f in place.rglob("*"):
+        if f.is_file():
+            assert SECRET not in f.read_text(errors="replace"), f"the key reached {f}"
+    assert "<removed>" in (place / "argus" / "prefs.json").read_text()
     assert report["sessions"] == 3 and report["conversations"] == 3
     files = {str(p.relative_to(place)) for p in place.rglob("*") if p.is_file()}
     assert f"home/.claude/projects/-work-paper/{CLAUDE_ID}.jsonl" in files
