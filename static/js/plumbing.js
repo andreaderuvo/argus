@@ -84,3 +84,13 @@ setTimeout(() => {
     body: JSON.stringify({ changes: { [`reloadTrace.${Date.now()}`]: { ...was, back: Date.now(), ua: navigator.userAgent } } }),
   }).catch(() => {});
 }, 4000);
+
+/* ⌘R reloads, in argus-bridge's window too: an app's window has no Reload command of its own, so the keys did
+ *  nothing there ("⌘R does not work", 2026-11-26). The Command key only — Ctrl+R belongs to the terminal (the
+ *  shell's history search). In a browser this is what ⌘R did anyway. */
+document.addEventListener('keydown', (e) => {
+  if (!e.metaKey || e.ctrlKey || e.altKey || e.shiftKey || e.key.toLowerCase() !== 'r') return;
+  e.preventDefault();
+  window.__reloadWhy = '⌘R';
+  location.reload();
+}, true);
