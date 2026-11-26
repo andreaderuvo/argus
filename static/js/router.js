@@ -21,7 +21,35 @@ export function parseRoute() {
   return { path, q: new URLSearchParams(qs || '') };
 }
 
-export const go = (hash) => { location.hash = hash; };
+/** To another screen of the app, without navigating.
+ *
+ *  `location.hash = …` is a navigation, and WebKit on macOS 26 (argus-bridge's window) sometimes answers one
+ *  with "Process swap due to EnhancedSecurity change": a new process that loads the window's first address
+ *  again. The page reloaded under every other click — a browser window just opened, a desk just brought back
+ *  from the rail, gone with it (2026-11-25, read in the Mac's log). `pushState` is not a navigation at all, so
+ *  nothing is asked of the policy that swaps; the `hashchange` the app listens for is sent by hand. Back and
+ *  forward still work: traversing entries that differ in the fragment fires `hashchange` by itself. */
+export const go = (hash) => {
+  const target = hash.startsWith('#') ? hash : `#${hash}`;
+  if (location.hash === target) return;
+  const oldURL = location.href;
+  history.pushState(null, '', target);
+  window.dispatchEvent(new HashChangeEvent('hashchange', { oldURL, newURL: location.href }));
+};
+// For argus-bridge, which moves its window to a session (a notification clicked) by evaluating this.
+window.argusGo = go;
+
+/* And a link to a screen (`<a href="#/…">`) goes the same way, for the same reason: following one is a
+ *  navigation too. A click with a modifier, or on a link that opens elsewhere, is left to the browser. */
+document.addEventListener('click', (e) => {
+  if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  const a = e.target.closest?.('a[href^="#"]');
+  if (!a || a.target || a.hasAttribute('download')) return;
+  const href = a.getAttribute('href');
+  if (href.length < 2 || !href.startsWith('#/')) return;
+  e.preventDefault();
+  go(href);
+});
 
 /** How many times the screen has been drawn. A screen that awaits before it appends checks it
  *  afterwards: the view is emptied at the start of each render, so two that overlap would both
