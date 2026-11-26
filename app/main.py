@@ -33,7 +33,7 @@ from .auth import PROXY_COOKIE, TokenAuthMiddleware
 from .config import Config, ConfigError, default_path
 from .errors import ApiError
 from .jsongzip import JsonGzip
-from . import agentlook, agentupdate, minify, procs
+from . import agentlook, agentupdate, backup, minify, procs
 from .safepath import Jail, PathError
 
 VERSION = "0.1.0"
@@ -529,6 +529,37 @@ async def keeping_the_register(app: FastAPI) -> None:
         await asyncio.sleep(REGISTER_EVERY)
 
 
+async def backing_up(app: FastAPI) -> None:
+    """A copy for bringing the agents back elsewhere (backup.py), every `backup.EVERY` seconds into the folders
+    chosen in Settings → Backup. Checked each minute, so a folder just chosen is copied into soon."""
+    while True:
+        try:
+            await backup_now(app, due_only=True)
+        except Exception:
+            pass                                 # a backup that failed says so on its own report
+        await asyncio.sleep(60)
+
+
+async def backup_now(app: FastAPI, due_only: bool = False) -> dict | None:
+    path = app.state.backup
+    if not path:
+        return None
+    said = backup.load(path)
+    last = said.get("last") or {}
+    if not said["places"] or (due_only and time.time() - (last.get("at") or 0) < backup.EVERY):
+        return None
+    lock = app.state.backup_lock
+    if lock.locked():
+        return None
+    async with lock:
+        report = await asyncio.to_thread(
+            backup.run, said["places"], Path.home(), app.state.resume.data, path.parent, app.state.notes)
+        said = backup.load(path)                 # the places may have changed meanwhile
+        said["last"] = report
+        backup.save(path, said)
+        return report
+
+
 @contextlib.asynccontextmanager
 async def announcing(app: FastAPI):
     """Announce this machine to a board, if it has been told about one."""
@@ -545,9 +576,11 @@ async def announcing(app: FastAPI):
         app.state.agents.wake()
         registering = asyncio.create_task(keeping_the_register(app))
         directing = asyncio.create_task(directing_teams(app))
+        copying = asyncio.create_task(backing_up(app))
     else:
         registering = None
         directing = None
+        copying = None
     task = None
     if getattr(cfg, "report_to", None):
         async def mine() -> dict:
@@ -560,7 +593,7 @@ async def announcing(app: FastAPI):
             one.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await one
-        for one in (task, registering, directing):
+        for one in (task, registering, directing, copying):
             if one:
                 one.cancel()
                 with contextlib.suppress(asyncio.CancelledError):
@@ -605,6 +638,9 @@ def create_app(cfg: Config) -> FastAPI:
     # The register of agents, for bringing them back after the tmux server is gone (resume.py).
     # In memory here; `main` gives it its file.
     app.state.resume = resume.Ledger(None)
+    # Settings → Backup (backup.py): the file of chosen folders, set by main(); None in the tests' apps.
+    app.state.backup = None
+    app.state.backup_lock = asyncio.Lock()
     # Agents whose hooks are wired on this machine, so they say themselves when they stop. Filled
     # by `main` from the wiring (the tests' apps have none, and so watch every agent the old way).
     app.state.hooked_agents = set()
@@ -1496,6 +1532,73 @@ def create_app(cfg: Config) -> FastAPI:
             raise ApiError(400, "names must be a list of session names")
         request.app.state.resume.forget(names)
         return {"lost": request.app.state.resume.lost()}
+
+    def _backup_path(request: Request) -> Path:
+        path = request.app.state.backup
+        if not path:
+            raise ApiError(404, "backups are not kept by this Argus")
+        return path
+
+    @app.get("/api/backup", tags=["Sessions"], summary="Where the agents are backed up, and how the last copy went")
+    async def backup_get(request: Request) -> dict:
+        """`{places, last, every, sessions}`: the folders copied into, the last copy's report (`at`, `sessions`,
+        `conversations`, `bytes`, and per place `ok`/`written`/`error`), seconds between copies, and how many
+        sessions there are to keep now."""
+        said = backup.load(_backup_path(request))
+        return {**said, "every": backup.EVERY, "sessions": len(backup.sessions_of(request.app.state.resume.data))}
+
+    @app.post("/api/backup", tags=["Sessions"], summary="Choose where the agents are backed up")
+    async def backup_set(request: Request, body: dict) -> dict:
+        """`{places: [folder, …]}` (at most four; an empty list stops the copies). Each must be a whole path that
+        exists or can be made, where Argus may write. A copy starts at once."""
+        path = _backup_path(request)
+        places = body.get("places")
+        if not isinstance(places, list) or len(places) > 4:
+            raise ApiError(400, "places must be a list of at most four folders")
+        try:
+            checked = list(dict.fromkeys(backup.check_place(p) for p in places))
+        except ValueError as e:
+            raise ApiError(400, str(e)) from None
+        said = backup.load(path)
+        said["places"] = checked
+        backup.save(path, said)
+        if checked:
+            asyncio.get_running_loop().create_task(backup_now(request.app))
+        return {**backup.load(path), "every": backup.EVERY}
+
+    @app.post("/api/backup/now", tags=["Sessions"], summary="Back the agents up now")
+    async def backup_run(request: Request) -> dict:
+        _backup_path(request)
+        report = await backup_now(request.app)
+        if report is None:
+            raise ApiError(409, "no folder chosen yet, or a copy is already running")
+        return {"last": report}
+
+    @app.get("/api/backup/look", tags=["Sessions"], summary="What a backup holds")
+    async def backup_look(request: Request, place: str) -> dict:
+        """The sessions a backup folder would bring back (name, agent, folder, conversation), when it was made
+        and on which machine. 200 `{error}` when the folder holds no backup: a page asks while you type."""
+        try:
+            return await asyncio.to_thread(backup.look, backup.check_place(place))
+        except ValueError as e:
+            return {"error": str(e)}
+
+    @app.post("/api/backup/restore", tags=["Sessions"], summary="Bring the agents back from a backup")
+    async def backup_restore(request: Request, body: dict) -> dict:
+        """`{place}`. Conversations are put back where missing or shorter; desks, notes and to-dos only where
+        there are none; the sessions go on the lost list, which the Sessions screen offers back."""
+        try:
+            place = backup.check_place(body.get("place") or "")
+            await asyncio.to_thread(backup.look, place)
+        except ValueError as e:
+            raise ApiError(400, str(e)) from None
+        try:
+            alive = {one["name"] for one in await asyncio.to_thread(tmux.list_sessions, request.app.state.socket)}
+        except tmux.TmuxError:
+            alive = set()                         # no server: nothing is running, all can come back
+        done = await asyncio.to_thread(backup.restore, place, Path.home(), request.app.state.resume, alive,
+                                       _backup_path(request).parent, request.app.state.notes)
+        return {**done, "lost": request.app.state.resume.lost()}
 
     @app.post("/api/tmux/seen", tags=["Sessions"], summary="Say you have seen an agent waiting, and nothing needs doing")
     async def tmux_seen(request: Request, body: dict) -> dict:
@@ -3683,6 +3786,7 @@ def main(argv: list[str] | None = None) -> int:
     app.state.labels = labels.default_store(config_path)
     app.state.notes = cfg.notes_dir or notes.default_dir(config_path)
     app.state.resume = resume.Ledger(resume.default_store(config_path))
+    app.state.backup = backup.settings_path(config_path)
     app.state.teams = teams.Director(config_path.parent / "teams.json", TeamIO(app))
     app.state.proposals = teams.Proposals(config_path.parent / "proposals.json")
     app.state.todo = todo.default_store(config_path)

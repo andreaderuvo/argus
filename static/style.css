@@ -5276,3 +5276,35 @@ dialog.palette kbd { display: inline-grid; place-items: center; min-width: 1.45e
 @media (max-width: 560px) { #bar .langbtn { display: none !important; } }
 #drawer .drawerlang { display: flex; align-items: center; gap: .7rem; width: 100%; margin-top: .4rem; padding: .7rem 1rem; border: 0; border-top: 1px solid var(--line); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 #drawer .drawerlang .langcode { margin-left: auto; font-size: .72rem; font-weight: 650; letter-spacing: .05em; color: var(--dim); }
+
+/* Settings → Backup (backup.js): the state of the copies in one line, then the folders, then the two actions. */
+.backup { display: grid; gap: .6rem; padding: .2rem 0 .4rem; }
+.backupstatus { display: grid; gap: .2rem; }
+.backupline { display: flex; align-items: center; gap: .5rem; margin: 0; padding: .6rem .85rem; border-radius: .6rem;
+  border: 1px solid var(--line); background: var(--panel); color: var(--bright); }
+.backupline svg { width: 16px; height: 16px; flex: none; }
+.backupline.good svg { color: var(--accent); }
+.backupline.bad, .backupline.off { border-color: color-mix(in srgb, var(--danger) 45%, var(--line)); }
+.backupline.bad svg, .backupline.off svg { color: var(--danger); }
+.backupplaces { display: grid; gap: .4rem; }
+.backupplace { display: flex; align-items: center; gap: .6rem; padding: .55rem .8rem; border: 1px solid var(--line);
+  border-radius: .6rem; background: var(--panel); }
+.backupplace > svg { width: 16px; height: 16px; flex: none; color: var(--dim); }
+.backupplace .grow { min-width: 0; display: grid; gap: .1rem; }
+.backupplace .name { overflow-wrap: anywhere; color: var(--bright); }
+.backup .meta.bad, .backuplook .meta.bad { color: var(--danger); }
+.backupadd { display: flex; gap: .4rem; align-items: center; }
+.backupadd .linkbox { flex: 1; min-width: 0; margin: 0; height: 36px; padding: 0 .7rem; border: 1px solid var(--line);
+  border-radius: .45rem; background: var(--bg); color: var(--bright); font: 13px/1.5 ui-monospace, "SF Mono", Menlo, monospace; }
+.backupadd .linkbox:focus { border-color: var(--accent); outline: none; }
+.backupadd .linkbox::placeholder { color: var(--dim); }
+dialog.sheet .sheetfoot button.primary:disabled { opacity: .45; filter: saturate(.4); }
+.backupfoot { display: flex; flex-wrap: wrap; gap: .4rem; }
+.backup button.inline, .backupfoot button { display: inline-flex; align-items: center; gap: .35rem; width: auto; }
+.backup button.inline svg { width: 15px; height: 15px; }
+.backuplook { display: grid; gap: .35rem; margin-top: .6rem; max-height: 50vh; overflow: auto; }
+.backupagent { display: flex; align-items: center; gap: .6rem; padding: .35rem .2rem; }
+.backupagent > svg { width: 15px; height: 15px; color: var(--dim); flex: none; }
+.backupagent .grow { min-width: 0; display: grid; }
+.backupagent .meta { overflow-wrap: anywhere; }
+.backupstatus > .meta { margin: 0 .2rem; font-size: .8rem; color: var(--dim); }

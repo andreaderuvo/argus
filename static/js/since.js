@@ -1,5 +1,6 @@
 // <imports> generated from what this file uses; edit the code, not this list
 import { actionWords } from '/js/agentcan.js';
+import { backupRows } from '/js/backup.js';
 import { paintSince } from '/js/bells.js';
 import { computerRows } from '/js/computers.js';
 import { aboutSheet, savePrefs } from '/js/core.js';
@@ -977,6 +978,7 @@ export async function screenSettings() {
   wrap.append(group(t('Agents')), withoutAskingRows());
   // Your Mac or PC, linked through argus-bridge: a terminal on it, its browser for agents, actions.
   wrap.append(group(t('Computers')), computerRows());
+  wrap.append(group(t('Backup')), backupRows());
 
   wrap.append(
     group(t('Sessions')),

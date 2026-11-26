@@ -424,6 +424,15 @@ Rules the tests enforce (`tests/test_modules.py`), each learnt the hard way duri
   start, in its folder; the hooks' word last (they had given codex-genpat-paper another session's id). Kept in
   `agents-seen.json` beside the config; the browser harness runs it every second
   (`ARGUS_REGISTER_EVERY`) and forgets losses between tests.
+- **Backups of the agents** (`app/backup.py`, Settings → Backup in `static/js/backup.js`, `/api/backup*`,
+  tests/test_backup.py and tests/browser/test_backup_settings.py). The register covers a reboot; a broken disk or
+  a lost machine took the conversations too. Every 10 min (`backing_up`, main only) into each chosen folder:
+  `manifest.json` (the register's sessions, lost ones included), `home/<path>` for each conversation (Claude's
+  `<id>.jsonl` + its `<id>/` folder, Codex's rollout), `argus/` (prefs, todo, favourites, labels, notes). Never
+  the config or a key. A growing file is carried on when the copy is its prefix (last 4 KB compared). Restore puts
+  conversations back only where missing or shorter, Argus's files only where absent, and the sessions on the lost
+  list — Sessions then offers them as after a reboot. A folder inside the roots offers *Also on your computer…*
+  (the argus-bridge sync sheet).
 - **Restart an agent on the same conversation** (`POST /api/tmux/restart-agent`, `resume.restart`,
   `launch.respawn`, counts.js `restartAgent`, tests in test_resume.py and tests/browser/test_restart_agent.py).
   The pane's process is replaced (`respawn-pane -k`, the same login-shell line as `launch.start` via

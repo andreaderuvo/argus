@@ -623,6 +623,188 @@
     ]
    }
   },
+  "/api/backup": {
+   "get": {
+    "description": "`{places, last, every, sessions}`: the folders copied into, the last copy's report (`at`, `sessions`,\n`conversations`, `bytes`, and per place `ok`/`written`/`error`), seconds between copies, and how many\nsessions there are to keep now.",
+    "operationId": "getApiBackup",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Backup Get Api Backup Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Where the agents are backed up, and how the last copy went",
+    "tags": [
+     "Sessions"
+    ]
+   },
+   "post": {
+    "description": "`{places: [folder, \u2026]}` (at most four; an empty list stops the copies). Each must be a whole path that\nexists or can be made, where Argus may write. A copy starts at once.",
+    "operationId": "postApiBackup",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Backup Set Api Backup Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Choose where the agents are backed up",
+    "tags": [
+     "Sessions"
+    ]
+   }
+  },
+  "/api/backup/look": {
+   "get": {
+    "description": "The sessions a backup folder would bring back (name, agent, folder, conversation), when it was made\nand on which machine. 200 `{error}` when the folder holds no backup: a page asks while you type.",
+    "operationId": "getApiBackupLook",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "place",
+      "required": true,
+      "schema": {
+       "title": "Place",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Backup Look Api Backup Look Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "What a backup holds",
+    "tags": [
+     "Sessions"
+    ]
+   }
+  },
+  "/api/backup/now": {
+   "post": {
+    "operationId": "postApiBackupNow",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Backup Run Api Backup Now Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Back the agents up now",
+    "tags": [
+     "Sessions"
+    ]
+   }
+  },
+  "/api/backup/restore": {
+   "post": {
+    "description": "`{place}`. Conversations are put back where missing or shorter; desks, notes and to-dos only where\nthere are none; the sessions go on the lost list, which the Sessions screen offers back.",
+    "operationId": "postApiBackupRestore",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "additionalProperties": true,
+        "title": "Body",
+        "type": "object"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Backup Restore Api Backup Restore Post",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Bring the agents back from a backup",
+    "tags": [
+     "Sessions"
+    ]
+   }
+  },
   "/api/bell": {
    "post": {
     "description": "Called by an agent hook, or by anything else that knows it has finished.\n\nA second \"done\" or \"asking\" about a turn that has already rung is answered with that bell\nand `repeat: true`, and rings nothing: see NEEDS.",
