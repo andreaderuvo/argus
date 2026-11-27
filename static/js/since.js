@@ -899,6 +899,8 @@ export async function screenSettings() {
       () => prefs.fileIcons !== 'simple', (v) => { prefs.fileIcons = v ? 'coloured' : 'simple'; renderSidebar(); }),
     toggle(t('Open files inside the desk'), t('a file opened from a window becomes a window, instead of taking the screen'),
       () => prefs.openInDesk !== false, (v) => { prefs.openInDesk = v; }),
+    toggle(t('Sync button on paths'), t('a path under the mouse in a terminal offers its folder to argus-bridge'),
+      () => prefs.pathSync !== false, (v) => { prefs.pathSync = v; }),
     ...(server?.allow_write && server?.drop_dir ? [keepDropsRow()] : []),
   );
 

@@ -188,6 +188,51 @@ export function openLocated(where, hit, from) {
   go(`#${route}?path=${encodeURIComponent(hit.path)}`);
 }
 
+/** A path under the mouse offers its folder to argus-bridge: a small chip at the end of the path, at once
+ *  ("hover an absolute path and the icon to share the folder appears", 2026-11-27). A file offers the
+ *  folder that holds it. Fine pointers only, and off with Settings → Files. */
+let syncChip = null;
+let syncChipHide = 0;
+export const folderOf = (hit) => (hit.type === 'directory' ? hit.path : (hit.path.replace(/\/[^/]*$/, '') || '/'));
+
+function hideSyncChip(now) {
+  clearTimeout(syncChipHide);
+  if (!syncChip) return;
+  if (now) { syncChip.hidden = true; return; }
+  // Time to travel from the path to the chip: leaving the link is how the mouse gets there.
+  syncChipHide = setTimeout(() => { if (!syncChip.matches(':hover')) syncChip.hidden = true; }, 450);
+}
+
+function showSyncChip(term, container, range, hit) {
+  if (prefs.pathSync === false || !matchMedia('(pointer: fine)').matches) return;
+  const cell = term._core?._renderService?.dimensions?.css?.cell;
+  const screen = container.querySelector('.xterm-screen') || container;
+  if (!cell?.width) return;
+  const folder = folderOf(hit);
+  const name = folder.replace(/\/+$/, '').split('/').pop() || folder;
+  if (!syncChip) {
+    syncChip = el('button', { className: 'pathsync', type: 'button', hidden: true }, [icon('sync'), el('span')]);
+    syncChip.addEventListener('pointerleave', () => hideSyncChip());
+    syncChip.addEventListener('pointerenter', () => clearTimeout(syncChipHide));
+    document.body.append(syncChip);
+  }
+  clearTimeout(syncChipHide);
+  syncChip.title = t('Sync {name} to your computer', { name });
+  syncChip.lastChild.textContent = name;
+  syncChip.dataset.folder = folder;
+  syncChip.onclick = () => { hideSyncChip(true); import('/js/syncsheet.js').then((m) => m.syncSheet(folder)); };
+  const rect = screen.getBoundingClientRect();
+  const row = range.end.y - 1 - term.buffer.active.viewportY;
+  syncChip.style.height = `${Math.max(18, Math.round(cell.height + 2))}px`;
+  syncChip.hidden = false;
+  const w = syncChip.offsetWidth;
+  let left = rect.left + range.end.x * cell.width + 4;
+  // No room after the path: before it.
+  if (left + w > Math.min(rect.right, innerWidth - 4)) left = rect.left + (range.start.x - 1) * cell.width - w - 4;
+  syncChip.style.left = `${Math.max(4, Math.round(left))}px`;
+  syncChip.style.top = `${Math.round(rect.top + row * cell.height - 1)}px`;
+}
+
 /** Make the paths in this terminal clickable.
  *
  *  Hovering asks the server which words on that line are real files; only those get
@@ -232,9 +277,12 @@ function linkPaths(term, container, session, open, following = () => {}) {
           const pick = found[c.text] ? c : piecesOf(c, line.joins).find((p) => found[p.text] && touches(line, p, y - 1));
           if (!pick) continue;
           const hit = found[pick.text];
+          const range = rangeOf(line, pick);
           links.push({
             text: pick.text,
-            range: rangeOf(line, pick),
+            range,
+            hover: () => showSyncChip(term, container, range, hit),
+            leave: () => hideSyncChip(),
             activate: (event) => {
               // Same escape hatch as a URL: the raw file, in a new tab, none of Argus's own
               // chrome around it. Not offered for a directory — there is no raw file behind
@@ -252,6 +300,9 @@ function linkPaths(term, container, session, open, following = () => {}) {
       }).catch(() => done(urls.length ? urls : undefined));
     },
   });
+
+  term.onScroll(() => hideSyncChip(true));
+  container.addEventListener('wheel', () => hideSyncChip(true), { passive: true });
 
   // Touch: no hover, and with tmux in mouse mode a tap belongs to tmux anyway. A press
   // held still for half a second is unambiguous, and it is already what a phone user

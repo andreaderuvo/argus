@@ -76,6 +76,7 @@ const DEFAULTS = {
   fontSize: 13,
   wrap: true,
   openInDesk: true,  // a file opened from a window in a desk stays in the desk
+  pathSync: true,    // a path hovered in a terminal offers its folder to argus-bridge
   pdfFit: 'page',    // 'page' | 'width' | 'actual' — a document you have not read before
   pdfNative: false,  // hand PDFs to the browser's own viewer instead of drawing them here
 };

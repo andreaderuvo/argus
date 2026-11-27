@@ -2114,6 +2114,8 @@
   "waiting for the first copy": "in attesa della prima copia",
   "{n} agents ready to come back, {k} conversations put back": "{n} agenti pronti a tornare, {k} conversazioni rimesse a posto",
   "{n} h ago": "{n} h fa",
-  "{n} min ago": "{n} min fa"
+  "{n} min ago": "{n} min fa",
+  "Sync button on paths": "Pulsante sync sui percorsi",
+  "a path under the mouse in a terminal offers its folder to argus-bridge": "un percorso sotto il mouse in un terminale offre la sua cartella ad argus-bridge"
  }
 }

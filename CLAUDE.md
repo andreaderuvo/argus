@@ -832,6 +832,7 @@ fails if it comes back. Before adding anything, keep these true:
   synced folder that is gone and holds a round that would empty the folder or delete a quarter of it. The
   client is Rust because it is installed on people's own computers, without admin: one binary, no
   runtime, small installers.
+- **A path hovered in a terminal offers its folder to argus-bridge** (termpaths.js `showSyncChip`, tests/browser/test_path_sync_chip.py). xterm's link `hover`/`leave` put a chip at the end of the path (before it when there is no room); a file offers the folder holding it (`folderOf`). It waits 450 ms after the link is left, so the mouse can reach it; scroll or wheel hides it. Fine pointers only; `prefs.pathSync` (Settings → Files). Opens `syncSheet`.
 - **Your computers, through argus-bridge** (`app/computers.py`, `static/js/computers.js`, argus-bridge's
   `core/src/computer.rs` + the app's "This computer"; tests/test_computers.py — a Python stand-in, and
   the real client when `~/argus-bridge/target/debug/argus-bridge` is built — tests/browser/test_computers_ui.py).

@@ -5308,3 +5308,13 @@ dialog.sheet .sheetfoot button.primary:disabled { opacity: .45; filter: saturate
 .backupagent .grow { min-width: 0; display: grid; }
 .backupagent .meta { overflow-wrap: anywhere; }
 .backupstatus > .meta { margin: 0 .2rem; font-size: .8rem; color: var(--dim); }
+
+/* A path hovered in a terminal: its folder, offered to argus-bridge (termpaths.js showSyncChip). */
+.pathsync { position: fixed; z-index: 72; display: inline-flex; align-items: center; gap: .3rem; padding: 0 .5rem 0 .4rem;
+  border: 1px solid var(--accent); border-radius: 999px; background: var(--panel); color: var(--accent);
+  font-family: inherit; font-size: 11px; font-weight: 600; line-height: 1; cursor: pointer; max-width: 16rem; box-shadow: 0 2px 8px rgb(0 0 0 / .25); }
+.pathsync[hidden] { display: none; }
+.pathsync svg { width: 13px; height: 13px; flex: none; }
+.pathsync span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pathsync:hover { background: var(--accent); color: var(--bg); }
+.pathsync:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
